@@ -30,11 +30,84 @@ const {useState,useEffect,useMemo,useCallback}=React;
 
 const T={bg:"#04060b",card:"#080d16",border:"#12192a",gold:"#d4a74a",goldDim:"#8b6c23",goldBg:"rgba(212,167,74,0.06)",text:"#b8bfcc",dim:"#4e5768",bright:"#eaecf0",green:"#34d399",red:"#f87171",yellow:"#facc15",blue:"#60a5fa",purple:"#a78bfa",mono:"'JetBrains Mono',monospace"};
 
-const CTRY={FR:{n:"France",f:"🇫🇷"},DE:{n:"Allemagne",f:"🇩🇪"},NL:{n:"Pays-Bas",f:"🇳🇱"},IT:{n:"Italie",f:"🇮🇹"},ES:{n:"Espagne",f:"🇪🇸"},BE:{n:"Belgique",f:"🇧🇪"},SE:{n:"Suède",f:"🇸🇪"},DK:{n:"Danemark",f:"🇩🇰"},FI:{n:"Finlande",f:"🇫🇮"},NO:{n:"Norvège",f:"🇳🇴"}};
-
 const fmt=n=>{if(n==null||isNaN(n))return"—";if(n>=1e9)return"€"+(n/1e9).toFixed(1)+"Md";if(n>=1e6)return"€"+(n/1e6).toFixed(1)+"M";if(n>=1e3)return"€"+(n/1e3).toFixed(0)+"k";return"€"+n.toFixed(0)};
 const fmtP=p=>p==null?"—":(p>=0?"+":"")+p.toFixed(1)+"%";
 const fmtC=(n,cur)=>{if(n==null||isNaN(n))return"—";const s=cur==="USD"?"$":cur==="SEK"?"kr ":cur==="NOK"?"kr ":cur==="DKK"?"kr ":"€";return s+n.toFixed(2)};
+
+// Périodes disponibles
+const PERIODS = [
+  {id:7, label:"7 jours", short:"7j"},
+  {id:30, label:"30 jours", short:"30j"},
+  {id:90, label:"3 mois", short:"90j"},
+  {id:180, label:"6 mois", short:"180j"},
+];
+
+// Scoring simplifié côté client (recalculé pour la période choisie)
+function computeInsiderScore(txs) {
+  const numTx = txs.length;
+  const totalAmount = txs.reduce((s,t)=>s+(t.amount||0),0);
+  const uniqueInsiders = new Set(txs.map(t=>t.insider)).size;
+  
+  // Cluster (40 max)
+  let cluster = 0;
+  if (numTx >= 5) cluster = 40;
+  else if (numTx >= 3) cluster = 32;
+  else if (numTx >= 2) cluster = 22;
+  else if (numTx >= 1) cluster = 12;
+  
+  // Volume (30 max)
+  let volume = 0;
+  if (totalAmount >= 2e6) volume = 30;
+  else if (totalAmount >= 1e6) volume = 25;
+  else if (totalAmount >= 5e5) volume = 20;
+  else if (totalAmount >= 1e5) volume = 14;
+  else if (totalAmount >= 5e4) volume = 8;
+  
+  // Qualité (20 max) - détecter CEO/PDG/DG
+  const hasCEO = txs.some(t => {
+    const r = (t.role||"").toLowerCase();
+    return r.includes("président") || r.includes("ceo") || r.includes("directeur général") || r.includes("pdg") || r.includes("dg");
+  });
+  let quality = 0;
+  if (hasCEO && uniqueInsiders >= 2) quality = 20;
+  else if (hasCEO) quality = 15;
+  else if (uniqueInsiders >= 2) quality = 12;
+  else quality = 5;
+  
+  // Récence (10 max)
+  const today = new Date();
+  const recentCount = txs.filter(t => {
+    const d = new Date(t.date);
+    return (today - d) / (1000*60*60*24) <= 30;
+  }).length;
+  let recency = 0;
+  if (recentCount >= 3) recency = 10;
+  else if (recentCount >= 1) recency = 7;
+  else recency = 2;
+  
+  return Math.min(100, cluster + volume + quality + recency);
+}
+
+function computeTechAdj(quote) {
+  if (!quote) return {adj:0, reasons:[]};
+  let adj = 0;
+  const reasons = [];
+  if (quote.rsi != null) {
+    if (quote.rsi < 30) { adj += 8; reasons.push(`RSI ${quote.rsi.toFixed(0)} survendu (+8)`); }
+    else if (quote.rsi > 75) { adj -= 8; reasons.push(`RSI ${quote.rsi.toFixed(0)} suracheté (-8)`); }
+  }
+  if (quote.nearLow52) { adj += 5; reasons.push("Proche bas 52s (+5)"); }
+  if (quote.aboveSma200 === true) { adj += 2; reasons.push("> SMA200 (+2)"); }
+  else if (quote.aboveSma200 === false) { adj -= 2; reasons.push("< SMA200 (-2)"); }
+  return {adj, reasons};
+}
+
+function getVerdict(score) {
+  if (score >= 85) return {label:"ACHAT FORT", color:T.green, icon:"🟢"};
+  if (score >= 65) return {label:"ACHAT", color:"#4ade80", icon:"🟡"};
+  if (score >= 45) return {label:"INTÉRESSANT", color:T.blue, icon:"🔵"};
+  return {label:"FAIBLE", color:T.dim, icon:"⚪"};
+}
 
 function Stat({label,value,sub,color}){return <div style={{background:T.card,borderRadius:12,padding:"14px 18px",border:"1px solid "+T.border,flex:"1 1 140px",minWidth:130}}><div style={{fontSize:9.5,color:T.dim,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:4,fontWeight:600}}>{label}</div><div style={{fontSize:22,fontWeight:800,color:color||T.bright,fontFamily:T.mono}}>{value}</div>{sub&&<div style={{fontSize:10,color:T.dim,marginTop:2}}>{sub}</div>}</div>}
 
@@ -44,18 +117,18 @@ function App(){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
-  const [ctrs,setCtrs]=useState([]);
   const [search,setSearch]=useState("");
   const [tab,setTab]=useState("reco");
   const [expanded,setExpanded]=useState(null);
   const [minScore,setMinScore]=useState(0);
+  const [period,setPeriod]=useState(30); // Défaut : 30 jours
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await fetch("data/latest.json?t=" + Date.now());
-      if (!response.ok) throw new Error("Fichier data/latest.json introuvable. Le workflow GitHub Actions a-t-il déjà tourné ?");
+      if (!response.ok) throw new Error("Fichier data/latest.json introuvable");
       const json = await response.json();
       setData(json);
     } catch(e) {
@@ -66,22 +139,64 @@ function App(){
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const recos = data?.recommendations || [];
-  const transactions = data?.transactions || [];
   const generatedAt = data?.generated_at ? new Date(data.generated_at) : null;
+  const allTransactions = data?.transactions || [];
+  const companyData = data?.company_data || {};
 
-  const filteredRecos = useMemo(() => recos.filter(r => {
-    if (ctrs.length && !ctrs.includes(r.country)) return false;
+  // Filtrage par période
+  const cutoffDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - period);
+    return d.toISOString().substring(0, 10);
+  }, [period]);
+
+  const filteredTx = useMemo(() => {
+    return allTransactions.filter(t => t.date >= cutoffDate);
+  }, [allTransactions, cutoffDate]);
+
+  const periodPurchases = useMemo(() => filteredTx.filter(t => t.is_purchase && t.amount >= 1000), [filteredTx]);
+  const periodSells = useMemo(() => filteredTx.filter(t => t.is_sell), [filteredTx]);
+
+  // Recalculer les recommandations pour la période choisie
+  const recommendations = useMemo(() => {
+    const byIsin = {};
+    periodPurchases.forEach(tx => {
+      if (!byIsin[tx.isin]) byIsin[tx.isin] = [];
+      byIsin[tx.isin].push(tx);
+    });
+
+    return Object.entries(byIsin).map(([isin, txs]) => {
+      const co = companyData[isin] || {isin, name: txs[0].company_name, ticker: null, quote: null};
+      const insScore = computeInsiderScore(txs);
+      const tech = computeTechAdj(co.quote);
+      const total = Math.max(insScore, insScore + tech.adj);
+      const verdict = getVerdict(total);
+      const uniqueInsiders = new Set(txs.map(t=>t.insider)).size;
+      const totalAmount = txs.reduce((s,t)=>s+t.amount,0);
+      const lastBuy = txs.reduce((max,t)=>t.date>max?t.date:max, "");
+      const topTx = txs.reduce((max,t)=>t.amount>max.amount?t:max, txs[0]);
+      
+      return {
+        isin, name: co.name, ticker: co.ticker,
+        insider_score: insScore, tech_adj: tech.adj, tech_reasons: tech.reasons,
+        total_score: total, verdict,
+        tx_count: txs.length, total_amount: totalAmount,
+        unique_insiders: uniqueInsiders, last_buy: lastBuy,
+        top_insider: topTx.insider, top_role: topTx.role,
+        quote: co.quote, transactions: txs,
+      };
+    }).sort((a,b) => b.total_score - a.total_score);
+  }, [periodPurchases, companyData]);
+
+  const filteredRecos = useMemo(() => recommendations.filter(r => {
     if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (r.total_score < minScore) return false;
     return true;
-  }), [recos, ctrs, search, minScore]);
+  }), [recommendations, search, minScore]);
 
-  const toggleC = c => setCtrs(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c]);
-
-  const strong = recos.filter(r => r.total_score >= 85).length;
-  const buys = recos.filter(r => r.total_score >= 65 && r.total_score < 85).length;
-  const interesting = recos.filter(r => r.total_score >= 45 && r.total_score < 65).length;
+  const strong = recommendations.filter(r => r.total_score >= 85).length;
+  const buys = recommendations.filter(r => r.total_score >= 65 && r.total_score < 85).length;
+  const interesting = recommendations.filter(r => r.total_score >= 45 && r.total_score < 65).length;
 
   return (<div style={{maxWidth:1400,margin:"0 auto",padding:"22px 16px"}}>
 
@@ -91,7 +206,8 @@ function App(){
         <div>
           <h1 style={{fontSize:20,fontWeight:800,color:T.bright,letterSpacing:"-0.03em"}}>Insider <span style={{color:T.gold}}>PEA</span> · Dashboard personnel</h1>
           <p style={{fontSize:10.5,color:T.dim}}>
-            Données AMF + Yahoo Finance · {generatedAt ? "Mise à jour " + generatedAt.toLocaleString("fr-FR") : "En cours de chargement"}
+            AMF + Yahoo Finance · {generatedAt ? "MAJ " + generatedAt.toLocaleString("fr-FR") : "Chargement..."}
+            {data && <> · <b style={{color:T.gold}}>{data.total_transactions || allTransactions.length} tx sur {data.days_covered || 180}j</b></>}
           </p>
         </div>
       </div>
@@ -107,26 +223,42 @@ function App(){
 
     {error && <div style={{padding:"16px 20px",background:"rgba(248,113,113,0.08)",border:"1px solid rgba(248,113,113,0.25)",borderRadius:9,marginBottom:14,fontSize:12,color:T.red,lineHeight:1.7}}>
       <b>⚠️ Erreur :</b> {error}<br/><br/>
-      <b>C'est normal au premier lancement.</b> Va dans l'onglet <b>Actions</b> de ton repo GitHub et clique sur "Run workflow" pour générer le premier fichier <code>data/latest.json</code>.
+      <b>C'est normal au premier lancement.</b> Va dans l'onglet <b>Actions</b> de ton repo GitHub et clique sur "Run workflow" pour générer le premier fichier.
     </div>}
 
     {data && <>
+
+      {/* Sélecteur de période */}
+      <div style={{background:T.card,borderRadius:10,border:"1px solid "+T.border,padding:"10px 14px",marginBottom:12,display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
+        <span style={{fontSize:11,color:T.dim,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.1em"}}>Période :</span>
+        {PERIODS.map(p => (
+          <button key={p.id} onClick={() => setPeriod(p.id)} style={{
+            padding:"5px 12px", borderRadius:7,
+            border:"1px solid "+(period===p.id?T.gold+"50":T.border),
+            background:period===p.id?T.goldBg:"transparent",
+            color:period===p.id?T.gold:T.dim,
+            fontSize:11.5, fontWeight:600
+          }}>
+            {p.label}
+          </button>
+        ))}
+        <span style={{marginLeft:"auto",fontSize:10,color:T.dim}}>
+          Depuis le {cutoffDate} · {filteredTx.length} tx ({periodPurchases.length} achats, {periodSells.length} ventes)
+        </span>
+      </div>
+
       <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
-        <Stat label="Transactions" value={data.transactions_count || 0}/>
-        <Stat label="Entreprises suivies" value={data.companies_tracked || 0}/>
-        <Stat label="Achat Fort" value={strong} sub="score ≥85" color={T.green}/>
+        <Stat label="Achats" value={periodPurchases.length} sub={`sur ${period}j`} color={T.green}/>
+        <Stat label="Ventes" value={periodSells.length} sub={`sur ${period}j`} color={T.red}/>
+        <Stat label="Entreprises" value={Object.keys(recommendations.reduce((a,r)=>({...a,[r.isin]:1}),{})).length} sub="avec achats"/>
+        <Stat label="Achat Fort" value={strong} sub="≥85" color={T.green}/>
         <Stat label="Achat" value={buys} sub="65-84" color="#4ade80"/>
         <Stat label="Intéressant" value={interesting} sub="45-64" color={T.yellow}/>
       </div>
 
       <div style={{background:T.card,borderRadius:10,border:"1px solid "+T.border,padding:"12px 16px",marginBottom:14}}>
-        <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:10}}>
-          {Object.entries(CTRY).filter(([k]) => recos.some(r => r.country === k)).map(([k,v]) =>
-            <button key={k} onClick={() => toggleC(k)} style={{padding:"3px 9px",borderRadius:6,border:"1px solid "+(ctrs.includes(k) ? T.gold + "50" : T.border),background:ctrs.includes(k) ? T.goldBg : "transparent",color:ctrs.includes(k) ? T.gold : T.dim,fontSize:10.5}}>{v.f} {v.n}</button>)}
-          {ctrs.length > 0 && <button onClick={() => setCtrs([])} style={{padding:"3px 9px",borderRadius:6,border:"1px solid "+T.red+"30",background:"rgba(248,113,113,0.08)",color:T.red,fontSize:9}}>✕</button>}
-        </div>
         <div style={{display:"flex",flexWrap:"wrap",gap:7,alignItems:"center"}}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Recherche..." style={{flex:"1 1 160px",padding:"7px 11px",borderRadius:6,border:"1px solid "+T.border,background:"rgba(0,0,0,0.3)",color:T.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Recherche entreprise..." style={{flex:"1 1 180px",padding:"7px 11px",borderRadius:6,border:"1px solid "+T.border,background:"rgba(0,0,0,0.3)",color:T.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
           <select value={minScore} onChange={e => setMinScore(Number(e.target.value))} style={{padding:"7px 9px",borderRadius:6,border:"1px solid "+T.border,background:"rgba(0,0,0,0.3)",color:T.text,fontSize:11.5,outline:"none"}}>
             <option value={0}>Tous scores</option>
             <option value={45}>≥45 (Intéressant)</option>
@@ -137,11 +269,17 @@ function App(){
       </div>
 
       <div style={{marginBottom:12}}>
-        <Tabs tabs={[{id:"reco",icon:"⭐",label:"Recommandations"},{id:"tx",icon:"📋",label:"Transactions"},{id:"method",icon:"🧮",label:"Méthodologie"}]} active={tab} onChange={setTab}/>
+        <Tabs tabs={[
+          {id:"reco",icon:"⭐",label:`Recommandations (${filteredRecos.length})`},
+          {id:"tx",icon:"📋",label:`Transactions (${filteredTx.length})`},
+          {id:"method",icon:"🧮",label:"Méthodologie"}
+        ]} active={tab} onChange={setTab}/>
       </div>
 
       {tab === "reco" && <div style={{display:"grid",gap:8}}>
-        {filteredRecos.length === 0 && <div style={{padding:"40px",textAlign:"center",color:T.dim}}>Aucune recommandation pour ces filtres.</div>}
+        {filteredRecos.length === 0 && <div style={{padding:"40px",textAlign:"center",color:T.dim}}>
+          Aucun achat d'initié sur cette période. Essaie d'élargir à 90 ou 180 jours.
+        </div>}
         {filteredRecos.map((r,i) => {
           const isExp = expanded === r.isin;
           const q = r.quote;
@@ -150,11 +288,11 @@ function App(){
               <div style={{width:28,height:28,borderRadius:7,background:i<3?T.goldBg:"rgba(255,255,255,0.02)",border:"1px solid "+(i<3?T.gold+"25":T.border),display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:i<3?T.gold:T.dim,flexShrink:0}}>{i+1}</div>
               <div style={{flex:"1 1 160px",minWidth:120}}>
                 <div style={{display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{fontSize:14}}>{CTRY[r.country]?.f}</span>
                   <span style={{fontWeight:700,color:T.bright,fontSize:13}}>{r.name}</span>
+                  {r.ticker && <span style={{fontSize:9.5,color:T.dim,fontFamily:T.mono}}>({r.ticker})</span>}
                 </div>
                 <div style={{fontSize:9.5,color:T.dim,marginTop:1}}>
-                  {r.sector} · {r.tx_count} achats · {r.unique_insiders} insider{r.unique_insiders>1?"s":""} · {fmt(r.total_amount)}
+                  {r.tx_count} achats · {r.unique_insiders} insider{r.unique_insiders>1?"s":""} · {fmt(r.total_amount)} · dernier {r.last_buy}
                 </div>
               </div>
               <div style={{flex:"0 1 180px",display:"flex",gap:6,alignItems:"center"}}>
@@ -181,34 +319,46 @@ function App(){
                   <h4 style={{margin:"0 0 8px",fontSize:11.5,color:T.green,fontWeight:700}}>📊 Signal Insider — {r.insider_score}/100</h4>
                   <div style={{fontSize:11.5,lineHeight:2}}>
                     <div>Achats: <b style={{color:T.bright}}>{r.tx_count}</b> {r.tx_count>=3?"🔥 Cluster":r.tx_count>=2?"✅ Multiple":"— Isolé"}</div>
-                    <div>Insiders: <b style={{color:T.bright}}>{r.unique_insiders}</b> {r.unique_insiders>=2?"✅":""}</div>
+                    <div>Insiders: <b style={{color:T.bright}}>{r.unique_insiders}</b></div>
                     <div>Volume: <b style={{color:T.green}}>{fmt(r.total_amount)}</b></div>
                     <div>Top: <b style={{color:T.bright}}>{r.top_insider}</b></div>
-                    <div>Rôle: <b>{r.top_role}</b></div>
-                    <div>Dernier achat: <b>{r.last_buy}</b></div>
+                    <div style={{fontSize:10,color:T.dim,marginTop:4}}>Rôle: {r.top_role}</div>
                   </div>
                 </div>
                 <div style={{background:"rgba(0,0,0,0.2)",borderRadius:9,padding:12}}>
                   <h4 style={{margin:"0 0 8px",fontSize:11.5,color:r.tech_adj>=0?T.green:T.red,fontWeight:700}}>🛡️ Garde Tech — {r.tech_adj>=0?"+":""}{r.tech_adj}</h4>
-                  <div style={{fontSize:11.5,lineHeight:2}}>
-                    {r.tech_detail.rsi != null && <div>RSI: <b style={{color:r.tech_detail.rsi<=30?T.green:r.tech_detail.rsi>=70?T.red:T.text}}>{r.tech_detail.rsi.toFixed(0)}</b></div>}
-                    {r.tech_detail.nearLow52 != null && <div>Bas 52s: <b style={{color:r.tech_detail.nearLow52?T.green:T.text}}>{r.tech_detail.nearLow52?"Oui ✅":"Non"}</b></div>}
-                    {r.tech_detail.aboveSma200 != null && <div>&gt; SMA200: <b style={{color:r.tech_detail.aboveSma200?T.green:T.red}}>{r.tech_detail.aboveSma200?"Oui":"Non ⚠️"}</b></div>}
-                    <div style={{marginTop:6,fontSize:10,color:T.dim,fontStyle:"italic"}}>Score = max(insider, insider+tech)</div>
-                  </div>
+                  {q ? <div style={{fontSize:11.5,lineHeight:2}}>
+                    {q.rsi != null && <div>RSI: <b style={{color:q.rsi<=30?T.green:q.rsi>=70?T.red:T.text}}>{q.rsi.toFixed(0)}</b></div>}
+                    <div>Bas 52s: <b style={{color:q.nearLow52?T.green:T.text}}>{q.nearLow52?"Oui ✅":"Non"}</b></div>
+                    <div>&gt; SMA200: <b style={{color:q.aboveSma200?T.green:T.red}}>{q.aboveSma200?"Oui":"Non ⚠️"}</b></div>
+                  </div> : <div style={{fontSize:11,color:T.dim,fontStyle:"italic"}}>Données techniques non disponibles pour cette action</div>}
                 </div>
-                {q && <div style={{background:"rgba(0,0,0,0.2)",borderRadius:9,padding:12}}>
-                  <h4 style={{margin:"0 0 8px",fontSize:11.5,color:T.blue,fontWeight:700}}>📈 Potentiel analystes</h4>
+                {q ? <div style={{background:"rgba(0,0,0,0.2)",borderRadius:9,padding:12}}>
+                  <h4 style={{margin:"0 0 8px",fontSize:11.5,color:T.blue,fontWeight:700}}>📈 Analystes</h4>
                   <div style={{fontSize:11.5,lineHeight:2}}>
                     <div>Cours: <b style={{color:T.bright}}>{fmtC(q.currentPrice, q.currency)}</b></div>
-                    <div>Objectif 12M: <b>{fmtC(q.targetMean, q.currency)}</b></div>
+                    <div>Objectif: <b>{fmtC(q.targetMean, q.currency)}</b></div>
                     <div>Potentiel: <b style={{color:q.upside>=15?T.green:q.upside>=0?T.yellow:T.red}}>{fmtP(q.upside)}</b></div>
                     <div>Analystes: <b>{q.numAnalysts || "—"}</b></div>
                     {q.pe && <div>P/E: <b>{q.pe.toFixed(1)}</b></div>}
                     {q.dividendYield && <div>Div: <b style={{color:q.dividendYield>=4?T.green:T.text}}>{q.dividendYield.toFixed(1)}%</b></div>}
                   </div>
+                </div> : <div style={{background:"rgba(0,0,0,0.2)",borderRadius:9,padding:12}}>
+                  <h4 style={{margin:"0 0 8px",fontSize:11.5,color:T.dim,fontWeight:700}}>📈 Analystes</h4>
+                  <div style={{fontSize:11,color:T.dim,fontStyle:"italic"}}>Pas de données Yahoo pour cet ISIN. Pour en ajouter, édite ISIN_TO_TICKER dans run.py.</div>
                 </div>}
               </div>
+              {r.transactions && r.transactions.length > 0 && <div style={{marginTop:12,background:"rgba(0,0,0,0.2)",borderRadius:9,padding:12}}>
+                <h4 style={{margin:"0 0 8px",fontSize:11.5,color:T.gold,fontWeight:700}}>Détail des {r.transactions.length} achat{r.transactions.length>1?"s":""}</h4>
+                <div style={{fontSize:10.5,lineHeight:1.9}}>
+                  {r.transactions.map((t,j) => (
+                    <div key={j} style={{display:"flex",justifyContent:"space-between",borderBottom:j<r.transactions.length-1?"1px solid "+T.border:"none",padding:"4px 0"}}>
+                      <div>{t.date} · <b>{t.insider}</b> · {t.role?.substring(0,50)}</div>
+                      <div style={{fontFamily:T.mono,color:T.green}}>{fmt(t.amount)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>}
             </div>}
           </div>;
         })}
@@ -219,34 +369,40 @@ function App(){
           <table>
             <thead><tr>
               <th style={{textAlign:"left",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Date</th>
-              <th style={{textAlign:"left",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Pays</th>
+              <th style={{textAlign:"left",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Type</th>
               <th style={{textAlign:"left",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Société</th>
               <th style={{textAlign:"left",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Insider</th>
               <th style={{textAlign:"left",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Rôle</th>
               <th style={{textAlign:"right",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Prix</th>
-              <th style={{textAlign:"right",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Quantité</th>
+              <th style={{textAlign:"right",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Qté</th>
               <th style={{textAlign:"right",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Montant</th>
               <th style={{textAlign:"center",padding:"9px 11px",color:T.dim,fontWeight:600,fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.1em",borderBottom:"1px solid "+T.border,background:"rgba(0,0,0,0.3)"}}>Lien</th>
             </tr></thead>
             <tbody>
-              {transactions.slice(0, 200).filter(t => !ctrs.length || ctrs.includes(t.country || "FR")).map((t,i) => {
+              {filteredTx.slice(0, 300).map((t,i) => {
+                const isBuy = t.is_purchase;
+                const isSell = t.is_sell;
                 return <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.02)",background:i%2?"rgba(255,255,255,0.005)":"transparent"}}>
                   <td style={{padding:"9px 11px",fontFamily:T.mono,fontSize:10,color:T.dim}}>{t.date}</td>
-                  <td style={{padding:"9px 11px",fontSize:14}}>{CTRY[t.country||"FR"]?.f}</td>
-                  <td style={{padding:"9px 11px"}}><div style={{fontWeight:600,color:T.bright,fontSize:12}}>{t.company_name}</div><div style={{fontSize:9.5,color:T.dim}}>{t.isin}</div></td>
+                  <td style={{padding:"9px 11px",fontSize:11}}>
+                    <span style={{padding:"2px 6px",borderRadius:4,fontSize:9.5,fontWeight:700,background:isBuy?T.green+"15":isSell?T.red+"15":T.dim+"15",color:isBuy?T.green:isSell?T.red:T.dim}}>
+                      {isBuy?"ACHAT":isSell?"VENTE":t.nature}
+                    </span>
+                  </td>
+                  <td style={{padding:"9px 11px"}}><div style={{fontWeight:600,color:T.bright,fontSize:12}}>{t.company_name}</div><div style={{fontSize:9.5,color:T.dim,fontFamily:T.mono}}>{t.isin}</div></td>
                   <td style={{padding:"9px 11px",fontSize:11.5}}>{t.insider}</td>
-                  <td style={{padding:"9px 11px",color:T.dim,fontSize:10}}>{t.role}</td>
+                  <td style={{padding:"9px 11px",color:T.dim,fontSize:10}}>{t.role?.substring(0,40)}</td>
                   <td style={{padding:"9px 11px",textAlign:"right",fontFamily:T.mono,color:T.dim,fontSize:11}}>€{t.price?.toFixed(2)}</td>
                   <td style={{padding:"9px 11px",textAlign:"right",fontFamily:T.mono,color:T.text,fontSize:11}}>{t.quantity?.toLocaleString("fr-FR")}</td>
-                  <td style={{padding:"9px 11px",textAlign:"right",fontFamily:T.mono,fontWeight:700,color:t.amount>500000?T.green:t.amount>100000?T.yellow:T.text}}>{fmt(t.amount)}</td>
+                  <td style={{padding:"9px 11px",textAlign:"right",fontFamily:T.mono,fontWeight:700,color:t.amount>500000?(isBuy?T.green:T.red):t.amount>100000?T.yellow:T.text}}>{fmt(t.amount)}</td>
                   <td style={{padding:"9px 11px",textAlign:"center"}}>{t.reference_url && <a href={t.reference_url} target="_blank" rel="noopener" style={{color:T.gold,fontSize:11,textDecoration:"none"}}>🔗</a>}</td>
                 </tr>;
               })}
             </tbody>
           </table>
         </div>
-        {transactions.length > 200 && <div style={{padding:"9px 14px",borderTop:"1px solid "+T.border,fontSize:10.5,color:T.dim,textAlign:"center"}}>
-          Affichage des 200 premières · {transactions.length} transactions au total
+        {filteredTx.length > 300 && <div style={{padding:"9px 14px",borderTop:"1px solid "+T.border,fontSize:10.5,color:T.dim,textAlign:"center"}}>
+          300 premières · {filteredTx.length} au total sur {period}j
         </div>}
       </div>}
 
@@ -277,10 +433,10 @@ function App(){
           <div style={{background:"rgba(0,0,0,0.2)",borderRadius:9,padding:15,border:"1px solid "+T.blue+"15"}}>
             <h3 style={{margin:"0 0 10px",fontSize:13,color:T.blue}}>📚 Sources</h3>
             <div style={{fontSize:11.5,lineHeight:2}}>
-              <div><b>AMF</b> via transactions-amf.swaoo.com (FR)</div>
-              <div><b>Yahoo Finance</b> (prix, objectifs, RSI)</div>
+              <div><b>AMF</b> via transactions-amf.swaoo.com</div>
+              <div><b>Yahoo Finance</b> (si ISIN dans mapping)</div>
               <div>Fréquence: quotidienne (19h lun-ven)</div>
-              <div>Scheduler: GitHub Actions (gratuit)</div>
+              <div>Backend: GitHub Actions</div>
             </div>
           </div>
         </div>
