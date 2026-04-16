@@ -191,6 +191,7 @@ function App(){
         ))}
         <span style={{marginLeft:"auto",fontSize:12,color:C.textLight}}>
           {periodPurchases.length} achats · {periodSells.length} ventes · {filteredTx.length} total
+          {allTx.length>0&&<> · Données: {allTx[allTx.length-1]?.date || "?"} → {allTx[0]?.date || "?"}</>}
         </span>
       </div>
 
