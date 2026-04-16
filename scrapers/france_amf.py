@@ -1,24 +1,22 @@
 """
 Scraper France - Déclarations AMF via transactions-amf.swaoo.com
-Source: agrégateur indépendant qui traite quotidiennement les PDF AMF
-(lestransactions.fr est offline depuis fin 2024)
 
-V2: Parsing HTML robuste avec BeautifulSoup
-    Recherche par nom de société via /societes/NOM/ (plus fiable que par ISIN)
+V3 : Récupère TOUTES les transactions récentes (pas par entreprise).
+C'est l'approche InsiderScreener : on montre ce qui se passe, peu importe l'émetteur.
+Le dashboard filtre ensuite par période (7j, 30j, 90j, 180j).
 """
 import re
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://transactions-amf.swaoo.com"
 
-# Natures reconnues comme ACHATS (signaux positifs pour le scoring insider)
 PURCHASE_NATURES = {"Acquisition", "Souscription"}
+SELL_NATURES = {"Cession"}
 
 
 def _parse_french_number(s):
-    """Parse un nombre format français '1 923,4500' → 1923.45"""
     if not s:
         return 0.0
     s = str(s).strip()
@@ -35,7 +33,6 @@ def _parse_french_number(s):
 
 
 def _parse_french_date(s):
-    """Parse '14/04/2026' → '2026-04-14'"""
     if not s:
         return ""
     s = str(s).strip()
@@ -47,7 +44,6 @@ def _parse_french_date(s):
 
 
 def _extract_transactions_from_soup(soup):
-    """Extrait les transactions depuis le BeautifulSoup parsé."""
     transactions = []
     tables = soup.find_all("table")
     
@@ -58,7 +54,6 @@ def _extract_transactions_from_soup(soup):
             row = rows[i]
             cells = row.find_all("td")
             
-            # Une ligne de résumé a 10 cellules
             if len(cells) == 10:
                 try:
                     company_link = cells[0].find("a")
@@ -73,7 +68,6 @@ def _extract_transactions_from_soup(soup):
                     price = cells[7].get_text(strip=True)
                     amount = cells[8].get_text(strip=True)
                     
-                    # Validation basique
                     if not re.match(r"\d{2}/\d{2}/\d{4}", date_op):
                         i += 1
                         continue
@@ -81,7 +75,6 @@ def _extract_transactions_from_soup(soup):
                         i += 1
                         continue
                     
-                    # Détails dans la ligne suivante
                     author_full = ""
                     pdf_url = ""
                     decl_num = ""
@@ -105,7 +98,6 @@ def _extract_transactions_from_soup(soup):
                         if pdf_link:
                             pdf_url = pdf_link.get("href", "")
                     
-                    # Parser l'auteur
                     insider_name = author_full
                     role = "N/D"
                     if "personne morale liée à" in author_full:
@@ -123,6 +115,7 @@ def _extract_transactions_from_soup(soup):
                     
                     nature_clean = nature.strip()
                     is_purchase = nature_clean in PURCHASE_NATURES
+                    is_sell = nature_clean in SELL_NATURES
                     
                     transactions.append({
                         "source": "AMF/swaoo",
@@ -140,6 +133,7 @@ def _extract_transactions_from_soup(soup):
                         "amount": _parse_french_number(amount),
                         "currency": "EUR",
                         "is_purchase": is_purchase,
+                        "is_sell": is_sell,
                         "reference_url": pdf_url,
                     })
                     
@@ -152,22 +146,16 @@ def _extract_transactions_from_soup(soup):
     return transactions
 
 
-def _get_company_slug(company_name):
-    """Ex: 'BNP Paribas' → 'BNP+PARIBAS'"""
-    return company_name.upper().strip().replace(" ", "+")
-
-
-def scrape_france(isin: str, cutoff_date: datetime, company_name: str = None) -> list[dict]:
+def scrape_all_recent(days_back: int = 180, max_pages: int = 30) -> list[dict]:
     """
-    Récupère les transactions pour une société via transactions-amf.swaoo.com.
+    Récupère TOUTES les transactions AMF des N derniers jours.
     
     Args:
-        isin: Code ISIN (ex: FR0000120271)
-        cutoff_date: Ne garder que les transactions après cette date
-        company_name: Nom de la société (recommandé) pour utiliser /societes/NOM/
+        days_back: Nombre de jours à récupérer (défaut 180 = 6 mois)
+        max_pages: Nombre max de pages à parcourir (15 tx/page, donc 30 pages = 450 tx max)
     
     Returns:
-        Liste de transactions normalisées (triées par date décroissante)
+        Liste de transactions triées par date décroissante
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; insider-pea-personal/1.0)",
@@ -175,60 +163,48 @@ def scrape_france(isin: str, cutoff_date: datetime, company_name: str = None) ->
         "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
     }
 
+    cutoff_date = datetime.now() - timedelta(days=days_back)
+    cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+    
     all_transactions = []
+    consecutive_old_pages = 0
     
-    # Essayer les différentes stratégies de recherche
-    urls_to_try = []
-    if company_name:
-        slug = _get_company_slug(company_name)
-        urls_to_try.append(f"{BASE_URL}/societes/{slug}/")
-    urls_to_try.append(f"{BASE_URL}/?f_keyword={isin}")
-    
-    for url in urls_to_try:
-        page = 1
-        max_pages = 5
+    for page in range(1, max_pages + 1):
+        url = f"{BASE_URL}/?f_page={page}"
         
-        while page <= max_pages:
-            if "?" in url:
-                page_url = f"{url}&f_page={page}"
-            else:
-                page_url = f"{url}?f_page={page}"
-            
-            try:
-                response = requests.get(page_url, headers=headers, timeout=30)
-                response.raise_for_status()
-            except requests.RequestException as e:
-                print(f"    Erreur réseau {page_url}: {e}")
-                break
-            
-            soup = BeautifulSoup(response.text, "html.parser")
-            page_txs = _extract_transactions_from_soup(soup)
-            
-            if not page_txs:
-                break
-            
-            # Filtrer par ISIN exact
-            page_txs = [t for t in page_txs if t["isin"] == isin]
-            
-            # Filtrer par date cutoff
-            cutoff_str = cutoff_date.strftime("%Y-%m-%d")
-            before_cutoff = [t for t in page_txs if t["date"] < cutoff_str]
-            after_cutoff = [t for t in page_txs if t["date"] >= cutoff_str]
-            
-            all_transactions.extend(after_cutoff)
-            
-            if before_cutoff:
-                break
-            
-            if "Page suivante" not in response.text and f"f_page={page + 1}" not in response.text:
-                break
-            
-            page += 1
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            print(f"  Erreur page {page}: {e}")
+            break
         
-        if all_transactions:
+        soup = BeautifulSoup(response.text, "html.parser")
+        page_txs = _extract_transactions_from_soup(soup)
+        
+        if not page_txs:
+            print(f"  Page {page}: aucune transaction trouvée, arrêt")
+            break
+        
+        in_window = [t for t in page_txs if t["date"] >= cutoff_str]
+        out_of_window = [t for t in page_txs if t["date"] < cutoff_str]
+        
+        all_transactions.extend(in_window)
+        print(f"  Page {page}: {len(page_txs)} tx ({len(in_window)} dans la fenêtre {days_back}j)")
+        
+        # Si la page entière est hors fenêtre, on compte les pages consécutives
+        if len(in_window) == 0:
+            consecutive_old_pages += 1
+            if consecutive_old_pages >= 2:
+                print(f"  Cutoff atteint, arrêt")
+                break
+        else:
+            consecutive_old_pages = 0
+        
+        if "Page suivante" not in response.text:
             break
     
-    # Dédupliquer par numéro de déclaration
+    # Dédupliquer
     seen = set()
     deduped = []
     for tx in all_transactions:
@@ -237,16 +213,28 @@ def scrape_france(isin: str, cutoff_date: datetime, company_name: str = None) ->
             seen.add(key)
             deduped.append(tx)
     
-    deduped.sort(key=lambda t: t["date"], reverse=True)
+    # Trier par date de transaction décroissante
+    deduped.sort(key=lambda t: (t["date"], t.get("date_published", "")), reverse=True)
+    
     return deduped
 
 
+def scrape_france(isin: str, cutoff_date: datetime, company_name: str = None) -> list[dict]:
+    """Compatibilité - filtre par ISIN."""
+    days = (datetime.now() - cutoff_date).days
+    all_txs = scrape_all_recent(days_back=days)
+    return [t for t in all_txs if t["isin"] == isin]
+
+
 if __name__ == "__main__":
-    from datetime import timedelta
-    cutoff = datetime.now() - timedelta(days=180)
+    print("Test: récupération des transactions des 30 derniers jours")
+    txs = scrape_all_recent(days_back=30, max_pages=10)
+    print(f"\nTotal: {len(txs)} transactions")
     
-    print("Test: TotalEnergies (FR0000120271)")
-    txs = scrape_france("FR0000120271", cutoff, company_name="TotalEnergies")
-    print(f"  Trouvé {len(txs)} transactions")
-    for tx in txs[:3]:
-        print(f"  {tx['date']} - {tx['insider']} - {tx['nature']} {tx['amount']:.0f}€")
+    purchases = [t for t in txs if t["is_purchase"]]
+    print(f"Achats: {len(purchases)}")
+    
+    top_buys = sorted(purchases, key=lambda t: t["amount"], reverse=True)[:5]
+    print(f"\nTop 5:")
+    for t in top_buys:
+        print(f"  {t['date']} {t['company_name']} - {t['insider']} - {t['amount']:.0f}€")
