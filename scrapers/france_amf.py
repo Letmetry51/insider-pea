@@ -177,7 +177,16 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 30) -> list[dict]:
             response.raise_for_status()
         except requests.RequestException as e:
             print(f"  Erreur page {page}: {e}")
-            break
+            # Retry once after 3 seconds
+            import time
+            time.sleep(3)
+            try:
+                response = requests.get(url, headers=headers, timeout=30)
+                response.raise_for_status()
+                print(f"  Retry page {page}: OK")
+            except requests.RequestException as e2:
+                print(f"  Retry échoué page {page}: {e2}")
+                break
         
         soup = BeautifulSoup(response.text, "html.parser")
         page_txs = _extract_transactions_from_soup(soup)
