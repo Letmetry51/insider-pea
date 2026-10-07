@@ -1,0 +1,3164 @@
+{
+ "AT100ASTA001": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ASTA Energy Solutions AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "1AST.DE"
+ },
+ "BE0003656676": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Recticel SA/NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RECT.BR"
+ },
+ "BE0003789063": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Deceuninck NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DECB.BR"
+ },
+ "BE0003839561": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Van de Velde NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VAN.BR"
+ },
+ "BE0974278104": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ABO-Group Environment NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ABO.BR"
+ },
+ "BE0974334667": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Winamp Group SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALWIN.PA"
+ },
+ "BE0974338700": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Titan S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TITC.BR"
+ },
+ "BE0974349814": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Warehouses De Pauw SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WDP.BR"
+ },
+ "BE0974464977": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Syensqo SA/NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SYENS.BR"
+ },
+ "BG1100003166": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Shelly Group SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SLYG.DE"
+ },
+ "CH1118852594": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "IDNTT SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IDNTT.MI"
+ },
+ "CI0000053161": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "La Forestière Equatoriale SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FORE.PA"
+ },
+ "DE0005093108": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Amadeus FiRe AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AAD.DE"
+ },
+ "DE0005102008": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Basler Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BSL.DE"
+ },
+ "DE0005104400": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ATOSS Software SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AOF.DE"
+ },
+ "DE0005110001": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "All for One Group SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "A1OS.DE"
+ },
+ "DE0005120802": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Rubean AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "R1B.F"
+ },
+ "DE0005140008": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Deutsche Bank Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DBK.DE"
+ },
+ "DE0005199905": {
+  "exchange": "Hamburg",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LUDWIG BECK am Rathauseck - Textilhaus Feldmeier AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ECK.HM"
+ },
+ "DE0005313704": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Carl Zeiss Meditec AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AFX.DE"
+ },
+ "DE0005403901": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "CEWE Stiftung & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CWC.DE"
+ },
+ "DE0005405104": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "InnoTec TSS AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TSS.F"
+ },
+ "DE0005419105": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cancom SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COK.DE"
+ },
+ "DE0005430300": {
+  "exchange": "Hamburg",
+  "method": "recherche Yahoo par ISIN",
+  "name": "HÖVELRAT Holding AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "C9T.HM"
+ },
+ "DE0005470306": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "CTS Eventim AG & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EVD.DE"
+ },
+ "DE0005470405": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LANXESS Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LXS.DE"
+ },
+ "DE0005490601": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Leo International Precision Health AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LEOW.F"
+ },
+ "DE0005492938": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Masterflex SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MZX.DE"
+ },
+ "DE0005493092": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Borussia Dortmund GmbH & Co. Kommanditgesellschaft auf Aktien",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BVB.DE"
+ },
+ "DE0005540306": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DLB-Anlageservice AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DLB.SG"
+ },
+ "DE0005552004": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DHL AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DHL.DE"
+ },
+ "DE0005557508": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Deutsche Telekom AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DTE.DE"
+ },
+ "DE0005570808": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "UmweltBank AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "UBK.DE"
+ },
+ "DE0005664809": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Evotec SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EVT.DE"
+ },
+ "DE0005677108": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Elmos Semiconductor SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ELG.DE"
+ },
+ "DE0005759807": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "init innovation in traffic systems SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IXX.DE"
+ },
+ "DE0005760029": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ABO Energy GmbH & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AB9.DE"
+ },
+ "DE0005765507": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sino AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "XTP.F"
+ },
+ "DE0005785604": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fresenius SE & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "1FRE.MI"
+ },
+ "DE0005936124": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "OHB SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "OHB.DE"
+ },
+ "DE0006013006": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE0006047004": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Heidelberg Materials AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HEI.DE"
+ },
+ "DE0006069008": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "FRoSTA Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NLM.F"
+ },
+ "DE0006083405": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "HORNBACH Holding AG & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HBH.DE"
+ },
+ "DE0006219934": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Jungheinrich Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "JUN3.F"
+ },
+ "DE0006223407": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ProCredit Holding AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PCZ.DE"
+ },
+ "DE0006231004": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Infineon Technologies AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IFX.DE"
+ },
+ "DE0006305006": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DEUTZ Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DEZ.DE"
+ },
+ "DE0006450000": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LPKF Laser & Electronics SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LPK.DE"
+ },
+ "DE0006452907": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nemetschek SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NEM.DE"
+ },
+ "DE0006569908": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MLP SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MLP.DE"
+ },
+ "DE0006577109": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "NanoRepro AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NN6.DE"
+ },
+ "DE0006580806": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mensch und Maschine Software SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MUM.DE"
+ },
+ "DE0006602006": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "GEA Group Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "G1A.DE"
+ },
+ "DE0006627201": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mühlbauer Holding AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MUB.DE"
+ },
+ "DE0006926504": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE0007030009": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Rheinmetall AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RHM.DE"
+ },
+ "DE0007164600": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SAP SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SAP.DE"
+ },
+ "DE0007190001": {
+  "exchange": "Dusseldorf Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Schulte-Schlagbaum AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SSS.DU"
+ },
+ "DE0007231334": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sixt SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SIX3.DE"
+ },
+ "DE0007314007": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Heidelberger Druckmaschinen Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HDD.DE"
+ },
+ "DE0007446007": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "TAKKT AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TTK.DE"
+ },
+ "DE0007461006": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "PVA TePla AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TPE.DE"
+ },
+ "DE0007507501": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "WashTec AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WSU.F"
+ },
+ "DE0007551509": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Uzin Utz SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "UZU.DE"
+ },
+ "DE0007600405": {
+  "exchange": "Munich",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Value-Holdings AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VHO.MU"
+ },
+ "DE0007657231": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Villeroy & Boch AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VIB3.DE"
+ },
+ "DE0007846867": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Viscom SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "V6C.DE"
+ },
+ "DE0007856023": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ElringKlinger AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ZIL2.DE"
+ },
+ "DE0008232125": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Deutsche Lufthansa AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LHA.DE"
+ },
+ "DE0008303504": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "TAG Immobilien AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TEG.DE"
+ },
+ "DE0008430026": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Münchener Rückversicherungs-Gesellschaft Aktiengesellschaft in München",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MUV2.DE"
+ },
+ "DE000A0B9N37": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "JDC Group AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "JDC.DE"
+ },
+ "DE000A0D6554": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nordex SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NDX1.DE"
+ },
+ "DE000A0D9PT0": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MTU Aero Engines AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MTX.DE"
+ },
+ "DE000A0DNAY5": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "bet-at-home.com AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ACX.DE"
+ },
+ "DE000A0ETBQ4": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MBB SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MBB.DE"
+ },
+ "DE000A0HL8N9": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "2G Energy AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "2GB.DE"
+ },
+ "DE000A0HMWM7": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000A0JDBC7": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LIMES Schlosskliniken AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LIK.DE"
+ },
+ "DE000A0LD6E6": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gerresheimer AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GXI.DE"
+ },
+ "DE000A0N4N52": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "NFON AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NFN.F"
+ },
+ "DE000A0S9QZ8": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Stock3 AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BOG.DE"
+ },
+ "DE000A0V9LA7": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DATRON AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DAR.DE"
+ },
+ "DE000A11QLP3": {
+  "exchange": "Munich",
+  "method": "recherche Yahoo par ISIN",
+  "name": "BENO Holding AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BENH.MU"
+ },
+ "DE000A11QW68": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "7C Solarparken AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HRPK.F"
+ },
+ "DE000A12DM80": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Scout24 SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "G24.DE"
+ },
+ "DE000A12UK08": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mountain Alliance AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ECF.F"
+ },
+ "DE000A12UP29": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Laiqon AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LQAG.DE"
+ },
+ "DE000A161309": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "KST Beteiligungs AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "KSW.F"
+ },
+ "DE000A161408": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "HelloFresh SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HFG.F"
+ },
+ "DE000A168205": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Shareholder Value Beteiligungen AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SVE.DE"
+ },
+ "DE000A1E89S5": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000A1EWWW0": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "adidas AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ADS.DE"
+ },
+ "DE000A1H8BV3": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "NORMA Group SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NOEJ.DE"
+ },
+ "DE000A1MMCC8": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Medios AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ILM1.F"
+ },
+ "DE000A1RFMY4": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "RCM Beteiligungs AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RCMN.DE"
+ },
+ "DE000A1RFMZ1": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SM Wirtschaftsberatungs AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SMWN.DE"
+ },
+ "DE000A1TNUT7": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Deutsche Beteiligungs AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DBAN.DE"
+ },
+ "DE000A1YC913": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "FCR Immobilien AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FC9.F"
+ },
+ "DE000A254203": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Meta Wolf AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WOLF.F"
+ },
+ "DE000A255F11": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Friedrich Vorwerk Group SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DE000A255F11.SG"
+ },
+ "DE000A2AAE22": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SBF AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CY1K.F"
+ },
+ "DE000A2BPP88": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000A2E4K43": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Delivery Hero SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DHER.DE"
+ },
+ "DE000A2GS633": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Allgeier SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AEIN.DE"
+ },
+ "DE000A2N4H07": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Westwing Group SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WEW.F"
+ },
+ "DE000A2NB650": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mutares SE & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MUX.DE"
+ },
+ "DE000A2NBX80": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Instone Real Estate Group SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "INS.F"
+ },
+ "DE000A2YN355": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Circus SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CA1.DE"
+ },
+ "DE000A2YNT30": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": "AlzChem Group AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DE000A2YNT30.SG"
+ },
+ "DE000A35JR33": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lübke Kelber AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SZ50.DE"
+ },
+ "DE000A3C35W0": {
+  "exchange": "Munich",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Novogenia AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "7V0.MU"
+ },
+ "DE000A3E5C24": {
+  "exchange": "Munich",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MHP Hotel AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CDZ0.MU"
+ },
+ "DE000A3E5D56": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fuchs SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FPE.DE"
+ },
+ "DE000A3H2200": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nagarro SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NA9.DE"
+ },
+ "DE000A3H2234": {
+  "exchange": "Hamburg",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Private Assets SE & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LSNA.HM"
+ },
+ "DE000A3MQR65": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000A40AEG0": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Pentixapharm Holding AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PTP.F"
+ },
+ "DE000A40ET13": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "audius SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "3ITN.F"
+ },
+ "DE000A40ET88": {
+  "exchange": "Dusseldorf Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Finexity AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FXT.DU"
+ },
+ "DE000A40QVM8": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "innoscripta SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "1INN.DE"
+ },
+ "DE000A40ZW88": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "The Platform Group SE & Co. KGaA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TPG0.DE"
+ },
+ "DE000A41YDL0": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Pyramid AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "M3B0.DE"
+ },
+ "DE000A41YFL5": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000A420ZL4": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "electrovac AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EVAC.DE"
+ },
+ "DE000A421RZ9": {
+  "exchange": "Frankfurt",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gabler Group AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "XK4.F"
+ },
+ "DE000A42D2N5": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Helios Solar AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HE8.DE"
+ },
+ "DE000A42FR12": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SMAG Mobile Antenna Masts AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "1SMA.DE"
+ },
+ "DE000A4BGGT2": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000AUM0V10": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Aumovio SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AMV0.DE"
+ },
+ "DE000BGAG981": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000ENAG999": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "E.ON SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EOAN.DE"
+ },
+ "DE000ENER6Y0": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Siemens Energy AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ENR.DE"
+ },
+ "DE000FTG1111": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "flatexDEGIRO SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FTK.DE"
+ },
+ "DE000HAG0005": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Hensoldt AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HAG.DE"
+ },
+ "DE000KSAG888": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "K+S Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SDF.DE"
+ },
+ "DE000LEG1110": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LEG Immobilien SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LEG.DE"
+ },
+ "DE000PAG9113": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Dr. Ing. h.c. F. Porsche AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "P911.DE"
+ },
+ "DE000PAT1AG3": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "PATRIZIA SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PAT.DE"
+ },
+ "DE000SHA0159": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000SYM9999": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Symrise AG",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SY1.DE"
+ },
+ "DE000TUAG000": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "DE000ZAL1111": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Zalando SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ZAL.DE"
+ },
+ "DE000ZEAL241": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ZEAL Network SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TIMA.DE"
+ },
+ "ES0105025003": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MERLIN Properties SOCIMI, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MRL.MC"
+ },
+ "ES0105065009": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Talgo, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TLGO.MC"
+ },
+ "ES0105066007": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cellnex Telecom, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CLNX.MC"
+ },
+ "ES0105079000": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Grenergy Renovables, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GRE.MC"
+ },
+ "ES0105122024": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "ES0105130001": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Global Dominion Access, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DOM.MC"
+ },
+ "ES0105148144": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "ES0105223004": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gestamp Automoción, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GEST.MC"
+ },
+ "ES0105375002": {
+  "exchange": "WSE",
+  "method": "recherche Yahoo par ISIN",
+  "name": "AmRest Holdings SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EAT.WA"
+ },
+ "ES0105394003": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "TSK Electrónica y Electricidad, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TSK.MC"
+ },
+ "ES0105449005": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "izertis, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IZER.MC"
+ },
+ "ES0105546008": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Línea Directa Aseguradora, S.A., Compañía de Seguros y Reaseguros",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LDA.MC"
+ },
+ "ES0105777017": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Puig Brands, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PUIG.MC"
+ },
+ "ES0105848008": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cox Infrastructure Group, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COXG.MC"
+ },
+ "ES0105884011": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cirsa Enterprises, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CIRSA.MC"
+ },
+ "ES0109429037": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ISPD Network, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALISP.PA"
+ },
+ "ES0112501012": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ebro Foods, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EBRO.MC"
+ },
+ "ES0113211835": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Banco Bilbao Vizcaya Argentaria, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BBVA.MC"
+ },
+ "ES0113679I37": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bankinter, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BKT.MC"
+ },
+ "ES0113860A34": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Banco de Sabadell, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SAB.MC"
+ },
+ "ES0113900J37": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Banco Santander, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SAN.MC"
+ },
+ "ES0114820113": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vocento, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VOC.MC"
+ },
+ "ES0119037010": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Clínica Baviera, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CBAV.MC"
+ },
+ "ES0122060314": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fomento de Construcciones y Contratas, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FCC.MC"
+ },
+ "ES0124244E34": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mapfre, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MAP.MC"
+ },
+ "ES0125220311": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Acciona, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ANA.MC"
+ },
+ "ES0126501131": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Alantra Partners, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALNT.MC"
+ },
+ "ES0126775032": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "ES0130625512": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ENCE Energía y Celulosa, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ENC.MC"
+ },
+ "ES0130670112": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Endesa, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ELE.MC"
+ },
+ "ES0132105018": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Acerinox, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ACX.MC"
+ },
+ "ES0134950F36": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Faes Farma, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FAE.MC"
+ },
+ "ES0137650018": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fluidra, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FDR.MC"
+ },
+ "ES0137998A12": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Libertas 7, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LIB.MC"
+ },
+ "ES0139140174": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Colonial SFL, Socimi S. A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COL.MC"
+ },
+ "ES0140609019": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "CaixaBank, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CABK.MC"
+ },
+ "ES0141571192": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "General de Alquiler de Maquinaria, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GAM.MC"
+ },
+ "ES0142090317": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Obrascón Huarte Lain, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "OHLA.MC"
+ },
+ "ES0148396007": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Industria de Diseño Textil, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ITX.MC"
+ },
+ "ES0150480111": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nyesa Valores Corporación, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NYE.MC"
+ },
+ "ES0158480311": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lingotes Especiales, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LGT.MC"
+ },
+ "ES0164180012": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Miquel y Costas & Miquel, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MCM.MC"
+ },
+ "ES0167050915": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ACS, Actividades de Construcción y Servicios, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ACS.MC"
+ },
+ "ES0169501030": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Pharma Mar, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PHM.MC"
+ },
+ "ES0171996095": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "ES0173093024": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Redeia Corporación, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RED.MC"
+ },
+ "ES0173358039": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Renta 4 Banco, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "R4.MC"
+ },
+ "ES0173516115": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Repsol, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "REP.MC"
+ },
+ "ES0175438003": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Prosegur Compañía de Seguridad, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PSG.MC"
+ },
+ "ES0177542018": {
+  "exchange": "London",
+  "method": "recherche Yahoo par ISIN",
+  "name": "International Consolidated Airlines Group S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IAG.L"
+ },
+ "ES0178430E18": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Telefónica, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TEF.MC"
+ },
+ "ES0182484214": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "ES0182870214": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sacyr, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SCYR.MC"
+ },
+ "ES0183746314": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vidrala, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VID.MC"
+ },
+ "ES0184262212": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Viscofan, S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VIS.MC"
+ },
+ "ESO130960018": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "ESO144540Y14": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0000031973": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "FSDV Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FSDV.PA"
+ },
+ "FR0000032526": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0000033003": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Touax SCA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALTOU.PA"
+ },
+ "FR0000033219": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Altarea SCA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALTA.PA"
+ },
+ "FR0000033243": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Immobiliere Dassault SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IMDA.PA"
+ },
+ "FR0000035164": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bénéteau S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BEN.PA"
+ },
+ "FR0000036816": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0000037475": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "CFI-Compagnie Foncière Internationale",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CFI.PA"
+ },
+ "FR0000038242": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lumibird SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LBIRD.PA"
+ },
+ "FR0000039091": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Robertet SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RBT.PA"
+ },
+ "FR0000039109": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Séché Environnement SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SCHP.PA"
+ },
+ "FR0000039299": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bolloré SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BOL.PA"
+ },
+ "FR0000044448": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nexans S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NEX.PA"
+ },
+ "FR0000050049": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "VIEL & Cie, société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VIL.PA"
+ },
+ "FR0000050353": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lisi S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FII.PA"
+ },
+ "FR0000050809": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sopra Steria Group SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SOP.PA"
+ },
+ "FR0000051070": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Etablissements Maurel & Prom S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MAU.PA"
+ },
+ "FR0000051732": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Atos Group",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ATO.PA"
+ },
+ "FR0000052680": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Oeneo SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SBT.PA"
+ },
+ "FR0000053506": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cegedim SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALCGM.PA"
+ },
+ "FR0000053837": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Altamir Ord",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LTA.PA"
+ },
+ "FR0000054900": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "TF1 SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TFI.PA"
+ },
+ "FR0000060121": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Saint Jean Groupe Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SABE.PA"
+ },
+ "FR0000060824": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Financière Marjos SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FINM.PA"
+ },
+ "FR0000061137": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Burelle SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BUR.PA"
+ },
+ "FR0000062101": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Société Fermière du Casino Municipal de Cannes",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FCMC.PA"
+ },
+ "FR0000062234": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Compagnie de l'Odet",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ODET.PA"
+ },
+ "FR0000062465": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Alan Allman Associates",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AAA.PA"
+ },
+ "FR0000062545": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0000063737": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Aubay Société Anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AUB.PA"
+ },
+ "FR0000063935": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bonduelle SCA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BON.PA"
+ },
+ "FR0000064271": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "STEF SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "STF.PA"
+ },
+ "FR0000064446": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Catering International & Services Société Anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALCIS.PA"
+ },
+ "FR0000064578": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Covivio",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COV.PA"
+ },
+ "FR0000066722": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Guillemot Corporation S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GUI.PA"
+ },
+ "FR0000066961": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bernard Loiseau S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALDBL.PA"
+ },
+ "FR0000068024": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0000071797": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Infotel SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "INF.PA"
+ },
+ "FR0000073041": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Pierre et Vacances SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VAC.PA"
+ },
+ "FR0000073298": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ipsos SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IPS.PA"
+ },
+ "FR0000074783": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Artmarket.com",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PRC.PA"
+ },
+ "FR0000075442": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Groupe LDLC société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALLDL.PA"
+ },
+ "FR0000076952": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Société Industrielle et Financière de l'Artois Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ARTO.PA"
+ },
+ "FR0000079147": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "U10 Corp",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALU10.PA"
+ },
+ "FR0000120503": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bouygues SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EN.PA"
+ },
+ "FR0000120560": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Quadient S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "QDT.PA"
+ },
+ "FR0000120644": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Danone S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BN.PA"
+ },
+ "FR0000120966": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Société BIC SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BB.PA"
+ },
+ "FR0000121121": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Eurazeo SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RF.PA"
+ },
+ "FR0000121220": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sodexo S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SW.PA"
+ },
+ "FR0000121329": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Thales S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HO.PA"
+ },
+ "FR0000124141": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Veolia Environnement SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VIE.PA"
+ },
+ "FR0000127771": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vivendi SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VIV.PA"
+ },
+ "FR0000130395": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Rémy Cointreau SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RCO.PA"
+ },
+ "FR0000130403": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Christian Dior SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CDI.PA"
+ },
+ "FR0000130452": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Eiffage SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FGR.PA"
+ },
+ "FR0000131906": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Renault SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RNO.PA"
+ },
+ "FR0000185423": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Damartex",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALDAR.PA"
+ },
+ "FR0004023208": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "BASSAC Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BASS.PA"
+ },
+ "FR0004024222": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Interparfums SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ITP.PA"
+ },
+ "FR0004027068": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lanson-BCC",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALLAN.PA"
+ },
+ "FR0004038263": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Parrot S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PARRO.PA"
+ },
+ "FR0004045847": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Voyageurs du Monde SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALVDM.PA"
+ },
+ "FR0004050250": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Neurones S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NRO.PA"
+ },
+ "FR0004053510": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "genOway Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALGEN.PA"
+ },
+ "FR0004125920": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Amundi S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AMUN.PA"
+ },
+ "FR0004154060": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Netgem SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALNTG.PA"
+ },
+ "FR0004163111": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Genfit S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GNFT.PA"
+ },
+ "FR0004188670": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0004527638": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "EXEL Industries SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EXE.PA"
+ },
+ "FR0005691656": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Trigano S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TRI.PA"
+ },
+ "FR0006174348": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bureau Veritas SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BVI.PA"
+ },
+ "FR0010112524": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nexity SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NXI.PA"
+ },
+ "FR0010120402": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Theraclion SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALTHE.PA"
+ },
+ "FR0010193052": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SA Catana Group",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALCAT.PA"
+ },
+ "FR0010202606": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sidetrade SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALBFR.PA"
+ },
+ "FR0010214064": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Groupe Pizzorno Environnement",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GPE.PA"
+ },
+ "FR0010221234": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Eutelsat Communications S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ETL.PA"
+ },
+ "FR0010313486": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0010331421": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Innate Pharma S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IPH.PA"
+ },
+ "FR0010341032": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fonciere Inea S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "INEA.PA"
+ },
+ "FR0010386334": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Clariane SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CLARI.PA"
+ },
+ "FR0010417345": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DBV Technologies S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DBV.PA"
+ },
+ "FR0010425595": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cellectis S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALCLS.PA"
+ },
+ "FR0010428771": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Eagle Football Group SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EFG.PA"
+ },
+ "FR0010436584": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DNXCorp SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALDNX.PA"
+ },
+ "FR0010451203": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Rexel S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RXL.PA"
+ },
+ "FR0010481960": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Argan SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ARG.PA"
+ },
+ "FR0010523167": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "RocTool S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALROC.PA"
+ },
+ "FR0010528059": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Streamwide S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALSTW.PA"
+ },
+ "FR0010533075": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Getlink SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GET.PA"
+ },
+ "FR0010667147": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "COFACE SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COFA.PA"
+ },
+ "FR0010722819": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Kalray S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALKAL.PA"
+ },
+ "FR0010785790": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Plant Advanced Technologies SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALPAT.PA"
+ },
+ "FR0011027135": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Patrimoine et Commerce SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PAT.PA"
+ },
+ "FR0011040500": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "74Software",
+  "resolvedAt": "2026-10-07",
+  "ticker": "74SW.PA"
+ },
+ "FR0011053636": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Capital B",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALCPB.PA"
+ },
+ "FR0011208693": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gold By Gold SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALGLD.PA"
+ },
+ "FR0011217710": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Méthanor SCA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALMET.PA"
+ },
+ "FR0011271800": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0011476928": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fnac Darty SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FNAC.PA"
+ },
+ "FR0011532225": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vogo SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALVGO.PA"
+ },
+ "FR0011981968": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Worldline SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WLN.PA"
+ },
+ "FR0011992700": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ATEME SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ATEME.PA"
+ },
+ "FR0012202497": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Diagnostic Medical Systems S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALDMS.PA"
+ },
+ "FR0012435121": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Elis SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ELIS.PA"
+ },
+ "FR0012532810": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Waga Energy SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WAGA.PA"
+ },
+ "FR0012616852": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ABIONYX Pharma SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ABNX.PA"
+ },
+ "FR0012634822": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MaaT Pharma SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MAAT.PA"
+ },
+ "FR0013154002": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sartorius Stedim Biotech S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DIM.PA"
+ },
+ "FR0013176526": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Valeo SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FR.PA"
+ },
+ "FR0013227113": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Soitec SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SOI.PA"
+ },
+ "FR0013230950": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LightOn SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALTAI.PA"
+ },
+ "FR0013258399": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0013258662": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ayvens",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AYV.PA"
+ },
+ "FR0013280286": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "bioMérieux S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BIM.PA"
+ },
+ "FR0013326246": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Unibail-Rodamco-Westfield SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "URW.PA"
+ },
+ "FR0013333077": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Carvolix SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CVX.PA"
+ },
+ "FR0013333432": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Thermador Groupe SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "THEP.PA"
+ },
+ "FR0013341781": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "2CRSI S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AL2SI.PA"
+ },
+ "FR0013374667": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "KKO International SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALKKO.PA"
+ },
+ "FR0013419876": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Kumulus Vape S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALVAP.PA"
+ },
+ "FR0013447729": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Verallia Société Anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VRLA.PA"
+ },
+ "FR0013452281": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Agripower France Société Anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALAGP.PA"
+ },
+ "FR0013482791": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nacon S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NACON.PA"
+ },
+ "FR0013506730": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vallourec S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VK.PA"
+ },
+ "FR0014003AQ4": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "EPC Groupe",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EXPL.PA"
+ },
+ "FR0014003U94": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Aramis Group SAS",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ARAMI.PA"
+ },
+ "FR0014003V77": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Groupe Airwell Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALAIR.PA"
+ },
+ "FR0014004362": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Entech SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALESE.PA"
+ },
+ "FR00140048X2": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ikonisys S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALIKO.PA"
+ },
+ "FR0014005AC9": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "AFYREN SAS",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALAFY.PA"
+ },
+ "FR0014005AL0": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Antin Infrastructure Partners S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ANTIN.PA"
+ },
+ "FR0014007LW0": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0014009YQ1": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LHYFE S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALHYF.PA"
+ },
+ "FR001400AHX6": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ABL Texcell Diagnostics SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ABLD.PA"
+ },
+ "FR001400BMH7": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR001400EG77": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR001400J770": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Air France-KLM SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "AF.PA"
+ },
+ "FR001400JWR8": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Arverne Group S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ARVEN.PA"
+ },
+ "FR001400MDW2": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "STIF Société anonyme",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALSTI.PA"
+ },
+ "FR001400PFU4": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Planisware SAS",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PLNW.PA"
+ },
+ "FR001400Q9V2": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Exosens",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EXENS.PA"
+ },
+ "FR001400SUB7": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Compagnie du Cambodge",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CBDG.PA"
+ },
+ "FR001400T0D6": {
+  "exchange": "London",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Canal+ SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CAN.L"
+ },
+ "FR001400TL40": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Louis Hachette Group S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALHG.PA"
+ },
+ "FR001400U4P9": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Odyssee Technologies",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALODY.PA"
+ },
+ "FR001400WXE7": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "PREATONI Group",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALPG.PA"
+ },
+ "FR0014010DV3": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Odiot S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MLODT.PA"
+ },
+ "FR0014014J13": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0014015ND9": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "IEVA Group S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALIEV.PA"
+ },
+ "FR00140173Y6": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Atari SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ALATA.PA"
+ },
+ "FR00140180M6": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR00140182K6": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Worldline SA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WLN.PA"
+ },
+ "FR0014018EW2": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "FR0014OOU4P9": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "GB00B5ZN1N88": {
+  "exchange": "London",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SEGRO Plc",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SGRO.L"
+ },
+ "GB00BM9XQ619": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vidac Pharma Holding Plc",
+  "resolvedAt": "2026-10-07",
+  "ticker": "T9G.DE"
+ },
+ "GB00BNXJB679": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "HBX Group International plc",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HBX.MC"
+ },
+ "IT0000062072": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Assicurazioni Generali S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "G.MI"
+ },
+ "IT0000066123": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "BPER Banca SpA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BPE.MI"
+ },
+ "IT0000070786": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "CIR S.p.A. - Compagnie Industriali Riunite",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CIR.MI"
+ },
+ "IT0000072618": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Intesa Sanpaolo S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ISP.MI"
+ },
+ "IT0000076536": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sogefi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SGF.MI"
+ },
+ "IT0001018362": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Valsoia S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VLS.MI"
+ },
+ "IT0001041000": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Banco di Desio e della Brianza S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BDB.MI"
+ },
+ "IT0001128047": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cembre S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CMB.MI"
+ },
+ "IT0001237053": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Emak S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EM.MI"
+ },
+ "IT0001347308": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Buzzi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BZU.MI"
+ },
+ "IT0001413837": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Immsi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IMS.MI"
+ },
+ "IT0001447785": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mondo TV S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MTV.MI"
+ },
+ "IT0001463063": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Directa Sim S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "D.MI"
+ },
+ "IT0001469995": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Digital Bros S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DIB.MI"
+ },
+ "IT0003073266": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Piaggio & C. SpA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PIA.MI"
+ },
+ "IT0003115950": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "De'Longhi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DLG.MI"
+ },
+ "IT0003127930": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Caltagirone SpA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CALT.MI"
+ },
+ "IT0003128367": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Enel SpA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ENEL.MI"
+ },
+ "IT0003132476": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Eni S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ENI.MI"
+ },
+ "IT0003153415": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Snam S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SRG.MI"
+ },
+ "IT0003153621": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Tamburi Investment Partners S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TIP.MI"
+ },
+ "IT0003188064": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Banca IFIS S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IF.MI"
+ },
+ "IT0003492391": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DiaSorin S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DIA.MI"
+ },
+ "IT0003549422": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sanlorenzo S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SL.MI"
+ },
+ "IT0003796171": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Poste Italiane S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PST.MI"
+ },
+ "IT0003828271": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Recordati Industria Chimica e Farmaceutica S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "REC.MI"
+ },
+ "IT0003856405": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Leonardo S.p.a.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LDO.MI"
+ },
+ "IT0004176001": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Prysmian S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PRY.MI"
+ },
+ "IT0004240443": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Piquadro S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PQ.MI"
+ },
+ "IT0004329733": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cairo Communication S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CAI.MI"
+ },
+ "IT0004604762": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Safilo Group S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SFL.MI"
+ },
+ "IT0004674666": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "H-FARM S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FARM.MI"
+ },
+ "IT0004712375": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Salvatore Ferragamo S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SFER.MI"
+ },
+ "IT0004720733": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Alerion Clean Power S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ARN.MI"
+ },
+ "IT0004724107": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ratti S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RAT.MI"
+ },
+ "IT0004729759": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SeSa S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SES.MI"
+ },
+ "IT0004810054": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Unipol Assicurazioni S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "UNI.MI"
+ },
+ "IT0005037210": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Tinexta SpA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IT0005037210.SG"
+ },
+ "IT0005043507": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "OVS S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "OVS.MI"
+ },
+ "IT0005089476": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "DigiTouch S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DGT.MI"
+ },
+ "IT0005144784": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Generalfinance S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GF.MI"
+ },
+ "IT0005187460": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "B.F. S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BFG.MI"
+ },
+ "IT0005188385": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "IT0005203424": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fope S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FPE.MI"
+ },
+ "IT0005211237": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Italgas S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "IG.MI"
+ },
+ "IT0005244618": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cellularline S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CELL.MI"
+ },
+ "IT0005262149": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SIT S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SIT.MI"
+ },
+ "IT0005278236": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Pirelli & C. S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PIRC.MI"
+ },
+ "IT0005312027": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Equita Group S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EQUI.MI"
+ },
+ "IT0005312365": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gel S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GEL.MI"
+ },
+ "IT0005331019": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Carel Industries S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CRL.MI"
+ },
+ "IT0005337107": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Esautomotion S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ESAU.MI"
+ },
+ "IT0005337495": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Portobello S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "POR.MI"
+ },
+ "IT0005337818": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Intred S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ITD.MI"
+ },
+ "IT0005339160": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "PLC S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "PLC.MI"
+ },
+ "IT0005359101": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ILPRA S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ILP.MI"
+ },
+ "IT0005366767": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Nexi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NEXI.MI"
+ },
+ "IT0005394413": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Doxee S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DOX.MI"
+ },
+ "IT0005411209": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "GVS S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GVS.MI"
+ },
+ "IT0005430936": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "eVISO S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EVISO.MI"
+ },
+ "IT0005440893": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Wiit S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "WIIT.MI"
+ },
+ "IT0005451213": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Helyx Industries S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HLX.MI"
+ },
+ "IT0005453250": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "EL.En. S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ELN.MI"
+ },
+ "IT0005455875": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Intercos S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ICOS.MI"
+ },
+ "IT0005461303": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Allcore S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CORE.MI"
+ },
+ "IT0005466294": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ABC Company S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ABC.MI"
+ },
+ "IT0005466963": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Racing Force S.P.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RFG.MI"
+ },
+ "IT0005468357": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Datrix S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DATA.MI"
+ },
+ "IT0005487670": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Farmacosmo S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COSMO.MI"
+ },
+ "IT0005495657": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Saipem SpA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SPM.MI"
+ },
+ "IT0005496101": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Redelfi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RDF.MI"
+ },
+ "IT0005497885": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Laboratorio Farmaceutico Erfo S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ERFO.MI"
+ },
+ "IT0005526295": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Rigsave S.P.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "H68.DE"
+ },
+ "IT0005528937": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Deodato.Gallery S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ART.MI"
+ },
+ "IT0005532483": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cube Labs S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CUBE.MI"
+ },
+ "IT0005532525": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Valtecne S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VLT.MI"
+ },
+ "IT0005541336": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lottomatica Group S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LTMC.MI"
+ },
+ "IT0005543480": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Dexelance S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DEX.MI"
+ },
+ "IT0005549354": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "RedFish LongTerm Capital S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RFLTC.MI"
+ },
+ "IT0005562514": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Valica S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VLC.MI"
+ },
+ "IT0005568461": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sbe - Varvit - Societa' Per Azioni",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VARV.MI"
+ },
+ "IT0005573438": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lemon Sistemi S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LS.MI"
+ },
+ "IT0005595423": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SYS-DAT S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SYS.MI"
+ },
+ "IT0005599862": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "IT0005599938": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fincantieri S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FCT.MI"
+ },
+ "IT0005610958": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "doValue S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DOV.MI"
+ },
+ "IT0005628778": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Haiki+ S.p.a",
+  "resolvedAt": "2026-10-07",
+  "ticker": "HIK.MI"
+ },
+ "IT0005680373": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "RT&L S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RTL.MI"
+ },
+ "IT0005703761": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "IT0005707341": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Kruso Kapital S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "KK.MI"
+ },
+ "IT0005707747": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "IT0005710469": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": null,
+  "resolvedAt": "2026-10-07",
+  "ticker": "IT0005710469.SG"
+ },
+ "IT0005712671": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Telecom Italia S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TIT.MI"
+ },
+ "IT0005713232": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gens Aurea S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "OROX.MI"
+ },
+ "IT0005722191": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Giunti Psychometrics Holding S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GPSY.MI"
+ },
+ "LU0307018795": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SAF-Holland SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SFQ.DE"
+ },
+ "LU1048328220": {
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "eDreams ODIGEO S.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "EDR.MC"
+ },
+ "LU2358378979": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "AnchorCore SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LRND.DE"
+ },
+ "MC0000031187": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Société Anonyme des Bains de Mer et du Cercle des Étrangers à Monaco",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BAIN.PA"
+ },
+ "NL0013995087": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Cementir Holding N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CEM.MI"
+ },
+ "NL0015001KT6": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Brembo N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BRE.MI"
+ },
+ "US00486H1059": {
+  "exchange": "NASDAQ",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ADTRAN Holdings, Inc.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ADTN"
+ },
+ "US2220702037": {
+  "exchange": "NYSE",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Coty Inc.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COTY"
+ },
+ "XS2799786848": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "XS3079581479": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": null,
+  "resolvedAt": "2026-10-07",
+  "ticker": "XS3079581479.SG"
+ },
+ "XS3298382931": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": null,
+  "resolvedAt": "2026-10-07",
+  "ticker": "XS3298382931.SG"
+ },
+ "XS3298383319": {
+  "exchange": "Stuttgart",
+  "method": "recherche Yahoo par ISIN",
+  "name": null,
+  "resolvedAt": "2026-10-07",
+  "ticker": "XS3298383319.SG"
+ }
+}

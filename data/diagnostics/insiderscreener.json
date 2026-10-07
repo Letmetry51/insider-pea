@@ -1,0 +1,1046 @@
+{
+ "at": "2026-10-07T20:36:45.795948+00:00",
+ "markets": {
+  "DE": {
+   "from": "2026-06-09",
+   "samples": [
+    {
+     "object": "insider_transaction",
+     "schema_version": "2026-04-01",
+     "id": "txn_10456602",
+     "links": {
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_10456602/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/friedrich-vorwerk-group-se/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/friedrich-vorwerk-group-se/transactions/"
+     },
+     "source": {
+      "country": "DE",
+      "filing_reference": null,
+      "declaration_reference": null,
+      "submission_type": null,
+      "filed_at": "2026-06-09T11:25:47.766615",
+      "notification_date": "2026-06-09",
+      "notification_type": "INITIAL",
+      "is_amendment": false,
+      "amends_filing_reference": null,
+      "latest_amendment_filing_reference": null,
+      "status": "CURRENT"
+     },
+     "issuer": {
+      "id": "iss_30694",
+      "name": "Friedrich Vorwerk Group SE",
+      "slug": "friedrich-vorwerk-group-se",
+      "ticker": "VH2",
+      "exchange": "GER",
+      "exchange_mic": "XETR",
+      "country": "DE",
+      "isin": "DE000A255F11",
+      "cik": null,
+      "lei": "529900NBM89YAM5ENI18",
+      "permid": 5079241735,
+      "links": {
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/friedrich-vorwerk-group-se/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/friedrich-vorwerk-group-se/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/friedrich-vorwerk-group-se/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/friedrich-vorwerk-group-se/"
+      }
+     },
+     "reporting_person": {
+      "id": null,
+      "name": "MBB Capital Management GmbH",
+      "name_locale": null,
+      "display_name": "MBB Capital Management GmbH",
+      "effective_name": "MBB CAPITAL MANAGEMENT GMBH",
+      "cik": null,
+      "pdmr_name": null,
+      "pdmr_name_locale": null,
+      "cap_name": "MBB Capital Management GmbH",
+      "closely_affiliated_name": null,
+      "relationship_flags": {
+       "is_officer": null,
+       "is_director": null,
+       "is_major_owner": null,
+       "is_director_or_officer_of_major_owner": null,
+       "is_director_or_officer_of_subsidiary": null,
+       "is_closely_affiliated": true
+      },
+      "position": {
+       "raw": null,
+       "locale": null,
+       "display": null,
+       "normalized": null
+      },
+      "entity_match": {
+       "identified_person_id": null,
+       "match_status": null
+      }
+     },
+     "security": {
+      "id": "sec_26454",
+      "ticker": "VH2",
+      "isin": "DE000A255F11",
+      "trading_place": "DE",
+      "issuer": {
+       "id": "iss_30694",
+       "name": "Friedrich Vorwerk Group SE",
+       "slug": "friedrich-vorwerk-group-se",
+       "ticker": "VH2",
+       "exchange": "GER",
+       "exchange_mic": "XETR",
+       "country": "DE",
+       "isin": "DE000A255F11",
+       "cik": null,
+       "lei": "529900NBM89YAM5ENI18",
+       "permid": 5079241735,
+       "links": {
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/friedrich-vorwerk-group-se/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/friedrich-vorwerk-group-se/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/friedrich-vorwerk-group-se/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/friedrich-vorwerk-group-se/"
+       }
+      }
+     },
+     "transaction": {
+      "execution_date": "2026-06-02",
+      "activation_date": "09/06/2026 13:06:55",
+      "classification": {
+       "normalized_operation": "BUY",
+       "nature_raw": null
+      },
+      "price": {
+       "amount": "62.120000",
+       "currency": "EUR"
+      },
+      "quantity": {
+       "amount": "5138.3451"
+      },
+      "gross_value": {
+       "amount": "319194.00",
+       "currency": "EUR"
+      },
+      "gross_value_usd": {
+       "amount": "371063.03"
+      },
+      "holdings_before": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "holdings_after": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "delta": {
+       "quantity": null
+      },
+      "market_context": {
+       "at_market_price": true
+      }
+     },
+     "analytics": {
+      "momentum": null,
+      "buy_signal_id": 31484,
+      "returns_after_trade": {
+       "d30": "0.1011",
+       "d90": "0.2540",
+       "d120": "0.0303"
+      },
+      "success_flags": {
+       "d30": true,
+       "d90": true,
+       "d120": true
+      }
+     },
+     "raw": {
+      "comments": null,
+      "amendment_remarks": null,
+      "extra_data": {
+       "ISIN": "DE000A255F11",
+       "BaFin-ID": "40031364",
+       "﻿Issuer": "Friedrich Vorwerk Group SE",
+       "Averrage price": "62,12 EUR",
+       "Aggregated volume": "319.194,00 EUR",
+       "Position / status": "Closely associated",
+       "Typ of instrument": "Share",
+       "Date of activation": "09/06/2026 13:06:55",
+       "Date of transaction": "02/06/2026",
+       "Date of notification": "09/06/2026",
+       "Place of transaction": "XETRA",
+       "Nature of transaction": "Buy",
+       "Parties subject to the notification requirement": "MBB Capital Management GmbH"
+      }
+     }
+    },
+    {
+     "object": "insider_transaction",
+     "schema_version": "2026-04-01",
+     "id": "txn_10475887",
+     "links": {
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_10475887/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/stock3-ag/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/stock3-ag/transactions/"
+     },
+     "source": {
+      "country": "DE",
+      "filing_reference": null,
+      "declaration_reference": null,
+      "submission_type": null,
+      "filed_at": "2026-06-17T09:31:02.571941",
+      "notification_date": "2026-06-09",
+      "notification_type": "INITIAL",
+      "is_amendment": false,
+      "amends_filing_reference": null,
+      "latest_amendment_filing_reference": null,
+      "status": "CURRENT"
+     },
+     "issuer": {
+      "id": "iss_54769",
+      "name": "Stock3 AG",
+      "slug": "stock3-ag",
+      "ticker": "BOG",
+      "exchange": "GER",
+      "exchange_mic": "XETR",
+      "country": "DE",
+      "isin": "DE000A0S9QZ8",
+      "cik": null,
+      "lei": "391200FH62BW0JCHV759",
+      "permid": 5001256735,
+      "links": {
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/stock3-ag/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/stock3-ag/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/stock3-ag/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/stock3-ag/"
+      }
+     },
+     "reporting_person": {
+      "id": "per_174588",
+      "name": "Abend, Robert",
+      "name_locale": null,
+      "display_name": "Abend, Robert",
+      "effective_name": "ABEND ROBERT",
+      "cik": null,
+      "pdmr_name": "Abend, Robert",
+      "pdmr_name_locale": null,
+      "cap_name": null,
+      "closely_affiliated_name": null,
+      "relationship_flags": {
+       "is_officer": null,
+       "is_director": null,
+       "is_major_owner": null,
+       "is_director_or_officer_of_major_owner": null,
+       "is_director_or_officer_of_subsidiary": null,
+       "is_closely_affiliated": false
+      },
+      "position": {
+       "raw": null,
+       "locale": null,
+       "display": null,
+       "normalized": "Management Board Member"
+      },
+      "entity_match": {
+       "identified_person_id": "per_174588",
+       "match_status": "MATCHED"
+      }
+     },
+     "security": {
+      "id": "sec_56112",
+      "ticker": "BOG",
+      "isin": "DE000A0S9QZ8",
+      "trading_place": "DE",
+      "issuer": {
+       "id": "iss_54769",
+       "name": "Stock3 AG",
+       "slug": "stock3-ag",
+       "ticker": "BOG",
+       "exchange": "GER",
+       "exchange_mic": "XETR",
+       "country": "DE",
+       "isin": "DE000A0S9QZ8",
+       "cik": null,
+       "lei": "391200FH62BW0JCHV759",
+       "permid": 5001256735,
+       "links": {
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/stock3-ag/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/stock3-ag/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/stock3-ag/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/stock3-ag/"
+       }
+      }
+     },
+     "transaction": {
+      "execution_date": "2026-06-02",
+      "activation_date": "17/06/2026 10:32:18",
+      "classification": {
+       "normalized_operation": "BUY",
+       "nature_raw": null
+      },
+      "price": {
+       "amount": "29.200000",
+       "currency": "EUR"
+      },
+      "quantity": {
+       "amount": "50.0000"
+      },
+      "gross_value": {
+       "amount": "1460.00",
+       "currency": "EUR"
+      },
+      "gross_value_usd": {
+       "amount": "1697.25"
+      },
+      "holdings_before": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "holdings_after": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "delta": {
+       "quantity": null
+      },
+      "market_context": {
+       "at_market_price": true
+      }
+     },
+     "analytics": {
+      "momentum": null,
+      "buy_signal_id": null,
+      "returns_after_trade": {
+       "d30": "-0.0068",
+       "d90": "0.0068",
+       "d120": "0.1096"
+      },
+      "success_flags": {
+       "d30": false,
+       "d90": true,
+       "d120": true
+      }
+     },
+     "raw": {
+      "comments": null,
+      "amendment_remarks": null,
+      "extra_data": {
+       "ISIN": "DE000A0S9QZ8",
+       "BaFin-ID": "33000006",
+       "﻿Issuer": "stock3 AG",
+       "Averrage price": "29,20 EUR",
+       "Aggregated volume": "1.460,00 EUR",
+       "Position / status": "Management Board",
+       "Typ of instrument": "Share",
+       "Date of activation": "17/06/2026 10:32:18",
+       "Date of transaction": "02/06/2026",
+       "Date of notification": "09/06/2026",
+       "Place of transaction": "Xetra",
+       "Nature of transaction": "Buy",
+       "Parties subject to the notification requirement": "Abend, Robert"
+      }
+     }
+    }
+   ],
+   "pages": 7,
+   "rows": 613,
+   "complete": true,
+   "error": null
+  },
+  "ES": {
+   "from": "2026-06-09",
+   "samples": [
+    {
+     "object": "insider_transaction",
+     "schema_version": "2026-04-01",
+     "id": "txn_10458814",
+     "links": {
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_10458814/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/tsk-electronica-y-electricidad-sa/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/tsk-electronica-y-electricidad-sa/transactions/"
+     },
+     "source": {
+      "country": "ES",
+      "filing_reference": "2026079838-1",
+      "declaration_reference": "2026079838",
+      "submission_type": null,
+      "filed_at": "2026-06-10T12:04:42.339153",
+      "notification_date": "2026-06-09",
+      "notification_type": "INITIAL",
+      "is_amendment": false,
+      "amends_filing_reference": null,
+      "latest_amendment_filing_reference": null,
+      "status": "CURRENT"
+     },
+     "issuer": {
+      "id": "iss_55321",
+      "name": "TSK ELECTRONICA Y ELECTRICIDAD, S.A.",
+      "slug": "tsk-electronica-y-electricidad-sa",
+      "ticker": null,
+      "exchange": null,
+      "exchange_mic": null,
+      "country": "ES",
+      "isin": "ES0105394003",
+      "cik": null,
+      "lei": "95980020140005885167",
+      "permid": null,
+      "links": {
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/tsk-electronica-y-electricidad-sa/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/tsk-electronica-y-electricidad-sa/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/tsk-electronica-y-electricidad-sa/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/tsk-electronica-y-electricidad-sa/"
+      }
+     },
+     "reporting_person": {
+      "id": "per_181846",
+      "name": "Francisco Luciano González Antuña",
+      "name_locale": null,
+      "display_name": "Francisco Luciano González Antuña",
+      "effective_name": "FRANCISCO LUCIANO GONZALEZ ANTUNA",
+      "cik": null,
+      "pdmr_name": "FRANCISCO LUCIANO GONZALEZ ANTUÑA",
+      "pdmr_name_locale": null,
+      "cap_name": null,
+      "closely_affiliated_name": null,
+      "relationship_flags": {
+       "is_officer": null,
+       "is_director": null,
+       "is_major_owner": null,
+       "is_director_or_officer_of_major_owner": null,
+       "is_director_or_officer_of_subsidiary": null,
+       "is_closely_affiliated": false
+      },
+      "position": {
+       "raw": "CFO",
+       "locale": null,
+       "display": "CFO",
+       "normalized": null
+      },
+      "entity_match": {
+       "identified_person_id": "per_181846",
+       "match_status": "MATCHED"
+      }
+     },
+     "security": {
+      "id": "sec_56739",
+      "ticker": "",
+      "isin": "ES0105394003",
+      "trading_place": "ES",
+      "issuer": {
+       "id": "iss_55321",
+       "name": "TSK ELECTRONICA Y ELECTRICIDAD, S.A.",
+       "slug": "tsk-electronica-y-electricidad-sa",
+       "ticker": null,
+       "exchange": null,
+       "exchange_mic": null,
+       "country": "ES",
+       "isin": "ES0105394003",
+       "cik": null,
+       "lei": "95980020140005885167",
+       "permid": null,
+       "links": {
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/tsk-electronica-y-electricidad-sa/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/tsk-electronica-y-electricidad-sa/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/tsk-electronica-y-electricidad-sa/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/tsk-electronica-y-electricidad-sa/"
+       }
+      }
+     },
+     "transaction": {
+      "execution_date": "2026-05-13",
+      "activation_date": null,
+      "classification": {
+       "normalized_operation": "BUY",
+       "nature_raw": null
+      },
+      "price": {
+       "amount": "5.310000",
+       "currency": "EUR"
+      },
+      "quantity": {
+       "amount": "353.0000"
+      },
+      "gross_value": {
+       "amount": "1874.43",
+       "currency": "EUR"
+      },
+      "gross_value_usd": {
+       "amount": "2199.46"
+      },
+      "holdings_before": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "holdings_after": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "delta": {
+       "quantity": null
+      },
+      "market_context": {
+       "at_market_price": null
+      }
+     },
+     "analytics": {
+      "momentum": null,
+      "buy_signal_id": null,
+      "returns_after_trade": {
+       "d30": null,
+       "d90": null,
+       "d120": null
+      },
+      "success_flags": {
+       "d30": null,
+       "d90": null,
+       "d120": null
+      }
+     },
+     "raw": {
+      "comments": "la operacion realizada con fecha 05/06/2026 se refiere a la entrega de acciones como beneficiario de la RemuneraciónExtraordinaria de la Oferta (Offering Extraordinary Remuneration) descrita en el folleto de admisión a negociación y de ofertade suscripción de acciones de TSK Electrónica y Electricidad, S.A. registrado en la Comisión Nacional del Mercado de Valores el5 de mayo de 2026.",
+      "amendment_remarks": null,
+      "extra_data": null
+     }
+    },
+    {
+     "object": "insider_transaction",
+     "schema_version": "2026-04-01",
+     "id": "txn_10456621",
+     "links": {
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_10456621/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/miquel-y-costas-miquel-sa/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/miquel-y-costas-miquel-sa/transactions/"
+     },
+     "source": {
+      "country": "ES",
+      "filing_reference": "2026079732-1",
+      "declaration_reference": "2026079732",
+      "submission_type": null,
+      "filed_at": "2026-06-09T12:04:55.741394",
+      "notification_date": "2026-06-09",
+      "notification_type": "INITIAL",
+      "is_amendment": false,
+      "amends_filing_reference": null,
+      "latest_amendment_filing_reference": null,
+      "status": "CURRENT"
+     },
+     "issuer": {
+      "id": "iss_834",
+      "name": "Miquel y Costas & Miquel SA",
+      "slug": "miquel-y-costas-miquel-sa",
+      "ticker": "MCM",
+      "exchange": "MCE",
+      "exchange_mic": "XMCE",
+      "country": "ES",
+      "isin": "ES0164180012",
+      "cik": null,
+      "lei": "95980020140005204809",
+      "permid": 4295889488,
+      "links": {
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/miquel-y-costas-miquel-sa/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/miquel-y-costas-miquel-sa/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/miquel-y-costas-miquel-sa/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/miquel-y-costas-miquel-sa/"
+      }
+     },
+     "reporting_person": {
+      "id": "per_159799",
+      "name": "D. Jorge Mercader Barata",
+      "name_locale": null,
+      "display_name": "D. Jorge Mercader Barata",
+      "effective_name": "D JORGE MERCADER MIRO Y D JORGE MERCADER BARATA SON CONSEJEROS DEL EMISOR",
+      "cik": null,
+      "pdmr_name": "D. Jorge Mercader Miró y D. Jorge Mercader Barata son Consejeros del Emisor",
+      "pdmr_name_locale": null,
+      "cap_name": "HACIA S.A.",
+      "closely_affiliated_name": "D. Jorge Mercader Miró y D. Jorge Mercader Barata son Consejeros del Emisor",
+      "relationship_flags": {
+       "is_officer": null,
+       "is_director": null,
+       "is_major_owner": null,
+       "is_director_or_officer_of_major_owner": null,
+       "is_director_or_officer_of_subsidiary": null,
+       "is_closely_affiliated": true
+      },
+      "position": {
+       "raw": null,
+       "locale": null,
+       "display": null,
+       "normalized": "Director"
+      },
+      "entity_match": {
+       "identified_person_id": "per_159799",
+       "match_status": "MATCHED"
+      }
+     },
+     "security": {
+      "id": "sec_834",
+      "ticker": "MCM.MC",
+      "isin": "ES0164180012",
+      "trading_place": "ES",
+      "issuer": {
+       "id": "iss_834",
+       "name": "Miquel y Costas & Miquel SA",
+       "slug": "miquel-y-costas-miquel-sa",
+       "ticker": "MCM",
+       "exchange": "MCE",
+       "exchange_mic": "XMCE",
+       "country": "ES",
+       "isin": "ES0164180012",
+       "cik": null,
+       "lei": "95980020140005204809",
+       "permid": 4295889488,
+       "links": {
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/miquel-y-costas-miquel-sa/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/miquel-y-costas-miquel-sa/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/miquel-y-costas-miquel-sa/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/miquel-y-costas-miquel-sa/"
+       }
+      }
+     },
+     "transaction": {
+      "execution_date": "2026-06-05",
+      "activation_date": null,
+      "classification": {
+       "normalized_operation": "BUY",
+       "nature_raw": null
+      },
+      "price": {
+       "amount": "13.700000",
+       "currency": "EUR"
+      },
+      "quantity": {
+       "amount": "823.0000"
+      },
+      "gross_value": {
+       "amount": "11275.10",
+       "currency": "EUR"
+      },
+      "gross_value_usd": {
+       "amount": "13074.61"
+      },
+      "holdings_before": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "holdings_after": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "delta": {
+       "quantity": null
+      },
+      "market_context": {
+       "at_market_price": true
+      }
+     },
+     "analytics": {
+      "momentum": null,
+      "buy_signal_id": null,
+      "returns_after_trade": {
+       "d30": "0.0219",
+       "d90": "-0.0212",
+       "d120": "-0.0252"
+      },
+      "success_flags": {
+       "d30": true,
+       "d90": false,
+       "d120": false
+      }
+     },
+     "raw": {
+      "comments": "HACIA S.A. es una sociedad controlada por D. Jorge Mercader Miró, en la que es Consejero y Presidente, y en la que D. JorgeMercader Barata desempeña el cargo de Consejero.",
+      "amendment_remarks": null,
+      "extra_data": null
+     }
+    }
+   ],
+   "pages": 8,
+   "rows": 704,
+   "complete": true,
+   "error": null
+  },
+  "IT": {
+   "from": "2026-06-09",
+   "samples": [
+    {
+     "object": "insider_transaction",
+     "schema_version": "2026-04-01",
+     "id": "txn_11324267",
+     "links": {
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11324267/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/transactions/"
+     },
+     "source": {
+      "country": "IT",
+      "filing_reference": "IT-2026-29912-1",
+      "declaration_reference": "IT-2026-29912",
+      "submission_type": null,
+      "filed_at": "2026-09-30T23:36:44.203138",
+      "notification_date": "2026-06-09",
+      "notification_type": "Nuova notifica.",
+      "is_amendment": false,
+      "amends_filing_reference": null,
+      "latest_amendment_filing_reference": null,
+      "status": "CURRENT"
+     },
+     "issuer": {
+      "id": "iss_29880",
+      "name": "DiaSorin SpA",
+      "slug": "diasorin-spa",
+      "ticker": "DIA",
+      "exchange": "MIL",
+      "exchange_mic": "XMIL",
+      "country": "IT",
+      "isin": "IT0003492391",
+      "cik": null,
+      "lei": "8156002878BDF0EE4348",
+      "permid": 4295875832,
+      "links": {
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/diasorin-spa/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/diasorin-spa/"
+      }
+     },
+     "reporting_person": {
+      "id": "per_69424",
+      "name": "Albert DuPont",
+      "name_locale": null,
+      "display_name": "Albert DuPont",
+      "effective_name": "ALBERTO DONATI",
+      "cik": null,
+      "pdmr_name": "Alberto Donati",
+      "pdmr_name_locale": null,
+      "cap_name": null,
+      "closely_affiliated_name": null,
+      "relationship_flags": {
+       "is_officer": true,
+       "is_director": null,
+       "is_major_owner": null,
+       "is_director_or_officer_of_major_owner": null,
+       "is_director_or_officer_of_subsidiary": null,
+       "is_closely_affiliated": false
+      },
+      "position": {
+       "raw": "Dirigente con Responsabilità Strategiche",
+       "locale": null,
+       "display": "Dirigente con Responsabilità Strategiche",
+       "normalized": "Officer"
+      },
+      "entity_match": {
+       "identified_person_id": "per_69424",
+       "match_status": "MATCHED"
+      }
+     },
+     "security": {
+      "id": "sec_25611",
+      "ticker": "DIA",
+      "isin": "IT0003492391",
+      "trading_place": "IT",
+      "issuer": {
+       "id": "iss_29880",
+       "name": "DiaSorin SpA",
+       "slug": "diasorin-spa",
+       "ticker": "DIA",
+       "exchange": "MIL",
+       "exchange_mic": "XMIL",
+       "country": "IT",
+       "isin": "IT0003492391",
+       "cik": null,
+       "lei": "8156002878BDF0EE4348",
+       "permid": 4295875832,
+       "links": {
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/diasorin-spa/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/diasorin-spa/"
+       }
+      }
+     },
+     "transaction": {
+      "execution_date": "2026-06-04",
+      "activation_date": null,
+      "classification": {
+       "normalized_operation": "OO",
+       "nature_raw": "Altro / Other - ATTRIBUZIONE GRATUITA DI AZIONI ORDINARIE MATURATE AI SENSI DEI PIANI DI INCENTIVAZIONE \"EQUITY AWARDS PLAN 2022\" E \"EQUITY AWARDS PLAN 2025-2028\""
+      },
+      "price": {
+       "amount": "0.000000",
+       "currency": "EUR"
+      },
+      "quantity": {
+       "amount": "861.0000"
+      },
+      "gross_value": {
+       "amount": "0.00",
+       "currency": "EUR"
+      },
+      "gross_value_usd": {
+       "amount": "0.00"
+      },
+      "holdings_before": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "holdings_after": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "delta": {
+       "quantity": null
+      },
+      "market_context": {
+       "at_market_price": null
+      }
+     },
+     "analytics": {
+      "momentum": null,
+      "buy_signal_id": null,
+      "returns_after_trade": {
+       "d30": null,
+       "d90": null,
+       "d120": null
+      },
+      "success_flags": {
+       "d30": null,
+       "d90": null,
+       "d120": null
+      }
+     },
+     "raw": {
+      "comments": null,
+      "amendment_remarks": null,
+      "extra_data": {
+       "it_ingestion": {
+        "operation": 1,
+        "source_id": "IT-2026-29912",
+        "reported_price": 0,
+        "operation_count": 2,
+        "reported_volume": 861,
+        "reported_price_type": "average_price",
+        "reported_volume_type": "quantity",
+        "instrument_identification": "IT0003492391",
+        "source_confirms_zero_price": true,
+        "instrument_identification_type": "ISIN"
+       },
+       "transaction_verification": {
+        "audit": {
+         "provider": "local"
+        },
+        "checks": {},
+        "issues": [],
+        "status": "PASS",
+        "policy_version": "it-local-source-v1",
+        "evidence_sha256": "ec58790520986f7970d043dc0ccbc168c75d0ebc6c14921b6cfe417c5a66feaf",
+        "candidate_sha256": "84c409a8993e83a0725e4d942a6a9cbbd478ab6fcf406c4b9fa74998b7265d93"
+       }
+      }
+     }
+    },
+    {
+     "object": "insider_transaction",
+     "schema_version": "2026-04-01",
+     "id": "txn_11324268",
+     "links": {
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11324268/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/transactions/"
+     },
+     "source": {
+      "country": "IT",
+      "filing_reference": "IT-2026-29912-2",
+      "declaration_reference": "IT-2026-29912",
+      "submission_type": null,
+      "filed_at": "2026-09-30T23:36:44.228300",
+      "notification_date": "2026-06-09",
+      "notification_type": "Nuova notifica.",
+      "is_amendment": false,
+      "amends_filing_reference": null,
+      "latest_amendment_filing_reference": null,
+      "status": "CURRENT"
+     },
+     "issuer": {
+      "id": "iss_29880",
+      "name": "DiaSorin SpA",
+      "slug": "diasorin-spa",
+      "ticker": "DIA",
+      "exchange": "MIL",
+      "exchange_mic": "XMIL",
+      "country": "IT",
+      "isin": "IT0003492391",
+      "cik": null,
+      "lei": "8156002878BDF0EE4348",
+      "permid": 4295875832,
+      "links": {
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/diasorin-spa/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/diasorin-spa/"
+      }
+     },
+     "reporting_person": {
+      "id": "per_69424",
+      "name": "Albert DuPont",
+      "name_locale": null,
+      "display_name": "Albert DuPont",
+      "effective_name": "ALBERTO DONATI",
+      "cik": null,
+      "pdmr_name": "Alberto Donati",
+      "pdmr_name_locale": null,
+      "cap_name": null,
+      "closely_affiliated_name": null,
+      "relationship_flags": {
+       "is_officer": true,
+       "is_director": null,
+       "is_major_owner": null,
+       "is_director_or_officer_of_major_owner": null,
+       "is_director_or_officer_of_subsidiary": null,
+       "is_closely_affiliated": false
+      },
+      "position": {
+       "raw": "Dirigente con Responsabilità Strategiche",
+       "locale": null,
+       "display": "Dirigente con Responsabilità Strategiche",
+       "normalized": "Officer"
+      },
+      "entity_match": {
+       "identified_person_id": "per_69424",
+       "match_status": "MATCHED"
+      }
+     },
+     "security": {
+      "id": "sec_25611",
+      "ticker": "DIA",
+      "isin": "IT0003492391",
+      "trading_place": "IT",
+      "issuer": {
+       "id": "iss_29880",
+       "name": "DiaSorin SpA",
+       "slug": "diasorin-spa",
+       "ticker": "DIA",
+       "exchange": "MIL",
+       "exchange_mic": "XMIL",
+       "country": "IT",
+       "isin": "IT0003492391",
+       "cik": null,
+       "lei": "8156002878BDF0EE4348",
+       "permid": 4295875832,
+       "links": {
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/diasorin-spa/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/diasorin-spa/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/diasorin-spa/"
+       }
+      }
+     },
+     "transaction": {
+      "execution_date": "2026-06-04",
+      "activation_date": null,
+      "classification": {
+       "normalized_operation": "SELL",
+       "nature_raw": "Altro / Other - VENDITA AZIONI ORDINARIE ATTRIBUITE, A TITOLO GRATUITO, NELL’AMBITO DEL PIANO DI INCENTIVAZIONE \"EQUITY AWARDS PLAN 2022\" E \"EQUITY AWARDS PLAN 2025-2028\" A COPERTURA DEGLI ONERI FISCALI (\"SELL-TO-COVER\")."
+      },
+      "price": {
+       "amount": "68.911400",
+       "currency": "EUR"
+      },
+      "quantity": {
+       "amount": "406.0000"
+      },
+      "gross_value": {
+       "amount": "27978.03",
+       "currency": "EUR"
+      },
+      "gross_value_usd": {
+       "amount": "32443.32"
+      },
+      "holdings_before": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "holdings_after": {
+       "quantity": null,
+       "ownership_pct": null
+      },
+      "delta": {
+       "quantity": null
+      },
+      "market_context": {
+       "at_market_price": true
+      }
+     },
+     "analytics": {
+      "momentum": null,
+      "buy_signal_id": null,
+      "returns_after_trade": {
+       "d30": "0.0181",
+       "d90": "0.1084",
+       "d120": "0.0869"
+      },
+      "success_flags": {
+       "d30": false,
+       "d90": false,
+       "d120": false
+      }
+     },
+     "raw": {
+      "comments": null,
+      "amendment_remarks": null,
+      "extra_data": {
+       "it_ingestion": {
+        "operation": 2,
+        "source_id": "IT-2026-29912",
+        "reported_price": 68.9114,
+        "operation_count": 2,
+        "reported_volume": 406,
+        "reported_price_type": "average_price",
+        "reported_volume_type": "quantity",
+        "instrument_identification": "IT0003492391",
+        "source_confirms_zero_price": false,
+        "instrument_identification_type": "ISIN"
+       },
+       "transaction_verification": {
+        "audit": {
+         "provider": "local"
+        },
+        "checks": {},
+        "issues": [],
+        "status": "PASS",
+        "policy_version": "it-local-source-v1",
+        "evidence_sha256": "ec58790520986f7970d043dc0ccbc168c75d0ebc6c14921b6cfe417c5a66feaf",
+        "candidate_sha256": "980f63957d7f9ae6586e761efc5b3247e9582890b4b30fc2af595d760e2b4703"
+       }
+      }
+     }
+    }
+   ],
+   "stoppedBy": "plafond de crédits par soir atteint",
+   "pages": 9,
+   "rows": 900,
+   "complete": false,
+   "error": null
+  },
+  "BE": {
+   "from": "2026-06-09",
+   "samples": [],
+   "stoppedBy": "plafond de crédits par soir atteint",
+   "pages": 0,
+   "rows": 0,
+   "complete": false,
+   "error": null,
+   "backupFor": "FSMA"
+  },
+  "NL": {
+   "from": "2026-06-09",
+   "samples": [],
+   "stoppedBy": "plafond de crédits par soir atteint",
+   "pages": 0,
+   "rows": 0,
+   "complete": false,
+   "error": null,
+   "backupFor": "AFM"
+  }
+ },
+ "credits": {
+  "thisRun": 120,
+  "thisMonth": 120,
+  "monthlyBudget": 900
+ }
+}
