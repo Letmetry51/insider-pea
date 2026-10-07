@@ -157,7 +157,15 @@ def fsma_parse_detail(html):
             head.setdefault(lab, val)
     if cur:
         txs.append(cur)
-    return head, txs
+    # Bloc résiduel sans ISIN ni date (champ isolé en bas de fiche) : rattaché à la transaction précédente
+    merged = []
+    for tx in txs:
+        if merged and not tx.get("Instrument ISIN Code") and not tx.get("Transaction Date"):
+            for k, v in tx.items():
+                merged[-1].setdefault(k, v)
+            continue
+        merged.append(tx)
+    return head, merged
 
 
 def fsma_list(polite, since):
@@ -349,8 +357,10 @@ def afm_collect(st):
             st["records"][f"AFM:{rec['id']}"] = rec
             kept += 1
         complete = all(f in colmap for f in ("isin", "nature", "txDate"))
+        thin = "isin" not in colmap and "price" not in colmap and len(headers) <= 6
         src.update({"status": "ok" if complete else "partiel", "rows": d["rowCount"], "kept": kept,
-                    "note": None if complete else "export sans ISIN, nature ou date reconnue : format à adapter (voir data/diagnostics/afm.json)"})
+                    "note": None if complete else ("l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : relevé complété via Insider Screener"
+                                                    if thin else "export sans ISIN, nature ou date reconnue : format à adapter (voir data/diagnostics/afm.json)")})
         src["lastSuccess"] = date.today().isoformat() if complete else src.get("lastSuccess")
         print(f"AFM : {d['rowCount']} lignes, {kept} dans la fenêtre, colonnes reconnues : {sorted(colmap)}")
     except Exception as e:

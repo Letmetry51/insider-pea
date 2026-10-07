@@ -43,7 +43,8 @@ MARKETS = {"DE": ("BaFin", "Allemagne"), "ES": ("CNMV", "Espagne"), "IT": ("CONS
 # Marchés en secours : interrogés seulement si la collecte directe du soir n'est pas complète
 BACKUP = {"BE": ("FSMA", "Belgique"), "NL": ("AFM", "Pays-Bas")}
 BACKFILL_DAYS = 120
-MAX_CREDITS_PER_RUN = 120      # ≈ 24 pages de 100 lignes ; le rattrapage initial se répartit sur quelques soirs
+MAX_CREDITS_PER_RUN = 150      # ≈ 30 pages de 100 lignes ; le rattrapage initial se répartit sur quelques soirs
+MAX_CREDITS_PER_MARKET = 50    # un rattrapage long (Italie) ne doit pas priver les autres marchés, ni le secours Pays-Bas
 MONTHLY_BUDGET = 900           # garde-fou sous les 1 000 crédits mensuels de l'offre Starter
 CREDITS_PER_PAGE = 5
 
@@ -173,20 +174,28 @@ class Budget:
         self.run = 0
         self.st = st
 
+    def start_market(self):
+        self.market = 0
+
     def can_spend(self):
-        return self.run + CREDITS_PER_PAGE <= MAX_CREDITS_PER_RUN and self.used_month + CREDITS_PER_PAGE <= MONTHLY_BUDGET
+        return (self.run + CREDITS_PER_PAGE <= MAX_CREDITS_PER_RUN and self.used_month + CREDITS_PER_PAGE <= MONTHLY_BUDGET
+                and getattr(self, "market", 0) + CREDITS_PER_PAGE <= MAX_CREDITS_PER_MARKET)
 
     def spend(self):
+        self.market = getattr(self, "market", 0) + CREDITS_PER_PAGE
         self.run += CREDITS_PER_PAGE
         self.used_month += CREDITS_PER_PAGE
         self.st["isUsage"] = {self.month: self.used_month}  # seul le mois en cours est gardé
 
     def reason(self):
-        return "budget mensuel de crédits atteint" if self.used_month + CREDITS_PER_PAGE > MONTHLY_BUDGET else "plafond de crédits par soir atteint"
+        if self.used_month + CREDITS_PER_PAGE > MONTHLY_BUDGET:
+            return "budget mensuel de crédits atteint"
+        return "plafond de crédits par soir atteint"
 
 
 def fetch_market(m, registry, via, st, headers, budget, today):
     """Collecte incrémentale d'un marché. Retourne (lignes, complet, erreur, diagnostic)."""
+    budget.start_market()
     since = st["cursors"].get(m)
     since = (date.fromisoformat(since) - timedelta(days=3)) if since else today - timedelta(days=BACKFILL_DAYS)
     url = API
