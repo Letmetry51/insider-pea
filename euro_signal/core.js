@@ -1019,6 +1019,7 @@
   /* =============== Collecteurs européens (format commun) =============== */
   var SHARE_WORDS = /^(action|actions|share|shares|ordinary shares?|aandeel|aandelen|gewone aandelen|aktie|aktien|azione|azioni|azioni ordinarie|accion|acciones|equity)$/;
   /** Déclaration issue d'un collecteur de registre (FSMA, AFM…). Valeurs brutes en texte, parsées ici. */
+  var NON_VOLUNTARY = /\b(free (allocation|shares?|grant)|gratuit|gratis|gratuito|grant(ed)?|awards?|vesting|vested|attribu(tion|zione)|assegnazione|toekenning|zuteilung|sell[- ]to[- ]cover|incentive plan|piano di incentivazione|plan de incentivos|stock option|exercise of options?)\b/i;
   ES.fromCollectorRecord = function (r, opts) {
     var errors = [], warnings = [], today = opts.today, loc = r.numberLocale || 'auto';
     var isin = String(r.isin || '').trim().toUpperCase().replace(/\s/g, '');
@@ -1032,6 +1033,8 @@
       var code = ES.norm(r.natureCode);
       if ((type === 'autre' || type === 'inconnu') && code) type = code === 'buy' ? 'achat' : code === 'sell' ? 'vente' : code === 'oo' ? 'autre_nv' : type;
       if (ES.norm(r.nature) === 'oo') type = 'autre_nv';
+      // Attribution gratuite, plan d'actionnariat, vente pour couvrir l'impôt, prix nul : pas une décision d'investissement
+      if ((type === 'achat' || type === 'vente') && (NON_VOLUNTARY.test(String(r.nature || '')) || ES.parseNumber(r.price, loc) === 0)) type = 'autre_nv';
     }
     if (type !== 'instrument' && !ES.isValidIsin(isin)) errors.push(isin ? 'ISIN invalide (' + isin + ')' : 'ISIN absent');
     var txDate = ES.parseDate(r.txDate), pub = ES.parseDate(r.published);

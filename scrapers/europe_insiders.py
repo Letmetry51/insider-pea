@@ -115,7 +115,21 @@ FSMA_LABELS = ["Date of publication", "Notifying person", "Declarer Type", "Issu
                "Transaction Type", "Transaction Place", "Transaction Date", "Transaction Currency", "Transaction Quantity",
                "Transaction Price", "Transaction Amount", "Closely associated person of", "Closely associated with", "Position", "Function"]
 TX_LEVEL = {"Instrument Type", "Instrument ISIN Code", "Transaction Type", "Transaction Place", "Transaction Date",
-            "Transaction Currency", "Transaction Quantity", "Transaction Price", "Transaction Amount"}
+            "Transaction Currency", "Transaction Quantity", "Transaction Price", "Transaction Amount", "Transaction Type Specifications"}
+FSMA_LABELS = ["Transaction Type Specifications"] + FSMA_LABELS
+
+
+def fsma_label(line):
+    """Libellé exact (seul sur sa ligne ou suivi de « : »). Évite que « Transaction Type Specifications »
+    soit pris pour un second « Transaction Type », ce qui coupait une transaction en deux."""
+    low = line.lower()
+    for lab in FSMA_LABELS:
+        l2 = lab.lower()
+        if low == l2:
+            return lab, ""
+        if low.startswith(l2 + ":"):
+            return lab, line[len(lab) + 1:].strip()
+    return None, None
 
 
 def fsma_parse_detail(html):
@@ -126,13 +140,12 @@ def fsma_parse_detail(html):
     lines = [l for l in lines if l]
     found = []  # (label, value) dans l'ordre
     for i, l in enumerate(lines):
-        for lab in FSMA_LABELS:
-            if l.lower().startswith(lab.lower()):
-                rest = l[len(lab):].strip(" :\t")
-                val = rest if rest else (lines[i + 1] if i + 1 < len(lines) else "")
-                if val and not any(val.lower().startswith(x.lower()) for x in FSMA_LABELS):
-                    found.append((lab, val.strip()))
-                break
+        lab, rest = fsma_label(l)
+        if not lab:
+            continue
+        val = rest if rest else (lines[i + 1] if i + 1 < len(lines) else "")
+        if val and fsma_label(val)[0] is None:
+            found.append((lab, val.strip()))
     head, txs, cur = {}, [], {}
     for lab, val in found:
         if lab in TX_LEVEL:
@@ -222,7 +235,8 @@ def fsma_collect(st):
                     "published": iso_date(head.get("Date of publication")) or links.get(u), "issuer": head.get("Issuer"),
                     "person": head.get("Notifying person"), "role": head.get("Declarer Type") or head.get("Position") or head.get("Function"),
                     "linkedTo": head.get("Closely associated person of") or head.get("Closely associated with"),
-                    "isin": tx.get("Instrument ISIN Code"), "instrument": tx.get("Instrument Type"), "nature": tx.get("Transaction Type"),
+                    "isin": tx.get("Instrument ISIN Code"), "instrument": tx.get("Instrument Type"),
+                    "nature": " — ".join(v for v in (tx.get("Transaction Type"), tx.get("Transaction Type Specifications")) if v) or None,
                     "txDate": iso_date(tx.get("Transaction Date")), "place": tx.get("Transaction Place"), "currency": tx.get("Transaction Currency"),
                     "quantity": tx.get("Transaction Quantity"), "price": tx.get("Transaction Price"), "amount": tx.get("Transaction Amount"),
                     "numberLocale": "eu", "collectedAt": date.today().isoformat(),
@@ -264,8 +278,16 @@ AFM_COLS = {
 }
 
 
+csv.field_size_limit(10 ** 9)  # certains champs de l'export AFM dépassent la limite par défaut (131 072)
+
+
 def decode(raw):
-    for enc in ("utf-8-sig", "utf-16", "cp1252", "latin-1"):
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff") or raw[:1000].count(b"\x00") > 200:
+        try:
+            return raw.decode("utf-16"), "utf-16"
+        except Exception:
+            pass
+    for enc in ("utf-8-sig", "cp1252", "latin-1"):
         try:
             txt = raw.decode(enc)
             if txt.count("\x00") < 5:
@@ -291,6 +313,8 @@ def afm_collect(st):
         txt, enc = decode(r.content)
         d["encoding"] = enc
         sample = txt[:4000]
+        d["head"] = txt[:600]
+        d["rawStart"] = r.content[:24].hex()
         delim = max([";", ",", "\t", "|"], key=lambda c: sample.split("\n")[0].count(c))
         rows = list(csv.reader(io.StringIO(txt), delimiter=delim))
         headers = [h.strip() for h in rows[0]] if rows else []

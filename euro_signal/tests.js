@@ -427,6 +427,14 @@ t('Insider Screener : codes BUY/SELL/OO, libellé d\'origine prioritaire, source
   ok(ES.coverage(inst, { BaFin: { status: 'ok', lastSuccess: '2026-10-06' } }, cfg, TODAY).ok);
 });
 
+t('Opérations non volontaires : attribution gratuite, sell-to-cover, prix nul (FSMA, Consob)', () => {
+  const base = { registry: 'FSMA', country: 'BE', id: 'x-0', isin: 'BE0003839561', issuer: 'VAN DE VELDE', person: 'VALSEBA', role: 'Member of administrative management or supervisory body', instrument: 'Share', txDate: '2026-10-01', published: '2026-10-02', currency: 'EUR', numberLocale: 'eu' };
+  eq(ES.fromCollectorRecord(Object.assign({}, base, { nature: 'Purchase / Acquisition — Free allocation', price: '0,00', quantity: '230' }), { today: TODAY }).rec.type, 'autre_nv');
+  eq(ES.fromCollectorRecord(Object.assign({}, base, { nature: 'Purchase / Acquisition', price: '0,00', quantity: '230' }), { today: TODAY }).rec.type, 'autre_nv', 'prix nul');
+  eq(ES.fromCollectorRecord(Object.assign({}, base, { nature: 'Altro / Other - VENDITA ... A COPERTURA DEGLI ONERI FISCALI ("SELL-TO-COVER")', natureCode: 'SELL', price: '68.91', numberLocale: 'en' }), { today: TODAY }).rec.type, 'autre_nv');
+  eq(ES.fromCollectorRecord(Object.assign({}, base, { nature: 'Purchase / Acquisition', price: '12,73', quantity: '13.430' }), { today: TODAY }).rec.type, 'achat', 'achat ordinaire inchangé');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

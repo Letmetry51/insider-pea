@@ -25,6 +25,7 @@ plausibles, et deux enregistrements bruts par marché sont déposés dans data/d
 """
 import json
 import os
+import re
 import sys
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -97,33 +98,70 @@ def money(obj, *paths):
     return None, None
 
 
+def extra(x, *labels):
+    """Champ du registre d'origine recopié par Insider Screener (raw.extra_data), libellé tolérant."""
+    ed = get(x, "raw.extra_data") or {}
+    if not isinstance(ed, dict):
+        return None
+    norm = {str(k).replace("\ufeff", "").strip().lower(): v for k, v in ed.items()}
+    for lab in labels:
+        v = norm.get(lab.lower())
+        if v not in (None, ""):
+            return v
+    return None
+
+
+def person_fields(x):
+    """(déclarant, fonction, personne liée) selon le schéma 2026-04-01 d'Insider Screener."""
+    rp = get(x, "reporting_person") or {}
+    flags = rp.get("relationship_flags") or {}
+    pos = rp.get("position")
+    if isinstance(pos, dict):
+        pos = pos.get("raw") or pos.get("display") or pos.get("normalized")
+    pos = pos or extra(x, "Position / status", "position", "funzione", "cargo")
+    cap = bool(flags.get("is_closely_affiliated")) or bool(pos and "closely" in str(pos).lower())
+    if cap:
+        person = rp.get("cap_name") or rp.get("closely_affiliated_name") or rp.get("display_name") or rp.get("name")
+        linked = rp.get("pdmr_name") if rp.get("pdmr_name") and rp.get("pdmr_name") != person else None
+        if linked and len(str(linked).split()) > 5:
+            linked = None  # phrase libre, pas un nom : la personne liée n'est alors pas comptée comme acheteur
+        role = "Closely associated person" + (" (" + str(pos) + ")" if pos and "closely" not in str(pos).lower() else "")
+    else:
+        person = rp.get("pdmr_name") or rp.get("display_name") or rp.get("name") or rp.get("effective_name")
+        linked = None
+        if not pos:
+            pos = "Director" if flags.get("is_director") else "Officer" if flags.get("is_officer") else None
+        role = pos
+    return person, role, linked
+
+
 def to_record(x, market, registry, via):
-    rid = str(pick(x, "id", "transaction.id", "raw.id") or "")
-    nature_raw = pick(x, "raw.nature", "raw.transaction_type", "raw.type", "transaction.nature_detail",
-                      "transaction.description", "transaction.type_label", "transaction.nature_label")
-    nature = pick(x, "transaction.nature", "nature", "transaction.type", "transaction.direction")
+    rid = str(pick(x, "id", "transaction.id") or "")
+    code = pick(x, "transaction.classification.normalized_operation", "transaction.nature", "nature")
+    nature_raw = pick(x, "transaction.classification.nature_raw") or extra(x, "Nature of transaction", "nature", "tipo operazione", "naturaleza")
     price, pcur = money(x, "transaction.price", "transaction.price_local", "transaction.unit_price")
     amount, acur = money(x, "transaction.gross_value", "transaction.gross_value_local", "transaction.value", "transaction.amount")
-    currency = pick(x, "transaction.currency", "security.currency", "currency") or pcur or acur
+    currency = pcur or acur or pick(x, "transaction.currency", "security.currency", "currency")
+    person, role, linked = person_fields(x)
+    slug = pick(x, "issuer.slug", "security.issuer.slug")
+    src_status = str(pick(x, "source.status") or "").upper()
+    status = "cancelled" if src_status in ("CANCELLED", "WITHDRAWN", "DELETED") else (
+        "amendment" if pick(x, "source.is_amendment") or re.search(r"amend|rettific|correc|modif|wijzig|berichtig", str(pick(x, "source.notification_type") or ""), re.I) else None)
     return {
         "registry": registry, "country": market, "id": rid, "via": via,
-        "url": pick(x, "source.url", "source.document_url", "source.link", "source.source_url", "raw.url", "url"),
-        "published": str(pick(x, "transaction.notification_date", "notification_date", "source.notification_date",
-                              "source.published_at", "source.date") or "")[:10] or None,
-        "txDate": str(pick(x, "transaction.transaction_date", "transaction_date", "transaction.date",
-                           "transaction.execution_date") or "")[:10] or None,
-        "issuer": pick(x, "issuer.name", "issuer.issuer_name"),
-        "isin": pick(x, "security.isin", "issuer.isin", "raw.isin", "isin"),
-        "instrument": pick(x, "security.type", "security.instrument_type", "raw.instrument_type", "security.class") or "Share",
-        "person": pick(x, "reporting_person.name", "insider.name", "person.name"),
-        "role": pick(x, "reporting_person.position", "reporting_person.position_title", "reporting_person.title", "position"),
-        "linkedTo": pick(x, "reporting_person.related_to", "reporting_person.closely_associated_with", "raw.related_person"),
-        "nature": nature_raw or nature, "natureCode": nature,
+        "url": pick(x, "source.url", "source.document_url") or (f"https://www.insiderscreener.com/en/company/{slug}" if slug else None),
+        "published": str(pick(x, "source.notification_date", "transaction.notification_date", "notification_date") or "")[:10] or None,
+        "txDate": str(pick(x, "transaction.execution_date", "transaction.transaction_date", "transaction_date", "transaction.date") or "")[:10] or None,
+        "issuer": pick(x, "issuer.name", "security.issuer.name"),
+        "isin": pick(x, "security.isin", "issuer.isin") or extra(x, "ISIN") or pick(x, "raw.extra_data.it_ingestion.instrument_identification"),
+        "instrument": pick(x, "security.type", "security.instrument_type") or extra(x, "Typ of instrument", "Type of instrument") or "Share",
+        "person": person, "role": role, "linkedTo": linked,
+        "nature": nature_raw or code, "natureCode": code,
         "price": price, "currency": currency,
-        "quantity": pick(x, "transaction.quantity", "transaction.shares", "transaction.volume"),
+        "quantity": pick(x, "transaction.quantity", "transaction.shares"),
         "amount": amount,
-        "place": pick(x, "transaction.venue", "transaction.place", "raw.trading_place"),
-        "status": "amendment" if pick(x, "source.is_amendment", "is_amendment", "transaction.is_amendment") else None,
+        "place": extra(x, "Place of transaction") or pick(x, "security.trading_place"),
+        "status": status,
         "numberLocale": "en", "collectedAt": date.today().isoformat(),
     }
 
