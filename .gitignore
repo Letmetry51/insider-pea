@@ -5,3 +5,9 @@ __pycache__/
 .env
 .vscode/
 .idea/
+
+# Euro Signal (fichiers régénérés à chaque exécution)
+data/prices.json
+data/euro-signal-outbox.json
+data/events.json
+*.tmp

@@ -1,48 +1,96 @@
 name: Mise à jour quotidienne des données
 
 on:
-  # Tous les jours à 19h00 heure de Paris (17h00 UTC en hiver, 18h00 UTC en été)
-  # On utilise 18h00 UTC pour couvrir toute l'année après la clôture de la bourse européenne (17h30)
+  # Du lundi au vendredi à 18h00 UTC (19h ou 20h à Paris), après la clôture des bourses européennes
   schedule:
-    - cron: '0 18 * * 1-5'  # Du lundi au vendredi à 18h UTC
-  # Permet de lancer manuellement depuis l'onglet Actions
+    - cron: '0 18 * * 1-5'
+  # Lancement manuel depuis l'onglet Actions (avec option d'email de test)
   workflow_dispatch:
+    inputs:
+      test_email:
+        description: "Envoyer aussi un email de test"
+        type: boolean
+        default: false
 
-# Autorisations nécessaires pour commiter
 permissions:
   contents: write
+
+# Jamais deux exécutions en même temps : évite les doublons d'alertes et les conflits de commit
+concurrency:
+  group: update-data
+  cancel-in-progress: false
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    
+    timeout-minutes: 75
+
     steps:
       - name: Checkout du repo
         uses: actions/checkout@v4
-      
+
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Installation des dépendances
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-      
-      - name: Exécution du scraper
-        run: |
-          python run.py
-      
-      - name: Commit des données mises à jour
+
+      - name: 1. Déclarations AMF (insider-pea)
+        run: python run.py
+        # Si la collecte échoue, Euro Signal le détecte et bloque les alertes au lieu de conclure « aucune transaction »
+        continue-on-error: true
+
+      - name: 2. Déclarations Belgique (FSMA) et Pays-Bas (AFM)
+        run: python scrapers/europe_insiders.py
+        continue-on-error: true
+
+      - name: 2b. Allemagne, Espagne, Italie + secours Belgique / Pays-Bas (Insider Screener API)
+        env:
+          INSIDERSCREENER_API_KEY: ${{ secrets.INSIDERSCREENER_API_KEY }}
+        run: python scrapers/insiderscreener.py
+        continue-on-error: true
+
+      - name: 3. Cours Yahoo Finance
+        run: python scrapers/prices.py
+        continue-on-error: true
+
+      - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
+        run: python scrapers/events.py
+        continue-on-error: true
+
+      - name: 5a. Tests du moteur Euro Signal
+        run: node euro_signal/tests.js
+
+      - name: 5b. Calcul Euro Signal
+        env:
+          ES_MAIL_READY: ${{ secrets.GMAIL_APP_PASSWORD != '' && 'oui' || 'non' }}
+        run: node euro_signal/build.mjs
+
+      - name: 6. Alertes email (Gmail)
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+          ES_TEST_EMAIL: ${{ inputs.test_email }}
+        run: python euro_signal/send_alerts.py
+
+      - name: 7. Enregistrement des données
+        # Toujours exécuté, même après une erreur, pour conserver le journal des alertes déjà envoyées
+        if: always()
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions Bot"
-          git add data/latest.json
-          
-          # Ne commit que si quelque chose a changé
+          git add -A data/   # prices.json, events.json et la boîte d'envoi sont exclus par .gitignore
           if git diff --staged --quiet; then
             echo "Pas de changement, rien à commiter"
           else

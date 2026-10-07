@@ -74,7 +74,7 @@ def main():
 
     # 1. Scraping global (toutes entreprises)
     print(f"\n[1/3] Scraping AMF - {days_back} derniers jours (toutes entreprises)...")
-    all_transactions = scrape_all_recent(days_back=days_back, max_pages=80)
+    all_transactions = scrape_all_recent(days_back=days_back, max_pages=300)  # Euro Signal : couvre réellement 180 jours (80 pages s’arrêtaient vers 3,5 mois)
     print(f"\nTotal : {len(all_transactions)} transactions récupérées")
 
     purchases = [t for t in all_transactions if t["is_purchase"]]
