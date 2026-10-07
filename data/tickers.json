@@ -2441,12 +2441,33 @@
   "ticker": null,
   "triedAt": "2026-10-07"
  },
+ "GB00B2B0DG97": {
+  "exchange": "London",
+  "method": "recherche Yahoo par ISIN",
+  "name": "RELX PLC",
+  "resolvedAt": "2026-10-07",
+  "ticker": "REL.L"
+ },
  "GB00B5ZN1N88": {
   "exchange": "London",
   "method": "recherche Yahoo par ISIN",
   "name": "SEGRO Plc",
   "resolvedAt": "2026-10-07",
   "ticker": "SGRO.L"
+ },
+ "GB00B94QM994": {
+  "exchange": "XAMS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Eurocastle Investment Limited",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ECT.AS"
+ },
+ "GB00BDCPN049": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Coca-Cola Europacific Partners PLC",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CCEP.AS"
  },
  "GB00BM9XQ619": {
   "exchange": "XETRA",
@@ -2461,6 +2482,27 @@
   "name": "HBX Group International plc",
   "resolvedAt": "2026-10-07",
   "ticker": "HBX.MC"
+ },
+ "GB00BP6MXD84": {
+  "exchange": "London",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Shell plc",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SHEL.L"
+ },
+ "GG00B1GHHH78": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Volta Finance Limited",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VTA.AS"
+ },
+ "GG00B1RMC548": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Tetragon Financial Group Limited",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TFG.AS"
  },
  "IT0000062072": {
   "exchange": "Milan",
@@ -2489,6 +2531,20 @@
   "name": "Intesa Sanpaolo S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "ISP.MI"
+ },
+ "IT0000076486": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Danieli & C. Officine Meccaniche S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DANR.MI"
+ },
+ "IT0000076502": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Danieli & C. Officine Meccaniche S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "DAN.MI"
  },
  "IT0000076536": {
   "exchange": "Milan",
@@ -2629,6 +2685,13 @@
   "name": "Sanlorenzo S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "SL.MI"
+ },
+ "IT0003697080": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Geox S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "GEO.MI"
  },
  "IT0003796171": {
   "exchange": "Milan",
@@ -2780,6 +2843,13 @@
   "name": "Cellularline S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "CELL.MI"
+ },
+ "IT0005246191": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Comer Industries S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "COM.MI"
  },
  "IT0005262149": {
   "exchange": "Milan",
@@ -2935,6 +3005,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "DATA.MI"
  },
+ "IT0005482333": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Technoprobe S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TPRO.MI"
+ },
  "IT0005487670": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
@@ -3011,6 +3088,13 @@
   "name": "RedFish LongTerm Capital S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "RFLTC.MI"
+ },
+ "IT0005556581": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sicily by Car S.p.A.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SBC.MI"
  },
  "IT0005562514": {
   "exchange": "Milan",
@@ -3115,6 +3199,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "GPSY.MI"
  },
+ "IT0005730384": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "NABLA",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NABLA.MI"
+ },
  "LU0307018795": {
   "exchange": "XETRA",
   "method": "recherche Yahoo par ISIN",
@@ -3143,6 +3234,91 @@
   "resolvedAt": "2026-10-07",
   "ticker": "BAIN.PA"
  },
+ "NL0000226223": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "STMicroelectronics N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "STMPA.PA"
+ },
+ "NL0000288876": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "NL0000302636": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Van Lanschot Kempen NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VLK.AS"
+ },
+ "NL0000817179": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sligro Food Group N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SLIGR.AS"
+ },
+ "NL0006294274": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Euronext N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ENX.PA"
+ },
+ "NL0010558797": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "OCI N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "OCI.AS"
+ },
+ "NL0010832176": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "argenx SE",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ARGX.BR"
+ },
+ "NL0011585146": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ferrari N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "RACE.MI"
+ },
+ "NL0011660485": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Sif Holding N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SIFG.AS"
+ },
+ "NL0011872643": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ASR Nederland N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ASRNL.AS"
+ },
+ "NL0012751226": {
+  "ticker": null,
+  "triedAt": "2026-10-07"
+ },
+ "NL0012969182": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Adyen N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "ADYEN.AS"
+ },
+ "NL0013654809": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fastned B.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FAST.AS"
+ },
  "NL0013995087": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
@@ -3150,12 +3326,82 @@
   "resolvedAt": "2026-10-07",
   "ticker": "CEM.MI"
  },
+ "NL0014559478": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Technip Energies N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "TE.PA"
+ },
+ "NL00150001Q9": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Stellantis N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "STLAM.MI"
+ },
+ "NL00150001S5": {
+  "exchange": "Oslo",
+  "method": "recherche Yahoo par ISIN",
+  "name": "The Kingfish Company N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "KING.OL"
+ },
+ "NL00150002Q7": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vivoryon Therapeutics N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VVY.AS"
+ },
+ "NL00150006R6": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "CTP N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "CTPNV.AS"
+ },
+ "NL0015000RT3": {
+  "exchange": "Johannesburg Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "NEPI Rockcastle N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "NRP.JO"
+ },
+ "NL0015000X07": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Banijay Group N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BNJ.AS"
+ },
  "NL0015001KT6": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
   "name": "Brembo N.V.",
   "resolvedAt": "2026-10-07",
   "ticker": "BRE.MI"
+ },
+ "NL0015001OI1": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MFE-Mediaforeurope N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MFEA.MI"
+ },
+ "NL0015268814": {
+  "exchange": "Oslo",
+  "method": "recherche Yahoo par ISIN",
+  "name": "MPC Energy Solutions N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "MPCES.OL"
+ },
+ "SGXPZ11CH7U7": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SWI Capital Holding Ltd.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "SWICH.AS"
  },
  "US00486H1059": {
   "exchange": "NASDAQ",
@@ -3170,6 +3416,13 @@
   "name": "Coty Inc.",
   "resolvedAt": "2026-10-07",
   "ticker": "COTY"
+ },
+ "US8610121027": {
+  "exchange": "NYSE",
+  "method": "recherche Yahoo par ISIN",
+  "name": "STMicroelectronics N.V.",
+  "resolvedAt": "2026-10-07",
+  "ticker": "STM"
  },
  "XS2799786848": {
   "ticker": null,
