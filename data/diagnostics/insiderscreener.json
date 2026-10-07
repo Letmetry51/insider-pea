@@ -1,5 +1,5 @@
 {
- "at": "2026-10-07T20:36:45.795948+00:00",
+ "at": "2026-10-07T21:26:12.714728+00:00",
  "markets": {
   "DE": {
    "from": "2026-06-09",
@@ -1017,16 +1017,6 @@
    "complete": false,
    "error": null
   },
-  "BE": {
-   "from": "2026-06-09",
-   "samples": [],
-   "stoppedBy": "plafond de crédits par soir atteint",
-   "pages": 0,
-   "rows": 0,
-   "complete": false,
-   "error": null,
-   "backupFor": "FSMA"
-  },
   "NL": {
    "from": "2026-06-09",
    "samples": [],
@@ -1040,7 +1030,7 @@
  },
  "credits": {
   "thisRun": 120,
-  "thisMonth": 120,
+  "thisMonth": 240,
   "monthlyBudget": 900
  }
 }

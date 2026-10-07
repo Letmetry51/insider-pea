@@ -20,12 +20,33 @@
   "resolvedAt": "2026-10-07",
   "ticker": "DECB.BR"
  },
+ "BE0003818359": {
+  "exchange": "Amsterdam",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lakefront Biotherapeutics NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "LKFT.AS"
+ },
  "BE0003839561": {
   "exchange": "Brussels Stock Exchange",
   "method": "recherche Yahoo par ISIN",
   "name": "Van de Velde NV",
   "resolvedAt": "2026-10-07",
   "ticker": "VAN.BR"
+ },
+ "BE0003874915": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Fagron NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "FAGR.BR"
+ },
+ "BE0003878957": {
+  "exchange": "Brussels",
+  "method": "recherche Yahoo par ISIN",
+  "name": "VGP NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "VGP.BR"
  },
  "BE0974278104": {
   "exchange": "Brussels Stock Exchange",
@@ -54,6 +75,13 @@
   "name": "Warehouses De Pauw SA",
   "resolvedAt": "2026-10-07",
   "ticker": "WDP.BR"
+ },
+ "BE0974362940": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Barco NV",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BAR.BR"
  },
  "BE0974464977": {
   "exchange": "Brussels Stock Exchange",
@@ -891,6 +919,13 @@
   "name": "Aumovio SE",
   "resolvedAt": "2026-10-07",
   "ticker": "AMV0.DE"
+ },
+ "DE000BAY0017": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Bayer Aktiengesellschaft",
+  "resolvedAt": "2026-10-07",
+  "ticker": "BAYN.DE"
  },
  "DE000BGAG981": {
   "ticker": null,
