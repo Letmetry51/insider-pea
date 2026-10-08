@@ -101,7 +101,7 @@ def main():
 
     print("Mode :", "envoi réel" if live else "simulation (secrets Gmail absents)", "—", len(outbox), "alerte(s)")
     for item in outbox:
-        rec = {k: item.get(k) for k in ("id", "isin", "name", "subject", "eventIds", "score", "version")}
+        rec = {k: item.get(k) for k in ("id", "kind", "isin", "name", "subject", "eventIds", "score", "version")}
         rec.update({"createdAt": now(), "mode": "envoi" if live else "simulation", "recipient": "configuré" if live else None})
         rec["status"] = "en_cours" if live else "simulee"
         state["alerts"][rec["id"]] = rec

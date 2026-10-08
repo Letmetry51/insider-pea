@@ -114,6 +114,20 @@ L'email détaille le score ligne par ligne, les achats (date, déclarant, prix, 
 l'AMF), la comparaison au cours actuel et aux plus hauts et plus bas sur 52 semaines, ainsi que les
 risques.
 
+## Après l'alerte : suivi et signaux de sortie
+
+Chaque alerte envoyée est suivie pendant un an (onglet Alertes) : évolution depuis l'envoi, comparaison au CAC 40.
+Un email « Signal de sortie » part une seule fois par signal si un dirigeant vend, si la MM50 repasse sous la MM200,
+si le cours tombe plus de 10 % sous le prix payé par les dirigeants ou s'il recule de 20 % depuis son plus haut.
+Ce ne sont pas des ordres de vente.
+
+## L'outil apprend de ses résultats
+
+Chaque mois, Euro Signal compare chaque composante du score (décote, panique, DG, cluster, tendance, force relative)
+aux résultats réels, 60 séances après chaque achat de dirigeant. Un poids ne bouge que d'un point par mois, seulement si
+l'écart est net sur au moins 60 cas, et reste entre 0 et 2 fois sa valeur d'origine. Chaque ajustement est annoncé par email
+et visible dans l'onglet Résultats passés. Pour désactiver : `"learning": {"mode": "off"}` dans `euro_signal/config.json`.
+
 ## Ce que l'outil ne fait pas (à savoir)
 
 - **Allemagne, Espagne, Italie** : couvertes par l'API Insider Screener (étape 3 bis, payante).

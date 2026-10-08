@@ -599,7 +599,7 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.5.0',
+    scoringVersion: '1.6.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30 },
     pea: { strict: true },
@@ -612,7 +612,9 @@
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
-    alerts: { minScore: 60, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false },
+    alerts: { minScore: 60, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21 },
+    exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
+    learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60], oosStart: '' }
   };
   ES.mergeConfig = function (base, over) {
@@ -724,6 +726,27 @@
       else if (mean < 0) p2 += ' Sur la période récente, ce signal seul n\'a pas battu le marché : ce sont les combinaisons (décote, tendance, plusieurs signaux) qui font le tri.';
     }
     return { text: p1 + '\n' + p2, html: '<div style="background:#EEF6F2;border-left:4px solid #0D6A56;padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.45"><b>Pourquoi cette alerte ?</b><br>' + esc(p1) + '<br><br>' + esc(p2) + '</div>' };
+  };
+  /** Solidité financière (dernières données publiées, non historisées) : solide / fragile / inconnu. */
+  ES.financialHealth = function (f) {
+    if (!f || typeof f !== 'object') return { status: 'inconnu', reasons: ['données financières indisponibles'], notes: [] };
+    var reasons = [], notes = [], fin = /financial|bank|insurance|banque|assurance/i.test(String(f.sector || '') + ' ' + String(f.industry || ''));
+    var debt = f.totalDebt, cash = f.totalCash, ebitda = f.ebitda, net = debt != null && cash != null ? debt - cash : null;
+    if (!fin && net != null) {
+      if (ebitda != null && ebitda > 0) {
+        var lev = net / ebitda;
+        if (lev > 4) reasons.push('dette nette égale à ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
+        else if (lev < 0) notes.push('trésorerie nette positive');
+        else notes.push('dette nette ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
+      } else if (ebitda != null && ebitda <= 0 && net > 0) reasons.push('EBITDA négatif avec une dette nette');
+    }
+    if (f.profitMargins != null && f.profitMargins < -0.15) reasons.push('pertes importantes (marge nette ' + Math.round(f.profitMargins * 100) + ' %)');
+    if (f.freeCashflow != null && f.operatingCashflow != null && f.freeCashflow < 0 && f.operatingCashflow < 0 && (f.profitMargins == null || f.profitMargins < 0)) reasons.push('l\'activité consomme de la trésorerie et perd de l\'argent');
+    if (!fin && f.currentRatio != null && f.currentRatio < 0.8) notes.push('liquidité de court terme tendue (ratio ' + f.currentRatio.toFixed(2).replace('.', ',') + ')');
+    if (f.freeCashflow != null && f.freeCashflow > 0) notes.push('flux de trésorerie disponible positif');
+    var known = [debt, cash, ebitda, f.profitMargins, f.freeCashflow].filter(function (v) { return v != null; }).length;
+    if (!reasons.length && known < 2) return { status: 'inconnu', reasons: ['données financières trop incomplètes'], notes: notes };
+    return { status: reasons.length ? 'fragile' : 'solide', reasons: reasons, notes: notes, asOf: f.asOf || null, financial: fin };
   };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
@@ -992,6 +1015,8 @@
     var recentFrom = ES.addDays(a.today, -cfg.alerts.recentEventDays);
     cond('Événement publié depuis le ' + recentFrom + (a.score.lastEventDate ? ' (dernier : ' + a.score.lastEventDate + ')' : ' (aucun)'), !!a.score.lastEventDate && a.score.lastEventDate >= recentFrom);
     cond('Aucune déclaration ambiguë dans la fenêtre', a.score.ambiguousCount === 0);
+    var health = ES.financialHealth(a.inst.fund);
+    if (cfg.alerts.blockFragile) cond('Solidité financière non fragile' + (health.status === 'fragile' ? ' (' + health.reasons.join(' ; ') + ')' : health.status === 'inconnu' ? ' (données indisponibles : à vérifier)' : ''), health.status !== 'fragile');
     if (cfg.overheat.blockAlertsAbove != null) cond('Surchauffe < ' + cfg.overheat.blockAlertsAbove, a.overheat.total < cfg.overheat.blockAlertsAbove);
     var ids = a.score.contributing.map(function (e) { return e.id; });
     var fresh = ids.filter(function (id) { return !(a.sentEventIds || {})[id]; });
@@ -1006,6 +1031,56 @@
    * STRICTEMENT postérieure à la date de publication ; sortie à la clôture h séances plus tard.
    * events : [{isin, date, group}] ; series : {isin: {rows, splits}} ; bench : {rows, splits} | null
    */
+  ES.forwardExcess = function (adj, benchAdj, benchIdx, date, h, cost) {
+    var i = 0; while (i < adj.length && adj[i][0] <= date) i++;
+    if (i >= adj.length || i + h >= adj.length || !benchAdj) return null;
+    var j = i + h, entry = adj[i][1] != null ? adj[i][1] : adj[i][4];
+    if (benchIdx[adj[i][0]] == null || benchIdx[adj[j][0]] == null) return null;
+    var b0 = benchAdj[benchIdx[adj[i][0]]], b1 = benchAdj[benchIdx[adj[j][0]]];
+    return (adj[j][4] / entry - 1 - cost) - (b1[4] / (b0[1] != null ? b0[1] : b0[4]) - 1);
+  };
+  /**
+   * Auto-apprentissage encadré : chaque mois, chaque composante est comparée sur les résultats réels
+   * (achats avec / sans la composante, rendement en excès à h séances). Un poids ne bouge que d'un pas,
+   * seulement si l'écart est net (|t| ≥ minT) sur au moins minCases cas de chaque côté, et reste entre 0 et 2 fois sa valeur d'origine.
+   */
+  ES.LEARN_FEATURES = [
+    ['discountBig', 'insiders', 'discountBig', 'Décote ≥ 40 %'], ['discountMedium', 'insiders', 'discountMedium', 'Décote 25 à 40 %'],
+    ['nearLow', 'insiders', 'nearLow', 'Achat près du plus bas 52 semaines'], ['panic', 'insiders', 'panicBuy', 'Achat dans la panique'],
+    ['ceo', 'insiders', 'ceoCfo', 'Achat du DG ou du DAF'], ['cluster', 'insiders', 'cluster', 'Cluster de dirigeants'],
+    ['trend', 'market', 'trend', 'Cours au-dessus des MM50 et MM200'], ['relStrong', 'market', 'relStrength', 'Plus fort que le marché sur 6 mois']
+  ];
+  ES.calibrate = function (samples, cfg, prev, today) {
+    var L = cfg.learning, month = today.slice(0, 7), base = ES.DEFAULT_CONFIG.weights;
+    var out = { month: month, weights: JSON.parse(JSON.stringify((prev && prev.weights) || {})), log: ((prev && prev.log) || []).slice(-60), stats: [], changed: [] , version: (prev && prev.version) || 0 };
+    if (prev && prev.month === month) { out.stats = prev.stats || []; out.changed = []; out.skipped = 'déjà calibré ce mois-ci'; return out; }
+    var ok = samples.filter(function (s) { return s.excess != null && isFinite(s.excess); });
+    ES.LEARN_FEATURES.forEach(function (f) {
+      var w = ok.filter(function (s) { return s.f[f[0]] === true; }).map(function (s) { return s.excess * 100; });
+      var wo = ok.filter(function (s) { return s.f[f[0]] === false; }).map(function (s) { return s.excess * 100; });
+      var st = { feature: f[0], label: f[3], nWith: w.length, nWithout: wo.length, meanWith: w.length ? mean(w) : null, meanWithout: wo.length ? mean(wo) : null, t: null, action: 'aucune' };
+      if (w.length >= 2 && wo.length >= 2) {
+        var v = function (a, m) { return a.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / (a.length - 1); };
+        var se = Math.sqrt(v(w, st.meanWith) / w.length + v(wo, st.meanWithout) / wo.length);
+        st.t = se > 0 ? (st.meanWith - st.meanWithout) / se : null;
+      }
+      var cur = out.weights[f[1]] && out.weights[f[1]][f[2]] != null ? out.weights[f[1]][f[2]] : cfg.weights[f[1]][f[2]];
+      var orig = base[f[1]][f[2]], next = cur;
+      if (w.length < L.minCases || wo.length < L.minCases) st.action = 'pas assez de cas (' + w.length + ' / ' + L.minCases + ' requis)';
+      else if (st.t != null && st.t >= L.minT) next = Math.min(cur + L.maxStep, 2 * orig);
+      else if (st.t != null && st.t <= -L.minT) next = Math.max(cur - L.maxStep, 0);
+      else st.action = 'écart non significatif';
+      if (next !== cur) {
+        st.action = (next > cur ? 'hausse ' : 'baisse ') + cur + ' → ' + next;
+        (out.weights[f[1]] = out.weights[f[1]] || {})[f[2]] = next;
+        var e = { month: month, feature: f[0], label: f[3], from: cur, to: next, nWith: w.length, effect: +(st.meanWith - st.meanWithout).toFixed(2), t: +st.t.toFixed(2) };
+        out.log.push(e); out.changed.push(e);
+      }
+      out.stats.push(st);
+    });
+    if (out.changed.length) out.version++;
+    return out;
+  };
   ES.eventStudy = function (events, series, bench, opts) {
     var cost = (opts.costRoundTripPct || 0) / 100, horizons = opts.horizons || [20, 60], oos = opts.oosStart || null;
     var benchAdj = bench ? ES.adjustedSeries(ES.normalizeSeries(bench.rows), bench.splits) : null;

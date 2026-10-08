@@ -1,1 +1,42 @@
-{"scoringVersion": "1.5.0", "dashboardUrl": "https://letmetry51.github.io/insider-pea/euro-signal.html", "pea": {"strict": false}, "alerts": {"minScore": 60, "minFamilies": 2, "recentEventDays": 14}, "insiders": {"windowMonths": 3, "clusterMinBuyers": 3, "clusterWindowDays": 14, "excludeLegalEntities": "strict"}, "universe": {"minAdv20Eur": 1000000, "minSessions": 200}, "backtest": {"costRoundTripPct": 0.5, "horizons": [20, 60]}}
+{
+ "scoringVersion": "1.6.0",
+ "dashboardUrl": "https://letmetry51.github.io/insider-pea/euro-signal.html",
+ "pea": {
+  "strict": false
+ },
+ "alerts": {
+  "minScore": 60,
+  "minFamilies": 2,
+  "recentEventDays": 14
+ },
+ "insiders": {
+  "windowMonths": 3,
+  "clusterMinBuyers": 3,
+  "clusterWindowDays": 14,
+  "excludeLegalEntities": "strict"
+ },
+ "universe": {
+  "minAdv20Eur": 1000000,
+  "minSessions": 200
+ },
+ "backtest": {
+  "costRoundTripPct": 0.5,
+  "horizons": [
+   20,
+   60
+  ]
+ },
+ "learning": {
+  "mode": "auto",
+  "minCases": 60,
+  "minT": 2,
+  "maxStep": 1,
+  "horizon": 60
+ },
+ "exits": {
+  "enabled": true,
+  "followDays": 365,
+  "belowInsiderPricePct": 10,
+  "drawdownFromPeakPct": 20
+ }
+}

@@ -536,6 +536,36 @@ t('Psychologie : achat pendant une vente panique ; argumentaire chiffré des ema
   ok(ra.html.indexOf('<script') < 0);
 });
 
+t('Solidité financière : fragile, solide, inconnu ; alerte bloquée si fragile', () => {
+  eq(ES.financialHealth(null).status, 'inconnu');
+  const fr = ES.financialHealth({ totalDebt: 900, totalCash: 100, ebitda: 150, profitMargins: 0.02, freeCashflow: 10, operatingCashflow: 40 });
+  eq(fr.status, 'fragile'); ok(/5,3 fois/.test(fr.reasons[0]), fr.reasons[0]);
+  eq(ES.financialHealth({ totalDebt: 100, totalCash: 300, ebitda: 80, profitMargins: 0.12, freeCashflow: 50 }).status, 'solide');
+  eq(ES.financialHealth({ totalDebt: 1e12, totalCash: 1e9, ebitda: 1e8, profitMargins: 0.2, sector: 'Financial Services' }).status, 'solide', 'banque : dette non comparable');
+  eq(ES.financialHealth({ profitMargins: -0.4, freeCashflow: -5, operatingCashflow: -3 }).status, 'fragile');
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const d = ES.alertDecision({ inst: { isin: 'FR0000120271', fund: { totalDebt: 900, totalCash: 0, ebitda: 100 } }, score: { total: 80, independentFamilies: 3, eventFamilies: 2, contributing: [{ id: 'a', date: '2026-10-06' }], lastEventDate: '2026-10-06', ambiguousCount: 0 }, quality: { total: 90, coverage: { ok: true } }, overheat: { total: 0 }, universe: { status: 'retenu', reasons: [] }, cfg: c2, today: '2026-10-07', sentEventIds: {} });
+  ok(!d.send && d.blocking.some((b) => /Solidité financière/.test(b)));
+});
+
+t('Auto-apprentissage : ajustement borné, significatif, une fois par mois', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const samples = [];
+  for (let i = 0; i < 200; i++) samples.push({ excess: (i % 2 ? 0.08 : 0.06) + (i % 7) * 0.001, f: { panic: true, ceo: i % 3 === 0 } });
+  for (let i = 0; i < 200; i++) samples.push({ excess: (i % 2 ? -0.01 : 0.01) + (i % 5) * 0.001, f: { panic: false, ceo: i % 3 === 0 } });
+  const r = ES.calibrate(samples, c2, null, '2026-11-02');
+  eq(r.weights.insiders.panicBuy, c2.weights.insiders.panicBuy + 1, 'hausse d\'un pas');
+  ok(!(r.weights.insiders && r.weights.insiders.ceoCfo != null), 'composante sans effet net : inchangée');
+  eq(r.version, 1); eq(r.changed.length, 1);
+  const again = ES.calibrate(samples, ES.mergeConfig(c2, { weights: r.weights }), r, '2026-11-20');
+  eq(again.changed.length, 0, 'pas deux fois dans le mois');
+  let w = r;
+  for (let m = 1; m <= 9; m++) w = ES.calibrate(samples, ES.mergeConfig(c2, { weights: w.weights }), w, '2027-0' + m + '-02');
+  eq(w.weights.insiders.panicBuy, 2 * c2.weights.insiders.panicBuy, 'plafond : 2 fois le poids d\'origine');
+  const few = ES.calibrate(samples.slice(0, 50).concat(samples.slice(200, 250)), c2, null, '2026-11-02');
+  eq(few.changed.length, 0, 'pas assez de cas');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

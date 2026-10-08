@@ -51,6 +51,25 @@ def press_items(t):
     return out
 
 
+FUND_KEYS = {"totalDebt": "totalDebt", "totalCash": "totalCash", "ebitda": "ebitda", "freeCashflow": "freeCashflow",
+             "operatingCashflow": "operatingCashflow", "profitMargins": "profitMargins", "returnOnEquity": "returnOnEquity",
+             "currentRatio": "currentRatio", "debtToEquity": "debtToEquity", "marketCap": "marketCap"}
+
+
+def fundamentals(t):
+    """Dernières données financières publiées (Yahoo). Non historisées : jamais utilisées pour la validation."""
+    try:
+        inf = t.info or {}
+    except Exception:
+        return None
+    out = {k: num(inf.get(src)) for k, src in FUND_KEYS.items()}
+    if all(v is None for v in out.values()):
+        return None
+    out.update({"sector": inf.get("sector"), "industry": inf.get("industry"), "currency": inf.get("financialCurrency"),
+                "asOf": datetime.now(timezone.utc).date().isoformat()})
+    return out
+
+
 def main():
     try:
         tickers = json.loads((DATA / "tickers.json").read_text(encoding="utf-8"))
@@ -67,12 +86,15 @@ def main():
     print(f"Événements Yahoo : {len(pairs)} titres")
     for n, (isin, ticker) in enumerate(pairs, 1):
         t = yf.Ticker(ticker)
-        rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None}
+        rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None}
         try:
             ed = t.get_earnings_dates(limit=12)
             if ed is not None and not ed.empty:
                 for idx, row in ed.iterrows():
                     rec["earnings"].append({"date": idx.strftime("%Y-%m-%d"), "epsEstimate": num(row.get("EPS Estimate")), "epsActual": num(row.get("Reported EPS"))})
+                today_s = datetime.now(timezone.utc).date().isoformat()
+                fut = sorted(e["date"] for e in rec["earnings"] if e["date"] > today_s)
+                rec["nextEarnings"] = fut[0] if fut else None
         except Exception:
             errors += 1
         try:
@@ -85,6 +107,7 @@ def main():
                 rec["epsTrend"] = {"current": num(tr.loc["0y"].get("current")), "d30": num(tr.loc["0y"].get("30daysAgo"))}
         except Exception:
             pass
+        rec["fund"] = fundamentals(t)
         items[isin] = rec
         time.sleep(0.4)
         if n % 20 == 0:
@@ -92,6 +115,8 @@ def main():
     (DATA / "events.json").write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors}, ensure_ascii=False), encoding="utf-8")
     withE = sum(1 for v in items.values() if v["earnings"])
     withP = sum(1 for v in items.values() if v["press"])
+    withF = sum(1 for v in items.values() if v.get("fund"))
+    print(f"Données financières : {withF} titres ; prochaines publications connues : {sum(1 for v in items.values() if v.get('nextEarnings'))}")
     print(f"Événements écrits : {len(items)} titres, {withE} avec résultats, {withP} avec communiqués, {errors} erreur(s)")
     return 0
 

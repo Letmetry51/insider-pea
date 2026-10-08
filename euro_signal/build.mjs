@@ -15,7 +15,7 @@ const ROOT = path.resolve(HERE, '..');
 const DATA = path.join(ROOT, 'data');
 const F = {
   latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
-  out: path.join(DATA, 'euro-signal.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
+  out: path.join(DATA, 'euro-signal.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
 // NaN / Infinity écrits par Python : remplacés seulement en position de valeur (jamais dans un texte)
@@ -54,7 +54,14 @@ function mainRegistry(list) {
 
 export function build(opts = {}) {
   const today = opts.today || parisToday();
-  const cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, readRequired(F.config, {}, 'euro_signal/config.json'));
+  let cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, readRequired(F.config, {}, 'euro_signal/config.json'));
+  // Auto-apprentissage : poids appris les mois précédents (fichier public, journalisé), appliqués si le mode est « auto »
+  const learnPrev = readJSON(F.learning, null);
+  const baseVersion = cfg.scoringVersion;
+  if (cfg.learning.mode === 'auto' && learnPrev && learnPrev.weights && Object.keys(learnPrev.weights).length) {
+    cfg = ES.mergeConfig(cfg, { weights: learnPrev.weights });
+    if (learnPrev.version) cfg.scoringVersion = baseVersion + '+a' + learnPrev.version;
+  }
   const errs = ES.validateConfig(cfg);
   if (errs.length) throw new Error('config.json invalide : ' + errs.join(' ; '));
   const latest = readJSON(F.latest, null);
@@ -171,6 +178,13 @@ export function build(opts = {}) {
     i.stats = p && p.rows && p.rows.length ? ES.computeStats(p.rows, p.splits || [], today, cfg, i.currency) : { sessions: 0, empty: true };
     if (mkt && i.stats.ret6m1 != null && mkt.ret6m1 != null) i.stats.rel6m = i.stats.ret6m1 - mkt.ret6m1;
     if (mkt) { i.stats.marketAbove200 = mkt.above200; i.stats.marketIndex = mkt.ticker; }
+    const er = (evRaw.items || {})[isin];
+    state.fund = state.fund || {};
+    if (er && er.fund) state.fund[isin] = er.fund; // conservées si la collecte du soir échoue
+    i.fund = state.fund[isin] || null;
+    if (i.fund && i.fund.sector) i.sector = i.fund.sector;
+    i.nextEarnings = er && er.nextEarnings && er.nextEarnings > today ? er.nextEarnings : (state.nextEarnings || {})[isin] > today ? state.nextEarnings[isin] : null;
+    if (i.nextEarnings) (state.nextEarnings = state.nextEarnings || {})[isin] = i.nextEarnings;
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
     inst[isin] = i; tx[isin] = list;
   });
@@ -199,7 +213,13 @@ export function build(opts = {}) {
     const decision = ES.alertDecision({ inst: i, score, quality, overheat, universe: uni, cfg, today, sentEventIds: sentIds[isin] || {} });
     computed[isin] = { score: score.total, quality: quality.total, overheat: overheat.total, send: decision.send, blocking: decision.blocking.length };
     if (decision.send) {
-      const mail = ES.buildEmail({ inst: i, score, quality, overheat, decision, refs: refs[isin], events: ev, today, universeWarnings: uni.reasons.concat(['Éligibilité PEA non confirmée automatiquement : à vérifier avant tout achat.']) });
+      const health = ES.financialHealth(i.fund);
+      const warn = uni.reasons.concat(['Éligibilité PEA non confirmée automatiquement : à vérifier avant tout achat.']);
+      if (health.status === 'inconnu') warn.push('Solidité financière non vérifiable (données indisponibles) : regarder l\'endettement et la trésorerie avant d\'acheter.');
+      else warn.push('Solidité financière : ' + health.status + (health.notes.length ? ' (' + health.notes.join(', ') + ')' : ''));
+      if (i.nextEarnings && ES.daysBetween(today, i.nextEarnings) <= cfg.alerts.earningsWarnDays) warn.push('Résultats prévus le ' + i.nextEarnings + ' (dans ' + ES.daysBetween(today, i.nextEarnings) + ' jours) : acheter juste avant revient à parier sur leur contenu.');
+      if (score.marketDown) warn.push('Marché européen sous sa moyenne 200 séances : environnement baissier.');
+      const mail = ES.buildEmail({ inst: i, score, quality, overheat, decision, refs: refs[isin], events: ev, today, universeWarnings: warn });
       if (dashUrl) {
         const link = dashUrl + '#' + isin; // ouvre directement la fiche de la société
         const btn = '<p style="margin:10px 0 14px"><a href="' + ES.esc(link) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Voir la fiche dans Euro Signal</a></p>';
@@ -214,7 +234,11 @@ export function build(opts = {}) {
   });
 
   /* 6. Étude d'événements (validation) sur l'archive accumulée */
-  const events = [];
+  const events = [], samples = [];
+  const bAdj = prices.bench ? ES.adjustedSeries(ES.normalizeSeries(prices.bench.rows), []) : null;
+  const bIdx = {}; if (bAdj) bAdj.forEach((r, k) => { bIdx[r[0]] = k; });
+  const mAdj = mRef && mRef.rows ? ES.adjustedSeries(ES.normalizeSeries(mRef.rows), []) : null;
+  const ret6m1At = (a, d) => { let k = -1; for (let q = a.length - 1; q >= 0; q--) if (a[q][0] <= d) { k = q; break; } return k >= 126 ? (a[k - 21][4] / a[k - 126][4] - 1) * 100 : null; };
   Object.keys(inst).forEach((isin) => {
     if (!pItems[isin]) return;
     const R = refs[isin] || {};
@@ -234,6 +258,16 @@ export function build(opts = {}) {
         if (trendAt(d)) events.push({ isin, date: d, group: 'Décote ≥ ' + W.discountMediumPct + ' % + MM50 > MM200' });
       }
       if (a && ES.isPanic(a, W)) events.push({ isin, date: d, group: 'Achat dans la panique' });
+      // composantes connues à la date de publication, et résultat réel 60 séances plus tard
+      const disc = a && a.paidVsHigh52Pct != null ? -a.paidVsHigh52Pct : null;
+      let kk = -1; { let lo = 0, hi = adj.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (adj[m][0] <= d) { kk = m; lo = m + 1; } else hi = m - 1; } }
+      const above = kk >= 199 ? adj[kk][4] > (cum[kk + 1] - cum[kk - 49]) / 50 && adj[kk][4] > (cum[kk + 1] - cum[kk - 199]) / 200 : null;
+      const rs = mAdj ? (() => { const x = ret6m1At(adj, d), y = ret6m1At(mAdj, d); return x != null && y != null ? x - y : null; })() : null;
+      const known2 = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
+      samples.push({ isin, date: d, excess: bAdj ? ES.forwardExcess(adj, bAdj, bIdx, d, cfg.learning.horizon, cfg.backtest.costRoundTripPct / 100) : null,
+        f: { discountBig: disc != null ? disc >= W.discountBigPct : undefined, discountMedium: disc != null ? disc >= W.discountMediumPct && disc < W.discountBigPct : undefined,
+          nearLow: a && a.paidPos52 != null ? a.paidPos52 <= cfg.insiders.nearLowPct : undefined, panic: a ? ES.isPanic(a, W) : undefined, ceo: !!(t.ceo || t.cfo),
+          cluster: ES.clusterInfo(known2, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers, trend: above == null ? undefined : above, relStrong: rs == null ? undefined : rs >= cfg.weights.market.relStrengthPts } });
       if (t.ceo || t.cfo) events.push({ isin, date: d, group: 'Achat DG ou DAF' });
       const known = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
       if (ES.clusterInfo(known, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin, date: d, group: 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }
@@ -244,8 +278,58 @@ export function build(opts = {}) {
   const oos = cfg.backtest.oosStart || ES.addMonths(today, -6);
   const backtest = { results: ES.eventStudy(events, series, prices.bench ? { rows: prices.bench.rows, splits: [] } : null, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, oosStart: oos }), bench: prices.bench ? prices.bench.ticker : null, oosStart: oos, cost: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, events: events.length };
 
+  /* 6a. Auto-apprentissage mensuel (appliqué à partir du passage suivant) */
+  const learning = ES.calibrate(samples, ES.mergeConfig(cfg, {}), learnPrev, today);
+  learning.mode = cfg.learning.mode; learning.samples = samples.length; learning.withOutcome = samples.filter((x) => x.excess != null).length; learning.baseVersion = baseVersion;
+  if (learning.changed.length && cfg.learning.mode === 'auto') {
+    const lines = learning.changed.map((e) => e.label + ' : ' + e.from + ' → ' + e.to + ' point(s) (écart mesuré ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt sur ' + e.nWith + ' cas, t = ' + e.t + ')');
+    outbox.push({ id: 'apprentissage-' + learning.month, kind: 'info', isin: null, name: 'Barème', subject: '[Euro Signal] Barème ajusté automatiquement (' + learning.month + ')',
+      text: 'Euro Signal a comparé ses signaux aux résultats réels et ajusté son barème :\n' + lines.join('\n') + '\n\nRègles : un pas au plus par mois, seulement si l\'écart est net sur au moins ' + cfg.learning.minCases + ' cas, entre 0 et 2 fois le poids d\'origine. Pour désactiver : "learning": {"mode": "off"} dans euro_signal/config.json.',
+      html: '<div style="font-family:Arial,sans-serif;font-size:14px"><h2>Barème ajusté automatiquement</h2><p>Euro Signal a comparé ses signaux aux résultats réels (' + learning.withOutcome + ' achats suivis sur ' + cfg.learning.horizon + ' séances) :</p><ul>' + lines.map((l) => '<li>' + ES.esc(l) + '</li>').join('') + '</ul><p style="color:#55615c;font-size:12px">Un pas au plus par mois, seulement si l\'écart est net sur au moins ' + cfg.learning.minCases + ' cas, entre 0 et 2 fois le poids d\'origine. Désactivable dans euro_signal/config.json.</p>' + (dashUrl ? '<p><a href="' + ES.esc(dashUrl) + '">Voir l\'onglet Résultats passés</a></p>' : '') + '</div>',
+      eventIds: ['learn:' + learning.month], score: null, version: cfg.scoringVersion });
+  }
+
+  /* 6c. Suivi des alertes envoyées et signaux de sortie */
+  const followups = [];
+  if (cfg.exits.enabled) {
+    const tracked = Object.values(state.alerts).filter((a) => a.isin && a.kind !== 'sortie' && a.kind !== 'info' && ['envoyee', 'incertain', 'simulee'].indexOf(a.status) > -1);
+    const latestByIsin = {}; tracked.forEach((a) => { if (!latestByIsin[a.isin] || a.createdAt > latestByIsin[a.isin].createdAt) latestByIsin[a.isin] = a; });
+    Object.values(latestByIsin).forEach((a) => {
+      const d0 = String(a.createdAt || '').slice(0, 10), p = pItems[a.isin], i = inst[a.isin];
+      if (!d0 || !p || !i || ES.daysBetween(d0, today) > cfg.exits.followDays) return;
+      const adj = ES.adjustedSeries(ES.normalizeSeries(p.rows), p.splits || []);
+      const after = adj.filter((r) => r[0] >= d0);
+      if (!after.length) return;
+      const p0 = after[0][4], last = after[after.length - 1][4], peak = Math.max(...after.map((r) => r[4]));
+      let benchPct = null;
+      if (bAdj) { const b = bAdj.filter((r) => r[0] >= d0); if (b.length) benchPct = (b[b.length - 1][4] / b[0][4] - 1) * 100; }
+      const R = refs[a.isin] || {};
+      const paid = (a.eventIds || []).filter((e) => /^tx:/.test(e)).map((e) => R[e.slice(3)] && !R[e.slice(3)].outOfRange ? R[e.slice(3)].paidAdj : null).filter((x) => x != null);
+      const minPaid = paid.length ? Math.min(...paid) : null;
+      const sells = ES.activeTx(tx[a.isin]).filter((t) => t.type === 'vente' && ES.availDate(t) > d0 && !ES.isLegalEntity(t.person, t.issuer));
+      const signals = [];
+      if (sells.length) signals.push({ type: 'vente', label: 'un dirigeant a vendu depuis l\'alerte (' + sells.map((t) => (t.person || '?') + ' le ' + t.txDate).slice(0, 3).join(', ') + ')' });
+      if (i.stats.deathCrossDate && i.stats.deathCrossDate > d0) signals.push({ type: 'tendance', label: 'la MM50 est repassée sous la MM200 le ' + i.stats.deathCrossDate });
+      if (minPaid && last < minPaid * (1 - cfg.exits.belowInsiderPricePct / 100)) signals.push({ type: 'prix_dirigeant', label: 'le cours (' + last.toFixed(2) + ') est plus de ' + cfg.exits.belowInsiderPricePct + ' % sous le prix payé par les dirigeants (' + minPaid.toFixed(2) + ')' });
+      if (last / peak - 1 <= -cfg.exits.drawdownFromPeakPct / 100) signals.push({ type: 'repli', label: 'le cours a reculé de ' + Math.round((1 - last / peak) * 100) + ' % depuis son plus haut atteint après l\'alerte' });
+      const perf = (last / p0 - 1) * 100;
+      followups.push({ alertId: a.id, isin: a.isin, name: i.name, sentAt: d0, status: a.status, priceAtAlert: p0, last, perfPct: perf, benchPct, fromPeakPct: (last / peak - 1) * 100, signals: signals.map((x) => x.label) });
+      if (a.status === 'simulee') return; // pas d'email de sortie pour une alerte jamais envoyée
+      signals.forEach((sg) => {
+        const id = a.id + '-sortie-' + sg.type;
+        if (state.alerts[id] && ['envoyee', 'incertain', 'en_cours'].indexOf(state.alerts[id].status) > -1) return;
+        const body = 'Signal de sortie sur ' + i.name + ' : ' + sg.label + '. Depuis l\'alerte du ' + d0 + ' : ' + ES.fmtPct(perf) + (benchPct != null ? ' (CAC 40 : ' + ES.fmtPct(benchPct) + ')' : '') + '.';
+        outbox.push({ id, kind: 'sortie', isin: a.isin, name: i.name, subject: '[Euro Signal] Signal de sortie — ' + i.name,
+          text: body + '\nCe n\'est pas un ordre de vente : à examiner selon votre propre stratégie.' + (dashUrl ? '\nFiche : ' + dashUrl + '#' + a.isin : ''),
+          html: '<div style="font-family:Arial,sans-serif;font-size:14px;max-width:680px"><h2 style="margin:0 0 6px">Signal de sortie — ' + ES.esc(i.name) + '</h2>' + (dashUrl ? '<p><a href="' + ES.esc(dashUrl + '#' + a.isin) + '" style="display:inline-block;background:#0D6A56;color:#fff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Voir la fiche</a></p>' : '') + '<p>' + ES.esc(body) + '</p><p style="color:#55615c;font-size:12px">Ce n\'est pas un ordre de vente : à examiner selon votre propre stratégie. Un même signal n\'est envoyé qu\'une fois.</p></div>',
+          eventIds: ['exit:' + id], score: null, version: cfg.scoringVersion });
+      });
+    });
+  }
+
   /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
   outbox.forEach((m) => {
+    if (m.kind) return; // emails de sortie et d'information : pas d'argumentaire
     const r = ES.emailRationale(backtest.results, m.profile, 60);
     const anchor = m.html.indexOf('Voir la fiche dans Euro Signal</a></p>') > -1 ? 'Voir la fiche dans Euro Signal</a></p>' : '</h2>';
     m.html = m.html.replace(anchor, anchor + r.html);
@@ -280,13 +364,15 @@ export function build(opts = {}) {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
     cfg, inst, tx: dashTx, ev: evOut, src: state.src, alerts: alertsMap, refs: dashRefs, prices: dashPrices, backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt
+    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups,
+    learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion }
   };
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);
 
   if (!opts.dryRun) {
     writeJSON(F.state, state);
     writeJSON(F.outbox, outbox, true);
+    writeJSON(F.learning, { month: learning.month, version: learning.version, weights: learning.weights, log: learning.log, stats: learning.stats, updatedAt: new Date().toISOString() }, true);
     writeJSON(F.out, payload, false, true);
     const mb = fs.statSync(F.out).size / 1e6;
     if (mb > 60) { // garde-fou : GitHub refuse les fichiers de plus de 100 Mo, ce qui empêcherait aussi d'enregistrer le journal
