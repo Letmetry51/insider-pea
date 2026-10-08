@@ -33,6 +33,11 @@ def load(path, default):
         return default
 
 
+def redact(txt):
+    """Retire toute adresse email d'un message d'erreur (le journal et les données sont publics)."""
+    return re.sub(r"[^\s<>\"'(),;:]+@[^\s<>\"'(),;:]+", "[adresse masquée]", txt or "")
+
+
 def save(path, obj):
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -50,7 +55,15 @@ def main():
     to_list = [a for a in re.split(r"[,;\s]+", os.environ.get("ALERT_TO", "")) if "@" in a] or ([user] if user else [])
     to = ", ".join(to_list)
     live = bool(user and pwd and to)
-    state = load(STATE, {})
+    if STATE.exists():
+        try:
+            state = json.loads(STATE.read_text(encoding="utf-8"))
+        except Exception as e:  # journal illisible : ne rien envoyer plutôt que de risquer un doublon
+            print("ARRÊT : journal des alertes illisible (" + type(e).__name__ + "), aucun envoi")
+            return 1
+    else:
+        prev = load(DASH, None) or {}
+        state = {"alerts": prev.get("alerts") or {}}  # journal disparu : reprise des alertes du tableau de bord
     state.setdefault("alerts", {})
     outbox = load(OUTBOX, [])
 
@@ -82,7 +95,7 @@ def main():
                      '<p>Email de test envoyé par Euro Signal le ' + now() + '. Aucune alerte dans ce message.</p>' + ('<p><a href="' + dash + '" style="display:inline-block;background:#0D6A56;color:#fff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Ouvrir le tableau de bord</a></p>' if dash else ''))
                 print("Email de test envoyé à", len(to_list), "destinataire(s)")  # jamais les adresses : le journal est public
             except Exception as e:
-                print("ÉCHEC de l'email de test :", type(e).__name__, str(e)[:200])
+                print("ÉCHEC de l'email de test :", type(e).__name__, redact(str(e))[:200])
         else:
             print("Email de test impossible : secrets GMAIL_USER / GMAIL_APP_PASSWORD / ALERT_TO manquants")
 
@@ -112,7 +125,7 @@ def main():
             else:
                 rec["status"] = "echec"  # rien n'a été transmis : sera retentée à la prochaine exécution
                 print("  ÉCHEC (connexion) :", rec["subject"], type(e).__name__)
-            rec["error"] = phase["v"] + " — " + type(e).__name__ + " : " + str(e)[:160]
+            rec["error"] = phase["v"] + " — " + type(e).__name__ + " : " + redact(str(e))[:160]
         rec["doneAt"] = now()
         save(STATE, state)
 

@@ -372,14 +372,20 @@
   /** Fusionne de nouvelles déclarations avec l'existant (même ISIN ou non). Ne perd jamais l'historique. */
   ES.mergeTransactions = function (existing, incoming, nowIso) {
     var byId = {}, byKey = {}, out = existing.map(function (r) { return Object.assign({}, r); });
-    out.forEach(function (r, i) { byId[r.id] = i; if (r.status !== 'remplacee') byKey[r.dedupKey] = i; });
+    var looseKey = function (r) { return [r.isin, r.txDate, r.type, r.price != null ? r.price.toFixed(2) : '?', r.qty != null ? 'q' + Math.round(r.qty) : r.amount != null ? 'm' + Math.round(r.amount) : '?'].join('|'); };
+    var corrKey = function (r) { return [r.registry, r.isin, r.personKey, r.txDate, r.type].join('|'); };
+    var byLoose = {}, byCorr = {};
+    out.forEach(function (r, i) { byId[r.id] = i; if (r.status !== 'remplacee') { byKey[r.dedupKey] = i; byLoose[looseKey(r)] = i; byCorr[corrKey(r)] = i; } });
     var stats = { added: 0, duplicates: 0, corrected: 0, cancelled: 0, crossSource: 0 };
     incoming.forEach(function (inc) {
       inc = Object.assign({}, inc);
       var i = byId[inc.id];
       if (i != null) {
         var cur = out[i];
-        var newer = inc.version > cur.version || (inc.status !== 'active' && inc.status !== cur.status);
+        var incSt = inc.status === 'corrigee' ? 'active' : inc.status;
+        var changed = inc.qty !== cur.qty || inc.price !== cur.price || inc.txDate !== cur.txDate || inc.type !== cur.type || inc.amount !== cur.amount;
+        var newer = inc.version > cur.version || incSt !== cur.status || (inc.status === 'corrigee' && (!cur.corrected || changed)) || inc.type !== cur.type;
+        if (cur.status === 'annulee' && incSt === 'active' && !(inc.version > cur.version)) newer = false; // une annulation n'est pas défaite par la republication de l'original
         if (!newer) { stats.duplicates++; return; }
         inc.firstSeen = cur.firstSeen; inc.history = (cur.history || []).concat([{ version: cur.version, status: cur.status, replacedOn: nowIso, snapshot: { qty: cur.qty, price: cur.price, amount: cur.amount, txDate: cur.txDate, type: cur.type } }]).slice(-5);
         inc.alsoSeenIn = cur.alsoSeenIn || [];
@@ -388,7 +394,18 @@
         out[i] = inc;
         return;
       }
+      // correction publiée sous un nouvel identifiant : remplace la déclaration d'origine
+      var ck = inc.status === 'corrigee' ? byCorr[corrKey(inc)] : null;
+      if (ck != null && out[ck].status === 'active' && out[ck].id !== inc.id) {
+        var orig = out[ck];
+        if (orig.qty === inc.qty && orig.price === inc.price && orig.amount === inc.amount) { stats.duplicates++; byId[inc.id] = ck; return; }
+        inc.firstSeen = orig.firstSeen; inc.status = 'active'; inc.corrected = true; inc.replaces = orig.id;
+        inc.history = (orig.history || []).concat([{ version: orig.version, status: orig.status, replacedOn: nowIso, snapshot: { qty: orig.qty, price: orig.price, amount: orig.amount, txDate: orig.txDate, type: orig.type } }]).slice(-5);
+        out[ck] = inc; byId[inc.id] = ck; byKey[inc.dedupKey] = ck; stats.corrected++;
+        return;
+      }
       var k = byKey[inc.dedupKey];
+      if (k == null) { var lk = byLoose[looseKey(inc)]; if (lk != null && out[lk].registry !== inc.registry) k = lk; } // même opération déclarée dans deux registres, nom différent (dirigeant / sa société)
       if (k != null) {
         var ex = out[k];
         if (ex.registry === inc.registry) { stats.duplicates++; return; }
@@ -404,7 +421,7 @@
       }
       inc.firstSeen = inc.firstSeen || nowIso;
       if (inc.status === 'corrigee') { inc.status = 'active'; inc.corrected = true; }
-      out.push(inc); byId[inc.id] = out.length - 1; byKey[inc.dedupKey] = out.length - 1; stats.added++;
+      out.push(inc); byId[inc.id] = out.length - 1; byKey[inc.dedupKey] = out.length - 1; byLoose[looseKey(inc)] = out.length - 1; byCorr[corrKey(inc)] = out.length - 1; stats.added++;
     });
     return { list: out, stats: stats };
   };
@@ -415,7 +432,8 @@
   ES.normalizeSeries = function (rows) {
     var seen = {}, out = [];
     rows.forEach(function (r) {
-      if (!r || !r[0] || !(r[4] > 0)) return;
+      if (!r || !r[0] || typeof r[4] !== 'number' || !isFinite(r[4]) || !(r[4] > 0)) return;
+      for (var k = 1; k < 6; k++) if (r[k] != null && (typeof r[k] !== 'number' || !isFinite(r[k]))) { r = r.slice(); r[k] = null; }
       if (seen[r[0]] != null) { out[seen[r[0]]] = r; return; } // dernière valeur gagne (pagination répétée)
       seen[r[0]] = out.length; out.push(r);
     });
@@ -425,7 +443,7 @@
   /** Facteur qui ramène un prix brut de la date d au même nombre d'actions qu'aujourd'hui. */
   ES.splitFactor = function (splits, d) {
     var f = 1;
-    (splits || []).forEach(function (s) { if (s.date > d && s.ratio > 0) f *= s.ratio; });
+    (splits || []).forEach(function (s) { if (s && s.date > d && typeof s.ratio === 'number' && isFinite(s.ratio) && s.ratio > 0 && s.ratio < 1e4) f *= s.ratio; });
     return f;
   };
   ES.adjustedSeries = function (rows, splits) {
@@ -473,6 +491,7 @@
     s.staleBusinessDays = ES.businessDaysBetween(last[0], today);
     var l20 = rows.slice(-20).filter(function (r) { return r[5] != null; });
     s.adv20 = l20.length >= 10 ? mean(l20.map(function (r) { return r[4] * r[5]; })) : null;
+    if (s.adv20 != null && !isFinite(s.adv20)) s.adv20 = null;
     s.adv20Eur = currency === 'EUR' ? s.adv20 : null;
     // anomalies : variations quotidiennes extrêmes (sur cours ajustés), éventuels splits non déclarés
     var anomalies = [], recent = adj.slice(-261);
@@ -492,6 +511,20 @@
     var mu = mean(rets);
     s.volAnnPct = rets.length >= 20 ? Math.sqrt(rets.reduce(function (a, x) { return a + (x - mu) * (x - mu); }, 0) / (rets.length - 1)) * Math.sqrt(252) * 100 : null;
     s.sma50 = sma(closes, 50); s.sma200 = sma(closes, 200);
+    // Dernier croisement MM50 / MM200 (moyennes glissantes calculées en une passe)
+    s.goldenCrossDate = null; s.deathCrossDate = null;
+    if (closes.length >= 201) {
+      var s50 = 0, s200 = 0, prev = null;
+      for (var q = 0; q < closes.length; q++) {
+        s50 += closes[q]; s200 += closes[q];
+        if (q >= 50) s50 -= closes[q - 50];
+        if (q >= 200) s200 -= closes[q - 200];
+        if (q < 199) continue;
+        var above = s50 / 50 > s200 / 200;
+        if (prev !== null && above !== prev) { if (above) s.goldenCrossDate = adj[q][0]; else s.deathCrossDate = adj[q][0]; }
+        prev = above;
+      }
+    }
     var c = closes[closes.length - 1];
     s.ret1m = closes.length > 21 ? (c / closes[closes.length - 22] - 1) * 100 : null;
     s.ret3m = closes.length > 63 ? (c / closes[closes.length - 64] - 1) * 100 : null;
@@ -509,14 +542,20 @@
   };
 
   /** Comparaisons d'un achat d'initié au cours (sur base ajustée des splits). */
-  ES.priceRefs = function (tx, rawRows, splits, today) {
+  ES.priceRefs = function (tx, rawRows, splits, today, seriesCurrency) {
     var rows = ES.normalizeSeries(rawRows || []);
     var res = { available: false, notes: [] };
     if (!rows.length) { res.notes.push('aucun historique de cours importé'); return res; }
-    if (tx.price == null) { res.notes.push('prix payé inconnu'); return res; }
+    if (tx.price == null || typeof tx.price !== 'number' || !isFinite(tx.price) || tx.price <= 0) { res.notes.push('prix payé inconnu'); return res; }
+    var unit = 1, tc = String(tx.currency || '').trim().toUpperCase(), sc = String(seriesCurrency || '').trim();
+    var minor = { GBp: 'GBP', GBX: 'GBP', ZAc: 'ZAR', ZAC: 'ZAR', ILA: 'ILS' }[sc]; // cotations en centimes / pence
+    if (tc && sc && String(tx.currency).trim() !== sc) {
+      if (minor) { if (tc === minor) unit = 100; else if (tc !== sc.toUpperCase()) { res.notes.push('devise du prix payé (' + tc + ') différente de la cotation suivie (' + sc + ') : comparaison impossible'); res.currencyMismatch = true; return res; } }
+      else if (tc !== sc.toUpperCase()) { res.notes.push('devise du prix payé (' + tc + ') différente de la cotation suivie (' + sc + ') : comparaison impossible'); res.currencyMismatch = true; return res; }
+    }
     var adj = ES.adjustedSeries(rows, splits);
     var f = ES.splitFactor(splits, tx.txDate);
-    var paid = tx.price / f;
+    var paid = tx.price * unit / f;
     res.available = true;
     res.paidAdj = paid; res.splitFactor = f;
     if (f !== 1) res.notes.push('prix payé ajusté des opérations sur titres postérieures (facteur ' + f + ')');
@@ -538,7 +577,8 @@
       };
       if (ex52 && !res.atPurchase.full52) res.notes.push('fenêtre 52 semaines incomplète à la date d\'achat (début ' + ex52.from + ')');
       var day = ES.extremes(adj, tx.txDate, tx.txDate);
-      if (day && (paid > day.high * 1.02 || paid < day.low * 0.98)) { res.outOfRange = true; res.notes.push('prix payé hors de la fourchette du jour (' + day.low.toFixed(2) + '–' + day.high.toFixed(2) + ') : vérifier la déclaration ou une opération sur titres'); }
+      if (day) { res.dayLow = day.low; res.dayHigh = day.high; }
+      if (day && (paid > day.high * 1.02 || paid < day.low * 0.98)) { res.outOfRange = true; if (paid < day.low * 0.8) res.belowMarket = true; res.notes.push('prix payé hors de la fourchette du jour (' + day.low.toFixed(2) + '–' + day.high.toFixed(2) + ') : vérifier la déclaration ou une opération sur titres'); }
     }
     var t52 = ES.extremes(adj, ES.addDays(last[0], -365), last[0]), tAll = ES.extremes(adj, null, last[0]);
     res.today = {
@@ -553,16 +593,16 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.2.0',
+    scoringVersion: '1.3.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
-    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true },
+    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30 },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
       insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
       results: { cap: 25, floor: -10, epsStrong: 8, epsMild: 4, epsStrongPct: 5, epsMildPct: 2, epsMiss: -6, revStrong: 7, revMild: 3, revStrongPct: 2, revMildPct: 0, guidanceRaised: 10, guidanceLowered: -10 },
-      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000 }
+      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4 }
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
@@ -628,15 +668,26 @@
     return t.personKey || null;
   };
   /** Déclarant personne morale (holding, société, fonds, fondation…) d'après son nom, toutes langues du périmètre. */
-  var LEGAL_FORMS = /(^| )(sa|sas|sasu|sarl|eurl|sca|sci|scp|sc|snc|selarl|se|srl|srls|spa|sapa|sas|ss|sl|slu|sau|sccl|gmbh|ag|kg|kgaa|ug|ohg|gbr|ev|bv|nv|cv|vof|bvba|sprl|commv|scrl|ltd|ltda|lda|limited|llc|llp|plc|inc|corp|lp|scs|scpi|sicar|gie|aps|ab|oy|oyj|aktieselskabet|sicav|fcp|fcpe|sgr|sim|a s)( |$)/;
-  var LEGAL_WORDS = /(^| )(holding|holdings|participations?|participaciones|partecipazioni|deelnemingen|beteiligungs?\w*|invest|investissements?|investments?|investment|inversiones|inversora|investimenti|capital|partners|management|gestion|gestora|gestioni|family office|familienstiftung|stiftung|stichting|fondation|foundation|fondazione|fundacion|fonds|fund|funds|trust|beheer|verwaltungs?\w*|vermogensverwaltung|patrimoine|patrimonial|patrimoniale|societe|societa|sociedad|company|compagnie|groupe|group|gruppo|grupo|finanziaria|fiduciaria|immobiliare|cartera|consulting|conseil|ventures|equity|asset|assets|gestao|investimentos|administracao|participacoes|sociedade|holdco|maatschap|financiere|finance|industries|industrie|beteiligung)( |$)/;
+  var LEGAL_FORM_SET = {};
+  'ab ag aktieselskabet aps bv bvba commv corp cv eurl ev fcp fcpe gbr gie gmbh inc kg kgaa lda limited llc llp lp ltd ltda nv ohg oy oyj plc sa sapa sarl sas sasu sau sc sca sccl sci scp scpi scrl scs se selarl sgr sicar sicav sim sl slu snc spa sprl srl srls ss ug vof'.split(' ').forEach(function (f) { LEGAL_FORM_SET[f] = 1; });
+  // formes courtes qui sont aussi des noms de famille (Sá, Sim, Se…) : retenues seulement en majuscules ou avec des points
+  var AMBIG_FORMS = { sa: 1, se: 1, sc: 1, ss: 1, sim: 1, ab: 1, as: 1, ag: 1, kg: 1, nv: 1, bv: 1, sl: 1, lp: 1, cv: 1, ev: 1, ug: 1, oy: 1, gie: 1, inc: 0 };
+  var LEGAL_WORDS = /(^| )(holding|holdings|participations?|participaciones|partecipazioni|deelnemingen|beteiligungs?\w*|invest|investissements?|investments?|investment|inversiones|inversora|investimenti|capital|partners|management|gestion|gestora|gestioni|family office|familienstiftung|stiftung|stichting|fondation|foundation|fondazione|fundacion|fonds|fund|funds|trust|beheer|verwaltungs?\w*|vermogensverwaltung|patrimoine|patrimonial|patrimoniale|societe|societa|sociedad|company|compagnie|groupe|group|gruppo|grupo|finanziaria|fiduciaria|immobiliare|cartera|consulting|conseil|ventures|equity|asset|assets|family|familie|famiglia|familia|croissance|gestao|investimentos|administracao|participacoes|sociedade|holdco|maatschap|financiere|finance|industries|industrie|beteiligung)( |$)/;
   ES.isLegalEntity = function (name, issuer) {
     if (!name) return false;
-    var t = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-    if (LEGAL_FORMS.test(t) || LEGAL_WORDS.test(t)) return true;
+    var raw = String(name), t = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    var toks = raw.split(/[\s,;()]+/).filter(Boolean);
+    for (var x = 0; x < toks.length; x++) {
+      var tk = toks[x], nk = tk.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!LEGAL_FORM_SET[nk]) continue;
+      if (AMBIG_FORMS[nk] && !(/\./.test(tk) || (tk === tk.toUpperCase() && /[A-Z]{2}/.test(tk)))) continue;
+      return true;
+    }
+    if (/(^| )a s( |$)/.test(t) && /A\/S/.test(raw)) return true;
+    if (LEGAL_WORDS.test(t)) return true;
     // Un seul mot (« VALSEBA », « ALTAFI 2 ») : une personne physique a au moins un prénom et un nom
     var words = t.split(' ').filter(function (w) { return /[a-z]/.test(w); });
-    if (words.length === 1 && words[0].length >= 3) return true;
+    if (words.length === 1 && words[0].length >= 3 && !/[a-z\u00e0-\u00ff][A-Z\u00c0-\u00dd]/.test(raw)) return true; // « DominiqueFOUGERAT » : prénom et nom collés
     // Le déclarant est l'émetteur lui-même (rachat d'actions déclaré comme une opération d'initié)
     if (issuer) {
       var i = String(issuer).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -684,7 +735,11 @@
     // --- Initiés
     var fi = F('insiders', 'Initiés'), wi = W.insiders;
     var inWin = ES.activeTx(ctx.tx).filter(function (t) { return ES.availDate(t) >= from && ES.availDate(t) <= today; });
-    var buys = inWin.filter(function (t) { return ES.isVoluntaryBuy(t, cfg); });
+    var belowMkt = function (t) { var r = ctx.refs && ctx.refs[t.id]; return !!(r && r.belowMarket); };
+    var lateDays = function (t) { return t.pubDate && t.txDate ? ES.daysBetween(t.txDate, t.pubDate) : 0; };
+    var cand = inWin.filter(function (t) { return ES.isVoluntaryBuy(t, cfg); });
+    var buys = cand.filter(function (t) { return !belowMkt(t) && lateDays(t) <= cfg.insiders.maxFilingLagDays; });
+    var nBelow = cand.filter(belowMkt).length, nLate = cand.filter(function (t) { return !belowMkt(t) && lateDays(t) > cfg.insiders.maxFilingLagDays; }).length;
     var sells = inWin.filter(function (t) { return t.type === 'vente'; });
     var corpBuys = inWin.filter(function (t) { return t.type === 'achat' && ES.excludedEntity(t, cfg); }).length;
     var holdBuys = buys.filter(function (t) { return t.associated && ES.isLegalEntity(t.person, t.issuer); }).length;
@@ -721,6 +776,8 @@
       if (sellEur > buyEur && sellEur > 0) add(fi, 'ventes d\'initiés (' + fmtEur(sellEur) + ') supérieures aux achats', wi.netSeller);
       if (sells.some(function (t) { return t.ceo || t.cfo; })) add(fi, 'vente du directeur général ou du directeur financier', wi.ceoCfoSale);
     }
+    if (nBelow) add(fi, nBelow + ' achat(s) à un prix très inférieur au cours du jour (exercice d\'options, plan, livraison) : exclus', 0);
+    if (nLate) add(fi, nLate + ' achat(s) déclaré(s) plus de ' + cfg.insiders.maxFilingLagDays + ' jours après l\'opération : information ancienne, exclus', 0);
     if (corpBuys) add(fi, corpBuys + ' achat(s) par une société qui n\'est pas la holding d\'un dirigeant (fonds, investisseur, émetteur) : exclus', 0);
     if (holdBuys) add(fi, holdBuys + ' achat(s) via la holding personnelle d\'un dirigeant : comptés comme les siens', 0);
     var nonVol = inWin.filter(function (t) { return ['attribution', 'option', 'souscription', 'transfert', 'don', 'nantissement', 'dividende', 'instrument', 'autre_nv'].indexOf(t.type) > -1; }).length;
@@ -775,6 +832,11 @@
     var fm = F('market', 'Confirmation de marché'), wm = W.market, s = ctx.inst.stats || {};
     if (s.sessions) {
       if (s.sma50 && s.sma200 && s.lastCloseAdj > s.sma50 && s.lastCloseAdj > s.sma200) add(fm, 'cours au-dessus des moyennes 50 et 200 séances', wm.trend);
+      var firstBuy = buys.length ? buys.map(function (t) { return t.txDate; }).sort()[0] : null;
+      if (s.sma50 && s.sma200 && s.sma50 > s.sma200) {
+        if (firstBuy && s.goldenCrossDate && s.goldenCrossDate >= firstBuy) add(fm, 'MM50 passée au-dessus de la MM200 le ' + s.goldenCrossDate + ', après l\'achat d\'un dirigeant (' + firstBuy + ')', wm.goldenCrossAfterBuy);
+        else add(fm, 'MM50 au-dessus de la MM200 (tendance de fond haussière)', 0);
+      }
       if (s.volRatio5_60 != null && s.volRatio5_60 >= wm.volumeRatio && s.ret1m > 0) add(fm, 'volumes 5 j = ' + s.volRatio5_60.toFixed(1) + '× la moyenne 60 j, en hausse', wm.volume);
       if (s.ret3m != null && s.ret3m > 0) add(fm, 'performance 3 mois positive (' + s.ret3m.toFixed(1) + ' %, absolue, non relative au secteur)', wm.momentum);
       if (s.adv20Eur != null && s.adv20Eur >= wm.liquidityEur) add(fm, 'liquidité ' + fmtEur(s.adv20Eur) + '/jour', wm.liquidity);
@@ -798,7 +860,8 @@
       contributing: contributing, lastEventDate: contributing.length ? contributing[0].date : null,
       ambiguousCount: ambiguous.length, windowFrom: from,
       txInWindow: inWin, buys: buys, sells: sells, buyEur: buyEur, sellEur: sellEur, discount: discount,
-      fallingKnife: !!(buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200)
+      fallingKnife: !!(buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200),
+      trendUp: !!(s.sma50 && s.sma200 && s.sma50 > s.sma200), goldenCrossAfterBuy: !!(buys.length && s.sma50 > s.sma200 && s.goldenCrossDate && s.goldenCrossDate >= buys.map(function (t) { return t.txDate; }).sort()[0])
     };
   };
   ES.surprise = function (actual, consensus) {
@@ -831,6 +894,11 @@
   };
   /** Couverture des déclarations d'initiés pour le pays de domiciliation de l'émetteur. */
   ES.coverage = function (inst, sources, cfg, today) {
+    var home = inst.country && cfg.sources.registryByCountry[inst.country];
+    if (inst.registry && home && home !== inst.registry) { // ex. société allemande dont les déclarations viennent de l'AMF : la BaFin doit aussi être à jour
+      var a = ES.coverage(Object.assign({}, inst, { registry: null }), sources, cfg, today);
+      if (!a.ok) return a;
+    }
     var country = inst.country, reg = inst.registry || cfg.sources.registryByCountry[country];
     if (inst.registry) {
       var rs = sources && sources[inst.registry];
@@ -970,7 +1038,7 @@
       t.push('', 'Opérations d\'initiés :');
       s.buys.concat(s.sells).forEach(function (x) {
         var r = a.refs && a.refs[x.id];
-        h.push('<tr><td>' + x.txDate + '</td><td>' + esc(x.person || 'n.d.') + '<br><span style="color:#55615c">' + esc(x.role || '') + (x.associated ? ' (personne liée' + (x.linkedTo ? ' à ' + esc(x.linkedTo) : '') + ')' : '') + '</span></td><td>' + ES.TX_TYPES[x.type] + '</td><td>' + num2(x.price) + ' ' + esc(x.currency || '') + '</td><td>' + (x.amount != null ? ES.fmtEur(x.amount).replace('€', esc(x.currency || '?')) : 'n.d.') + '</td><td>' + (r && r.available ? pct(r.currentVsPaidPct) : 'n.d.') + '</td><td>' + (x.sourceUrl ? '<a href="' + esc(x.sourceUrl) + '">' + esc(x.registry) + '</a>' : esc(x.registry)) + '</td></tr>');
+        h.push('<tr><td>' + x.txDate + '</td><td>' + esc(x.person || 'n.d.') + '<br><span style="color:#55615c">' + esc(x.role || '') + (x.associated ? ' (personne liée' + (x.linkedTo ? ' à ' + esc(x.linkedTo) : '') + ')' : '') + '</span></td><td>' + ES.TX_TYPES[x.type] + '</td><td>' + num2(x.price) + ' ' + esc(x.currency || '') + '</td><td>' + (x.amount != null ? ES.fmtEur(x.amount).replace('€', esc(x.currency || '?')) : 'n.d.') + '</td><td>' + (r && r.available ? pct(r.currentVsPaidPct) : 'n.d.') + '</td><td>' + (ES.safeUrl(x.sourceUrl) ? '<a href="' + esc(ES.safeUrl(x.sourceUrl)) + '">' + esc(x.registry) + '</a>' : esc(x.registry)) + '</td></tr>');
         t.push('- ' + x.txDate + ' ' + (x.person || 'n.d.') + ' (' + (x.role || '') + ') ' + ES.TX_TYPES[x.type] + ' ' + num2(x.price) + ' ' + (x.currency || '') + ' ; cours/prix payé ' + (r && r.available ? pct(r.currentVsPaidPct) : 'n.d.') + ' ; ' + (x.sourceUrl || x.registry));
         if (r && r.available && r.atPurchase && r.atPurchase.ex52) {
           var p = r.atPurchase;
@@ -985,7 +1053,7 @@
     t.push('', 'Risques : ' + (risks.join(' ; ') || 'aucun signal de surchauffe relevé'), 'Couverture : ' + a.quality.coverage.label);
     var links = [];
     (a.events.buybacks || []).concat(a.events.results || []).forEach(function (e) { if (e.sourceUrl) links.push(e.sourceUrl); });
-    if (links.length) { h.push('<h3 style="margin:16px 0 4px">Autres sources</h3><ul>' + links.map(function (l) { return '<li><a href="' + esc(l) + '">' + esc(l) + '</a></li>'; }).join('') + '</ul>'); t.push('Sources : ' + links.join(' ; ')); }
+    if (links.length) { h.push('<h3 style="margin:16px 0 4px">Autres sources</h3><ul>' + links.filter(ES.safeUrl).map(function (l) { return '<li><a href="' + esc(l) + '">' + esc(l) + '</a></li>'; }).join('') + '</ul>'); t.push('Sources : ' + links.join(' ; ')); }
     h.push('<p style="color:#55615c;font-size:12px">Empreinte ' + a.decision.fingerprint + ' · généré le ' + a.today + ' · Euro Signal ' + ES.ENGINE_VERSION + '</p></div>');
     t.push('', 'Score non probabiliste. Aide à l\'analyse ; aucun ordre passé. Empreinte ' + a.decision.fingerprint);
     return { subject: subj, html: h.join(''), text: t.join('\n') };
@@ -1023,6 +1091,7 @@
     var errors = [], warnings = [], today = opts.today;
     var isin = String(t.isin || '').trim().toUpperCase();
     var type = ES.classifyAmfNature(t.nature, t.instrument);
+    if ((type === 'achat' || type === 'vente') && (Number(t.price) === 0 || NON_VOLUNTARY.test(String(t.nature || '')))) type = 'autre_nv'; // actions gratuites, plan, prix nul
     if (type !== 'instrument' && !ES.isValidIsin(isin)) errors.push('ISIN invalide (' + isin + ')');
     var txDate = ES.parseDate(t.date), pub = ES.parseDate(t.date_published);
     if (!txDate) errors.push('date de transaction illisible');
@@ -1048,7 +1117,7 @@
       ceo: r.ceo, cfo: r.cfo, board: r.board, associated: associated, linkedTo: linkedTo,
       type: type, natureText: (t.nature || '') + (type === 'instrument' ? ' — ' + (t.instrument || '') : ''),
       txDate: txDate, pubDate: pub, pubTime: null, pubPrecision: pub ? 'jour' : 'inconnue',
-      qty: qty, price: price, currency: t.currency || null, amount: amount, amountComputed: false,
+      qty: qty, price: price, currency: ES.cleanCurrency(t.currency), amount: amount, amountComputed: false,
       venue: null, sourceUrl: t.reference_url || null, registryId: t.declaration_number || null, version: 1, status: 'active',
       planned: null, holding: null, stakeAfter: null, via: opts.via || null
     };
@@ -1061,6 +1130,9 @@
   /* =============== Collecteurs européens (format commun) =============== */
   var SHARE_WORDS = /^(action|actions|share|shares|ordinary shares?|aandeel|aandelen|gewone aandelen|aktie|aktien|azione|azioni|azioni ordinarie|accion|acciones|equity)$/;
   /** Déclaration issue d'un collecteur de registre (FSMA, AFM…). Valeurs brutes en texte, parsées ici. */
+  /** Lien sûr : http(s) uniquement (pas de javascript:, data:…). */
+  ES.safeUrl = function (u) { u = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : ''; };
+  ES.cleanCurrency = function (c) { c = String(c == null ? '' : c).trim(); return /^[A-Za-z]{3}$/.test(c) ? (c === 'GBp' || c === 'GBX' ? 'GBp' : c.toUpperCase()) : null; };
   var NON_VOLUNTARY = /\b(free (allocation|shares?|grant)|gratuit|gratis|gratuito|grant(ed)?|awards?|vesting|vested|attribu(tion|zione)|assegnazione|toekenning|zuteilung|sell[- ]to[- ]cover|incentive plan|piano di incentivazione|plan de incentivos|stock option|exercise of options?)\b/i;
   ES.fromCollectorRecord = function (r, opts) {
     var errors = [], warnings = [], today = opts.today, loc = r.numberLocale || 'auto';
@@ -1084,9 +1156,9 @@
     else if (txDate > today) errors.push('date de transaction dans le futur');
     if (pub && pub > today) errors.push('date de publication dans le futur');
     if (pub && txDate && pub < txDate) errors.push('publication antérieure à la transaction');
-    var num = function (v) { var n = ES.parseNumber(v, loc); return n != null && n > 0 ? n : null; };
+    var num = function (v) { var n = ES.parseNumber(v, loc); return n != null && isFinite(n) && n > 0 && n < 1e13 ? n : null; };
     var qty = num(r.quantity), price = num(r.price), amount = num(r.amount);
-    if (amount == null && qty != null && price != null) amount = qty * price;
+    if (amount == null && qty != null && price != null && isFinite(qty * price) && qty * price < 1e13) amount = qty * price;
     if (amount == null) warnings.push('montant non publié');
     var role = String(r.role || '').trim();
     var rr = ES.classifyRole(role);
@@ -1099,7 +1171,7 @@
       ceo: rr.ceo, cfo: rr.cfo, board: rr.board, associated: associated, linkedTo: linkedTo,
       type: type, natureText: (r.nature || '') + (type === 'instrument' ? ' — ' + (r.instrument || '') : ''),
       txDate: txDate, pubDate: pub, pubTime: null, pubPrecision: pub ? 'jour' : 'inconnue',
-      qty: qty, price: price, currency: r.currency ? String(r.currency).trim().toUpperCase() : null, amount: amount, amountComputed: ES.parseNumber(r.amount, loc) == null && amount != null,
+      qty: qty, price: price, currency: ES.cleanCurrency(r.currency), amount: amount, amountComputed: ES.parseNumber(r.amount, loc) == null && amount != null,
       venue: r.place || null, sourceUrl: r.url || null, registryId: r.id ? String(r.id) : null, version: 1,
       status: /amend|correct|rectif|wijzig/i.test(String(r.status || '')) ? 'corrigee' : 'active',
       planned: null, holding: null, stakeAfter: null, via: r.via || null

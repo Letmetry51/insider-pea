@@ -18,9 +18,21 @@ const F = {
   out: path.join(DATA, 'euro-signal.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
+// NaN / Infinity écrits par Python : remplacés seulement en position de valeur (jamais dans un texte)
+const sanitize = (txt) => txt.replace(/([:\[,]\s*)-?(?:NaN|Infinity)(?=\s*[,\]}])/g, '$1null');
 function readJSON(file, fallback) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/\b(-?Infinity|NaN)\b/g, 'null')); }
+  try { return JSON.parse(sanitize(fs.readFileSync(file, 'utf8'))); }
   catch (e) { if (fallback === undefined) throw e; return fallback; }
+}
+/** Fichier indispensable : absent = valeur par défaut ; présent mais illisible = arrêt (jamais d'écrasement silencieux). */
+function readRequired(file, fallback, label) {
+  if (!fs.existsSync(file)) return fallback;
+  try { return JSON.parse(sanitize(fs.readFileSync(file, 'utf8'))); }
+  catch (e) {
+    const bak = file + '.illisible-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    try { fs.copyFileSync(file, bak); } catch (e2) { }
+    throw new Error(label + ' illisible (' + e.message + ') : arrêt pour ne pas perdre le journal des alertes. Copie conservée : ' + bak);
+  }
 }
 function writeJSON(file, obj, pretty, compact) {
   const tmp = file + '.tmp';
@@ -42,19 +54,23 @@ function mainRegistry(list) {
 
 export function build(opts = {}) {
   const today = opts.today || parisToday();
-  const cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, readJSON(F.config, {}));
+  const cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, readRequired(F.config, {}, 'euro_signal/config.json'));
   const errs = ES.validateConfig(cfg);
   if (errs.length) throw new Error('config.json invalide : ' + errs.join(' ; '));
   const latest = readJSON(F.latest, null);
   const prices = readJSON(F.prices, { items: {}, unresolved: [] });
-  const state = readJSON(F.state, { txArchive: {}, alerts: {}, src: {}, runs: [] });
+  const state = readRequired(F.state, { txArchive: {}, alerts: {}, src: {}, runs: [] }, 'data/euro-signal-state.json');
   state.txArchive = state.txArchive || {}; state.alerts = state.alerts || {}; state.src = state.src || {};
+  if (!fs.existsSync(F.state)) { // journal disparu : on repart des alertes recopiées dans le tableau de bord, pour ne jamais renvoyer
+    const prevDash = readJSON(F.out, null);
+    if (prevDash && prevDash.alerts) { state.alerts = prevDash.alerts; console.warn('  Journal absent : ' + Object.keys(state.alerts).length + ' alerte(s) reprises du tableau de bord'); }
+  }
 
   /* 1. Source AMF : absence de collecte ≠ absence de transaction */
   const amf = { name: 'AMF', via: 'transactions-amf.swaoo.com (republication de la base BDIF)', countries: ['FR'], kind: 'déclarations' };
   const prevAmf = state.src.AMF || {};
   const genDate = latest && latest.generated_at ? String(latest.generated_at).slice(0, 10) : null;
-  const rows = latest && Array.isArray(latest.transactions) ? latest.transactions : [];
+  const rows = latest && Array.isArray(latest.transactions) ? latest.transactions.filter((t) => t && typeof t === 'object') : [];
   const amfFresh = genDate && ES.daysBetween(genDate, today) <= 3 && rows.length > 0;
   amf.status = amfFresh ? 'ok' : 'echec';
   amf.lastSuccess = amfFresh ? genDate : prevAmf.lastSuccess || null;
@@ -72,9 +88,11 @@ export function build(opts = {}) {
   });
   /* 2b. Registres hors France (FSMA, AFM…) : même traitement, statut propre à chaque source */
   const eu = readJSON(F.eu, { records: {}, sources: {} });
+  eu.records = Object.fromEntries(Object.entries(eu.records && typeof eu.records === 'object' ? eu.records : {}).filter(([, v]) => v && typeof v === 'object'));
+  eu.sources = eu.sources && typeof eu.sources === 'object' ? Object.fromEntries(Object.entries(eu.sources).filter(([, v]) => v && typeof v === 'object')) : {};
   const euSrc = {};
   const euRejects = {};
-  Object.values(eu.records || {}).forEach((rec) => {
+  Object.values(eu.records || {}).filter((rec) => rec && typeof rec === 'object').forEach((rec) => {
     const r = ES.fromCollectorRecord(rec, { today });
     if (!r.ok) { (euRejects[rec.registry] = euRejects[rec.registry] || []).push({ isin: rec.isin, company: rec.issuer, declaration: rec.id, errors: r.errors }); return; }
     if (r.rec.type === 'instrument') return;
@@ -154,7 +172,9 @@ export function build(opts = {}) {
   /* 5. Comparaisons, score, qualité, surchauffe, décision d'alerte */
   const sentIds = {};
   Object.values(state.alerts).forEach((a) => {
-    if (['envoyee', 'brouillon', 'incertain', 'en_cours', 'simulee'].indexOf(a.status) > -1) (a.eventIds || []).forEach((id) => { (sentIds[a.isin] = sentIds[a.isin] || {})[id] = 1; });
+    // une alerte simulée (Gmail pas encore configuré) n'empêche pas l'envoi réel ensuite
+    const counted = ['envoyee', 'brouillon', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']);
+    if (counted.indexOf(a.status) > -1) (a.eventIds || []).forEach((id) => { (sentIds[a.isin] = sentIds[a.isin] || {})[id] = 1; });
   });
   const outbox = [];
   const evOut = {};
@@ -162,7 +182,7 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     const i = inst[isin], p = pItems[isin];
     refs[isin] = {};
-    if (p) tx[isin].forEach((t) => { if (t.type === 'achat' || t.type === 'vente') refs[isin][t.id] = ES.priceRefs(t, p.rows, p.splits || [], today); });
+    if (p) tx[isin].forEach((t) => { if (t.type === 'achat' || t.type === 'vente') refs[isin][t.id] = ES.priceRefs(t, p.rows, p.splits || [], today, p.currency || null); });
     const se = state.events[isin] || { buybacks: [], results: [] };
     const ev = { buybacks: se.buybacks, results: se.results, splits: (p && p.splits) || [] };
     evOut[isin] = ev;
@@ -209,17 +229,27 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     const p = pItems[isin];
     if (!p || !tx[isin].some((t) => ES.availDate(t) >= from)) return;
-    dashPrices[isin] = { rows: ES.normalizeSeries(p.rows).slice(-260).map((r) => [r[0], null, null, null, +r[4].toFixed(4), null]), splits: p.splits || [], source: 'Yahoo Finance', updatedAt: prices.generated_at };
+    dashPrices[isin] = { rows: ES.normalizeSeries(p.rows).slice(-260).map((r) => [r[0], +r[4].toFixed(4)]), closesOnly: true, splits: p.splits || [], source: 'Yahoo Finance', updatedAt: prices.generated_at }; // [date, clôture] : format compact, développé par le tableau de bord
   });
   const dashTx = {};
   const dashFrom = ES.addMonths(today, -13);
-  Object.keys(tx).forEach((isin) => { if (inst[isin]) dashTx[isin] = tx[isin].filter((t) => t.txDate >= dashFrom); });
+  Object.keys(tx).forEach((isin) => { if (inst[isin]) dashTx[isin] = tx[isin].filter((t) => t.txDate >= dashFrom).map((t) => { const o = Object.assign({}, t); delete o.dedupKey; return o; }); });
   const recentAlerts = Object.values(state.alerts).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 300);
   const alertsMap = {}; recentAlerts.forEach((a) => { alertsMap[a.id] = a; });
 
+  const slim = (r) => {
+    if (!r) return r;
+    const o = { available: r.available, notes: r.notes, paidAdj: r.paidAdj, lastDate: r.lastDate, currentVsPaidPct: r.currentVsPaidPct, outOfRange: r.outOfRange, belowMarket: r.belowMarket, currencyMismatch: r.currencyMismatch };
+    const a = r.atPurchase, t = r.today;
+    if (a) o.atPurchase = { paidVsHigh52Pct: a.paidVsHigh52Pct, paidVsLow52Pct: a.paidVsLow52Pct, paidPos52: a.paidPos52, paidVsHighAllPct: a.paidVsHighAllPct, paidVsLowAllPct: a.paidVsLowAllPct, paidPosAll: a.paidPosAll, full52: a.full52, ex52: a.ex52 ? { high: a.ex52.high, highDate: a.ex52.highDate, basis: a.ex52.basis, from: a.ex52.from } : null };
+    if (t) o.today = { paidVsHigh52Pct: t.paidVsHigh52Pct, paidVsLow52Pct: t.paidVsLow52Pct, paidPos52: t.paidPos52, currentPos52: t.currentPos52, paidPosAll: t.paidPosAll, currentPosAll: t.currentPosAll, exAll: t.exAll ? { from: t.exAll.from, basis: t.exAll.basis } : null };
+    return o;
+  };
+  const dashRefs = {};
+  Object.keys(dashTx).forEach((isin) => { const r = refs[isin]; if (!r) return; dashRefs[isin] = {}; dashTx[isin].forEach((t) => { if (r[t.id]) dashRefs[isin][t.id] = slim(r[t.id]); }); });
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
-    cfg, inst, tx: dashTx, ev: evOut, src: state.src, alerts: alertsMap, refs, prices: dashPrices, backtest,
+    cfg, inst, tx: dashTx, ev: evOut, src: state.src, alerts: alertsMap, refs: dashRefs, prices: dashPrices, backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
     mail: { ready: process.env.ES_MAIL_READY === 'oui' }
   };
@@ -229,6 +259,12 @@ export function build(opts = {}) {
     writeJSON(F.state, state);
     writeJSON(F.outbox, outbox, true);
     writeJSON(F.out, payload, false, true);
+    const mb = fs.statSync(F.out).size / 1e6;
+    if (mb > 60) { // garde-fou : GitHub refuse les fichiers de plus de 100 Mo, ce qui empêcherait aussi d'enregistrer le journal
+      payload.prices = {}; payload.run.trimmed = 'cours retirés du tableau de bord (fichier de ' + mb.toFixed(0) + ' Mo)';
+      writeJSON(F.out, payload, false, true);
+      console.warn('  ATTENTION : tableau de bord allégé (' + mb.toFixed(0) + ' Mo sans allègement)');
+    }
   }
   return { payload, outbox, state, rejects, mergeStats, computed };
 }

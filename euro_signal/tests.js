@@ -461,6 +461,53 @@ t('Holding personnelle d\'un dirigeant comptée (cas Rheinmetall), mode strict, 
   ok(sc.fallingKnife && sc.families.market.items.some((x) => /tendance baissière/.test(x.label)));
 });
 
+t('Croisement MM50 / MM200 après un achat de dirigeant', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const rows = []; let p = 100;
+  for (let i = 0; i < 320; i++) { const d = ES.addDays('2025-01-01', i); p = i < 200 ? p * 0.998 : p * 1.01; rows.push([d, p, p, p, p, 1e5]); }
+  const st = ES.computeStats(rows, [], rows[rows.length - 1][0], c2, 'EUR');
+  ok(st.sma50 > st.sma200 && st.goldenCrossDate, 'croisement détecté');
+  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2025-08-20', pubDate: '2025-08-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 100, amount: 8000, currency: 'EUR' }];
+  const sc = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx, events: {}, refs: {}, cfg: c2, today: rows[rows.length - 1][0] });
+  ok(sc.goldenCrossAfterBuy && sc.families.market.items.some((x) => /après l'achat d'un dirigeant/.test(x.label) && x.points === c2.weights.market.goldenCrossAfterBuy));
+  const sc2 = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx: [Object.assign({}, tx[0], { txDate: '2025-10-01', pubDate: '2025-10-02' })], events: {}, refs: {}, cfg: c2, today: rows[rows.length - 1][0] });
+  ok(!sc2.goldenCrossAfterBuy && sc2.trendUp, 'croisement antérieur à l\'achat : tendance seulement');
+});
+
+t('Le tableau de bord embarque exactement le moteur testé (pas de version désynchronisée)', () => {
+  const fs = require('fs'), path = require('path');
+  const html = path.join(__dirname, '..', 'euro-signal.html');
+  if (!fs.existsSync(html)) return;
+  ok(fs.readFileSync(html, 'utf8').indexOf(fs.readFileSync(path.join(__dirname, 'core.js'), 'utf8')) > -1, 'euro-signal.html à reconstruire avec core.js');
+});
+
+t('Stress test : devise, prix incohérents, liens, corrections, doublons entre registres', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const rows = []; for (let i = 0; i < 30; i++) rows.push([ES.addDays('2026-09-01', i), 250, 260, 240, 250, 1e5]);
+  eq(ES.priceRefs({ txDate: '2026-09-10', price: 2.5, currency: 'GBP' }, rows, [], '2026-10-01', 'GBp').paidAdj, 250, 'GBP payé vs GBp coté');
+  ok(!ES.priceRefs({ txDate: '2026-09-10', price: 2.5, currency: 'EUR' }, rows, [], '2026-10-01', 'GBp').available, 'EUR vs GBp : comparaison refusée');
+  ok(ES.priceRefs({ txDate: '2026-09-10', price: 20, currency: 'EUR' }, rows, [], '2026-10-01', 'EUR').belowMarket, 'prix très sous le marché');
+  eq(ES.safeUrl('javascript:alert(1)'), ''); eq(ES.safeUrl('https://bdif.amf-france.org/x.pdf'), 'https://bdif.amf-france.org/x.pdf');
+  eq(ES.cleanCurrency('<img src=x>'), null); eq(ES.cleanCurrency('eur'), 'EUR');
+  eq(ES.normalizeSeries([['2026-01-01', 1, 1, 1, Infinity, 1], ['2026-01-02', 1, 1, 1, '5', 1], ['2026-01-03', 1, 1, 1, 5, 1]]).length, 1);
+  const amf = ES.fromAmfCollector({ isin: 'FR0000120271', date: '2026-09-01', date_published: '2026-09-02', company_name: 'X', insider: 'Jean Martin', role: 'Directeur général', nature: 'Acquisition', instrument: 'Action', price: 0, quantity: 1000, amount: 0, currency: 'EUR', declaration_number: '2026DD1', reference_url: 'https://bdif.amf-france.org/a.pdf' }, { today: '2026-10-01' });
+  eq(amf.rec.type, 'autre_nv', 'AMF prix nul');
+  const base = { isin: 'IT0001234567', txDate: '2026-09-01', pubDate: '2026-09-02', type: 'achat', price: 10, qty: 100, amount: 1000, currency: 'EUR', status: 'active', version: 1 };
+  const a1 = Object.assign({}, base, { id: 'AMF:1', registry: 'AMF', person: 'Mario Rossi', personKey: 'mr' }); a1.dedupKey = ES.dedupKey(a1);
+  const b1 = Object.assign({}, base, { id: 'CONSOB:1', registry: 'CONSOB', person: 'L6A4 SRL', personKey: 'l6' }); b1.dedupKey = ES.dedupKey(b1);
+  const m = ES.mergeTransactions([a1], [b1], '2026-10-01');
+  eq(m.list.length, 1, 'même opération dans deux registres'); eq(m.stats.crossSource, 1);
+  const c1 = Object.assign({}, base, { id: 'CNMV:1', registry: 'CNMV', person: 'Ana Ruiz', personKey: 'ar', price: 19.05 }); c1.dedupKey = ES.dedupKey(c1);
+  const c2r = Object.assign({}, c1, { id: 'CNMV:2', price: 18.05, status: 'corrigee' }); c2r.dedupKey = ES.dedupKey(c2r);
+  const m2 = ES.mergeTransactions([c1], [c2r], '2026-10-01');
+  eq(m2.list.filter((x) => x.status === 'active').length, 1, 'correction sous un nouvel identifiant remplace l\'originale'); eq(m2.list[0].price, 18.05);
+  const m3 = ES.mergeTransactions(m2.list, [c2r], '2026-10-02');
+  eq(m3.stats.corrected, 0, 'idempotent'); eq(m3.list.length, 1);
+  const inst = { isin: 'DE0007030009', country: 'DE', registry: 'AMF' };
+  ok(!ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, BaFin: { status: 'echec' } }, c2, '2026-10-01').ok, 'registre du pays de domiciliation aussi exigé');
+  ok(ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, BaFin: { status: 'ok', lastSuccess: '2026-10-01', countries: ['DE'] } }, c2, '2026-10-01').ok);
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

@@ -238,7 +238,13 @@ def fetch_market(m, registry, via, st, headers, budget, today):
             err = "réponse illisible (pas du JSON)"
             d["errorBody"] = r.text[:300]
             break
+        if not isinstance(body, dict):
+            err = "réponse inattendue (pas un objet JSON)"
+            d["errorBody"] = r.text[:300]
+            break
         rows = body.get("data") or body.get("results") or []
+        if not isinstance(rows, list):
+            rows = []
         for x in rows:
             if len(d["samples"]) < 2:
                 d["samples"].append(x)
@@ -249,7 +255,10 @@ def fetch_market(m, registry, via, st, headers, budget, today):
             n += 1
             if rec["published"] and (not last_notif or rec["published"] > last_notif):
                 last_notif = rec["published"]
-        url = (body.get("pagination") or {}).get("next") or body.get("next")
+        url = ((body.get("pagination") or {}) if isinstance(body.get("pagination"), dict) else {}).get("next") or body.get("next")
+        if url and not str(url).startswith("https://www.insiderscreener.com/api/"):
+            err = "lien de page suivante hors du domaine Insider Screener : ignoré"  # la clé n'est jamais envoyée ailleurs
+            url = None
         if not url:
             complete = True
         time.sleep(1.1)  # 1 requête par seconde au plus
