@@ -997,7 +997,7 @@ details.help .disc{font-size:.78rem}
     if (!n) p2 = 'Nos propres mesures sur ce type de signal (« ' + group + ' ») ne sont pas encore disponibles.';
     else {
       hit /= n; mean /= n;
-      p2 = 'Sur nos données (' + n + ' cas « ' + group + ' » depuis deux ans), le titre a battu le CAC 40 dans ' + Math.round(hit) + ' % des cas à ' + horizon + ' séances, avec un écart moyen de ' + (mean >= 0 ? '+' : '') + mean.toFixed(1).replace('.', ',') + ' point' + (Math.abs(mean) >= 2 ? 's' : '') + ', frais compris.';
+      p2 = 'Sur les ' + n + ' cas « ' + group + ' » que nous avons suivis, le titre a battu le CAC 40 dans ' + Math.round(hit) + ' % des cas à ' + horizon + ' séances, avec un écart moyen de ' + (mean >= 0 ? '+' : '') + mean.toFixed(1).replace('.', ',') + ' point' + (Math.abs(mean) >= 2 ? 's' : '') + ', frais compris.';
       if (n < 30) p2 += ' Échantillon encore trop petit pour conclure.';
       else if (mean < 0) p2 += ' Sur la période récente, ce signal seul n\'a pas battu le marché : ce sont les combinaisons (décote, tendance, plusieurs signaux) qui font le tri.';
     }
