@@ -58,7 +58,12 @@ def main():
 
     def send(subject, text, html):
         msg = EmailMessage()
-        msg["Subject"], msg["From"], msg["To"] = subject, user, to
+        msg["Subject"], msg["From"] = subject, user
+        if len(to_list) <= 1:
+            msg["To"] = to
+        else:  # plusieurs destinataires : en copie cachée, chacun ne voit pas les adresses des autres
+            msg["To"] = user
+            msg["Bcc"] = to
         msg.set_content(text)
         if html:
             msg.add_alternative(html, subtype="html")
@@ -72,7 +77,9 @@ def main():
     if os.environ.get("ES_TEST_EMAIL", "").lower() == "true":
         if live:
             try:
-                send("[Euro Signal] Email de test", "Email de test envoyé par Euro Signal depuis GitHub Actions le " + now() + ". Aucune alerte dans ce message.", None)
+                dash = (load(ROOT / "euro_signal" / "config.json", {}) or {}).get("dashboardUrl", "")
+                send("[Euro Signal] Email de test", "Email de test envoyé par Euro Signal depuis GitHub Actions le " + now() + ". Aucune alerte dans ce message." + ("\nTableau de bord : " + dash if dash else ""),
+                     '<p>Email de test envoyé par Euro Signal le ' + now() + '. Aucune alerte dans ce message.</p>' + ('<p><a href="' + dash + '" style="display:inline-block;background:#0D6A56;color:#fff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Ouvrir le tableau de bord</a></p>' if dash else ''))
                 print("Email de test envoyé à", len(to_list), "destinataire(s)")  # jamais les adresses : le journal est public
             except Exception as e:
                 print("ÉCHEC de l'email de test :", type(e).__name__, str(e)[:200])

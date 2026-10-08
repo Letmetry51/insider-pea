@@ -1607,11 +1607,17 @@ details.help .disc{font-size:.78rem}
       S.prices = d.prices || {}; S.refs = d.refs || {};
       Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
       S.bt = { remote: true, res: d.backtest ? d.backtest.results : [], meta: d.backtest || {} };
-      computeAll(); idle(); render();
+      computeAll(); idle(); openFromHash(); render();
     }).catch(function (e) {
       idle(); startDemo('Données automatiques introuvables à côté de cette page (' + (e && e.message) + ').');
     });
   }
+  /** Lien direct vers une fiche (…/euro-signal.html#ISIN), utilisé dans les emails d'alerte. */
+  function openFromHash() {
+    var m = (location.hash || '').match(/^#([A-Z]{2}[A-Z0-9]{9}[0-9])$/);
+    if (m && S.inst[m[1]]) { S.sel = m[1]; S.view = 'fiche'; }
+  }
+  window.addEventListener('hashchange', function () { var before = S.sel; openFromHash(); if (S.sel !== before) { render(); window.scrollTo(0, 0); } });
   function loadAll() {
     S.mode = 'db'; busy('Chargement de vos données…');
     var cfgP = withRetry(function () { return S.db.doc('config/main').get(); }).then(function (d) {
@@ -2571,8 +2577,8 @@ details.help .disc{font-size:.78rem}
     if (a === 'file' || a === 'restoreFile') return;
     if (el.tagName === 'A') return;
     ev.preventDefault();
-    if (a === 'view') { S.view = el.dataset.v; S.limit = 200; render(); window.scrollTo(0, 0); }
-    else if (a === 'open') { S.sel = i; S.view = 'fiche'; S.editInst = null; render(); window.scrollTo(0, 0); }
+    if (a === 'view') { S.view = el.dataset.v; S.limit = 200; if (location.hash) history.replaceState(null, '', location.pathname + location.search); render(); window.scrollTo(0, 0); }
+    else if (a === 'open') { S.sel = i; S.view = 'fiche'; S.editInst = null; try { history.replaceState(null, '', '#' + i); } catch (e) { } render(); window.scrollTo(0, 0); }
     else if (a === 'more') { S.limit += 200; render(); }
     else if (a === 'quick') { S.filters.quick = el.dataset.v; S.limit = 200; render(); }
     else if (a === 'reload') { if (S.mode === 'db') loadAll(); else { computeAll(); render(); } }

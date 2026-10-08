@@ -174,7 +174,12 @@ export function build(opts = {}) {
     computed[isin] = { score: score.total, quality: quality.total, overheat: overheat.total, send: decision.send, blocking: decision.blocking.length };
     if (decision.send) {
       const mail = ES.buildEmail({ inst: i, score, quality, overheat, decision, refs: refs[isin], events: ev, today, universeWarnings: uni.reasons.concat(['Éligibilité PEA non confirmée automatiquement : à vérifier avant tout achat.']) });
-      if (dashUrl) { mail.html = mail.html.replace('</div>', '<p><a href="' + ES.esc(dashUrl) + '">Ouvrir le tableau de bord Euro Signal</a></p></div>'); mail.text += '\nTableau de bord : ' + dashUrl; }
+      if (dashUrl) {
+        const link = dashUrl + '#' + isin; // ouvre directement la fiche de la société
+        const btn = '<p style="margin:10px 0 14px"><a href="' + ES.esc(link) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Voir la fiche dans Euro Signal</a></p>';
+        mail.html = mail.html.replace('</h2>', '</h2>' + btn).replace(/<\/div>\s*$/, '<p><a href="' + ES.esc(dashUrl) + '">Ouvrir le tableau de bord complet</a></p></div>');
+        mail.text = 'Fiche : ' + link + '\n\n' + mail.text + '\nTableau de bord : ' + dashUrl;
+      }
       outbox.push({ id: isin + '-' + decision.fingerprint, isin, name: i.name, subject: mail.subject, html: mail.html, text: mail.text, eventIds: decision.eventIds, score: score.total, version: cfg.scoringVersion });
     }
   });
