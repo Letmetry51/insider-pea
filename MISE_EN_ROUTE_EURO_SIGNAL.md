@@ -123,7 +123,7 @@ Un email seulement quand **toutes** les conditions sont réunies :
 
 - titre liquide (au moins 1 M€ échangés par jour en moyenne sur 20 séances) et 200 séances de cours ;
 - cours à jour et collecte AMF à jour ;
-- score ≥ 60/100 ;
+- score ≥ 45/100 (en pratique, seuls les 2 ou 3 meilleurs dossiers du moment l'atteignent) ;
 - au moins deux familles de signaux indépendantes (initiés, rachats, résultats, marché), dont un événement publié depuis moins de 14 jours ;
 - aucune déclaration ambiguë ;
 - information nouvelle : jamais deux fois la même alerte.
@@ -131,6 +131,15 @@ Un email seulement quand **toutes** les conditions sont réunies :
 L'email détaille le score ligne par ligne, les achats (date, déclarant, prix, lien vers le PDF de
 l'AMF), la comparaison au cours actuel et aux plus hauts et plus bas sur 52 semaines, ainsi que les
 risques.
+
+## La sélection de la semaine (chaque lundi)
+
+Même quand aucune alerte ne part, tu reçois chaque lundi soir un email « Sélection de la semaine » avec les
+5 meilleurs dossiers du moment : achat d'au moins 100 000 € par un dirigeant ces 30 derniers jours, titre liquide,
+données fiables, société solide, score d'au moins 30/100, classés par score puis par décote. C'est une liste courte
+à étudier, pas un ordre d'achat. La même liste est en tête de l'onglet Opportunités. Si aucune société ne remplit
+les critères, l'email le dit : mieux vaut ne rien faire que forcer un choix. Réglages : rubrique `selection` de
+`euro_signal/config.json` (`size`, `minScore`, `recentDays`, `weekday`, `enabled`).
 
 ## Après l'alerte : suivi et signaux de sortie
 

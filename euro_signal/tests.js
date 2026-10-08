@@ -594,6 +594,30 @@ t('Seuil par défaut : 100 000 € investis par le dirigeant', () => {
   eq(ES.significantBuys([mk('a', 250000, '2026-09-01')], c).kept.length, 1);
 });
 
+t('Sélection de la semaine : filtres durs, tri, 5 au plus, email échappé', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  eq(ES.isoWeek('2026-10-08'), '2026-W41'); eq(ES.isoWeek('2027-01-01'), '2026-W53'); eq(ES.isoWeek('2026-01-01'), '2026-W01');
+  const q = { total: 90, coverage: { ok: true } };
+  const mkc = (k, total, extra) => Object.assign({ isin: 'FR000000000' + k, inst: { name: 'Soc ' + k, country: 'FR', fund: null },
+    score: { total, buys: [{ txDate: '2026-10-01', pubDate: '2026-10-01', person: 'X' }], ambiguousCount: 0, discount: { pct: 10 + k, person: 'X', date: '2026-10-01' }, buyEur: 200000, cluster: null },
+    quality: q, universe: { status: 'retenu' } }, extra || {});
+  const cands = [mkc(1, 50), mkc(2, 40), mkc(3, 40), mkc(4, 35), mkc(5, 31), mkc(6, 33), mkc(7, 20),
+    mkc(8, 60, { universe: { status: 'rejete' } }), mkc(9, 60, { quality: { total: 40, coverage: { ok: true } } })];
+  cands.push(Object.assign(mkc(0, 70), { inst: { name: 'Fragile', fund: { totalDebt: 1e10, totalCash: 0, ebitda: -1e8, freeCashflow: -5e8, operatingCashflow: -4e8, sector: 'Technology' } } }));
+  const old = mkc(10, 80); old.score.buys = [{ txDate: '2026-07-01', pubDate: '2026-07-01' }]; cands.push(old);
+  const sel = ES.weeklySelection(cands, c, '2026-10-08');
+  eq(sel.length, 5, '5 au plus'); eq(sel[0].score, 50);
+  eq(sel.map((x) => x.isin.slice(-1)).join(''), '13246', 'score puis décote, sous le score minimum exclu');
+  ok(!sel.some((x) => x.name === 'Fragile'), 'société fragile exclue');
+  ok(!sel.some((x) => /0$/.test(x.isin) && x.score === 80), 'achat de plus de 30 jours exclu');
+  const evil = [Object.assign({}, sel[0], { name: '<img src=x onerror=alert(1)>' })];
+  const m = ES.buildSelectionEmail(evil, '2026-W41', c, 'https://ex.org/es.html', '2026-10-08');
+  ok(m.html.indexOf('<img') < 0 && m.html.indexOf('&lt;img') > -1, 'nom échappé');
+  ok(/Sélection de la semaine \(2026-W41\) : 1 dossier à étudier/.test(m.subject));
+  ok(/#FR0000000001/.test(m.text), 'lien direct vers la fiche');
+  ok(/Aucune société/.test(ES.buildSelectionEmail([], '2026-W41', c, null, '2026-10-08').text), 'semaine sans dossier');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

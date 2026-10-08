@@ -599,7 +599,7 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '2.0.0',
+    scoringVersion: '2.1.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
@@ -612,7 +612,8 @@
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
-    alerts: { minScore: 60, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21 },
+    alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21 },
+    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1 },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60], oosStart: '' }
@@ -768,6 +769,79 @@
       (tot >= min ? kept : small).push(t);
     });
     return { kept: kept, small: small };
+  };
+  /** Numéro de semaine ISO (« 2026-W41 »). */
+  ES.isoWeek = function (day) {
+    var d = new Date(day + 'T12:00:00Z'), wd = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - wd + 3);
+    var y = d.getUTCFullYear(), j4 = new Date(Date.UTC(y, 0, 4)), w = 1 + Math.round(((d - j4) / 864e5 - 3 + ((j4.getUTCDay() + 6) % 7)) / 7);
+    return y + '-W' + (w < 10 ? '0' : '') + w;
+  };
+  /**
+   * Sélection courte : les N meilleurs dossiers parmi les sociétés achetées récemment par un dirigeant.
+   * Filtres durs : titre retenu, données fiables, pas de fragilité financière, achat significatif publié depuis
+   * moins de recentDays jours, score ≥ minScore. Tri : score, puis décote.
+   * cands : [{ isin, inst, score, quality, universe }]
+   */
+  ES.weeklySelection = function (cands, cfg, today) {
+    var S = cfg.selection || {}, from = ES.addDays(today, -(S.recentDays || 30)), out = [];
+    (cands || []).forEach(function (c) {
+      var sc = c.score, health = ES.financialHealth(c.inst.fund);
+      if (!sc || !sc.buys.length || c.universe.status !== 'retenu' || health.status === 'fragile') return;
+      if (c.quality.total < cfg.quality.minForAlert || !c.quality.coverage.ok || sc.ambiguousCount) return;
+      if (sc.total < (S.minScore || 0)) return;
+      var recent = sc.buys.filter(function (t) { return ES.availDate(t) >= from; });
+      if (!recent.length) return;
+      var d = sc.discount, eur = sc.buyEur;
+      out.push({ isin: c.isin, name: c.inst.name || c.isin, country: c.inst.country || null, score: sc.total,
+        discountPct: d ? d.pct : null, buyer: d ? d.person : recent[0].person, ceo: sc.buys.some(function (t) { return t.ceo || t.cfo; }),
+        buyDate: d ? d.date : recent[0].txDate, lastPub: recent.map(function (t) { return ES.availDate(t); }).sort().pop(), buyEur: eur || null,
+        buyers: sc.cluster ? sc.cluster.count : 1, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
+        health: health.status, nextEarnings: c.inst.nextEarnings || null });
+    });
+    out.sort(function (a, b) { return b.score - a.score || (b.discountPct || 0) - (a.discountPct || 0); });
+    return out.slice(0, S.size || 5);
+  };
+  /** Email « Sélection de la semaine » : une liste courte à étudier, jamais un ordre d'achat. */
+  ES.buildSelectionEmail = function (sel, week, cfg, dashUrl, today) {
+    var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
+    var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
+    var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
+      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, score d\'au moins ' + (S.minScore || 0) + '/100. Classés par score, puis par décote.';
+    var why = function (x) {
+      var w = [];
+      if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines');
+      w.push(x.ceo ? 'achat du DG ou du DAF' : 'achat d\'un dirigeant');
+      if (x.buyers >= (cfg.insiders.clusterMinBuyers || 3)) w.push(x.buyers + ' dirigeants acheteurs');
+      if (x.buyEur) w.push(fmtEur(x.buyEur) + ' achetés');
+      if (x.panic) w.push('achat pendant une vente panique');
+      if (x.trendUp) w.push('tendance de fond haussière (MM50 > MM200)');
+      return w;
+    };
+    var care = function (x) {
+      var c = [];
+      if (x.fallingKnife) c.push('cours en repli : entrer en plusieurs fois');
+      if (x.nextEarnings && (!today || (x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 30))) c.push('résultats le ' + x.nextEarnings + ' : acheter juste avant revient à parier sur leur contenu');
+      if (x.health === 'inconnu') c.push('solidité financière non vérifiable');
+      return c;
+    };
+    var text = intro + '\n\n' + (n ? sel.map(function (x, k) {
+      return (k + 1) + '. ' + x.name + ' — score ' + x.score + '/100\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+    }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
+      '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
+    var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
+    var html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:680px;color:#1b2420"><h2 style="margin:0 0 6px">Sélection de la semaine</h2>' +
+      '<p style="color:#55615c;margin:0 0 14px">' + ES.esc(intro) + '</p>' +
+      (n ? sel.map(function (x, k) {
+        return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) +
+          ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100</span></div>' +
+          '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
+          (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
+          (dashUrl ? btn(dashUrl + '#' + x.isin, 'Voir la fiche') : '') + '</div>';
+      }).join('') : '<p><b>Aucune société ne remplit tous les critères cette semaine.</b> Mieux vaut ne rien faire que forcer un choix.</p>') +
+      '<p style="color:#55615c;font-size:12px;margin-top:14px">Ce n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.</p>' +
+      (dashUrl ? '<p>' + btn(dashUrl, 'Ouvrir le tableau de bord') + '</p>' : '') + '</div>';
+    return { subject: subject, text: text, html: html };
   };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);

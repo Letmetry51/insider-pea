@@ -233,6 +233,8 @@ ul.plain li{margin:3px 0}
   .gauge .val{font-size:1.6rem}
 }
 /* Opportunités : version lisible */
+.selc h3{margin-bottom:2px}.selc .foot{margin:0 0 8px}ol.sel{margin:0;padding-left:1.4em}ol.sel li{padding:7px 4px;border-top:1px solid var(--line);cursor:pointer}ol.sel li:first-child{border-top:0}ol.sel li small{display:block;color:var(--muted)}ol.sel li:hover{background:var(--sunk)}
+.tabs .ts{display:none}@media (max-width:560px){.tabs .tl{display:none}.tabs .ts{display:inline}.tabs button{padding:8px 8px}}
 .hero{margin:18px 0 4px;max-width:80ch}
 .hero h2{font-size:1.55rem;margin-bottom:4px}
 .hero p{margin:0;color:var(--muted)}
@@ -884,7 +886,7 @@ details.pos summary{font-size:1rem}
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '2.0.0',
+    scoringVersion: '2.1.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
@@ -897,7 +899,8 @@ details.pos summary{font-size:1rem}
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
-    alerts: { minScore: 60, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21 },
+    alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21 },
+    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1 },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60], oosStart: '' }
@@ -1053,6 +1056,79 @@ details.pos summary{font-size:1rem}
       (tot >= min ? kept : small).push(t);
     });
     return { kept: kept, small: small };
+  };
+  /** Numéro de semaine ISO (« 2026-W41 »). */
+  ES.isoWeek = function (day) {
+    var d = new Date(day + 'T12:00:00Z'), wd = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - wd + 3);
+    var y = d.getUTCFullYear(), j4 = new Date(Date.UTC(y, 0, 4)), w = 1 + Math.round(((d - j4) / 864e5 - 3 + ((j4.getUTCDay() + 6) % 7)) / 7);
+    return y + '-W' + (w < 10 ? '0' : '') + w;
+  };
+  /**
+   * Sélection courte : les N meilleurs dossiers parmi les sociétés achetées récemment par un dirigeant.
+   * Filtres durs : titre retenu, données fiables, pas de fragilité financière, achat significatif publié depuis
+   * moins de recentDays jours, score ≥ minScore. Tri : score, puis décote.
+   * cands : [{ isin, inst, score, quality, universe }]
+   */
+  ES.weeklySelection = function (cands, cfg, today) {
+    var S = cfg.selection || {}, from = ES.addDays(today, -(S.recentDays || 30)), out = [];
+    (cands || []).forEach(function (c) {
+      var sc = c.score, health = ES.financialHealth(c.inst.fund);
+      if (!sc || !sc.buys.length || c.universe.status !== 'retenu' || health.status === 'fragile') return;
+      if (c.quality.total < cfg.quality.minForAlert || !c.quality.coverage.ok || sc.ambiguousCount) return;
+      if (sc.total < (S.minScore || 0)) return;
+      var recent = sc.buys.filter(function (t) { return ES.availDate(t) >= from; });
+      if (!recent.length) return;
+      var d = sc.discount, eur = sc.buyEur;
+      out.push({ isin: c.isin, name: c.inst.name || c.isin, country: c.inst.country || null, score: sc.total,
+        discountPct: d ? d.pct : null, buyer: d ? d.person : recent[0].person, ceo: sc.buys.some(function (t) { return t.ceo || t.cfo; }),
+        buyDate: d ? d.date : recent[0].txDate, lastPub: recent.map(function (t) { return ES.availDate(t); }).sort().pop(), buyEur: eur || null,
+        buyers: sc.cluster ? sc.cluster.count : 1, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
+        health: health.status, nextEarnings: c.inst.nextEarnings || null });
+    });
+    out.sort(function (a, b) { return b.score - a.score || (b.discountPct || 0) - (a.discountPct || 0); });
+    return out.slice(0, S.size || 5);
+  };
+  /** Email « Sélection de la semaine » : une liste courte à étudier, jamais un ordre d'achat. */
+  ES.buildSelectionEmail = function (sel, week, cfg, dashUrl, today) {
+    var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
+    var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
+    var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
+      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, score d\'au moins ' + (S.minScore || 0) + '/100. Classés par score, puis par décote.';
+    var why = function (x) {
+      var w = [];
+      if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines');
+      w.push(x.ceo ? 'achat du DG ou du DAF' : 'achat d\'un dirigeant');
+      if (x.buyers >= (cfg.insiders.clusterMinBuyers || 3)) w.push(x.buyers + ' dirigeants acheteurs');
+      if (x.buyEur) w.push(fmtEur(x.buyEur) + ' achetés');
+      if (x.panic) w.push('achat pendant une vente panique');
+      if (x.trendUp) w.push('tendance de fond haussière (MM50 > MM200)');
+      return w;
+    };
+    var care = function (x) {
+      var c = [];
+      if (x.fallingKnife) c.push('cours en repli : entrer en plusieurs fois');
+      if (x.nextEarnings && (!today || (x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 30))) c.push('résultats le ' + x.nextEarnings + ' : acheter juste avant revient à parier sur leur contenu');
+      if (x.health === 'inconnu') c.push('solidité financière non vérifiable');
+      return c;
+    };
+    var text = intro + '\n\n' + (n ? sel.map(function (x, k) {
+      return (k + 1) + '. ' + x.name + ' — score ' + x.score + '/100\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+    }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
+      '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
+    var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
+    var html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:680px;color:#1b2420"><h2 style="margin:0 0 6px">Sélection de la semaine</h2>' +
+      '<p style="color:#55615c;margin:0 0 14px">' + ES.esc(intro) + '</p>' +
+      (n ? sel.map(function (x, k) {
+        return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) +
+          ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100</span></div>' +
+          '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
+          (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
+          (dashUrl ? btn(dashUrl + '#' + x.isin, 'Voir la fiche') : '') + '</div>';
+      }).join('') : '<p><b>Aucune société ne remplit tous les critères cette semaine.</b> Mieux vaut ne rien faire que forcer un choix.</p>') +
+      '<p style="color:#55615c;font-size:12px;margin-top:14px">Ce n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.</p>' +
+      (dashUrl ? '<p>' + btn(dashUrl, 'Ouvrir le tableau de bord') + '</p>' : '') + '</div>';
+    return { subject: subject, text: text, html: html };
   };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
@@ -1829,7 +1905,7 @@ details.pos summary{font-size:1rem}
   function busy(msg) { S.busy = msg; var el = $('#busy'); if (el) { el.hidden = false; el.querySelector('span').textContent = msg; } }
   function idle() { S.busy = null; var el = $('#busy'); if (el) el.hidden = true; }
 
-  var VIEWS = [['classement', 'Opportunités'], ['inities', 'Achats des dirigeants'], ['alertes', 'Alertes et suivi'], ['aide', 'Comment ça marche']];
+  var VIEWS = [['classement', 'Opportunités', 'Opportunités'], ['inities', 'Achats des dirigeants', 'Achats'], ['alertes', 'Alertes et suivi', 'Alertes'], ['aide', 'Comment ça marche', 'Aide']];
   function render() {
     var top = $('#top'), main = $('#main');
     if (!top || !main) return;
@@ -1837,7 +1913,7 @@ details.pos summary{font-size:1rem}
     var cur = S.view === 'fiche' ? 'classement' : S.view;
     top.innerHTML = '<div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><div><h1>Euro Signal</h1><p>' + (S.mode === 'remote' ? 'Données du ' + shortDate(S.today) + ' · mises à jour chaque soir de semaine' : 'Surveillance des achats de dirigeants') + '</p></div></div>' +
       '<div class="chips">' + mail + '</div>' +
-      '<nav class="tabs" role="tablist">' + VIEWS.map(function (v) { var on = cur === v[0]; return '<button role="tab" aria-selected="' + on + '" class="' + (on ? 'on' : '') + '" data-a="view" data-v="' + v[0] + '">' + v[1] + (v[0] === 'alertes' ? alertBadge() : '') + '</button>'; }).join('') + '</nav>';
+      '<nav class="tabs" role="tablist">' + VIEWS.map(function (v) { var on = cur === v[0]; return '<button role="tab" aria-selected="' + on + '" class="' + (on ? 'on' : '') + '" data-a="view" data-v="' + v[0] + '"><span class="tl">' + v[1] + '</span><span class="ts">' + v[2] + '</span>' + (v[0] === 'alertes' ? alertBadge() : '') + '</button>'; }).join('') + '</nav>';
     var body = '';
     if (S.mode === 'chargement') body = '<p class="muted pad">Chargement des données du jour…</p>';
     else if (S.mode === 'erreur') body = '<div class="card bad"><h3>Données indisponibles</h3><p>Le fichier du jour n\'a pas pu être lu (' + esc(S.loadError) + '). Réessayez dans quelques minutes ; si cela persiste, regardez l\'onglet Actions du dépôt GitHub.</p></div>';
@@ -1890,6 +1966,18 @@ details.pos summary{font-size:1rem}
     if (c.score.fallingKnife) return '<span class="chip warn" title="Le cours est passé sous ses moyennes 50 et 200 séances">Cours en repli</span>';
     return alertChip(isin);
   }
+  /* Sélection de la semaine : la liste courte calculée chaque soir (même règles que l'email du lundi) */
+  function selectionCard() {
+    var sel = S.snapshot && S.snapshot.selection;
+    if (!sel || !sel.items) return '';
+    var rule = 'Achat d\'au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ' par un dirigeant ces ' + ((S.cfg.selection || {}).recentDays || 30) + ' derniers jours, société solide, données fiables, classées par score.';
+    if (!sel.items.length) return '<section class="card selc"><h3>Sélection de la semaine</h3><p class="muted">Aucune société ne remplit tous les critères en ce moment. ' + esc(rule) + '</p></section>';
+    return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="foot">' + esc(rule) + ' À étudier, pas un ordre d\'achat.</p><ol class="sel">' +
+      sel.items.map(function (x) {
+        var w = [x.discountPct != null ? 'décote ' + Math.round(x.discountPct) + ' %' : null, x.ceo ? 'DG ou DAF' : null, x.buyers >= S.cfg.insiders.clusterMinBuyers ? x.buyers + ' acheteurs' : null, x.trendUp ? 'MM50 > MM200' : null, x.fallingKnife ? 'cours en repli' : null].filter(Boolean);
+        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b> <span class="muted">score ' + x.score + '</span><small>' + esc(w.join(' · ')) + '</small></li>';
+      }).join('') + '</ol></section>';
+  }
   function vClassement() {
     var f = S.filters, keys = Object.keys(S.inst).filter(function (i) { return !S.inst[i].benchmark; });
     if (!keys.length) return emptyState();
@@ -1926,8 +2014,9 @@ details.pos summary{font-size:1rem}
     var h = '<section class="hero"><h2>Où les dirigeants achètent-ils ?</h2><p>Les sociétés dont un dirigeant a acheté des actions depuis le ' + shortDate(ES.windowStart(S.today, S.cfg.insiders.windowMonths)) + ', classées par <b>décote</b> : l\'écart entre le prix qu\'il a payé et le plus haut des 52 semaines précédentes. Touchez une ligne pour le détail.</p></section>';
     h += '<section class="summary">' +
       stat('Alertes prêtes', String(ready), ready ? 'à regarder en priorité' : 'aucune aujourd\'hui', 'alertes', ready ? 'good' : '') +
-      stat('Achats cette semaine', String(recent), withBuys + ' sociétés avec achats sur ' + S.cfg.insiders.windowMonths + ' mois', 'inities') +
-      stat('Données', srcBad ? srcBad + ' source(s) en échec' : srcWarn ? srcWarn + ' en retard' : 'Tout est à jour', 'mise à jour du ' + shortDate(S.today), 'sources', srcBad ? 'bad' : srcWarn ? 'warn' : 'good') + '</section>';
+      stat('Achats cette semaine', String(recent), withBuys + (withBuys > 1 ? ' sociétés' : ' société') + ' avec achats sur ' + S.cfg.insiders.windowMonths + ' mois', 'inities') +
+      stat('Données', srcBad ? srcBad + ' source(s) en échec' : srcWarn ? srcWarn + ' en retard' : 'Tout est à jour', 'mise à jour du ' + shortDate(S.today), 'aide', srcBad ? 'bad' : srcWarn ? 'warn' : 'good') + '</section>';
+    h += selectionCard();
     h += '<div class="segs" role="group" aria-label="Filtres rapides">' + Object.keys(QUICK).map(function (k) {
       var n = keys.filter(function (i) { return QUICK[k][1](S.computed[i]); }).length;
       return '<button class="' + ((f.quick || 'buys') === k ? 'on' : '') + '" data-a="quick" data-v="' + k + '">' + QUICK[k][0] + ' <span class="count">' + n + '</span></button>';
@@ -2315,7 +2404,7 @@ details.pos summary{font-size:1rem}
       step('Collecte, chaque soir de semaine', 'Déclarations des dirigeants de 6 pays (AMF, BaFin, CNMV, Consob, FSMA, AFM), cours, résultats, communiqués et données financières des sociétés.') +
       step('Tri des achats', 'Seuls comptent les achats volontaires de personnes physiques (ou de leur holding personnelle selon le réglage), d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + ' par dirigeant sur ' + c.insiders.clusterWindowDays + ' jours. Attributions gratuites, options, déclarations tardives et sociétés d\'investissement sont écartées.') +
       step('Score sur 100', 'Initiés (décote du prix payé, cluster, DG, panique), rachats d\'actions, résultats et tendance de marché. Le détail de chaque point est visible dans la fiche.') +
-      step('Alerte email', 'Envoyée seulement si le score atteint ' + c.alerts.minScore + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle.') +
+      step('Emails', 'Alerte : seulement si le score atteint ' + c.alerts.minScore + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle. Sélection de la semaine : chaque lundi, les ' + ((c.selection || {}).size || 5) + ' meilleurs dossiers du moment (score d\'au moins ' + ((c.selection || {}).minScore || 0) + '), même quand aucune alerte ne part.') +
       step('Suivi et apprentissage', 'Chaque alerte et chaque achat que vous déclarez sont suivis ; chaque mois, l\'outil mesure ce qui a marché et ajuste son barème, avec des garde-fous.') + '</ol>' +
       '<p class="foot">Le score aide à trier ; ce n\'est pas une probabilité de hausse et aucun ordre n\'est passé. L\'éligibilité PEA est toujours à vérifier. Réglages : fichier euro_signal/config.json du dépôt GitHub.</p></section>';
     var det = function (title, body) { return '<details class="card fold"><summary>' + title + '</summary>' + body + '</details>'; };

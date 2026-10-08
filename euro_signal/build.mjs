@@ -197,6 +197,7 @@ export function build(opts = {}) {
     if (counted.indexOf(a.status) > -1) (a.eventIds || []).forEach((id) => { (sentIds[a.isin] = sentIds[a.isin] || {})[id] = 1; });
   });
   const outbox = [];
+  const cands = [];
   const evOut = {};
   const dashUrl = cfg.dashboardUrl || null;
   Object.keys(inst).forEach((isin) => {
@@ -211,6 +212,7 @@ export function build(opts = {}) {
     const quality = ES.quality({ inst: i, score, sources: state.src, events: ev, cfg, today });
     const overheat = ES.overheat(i, cfg);
     const decision = ES.alertDecision({ inst: i, score, quality, overheat, universe: uni, cfg, today, sentEventIds: sentIds[isin] || {} });
+    cands.push({ isin, inst: i, score, quality, universe: uni });
     computed[isin] = { score: score.total, quality: quality.total, overheat: overheat.total, send: decision.send, blocking: decision.blocking.length };
     if (decision.send) {
       const health = ES.financialHealth(i.fund);
@@ -305,7 +307,7 @@ export function build(opts = {}) {
   /* 6c. Suivi des alertes envoyées et signaux de sortie */
   const followups = [];
   if (cfg.exits.enabled) {
-    const tracked = Object.values(state.alerts).filter((a) => a.isin && a.kind !== 'sortie' && a.kind !== 'info' && ['envoyee', 'incertain', 'simulee'].indexOf(a.status) > -1);
+    const tracked = Object.values(state.alerts).filter((a) => a.isin && !a.kind && ['envoyee', 'incertain', 'simulee'].indexOf(a.status) > -1);
     const latestByIsin = {}; tracked.forEach((a) => { if (!latestByIsin[a.isin] || a.createdAt > latestByIsin[a.isin].createdAt) latestByIsin[a.isin] = a; });
     Object.values(latestByIsin).forEach((a) => {
       const d0 = String(a.createdAt || '').slice(0, 10), p = pItems[a.isin], i = inst[a.isin];
@@ -338,6 +340,21 @@ export function build(opts = {}) {
           eventIds: ['exit:' + id], score: null, version: cfg.scoringVersion });
       });
     });
+  }
+
+  /* 6d. Sélection de la semaine : les meilleurs dossiers du moment, un email par semaine (premier soir à partir du jour prévu) */
+  const selCfg = cfg.selection || {};
+  const week = ES.isoWeek(today);
+  const selection = { week, items: ES.weeklySelection(cands, cfg, today) };
+  if (selCfg.enabled) {
+    const id = 'selection-' + week, dow = (new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1; // 1 = lundi
+    const prev = state.alerts[id];
+    const done = prev && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(prev.status) > -1;
+    if (!done && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh) {
+      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today);
+      outbox.push({ id, kind: 'selection', isin: null, name: 'Sélection ' + week, subject: mail.subject, text: mail.text, html: mail.html,
+        eventIds: ['selection:' + week], score: null, version: cfg.scoringVersion });
+    }
   }
 
   /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
@@ -387,7 +404,7 @@ export function build(opts = {}) {
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
     cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups,
+    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups, selection,
     learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion }
   };
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);
