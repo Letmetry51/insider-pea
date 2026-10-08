@@ -936,7 +936,7 @@
       if (s.marketAbove200 === false) add(fm, 'marché européen sous sa moyenne 200 séances : environnement baissier, prudence', 0);
       // Leçon Rheinmetall 2026 : un dirigeant qui achète en pleine baisse n'indique pas le point bas
       var knife = cfg.insiders.fallingKnifeNote && buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200;
-      if (knife) add(fm, 'tendance baissière (cours sous les moyennes 50 et 200 séances) : un achat de dirigeant ne marque pas forcément le point bas, entrer en plusieurs fois', 0);
+      if (knife) add(fm, 'cours en repli (passé sous ses moyennes 50 et 200 séances) : un achat de dirigeant ne marque pas forcément le point bas, entrer en plusieurs fois', 0);
     }
 
     var total = 0, families = 0;

@@ -1221,7 +1221,7 @@ details.pos summary{font-size:1rem}
       if (s.marketAbove200 === false) add(fm, 'marché européen sous sa moyenne 200 séances : environnement baissier, prudence', 0);
       // Leçon Rheinmetall 2026 : un dirigeant qui achète en pleine baisse n'indique pas le point bas
       var knife = cfg.insiders.fallingKnifeNote && buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200;
-      if (knife) add(fm, 'tendance baissière (cours sous les moyennes 50 et 200 séances) : un achat de dirigeant ne marque pas forcément le point bas, entrer en plusieurs fois', 0);
+      if (knife) add(fm, 'cours en repli (passé sous ses moyennes 50 et 200 séances) : un achat de dirigeant ne marque pas forcément le point bas, entrer en plusieurs fois', 0);
     }
 
     var total = 0, families = 0;
@@ -1887,7 +1887,7 @@ details.pos summary{font-size:1rem}
   function statusChip(isin) {
     var c = S.computed[isin];
     if (c.dec.send) return '<span class="chip good">Alerte prête</span>';
-    if (c.score.fallingKnife) return '<span class="chip warn" title="Cours sous ses moyennes 50 et 200 séances">Tendance baissière</span>';
+    if (c.score.fallingKnife) return '<span class="chip warn" title="Le cours est passé sous ses moyennes 50 et 200 séances">Cours en repli</span>';
     return alertChip(isin);
   }
   function vClassement() {
@@ -2010,7 +2010,7 @@ details.pos summary{font-size:1rem}
     if (!plus.length) plus.push('Aucun signal récent : ni achat de dirigeant, ni rachat, ni résultat au-dessus du consensus.');
     var pea = x.peaStatus || 'a_verifier';
     if (pea !== 'eligible') check.push(pea === 'non_eligible' ? 'Non éligible au PEA.' : 'Éligibilité PEA à vérifier auprès de votre courtier.');
-    if (sc.fallingKnife) check.push('Tendance baissière : le cours est sous ses moyennes 50 et 200 séances. Un achat de dirigeant ne marque pas forcément le point bas ; entrer en plusieurs fois.');
+    if (sc.fallingKnife) check.push('Cours en repli : il est passé sous ses moyennes 50 et 200 séances. Un achat de dirigeant ne marque pas forcément le point bas ; entrer en plusieurs fois.');
     if (sc.cluster && sc.cluster.coordinated) check.push('Achats groupés le même jour avec des montants proches : souvent un programme collectif décidé par la société, moins parlant que des achats spontanés.');
     var hl = ES.financialHealth(x.fund);
     if (hl.status === 'fragile') check.push('<b>Solidité financière fragile</b> : ' + esc(hl.reasons.join(' ; ')) + '. Risque de piège : la baisse peut être justifiée.');
@@ -2034,7 +2034,7 @@ details.pos summary{font-size:1rem}
     if (hl.status === 'fragile') buy.push('<b>Prudence :</b> la société est financièrement fragile. Un achat de dirigeant ne suffit pas à compenser ce risque.');
     else if (!sc.buys.length) buy.push('Aucun achat récent de dirigeant : pas de signal d\'entrée selon la méthode Euro Signal.');
     else {
-      if (sc.fallingKnife) buy.push('Tendance baissière : entrer en plusieurs fois, par exemple un tiers maintenant, un tiers si le cours repasse au-dessus de sa moyenne 50 séances, un tiers après les prochains résultats.');
+      if (sc.fallingKnife) buy.push('Cours en repli : entrer en plusieurs fois, par exemple un tiers maintenant, un tiers si le cours repasse au-dessus de sa moyenne 50 séances, un tiers après les prochains résultats.');
       else buy.push('Tendance favorable ou neutre : une entrée en une ou deux fois est cohérente avec le signal.');
       if (x.nextEarnings && ES.daysBetween(S.today, x.nextEarnings) >= 0 && ES.daysBetween(S.today, x.nextEarnings) <= S.cfg.alerts.earningsWarnDays) buy.push('Résultats le ' + shortDate(x.nextEarnings) + ' : attendre la publication ou n\'entrer qu\'en partie.');
       if (sc.discount) buy.push('Repère : le dirigeant a payé ' + fmtN(sc.discount.paid) + ' le ' + shortDate(sc.discount.date) + '. Acheter nettement au-dessus réduit l\'avantage du signal.');

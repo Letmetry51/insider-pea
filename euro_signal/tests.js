@@ -458,7 +458,7 @@ t('Holding personnelle d\'un dirigeant comptée (cas Rheinmetall), mode strict, 
   const sc = ES.score({ inst: { isin: 'DE0007030009', stats: { sessions: 300, sma50: 1080, sma200: 1336, lastCloseAdj: 953 } }, tx, events: {}, refs, cfg: c2, today: '2026-10-07' });
   eq(Math.round(sc.discount.pct), 52);
   ok(sc.families.insiders.items.some((x) => /52 % sous le plus haut/.test(x.label) && x.points === c2.weights.insiders.discountBig));
-  ok(sc.fallingKnife && sc.families.market.items.some((x) => /tendance baissière/.test(x.label)));
+  ok(sc.fallingKnife && sc.families.market.items.some((x) => /cours en repli/.test(x.label)));
 });
 
 t('Croisement MM50 / MM200 après un achat de dirigeant', () => {
