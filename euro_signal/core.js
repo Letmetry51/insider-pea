@@ -446,6 +446,22 @@
     (splits || []).forEach(function (s) { if (s && s.date > d && typeof s.ratio === 'number' && isFinite(s.ratio) && s.ratio > 0 && s.ratio < 1e4) f *= s.ratio; });
     return f;
   };
+  /**
+   * Dividendes → facteurs d'ajustement, traités comme des divisions : cours d'avant le détachement × (1 − D / clôture veille).
+   * rows bruts [[date, o, h, l, c, v]], dividends [{ date, amount }] → [{ date, ratio, dividend: true }].
+   */
+  ES.dividendSplits = function (rows, dividends) {
+    var out = [];
+    (Array.isArray(dividends) ? dividends : []).forEach(function (dv) {
+      var amt = dv && +dv.amount, d = dv && dv.date;
+      if (!(amt > 0) || typeof d !== 'string') return;
+      var prev = null;
+      for (var k = 0; k < rows.length; k++) { if (rows[k] && rows[k][0] < d && rows[k][4] > 0) prev = rows[k][4]; else if (rows[k] && rows[k][0] >= d) break; }
+      if (!prev || amt >= prev * 0.9) return; // incohérent : ignoré
+      out.push({ date: d, ratio: prev / (prev - amt), dividend: true, amount: amt });
+    });
+    return out;
+  };
   ES.adjustedSeries = function (rows, splits) {
     return rows.map(function (r) {
       var f = ES.splitFactor(splits, r[0]);
@@ -584,7 +600,7 @@
       if (ex52 && !res.atPurchase.full52) res.notes.push('fenêtre 52 semaines incomplète à la date d\'achat (début ' + ex52.from + ')');
       var day = ES.extremes(adj, tx.txDate, tx.txDate);
       if (day) { res.dayLow = day.low; res.dayHigh = day.high; }
-      if (day && (paid > day.high * 1.02 || paid < day.low * 0.98)) { res.outOfRange = true; if (paid < day.low * 0.8) res.belowMarket = true; res.notes.push('prix payé hors de la fourchette du jour (' + day.low.toFixed(2) + '–' + day.high.toFixed(2) + ') : vérifier la déclaration ou une opération sur titres'); }
+      if (day && (paid > day.high * 1.02 || paid < day.low * 0.98)) { res.outOfRange = true; if (paid < day.low * 0.8) res.belowMarket = true; if (paid > day.high * 3) { res.belowMarket = true; res.priceSuspect = true; res.notes.push('prix déclaré plus de 3 fois supérieur au cours du jour : déclaration probablement mal saisie (virgule, unité), ignorée dans les calculs'); } res.notes.push('prix payé hors de la fourchette du jour (' + day.low.toFixed(2) + '–' + day.high.toFixed(2) + ') : vérifier la déclaration ou une opération sur titres'); }
     }
     var t52 = ES.extremes(adj, ES.addDays(last[0], -365), last[0]), tAll = ES.extremes(adj, null, last[0]);
     res.today = {
@@ -615,7 +631,7 @@
     valuation: { cheapPct: 20, richPct: 30 }, // décote / prime de valorisation par rapport aux pairs jugée nette // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
-    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1 },
+    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60], oosStart: '' }
@@ -664,6 +680,12 @@
     }
     var status = rej.length ? 'rejete' : exam.length ? 'a_examiner' : 'retenu';
     return { status: status, reasons: rej.concat(exam), warnings: warn };
+  };
+  /** « 2026-08-06 » → « 06/08/2026 » (affichage). */
+  ES.frDate = function (d) { return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : d; };
+  ES.frText = function (txt) {
+    return String(txt).replace(/entre le (\d{4}-\d{2}-\d{2}) et le \1/g, 'le $1').replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3/$2/$1')
+      .replace(/(\d)\.(\d+)(?=\s?(?:%|point|fois|séance))/g, '$1,$2').replace(/(\d) %/g, '$1\u00a0%'); // virgule décimale, espace insécable avant %
   };
   function fmtEur(n) { return n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' M€' : Math.round(n / 1e3) + ' k€'; }
   ES.fmtEur = fmtEur;
@@ -719,6 +741,8 @@
   var SECTORS_FR = { 'Basic Materials': 'Matériaux de base', 'Communication Services': 'Médias et télécoms', 'Consumer Cyclical': 'Consommation cyclique',
     'Consumer Defensive': 'Consommation courante', 'Energy': 'Énergie', 'Financial Services': 'Finance', 'Healthcare': 'Santé', 'Industrials': 'Industrie',
     'Real Estate': 'Immobilier', 'Technology': 'Technologie', 'Utilities': 'Services aux collectivités' };
+  ES.INDUSTRIES_FR = {"Advertising Agencies": "Agences de publicité", "Aerospace & Defense": "Aéronautique et défense", "Agricultural Inputs": "Intrants agricoles", "Airlines": "Compagnies aériennes", "Apparel Manufacturing": "Fabrication de vêtements", "Apparel Retail": "Distribution de vêtements", "Asset Management": "Gestion d'actifs", "Auto & Truck Dealerships": "Concessionnaires automobiles", "Auto Manufacturers": "Constructeurs automobiles", "Auto Parts": "Équipementiers automobiles", "Banks - Diversified": "Banques diversifiées", "Banks - Regional": "Banques régionales", "Beverages - Brewers": "Brasseurs", "Beverages - Non-Alcoholic": "Boissons sans alcool", "Beverages - Wineries & Distilleries": "Vins et spiritueux", "Biotechnology": "Biotechnologies", "Broadcasting": "Télévision et radio", "Building Materials": "Matériaux de construction", "Building Products & Equipment": "Produits et équipements du bâtiment", "Business Equipment & Supplies": "Équipements de bureau", "Capital Markets": "Marchés de capitaux", "Chemicals": "Chimie", "Communication Equipment": "Équipements de communication", "Computer Hardware": "Matériel informatique", "Conglomerates": "Conglomérats", "Consulting Services": "Conseil", "Consumer Electronics": "Électronique grand public", "Credit Services": "Services de crédit", "Department Stores": "Grands magasins", "Diagnostics & Research": "Diagnostic et recherche", "Drug Manufacturers - General": "Laboratoires pharmaceutiques", "Drug Manufacturers - Specialty & Generic": "Pharmacie de spécialité et génériques", "Electrical Equipment & Parts": "Équipements électriques", "Electronic Components": "Composants électroniques", "Electronic Gaming & Multimedia": "Jeux vidéo et multimédia", "Electronics & Computer Distribution": "Distribution électronique et informatique", "Engineering & Construction": "Ingénierie et construction", "Entertainment": "Divertissement", "Farm & Heavy Construction Machinery": "Machines agricoles et de chantier", "Farm Products": "Produits agricoles", "Financial Conglomerates": "Conglomérats financiers", "Financial Data & Stock Exchanges": "Données financières et Bourses", "Food Distribution": "Distribution alimentaire", "Footwear & Accessories": "Chaussures et accessoires", "Furnishings, Fixtures & Appliances": "Ameublement et électroménager", "Gambling": "Jeux d'argent", "Grocery Stores": "Supermarchés", "Health Information Services": "Informatique de santé", "Home Improvement Retail": "Bricolage", "Household & Personal Products": "Produits ménagers et d'hygiène", "Industrial Distribution": "Distribution industrielle", "Information Technology Services": "Services informatiques", "Insurance - Diversified": "Assurance diversifiée", "Insurance - Property & Casualty": "Assurance dommages", "Insurance - Reinsurance": "Réassurance", "Integrated Freight & Logistics": "Transport et logistique", "Internet Content & Information": "Contenus internet", "Internet Retail": "Commerce en ligne", "Leisure": "Loisirs", "Lodging": "Hôtellerie", "Luxury Goods": "Luxe", "Medical Care Facilities": "Établissements de santé", "Medical Devices": "Dispositifs médicaux", "Medical Distribution": "Distribution médicale", "Medical Instruments & Supplies": "Instruments et fournitures médicales", "Metal Fabrication": "Métallurgie", "Oil & Gas E&P": "Exploration-production pétrolière", "Oil & Gas Equipment & Services": "Services pétroliers", "Oil & Gas Integrated": "Pétrole et gaz intégrés", "Oil & Gas Midstream": "Transport de pétrole et gaz", "Oil & Gas Refining & Marketing": "Raffinage et distribution pétrolière", "Other Precious Metals & Mining": "Métaux précieux et mines", "Packaged Foods": "Agroalimentaire", "Packaging & Containers": "Emballages", "Paper & Paper Products": "Papier", "Personal Services": "Services aux particuliers", "Pharmaceutical Retailers": "Pharmacies", "Pollution & Treatment Controls": "Traitement et dépollution", "Publishing": "Édition", "REIT - Diversified": "Foncière diversifiée", "REIT - Industrial": "Foncière logistique et industrielle", "REIT - Office": "Foncière de bureaux", "REIT - Residential": "Foncière résidentielle", "REIT - Retail": "Foncière commerciale", "Railroads": "Ferroviaire", "Real Estate - Development": "Promotion immobilière", "Real Estate - Diversified": "Immobilier diversifié", "Real Estate Services": "Services immobiliers", "Recreational Vehicles": "Véhicules de loisirs", "Rental & Leasing Services": "Location et crédit-bail", "Resorts & Casinos": "Complexes de loisirs et casinos", "Restaurants": "Restauration", "Scientific & Technical Instruments": "Instruments scientifiques et techniques", "Security & Protection Services": "Sécurité et protection", "Semiconductor Equipment & Materials": "Équipements pour semi-conducteurs", "Semiconductors": "Semi-conducteurs", "Software - Application": "Logiciels applicatifs", "Software - Infrastructure": "Logiciels d'infrastructure", "Solar": "Solaire", "Specialty Business Services": "Services aux entreprises", "Specialty Chemicals": "Chimie de spécialité", "Specialty Industrial Machinery": "Machines industrielles spécialisées", "Specialty Retail": "Distribution spécialisée", "Staffing & Employment Services": "Travail temporaire et recrutement", "Steel": "Acier", "Telecom Services": "Télécommunications", "Textile Manufacturing": "Textile", "Tools & Accessories": "Outillage", "Travel Services": "Services de voyage", "Utilities - Diversified": "Services aux collectivités diversifiés", "Utilities - Regulated Electric": "Électricité réglementée", "Utilities - Regulated Gas": "Gaz réglementé", "Utilities - Renewable": "Énergies renouvelables", "Waste Management": "Gestion des déchets", "Gold": "Or", "Copper": "Cuivre", "Aluminum": "Aluminium", "Coking Coal": "Charbon", "Thermal Coal": "Charbon", "Uranium": "Uranium", "Silver": "Argent", "Lumber & Wood Production": "Bois", "Tobacco": "Tabac", "Confectioners": "Confiserie", "Discount Stores": "Distribution discount", "Education & Training Services": "Éducation et formation", "Insurance - Life": "Assurance vie", "Insurance Brokers": "Courtage en assurance", "Insurance - Specialty": "Assurance spécialisée", "Marine Shipping": "Transport maritime", "Trucking": "Transport routier", "Airports & Air Services": "Aéroports", "Infrastructure Operations": "Exploitation d'infrastructures", "Utilities - Independent Power Producers": "Producteurs d'électricité indépendants", "Utilities - Regulated Water": "Eau", "Real Estate - Specialty": "Immobilier spécialisé", "REIT - Healthcare Facilities": "Foncière de santé", "REIT - Hotel & Motel": "Foncière hôtelière", "REIT - Specialty": "Foncière spécialisée", "Mortgage Finance": "Crédit immobilier", "Banks - Diversified ": "Banques diversifiées", "Shell Companies": "Sociétés coquilles", "Oil & Gas Drilling": "Forage pétrolier", "Electronics & Computer Distribution ": "Distribution électronique", "Computer Distribution": "Distribution informatique", "Semiconductor Memory": "Mémoires", "Scientific Instruments": "Instruments scientifiques"};
+  ES.industryFr = function (s) { return s ? ES.INDUSTRIES_FR[s] || String(s) : null; };
   ES.sectorFr = function (s) { return s ? SECTORS_FR[s] || String(s) : null; };
   /** Résultat mesuré d'un groupe de signaux, échantillon et hors échantillon réunis. */
   ES.groupOutcome = function (results, group, horizon) {
@@ -798,7 +822,7 @@
     if (!fin && f.currentRatio != null && f.currentRatio < 0.8) notes.push('liquidité de court terme tendue (ratio ' + f.currentRatio.toFixed(2).replace('.', ',') + ')');
     if (f.freeCashflow != null && f.freeCashflow > 0) notes.push('flux de trésorerie disponible positif');
     var known = [debt, cash, ebitda, f.profitMargins, f.freeCashflow].filter(function (v) { return v != null; }).length;
-    if (!reasons.length && known < 2) return { status: 'inconnu', reasons: ['données financières trop incomplètes'], notes: notes };
+    if (!reasons.length && (known < 2 || (!fin && debt == null && cash == null))) return { status: 'inconnu', reasons: ['données financières trop incomplètes (dette et trésorerie inconnues)'], notes: notes };
     return { status: reasons.length ? 'fragile' : 'solide', reasons: reasons, notes: notes, asOf: f.asOf || null, financial: fin };
   };
   ES.significantBuys = function (buys, cfg) {
@@ -832,6 +856,7 @@
     (cands || []).forEach(function (c) {
       var sc = c.score, health = ES.financialHealth(c.inst.fund);
       if (!sc || !sc.buys.length || c.universe.status !== 'retenu' || health.status === 'fragile') return;
+      if (S.peaOnly !== false && c.inst.peaStatus === 'non_eligible') return; // investisseur PEA : titres exclus du PEA écartés
       if (c.quality.total < cfg.quality.minForAlert || !c.quality.coverage.ok || sc.ambiguousCount) return;
       if (sc.total < (S.minScore || 0)) return;
       var recent = sc.buys.filter(function (t) { return ES.availDate(t) >= from; });
@@ -840,7 +865,7 @@
       out.push({ isin: c.isin, name: c.inst.name || c.isin, country: c.inst.country || null, sector: ES.sectorFr(c.inst.sector || (c.inst.fund && c.inst.fund.sector)), score: sc.total,
         discountPct: d ? d.pct : null, buyer: d ? d.person : recent[0].person, ceo: sc.buys.some(function (t) { return t.ceo || t.cfo; }),
         buyDate: d ? d.date : recent[0].txDate, lastPub: recent.map(function (t) { return ES.availDate(t); }).sort().pop(), buyEur: eur || null,
-        buyers: sc.cluster ? sc.cluster.count : 1, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
+        buyers: sc.cluster ? sc.cluster.count : 1, clusterFrom: sc.cluster ? sc.cluster.from : null, clusterTo: sc.cluster ? sc.cluster.to : null, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
         health: health.status, nextEarnings: c.inst.nextEarnings || null,
         peer: c.inst.peer || null, position: c.inst.position ? { label: c.inst.position.label, key: c.inst.position.key, rank: c.inst.position.rank, of: c.inst.position.of, industry: c.inst.position.industry } : null, shorts: c.inst.shorts ? { totalPct: c.inst.shorts.totalPct, holders: c.inst.shorts.holders } : null });
     });
@@ -851,27 +876,28 @@
   ES.buildSelectionEmail = function (sel, week, cfg, dashUrl, today, rationale, track, verdict) {
     var n = sel.length, S = cfg.selection || {};
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
-    var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
-      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, note d\'au moins ' + ES.note(S.minScore || 0, cfg) + '/100. Classés par note, puis par décote.' +
-      ' Lecture de la note : 100 = dossier idéal réaliste (achats de dirigeants et tendance de marché au maximum) ; ' + ES.note((cfg.alerts || {}).minScore || 45, cfg) + ' et plus = très fort, ' + ES.note(S.minScore || 30, cfg) + ' à ' + (ES.note((cfg.alerts || {}).minScore || 45, cfg) - 1) + ' = fort.';
+    var A = cfg.alerts.minScore, M = S.minScore;
+    var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + S.recentDays +
+      ' derniers jours (les faits cités portent sur les ' + cfg.insiders.windowMonths + ' derniers mois) : titre liquide, données fiables, pas de fragilité financière' + (S.peaOnly !== false ? ', foncières exclues du PEA écartées' : '') + ', note d\'au moins ' + ES.note(M, cfg) + '/100. Classés par note, puis par décote.' +
+      ' Lecture de la note : 100 = dossier idéal réaliste (achats de dirigeants et tendance de marché au maximum) ; ' + ES.note(A, cfg) + ' et plus = très fort, ' + ES.note(M, cfg) + ' à ' + (ES.note(A, cfg) - 1) + ' = fort.';
     var why = function (x) {
       var w = [];
-      if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines');
+      if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines (achat du ' + ES.frDate(x.buyDate) + ')');
       w.push(x.ceo ? 'achat du DG ou du DAF' : 'achat d\'un dirigeant');
-      if (x.buyers >= (cfg.insiders.clusterMinBuyers || 3)) w.push(x.buyers + ' dirigeants acheteurs');
-      if (x.buyEur) w.push(fmtEur(x.buyEur) + ' achetés');
+      if (x.buyers >= cfg.insiders.clusterMinBuyers) w.push(x.buyers + ' dirigeants acheteurs en moins de ' + cfg.insiders.clusterWindowDays + ' jours' + (x.clusterFrom ? (x.clusterFrom === x.clusterTo ? ' (le ' + ES.frDate(x.clusterFrom) + ')' : ' (du ' + ES.frDate(x.clusterFrom) + ' au ' + ES.frDate(x.clusterTo) + ')') : ''));
+      if (x.buyEur) w.push(fmtEur(x.buyEur) + ' achetés par les dirigeants sur ' + cfg.insiders.windowMonths + ' mois');
       if (x.panic) w.push('achat pendant une vente panique');
       if (x.trendUp) w.push('tendance de fond haussière (MM50 > MM200)');
       if (x.position && (x.position.key === 'leader' || x.position.key === 'challenger')) w.push((x.position.key === 'leader' ? 'leader de son industrie' : 'challenger de son industrie') + ' (n° ' + x.position.rank + ' sur ' + x.position.of + ' sociétés européennes suivies, par chiffre d\'affaires)');
       if (x.peer && x.peer.discountPct >= cfg.valuation.cheapPct) w.push('valorisation ' + Math.round(x.peer.discountPct) + ' % sous ses pairs (' + x.peer.metric + ' ' + String(x.peer.value).replace('.', ',') + ' contre ' + String(x.peer.peerMedian).replace('.', ',') + ', ' + x.peer.peers + ' sociétés comparables)');
-      if (x.shorts) w.push('acheté pendant que ' + x.shorts.holders + ' fonds parient à la baisse (' + String(x.shorts.totalPct).replace('.', ',') + ' % du capital)');
+      if (x.shorts) w.push('positions vendeuses actuelles : ' + x.shorts.holders + ' fonds' + ' parie' + (x.shorts.holders > 1 ? 'nt' : '') + ' à la baisse, ' + String(x.shorts.totalPct).replace('.', ',') + ' % du capital');
       return w;
     };
     var care = function (x) {
       var c = [];
       if (x.fallingKnife) c.push('cours en repli : entrer en plusieurs fois');
       if (x.peer && x.peer.discountPct <= -cfg.valuation.richPct) c.push('valorisation ' + Math.round(-x.peer.discountPct) + ' % au-dessus de ses pairs');
-      if (x.nextEarnings && (!today || (x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 30))) c.push('résultats le ' + x.nextEarnings + ' : acheter juste avant revient à parier sur leur contenu');
+      if (x.nextEarnings && (!today || (x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 30))) c.push('résultats le ' + ES.frDate(x.nextEarnings) + ' : acheter juste avant revient à parier sur leur contenu');
       if (x.health === 'inconnu') c.push('solidité financière non vérifiable');
       return c;
     };
@@ -887,7 +913,7 @@
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
     var html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:680px;color:#1b2420"><h2 style="margin:0 0 6px">Sélection de la semaine</h2>' +
-      (verdict && verdict.text ? '<div style="border-radius:8px;padding:10px 14px;margin:0 0 12px;font-size:14px;' + ({ strong: 'background:#E3F3E8;border:1px solid #1F7A3E', normal: 'background:#FFF6DC;border:1px solid #B38600', weak: 'background:#F1F2F1;border:1px solid #9AA39E' }[verdict.key] || 'background:#F1F2F1;border:1px solid #CBD3CD') + '"><b>' + (verdict.icon ? verdict.icon + ' ' : '') + 'Cette semaine</b> — ' + ES.esc(verdict.text) + '</div>' : '') +
+      (verdict && verdict.text ? '<div style="border-radius:8px;padding:10px 14px;margin:0 0 12px;font-size:14px;' + ({ strong: 'background:#E3F3E8;border:1px solid #1F7A3E', normal: 'background:#FFF6DC;border:1px solid #B38600', weak: 'background:#F1F2F1;border:1px solid #9AA39E' }[verdict.key] || 'background:#F1F2F1;border:1px solid #CBD3CD') + '"><b>' + (verdict.icon ? verdict.icon + ' ' : '') + ES.esc(verdict.text.split(' : ')[0]) + '</b>' + (verdict.text.indexOf(' : ') > -1 ? ' : ' + ES.esc(verdict.text.slice(verdict.text.indexOf(' : ') + 3)) : '') + '</div>' : '') +
       '<p style="color:#55615c;margin:0 0 14px">' + ES.esc(intro) + '</p>' +
       (tr ? '<p style="margin:0 0 14px"><b>' + ES.esc(tr) + '</b></p>' : '') +
       (rationale ? rationale.html : '') +
@@ -949,20 +975,23 @@
     var rows = [];
     Object.keys(inst || {}).forEach(function (isin) {
       var f = inst[isin] && inst[isin].fund, m = metricOf(f);
-      if (m) rows.push({ isin: isin, m: m, sector: f.sector || null, industry: f.industry || null });
+      if (m) rows.push({ isin: isin, m: m, sector: f.sector || null, industry: f.industry || null, cap: +f.marketCap > 0 ? +f.marketCap : null });
     });
     var med = function (a) { a = a.slice().sort(function (x, y) { return x - y; }); var n = a.length; return n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2; };
     var out = {};
     rows.forEach(function (r) {
       var pick = function (lvl) {
-        var peers = rows.filter(function (o) { return o.isin !== r.isin && o.m.key === r.m.key && o[lvl] && o[lvl] === r[lvl]; }).map(function (o) { return o.m.v; });
+        var all = rows.filter(function (o) { return o.isin !== r.isin && o.m.key === r.m.key && o[lvl] && o[lvl] === r[lvl] && o.m.v > 0.5; });
+        var near = r.cap ? all.filter(function (o) { return o.cap && o.cap >= r.cap / 10 && o.cap <= r.cap * 10; }) : [];
+        var peers = (near.length >= 5 ? near : all).map(function (o) { return o.m.v; }); // taille comparable (×10 au plus) quand c'est possible
         return peers.length >= 5 ? { lvl: lvl, vals: peers } : null;
       };
       var p = pick('industry') || pick('sector');
       if (!p) return;
       var m = med(p.vals);
+      if (!(m > 0) || r.m.v < m / 4 || r.m.v > m * 4) return; // multiple aberrant par rapport aux pairs (donnée suspecte) : pas de comparaison
       out[r.isin] = { metric: r.m.label, value: +r.m.v.toFixed(2), peerMedian: +m.toFixed(2), peers: p.vals.length, level: p.lvl === 'industry' ? 'industrie' : 'secteur',
-        group: p.lvl === 'industry' ? r.industry : ES.sectorFr(r.sector), discountPct: +((1 - r.m.v / m) * 100).toFixed(1) };
+        group: p.lvl === 'industry' ? ES.industryFr(r.industry) : ES.sectorFr(r.sector), discountPct: +((1 - r.m.v / m) * 100).toFixed(1) };
     });
     return out;
   };
@@ -988,8 +1017,9 @@
       var tot = g.reduce(function (a, x) { return a + x.rev; }, 0);
       g.forEach(function (x, k) {
         var share = x.rev / tot * 100;
-        var key = k === 0 ? 'leader' : k <= 2 ? 'challenger' : share < 3 ? 'niche' : 'follower';
-        out[x.isin] = { key: key, label: { leader: 'Leader', challenger: 'Challenger', follower: 'Suiveur', niche: 'Acteur de niche' }[key], rank: k + 1, of: g.length, industry: ind, sharePct: +share.toFixed(1), revenueEur: Math.round(x.rev) };
+        var big = x.rev >= 5e8; // moins de 500 M€ de chiffre d'affaires : jamais « leader » d'une industrie européenne
+        var key = k === 0 && big ? 'leader' : k <= 2 && big ? 'challenger' : share < 3 || !big ? 'niche' : 'follower';
+        out[x.isin] = { key: key, label: { leader: 'Leader', challenger: 'Challenger', follower: 'Suiveur', niche: 'Acteur de niche' }[key], rank: k + 1, of: g.length, industry: ES.industryFr(ind), sharePct: +share.toFixed(1), revenueEur: Math.round(x.rev) };
       });
     });
     return out;
@@ -1055,7 +1085,7 @@
     if (wb.length < 6) return { key: 'na', text: 'Repère historique en construction (' + wb.length + ' semaine' + (wb.length > 1 ? 's' : '') + ' rejouée' + (wb.length > 1 ? 's' : '') + ').' };
     var best = Math.max.apply(null, notes), rk = { pct: Math.round((wb.filter(function (x) { return x < best; }).length + wb.filter(function (x) { return x === best; }).length / 2) / wb.length * 100) };
     var rare = items.filter(function (x) { return x.hist && x.hist.key === 'rare'; }).length;
-    if (rk.pct >= 80) return { key: 'strong', icon: '🟢', text: 'Semaine exceptionnelle : le meilleur dossier fait mieux que ' + rk.pct + ' % des ' + wb.length + ' semaines précédentes. C\'est le genre de semaine où il vaut la peine d\'étudier sérieusement un achat.' };
+    if (rk.pct >= 80) return { key: 'strong', icon: '🟢', text: 'Semaine exceptionnelle : le signal le plus fort de la semaine dépasse celui de ' + rk.pct + ' % des ' + wb.length + ' semaines précédentes. Une semaine qui mérite un examen attentif des dossiers ; la force du signal n\'est pas une promesse de gain.' };
     if (rk.pct >= 40) return { key: 'normal', icon: '🟡', text: 'Semaine dans la moyenne (' + rk.pct + 'e centile sur ' + wb.length + ' semaines)' + (rare ? ' ; ' + rare + ' dossier' + (rare > 1 ? 's' : '') + ' remarquable' + (rare > 1 ? 's' : '') : '') + '. Acheter n\'a rien d\'urgent : une meilleure occasion peut venir.' };
     return { key: 'weak', icon: '⚪', text: 'Semaine faible (' + rk.pct + 'e centile sur ' + wb.length + ' semaines) : mieux vaut attendre les prochaines sélections.' };
   };
@@ -1238,6 +1268,8 @@
     var marketFamily = fam.market.points > 0;
     total = clamp(Math.round(total), 0, 100);
     contributing.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    // Libellés affichés : dates à la française, « entre le X et le X » → « le X »
+    Object.keys(fam).forEach(function (k) { fam[k].items.forEach(function (it) { it.label = ES.frText(it.label); }); });
     return {
       version: cfg.scoringVersion, total: total, families: fam,
       eventFamilies: families, independentFamilies: families + (marketFamily ? 1 : 0),
@@ -1455,7 +1487,7 @@
     h.push('<div style="font-family:Arial,sans-serif;font-size:14px;color:#1c2321;max-width:680px">');
     h.push('<h2 style="margin:0 0 4px">' + esc(i.name || i.isin) + '</h2>');
     var secFr = ES.sectorFr(i.sector || (i.fund && i.fund.sector));
-    h.push('<p style="margin:0 0 12px;color:#55615c">' + esc([secFr ? 'Secteur : ' + secFr + (i.fund && i.fund.industry ? ' (' + i.fund.industry + ')' : '') : null, i.isin, i.ticker, i.venue, 'domicile ' + (i.country || '?'), 'PEA : ' + ES.PEA_LABEL[i.peaStatus || 'a_verifier']].filter(Boolean).join(' · ')) + '</p>');
+    h.push('<p style="margin:0 0 12px;color:#55615c">' + esc([secFr ? 'Secteur : ' + secFr + (i.fund && i.fund.industry ? ' (' + ES.industryFr(i.fund.industry) + ')' : '') : null, i.isin, i.ticker, i.venue, 'domicile ' + (i.country || '?'), 'PEA : ' + ES.PEA_LABEL[i.peaStatus || 'a_verifier']].filter(Boolean).join(' · ')) + '</p>');
     t.push((i.name || i.isin) + ' (' + i.isin + ')' + (secFr ? ' — secteur : ' + secFr : ''), 'Note d\'opportunité ' + ES.note(s.total, a.cfg) + '/100 (' + s.total + ' points) — barème ' + s.version, '');
     h.push('<p><b>Note d\'opportunité : ' + ES.note(s.total, a.cfg) + '/100</b> (' + s.total + ' points bruts) · qualité des données ' + a.quality.total + '/100 · surchauffe (expérimental) ' + a.overheat.total + '/100</p>');
     h.push('<p style="color:#55615c;font-size:12px">Ce score classe des dossiers à examiner. Ce n\'est pas une probabilité de hausse : il n\'a pas été validé statistiquement. Aucun ordre n\'est passé.</p>');

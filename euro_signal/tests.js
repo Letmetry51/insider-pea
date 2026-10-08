@@ -457,7 +457,7 @@ t('Holding personnelle d\'un dirigeant comptée (cas Rheinmetall), mode strict, 
   const refs = { 'BaFin:1': { available: true, paidAdj: 950, atPurchase: { paidVsHigh52Pct: -52, paidPos52: 1, ex52: { high: 1972, highDate: '2025-10-06' }, full52: true } } };
   const sc = ES.score({ inst: { isin: 'DE0007030009', stats: { sessions: 300, sma50: 1080, sma200: 1336, lastCloseAdj: 953 } }, tx, events: {}, refs, cfg: c2, today: '2026-10-07' });
   eq(Math.round(sc.discount.pct), 52);
-  ok(sc.families.insiders.items.some((x) => /52 % sous le plus haut/.test(x.label) && x.points === c2.weights.insiders.discountBig));
+  ok(sc.families.insiders.items.some((x) => /52\s%\ssous le plus haut/.test(x.label) && x.points === c2.weights.insiders.discountBig));
   ok(sc.fallingKnife && sc.families.market.items.some((x) => /cours en repli/.test(x.label)));
 });
 
@@ -678,8 +678,8 @@ t('Pairs, positions vendeuses, critères en observation, repère historique', ()
   eq(ES.weekVerdict([], []).key, 'empty'); eq(ES.weekVerdict([{ note: 70 }], [60]).key, 'na');
   const x = { isin: 'FR0000000001', name: 'Soc', score: 50, discountPct: 30, ceo: true, buyers: 1, hist: ES.historicRank(83, hist), peer: pv.FR0000000001, shorts: { totalPct: 0.7, holders: 1 } };
   const m = ES.buildSelectionEmail([x], '2026-W41', c, null, '2026-10-08', null, null, ES.weekVerdict([{ note: 83, hist: x.hist }], [50, 55, 60, 65, 70, 75]));
-  ok(/Semaine exceptionnelle/.test(m.text) && /Cette semaine/.test(m.html), 'verdict en tête');
-  ok(/remarquable/.test(m.text) && /50 % sous ses pairs/.test(m.text) && /1 fonds parient à la baisse/.test(m.text), m.text.slice(0, 400));
+  ok(/Semaine exceptionnelle/.test(m.text) && /Semaine exceptionnelle<\/b>/.test(m.html), 'verdict en tête');
+  ok(/remarquable/.test(m.text) && /50 % sous ses pairs/.test(m.text) && /1 fonds parie à la baisse/.test(m.text), m.text.slice(0, 400));
 });
 
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {

@@ -81,7 +81,7 @@ export function build(opts = {}) {
   }
 
   /* 1. Source AMF : absence de collecte ≠ absence de transaction */
-  const amf = { name: 'AMF', via: 'transactions-amf.swaoo.com (republication de la base BDIF)', countries: ['FR'], kind: 'déclarations' };
+  const amf = { name: 'AMF', via: 'transactions-amf.swaoo.com, republication de la base BDIF', countries: ['FR'], kind: 'déclarations' };
   const prevAmf = state.src.AMF || {};
   const genDate = latest && latest.generated_at ? String(latest.generated_at).slice(0, 10) : null;
   const rows = latest && Array.isArray(latest.transactions) ? latest.transactions.filter((t) => t && typeof t === 'object') : [];
@@ -137,6 +137,12 @@ export function build(opts = {}) {
 
   /* 3. Source cours */
   const pItems = prices.items || {};
+  // Dividendes intégrés aux ajustements (comme des divisions) : sans cela, un dividende exceptionnel passe pour un krach
+  Object.keys(pItems).forEach((isin) => {
+    const p = pItems[isin];
+    if (!p || !Array.isArray(p.rows)) return;
+    p.splits = (Array.isArray(p.splits) ? p.splits.filter((x) => !x.dividend) : []).concat(ES.dividendSplits(p.rows, p.dividends));
+  });
   const pDate = prices.generated_at ? String(prices.generated_at).slice(0, 10) : null;
   const pFresh = pDate && ES.daysBetween(pDate, today) <= 3 && Object.keys(pItems).length > 0;
   const prevY = state.src['Yahoo Finance'] || {};
@@ -186,12 +192,22 @@ export function build(opts = {}) {
     if (er && er.fund) state.fund[isin] = er.fund; // conservées si la collecte du soir échoue
     i.fund = state.fund[isin] || null;
     if (i.fund && i.fund.sector) i.sector = i.fund.sector;
+    // Foncières cotées (SIIC, SOCIMI, SIR, REIT) : régime fiscal exonéré, exclues du PEA (loi de finances 2011 pour les SIIC)
+    if (i.fund && /^REIT\b/i.test(String(i.fund.industry || ''))) { i.peaStatus = 'non_eligible'; i.peaSource = 'foncière cotée (SIIC, SOCIMI, REIT) : exclue du PEA'; i.peaDate = today; }
     i.nextEarnings = er && er.nextEarnings && er.nextEarnings > today ? er.nextEarnings : (state.nextEarnings || {})[isin] > today ? state.nextEarnings[isin] : null;
     if (i.nextEarnings) (state.nextEarnings = state.nextEarnings || {})[isin] = i.nextEarnings;
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
     inst[isin] = i; tx[isin] = list;
   });
   // Valorisation par rapport aux pairs (même industrie, sinon même secteur) et positions vendeuses publiées
+  // Deux ISIN pour la même cotation (ancien et nouveau code après une opération sur titres) : un seul dossier, le plus récent
+  const byTicker = {};
+  Object.keys(inst).forEach((isin) => { const t = inst[isin].ticker; if (t) (byTicker[t] = byTicker[t] || []).push(isin); });
+  Object.values(byTicker).filter((l) => l.length > 1).forEach((l) => {
+    const last = (isin) => (tx[isin] || []).map((t) => ES.availDate(t)).sort().pop() || '';
+    const keep = l.slice().sort((a, b) => (last(a) < last(b) ? 1 : -1))[0];
+    l.filter((x) => x !== keep).forEach((x) => { inst[x].shareType = 'doublon de cotation (même titre que ' + keep + ')'; });
+  });
   // Informations croisées : jamais bloquantes (une donnée mal formée est ignorée, le calcul continue)
   const shortsRaw = readJSON(F.shorts, { items: {}, sources: {} });
   const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);
@@ -463,11 +479,19 @@ export function build(opts = {}) {
       replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.slice(0, selCfg.size || 5) });
     });
   } catch (e) { console.warn('  Repère historique indisponible : ' + e.message); replay.length = 0; }
-  // Une société retenue plusieurs lundis de suite = un seul dossier (sa meilleure note), pour ne pas se comparer à elle-même
+  // Une société retenue plusieurs lundis de suite = un seul dossier (sa meilleure note). Les dossiers de la sélection actuelle
+  // encore « en cours » (retenus jusqu'à la dernière semaine rejouée) sont écartés du repère : on ne se compare pas à soi-même.
+  const cur = new Set(selection.items.map((x) => x.isin)), lastK = replay.length - 1, streak = {};
+  cur.forEach((isin) => { let k = lastK; while (k >= 0 && replay[k].picks.some((x) => x.isin === isin)) k--; if (k < lastK) streak[isin] = k + 1; });
+  const ongoing = (isin, k) => streak[isin] != null && k >= streak[isin];
   const episodes = {}, histNotes = [];
-  replay.forEach((w, k) => w.picks.forEach((x) => { const e = episodes[x.isin]; if (e && e.last === k - 1) { e.note = Math.max(e.note, x.note); e.last = k; } else { if (e) histNotes.push(e.note); episodes[x.isin] = { note: x.note, last: k }; } }));
+  replay.forEach((w, k) => w.picks.forEach((x) => {
+    if (ongoing(x.isin, k)) return;
+    const e = episodes[x.isin];
+    if (e && e.last === k - 1) { e.note = Math.max(e.note, x.note); e.last = k; } else { if (e) histNotes.push(e.note); episodes[x.isin] = { note: x.note, last: k }; }
+  }));
   Object.keys(episodes).forEach((i) => histNotes.push(episodes[i].note));
-  const weekBest = replay.filter((w) => w.picks.length).map((w) => w.picks[0].note);
+  const weekBest = replay.map((w, k) => w.picks.filter((x) => !ongoing(x.isin, k))).filter((p) => p.length).map((p) => p[0].note);
   selection.items.forEach((x) => { x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes); });
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };

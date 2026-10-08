@@ -31,6 +31,15 @@ EU_SUFFIXES = (".PA", ".AS", ".BR", ".MI", ".MC", ".DE", ".LS", ".IR", ".VI", ".
 EU_ALL = EU_SUFFIXES + (".F", ".HM", ".SG", ".DU", ".MU", ".BE", ".HA")  # bourses régionales allemandes en dernier recours
 HOME = {"FR": ".PA", "DE": ".DE", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "PT": ".LS", "IE": ".IR", "AT": ".VI", "FI": ".HE", "LU": ".PA"}
 UA = {"User-Agent": "Mozilla/5.0 (euro-signal personal)"}
+# Corrections vérifiées (revue du 2026-10-08) : priorité absolue sur la recherche Yahoo
+OVERRIDES = {
+    "DE0005785604": "FRE.DE",   # Fresenius (et non 1FRE.MI, segment étranger de Milan)
+    "DE000A2YNT30": "ACT.DE",   # AlzChem
+    "IT0005037210": "TNXT.MI",  # Tinexta
+    "ES0177542018": "IAG.MC",   # International Airlines Group (et non Londres)
+    "ES0105375002": "EAT.MC",   # AmRest (et non Varsovie)
+}
+REGIONAL = (".F", ".HM", ".SG", ".DU", ".MU", ".BE", ".HA")
 
 
 def load(path, default):
@@ -71,6 +80,8 @@ def search_yahoo(isin):
 
 def resolve(isin, cache, manual, today):
     """Recherche Yahoo par ISIN d'abord (fait foi) ; la table manuelle d'insider-pea ne sert qu'en secours."""
+    if isin in OVERRIDES:
+        return {"ticker": OVERRIDES[isin], "method": "correction vérifiée"}
     c = cache.get(isin)
     if manual.get(isin) and c and not c.get("ticker"):
         return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"}
@@ -92,6 +103,26 @@ def resolve(isin, cache, manual, today):
         return found
     cache[isin] = {"ticker": None, "triedAt": today.isoformat()}
     return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"} if manual.get(isin) else None
+
+
+def home_candidate(isin, ticker):
+    """Cotation du pays d'origine quand Yahoo propose une place secondaire (bourse régionale allemande, segment étranger)."""
+    home = HOME.get(isin[:2])
+    if not home or not ticker or ticker.endswith(home):
+        return None
+    base = ticker.rsplit(".", 1)[0]
+    secondary = ticker.endswith(REGIONAL) or (ticker.endswith(".MI") and base.startswith("1")) or not ticker.endswith(EU_SUFFIXES)
+    if not secondary:
+        return None  # grande place européenne (ex. Ferrari à Milan, Airbus à Paris) : cotation principale, on la garde
+    if re.fullmatch(r"[A-Z]{2}[A-Z0-9]{9}[0-9]", base):
+        return None  # symbole = ISIN : pas de code exploitable
+    if ticker.endswith(".MI") and base.startswith("1") and len(base) > 2:
+        base = base[1:]  # « 1FRE.MI » : segment des valeurs étrangères de Milan
+    return base + home
+
+
+def fresh_enough(h, today):
+    return bool(h and len(h["rows"]) >= 200 and h["rows"][-1][0] >= (today - timedelta(days=7)).isoformat())
 
 
 def history(ticker):
@@ -125,7 +156,19 @@ def history(ticker):
 
         vol = r.get("Volume")
         rows.append([d, px(r.get("Open")), px(r.get("High")), px(r.get("Low")), px(c), None if vol is None or math.isnan(vol) else round(float(vol) / f)])
-    return {"rows": rows, "splits": splits, "currency": currency}
+    # Dividendes (montant brut par action au jour du détachement) : Euro Signal ajuste les cours passés comme pour une
+    # division, sinon un gros dividende exceptionnel ressemble à un krach (fausse décote, fausse vente panique).
+    dividends = []
+    if "Dividends" in h.columns:
+        for idx, v in h["Dividends"].items():
+            if v and not math.isnan(v) and v > 0:
+                d = idx.strftime("%Y-%m-%d")
+                f = 1.0
+                for sp in splits:
+                    if sp["date"] > d:
+                        f *= sp["ratio"]
+                dividends.append({"date": d, "amount": round(float(v) * f, 6)})
+    return {"rows": rows, "splits": splits, "dividends": dividends, "currency": currency}
 
 
 def main():
@@ -155,6 +198,33 @@ def main():
         if not info:
             unresolved.append(isin)
             continue
+        cand = home_candidate(isin, info["ticker"]) if info.get("method") != "correction vérifiée" else None
+        c0 = cache.get(isin) or {}
+        if cand and c0.get("homeTried") != cand:
+            try:
+                hh = history(cand)
+            except Exception:
+                hh = None
+            if isinstance(cache.get(isin), dict):
+                cache[isin]["homeTried"] = cand
+            same = True
+            if hh:  # contrôle anti-homonyme : même ordre de grandeur de cours (après conversion) que la place secondaire
+                try:
+                    ho = history(info["ticker"])
+                    fx = {"EUR": 1, "GBp": 0.0117, "GBX": 0.0117, "GBP": 1.17, "PLN": 0.23, "ZAc": 0.00051, "ZAR": 0.051, "USD": 0.92, "CHF": 1.06, "SEK": 0.087, "DKK": 0.134, "NOK": 0.085}
+                    a, b = fx.get(hh.get("currency") or "EUR"), fx.get((ho or {}).get("currency") or "EUR")
+                    if ho and ho["rows"] and a and b:
+                        r = (hh["rows"][-1][4] * a) / (ho["rows"][-1][4] * b)
+                        same = 0.7 <= r <= 1.4
+                except Exception:
+                    pass
+            if same and fresh_enough(hh, today):  # place d'origine trouvée : elle remplace durablement la place secondaire
+                info = {"ticker": cand, "method": "cotation du pays d'origine", "exchange": None, "name": info.get("name")}
+                cache[isin] = dict(info, resolvedAt=today.isoformat(), homeTried=cand)
+                items[isin] = {"ticker": cand, "exchange": None, "name": info.get("name"), "currency": hh["currency"], "rows": hh["rows"], "splits": hh["splits"], "dividends": hh.get("dividends") or [], "method": info["method"]}
+                print(f"  [{n}/{len(isins)}] {isin} {cand} : {len(hh['rows'])} séances (cotation d'origine)")
+                time.sleep(0.2)
+                continue
         try:
             h = history(info["ticker"])
         except Exception as e:
@@ -163,7 +233,7 @@ def main():
         if not h:
             unresolved.append(isin)
             continue
-        items[isin] = {"ticker": info["ticker"], "exchange": info.get("exchange"), "name": info.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "method": info.get("method")}
+        items[isin] = {"ticker": info["ticker"], "exchange": info.get("exchange"), "name": info.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "method": info.get("method")}
         print(f"  [{n}/{len(isins)}] {isin} {info['ticker']} : {len(h['rows'])} séances")
         time.sleep(0.2)
     bench = None
