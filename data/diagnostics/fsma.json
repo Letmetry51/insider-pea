@@ -16,10 +16,32 @@
   }
  ],
  "listText": "Managers' Transactions | FSMA FSMA Skip to main content Financial Services and Markets Authority Search Close Menu Close Consumers Consumers Topics Warnings & sanctions Complaints Beware of fraud Check your provider Wikifin: for all your questions about money Professionals Professionals Target groups Topics Business Portal Administrative sanctions Belgian Audit Oversight Board About the FSMA News & Warnings Jobs Jobs Job listings Contact Search en nl fr search_api_autocomplete edit-s Search Home Home Managers' Transactions select Issuer - Any - 2VALORISE AALST AB INBEV ABLYNX ABO-Group ACACIA PHARMA GROUP ACCENTIS ADC SIIC ADEC AEDIFICA AGEAS AGFA GEVAERT AKKA TECHNOLOGIES ANTARES (CERT.) AQUAFIN ARGAN ARGENX ASCENCIO ATENOR ATRIUM - 2 (VBS/SIC) AUDERGHEM/OUDERGEM (CERT.) AVH AZELIS B-ARENA (SIC/VBS) BANIMMO BANQUP GROUP BARCO BASILIX (CERT.) BASS MASTER ISSUER (VBS/SIC) BEAULIEU (CERT.) BEFIMMO BEKAERT BELFIUS B BELGIAN LION (VBS/SIC) BELRECA BELUGA BELYSSE GROUP BERINGEN BIOCARTIS BIOSENIC BIOTALYS BNB-NBB BONYF BOOM BPI REAL ESTATE BPOST BREDERODE BREE BRUGGE BRUXELLES-CAPITALE CAMPINE CANDELA INVEST CECM CECM II CECM III CECM IV CECMIF1 CELYAD ONCOLOGY CENERGY HOLDINGS CFE CHOICE CIE DU BOIS SAUVAGE CIE FIN DE NEUFCOUR CMB.TECH CO.BR.HA. CODIC COFINIMMO COIL COLRUYT COMMUNAUTE FRANCAISE CONDOR TECHNOLOGIES CONNECT GROUP CP INVEST CRELAN CUMULEX D'IETEREN GROUP DALENYS DECEUNINCK DELHAIZE LE LION / DE LEEUW DELHAIZE LE LION / DE LEEUW DEME DEUTSCHSPRACHIGE GEMEINSCHAFT BELGIENS DEXIA DIEGEM KENNEDY (CERT.) DISTRI-LAND (CERT.) DPG MEDIA EAGLESTONE GROUP ECKERT & ZIEGLER BEBIG ECONOCOM GROUP EGEIRO PHARMA EKOPAK ELECTRAWINDS ELIA GROUP ELIA TRANSMISSION BELGIUM EMAKINA GROUP EMD MUSIC ENERGYVISION ESMEE MASTER ISSUER (VBS/SIC) ETAT BELGE/BELGISCHE STAAT ETEXCO ETHIAS EUROCLEAR BANK EUROPEAN MEDICAL SOLUTIONS European Union EUROPUBLIDIS EVS EXMAR EXTENSA GROUP FAGRON FARYS FIN DE TUBIZE FIN REMY COINTREAU FINANCIÈRE AGACHE FLEXOS FLORIDIENNE FLOWSPARKS FLUVIUS SYSTEM OPERATOR FLUXYS FLUXYS BELGIUM FLUXYS FINANCE FNG FNG BENELUX FNG GROUP FOUNTAIN FRBRTC GBL GENK LOGISTICS (CERT.) GGZ NOORD HOLLAND NOORD GHELAMCO INVEST GIMV GREEN ENERGY 4 SEASONS GREENYARD GROWNERS GUDULE PL/GOEDELEPLEIN (CERT.) HAMON HASSELT HOME INVEST BELGIUM HYBRID SOFTWARE GROUP HYLORIS IBA ICE CONCEPT IEP INVEST IMMO MOURY IMMOBEL IMMOPOOL IMMUPHARMA INCLUSIO INFRAX ING B INTEGRALE INTERPARKING INTERVEST OFFICES & WAREHOUSES INVIBES ADVERTISING IOC HOLDING JENSEN GROUP KBC ANCORA KBC",
- "detailSample": null,
+ "detailSample": {
+  "url": "https://www.fsma.be/en/manager-transaction/abo-group-5",
+  "head": {
+   "Date of publication": "05/10/2026",
+   "Notifying person": "De Palmenaer Frank",
+   "Declarer Type": "Member of administrative management or supervisory body",
+   "Issuer": "ABO-Group"
+  },
+  "transactions": [
+   {
+    "Instrument Type": "Share",
+    "Instrument ISIN Code": "BE0974278104",
+    "Transaction Type": "Sale / Disposal",
+    "Transaction Place": "Euronext Brussels",
+    "Transaction Date": "24/09/2026",
+    "Transaction Currency": "EUR",
+    "Transaction Quantity": "750",
+    "Transaction Price": "3,78",
+    "Transaction Amount": "2.835,00"
+   }
+  ],
+  "text": "ABO-Group | FSMA\nFSMA\nSkip to main content\nFinancial Services and Markets Authority\nSearch\nClose\nMenu\nClose\nConsumers\nConsumers\nTopics\nWarnings & sanctions\nComplaints\nBeware of fraud\nCheck your provider\nWikifin: for all your questions about money\nProfessionals\nProfessionals\nTarget groups\nTopics\nBusiness Portal\nAdministrative sanctions\nBelgian Audit Oversight Board\nAbout the FSMA\nNews & Warnings\nJobs\nJobs\nJob listings\nContact\nSearch\nen\nnl\nfr\nsearch_api_autocomplete\nedit-s\nSearch\nHome\nHome\n< Back to results\nManager transaction detail: ABO-Group\nDate of publication\n05/10/2026\nNotifying person\nDe Palmenaer Frank\nDeclarer Type\nMember of administrative management or supervisory body\nIssuer\nABO-Group\nInstrument Type\nShare\nInstrument ISIN Code\nBE0974278104\nTransaction Type\nSale / Disposal\nTransaction Place\nEuronext Brussels\nTransaction Date\n24/09/2026\nTransaction Currency\nEUR\nTransaction Quantity\n750\nTransaction Price\n3,78\nTransaction Amount\n2.835,00\nBody\nDit is een correctie\nConsumers\nTopics\nWarnings & sanctions\nComplaints\nBeware of fraud\nCheck your provider\nWikifin: for all your questions about money\nProfessionals\nTarget groups\nTopics\nBusiness Portal\nAdministrative sanctions\nBelgian Audit Oversight Board\nFSMA\nAbout the FSMA\nNews & Warnings\nLinks\nContact\nOrder form\nSubscribe to our newsletter\n© Copyright FSMA 2026\nAbout this website\nAccessibility Statement\nPrivacy & cookies\nContact\nSubscribe\nFollow FSMA on\nLinkedin\nTwitter"
+ },
  "links": 50,
- "fetched": 0,
+ "fetched": 2,
  "backlog": 0,
  "errors": 0,
- "at": "2026-10-08T16:56:18.990510+00:00"
+ "at": "2026-10-08T20:14:21.491234+00:00"
 }

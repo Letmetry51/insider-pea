@@ -65035,6 +65035,52 @@
    "status": null,
    "numberLocale": "en",
    "collectedAt": "2026-10-08"
+  },
+  "FSMA:abo-group-5-0": {
+   "registry": "FSMA",
+   "country": "BE",
+   "id": "abo-group-5-0",
+   "url": "https://www.fsma.be/en/manager-transaction/abo-group-5",
+   "via": "fsma.be",
+   "published": "2026-10-05",
+   "issuer": "ABO-Group",
+   "person": "De Palmenaer Frank",
+   "role": "Member of administrative management or supervisory body",
+   "linkedTo": null,
+   "isin": "BE0974278104",
+   "instrument": "Share",
+   "nature": "Sale / Disposal",
+   "txDate": "2026-09-24",
+   "place": "Euronext Brussels",
+   "currency": "EUR",
+   "quantity": "750",
+   "price": "3,78",
+   "amount": "2.835,00",
+   "numberLocale": "eu",
+   "collectedAt": "2026-10-08"
+  },
+  "FSMA:abo-group-3-0": {
+   "registry": "FSMA",
+   "country": "BE",
+   "id": "abo-group-3-0",
+   "url": "https://www.fsma.be/en/manager-transaction/abo-group-3",
+   "via": "fsma.be",
+   "published": "2026-10-05",
+   "issuer": "ABO-Group",
+   "person": "De Palmenaer Frank",
+   "role": "Member of administrative management or supervisory body",
+   "linkedTo": null,
+   "isin": "BE0974278104",
+   "instrument": "Share",
+   "nature": "Sale / Disposal",
+   "txDate": "2026-09-25",
+   "place": "Euronext Brussels",
+   "currency": "EUR",
+   "quantity": "750",
+   "price": "3,76",
+   "amount": "2.820,00",
+   "numberLocale": "eu",
+   "collectedAt": "2026-10-08"
   }
  },
  "sources": {
@@ -65062,7 +65108,7 @@
    "lastAttempt": "2026-10-08",
    "status": "ok",
    "rows": 50,
-   "fetched": 0,
+   "fetched": 2,
    "backlog": 0,
    "note": null,
    "lastSuccess": "2026-10-08"
@@ -65111,6 +65157,8 @@
   "FSMA": [
    "https://www.fsma.be/en/manager-transaction/ab-inbev-321",
    "https://www.fsma.be/en/manager-transaction/abo-group-1",
+   "https://www.fsma.be/en/manager-transaction/abo-group-3",
+   "https://www.fsma.be/en/manager-transaction/abo-group-5",
    "https://www.fsma.be/en/manager-transaction/abo-group-6",
    "https://www.fsma.be/en/manager-transaction/abo-group-7",
    "https://www.fsma.be/en/manager-transaction/abo-group-8",
@@ -65168,7 +65216,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-0"
   ]
  },
- "generated_at": "2026-10-08T16:56:26.644233+00:00",
+ "generated_at": "2026-10-08T20:14:29.152230+00:00",
  "cursors": {
   "DE": "2026-10-02",
   "ES": "2026-10-08",
@@ -65176,6 +65224,6 @@
   "NL": "2026-10-08"
  },
  "isUsage": {
-  "2026-10": 510
+  "2026-10": 530
  }
 }
