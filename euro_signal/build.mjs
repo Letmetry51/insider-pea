@@ -15,7 +15,7 @@ const ROOT = path.resolve(HERE, '..');
 const DATA = path.join(ROOT, 'data');
 const F = {
   latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
-  out: path.join(DATA, 'euro-signal.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
+  out: path.join(DATA, 'euro-signal.json'), detail: path.join(DATA, 'euro-signal-detail.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
 // NaN / Infinity écrits par Python : remplacés seulement en position de valeur (jamais dans un texte)
@@ -36,8 +36,8 @@ function readRequired(file, fallback, label) {
 }
 function writeJSON(file, obj, pretty, compact) {
   const tmp = file + '.tmp';
-  // compact : nombres à 7 chiffres significatifs (le tableau de bord n'a pas besoin de plus)
-  const rep = compact ? (k, v) => (typeof v === 'number' && !Number.isInteger(v) ? Number(v.toPrecision(7)) : v) : undefined;
+  // compact : nombres à 5 chiffres significatifs (le tableau de bord n'a pas besoin de plus)
+  const rep = compact ? (k, v) => (typeof v === 'number' && !Number.isInteger(v) ? Number(v.toPrecision(5)) : v) : undefined;
   fs.writeFileSync(tmp, JSON.stringify(obj, rep, pretty ? 1 : 0));
   fs.renameSync(tmp, file); // écriture atomique : jamais de fichier à moitié écrit
 }
@@ -264,12 +264,12 @@ export function build(opts = {}) {
       // composantes connues à la date de publication, et résultat réel 60 séances plus tard
       const disc = a && a.paidVsHigh52Pct != null ? -a.paidVsHigh52Pct : null;
       let kk = -1; { let lo = 0, hi = adj.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (adj[m][0] <= d) { kk = m; lo = m + 1; } else hi = m - 1; } }
-      const above = kk >= 199 ? adj[kk][4] > (cum[kk + 1] - cum[kk - 49]) / 50 && adj[kk][4] > (cum[kk + 1] - cum[kk - 199]) / 200 : null;
+      const above = kk >= 199 ? (cum[kk + 1] - cum[kk - 49]) / 50 > (cum[kk + 1] - cum[kk - 199]) / 200 : null; // MM50 > MM200 à la date de publication
       const rs = mAdj ? (() => { const x = ret6m1At(adj, d), y = ret6m1At(mAdj, d); return x != null && y != null ? x - y : null; })() : null;
       const known2 = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
       raw.push({ isin, date: d, excess: bAdj ? ES.forwardExcess(adj, bAdj, bIdx, d, cfg.learning.horizon, cfg.backtest.costRoundTripPct / 100) : null,
         f: { discountBig: disc != null ? disc >= W.discountBigPct : undefined, discountMedium: disc != null ? disc >= W.discountMediumPct && disc < W.discountBigPct : undefined,
-          nearLow: a && a.paidPos52 != null ? a.paidPos52 <= cfg.insiders.nearLowPct : undefined, panic: a ? ES.isPanic(a, W) : undefined, ceo: !!(t.ceo || t.cfo),
+          panic: a ? ES.isPanic(a, W) : undefined, ceo: !!(t.ceo || t.cfo),
           cluster: ES.clusterInfo(known2, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers, trend: above == null ? undefined : above, relStrong: rs == null ? undefined : rs >= cfg.weights.market.relStrengthPts } });
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
       const known = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
@@ -289,7 +289,10 @@ export function build(opts = {}) {
   const backtest = { results: ES.eventStudy(events, series, prices.bench ? { rows: prices.bench.rows, splits: [] } : null, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, oosStart: oos }), bench: prices.bench ? prices.bench.ticker : null, oosStart: oos, cost: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, events: events.length };
 
   /* 6a. Auto-apprentissage mensuel (appliqué à partir du passage suivant) */
-  const learning = ES.calibrate(samples, ES.mergeConfig(cfg, {}), learnPrev, today);
+  // Sans cours frais (panne Yahoo), on ne consomme pas le recalibrage du mois : il sera retenté le soir suivant.
+  const canLearn = pFresh && samples.some((x) => x.excess != null);
+  const learning = canLearn ? ES.calibrate(samples, ES.mergeConfig(cfg, {}), learnPrev, today)
+    : Object.assign({ month: null, version: 0, weights: {}, log: [], stats: [] }, learnPrev || {}, { changed: [] });
   learning.mode = cfg.learning.mode; learning.samples = samples.length; learning.withOutcome = samples.filter((x) => x.excess != null).length; learning.baseVersion = baseVersion;
   if (learning.changed.length && cfg.learning.mode === 'auto') {
     const lines = learning.changed.map((e) => e.label + ' : ' + e.from + ' → ' + e.to + ' point(s) (écart mesuré ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt sur ' + e.nWith + ' cas, t = ' + e.t + ')');
@@ -370,9 +373,19 @@ export function build(opts = {}) {
   };
   const dashRefs = {};
   Object.keys(dashTx).forEach((isin) => { const r = refs[isin]; if (!r) return; dashRefs[isin] = {}; dashTx[isin].forEach((t) => { if (r[t.id]) dashRefs[isin][t.id] = slim(r[t.id]); }); });
+  const winFrom = ES.addDays(ES.windowStart(today, cfg.insiders.windowMonths), -cfg.insiders.clusterWindowDays);
+  const mainTx = {}, mainRefs = {};
+  Object.keys(dashTx).forEach((isin) => {
+    const l = dashTx[isin].filter((t) => ES.availDate(t) >= winFrom);
+    if (!l.length) return;
+    mainTx[isin] = l;
+    if (dashRefs[isin]) { mainRefs[isin] = {}; l.forEach((t) => { if (dashRefs[isin][t.id]) mainRefs[isin][t.id] = dashRefs[isin][t.id]; }); }
+  });
+  const detail = { format: 'euro-signal-detail', generatedAt: new Date().toISOString(), today, tx: dashTx, refs: dashRefs, prices: dashPrices };
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
-    cfg, inst, tx: dashTx, ev: evOut, src: state.src, alerts: alertsMap, refs: dashRefs, prices: dashPrices, backtest,
+    // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
+    cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
     mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups,
     learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion }
@@ -384,12 +397,14 @@ export function build(opts = {}) {
     writeJSON(F.outbox, outbox, true);
     writeJSON(F.learning, { month: learning.month, version: learning.version, weights: learning.weights, log: learning.log, stats: learning.stats, updatedAt: new Date().toISOString() }, true);
     writeJSON(F.out, payload, false, true);
-    const mb = fs.statSync(F.out).size / 1e6;
+    writeJSON(F.detail, detail, false, true);
+    const mb = fs.statSync(F.detail).size / 1e6;
     if (mb > 60) { // garde-fou : GitHub refuse les fichiers de plus de 100 Mo, ce qui empêcherait aussi d'enregistrer le journal
-      payload.prices = {}; payload.run.trimmed = 'cours retirés du tableau de bord (fichier de ' + mb.toFixed(0) + ' Mo)';
-      writeJSON(F.out, payload, false, true);
-      console.warn('  ATTENTION : tableau de bord allégé (' + mb.toFixed(0) + ' Mo sans allègement)');
+      detail.prices = {}; detail.trimmed = 'cours retirés (fichier de ' + mb.toFixed(0) + ' Mo)';
+      writeJSON(F.detail, detail, false, true);
+      console.warn('  ATTENTION : fichier détail allégé (' + mb.toFixed(0) + ' Mo sans allègement)');
     }
+    console.log('  Tableau de bord : ' + (fs.statSync(F.out).size / 1e6).toFixed(1) + ' Mo (classement) + ' + (fs.statSync(F.detail).size / 1e6).toFixed(1) + ' Mo (fiches)');
   }
   return { payload, outbox, state, rejects, mergeStats, computed };
 }

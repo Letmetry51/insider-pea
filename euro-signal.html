@@ -252,6 +252,9 @@ details.help .disc{font-size:.78rem}
 .brief>div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
 .brief>div:first-child{border-left:4px solid var(--good)}.brief>div:last-child{border-left:4px solid var(--warn)}
 .brief ul{margin:0;padding-left:18px;font-size:.92rem}.brief li{margin:4px 0}
+details.fold summary{font:700 1.02rem var(--display);color:var(--ink)}
+details.fold[open] summary{margin-bottom:10px}
+details.fold .vt{display:none}
 .advice .cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:4px 20px}
 .advice h4{margin-top:4px}
 details.pos{border-top:1px solid var(--line);padding-top:10px}
@@ -881,16 +884,16 @@ details.pos summary{font-size:1rem}
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.7.0',
+    scoringVersion: '2.0.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
-    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 10000 },
+    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
-      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, coordinatedCluster: -6, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
+      insiders: { cap: 40, floor: -10, anyBuy: 10, amountBig: 10, cluster: 12, pair: 5, coordinatedCluster: -6, ceoCfo: 6, repeat: 4, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
       results: { cap: 25, floor: -10, epsStrong: 8, epsMild: 4, epsStrongPct: 5, epsMildPct: 2, epsMiss: -6, revStrong: 7, revMild: 3, revStrongPct: 2, revMildPct: 0, guidanceRaised: 10, guidanceLowered: -10 },
-      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 3, relStrengthPts: 10, relWeakPts: 20 }
+      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 4, relStrengthPts: 10, relWeakPts: 20 }
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
@@ -1100,7 +1103,6 @@ details.pos summary{font-size:1rem}
       add(fi, buys.length + ' achat(s) volontaire(s) publiés depuis le ' + from, wi.anyBuy);
       buys.forEach(function (t) { contributing.push({ id: 'tx:' + t.id, date: ES.availDate(t), kind: 'initie', ambiguous: false }); });
       if (buyEur >= cfg.insiders.bigAmountEur) add(fi, 'montant cumulé ' + fmtEur(buyEur) + ' ≥ ' + fmtEur(cfg.insiders.bigAmountEur), wi.amountBig);
-      else if (buyEur >= cfg.insiders.mediumAmountEur) add(fi, 'montant cumulé ' + fmtEur(buyEur) + ' ≥ ' + fmtEur(cfg.insiders.mediumAmountEur), wi.amountMedium);
       if (buyUnknown) add(fi, buyUnknown + ' achat(s) au montant en euros inconnu : non comptés dans le montant', 0);
       var cl = ES.clusterInfo(buys, cfg.insiders.clusterWindowDays);
       if (cl.count >= 2) {
@@ -1135,15 +1137,14 @@ details.pos summary{font-size:1rem}
         var d = -a.paidVsHigh52Pct;
         if (!discount || d > discount.pct) discount = { pct: d, pos52: a.paidPos52, high52: a.ex52 && a.ex52.high, high52Date: a.ex52 && a.ex52.highDate, paid: r.paidAdj, date: t.txDate, person: t.person, ceo: t.ceo || t.cfo, amount: t.amount, currency: t.currency, id: t.id, full52: a.full52 };
       });
-      if (discount && discount.pct >= wi.discountBigPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountBig);
+      if (discount && discount.pct >= wi.discountBigPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')' + (discount.pos52 != null && discount.pos52 <= cfg.insiders.nearLowPct ? ', près du plus bas' : ''), wi.discountBig);
       else if (discount && discount.pct >= wi.discountMediumPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountMedium);
       buys.forEach(function (t) {
         var r = ctx.refs && ctx.refs[t.id], a = r && !r.outOfRange && r.atPurchase;
         if (a && ES.isPanic(a, wi) && !panic) panic = { date: t.txDate, drop10: a.drop10, rsi14: a.rsi14 };
       });
       if (panic) add(fi, 'achat pendant une vente panique (' + [panic.drop10 != null && panic.drop10 <= -wi.panicDropPct ? 'chute de ' + Math.round(-panic.drop10) + ' % en 10 séances' : null, panic.rsi14 != null && panic.rsi14 <= wi.panicRsi ? 'RSI ' + Math.round(panic.rsi14) : null].filter(Boolean).join(', ') + ', le ' + panic.date + ')', wi.panicBuy);
-      var near = buys.some(function (t) { var r = ctx.refs && ctx.refs[t.id]; return r && r.atPurchase && r.atPurchase.paidPos52 != null && r.atPurchase.paidPos52 <= cfg.insiders.nearLowPct; });
-      if (near) add(fi, 'achat dans le quart bas de l\'intervalle 52 semaines connu à la date d\'achat', wi.nearLow);
+      // « achat près du plus bas » : fusionné dans la décote (les deux mesuraient presque la même chose)
     }
     if (sells.length) {
       if (sellEur > buyEur && sellEur > 0) add(fi, 'ventes d\'initiés (' + fmtEur(sellEur) + ') supérieures aux achats', wi.netSeller);
@@ -1205,14 +1206,13 @@ details.pos summary{font-size:1rem}
     // --- Confirmation de marché
     var fm = F('market', 'Confirmation de marché'), wm = W.market, s = ctx.inst.stats || {};
     if (s.sessions) {
-      if (s.sma50 && s.sma200 && s.lastCloseAdj > s.sma50 && s.lastCloseAdj > s.sma200) add(fm, 'cours au-dessus des moyennes 50 et 200 séances', wm.trend);
       var firstBuy = buys.length ? buys.map(function (t) { return t.txDate; }).sort()[0] : null;
       if (s.sma50 && s.sma200 && s.sma50 > s.sma200) {
-        if (firstBuy && s.goldenCrossDate && s.goldenCrossDate >= firstBuy) add(fm, 'MM50 passée au-dessus de la MM200 le ' + s.goldenCrossDate + ', après l\'achat d\'un dirigeant (' + firstBuy + ')', wm.goldenCrossAfterBuy);
-        else add(fm, 'MM50 au-dessus de la MM200 (tendance de fond haussière)', 0);
+        add(fm, 'tendance de fond haussière (MM50 au-dessus de la MM200)', wm.trend);
+        if (firstBuy && s.goldenCrossDate && s.goldenCrossDate >= firstBuy) add(fm, 'croisement survenu le ' + s.goldenCrossDate + ', après l\'achat d\'un dirigeant (' + firstBuy + ')', wm.goldenCrossAfterBuy);
       }
       if (s.volRatio5_60 != null && s.volRatio5_60 >= wm.volumeRatio && s.ret1m > 0) add(fm, 'volumes 5 j = ' + s.volRatio5_60.toFixed(1) + '× la moyenne 60 j, en hausse', wm.volume);
-      if (s.ret3m != null && s.ret3m > 0) add(fm, 'performance 3 mois positive (' + s.ret3m.toFixed(1) + ' %, absolue, non relative au secteur)', wm.momentum);
+      // performance 3 mois : fusionnée dans la force relative 6 mois
       if (s.adv20Eur != null && s.adv20Eur >= wm.liquidityEur) add(fm, 'liquidité ' + fmtEur(s.adv20Eur) + '/jour', wm.liquidity);
       if (s.rel6m != null && isFinite(s.rel6m)) {
         if (s.rel6m >= wm.relStrengthPts) add(fm, 'plus fort que le marché européen sur 6 mois (' + (s.rel6m > 0 ? '+' : '') + s.rel6m.toFixed(0) + ' points, hors dernier mois)', wm.relStrength);
@@ -1369,9 +1369,9 @@ details.pos summary{font-size:1rem}
    */
   ES.LEARN_FEATURES = [
     ['discountBig', 'insiders', 'discountBig', 'Décote ≥ 40 %'], ['discountMedium', 'insiders', 'discountMedium', 'Décote 25 à 40 %'],
-    ['nearLow', 'insiders', 'nearLow', 'Achat près du plus bas 52 semaines'], ['panic', 'insiders', 'panicBuy', 'Achat dans la panique'],
+    ['panic', 'insiders', 'panicBuy', 'Achat dans la panique'],
     ['ceo', 'insiders', 'ceoCfo', 'Achat du DG ou du DAF'], ['cluster', 'insiders', 'cluster', 'Cluster de dirigeants'],
-    ['trend', 'market', 'trend', 'Cours au-dessus des MM50 et MM200'], ['relStrong', 'market', 'relStrength', 'Plus fort que le marché sur 6 mois']
+    ['trend', 'market', 'trend', 'Tendance de fond haussière (MM50 > MM200)'], ['relStrong', 'market', 'relStrength', 'Plus fort que le marché sur 6 mois']
   ];
   ES.calibrate = function (samples, cfg, prev, today) {
     var L = cfg.learning, month = today.slice(0, 7), base = ES.DEFAULT_CONFIG.weights;
@@ -1740,84 +1740,7 @@ details.pos summary{font-size:1rem}
   window.__ES_STATE = S; // pour le débogage dans la console
 
   /* =========================== Stockage =========================== */
-  var DB_RULES_NOTE = 'Données privées : seuls vous et les personnes que vous désignez comme éditeurs peuvent les lire.';
-  function clean(o) { return JSON.parse(JSON.stringify(o)); }
-  function withRetry(fn) {
-    return fn().catch(function (e) {
-      if (e && e.code === 'unavailable') return sleep(400 + Math.random() * 600).then(fn);
-      throw e;
-    });
-  }
-  function dbAll(coll) {
-    var out = [], last = '';
-    function page() {
-      var q = last ? S.db.collection(coll).where('k', '>', last).orderBy('k').limit(500) : S.db.collection(coll).orderBy('k').limit(500);
-      return withRetry(function () { return q.get(); }).then(function (snap) {
-        snap.docs.forEach(function (d) { if (d.exists) out.push(d.data()); });
-        if (snap.size < 500) return out;
-        last = snap.docs[snap.docs.length - 1].data().k;
-        return page();
-      });
-    }
-    return page();
-  }
-  function dbSet(path, data) {
-    if (S.mode !== 'db') return Promise.resolve();
-    var body = clean(Object.assign({}, data, { k: path.split('/').pop() }));
-    return withRetry(function () { return S.db.doc(path).set(body); }).catch(function (e) {
-      var msg = e && e.code === 'quota_exceeded' ? 'Espace de stockage plein : supprimez des titres ou des historiques anciens.' : e && e.code === 'invalid_argument' ? 'Écriture refusée (document trop gros ou droits insuffisants) : ' + path : 'Écriture impossible (' + (e && e.code) + ') : ' + path;
-      notify(msg, 'bad'); throw e;
-    });
-  }
-  function dbDel(path) { if (S.mode !== 'db') return Promise.resolve(); return withRetry(function () { return S.db.doc(path).delete(); }); }
-  function saveInst(i) { var o = Object.assign({}, i); delete o.rows; return dbSet('instruments/' + i.isin, o); }
-  function trimTx(list) {
-    var l = list.slice().sort(function (a, b) { return a.txDate < b.txDate ? 1 : -1; });
-    while (JSON.stringify(l).length > 230000 && l.length > 50) l.pop();
-    return l;
-  }
-  function saveTx(isin) { S.tx[isin] = trimTx(S.tx[isin] || []); return dbSet('tx/' + isin, { isin: isin, list: S.tx[isin] }); }
-  function saveEv(isin) { var e = S.ev[isin] || { buybacks: [], results: [], splits: [] }; return dbSet('events/' + isin, { isin: isin, buybacks: e.buybacks || [], results: e.results || [], splits: e.splits || [] }); }
-  function savePrices(isin) {
-    var p = S.prices[isin]; if (!p) return Promise.resolve();
-    var rows = p.rows, truncatedFrom = null;
-    if (rows.length > 3000) { truncatedFrom = rows[rows.length - 3000][0]; rows = rows.slice(-3000); p.rows = rows; }
-    p.truncatedFrom = truncatedFrom || p.truncatedFrom || null;
-    return dbSet('prices/' + isin, { isin: isin, rows: rows, source: p.source || null, updatedAt: p.updatedAt || nowStamp(), truncatedFrom: p.truncatedFrom });
-  }
-  function saveSource(name) { return dbSet('sources/' + ES.safeId(name), S.src[name]); }
-  function saveAlert(rec) { S.alerts[rec.id] = rec; return dbSet('alerts/' + ES.safeId(rec.id), rec); }
-  function saveConfig() { return dbSet('config/main', { json: JSON.stringify(S.cfg) }); }
-  function loadPrices(isin) {
-    if (S.prices[isin]) return Promise.resolve(S.prices[isin]);
-    if (S.mode !== 'db') return Promise.resolve(null);
-    return withRetry(function () { return S.db.doc('prices/' + isin).get(); }).then(function (d) {
-      if (d.exists) { var x = d.data(); S.prices[isin] = { rows: x.rows || [], source: x.source, updatedAt: x.updatedAt, truncatedFrom: x.truncatedFrom }; return S.prices[isin]; }
-      return null;
-    });
-  }
-  function pool(items, n, fn, onStep) {
-    var i = 0, done = 0;
-    function next() {
-      if (i >= items.length) return Promise.resolve();
-      var it = items[i++];
-      return Promise.resolve(fn(it)).catch(function () { }).then(function () { done++; if (onStep) onStep(done, items.length); return next(); });
-    }
-    var w = []; for (var k = 0; k < Math.min(n, items.length); k++) w.push(next());
-    return Promise.all(w);
-  }
-
-  function boot() {
-    render();
-    var cl = window.claude && window.claude.use ? window.claude : null;
-    if (!cl) { tryRemote(); return; }
-    cl.use('downloads').then(function (d) { S.dl = d; }).catch(function () { });
-    cl.use('mcp').then(function (m) { S.mcp = m; render(); }).catch(function () { });
-    cl.use('db').then(function (db) {
-      if (!db) { startDemo('Stockage persistant indisponible dans cette vue (connexion requise, ou page partagée).'); return; }
-      S.db = db; loadAll();
-    }).catch(function () { startDemo('Stockage persistant indisponible dans cette vue.'); });
-  }
+  function boot() { render(); tryRemote(); }
   function defang(o) {
     if (typeof o === 'string') return o.replace(/</g, '‹').replace(/>/g, '›');
     if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) o[i] = defang(o[i]); return o; }
@@ -1837,53 +1760,37 @@ details.pos summary{font-size:1rem}
       S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, d.cfg || {});
       S.today = d.today || S.today;
       S.inst = d.inst || {}; S.tx = d.tx || {}; S.ev = d.ev || {}; S.src = d.src || {}; S.alerts = d.alerts || {};
-      S.prices = d.prices || {}; S.refs = d.refs || {};
+      S.prices = d.prices || {}; S.refs = d.refs || {}; S.detailFile = /^data\/[\w.-]+\.json$/.test(d.detailFile || '') ? d.detailFile : null; S.detailLoaded = !S.detailFile;
       Object.keys(S.prices).forEach(function (i) { var p = S.prices[i]; if (p && p.closesOnly) p.rows = p.rows.map(function (r) { return [r[0], null, null, null, r[1], null]; }); });
-      Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
+      if (S.detailLoaded) Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
       S.bt = { remote: true, res: d.backtest ? d.backtest.results : [], meta: d.backtest || {} };
       computeAll(); idle(); openFromHash(); render();
     }).catch(function (e) {
-      idle(); startDemo('Données automatiques introuvables à côté de cette page (' + (e && e.message) + ').');
+      idle(); S.mode = 'erreur'; S.loadError = (e && e.message) || 'inconnue'; render();
     });
   }
   /** Lien direct vers une fiche (…/euro-signal.html#ISIN), utilisé dans les emails d'alerte. */
+  /** Cours et historique complet : chargés une seule fois, à l'ouverture de la première fiche. */
+  function loadDetail() {
+    if (S.detailLoading || S.detailLoaded) return;
+    S.detailLoading = true;
+    fetch(S.detailFile, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      d = defang(d);
+      Object.keys(d.prices || {}).forEach(function (i) { var p = d.prices[i]; if (p && p.closesOnly) p.rows = p.rows.map(function (r) { return [r[0], null, null, null, r[1], null]; }); S.prices[i] = p; });
+      Object.keys(d.tx || {}).forEach(function (i) { S.tx[i] = d.tx[i]; });
+      Object.keys(d.refs || {}).forEach(function (i) { S.refs[i] = d.refs[i]; });
+      Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
+      S.detailLoaded = true; S.detailLoading = false;
+      if (S.sel) computeOne(S.sel);
+      render();
+    }).catch(function () { S.detailLoading = false; Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; }); S.detailLoaded = true; render(); });
+  }
   function openFromHash() {
     var m = (location.hash || '').match(/^#([A-Z]{2}[A-Z0-9]{9}[0-9])$/);
     if (m && S.inst[m[1]]) { S.sel = m[1]; S.view = 'fiche'; }
   }
   window.addEventListener('hashchange', function () { var before = S.sel; openFromHash(); if (S.sel !== before) { render(); window.scrollTo(0, 0); } });
-  function loadAll() {
-    S.mode = 'db'; busy('Chargement de vos données…');
-    var cfgP = withRetry(function () { return S.db.doc('config/main').get(); }).then(function (d) {
-      if (d.exists && d.data().json) { try { S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, JSON.parse(d.data().json)); } catch (e) { notify('Configuration enregistrée illisible : configuration par défaut utilisée.', 'warn'); } }
-    });
-    Promise.all([cfgP, dbAll('instruments'), dbAll('tx'), dbAll('events'), dbAll('sources'), dbAll('alerts')]).then(function (r) {
-      S.inst = {}; S.tx = {}; S.ev = {}; S.src = {}; S.alerts = {}; S.prices = {}; S.refs = {};
-      r[1].forEach(function (x) { delete x.k; S.inst[x.isin] = x; });
-      r[2].forEach(function (x) { S.tx[x.isin] = x.list || []; });
-      r[3].forEach(function (x) { S.ev[x.isin] = { buybacks: x.buybacks || [], results: x.results || [], splits: x.splits || [] }; });
-      r[4].forEach(function (x) { delete x.k; S.src[x.name] = x; });
-      r[5].forEach(function (x) { delete x.k; S.alerts[x.id] = x; });
-      Object.keys(S.alerts).forEach(function (id) { // envoi interrompu par un plantage : statut incertain, jamais renvoyé automatiquement
-        var a = S.alerts[id];
-        if (a.status === 'en_cours' && (Date.now() - Date.parse(a.createdAt)) > 5 * 60 * 1000) a.displayStatus = 'incertain';
-      });
-      if (!Object.keys(S.inst).length) { startDemo(null, true); return; }
-      return refreshRefs().then(function () { idle(); });
-    }).catch(function (e) {
-      idle();
-      if (e && (e.code === 'revoked' || e.code === 'not_granted' || e.code === 'capability_disabled')) startDemo('Stockage indisponible pour cette vue.');
-      else notify('Lecture des données impossible (' + (e && e.code || e) + '). Rechargez la page.', 'bad');
-    });
-  }
   /** Charge les cours des titres ayant des achats d'initiés dans la fenêtre, puis calcule les comparaisons. */
-  function refreshRefs() {
-    var from = ES.windowStart(S.today, S.cfg.insiders.windowMonths);
-    var need = Object.keys(S.tx).filter(function (isin) { return ES.activeTx(S.tx[isin]).some(function (t) { return ES.availDate(t) >= from; }); });
-    var missing = need.filter(function (i) { return !S.prices[i]; });
-    var p = missing.length && S.mode === 'db' ? pool(missing, 4, loadPrices, function (d, n) { busy('Chargement des cours des titres avec opérations d\'initiés : ' + d + '/' + n); }) : Promise.resolve();
-    return p.then(function () { need.forEach(computeRefs); computeAll(); });
-  }
   function computeRefs(isin) {
     if (S.mode === 'remote') return;
     var p = S.prices[isin], splits = (S.ev[isin] && S.ev[isin].splits) || [];
@@ -1912,100 +1819,6 @@ details.pos summary{font-size:1rem}
   function computeAll() { S.computed = {}; Object.keys(S.inst).forEach(computeOne); }
 
   /* =========================== Démonstration =========================== */
-  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-  function demoIsin(cc, n) { var base = cc + '00DM' + String(n).padStart(5, '0'); for (var d = 0; d < 10; d++) if (ES.isValidIsin(base + d)) return base + d; return base + '0'; }
-  function demoSeries(n, start, drift, vol, volume, r, endShape) {
-    var rows = [], d = S.today, k = 0, dates = [];
-    while (dates.length < n) { var w = new Date(d + 'T00:00:00Z').getUTCDay(); if (w !== 0 && w !== 6) dates.unshift(d); d = ES.addDays(d, -1); k++; }
-    var p = start;
-    dates.forEach(function (dt, i) {
-      var dr = drift + (endShape && i > n - endShape.len ? endShape.drift : 0);
-      var o = p; p = p * Math.exp(dr + vol * (r() - 0.5) * 2);
-      var h = Math.max(o, p) * (1 + r() * 0.012), l = Math.min(o, p) * (1 - r() * 0.012);
-      var vv = Math.round(volume * (0.6 + r() * 0.8) * (endShape && i > n - endShape.len && endShape.volBoost ? endShape.volBoost : 1));
-      rows.push([dt, +o.toFixed(3), +h.toFixed(3), +l.toFixed(3), +p.toFixed(3), vv]);
-    });
-    return rows;
-  }
-  function startDemo(reason, empty) {
-    var r = rng(51150), T = S.today, D = function (n) { return ES.addDays(T, -n); };
-    S.mode = 'demo'; S.notice = empty ? 'empty' : reason; S.db = S.db || null;
-    S.inst = {}; S.tx = {}; S.ev = {}; S.src = {}; S.alerts = {}; S.prices = {}; S.refs = {};
-    S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, { alerts: { mode: 'simulation' } });
-    var defs = [
-      { cc: 'FR', n: 1, name: 'Atelier Vernier SA', venue: 'Euronext Paris', ticker: 'VRN.PA', pea: 'eligible', sector: 'Industrie', s: [320, 38, 0.0011, 0.014, 160000, { len: 25, drift: 0.003, volBoost: 1.9 }] },
-      { cc: 'DE', n: 2, name: 'Rheinwerk AG', venue: 'Xetra', ticker: 'RHW.DE', pea: 'eligible', sector: 'Chimie', s: [320, 64, 0.0002, 0.012, 90000, { len: 30, drift: 0.0015 }] },
-      { cc: 'IT', n: 3, name: 'Lagunare SpA', venue: 'Euronext Milan', ticker: 'LGN.MI', pea: 'eligible', sector: 'Biens de consommation', s: [320, 12, 0.0004, 0.015, 400000] },
-      { cc: 'BE', n: 4, name: 'Brabant Logistics NV', venue: 'Euronext Bruxelles', ticker: 'BRB.BR', pea: 'a_verifier', sector: 'Transport', s: [320, 27, -0.0004, 0.013, 120000] },
-      { cc: 'ES', n: 5, name: 'Meseta Energía SA', venue: 'BME Madrid', ticker: 'MSE.MC', pea: 'eligible', sector: 'Énergie', s: [320, 9, 0.0003, 0.011, 900000] },
-      { cc: 'NL', n: 6, name: 'Polder Systems NV', venue: 'Euronext Amsterdam', ticker: 'PLD.AS', pea: 'eligible', sector: 'Logiciels', s: [320, 21, 0.0006, 0.016, 300000, { len: 22, drift: 0.012, volBoost: 3.2 }] },
-      { cc: 'FR', n: 7, name: 'Garonne Tech SA', venue: 'Euronext Growth Paris', ticker: 'GRT.PA', pea: 'eligible', sector: 'Technologie', s: [320, 4, 0.0002, 0.02, 9000] },
-      { cc: 'DE', n: 8, name: 'Hanse Pharma AG', venue: 'Xetra', ticker: 'HSP.DE', pea: 'non_eligible', sector: 'Santé', s: [120, 31, 0.001, 0.018, 150000] },
-      { cc: 'FR', n: 9, name: 'Indice Europe (démo)', venue: 'Indice', ticker: 'IDX', pea: 'non_eligible', sector: 'Indice de référence', s: [320, 100, 0.0004, 0.008, 1e6], bench: true }
-    ];
-    defs.forEach(function (d) {
-      var isin = demoIsin(d.cc, d.n), rows = demoSeries.apply(null, d.s.slice(0, 5).concat([r, d.s[5]]));
-      S.inst[isin] = { isin: isin, name: d.name + (d.bench ? '' : ' (démo)'), ticker: d.ticker, venue: d.venue, country: d.cc, currency: 'EUR', sector: d.sector, shareType: d.bench ? 'indice' : 'ordinaire', isReference: true, peaStatus: d.pea, peaSource: d.pea === 'a_verifier' ? null : 'Démonstration (fictif)', peaDate: d.pea === 'a_verifier' ? null : D(30), demo: true, benchmark: !!d.bench };
-      S.prices[isin] = { rows: rows, source: 'Démonstration', updatedAt: nowStamp() };
-      S.inst[isin].stats = ES.computeStats(rows, [], T, S.cfg, 'EUR');
-      S.ev[isin] = { buybacks: [], results: [], splits: [] }; S.tx[isin] = [];
-    });
-    var I = function (n, cc) { return demoIsin(cc, n); };
-    function T_(isin, o) {
-      var rows = S.prices[isin].rows, idx = rows.findIndex(function (x) { return x[0] >= o.d; });
-      var px = o.px || (idx > -1 ? rows[idx][4] : 10);
-      var base = { isin: isin, issuer: S.inst[isin].name, registry: o.reg, registryCountry: S.inst[isin].country, person: o.p, role: o.role, ceo: /général|CEO|Vorstandsvorsitz/i.test(o.role), cfo: /financ/i.test(o.role), board: true, associated: !!o.assoc, linkedTo: o.assoc || null, type: o.type || 'achat', natureText: o.nat || 'Acquisition', txDate: o.d, pubDate: o.pd || ES.addDays(o.d, 2), pubTime: '17:40', pubPrecision: 'minute', qty: o.qty, price: +px.toFixed(2), currency: 'EUR', amount: o.qty * +px.toFixed(2), amountComputed: true, venue: S.inst[isin].venue, sourceUrl: 'https://exemple.invalid/declaration-fictive', registryId: 'DEMO-' + Math.round(r() * 1e8), version: 1, status: 'active', planned: false, firstSeen: o.pd || ES.addDays(o.d, 2) };
-      base.personKey = ES.personKey(o.p); base.dedupKey = ES.dedupKey(base); base.id = ES.safeId(o.reg + ':' + base.registryId);
-      S.tx[isin].push(base);
-    }
-    var a = I(1, 'FR'), b = I(2, 'DE'), c = I(3, 'IT'), d = I(4, 'BE'), e = I(5, 'ES'), f = I(6, 'NL'), g = I(7, 'FR');
-    T_(a, { reg: 'AMF', p: 'Claire Martel', role: 'Directrice générale', d: D(12), qty: 6000 });
-    T_(a, { reg: 'AMF', p: 'Paul Fontaine', role: 'Directeur financier', d: D(10), qty: 2500 });
-    T_(a, { reg: 'AMF', p: 'Inès Garnier', role: 'Administratrice', d: D(6), qty: 1800 });
-    T_(a, { reg: 'AMF', p: 'Holding Martel SAS', role: 'Personne morale étroitement liée', assoc: 'Claire Martel', d: D(9), qty: 4000 });
-    T_(a, { reg: 'AMF', p: 'Claire Martel', role: 'Directrice générale', d: D(190), qty: 3000 });
-    T_(a, { reg: 'AMF', p: 'Paul Fontaine', role: 'Directeur financier', d: D(260), qty: 2000 });
-    T_(b, { reg: 'BaFin', p: 'Dr. Jonas Brandt', role: 'Vorstandsvorsitzender (CEO)', d: D(8), qty: 19000 });
-    T_(b, { reg: 'BaFin', p: 'Marta Vogel', role: 'Aufsichtsrat', d: D(40), qty: 1500, nat: 'Kauf' });
-    T_(b, { reg: 'BaFin', p: 'Dr. Jonas Brandt', role: 'Vorstandsvorsitzender (CEO)', d: D(220), qty: 8000 });
-    T_(c, { reg: 'CONSOB', p: 'Luca Benedetti', role: 'Amministratore delegato', d: D(15), qty: 40000 });
-    T_(c, { reg: 'CONSOB', p: 'Sara Conti', role: 'Consigliere', d: D(13), qty: 12000 });
-    T_(d, { reg: 'FSMA', p: 'Pieter Claes', role: 'Bestuurder', d: D(20), qty: 3000 });
-    T_(d, { reg: 'FSMA', p: 'An Peeters', role: 'CFO', d: D(18), qty: 30000, type: 'vente', nat: 'Cession' });
-    T_(e, { reg: 'CNMV', p: 'Javier Ortega', role: 'Consejero delegado', d: D(25), qty: 50000, type: 'attribution', nat: 'Entrega gratuita de acciones' });
-    T_(e, { reg: 'CNMV', p: 'Elena Ruiz', role: 'Directora financiera', d: D(24), qty: 20000, type: 'option', nat: 'Ejercicio de opciones' });
-    T_(f, { reg: 'AFM', p: 'Sanne de Vries', role: 'CEO', d: D(5), qty: 5000 });
-    T_(f, { reg: 'AFM', p: 'Bram Visser', role: 'Commissaris', d: D(150), qty: 4000 });
-    T_(g, { reg: 'AMF', p: 'Marc Laval', role: 'Président-directeur général', d: D(4), qty: 30000 });
-    T_(g, { reg: 'AMF', p: 'X', role: '', d: D(3), qty: 1000, type: 'autre', nat: 'Opération sur instrument lié' });
-    S.ev[a].results.push({ id: 'demo-r1', pubDate: D(16), period: 'S1', epsActual: 1.42, epsConsensus: 1.29, revActual: 812, revConsensus: 790, consensusDate: D(23), guidance: 'relevee', comparable: true, currency: 'EUR', sourceUrl: 'https://exemple.invalid/resultats-fictifs' });
-    S.ev[b].buybacks.push({ id: 'demo-b1', stage: 'annonce', date: D(9), amount: 150e6, pctCapital: 2.4, confirmed: true, sourceUrl: 'https://exemple.invalid/rachat-fictif', note: 'Programme sur 12 mois' });
-    S.ev[b].buybacks.push({ id: 'demo-b0', stage: 'autorisation_ag', date: D(70), confirmed: true, pctCapital: 10, note: 'Autorisation générale' });
-    S.ev[d].buybacks.push({ id: 'demo-b2', stage: 'annonce', date: D(11), confirmed: false, note: 'Mention dans un article de presse, non vérifiée' });
-    S.ev[e].results.push({ id: 'demo-r2', pubDate: D(28), period: 'S1', epsActual: 0.52, epsConsensus: 0.48, revActual: 1500, revConsensus: 1470, consensusDate: null, guidance: 'maintenue', comparable: null, currency: 'EUR' });
-    S.ev[f].results.push({ id: 'demo-r3', pubDate: D(7), period: 'T3', epsActual: 0.31, epsConsensus: 0.25, revActual: 98, revConsensus: 93, consensusDate: D(14), guidance: 'relevee', comparable: true, currency: 'EUR' });
-    S.src = {
-      AMF: { name: 'AMF', status: 'ok', lastSuccess: D(1), lastAttempt: D(1), countries: ['FR'], totalRows: 9, log: [] },
-      BaFin: { name: 'BaFin', status: 'ok', lastSuccess: D(1), lastAttempt: D(1), countries: ['DE'], totalRows: 3, log: [] },
-      AFM: { name: 'AFM', status: 'ok', lastSuccess: D(2), lastAttempt: D(2), countries: ['NL'], totalRows: 2, log: [] },
-      FSMA: { name: 'FSMA', status: 'ok', lastSuccess: D(1), lastAttempt: D(1), countries: ['BE'], totalRows: 2, log: [] },
-      CONSOB: { name: 'CONSOB', status: 'echec', lastSuccess: D(16), lastAttempt: D(1), countries: ['IT'], totalRows: 2, note: 'Collecte en échec (exemple)', log: [] },
-      CNMV: { name: 'CNMV', status: 'ok', lastSuccess: D(12), lastAttempt: D(12), countries: ['ES'], totalRows: 2, log: [] }
-    };
-    Object.keys(S.inst).forEach(computeRefs);
-    computeAll(); idle(); render();
-  }
-  function leaveDemo() {
-    if (S.db) { S.notice = null; S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, {}); loadAllEmpty(); }
-    else notify('Le stockage n\'est pas disponible dans cette vue : la démonstration reste affichée.', 'warn');
-  }
-  function loadAllEmpty() { S.mode = 'db'; S.inst = {}; S.tx = {}; S.ev = {}; S.src = {}; S.alerts = {}; S.prices = {}; S.refs = {}; S.computed = {}; S.view = 'import'; render(); }
-  function ensureWritable() {
-    if (S.mode === 'demo' && S.db) { loadAllEmpty(); notify('Démonstration fermée : vos imports sont enregistrés dans votre stockage.', 'good'); return true; }
-    if (S.mode === 'demo') { notify('Stockage indisponible : les modifications restent en mémoire et seront perdues à la fermeture. Exportez une sauvegarde.', 'warn'); return true; }
-    return true;
-  }
-
   /* =========================== Interface =========================== */
   var toastTimer;
   function notify(msg, kind) {
@@ -2016,23 +1829,22 @@ details.pos summary{font-size:1rem}
   function busy(msg) { S.busy = msg; var el = $('#busy'); if (el) { el.hidden = false; el.querySelector('span').textContent = msg; } }
   function idle() { S.busy = null; var el = $('#busy'); if (el) el.hidden = true; }
 
-  var VIEWS = [['classement', 'Opportunités'], ['inities', 'Achats des dirigeants'], ['alertes', 'Alertes'], ['univers', 'Titres suivis'], ['import', 'Importer'], ['sources', 'Données'], ['validation', 'Résultats passés'], ['reglages', 'Réglages'], ['guide', 'Aide']];
+  var VIEWS = [['classement', 'Opportunités'], ['inities', 'Achats des dirigeants'], ['alertes', 'Alertes et suivi'], ['aide', 'Comment ça marche']];
   function render() {
     var top = $('#top'), main = $('#main');
     if (!top || !main) return;
-    var modeChip = S.mode === 'remote' ? '<span class="chip good" title="Données recalculées chaque soir de semaine par GitHub Actions">Automatique · données du ' + esc(S.today) + '</span>' : S.mode === 'db' ? '<span class="chip good" title="' + DB_RULES_NOTE + '">Stockage persistant</span>' : S.mode === 'demo' ? '<span class="chip warn">Démonstration fictive</span>' : '<span class="chip">Chargement…</span>';
-    var mailChip = S.mode === 'remote' ? (S.snapshot && S.snapshot.mail && S.snapshot.mail.ready ? '<span class="chip good">Gmail : envoi automatique</span>' : '<span class="chip warn">Emails : simulation (Gmail non configuré)</span>') : S.cfg.alerts.enabled && S.cfg.alerts.mode !== 'simulation' && S.mode !== 'demo' ? '<span class="chip good">Gmail : ' + (S.cfg.alerts.mode === 'envoi' ? 'envoi réel' : 'brouillons') + '</span>' : '<span class="chip">Emails : simulation</span>';
-    var views = S.ro ? VIEWS.filter(function (v) { return v[0] !== 'import'; }) : VIEWS;
-    top.innerHTML = '<div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><div><h1>Euro Signal</h1><p>Surveillance des actions européennes · barème ' + esc(S.cfg.scoringVersion) + ' · ' + S.today + '</p></div></div>' +
-      '<div class="chips">' + modeChip + mailChip + '' + (S.ro ? '' : '<button class="ghost small" data-a="reload">Actualiser</button>') + '</div>' +
-      '<nav class="tabs" role="tablist">' + views.map(function (v) { var on = S.view === v[0] || (S.view === 'fiche' && v[0] === 'classement'); return '<button role="tab" aria-selected="' + on + '" class="' + (on ? 'on' : '') + '" data-a="view" data-v="' + v[0] + '">' + v[1] + (v[0] === 'alertes' ? alertBadge() : '') + '</button>'; }).join('') + '</nav>';
-    var banner = '';
-    if (S.mode === 'demo') banner = '<div class="banner"><div><b>Démonstration avec des sociétés et des données fictives.</b> ' + (S.notice === 'empty' ? 'Votre stockage est vide : importez vos premières données pour remplacer cet exemple.' : esc(S.notice || '')) + ' Aucun email réel n\'est envoyé en démonstration.</div>' + (S.db ? '<button data-a="leaveDemo">Commencer avec mes données</button>' : '') + '</div>';
+    var mail = S.snapshot && S.snapshot.mail && S.snapshot.mail.ready ? '<span class="chip good">Alertes email actives</span>' : S.mode === 'remote' ? '<span class="chip warn">Emails en simulation</span>' : '';
+    var cur = S.view === 'fiche' ? 'classement' : S.view;
+    top.innerHTML = '<div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><div><h1>Euro Signal</h1><p>' + (S.mode === 'remote' ? 'Données du ' + shortDate(S.today) + ' · mises à jour chaque soir de semaine' : 'Surveillance des achats de dirigeants') + '</p></div></div>' +
+      '<div class="chips">' + mail + '</div>' +
+      '<nav class="tabs" role="tablist">' + VIEWS.map(function (v) { var on = cur === v[0]; return '<button role="tab" aria-selected="' + on + '" class="' + (on ? 'on' : '') + '" data-a="view" data-v="' + v[0] + '">' + v[1] + (v[0] === 'alertes' ? alertBadge() : '') + '</button>'; }).join('') + '</nav>';
     var body = '';
-    try {
-      body = ({ classement: vClassement, fiche: vFiche, inities: vInities, univers: vUnivers, alertes: vAlertes, import: vImport, sources: vSources, validation: vValidation, reglages: vReglages, guide: vGuide }[S.view] || vClassement)();
+    if (S.mode === 'chargement') body = '<p class="muted pad">Chargement des données du jour…</p>';
+    else if (S.mode === 'erreur') body = '<div class="card bad"><h3>Données indisponibles</h3><p>Le fichier du jour n\'a pas pu être lu (' + esc(S.loadError) + '). Réessayez dans quelques minutes ; si cela persiste, regardez l\'onglet Actions du dépôt GitHub.</p></div>';
+    else try {
+      body = ({ classement: vClassement, fiche: vFiche, inities: vInities, alertes: vAlertesAuto, aide: vAide }[S.view] || vClassement)();
     } catch (e) { body = '<div class="card bad">Erreur d\'affichage : ' + esc(e.message) + '</div>'; console.error(e); }
-    main.innerHTML = banner + body;
+    main.innerHTML = body;
     if (S.busy) busy(S.busy);
   }
   function alertBadge() { var n = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; }).length; return n ? ' <span class="count">' + n + '</span>' : ''; }
@@ -2151,23 +1963,21 @@ details.pos summary{font-size:1rem}
   function stat(label, big, small, view, kind) { return '<button class="stat ' + (kind || '') + '" data-a="view" data-v="' + view + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; }
   function qPill(v) { return '<span class="pill ' + (v >= S.cfg.quality.minForAlert ? 'good' : v >= 40 ? 'warn' : 'bad') + '">' + v + '</span>'; }
   function ohPill(v) { return '<span class="pill ' + (v >= 50 ? 'bad' : v >= 25 ? 'warn' : 'neutral') + '">' + v + '</span>'; }
-  function emptyState() {
-    return '<div class="empty"><h2>Aucun titre suivi pour l\'instant</h2><p>Commencez par importer votre univers d\'actions, puis les cours et les déclarations de dirigeants. Le guide détaille chaque étape.</p><div class="row"><button data-a="view" data-v="import">Importer des données</button><button class="ghost" data-a="view" data-v="guide">Lire le guide</button>' + (S.db ? '' : '') + '<button class="ghost" data-a="demo">Voir la démonstration fictive</button></div></div>';
-  }
+  function emptyState() { return '<div class="empty"><h2>Aucun titre pour l\'instant</h2><p>Les données du jour ne contiennent encore aucune déclaration. Revenez après le passage du soir.</p></div>'; }
+
 
   /* ----- Fiche titre ----- */
   function vFiche() {
     var i = S.sel, x = S.inst[i];
     if (!x) { S.view = 'classement'; return vClassement(); }
     var c = S.computed[i] || computeOne(i), sc = c.score, ev = S.ev[i] || { buybacks: [], results: [], splits: [] }, p = S.prices[i];
-    if (!p && S.mode === 'db') { loadPrices(i).then(function (pp) { if (pp) { computeRefs(i); computeOne(i); } else S.prices[i] = { rows: [], missing: true }; render(); }); }
+    if (S.mode === 'remote' && !S.detailLoaded) loadDetail();
     var regs = {}; (S.tx[i] || []).forEach(function (t) { regs[t.registry] = 1; });
     var h = '<div class="crumbs"><button class="link" data-a="view" data-v="classement">← Opportunités</button></div>';
     h += '<header class="fhead"><div><h2>' + esc(x.name || i) + '</h2><dl class="ids">' +
       kv('ISIN', i) + kv('Ticker', x.ticker || 'n.d.') + kv('Domiciliation', x.country ? (COUNTRIES[x.country] || x.country) : 'inconnue') + kv('Place de cotation', (x.venue || 'n.d.') + (x.isReference === false ? ' (secondaire)' : '')) +
       kv('Registres consultés', Object.keys(regs).join(', ') || 'aucun') + kv('Devise', x.currency || 'n.d.') + kv('Secteur', x.sector || 'n.d.') + '</dl></div>' +
-      '<div class="fchips">' + uniChip(c.uni) + peaChip(x) + (S.ro ? '' : '<button class="ghost small" data-a="editInst" data-i="' + i + '">Modifier la fiche et le PEA</button>') + '</div></header>';
-    if (S.editInst === i) h += instForm(x);
+      '<div class="fchips">' + uniChip(c.uni) + peaChip(x) + '</div></header>';
     h += brief(i, c);
     h += adviceSection(i, c);
     h += '<section class="gauges">' + gauge('Opportunité', sc.total, 'Score explicable · barème ' + sc.version, 'acc') + gauge('Qualité des données', c.q.total, 'Couverture et complétude', c.q.total >= S.cfg.quality.minForAlert ? 'good' : 'warn') + gauge('Surchauffe', c.oh.total, 'Expérimental, hors score', c.oh.total >= 50 ? 'bad' : 'neutral') + '</section>';
@@ -2181,11 +1991,8 @@ details.pos summary{font-size:1rem}
       '<h3 class="mt">Sentiment et surchauffe <span class="chip neutral">expérimental</span></h3>' + (c.oh.items.length ? '<ul class="checks">' + c.oh.items.map(function (it) { return '<li class="ko"><span>' + esc(it.label) + '</span><b>+' + it.points + '</b></li>'; }).join('') + '</ul>' : '<p class="muted">Aucun signe de surchauffe dans les indicateurs de cours disponibles.</p>') +
       '<p class="foot">Non disponibles : ' + c.oh.unavailable.map(esc).join(' ; ') + '. Une hausse de l\'attention n\'est pas nécessairement positive.</p></section></div>';
     h += txSection(i, sc);
-    if (!S.ro) h += eventsSection(i, ev);
-    else {
-      h += eventsSection(i, ev).replace(/<button[^>]*data-a="(?:toggleBb|toggleRes|delEv)"[^>]*>[\s\S]*?<\/button>/g, '').replace(/<details><summary>Ajouter[\s\S]*?<\/details>/g, '').replace(/<form class="form inline"[\s\S]*?<\/form>/g, '');
-      h += '<p class="foot">' + esc([x.priceNote ? 'Cours : ' + x.priceNote : null, x.ticker ? 'Ticker Yahoo : ' + x.ticker : null, x.registry ? 'Registre des déclarations : ' + x.registry : null, x.countrySource ? 'Domiciliation : ' + x.countrySource : null, 'Rachats et perspectives : détectés automatiquement d\'après les titres des communiqués de l\'émetteur ; résultats : BPA publié et consensus Yahoo figé à la publication'].filter(Boolean).join(' · ')) + '</p>';
-    }
+    h += eventsSection(i, ev);
+    h += '<p class="foot">' + esc([x.priceNote ? 'Cours : ' + x.priceNote : null, x.ticker ? 'Ticker Yahoo : ' + x.ticker : null, x.registry ? 'Registre des déclarations : ' + x.registry : null, x.countrySource ? 'Domiciliation : ' + x.countrySource : null, 'Rachats et perspectives : détectés automatiquement d\'après les titres des communiqués de l\'émetteur ; résultats : BPA publié et consensus Yahoo figé à la publication'].filter(Boolean).join(' · ')) + '</p>';
     h += alertSection(i, c);
     return h;
   }
@@ -2278,23 +2085,6 @@ details.pos summary{font-size:1rem}
   }
   function kv(k, v) { return '<div><dt>' + k + '</dt><dd>' + esc(v) + '</dd></div>'; }
   function gauge(label, v, sub, kind) { return '<div class="gauge ' + kind + '"><span class="lbl">' + label + '</span><span class="val">' + v + '<small>/100</small></span><div class="track"><i style="width:' + Math.max(0, Math.min(100, v)) + '%"></i></div><span class="sub">' + sub + '</span></div>'; }
-  function instForm(x) {
-    var o = function (v, l, cur) { return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>'; };
-    return '<form class="card form" data-form="inst" data-i="' + x.isin + '"><h3>Fiche et éligibilité PEA</h3><div class="fgrid">' +
-      fld('Nom', '<input id="fi-name" name="name" value="' + esc(x.name || '') + '">') +
-      fld('Ticker de référence', '<input id="fi-ticker" name="ticker" value="' + esc(x.ticker || '') + '">') +
-      fld('Pays de domiciliation de l\'émetteur', '<select id="fi-country" name="country"><option value="">Inconnu</option>' + Object.keys(COUNTRIES).map(function (k) { return o(k, COUNTRIES[k], x.country); }).join('') + '</select>') +
-      fld('Place de cotation', '<input id="fi-venue" name="venue" value="' + esc(x.venue || '') + '">') +
-      fld('Devise de cotation', '<input id="fi-currency" name="currency" value="' + esc(x.currency || '') + '" placeholder="EUR">') +
-      fld('Type de titre', '<input id="fi-shareType" name="shareType" value="' + esc(x.shareType || '') + '" placeholder="ordinaire">') +
-      fld('Cotation de référence', '<select id="fi-isReference" name="isReference">' + o('true', 'Oui', String(x.isReference !== false)) + o('false', 'Non (cotation secondaire)', String(x.isReference !== false)) + '</select>') +
-      fld('Secteur', '<input id="fi-sector" name="sector" value="' + esc(x.sector || '') + '">') +
-      fld('Positions vendeuses publiées (% du capital)', '<input id="fi-shortPct" name="shortPct" inputmode="decimal" value="' + (x.shortPct != null ? x.shortPct : '') + '">') +
-      fld('Statut PEA', '<select id="fi-pea" name="peaStatus">' + o('a_verifier', 'À vérifier', x.peaStatus || 'a_verifier') + o('eligible', 'Confirmé éligible', x.peaStatus) + o('non_eligible', 'Confirmé non éligible', x.peaStatus) + '</select>') +
-      fld('Source de la confirmation PEA', '<input id="fi-peaSource" name="peaSource" value="' + esc(x.peaSource || '') + '" placeholder="ex. attestation émetteur, courtier, document AMF">') +
-      fld('Date de la confirmation', '<input id="fi-peaDate" name="peaDate" type="date" value="' + esc(x.peaDate || '') + '">') +
-      '</div><p class="foot">L\'éligibilité PEA n\'est jamais déduite de la devise, de la place de cotation ou du préfixe ISIN. Une confirmation exige une source et une date.</p><div class="row"><button type="submit">Enregistrer</button><button type="button" class="ghost" data-a="cancelEdit">Annuler</button></div></form>';
-  }
   function fld(l, input, wide) { var id = (input.match(/id="([^"]+)"/) || [])[1]; return '<label class="fld' + (wide ? ' wide' : '') + '"' + (id ? ' for="' + id + '"' : '') + '><span>' + l + '</span>' + input + '</label>'; }
 
   function chart(isin) {
@@ -2376,45 +2166,20 @@ details.pos summary{font-size:1rem}
   function eventsSection(i, ev) {
     var h = '<div class="cols"><section class="card"><h3>Rachats d\'actions</h3>';
     h += ev.buybacks.length ? '<ul class="evs">' + ev.buybacks.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).map(function (b) {
-      return '<li><div><b>' + STAGES[b.stage] + '</b> · ' + b.date + (b.amount ? ' · ' + fmtMoney(b.amount, 'EUR') : '') + (b.pctCapital != null ? ' · ' + fmtN(b.pctCapital, 1) + ' % du capital' : '') + (b.note ? '<small>' + esc(b.note) + '</small>' : '') + (ES.safeUrl(b.sourceUrl) ? '<small><a href="' + esc(ES.safeUrl(b.sourceUrl)) + '" target="_blank" rel="noopener">source</a></small>' : '') + '</div><div class="row">' + (b.confirmed ? '<span class="chip good">Confirmé</span>' : '<span class="chip warn">Candidat à vérifier</span>') + '<button class="ghost small" data-a="toggleBb" data-i="' + i + '" data-id="' + esc(b.id) + '">' + (b.confirmed ? 'Retirer la confirmation' : 'Confirmer (source officielle)') + '</button><button class="ghost small" data-a="delEv" data-kind="buybacks" data-i="' + i + '" data-id="' + esc(b.id) + '">Supprimer</button></div></li>';
-    }).join('') + '</ul>' : '<p class="muted">Aucun événement de rachat enregistré.</p>';
-    h += '<details><summary>Ajouter un événement de rachat</summary><form class="form" data-form="bb" data-i="' + i + '"><div class="fgrid">' +
-      fld('Étape', '<select id="bb-stage" name="stage">' + Object.keys(STAGES).map(function (k) { return '<option value="' + k + '">' + STAGES[k] + '</option>'; }).join('') + '</select>') +
-      fld('Date de publication', '<input id="bb-date" name="date" type="date" required max="' + S.today + '">') +
-      fld('Montant (EUR)', '<input id="bb-amount" name="amount" inputmode="decimal">') + fld('% du capital', '<input id="bb-pct" name="pctCapital" inputmode="decimal">') +
-      fld('Lien vers la source', '<input id="bb-url" name="sourceUrl" type="url">', true) + fld('Modalités', '<input id="bb-note" name="note">', true) +
-      '</div><label class="check"><input id="bb-conf" name="confirmed" type="checkbox"> Vérifié sur une source officielle (communiqué de l\'émetteur, régulateur). Sinon : candidat.</label><div class="row"><button type="submit">Ajouter</button></div></form></details></section>';
-    h += '<section class="card"><h3>Résultats et perspectives</h3>';
+      return '<li><div><b>' + STAGES[b.stage] + '</b> · ' + b.date + (b.amount ? ' · ' + fmtMoney(b.amount, 'EUR') : '') + (b.pctCapital != null ? ' · ' + fmtN(b.pctCapital, 1) + ' % du capital' : '') + (b.note ? '<small>' + esc(b.note) + '</small>' : '') + (ES.safeUrl(b.sourceUrl) ? '<small><a href="' + esc(ES.safeUrl(b.sourceUrl)) + '" target="_blank" rel="noopener">source</a></small>' : '') + '</div>' + (b.confirmed ? '<span class="chip good">Confirmé</span>' : '<span class="chip warn">À vérifier</span>') + '</li>';
+    }).join('') + '</ul>' : '<p class="muted">Aucun rachat repéré.</p>';
+    h += '</section><section class="card"><h3>Résultats et perspectives</h3>';
     h += ev.results.length ? '<ul class="evs">' + ev.results.slice().sort(function (a, b) { return a.pubDate < b.pubDate ? 1 : -1; }).map(function (r) {
       var e = ES.surprise(r.epsActual, r.epsConsensus), v = ES.surprise(r.revActual, r.revConsensus);
-      var okc = r.consensusDate && r.consensusDate < r.pubDate && r.comparable === true;
-      return '<li><div><b>' + esc(r.period || 'Publication') + '</b> · ' + r.pubDate + '<small>BPA ' + fmtN(r.epsActual) + ' vs ' + fmtN(r.epsConsensus) + ' (' + pct(e) + ') · CA ' + fmtN(r.revActual, 0) + ' vs ' + fmtN(r.revConsensus, 0) + ' (' + pct(v) + ') · perspectives ' + ({ relevee: 'relevées', maintenue: 'maintenues', abaissee: 'abaissées' }[r.guidance] || 'non renseignées') + '</small><small>' + (r.consensusSource ? esc(r.consensusSource) : 'Consensus du ' + (r.consensusDate || '?') + (r.consensusDate && r.consensusDate >= r.pubDate ? ' : postérieur à la publication, refusé' : '')) + '</small>' + (r.note ? '<small>' + esc(r.note) + '</small>' : '') + (ES.safeUrl(r.sourceUrl) ? '<small><a href="' + esc(ES.safeUrl(r.sourceUrl)) + '" target="_blank" rel="noopener">communiqué</a></small>' : '') + '</div><div class="row">' + (okc ? '<span class="chip good">Consensus validé</span>' : '<span class="chip warn">Validation manuelle requise</span>') + '<button class="ghost small" data-a="toggleRes" data-i="' + i + '" data-id="' + esc(r.id) + '">' + (r.comparable === true ? 'Retirer la validation' : 'Valider la comparabilité') + '</button><button class="ghost small" data-a="delEv" data-kind="results" data-i="' + i + '" data-id="' + esc(r.id) + '">Supprimer</button></div></li>';
-    }).join('') + '</ul>' : '<p class="muted">Aucune publication de résultats enregistrée.</p>';
-    h += '<details><summary>Ajouter une publication de résultats</summary><form class="form" data-form="res" data-i="' + i + '"><div class="fgrid">' +
-      fld('Date de publication', '<input id="r-pub" name="pubDate" type="date" required max="' + S.today + '">') + fld('Période', '<input id="r-per" name="period" placeholder="S1 2026">') +
-      fld('BPA publié', '<input id="r-ea" name="epsActual" inputmode="decimal">') + fld('BPA consensus', '<input id="r-ec" name="epsConsensus" inputmode="decimal">') +
-      fld('CA publié', '<input id="r-ra" name="revActual" inputmode="decimal">') + fld('CA consensus', '<input id="r-rc" name="revConsensus" inputmode="decimal">') +
-      fld('Date du consensus', '<input id="r-cd" name="consensusDate" type="date">') + fld('Perspectives', '<select id="r-g" name="guidance"><option value="">Non renseignées</option><option value="relevee">Relevées</option><option value="maintenue">Maintenues</option><option value="abaissee">Abaissées</option></select>') +
-      fld('Lien vers la source', '<input id="r-url" name="sourceUrl" type="url">', true) +
-      '</div><label class="check"><input id="r-comp" name="comparable" type="checkbox"> Même période, même devise, même base comptable que le consensus (vérifié).</label><div class="row"><button type="submit">Ajouter</button></div></form></details></section></div>';
-    h += '<section class="card"><h3>Opérations sur titres (splits, regroupements)</h3>' + (ev.splits && ev.splits.length ? '<ul class="evs">' + ev.splits.map(function (s) { return '<li><div><b>' + s.date + '</b> · ' + fmtN(s.ratio, 4) + ' action(s) nouvelle(s) pour 1 ancienne</div><button class="ghost small" data-a="delEv" data-kind="splits" data-i="' + i + '" data-id="' + esc(s.id) + '">Supprimer</button></li>'; }).join('') + '</ul>' : '<p class="muted">Aucune opération enregistrée. Une division par 2 se saisit avec une parité de 2 ; un regroupement de 10 pour 1 avec 0,1.</p>') +
-      '<form class="form inline" data-form="split" data-i="' + i + '">' + fld('Date d\'effet', '<input id="s-date" name="date" type="date" required>') + fld('Parité', '<input id="s-ratio" name="ratio" inputmode="decimal" required placeholder="2">') + '<button type="submit">Ajouter</button></form></section>';
-    return h;
+      return '<li><div><b>' + esc(r.period || 'Publication') + '</b> · ' + r.pubDate + '<small>BPA ' + fmtN(r.epsActual) + ' vs ' + fmtN(r.epsConsensus) + ' (' + pct(e) + ') · CA ' + fmtN(r.revActual, 0) + ' vs ' + fmtN(r.revConsensus, 0) + ' (' + pct(v) + ')</small>' + (r.note ? '<small>' + esc(r.note) + '</small>' : '') + (ES.safeUrl(r.sourceUrl) ? '<small><a href="' + esc(ES.safeUrl(r.sourceUrl)) + '" target="_blank" rel="noopener">communiqué</a></small>' : '') + '</div></li>';
+    }).join('') + '</ul>' : '<p class="muted">Aucune publication repérée.</p>';
+    return h + '</section></div>';
   }
 
   function alertSection(i, c) {
     var d = c.dec;
-    var h = '<section class="card"><h3>Décision d\'alerte</h3><ul class="checks">' + d.conditions.map(function (x) { return '<li class="' + (x.ok ? 'ok' : 'ko') + '"><span>' + esc(x.label) + '</span><b>' + (x.ok ? 'oui' : 'non') + '</b></li>'; }).join('') + '</ul>';
-    var mail = buildMail(i);
-    h += '<details' + (d.send ? ' open' : '') + '><summary>Aperçu de l\'email</summary><p><b>Objet :</b> ' + esc(mail.subject) + '</p><div class="mailprev">' + mail.html + '</div></details>';
-    if (S.ro) return h + '<p class="foot">' + (d.send ? 'Cette alerte est envoyée automatiquement lors du calcul du soir (ou journalisée en simulation si Gmail n\'est pas configuré).' : 'Aucun envoi tant qu\'une condition n\'est pas remplie.') + '</p></section>';
-    h += '<div class="row mt">' + (d.send ? '<button data-a="sendOne" data-i="' + i + '">' + sendLabel() + '</button>' : '<button class="ghost" data-a="sendOne" data-i="' + i + '" data-force="1">' + (S.cfg.alerts.mode === 'simulation' || S.mode === 'demo' ? 'Simuler malgré les blocages' : 'Envoyer manuellement malgré les blocages') + '</button>') + '<button class="ghost" data-a="copyMail" data-i="' + i + '">Copier le texte</button></div></section>';
-    return h;
-  }
-  function sendLabel() { return S.mode === 'demo' || !S.cfg.alerts.enabled || S.cfg.alerts.mode === 'simulation' ? 'Simuler l\'alerte' : S.cfg.alerts.mode === 'brouillon' ? 'Créer le brouillon Gmail' : 'Envoyer par Gmail'; }
-  function buildMail(i) {
-    var c = S.computed[i], ev = S.ev[i] || {};
-    return ES.buildEmail({ inst: S.inst[i], score: c.score, quality: c.q, overheat: c.oh, decision: c.dec, refs: S.refs[i] || {}, events: { buybacks: ev.buybacks || [], results: ev.results || [] }, today: S.today, universeWarnings: c.uni.reasons });
+    return '<section class="card"><h3>Décision d\'alerte</h3><ul class="checks">' + d.conditions.map(function (x) { return '<li class="' + (x.ok ? 'ok' : 'ko') + '"><span>' + esc(x.label) + '</span><b>' + (x.ok ? 'oui' : 'non') + '</b></li>'; }).join('') + '</ul>' +
+      '<p class="foot">' + (d.send ? 'Toutes les conditions sont remplies : l\'alerte part automatiquement par email lors du calcul du soir.' : 'Pas d\'email tant qu\'une condition n\'est pas remplie.') + '</p></section>';
   }
 
   /* ----- Initiés ----- */
@@ -2464,27 +2229,6 @@ details.pos summary{font-size:1rem}
   }
 
   /* ----- Alertes ----- */
-  function vAlertes() {
-    if (S.ro) return vAlertesAuto();
-    var ready = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; });
-    var a = S.cfg.alerts, demo = S.mode === 'demo';
-    var h = '<h2 class="vt">Alertes</h2>';
-    h += '<section class="card"><h3>Envoi des emails</h3><form class="form" data-form="mail"><div class="fgrid">' +
-      fld('Mode', '<select id="m-mode" name="mode"' + (demo ? ' disabled' : '') + '><option value="simulation"' + (a.mode === 'simulation' ? ' selected' : '') + '>Simulation (rien n\'est envoyé)</option><option value="brouillon"' + (a.mode === 'brouillon' ? ' selected' : '') + '>Brouillons Gmail (vous relisez et envoyez)</option><option value="envoi"' + (a.mode === 'envoi' ? ' selected' : '') + '>Envoi réel par Gmail</option></select>') +
-      fld('Destinataire', '<input id="m-to" name="recipient" type="email" value="' + esc(a.recipient || '') + '" placeholder="vous@exemple.fr"' + (demo ? ' disabled' : '') + '>') +
-      '</div><label class="check"><input id="m-en" name="enabled" type="checkbox"' + (a.enabled ? ' checked' : '') + (demo ? ' disabled' : '') + '> J\'active l\'utilisation de Gmail pour ces alertes (activation explicite).</label>' +
-      '<p class="foot">Les emails partent de votre compte via le connecteur Gmail de claude.ai, avec votre autorisation : aucun mot de passe n\'est saisi ni stocké ici. La page ne tourne que lorsqu\'elle est ouverte : il n\'y a pas de surveillance en arrière-plan.</p>' +
-      '<div class="row"><button type="submit"' + (demo ? ' disabled' : '') + '>Enregistrer</button><button type="button" class="ghost" data-a="testMail"' + (demo ? ' disabled' : '') + '>Envoyer un email de test</button></div>' + (demo ? '<p class="note warn">Démonstration : l\'envoi réel est désactivé.</p>' : '') + gmailState() + '</form></section>';
-    h += '<section class="card"><h3>Alertes prêtes <span class="muted">· ' + ready.length + '</span></h3>';
-    h += ready.length ? '<ul class="evs">' + ready.map(function (i) { var c = S.computed[i]; return '<li><div><b>' + esc(S.inst[i].name) + '</b><small>score ' + c.score.total + ' · qualité ' + c.q.total + ' · ' + c.dec.newEventIds.length + ' événement(s) nouveau(x) · dernier ' + c.score.lastEventDate + '</small></div><div class="row"><button class="ghost small" data-a="open" data-i="' + i + '">Voir</button></div></li>'; }).join('') + '</ul><div class="row mt"><button data-a="sendAll">' + sendLabel().replace('l\'alerte', 'les ' + ready.length + ' alertes').replace('le brouillon', 'les brouillons') + '</button></div>' : '<p class="muted">Aucun titre ne remplit toutes les conditions. Les blocages sont détaillés dans chaque fiche.</p>';
-    h += '<p class="foot">Conditions d\'envoi : titre retenu dans l\'univers ; PEA confirmé éligible si le mode strict est actif ; qualité ≥ ' + S.cfg.quality.minForAlert + ' ; couverture des initiés du pays à jour ; score ≥ ' + a.minScore + ' ; au moins ' + a.minFamilies + ' familles indépendantes dont un événement ; événement publié depuis ' + a.recentEventDays + ' jours ; aucune déclaration ambiguë ; information non déjà signalée. Aucun email si l\'historique est incomplet, la source inaccessible, le prix périmé ou l\'éligibilité PEA inconnue en mode strict.</p></section>';
-    var log = Object.keys(S.alerts).map(function (k) { return S.alerts[k]; }).sort(function (x, y) { return x.createdAt < y.createdAt ? 1 : -1; });
-    h += '<section class="card"><h3>Journal</h3>' + (log.length ? '<div class="tablewrap"><table class="grid"><thead><tr><th>Date</th><th>Société</th><th>Objet</th><th>Statut</th><th></th></tr></thead><tbody>' + log.slice(0, 200).map(function (x) {
-      var st = ALERT_STATUS[x.displayStatus || x.status] || [x.status, 'neutral'];
-      return '<tr><td>' + esc(x.createdAt.slice(0, 16).replace('T', ' ')) + '</td><td>' + esc(x.name || x.isin) + '</td><td>' + esc(x.subject || '') + (x.error ? '<small class="neg">' + esc(x.error) + '</small>' : '') + '</td><td><span class="chip ' + st[1] + '">' + st[0] + '</span></td><td>' + ((x.displayStatus || x.status) === 'incertain' || x.status === 'en_cours' ? '<button class="ghost small" data-a="resolveAlert" data-id="' + esc(x.id) + '" data-v="envoyee">Reçu</button> <button class="ghost small" data-a="resolveAlert" data-id="' + esc(x.id) + '" data-v="echec">Non reçu</button>' : '') + '</td></tr>';
-    }).join('') + '</tbody></table></div><p class="foot">« Statut incertain » : l\'envoi a peut-être abouti sans confirmation (coupure, plantage). Euro Signal ne renvoie jamais automatiquement : vérifiez votre dossier Envoyés, puis indiquez « Reçu » ou « Non reçu ». « Non reçu » rend les événements à nouveau signalables. Aucune garantie « exactement une fois » n\'est possible.</p>' : '<p class="muted">Aucune alerte traitée.</p>') + '</section>';
-    return h;
-  }
   function vAlertesAuto() {
     var ready = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; });
     var mailReady = S.snapshot && S.snapshot.mail && S.snapshot.mail.ready;
@@ -2515,227 +2259,10 @@ details.pos summary{font-size:1rem}
   function learningSection(L) {
     var h = '<section class="card"><h3>Auto-apprentissage du barème <span class="chip ' + (L.mode === 'auto' ? 'good' : 'neutral') + '">' + (L.mode === 'auto' ? 'actif' : 'désactivé') + '</span></h3>' +
       '<p class="lead">Chaque mois, Euro Signal compare chaque composante du score aux résultats réels : achats avec ou sans cette composante, écart avec le CAC 40 à ' + S.cfg.learning.horizon + ' séances. Un poids ne bouge que d\'un point par mois, seulement si l\'écart est net (t ≥ ' + S.cfg.learning.minT + ') sur au moins ' + S.cfg.learning.minCases + ' cas, et reste entre 0 et 2 fois sa valeur d\'origine. ' + (L.withOutcome || 0) + ' achats ont déjà un résultat à ' + S.cfg.learning.horizon + ' séances sur ' + (L.samples || 0) + ' suivis.</p>';
-    h += '<div class="tablewrap"><table class="grid"><thead><tr><th>Composante</th><th class="num">Cas avec</th><th class="num">Écart moyen avec</th><th class="num">Écart moyen sans</th><th class="num">t</th><th>Décision du mois</th></tr></thead><tbody>' +
-      (L.stats || []).map(function (s) { return '<tr><td>' + esc(s.label) + '</td><td class="num">' + s.nWith + '</td><td class="num">' + (s.meanWith != null ? pct(s.meanWith) : 'n.d.') + '</td><td class="num">' + (s.meanWithout != null ? pct(s.meanWithout) : 'n.d.') + '</td><td class="num">' + (s.t != null ? fmtN(s.t, 1) : '—') + '</td><td>' + esc(s.action) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<ul class="plain">' + (L.stats || []).map(function (s) { return '<li><b>' + esc(s.label) + '</b> — ' + s.nWith + ' cas avec' + (s.meanWith != null ? ' : ' + pct(s.meanWith) + ' vs CAC 40' : '') + (s.meanWithout != null ? ', contre ' + pct(s.meanWithout) + ' sans' : '') + (s.t != null ? ' (t = ' + fmtN(s.t, 1) + ')' : '') + '<br><small class="muted">' + esc(s.action) + '</small></li>'; }).join('') + '</ul>';
     h += (L.log && L.log.length ? '<h4 class="mt">Historique des ajustements</h4><ul class="plain">' + L.log.slice().reverse().map(function (e) { return '<li>' + esc(e.month) + ' · ' + esc(e.label) + ' : ' + e.from + ' → ' + e.to + ' (écart ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt, ' + e.nWith + ' cas, t = ' + e.t + ')</li>'; }).join('') + '</ul>' : '<p class="foot">Aucun ajustement pour l\'instant : il faut plusieurs mois de résultats avant que les écarts soient nets.</p>');
     return h + '</section>';
   }
-  function gmailState() { return S.mcp ? '<p class="foot">Connecteur Gmail : accessible depuis cette vue (votre accord sera demandé au premier envoi).</p>' : '<p class="note warn">Connecteur Gmail inaccessible dans cette vue. Ouvrez la page dans claude.ai, connectée à votre compte, et vérifiez que Gmail figure dans Paramètres › Connecteurs.</p>'; }
-
-  /* ----- Import ----- */
-  var KINDS = {
-    amfjson: 'Fichier latest.json du collecteur insider-pea (AMF)', tx: 'Déclarations de dirigeants', prices: 'Cours (un fichier par titre ou fichier groupé)', instruments: 'Univers d\'actions', buybacks: 'Rachats d\'actions', results: 'Résultats', splits: 'Opérations sur titres (splits)'
-  };
-  function vImport() {
-    var m = S.imp || (S.imp = { kind: 'amfjson', registry: 'AMF', locale: 'auto', defCur: '', countries: [], text: '', parsed: null, map: {}, target: '', priceCur: 'EUR', priceSource: 'EODHD' });
-    var h = '<h2 class="vt">Importer des données</h2><p class="lead">Déposez un fichier CSV ou JSON exporté depuis un registre officiel ou un fournisseur, ou collez son contenu. Chaque ligne est contrôlée : les lignes invalides sont refusées avec leur motif, les doublons et corrections sont reconnus.</p>';
-    h += '<section class="card"><form class="form" data-form="impopts"><div class="fgrid">' +
-      fld('Type de données', '<select id="i-kind" name="kind" data-imp="kind">' + Object.keys(KINDS).map(function (k) { return '<option value="' + k + '"' + (m.kind === k ? ' selected' : '') + '>' + KINDS[k] + '</option>'; }).join('') + '</select>') +
-      (m.kind === 'tx' ? fld('Source', '<select id="i-reg" name="registry" data-imp="registry">' + REGISTRIES.filter(function (r) { return r.name !== 'EODHD'; }).map(function (r) { return '<option value="' + esc(r.name) + '"' + (m.registry === r.name ? ' selected' : '') + '>' + esc(r.label) + '</option>'; }).join('') + '</select>') : '') +
-      (m.kind === 'prices' ? fld('Source des cours', '<select id="i-psrc" data-imp="priceSource"><option' + (m.priceSource === 'EODHD' ? ' selected' : '') + '>EODHD</option><option' + (m.priceSource === 'Autre' ? ' selected' : '') + '>Autre</option></select>') + fld('Titre (si le fichier ne contient ni ISIN ni ticker)', '<select id="i-target" data-imp="target"><option value="">Déterminé par le fichier</option>' + Object.keys(S.inst).sort().map(function (i) { return '<option value="' + i + '"' + (m.target === i ? ' selected' : '') + '>' + esc((S.inst[i].name || i) + ' · ' + i) + '</option>'; }).join('') + '</select>') + fld('Devise des cours', '<input id="i-pcur" data-imp="priceCur" value="' + esc(m.priceCur) + '">') : '') +
-      fld('Format des nombres', '<select id="i-loc" data-imp="locale"><option value="auto"' + (m.locale === 'auto' ? ' selected' : '') + '>Automatique</option><option value="eu"' + (m.locale === 'eu' ? ' selected' : '') + '>1.234,56 (FR, DE, IT, ES)</option><option value="en"' + (m.locale === 'en' ? ' selected' : '') + '>1,234.56 (EN)</option></select>') +
-      (m.kind === 'tx' ? fld('Devise si la colonne est absente', '<input id="i-cur" data-imp="defCur" value="' + esc(m.defCur) + '" placeholder="laisser vide si inconnue">') : '') +
-      '</div>';
-    if (m.kind === 'tx') {
-      var reg = REGISTRIES.filter(function (r) { return r.name === m.registry; })[0] || {};
-      if (!reg.country) h += '<fieldset class="ctry"><legend>Pays réellement couverts par cette collecte (sert à distinguer « aucune opération » de « non collecté »)</legend>' + ['FR', 'DE', 'IT', 'BE', 'ES', 'NL'].map(function (c) { return '<label class="check"><input type="checkbox" data-ctry="' + c + '"' + (m.countries.indexOf(c) > -1 ? ' checked' : '') + '> ' + COUNTRIES[c] + '</label>'; }).join('') + '</fieldset>';
-      else h += '<p class="foot">Registre officiel : couverture enregistrée pour ' + COUNTRIES[reg.country] + '.</p>';
-    }
-    h += '<div class="drop" id="drop"><input type="file" id="i-file" accept=".csv,.txt,.json,.tsv" data-a="file"><label for="i-file"><b>Choisir un fichier</b> ou le déposer ici</label><textarea id="i-text" data-imp="text" rows="5" placeholder="…ou collez ici le contenu CSV / JSON">' + esc(m.text.length > 20000 ? '' : m.text) + '</textarea>' + (m.text.length > 20000 ? '<p class="foot">Fichier chargé (' + fmtInt(m.text.length) + ' caractères).</p>' : '') + '</div>' +
-      '<div class="row"><button type="button" data-a="parse">Analyser</button><button type="button" class="ghost" data-a="template">Modèle CSV pour ce type</button></div></form></section>';
-    if (m.parsed) h += importPreview(m);
-    return h;
-  }
-  function importPreview(m) {
-    if (m.kind === 'amfjson') {
-      var vv = validateImport(m); m.validated = vv;
-      return '<section class="card"><h3>Fichier du collecteur <span class="muted">· ' + m.parsed.rows.length + ' lignes, ' + esc(vv.note) + '</span></h3><div class="vsum"><span class="chip good">' + vv.ok.length + ' acceptée(s)</span><span class="chip ' + (vv.bad.length ? 'bad' : 'neutral') + '">' + vv.bad.length + ' refusée(s)</span>' + (vv.warnCount ? '<span class="chip warn">' + vv.warnCount + ' avertissement(s)</span>' : '') + '</div>' +
-        (vv.bad.length ? '<details><summary>Lignes refusées</summary><ul class="small">' + vv.bad.slice(0, 100).map(function (b) { return '<li>Ligne ' + b.line + ' : ' + esc(b.errors.join(' ; ')) + '</li>'; }).join('') + '</ul></details>' : '') +
-        '<div class="tablewrap"><table class="grid small"><thead><tr>' + vv.preview.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + vv.preview.rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
-        '<div class="row mt"><button data-a="commit"' + (vv.ok.length ? '' : ' disabled') + '>Enregistrer ' + vv.ok.length + ' déclaration(s)</button></div></section>';
-    }
-    var p = m.parsed, fields = ES.FIELDS[m.kind === 'prices' ? 'price' : m.kind === 'instruments' ? 'instrument' : m.kind === 'buybacks' ? 'buyback' : m.kind === 'splits' ? 'split' : m.kind];
-    var LABELS = { isin: 'ISIN', issuer: 'Émetteur', ticker: 'Ticker', person: 'Déclarant', role: 'Fonction', linkedTo: 'Dirigeant de rattachement (personne liée)', associated: 'Personne étroitement liée (oui/non)', nature: 'Nature', txDate: 'Date de transaction', pubDate: 'Date de publication', qty: 'Quantité', price: 'Prix', currency: 'Devise', amount: 'Montant', venue: 'Lieu', sourceUrl: 'Lien source', registryId: 'Identifiant de déclaration', version: 'Version', status: 'Statut (correction/annulation)', planned: 'Opération planifiée', holding: 'Détention directe/indirecte', stakeAfter: 'Participation après opération', date: 'Date', open: 'Ouverture', high: 'Plus haut', low: 'Plus bas', close: 'Clôture', volume: 'Volume (titres)', adjClose: 'Clôture ajustée (ignorée)', name: 'Nom', mic: 'MIC', country: 'Pays de domiciliation', sector: 'Secteur', shareType: 'Type de titre', reference: 'Cotation de référence', peaStatus: 'Statut PEA', peaSource: 'Source PEA', peaDate: 'Date PEA', stage: 'Étape', pctCapital: '% du capital', confirmed: 'Confirmé', note: 'Modalités', period: 'Période', epsActual: 'BPA publié', epsConsensus: 'BPA consensus', revActual: 'CA publié', revConsensus: 'CA consensus', consensusDate: 'Date du consensus', guidance: 'Perspectives', comparable: 'Comparable', ratio: 'Parité', from: 'Ancien nombre', to: 'Nouveau nombre' };
-    var h = '<section class="card"><h3>Correspondance des colonnes <span class="muted">· ' + p.rows.length + ' lignes, séparateur « ' + (p.delimiter === '\t' ? 'tabulation' : p.delimiter) + ' »</span></h3>';
-    if (p.truncated) h += '<p class="note bad">La dernière ligne semble tronquée : elle a été ignorée. Vérifiez que le fichier est complet.</p>';
-    (m.warnings || []).forEach(function (w) { h += '<p class="note warn">' + esc(w) + '</p>'; });
-    var src = m.kind === 'tx' && S.src[m.registry];
-    if (src && src.headerSig && src.headerSig !== headerSig(p.headers)) h += '<p class="note warn">Les colonnes diffèrent du dernier import ' + esc(m.registry) + ' : le format de la source a peut-être changé. Vérifiez la correspondance.</p>';
-    h += '<div class="fgrid map">' + Object.keys(fields).map(function (f) { return fld(LABELS[f] || f, '<select id="map-' + f + '" data-map="' + f + '"><option value="">— non utilisé —</option>' + p.headers.map(function (hh) { return '<option' + (m.map[f] === hh ? ' selected' : '') + '>' + esc(hh) + '</option>'; }).join('') + '</select>'); }).join('') + '</div>';
-    var v = validateImport(m);
-    m.validated = v;
-    h += '<div class="vsum"><span class="chip good">' + v.ok.length + ' acceptée(s)</span><span class="chip ' + (v.bad.length ? 'bad' : 'neutral') + '">' + v.bad.length + ' refusée(s)</span>' + (v.warnCount ? '<span class="chip warn">' + v.warnCount + ' avertissement(s)</span>' : '') + (v.note ? '<span class="muted">' + esc(v.note) + '</span>' : '') + '</div>';
-    if (v.bad.length) h += '<details><summary>Lignes refusées</summary><ul class="small">' + v.bad.slice(0, 100).map(function (b) { return '<li>Ligne ' + b.line + ' : ' + esc(b.errors.join(' ; ')) + '</li>'; }).join('') + '</ul></details>';
-    if (v.warnList && v.warnList.length) h += '<details><summary>Avertissements</summary><ul class="small">' + v.warnList.slice(0, 100).map(function (b) { return '<li>Ligne ' + b.line + ' : ' + esc(b.warnings.join(' ; ')) + '</li>'; }).join('') + '</ul></details>';
-    if (v.preview) h += '<div class="tablewrap"><table class="grid small"><thead><tr>' + v.preview.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + v.preview.rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>';
-    h += '<div class="row mt"><button data-a="commit"' + (v.ok.length ? '' : ' disabled') + '>Enregistrer ' + v.ok.length + ' ligne(s)</button>' + (m.kind === 'tx' ? '<button class="ghost" data-a="srcNothing">Collecte réussie, aucune opération à importer</button>' : '') + '</div></section>';
-    return h;
-  }
-  function headerSig(headers) { return ES.hash(headers.map(ES.norm).sort().join('|')); }
-  function validateImport(m) {
-    var p = m.parsed, ok = [], bad = [], warnList = [], warnCount = 0, preview = null, note = '';
-    if (m.kind === 'amfjson') {
-      p.rows.forEach(function (t, k) {
-        var r = ES.fromAmfCollector(t, { today: S.today, via: 'collecteur insider-pea' });
-        if (r.ok) { ok.push(r.rec); if (r.warnings.length) { warnCount += r.warnings.length; warnList.push({ line: k + 1, warnings: r.warnings }); } } else bad.push({ line: k + 1, errors: r.errors });
-      });
-      note = 'collecte du ' + String(p.generatedAt || '?').slice(0, 10);
-      preview = { cols: ['ISIN', 'Société', 'Déclarant', 'Nature', 'Transaction', 'Publication', 'Montant'], rows: ok.slice(0, 8).map(function (t) { return [t.isin, t.issuer || '', t.person || 'n.d.', ES.TX_TYPES[t.type], t.txDate, t.pubDate || 'n.d.', t.amount != null ? fmtN(t.amount, 0) : 'n.d.']; }) };
-      return { ok: ok, bad: bad, warnCount: warnCount, warnList: warnList, preview: preview, note: note };
-    }
-    if (m.kind === 'tx') {
-      var reg = REGISTRIES.filter(function (r) { return r.name === m.registry; })[0] || {};
-      p.rows.forEach(function (row, k) {
-        var r = ES.normalizeTx(row, { map: m.map, registry: m.registry, country: reg.country || null, today: S.today, locale: m.locale, defaultCurrency: m.defCur });
-        if (r.ok) { ok.push(r.rec); if (r.warnings.length) { warnCount += r.warnings.length; warnList.push({ line: k + 2, warnings: r.warnings }); } } else bad.push({ line: k + 2, errors: r.errors });
-      });
-      preview = { cols: ['ISIN', 'Déclarant', 'Nature', 'Transaction', 'Publication', 'Prix', 'Quantité', 'Montant', 'Devise'], rows: ok.slice(0, 8).map(function (t) { return [t.isin, t.person || 'n.d.', ES.TX_TYPES[t.type], t.txDate, t.pubDate || 'n.d.', t.price != null ? fmtN(t.price) : 'n.d.', t.qty != null ? fmtInt(t.qty) : 'n.d.', t.amount != null ? fmtN(t.amount, 0) : 'n.d.', t.currency || 'n.d.']; }) };
-    } else if (m.kind === 'prices') {
-      if (!m.map.date || !m.map.close) { note = 'Indiquez au moins les colonnes Date et Clôture.'; return { ok: [], bad: [], note: note }; }
-      var r = ES.normalizePriceRows(p.rows, m.map, m.locale), tickerIdx = tickerIndex();
-      r.errors.forEach(function (e) { bad.push({ line: e.split(' ')[1], errors: [e] }); });
-      r.rows.forEach(function (x) {
-        var isin = m.target || (x.key && (S.inst[x.key] ? x.key : tickerIdx[x.key] || tickerIdx[x.key.split('.')[0]]));
-        if (x.row[0] > S.today) bad.push({ line: '?', errors: ['date future ' + x.row[0]] });
-        else if (!isin) bad.push({ line: '?', errors: ['titre inconnu « ' + (x.key || '?') + ' » : importez d\'abord l\'univers ou choisissez le titre'] });
-        else ok.push({ isin: isin, row: x.row });
-      });
-      var by = {}; ok.forEach(function (o) { by[o.isin] = (by[o.isin] || 0) + 1; });
-      note = Object.keys(by).length + ' titre(s) concerné(s)';
-      preview = { cols: ['ISIN', 'Date', 'Ouv.', 'Haut', 'Bas', 'Clôture', 'Volume'], rows: ok.slice(-6).map(function (o) { return [o.isin].concat(o.row.map(function (v, j) { return j === 0 ? v : v == null ? 'n.d.' : fmtN(v, j === 5 ? 0 : 3); })); }) };
-    } else {
-      p.rows.forEach(function (row, k) {
-        var r = normOther(m.kind, row, m.map, m.locale);
-        if (r.errors.length) bad.push({ line: k + 2, errors: r.errors }); else { ok.push(r.rec); if (r.warnings.length) { warnCount += r.warnings.length; warnList.push({ line: k + 2, warnings: r.warnings }); } }
-      });
-      if (ok.length) { var cols = Object.keys(ok[0]).filter(function (c) { return c !== 'id'; }).slice(0, 8); preview = { cols: cols, rows: ok.slice(0, 8).map(function (o) { return cols.map(function (c) { return o[c] == null ? 'n.d.' : String(o[c]); }); }) }; }
-    }
-    return { ok: ok, bad: bad, warnCount: warnCount, warnList: warnList, preview: preview, note: note };
-  }
-  function tickerIndex() { var t = {}; Object.keys(S.inst).forEach(function (i) { var k = (S.inst[i].ticker || '').toUpperCase(); if (k) { t[k] = i; t[k.split('.')[0]] = t[k.split('.')[0]] || i; } }); return t; }
-  function normOther(kind, row, map, loc) {
-    var g = function (f) { return map[f] ? row[map[f]] : undefined; }, e = [], w = [], rec = {};
-    var isin = String(g('isin') || '').trim().toUpperCase();
-    if (!ES.isValidIsin(isin)) e.push('ISIN invalide ou absent'); rec.isin = isin;
-    var num = function (f) { var v = g(f); if (v == null || String(v).trim() === '') return null; var n = ES.parseNumber(v, loc); if (n == null) e.push(f + ' illisible'); return n; };
-    var dt = function (f, req) { var v = g(f); if (!v) { if (req) e.push(f + ' absente'); return null; } var d = ES.parseDate(v); if (!d) e.push(f + ' illisible'); else if (d > S.today) e.push(f + ' dans le futur'); return d; };
-    var bool = function (f) { var t = ES.norm(g(f)); return t ? /^(oui|yes|ja|si|true|1|vrai|x)$/.test(t) : null; };
-    if (kind === 'instruments') {
-      rec.name = String(g('name') || '').trim() || null; rec.ticker = String(g('ticker') || '').trim() || null; rec.venue = String(g('venue') || '').trim() || null;
-      rec.mic = String(g('mic') || '').trim() || null; rec.currency = String(g('currency') || '').trim().toUpperCase() || null;
-      var c = String(g('country') || '').trim().toUpperCase(); rec.country = /^[A-Z]{2}$/.test(c) ? c : null; if (!rec.country) w.push('pays de domiciliation absent (code ISO à 2 lettres attendu) : non déduit de l\'ISIN');
-      rec.sector = String(g('sector') || '').trim() || null; rec.shareType = String(g('shareType') || '').trim() || null;
-      var ref = bool('reference'); rec.isReference = ref === null ? null : ref;
-      var ps = ES.norm(g('peaStatus')); rec.peaStatus = /non/.test(ps) ? 'non_eligible' : /(eligible|oui|yes|^1$)/.test(ps) ? 'eligible' : 'a_verifier';
-      rec.peaSource = String(g('peaSource') || '').trim() || null; rec.peaDate = dt('peaDate', false);
-      if (rec.peaStatus !== 'a_verifier' && (!rec.peaSource || !rec.peaDate)) { w.push('statut PEA sans source ou sans date : ramené à « à vérifier »'); rec.peaStatus = 'a_verifier'; }
-    } else if (kind === 'buybacks') {
-      var st = ES.norm(g('stage')); rec.stage = /autoris|ag\b|assembl/.test(st) ? 'autorisation_ag' : /debut|start|lancement/.test(st) ? 'debut' : /execut|realis|achat|purchase/.test(st) ? 'execution' : /suspen/.test(st) ? 'suspension' : /annul|cancel/.test(st) ? 'annulation' : 'annonce';
-      rec.date = dt('date', true); rec.amount = num('amount'); rec.pctCapital = num('pctCapital'); rec.sourceUrl = String(g('sourceUrl') || '').trim() || null;
-      rec.confirmed = bool('confirmed') === true; if (!rec.confirmed) w.push('non confirmé : enregistré comme candidat à vérifier'); rec.note = String(g('note') || '').trim() || null;
-      rec.id = 'bb' + ES.hash([isin, rec.stage, rec.date, rec.amount].join('|'));
-    } else if (kind === 'results') {
-      rec.pubDate = dt('pubDate', true); rec.period = String(g('period') || '').trim() || null;
-      rec.epsActual = num('epsActual'); rec.epsConsensus = num('epsConsensus'); rec.revActual = num('revActual'); rec.revConsensus = num('revConsensus');
-      rec.consensusDate = dt('consensusDate', false); if (rec.consensusDate && rec.pubDate && rec.consensusDate >= rec.pubDate) w.push('consensus postérieur ou égal à la publication : ne sera pas utilisé');
-      var gd = ES.norm(g('guidance')); rec.guidance = /(releve|raise|hausse|up)/.test(gd) ? 'relevee' : /(abaiss|lower|baisse|cut|down)/.test(gd) ? 'abaissee' : /(maint|confirm|unchanged)/.test(gd) ? 'maintenue' : null;
-      rec.comparable = bool('comparable'); if (rec.comparable !== true) w.push('comparabilité non validée : surprise non comptée');
-      rec.currency = String(g('currency') || '').trim().toUpperCase() || null; rec.sourceUrl = String(g('sourceUrl') || '').trim() || null;
-      rec.id = 'res' + ES.hash([isin, rec.pubDate, rec.period].join('|'));
-    } else if (kind === 'splits') {
-      rec.date = dt('date', true); var ratio = num('ratio');
-      if (ratio == null && map.from && map.to) { var a = num('from'), b = num('to'); if (a && b) ratio = b / a; }
-      if (!(ratio > 0)) e.push('parité absente ou invalide'); rec.ratio = ratio; rec.id = 'sp' + ES.hash([isin, rec.date, ratio].join('|'));
-    }
-    return { rec: rec, errors: e, warnings: w };
-  }
-  var TEMPLATES = {
-    tx: 'isin;emetteur;declarant;fonction;personne liee a;nature;date de l\'operation;date de publication;quantite;prix;devise;montant;lieu;lien;id declaration;version;statut\nFR0000120271;Exemple SA;Jean Exemple;Directeur général;;Acquisition;2026-09-20;2026-09-22 17:45;1000;50,00;EUR;;Euronext Paris;https://…;2026DD123456;1;\n',
-    prices: 'Date,Open,High,Low,Close,Adjusted_close,Volume\n2026-10-06,50.10,51.00,49.80,50.70,50.70,152340\n',
-    instruments: 'isin;nom;ticker;place;mic;devise;pays;secteur;type de titre;cotation de reference;statut pea;source pea;date pea\nFR0000120271;Exemple SA;EXM.PA;Euronext Paris;XPAR;EUR;FR;Énergie;ordinaire;oui;eligible;Attestation émetteur;2026-09-01\n',
-    buybacks: 'isin;etape;date;montant;pourcentage du capital;lien;confirme;modalites\nFR0000120271;annonce;2026-09-15;100000000;2,5;https://…;oui;Mandat à un prestataire\n',
-    results: 'isin;date de publication;periode;bpa publie;bpa consensus;ca publie;ca consensus;date du consensus;perspectives;comparable;devise;lien\nFR0000120271;2026-09-25;S1 2026;1,42;1,29;812;790;2026-09-18;relevees;oui;EUR;https://…\n',
-    splits: 'isin;date;ratio\nFR0000120271;2026-06-02;2\n'
-  };
-
-  function commitImport() {
-    var m = S.imp, v = m.validated; if (!v || !v.ok.length) return;
-    ensureWritable();
-    var now = nowStamp(), touched = {};
-    busy('Enregistrement…');
-    var p;
-    if (m.kind === 'amfjson') { m.registry = 'AMF'; m.countries = ['FR']; }
-    if (m.kind === 'tx' || m.kind === 'amfjson') {
-      var by = {}; v.ok.forEach(function (t) { (by[t.isin] = by[t.isin] || []).push(t); });
-      var st = { added: 0, duplicates: 0, corrected: 0, cancelled: 0, crossSource: 0 };
-      Object.keys(by).forEach(function (isin) {
-        var r = ES.mergeTransactions(S.tx[isin] || [], by[isin], now);
-        Object.keys(st).forEach(function (k) { st[k] += r.stats[k]; });
-        S.tx[isin] = r.list; touched[isin] = 1;
-        if (!S.inst[isin]) { var f = by[isin][0]; S.inst[isin] = { isin: isin, name: f.issuer || isin, ticker: f.ticker, country: m.kind === 'amfjson' && /^[A-Z]{2}/.test(isin) ? isin.slice(0, 2) : null, countrySource: m.kind === 'amfjson' ? 'préfixe ISIN (non vérifié)' : null, registry: m.kind === 'amfjson' ? 'AMF' : undefined, shareType: m.kind === 'amfjson' ? 'ordinaire' : undefined, peaStatus: 'a_verifier', stats: { sessions: 0, empty: true }, createdFrom: m.registry }; touched['i:' + isin] = 1; }
-      });
-      var reg = REGISTRIES.filter(function (r) { return r.name === m.registry; })[0] || {};
-      var s = S.src[m.registry] || { name: m.registry, log: [], totalRows: 0, countries: [] };
-      s.status = 'ok'; s.lastSuccess = m.kind === 'amfjson' && m.parsed.generatedAt ? String(m.parsed.generatedAt).slice(0, 10) : S.today; s.lastAttempt = S.today; s.totalRows = (s.totalRows || 0) + st.added;
-      if (m.kind === 'amfjson') s.via = 'collecteur insider-pea (transactions-amf.swaoo.com)';
-      s.countries = reg.country ? [reg.country] : m.countries.slice(); if (m.parsed.headers.length) s.headerSig = headerSig(m.parsed.headers);
-      s.coveredFrom = v.ok.reduce(function (a, t) { var d = ES.availDate(t); return !a || d < a ? d : a; }, null); s.coveredTo = v.ok.reduce(function (a, t) { var d = ES.availDate(t); return !a || d > a ? d : a; }, null);
-      s.log = [{ at: now, rows: m.parsed.rows.length, accepted: v.ok.length, rejected: v.bad.length, added: st.added, duplicates: st.duplicates, corrected: st.corrected, cancelled: st.cancelled, crossSource: st.crossSource }].concat(s.log || []).slice(0, 15);
-      S.src[m.registry] = s;
-      if (!reg.country && !m.countries.length) notify('Aucun pays coché : cette collecte ne compte pas comme couverture d\'un pays.', 'warn');
-      p = pool(Object.keys(touched), 4, function (k) { return k.indexOf('i:') === 0 ? saveInst(S.inst[k.slice(2)]) : saveTx(k); }, function (d, n) { busy('Enregistrement : ' + d + '/' + n); }).then(function () { return saveSource(m.registry); }).then(function () {
-        notify(st.added + ' ajoutée(s), ' + st.duplicates + ' doublon(s), ' + st.corrected + ' correction(s), ' + st.cancelled + ' annulation(s), ' + st.crossSource + ' déjà vue(s) chez un autre fournisseur, ' + v.bad.length + ' refusée(s).', 'good');
-      });
-    } else if (m.kind === 'prices') {
-      var byP = {}; v.ok.forEach(function (o) { (byP[o.isin] = byP[o.isin] || []).push(o.row); });
-      var isins = Object.keys(byP);
-      p = pool(isins, 4, function (isin) {
-        return loadPrices(isin).then(function (ex) {
-          var rows = ES.normalizeSeries((ex ? ex.rows : []).concat(byP[isin]));
-          S.prices[isin] = { rows: rows, source: m.priceSource, updatedAt: now, truncatedFrom: ex && ex.truncatedFrom };
-          var inst = S.inst[isin]; if (!inst.currency && m.priceCur) inst.currency = m.priceCur.toUpperCase();
-          inst.stats = ES.computeStats(rows, (S.ev[isin] && S.ev[isin].splits) || [], S.today, S.cfg, inst.currency);
-          inst.pricesSource = m.priceSource;
-          return savePrices(isin).then(function () { return saveInst(inst); });
-        });
-      }, function (d, n) { busy('Cours : ' + d + '/' + n + ' titres'); }).then(function () {
-        var s = S.src[m.priceSource] || { name: m.priceSource, log: [] };
-        s.status = 'ok'; s.lastSuccess = S.today; s.lastAttempt = S.today; s.kind = 'cours';
-        s.log = [{ at: now, rows: m.parsed.rows.length, accepted: v.ok.length, rejected: v.bad.length, instruments: isins.length }].concat(s.log || []).slice(0, 15);
-        S.src[m.priceSource] = s;
-        return saveSource(m.priceSource);
-      }).then(function () { isins.forEach(computeRefs); notify('Cours enregistrés pour ' + isins.length + ' titre(s).', 'good'); });
-    } else if (m.kind === 'instruments') {
-      v.ok.forEach(function (r) {
-        var cur = S.inst[r.isin] || { isin: r.isin, stats: { sessions: 0, empty: true } };
-        Object.keys(r).forEach(function (k) { if (r[k] != null && !(k === 'peaStatus' && r[k] === 'a_verifier' && cur.peaStatus && cur.peaStatus !== 'a_verifier')) cur[k] = r[k]; });
-        if (cur.isReference == null) delete cur.isReference;
-        S.inst[r.isin] = cur; touched[r.isin] = 1;
-      });
-      p = pool(Object.keys(touched), 4, function (i) { return saveInst(S.inst[i]); }, function (d, n) { busy('Univers : ' + d + '/' + n); }).then(function () { notify(Object.keys(touched).length + ' titre(s) enregistrés dans l\'univers.', 'good'); });
-    } else {
-      var key = m.kind === 'buybacks' ? 'buybacks' : m.kind === 'results' ? 'results' : 'splits';
-      v.ok.forEach(function (r) {
-        var isin = r.isin; delete r.isin;
-        if (!S.inst[isin]) { S.inst[isin] = { isin: isin, name: isin, peaStatus: 'a_verifier', stats: { sessions: 0, empty: true } }; touched['i:' + isin] = 1; }
-        var e = S.ev[isin] || (S.ev[isin] = { buybacks: [], results: [], splits: [] });
-        e[key] = (e[key] || []).filter(function (x) { return x.id !== r.id; }).concat([r]); touched[isin] = 1;
-      });
-      p = pool(Object.keys(touched), 4, function (k) {
-        if (k.indexOf('i:') === 0) return saveInst(S.inst[k.slice(2)]);
-        return saveEv(k).then(function () { if (key === 'splits') return restat(k); });
-      }).then(function () { notify(v.ok.length + ' événement(s) enregistré(s).', 'good'); });
-    }
-    p.then(function () { S.imp.parsed = null; S.imp.text = ''; computeAll(); idle(); render(); }).catch(function (e) { idle(); render(); notify('Enregistrement interrompu : ' + (e && (e.message || e.code) || e) + '. Les éléments déjà écrits sont conservés ; relancez l\'import (les doublons seront reconnus).', 'bad'); });
-  }
-  function restat(isin) {
-    return loadPrices(isin).then(function (p) {
-      var inst = S.inst[isin]; if (!p || !inst) return;
-      inst.stats = ES.computeStats(p.rows, (S.ev[isin] && S.ev[isin].splits) || [], S.today, S.cfg, inst.currency);
-      computeRefs(isin); return saveInst(inst);
-    });
-  }
-
   /* ----- Sources ----- */
   function srcState(s) {
     if (!s) return { k: 'neutral', t: 'Jamais collectée' };
@@ -2768,17 +2295,9 @@ details.pos summary{font-size:1rem}
 
   /* ----- Validation ----- */
   function vValidation() {
-    var bt = S.bt || (S.bt = { bench: null, res: null, ran: false });
-    var benches = Object.keys(S.inst).filter(function (i) { return S.inst[i].benchmark || S.inst[i].shareType && /indice|etf|index/i.test(S.inst[i].shareType); });
-    if (bt.bench === null) bt.bench = benches[0] || '';
-    var h = '<h2 class="vt">Validation statistique</h2><p class="lead">Étude d\'événements sur les achats déclarés que vous avez importés : entrée à l\'ouverture de la première séance après la publication, sortie à la clôture N séances plus tard, coûts aller-retour déduits, comparaison à un indice de référence, et séparation entre échantillon et période hors échantillon.</p>';
-    h += '<section class="card"><form class="form" data-form="bt"><div class="fgrid">' +
-      fld('Indice de référence', '<select id="b-bench" name="bench"><option value="">Aucun</option>' + benches.concat(Object.keys(S.inst).filter(function (i) { return benches.indexOf(i) < 0; })).map(function (i) { return '<option value="' + i + '"' + (bt.bench === i ? ' selected' : '') + '>' + esc(S.inst[i].name || i) + '</option>'; }).join('') + '</select>') +
-      fld('Coûts aller-retour (%)', '<input id="b-cost" name="cost" inputmode="decimal" value="' + S.cfg.backtest.costRoundTripPct + '">') +
-      fld('Horizons (séances)', '<input id="b-h" name="horizons" value="' + S.cfg.backtest.horizons.join(', ') + '">') +
-      fld('Début de la période hors échantillon', '<input id="b-oos" name="oos" type="date" value="' + esc(S.cfg.backtest.oosStart || ES.addMonths(S.today, -6)) + '">') +
-      '</div><div class="row"><button type="submit">Lancer l\'étude</button></div></form></section>';
-    if (S.ro) h = h.replace(/<section class="card"><form class="form" data-form="bt">[\s\S]*?<\/form><\/section>/, '<p class="note">Étude recalculée chaque soir sur l\'archive des déclarations : ' + (bt.meta.events || 0) + ' événements, indice ' + esc(bt.meta.bench || 'aucun') + ', coûts ' + bt.meta.cost + ' %, horizons ' + (bt.meta.horizons || []).join(' et ') + ' séances, hors échantillon depuis le ' + esc(bt.meta.oosStart || '?') + '. L\'archive s\'enrichit chaque jour : les premiers mois, les effectifs sont trop faibles pour conclure.</p>');
+    var bt = S.bt || { res: null };
+    var h = '<h2 class="vt">Validation statistique</h2><p class="lead">Étude d\'événements sur les achats déclarés collectés automatiquement : entrée à l\'ouverture de la première séance après la publication, sortie à la clôture N séances plus tard, coûts aller-retour déduits, comparaison à un indice de référence, et séparation entre échantillon et période hors échantillon.</p>';
+    if (bt.meta) h += '<p class="note">Étude recalculée chaque soir sur l\'archive des déclarations : ' + (bt.meta.events || 0) + ' événements, indice ' + esc(bt.meta.bench || 'aucun') + ', coûts ' + bt.meta.cost + ' %, horizons ' + (bt.meta.horizons || []).join(' et ') + ' séances, hors échantillon depuis le ' + esc(bt.meta.oosStart || '?') + '.</p>';
     if (bt.res) {
       if (!bt.res.length) h += '<p class="note warn">Aucun événement exploitable : il faut des achats publiés et assez de séances de cours après la publication.</p>';
       else {
@@ -2790,330 +2309,61 @@ details.pos summary{font-size:1rem}
     if (S.snapshot && S.snapshot.learning) h += learningSection(S.snapshot.learning);
     return h;
   }
-  function runBacktest(form) {
-    var bt = S.bt, from = form;
-    bt.bench = from.bench; var cost = ES.parseNumber(from.cost) || 0, horizons = String(from.horizons).split(/[,; ]+/).map(Number).filter(function (x) { return x > 0; }), oos = from.oos;
-    var isins = Object.keys(S.tx).filter(function (i) { return ES.activeTx(S.tx[i]).some(function (t) { return t.type === 'achat'; }); });
-    var need = isins.concat(bt.bench ? [bt.bench] : []).filter(function (i) { return !S.prices[i]; });
-    busy('Chargement des cours…');
-    pool(need, 4, loadPrices, function (d, n) { busy('Chargement des cours : ' + d + '/' + n); }).then(function () {
-      var events = [], series = {};
-      isins.forEach(function (i) {
-        var p = S.prices[i]; if (!p || !p.rows.length) return;
-        series[i] = { rows: p.rows, splits: (S.ev[i] && S.ev[i].splits) || [] };
-        var buys = ES.activeTx(S.tx[i]).filter(function (t) { return ES.isVoluntaryBuy(t, S.cfg); }).sort(function (a, b) { return ES.availDate(a) < ES.availDate(b) ? -1 : 1; });
-        var lastCluster = null;
-        buys.forEach(function (t) {
-          var d = ES.availDate(t);
-          events.push({ isin: i, date: d, group: 'Achat volontaire' });
-          if (t.ceo || t.cfo) events.push({ isin: i, date: d, group: 'Achat DG ou DAF' });
-          var known = buys.filter(function (b) { return ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(S.cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate; });
-          if (ES.clusterInfo(known, S.cfg.insiders.clusterWindowDays).count >= S.cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin: i, date: d, group: 'Cluster ≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }
-        });
-      });
-      var bp = bt.bench && S.prices[bt.bench] ? { rows: S.prices[bt.bench].rows, splits: [] } : null;
-      bt.res = ES.eventStudy(events, series, bp, { costRoundTripPct: cost, horizons: horizons.length ? horizons : [20, 60], oosStart: oos });
-      idle(); render();
-    });
-  }
-
-  /* ----- Réglages ----- */
-  function vReglages() {
-    var W = S.cfg.weights;
-    var rowsB = function (k, label, items) { return '<tr class="sub"><th colspan="2">' + label + ' — plafond ' + W[k].cap + (W[k].floor ? ', plancher ' + W[k].floor : '') + '</th></tr>' + items.map(function (it) { return '<tr><td>' + it[0] + '</td><td class="num">' + (it[1] > 0 ? '+' : '') + it[1] + '</td></tr>'; }).join(''); };
-    var wi = W.insiders, wb = W.buyback, wr = W.results, wm = W.market, ci = S.cfg.insiders;
-    var h = '<h2 class="vt">Réglages</h2>';
-    h += '<section class="card"><h3>Barème ' + esc(S.cfg.scoringVersion) + '</h3><div class="tablewrap"><table class="grid small"><tbody>' +
-      rowsB('insiders', 'Initiés', [['Au moins un achat volontaire publié dans la fenêtre', wi.anyBuy], ['Montant cumulé ≥ ' + ES.fmtEur(ci.mediumAmountEur), wi.amountMedium], ['Montant cumulé ≥ ' + ES.fmtEur(ci.bigAmountEur) + ' (remplace la ligne précédente)', wi.amountBig], ['Cluster : ≥ ' + ci.clusterMinBuyers + ' dirigeants indépendants sur ' + ci.clusterWindowDays + ' jours', wi.cluster], ['2 dirigeants indépendants sur ' + ci.clusterWindowDays + ' jours (si pas de cluster)', wi.pair], ['Achat du DG ou du DAF', wi.ceoCfo], ['Achats répétés d\'un même dirigeant', wi.repeat], ['Achat dans le quart bas de l\'intervalle 52 semaines', wi.nearLow], ['Ventes supérieures aux achats', wi.netSeller], ['Vente du DG ou du DAF', wi.ceoCfoSale]]) +
-      rowsB('buyback', 'Rachats', [['Programme annoncé (confirmé)', wb.announced], ['Taille ≥ ' + wb.largeSizePct + ' % du capital', wb.largeSize], ['Rachats exécutés', wb.executing], ['Suspension ou annulation', wb.suspended], ['Autorisation d\'assemblée seule, mention non confirmée', 0]]) +
-      rowsB('results', 'Résultats (consensus antérieur et comparable)', [['BPA ≥ +' + wr.epsStrongPct + ' % vs consensus', wr.epsStrong], ['BPA ≥ +' + wr.epsMildPct + ' %', wr.epsMild], ['BPA sous le consensus', wr.epsMiss], ['CA ≥ +' + wr.revStrongPct + ' %', wr.revStrong], ['CA au-dessus du consensus', wr.revMild], ['Perspectives relevées', wr.guidanceRaised], ['Perspectives abaissées', wr.guidanceLowered]]) +
-      rowsB('market', 'Confirmation de marché', [['Cours au-dessus des moyennes 50 et 200 séances', wm.trend], ['Volumes 5 j ≥ ' + wm.volumeRatio + '× la moyenne 60 j, en hausse', wm.volume], ['Performance 3 mois positive', wm.momentum], ['Liquidité ≥ ' + ES.fmtEur(wm.liquidityEur) + '/jour', wm.liquidity]]) +
-      '</tbody></table></div><p class="foot">Critères bloquants (pas de score masqué, mais pas d\'alerte) : titre non retenu, cours périmé, PEA non confirmé en mode strict, qualité insuffisante, couverture des initiés non à jour, déclaration ambiguë.</p></section>';
-    if (S.ro) return h + '<section class="card"><h3>Configuration</h3><p class="foot">En mode automatique, les réglages se modifient dans le fichier <code>euro_signal/config.json</code> du dépôt GitHub (crayon « Edit », puis « Commit changes »). Configuration en vigueur :</p><textarea class="code" rows="14" readonly id="cfg-ro">' + esc(JSON.stringify(S.cfg, null, 2)) + '</textarea></section>';
-    h += '<section class="card"><h3>Configuration (JSON)</h3><p class="foot">Modifiez les seuils et le barème. Toute modification du barème exige un nouveau numéro <code>scoringVersion</code>, pour que chaque score reste rattaché à sa version.</p><textarea id="cfg-json" class="code" rows="18" spellcheck="false">' + esc(JSON.stringify(S.cfg, null, 2)) + '</textarea><div class="row"><button data-a="saveCfg">Valider et enregistrer</button><button class="ghost" data-a="resetCfg">Revenir aux valeurs par défaut</button></div></section>';
-    h += '<section class="card"><h3>Sauvegarde et restauration</h3><p class="foot">La sauvegarde contient la configuration, l\'univers, les cours, les déclarations, les événements, l\'état des sources et le journal des alertes. Conservez-la hors de claude.ai (disque, cloud personnel), par exemple chaque semaine.</p><div class="row"><button data-a="exportAll">Exporter une sauvegarde (.json)</button><label class="btn ghost" for="restore-file">Restaurer depuis un fichier</label><input id="restore-file" type="file" accept=".json" data-a="restoreFile" hidden></div>' +
-      (S.restore ? '<div class="note warn">Sauvegarde du ' + esc(S.restore.exportedAt || '?') + ' : ' + Object.keys(S.restore.instruments || {}).length + ' titres, ' + Object.keys(S.restore.prices || {}).length + ' historiques de cours. La restauration remplace les documents de même identifiant ; les autres sont conservés.<div class="row"><button data-a="doRestore">Confirmer la restauration</button><button class="ghost" data-a="cancelRestore">Annuler</button></div></div>' : '') +
-      '<div id="exportbox"></div></section>';
-    h += '<section class="card"><h3>Recalcul</h3><p class="foot">Recalcule les statistiques de tous les titres (liquidité, anomalies, moyennes) avec les seuils actuels. Charge tous les historiques de cours.</p><button class="ghost" data-a="restatAll">Recalculer tout l\'univers</button></section>';
+  function vAide() {
+    var c = S.cfg, h = '<h2 class="vt">Comment ça marche</h2>';
+    h += '<section class="card"><ol class="steps">' +
+      step('Collecte, chaque soir de semaine', 'Déclarations des dirigeants de 6 pays (AMF, BaFin, CNMV, Consob, FSMA, AFM), cours, résultats, communiqués et données financières des sociétés.') +
+      step('Tri des achats', 'Seuls comptent les achats volontaires de personnes physiques (ou de leur holding personnelle selon le réglage), d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + ' par dirigeant sur ' + c.insiders.clusterWindowDays + ' jours. Attributions gratuites, options, déclarations tardives et sociétés d\'investissement sont écartées.') +
+      step('Score sur 100', 'Initiés (décote du prix payé, cluster, DG, panique), rachats d\'actions, résultats et tendance de marché. Le détail de chaque point est visible dans la fiche.') +
+      step('Alerte email', 'Envoyée seulement si le score atteint ' + c.alerts.minScore + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle.') +
+      step('Suivi et apprentissage', 'Chaque alerte et chaque achat que vous déclarez sont suivis ; chaque mois, l\'outil mesure ce qui a marché et ajuste son barème, avec des garde-fous.') + '</ol>' +
+      '<p class="foot">Le score aide à trier ; ce n\'est pas une probabilité de hausse et aucun ordre n\'est passé. L\'éligibilité PEA est toujours à vérifier. Réglages : fichier euro_signal/config.json du dépôt GitHub.</p></section>';
+    var det = function (title, body) { return '<details class="card fold"><summary>' + title + '</summary>' + body + '</details>'; };
+    h += det('Barème actuel (version ' + esc(c.scoringVersion) + ')', baremeTable());
+    h += det('État des données', vSources());
+    h += det('Résultats passés et auto-apprentissage', vValidation());
+    h += det('Titres suivis', vUnivers());
     return h;
   }
-
-  /* ----- Guide ----- */
-  function vGuide() {
-    if (S.ro) return vGuideAuto();
-    return '<h2 class="vt">Guide de démarrage</h2><p class="lead">Euro Signal s\'utilise directement dans cette page. Vos données sont enregistrées dans le stockage privé de la page, lié à votre compte claude.ai. Prévoyez 30 minutes pour la première mise en place.</p>' +
-      '<ol class="steps">' +
-      step('Préparer l\'univers', 'Dans <b>Importer</b>, choisissez « Univers d\'actions », cliquez « Modèle CSV pour ce type », remplissez-le dans un tableur (ISIN, nom, ticker, place, devise, pays de domiciliation, type de titre, statut PEA avec sa source et sa date) et importez-le. Une ligne par cotation ; indiquez « non » en cotation de référence pour les cotations secondaires.') +
-      step('Importer les cours', 'Avec EODHD, téléchargez l\'historique quotidien d\'un titre au format CSV (colonnes Date, Open, High, Low, Close, Adjusted_close, Volume) et importez-le en choisissant le titre. Ensuite, chaque jour, un fichier groupé de la dernière séance (colonnes Code, Date, Open… ) suffit : la page reconnaît les tickers. Gardez votre clé d\'API hors de cette page.') +
-      step('Importer les déclarations de dirigeants', 'Exportez les déclarations depuis le registre du pays (AMF BDIF, BaFin, FSMA, AFM, CNMV, CONSOB / émetteurs) ou depuis un fournisseur, en couvrant au moins les 3 derniers mois. Choisissez la source dans Importer, vérifiez la correspondance des colonnes, puis enregistrez. Une colonne « Volume » ambiguë n\'est jamais interprétée automatiquement : indiquez s\'il s\'agit d\'une quantité ou d\'un montant.') +
-      step('Signaler les collectes sans opération', 'Si un registre ne contient aucune nouvelle déclaration, utilisez « Collecte réussie, aucune opération » (ou dans Sources). Sans cela, la page considère la couverture du pays comme non à jour et bloque les alertes.') +
-      step('Compléter rachats, résultats et splits', 'Depuis la fiche d\'un titre ou par import. Confirmez un rachat seulement sur une source officielle. Pour les résultats, saisissez la date du consensus et cochez la comparabilité après vérification.') +
-      step('Configurer les alertes Gmail', 'Dans claude.ai, Paramètres › Connecteurs, vérifiez que Gmail est connecté. Dans <b>Alertes</b>, saisissez votre adresse, gardez d\'abord le mode Simulation, puis « Brouillons Gmail », et passez à « Envoi réel » quand vous êtes satisfait. Envoyez un email de test. Aucun mot de passe n\'est demandé.') +
-      step('Routine quotidienne', 'Ouvrez la page après la clôture : importez le fichier de cours du jour, les nouvelles déclarations, puis consultez le Classement et l\'onglet Alertes. Les alertes ne partent que lorsque vous cliquez : la page ne tourne pas en arrière-plan.') +
-      step('Sauvegarder', 'Dans Réglages, exportez une sauvegarde chaque semaine et conservez-la hors de claude.ai. La restauration se fait depuis le même écran.') +
-      '</ol>' +
-      '<section class="card"><h3>Ce que fait la page</h3><div class="fourcol">' +
-      col('Automatique', ['Contrôle et normalisation des imports', 'Détection des doublons, corrections, annulations', 'Fenêtre glissante de 3 mois calendaires', 'Clusters de dirigeants indépendants', 'Comparaisons de prix à l\'achat et aujourd\'hui', 'Admissibilité de l\'univers', 'Score, qualité, surchauffe', 'Décision d\'alerte et anti-doublon']) +
-      col('Manuel', ['Téléchargement des fichiers chez les fournisseurs', 'Confirmation de l\'éligibilité PEA (source + date)', 'Confirmation des rachats', 'Validation des consensus', 'Déclenchement des envois', 'Résolution des envois incertains', 'Sauvegardes']) +
-      col('Expérimental', ['Indicateur de surchauffe (RSI, écart à la moyenne, hausse rapide, volumes)', 'Positions vendeuses publiées (information seulement)', 'Étude d\'événements (validation)']) +
-      col('Indisponible', ['Collecte automatique sur le web depuis la page', 'Surveillance en arrière-plan sans ouvrir la page', 'Recherches Google, tonalité des actualités', 'Révisions d\'analystes, flux institutionnels', 'Jours fériés boursiers (week-ends seulement)', 'Conversion de devises hors euro']) +
-      '</div></section>' +
-      '<section class="card"><h3>Bon à savoir</h3><ul class="plain"><li>Le score aide à choisir quels dossiers examiner. Ce n\'est pas une probabilité de hausse et la page ne passe aucun ordre.</li><li>Les tests du moteur de calcul vérifient que les règles sont appliquées correctement ; ils ne disent rien de l\'efficacité boursière. Seule l\'étude d\'événements, avec ses limites, en donne une première idée.</li><li>L\'univers ne contient que ce que vous importez : une liste de 50 titres n\'est pas une couverture du marché européen.</li></ul></section>';
-  }
-  function vGuideAuto() {
-    return '<h2 class="vt">Comment fonctionne cette page</h2><p class="lead">Tout est automatique. Chaque soir de semaine, GitHub Actions collecte les déclarations des dirigeants (AMF, FSMA, AFM), les cours, les résultats et les communiqués des sociétés, calcule les scores avec le moteur Euro Signal, envoie les alertes par Gmail et met cette page à jour. Vous n\'avez rien à saisir.</p>' +
-      '<section class="card"><h3>Ce qui est automatique</h3><div class="fourcol">' +
-      col('Collecté chaque soir', ['Déclarations des dirigeants : France (AMF), Belgique (FSMA), Pays-Bas (AFM) ; Allemagne (BaFin), Espagne (CNMV), Italie (Consob) via Insider Screener si configuré', 'Cours quotidiens sur 2 ans et divisions d\'actions (Yahoo Finance)', 'Résultats : BPA publié et consensus (Yahoo Finance)', 'Communiqués des émetteurs : rachats d\'actions, perspectives relevées ou abaissées', 'Révisions des analystes sur 30 jours', 'CAC 40 comme indice de référence']) +
-      col('Calculé', ['Fenêtre glissante de 3 mois calendaires', 'Clusters de dirigeants indépendants', 'Comparaisons de prix à l\'achat et aujourd\'hui', 'Univers, score, qualité, surchauffe', 'Décision d\'alerte sans doublon', 'Étude d\'événements']) +
-      col('Non couvert', ['Allemagne, Espagne, Italie : seulement si l\'API Insider Screener est configurée (voir Sources)', 'Consensus de chiffre d\'affaires', 'Éligibilité PEA confirmée (indiquée « à vérifier »)', 'Tonalité des actualités, recherches Google']) +
-      col('Limites', ['Score non probabiliste : aide à l\'analyse', 'Aucun ordre de bourse', 'Données publiques gratuites, sans garantie de complétude', 'Rachats et perspectives lus dans les titres : un titre ambigu n\'est pas compté', 'Domiciliation déduite du préfixe ISIN']) +
-      '</div></section><section class="card"><h3>En cas de souci</h3><ul class="plain"><li>Onglet Sources : une source « En échec » ou « En retard » bloque les alertes au lieu de laisser croire qu\'il n\'y a eu aucune opération.</li><li>Sur GitHub, onglet Actions : chaque exécution du soir est listée ; une croix rouge signale un problème, le détail est dans le journal.</li><li>Pour modifier un seuil : fichier euro_signal/config.json du dépôt.</li></ul></section>';
+  function baremeTable() {
+    var W = S.cfg.weights, L = {
+      insiders: [['anyBuy', 'Achat de dirigeant (au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ')'], ['amountBig', 'Montant cumulé ≥ ' + ES.fmtEur(S.cfg.insiders.bigAmountEur)], ['cluster', 'Cluster : ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants ou plus en ' + S.cfg.insiders.clusterWindowDays + ' jours'], ['pair', '2 dirigeants en ' + S.cfg.insiders.clusterWindowDays + ' jours'], ['coordinatedCluster', 'Programme collectif probable'], ['ceoCfo', 'Achat du DG ou du DAF'], ['repeat', 'Achats répétés'], ['discountBig', 'Décote ≥ ' + W.insiders.discountBigPct + ' % sous le plus haut 52 semaines'], ['discountMedium', 'Décote ≥ ' + W.insiders.discountMediumPct + ' %'], ['panicBuy', 'Achat pendant une vente panique'], ['netSeller', 'Dirigeants vendeurs nets'], ['ceoCfoSale', 'Vente du DG ou du DAF']],
+      buyback: [['announced', 'Programme de rachat annoncé'], ['executing', 'Rachats exécutés'], ['largeSize', 'Rachat ≥ ' + W.buyback.largeSizePct + ' % du capital'], ['suspended', 'Programme suspendu']],
+      results: [['epsStrong', 'BPA nettement au-dessus du consensus'], ['epsMild', 'BPA au-dessus du consensus'], ['epsMiss', 'BPA sous le consensus'], ['revStrong', 'Chiffre d\'affaires nettement au-dessus'], ['revMild', 'Chiffre d\'affaires au-dessus'], ['guidanceRaised', 'Perspectives relevées'], ['guidanceLowered', 'Perspectives abaissées']],
+      market: [['trend', 'Tendance de fond haussière (MM50 > MM200)'], ['goldenCrossAfterBuy', 'Croisement haussier après l\'achat'], ['relStrength', 'Plus fort que le marché européen sur 6 mois'], ['volume', 'Volumes en hausse'], ['liquidity', 'Titre très liquide']]
+    }, N = { insiders: 'Initiés', buyback: 'Rachats d\'actions', results: 'Résultats', market: 'Marché' };
+    return '<div class="tablewrap"><table class="grid small"><tbody>' + Object.keys(L).map(function (k) {
+      return '<tr class="sub"><th>' + N[k] + '</th><th class="num">plafond ' + W[k].cap + '</th></tr>' + L[k].filter(function (x) { return W[k][x[0]] != null; }).map(function (x) { var v = W[k][x[0]]; return '<tr><td>' + esc(x[1]) + '</td><td class="num ' + (v > 0 ? 'pos' : v < 0 ? 'neg' : '') + '">' + (v > 0 ? '+' : '') + v + '</td></tr>'; }).join('');
+    }).join('') + '</tbody></table></div>';
   }
   function step(t, d) { return '<li><b>' + t + '</b><p>' + d + '</p></li>'; }
   function col(t, items) { return '<div><h4>' + t + '</h4><ul class="plain">' + items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>'; }
 
   /* =========================== Actions =========================== */
-  function sendAlert(isin, force) {
-    var c = S.computed[isin]; if (!c) return Promise.resolve();
-    var a = S.cfg.alerts, mail = buildMail(isin), now = nowStamp();
-    var simulate = S.mode === 'demo' || !a.enabled || a.mode === 'simulation';
-    var rec = { id: isin + '-' + c.dec.fingerprint + (force ? '-m' + Date.now() : '') + (simulate ? '-sim' + Date.now() : ''), isin: isin, name: S.inst[isin].name, createdAt: now, mode: simulate ? 'simulation' : a.mode, subject: mail.subject, score: c.score.total, version: S.cfg.scoringVersion, eventIds: c.dec.eventIds, recipient: simulate ? null : a.recipient, forced: !!force };
-    if (simulate) { rec.status = 'simulee'; return saveAlert(rec).then(function () { notify('Alerte simulée : rien n\'a été envoyé. Aperçu dans la fiche.', 'good'); }); }
-    if (!a.recipient) { notify('Saisissez d\'abord le destinataire dans l\'onglet Alertes.', 'warn'); return Promise.resolve(); }
-    if (!S.mcp) { notify('Connecteur Gmail inaccessible dans cette vue.', 'bad'); return Promise.resolve(); }
-    rec.status = 'en_cours';
-    return saveAlert(rec).then(function () { // journal écrit AVANT l'appel : un plantage laisse un statut « en cours » visible
-      var tool = a.mode === 'brouillon' ? 'create_draft' : 'send_message';
-      return S.mcp.callTool('Gmail', tool, { to: [a.recipient], subject: mail.subject, body: mail.text, htmlBody: mail.html });
-    }).then(function (r) {
-      rec.status = a.mode === 'brouillon' ? 'brouillon' : 'envoyee';
-      var pl = r && r.payload; rec.messageId = pl && (pl.id || (pl.message && pl.message.id)) || null; rec.doneAt = nowStamp();
-      return saveAlert(rec).then(function () { notify(rec.status === 'brouillon' ? 'Brouillon créé dans Gmail.' : 'Email envoyé.', 'good'); });
-    }).catch(function (e) {
-      var code = e && e.code, sure = ['tool_error', 'needs_reauth', 'server_not_connected', 'not_in_manifest', 'blocked_by_policy', 'selection_required', 'bad_request', 'not_granted', 'capability_disabled', 'capability_removed', 'approval_required', 'consent_required', 'transform_error'];
-      rec.status = sure.indexOf(code) > -1 ? 'echec' : 'incertain';
-      rec.error = gmailError(code) + (e && e.message ? ' (' + e.message + ')' : '');
-      rec.doneAt = nowStamp();
-      return saveAlert(rec).then(function () { notify(rec.status === 'echec' ? rec.error : 'Envoi non confirmé : vérifiez votre dossier Envoyés avant de renvoyer.', rec.status === 'echec' ? 'bad' : 'warn'); });
-    });
-  }
-  function gmailError(code) {
-    return ({ needs_reauth: 'Reconnectez Gmail dans claude.ai › Paramètres › Connecteurs', server_not_connected: 'Ajoutez le connecteur Gmail dans claude.ai › Paramètres › Connecteurs', selection_required: 'Plusieurs connexions Gmail : choisissez-en une', not_in_manifest: 'Gmail n\'est pas autorisé pour cette page (menu Autorisations de la page)', blocked_by_policy: 'Envoi bloqué par la politique de votre organisation', approval_required: 'Approbation requise : relancez l\'envoi et acceptez la demande', tool_error: 'Gmail a refusé l\'envoi', server_unavailable: 'Gmail ne répond pas', cancelled: 'Envoi interrompu' })[code] || 'Erreur ' + (code || 'inconnue');
-  }
-
   document.addEventListener('click', function (ev) {
     var el = ev.target.closest('[data-a]'); if (!el) return;
     var a = el.dataset.a, i = el.dataset.i;
-    if (a === 'file' || a === 'restoreFile') return;
     if (el.tagName === 'A') return;
     ev.preventDefault();
     if (a === 'view') { S.view = el.dataset.v; S.limit = 200; if (location.hash) history.replaceState(null, '', location.pathname + location.search); render(); window.scrollTo(0, 0); }
-    else if (a === 'open') { S.sel = i; S.view = 'fiche'; S.editInst = null; try { history.replaceState(null, '', '#' + i); } catch (e) { } render(); window.scrollTo(0, 0); }
+    else if (a === 'open') { S.sel = i; S.view = 'fiche'; try { history.replaceState(null, '', '#' + i); } catch (e) { } render(); window.scrollTo(0, 0); }
     else if (a === 'more') { S.limit += 200; render(); }
     else if (a === 'quick') { S.filters.quick = el.dataset.v; S.limit = 200; render(); }
     else if (a === 'posBuy' || a === 'posSell') posMail(i, a === 'posBuy' ? 'buy' : 'sell');
-    else if (a === 'reload') { if (S.mode === 'db') loadAll(); else { computeAll(); render(); } }
-    else if (a === 'leaveDemo') leaveDemo();
-    else if (a === 'demo') startDemo(S.db ? null : 'Stockage indisponible.', !!S.db);
     else if (a === 'uni') { S.uniFilter = el.dataset.v; render(); }
-    else if (a === 'editInst') { S.editInst = i; render(); }
-    else if (a === 'cancelEdit') { S.editInst = null; render(); }
-    else if (a === 'toggleBb' || a === 'toggleRes') {
-      var key = a === 'toggleBb' ? 'buybacks' : 'results', list = S.ev[i][key], it = list.filter(function (x) { return x.id === el.dataset.id; })[0];
-      if (!it) return;
-      if (key === 'buybacks') it.confirmed = !it.confirmed; else it.comparable = it.comparable === true ? null : true;
-      saveEv(i).then(function () { computeOne(i); render(); });
-    } else if (a === 'delEv') {
-      var k2 = el.dataset.kind; S.ev[i][k2] = S.ev[i][k2].filter(function (x) { return x.id !== el.dataset.id; });
-      saveEv(i).then(function () { return k2 === 'splits' ? restat(i) : null; }).then(function () { computeOne(i); render(); });
-    } else if (a === 'sendOne') { el.disabled = true; sendAlert(i, el.dataset.force === '1').then(function () { computeOne(i); render(); }); }
-    else if (a === 'sendAll') {
-      el.disabled = true;
-      var ready = Object.keys(S.computed).filter(function (x) { return S.computed[x].dec.send; });
-      ready.reduce(function (p, x) { return p.then(function () { busy('Alertes : ' + x); return sendAlert(x); }); }, Promise.resolve()).then(function () { computeAll(); idle(); render(); });
-    } else if (a === 'copyMail') {
-      var txt = buildMail(i).text;
-      Promise.resolve().then(function () { return navigator.clipboard.writeText(txt); }).then(function () { notify('Texte copié.', 'good'); }).catch(function () { notify('Copie refusée par le navigateur : sélectionnez le texte de l\'aperçu.', 'warn'); });
-    } else if (a === 'resolveAlert') {
-      var al = S.alerts[el.dataset.id]; if (!al) return;
-      al.status = el.dataset.v; delete al.displayStatus; al.resolvedAt = nowStamp(); al.resolvedBy = 'utilisateur';
-      saveAlert(al).then(function () { computeAll(); render(); });
-    } else if (a === 'testMail') {
-      var cfgA = S.cfg.alerts;
-      if (!cfgA.recipient) { notify('Saisissez et enregistrez d\'abord le destinataire.', 'warn'); return; }
-      if (!S.mcp) { notify('Connecteur Gmail inaccessible dans cette vue.', 'bad'); return; }
-      var tool = cfgA.mode === 'envoi' ? 'send_message' : 'create_draft';
-      el.disabled = true;
-      S.mcp.callTool('Gmail', tool, { to: [cfgA.recipient], subject: '[Euro Signal] Email de test', body: 'Ceci est un email de test envoyé depuis Euro Signal le ' + S.today + '. Aucune alerte n\'est contenue dans ce message.' })
-        .then(function () { notify(tool === 'send_message' ? 'Email de test envoyé.' : 'Brouillon de test créé dans Gmail (le mode Envoi réel enverrait directement).', 'good'); })
-        .catch(function (e) { notify(gmailError(e && e.code), 'bad'); })
-        .then(function () { el.disabled = false; });
-    } else if (a === 'parse') {
-      var m = S.imp; m.text = $('#i-text').value && $('#i-text').value.length ? $('#i-text').value : m.text;
-      if (!m.text.trim()) { notify('Choisissez un fichier ou collez son contenu.', 'warn'); return; }
-      if (m.kind === 'amfjson') {
-        try {
-          var dj = JSON.parse(m.text.replace(/\b(-?Infinity|NaN)\b/g, 'null'));
-          if (!dj || !Array.isArray(dj.transactions)) throw new Error('champ « transactions » absent');
-          m.parsed = { headers: [], rows: dj.transactions, delimiter: 'json', truncated: false, generatedAt: dj.generated_at || null }; m.map = {}; m.warnings = [];
-        } catch (e) { notify('Fichier du collecteur illisible : ' + e.message, 'bad'); m.parsed = null; }
-        render(); return;
-      }
-      try {
-        m.parsed = ES.parseTable(m.text);
-        if (!m.parsed.rows.length) { notify('Aucune ligne de données trouvée.', 'warn'); m.parsed = null; render(); return; }
-        var kindMap = m.kind === 'prices' ? 'price' : m.kind === 'instruments' ? 'instrument' : m.kind === 'buybacks' ? 'buyback' : m.kind === 'splits' ? 'split' : m.kind;
-        var am = ES.autoMap(kindMap, m.parsed.headers); m.map = am.map; m.warnings = am.warnings;
-      } catch (e) { notify('Fichier illisible : ' + e.message, 'bad'); m.parsed = null; }
-      render();
-    } else if (a === 'template') {
-      var tpl = TEMPLATES[S.imp.kind], name = 'modele-' + S.imp.kind + '.csv';
-      offerFile(name, tpl, '#main');
-    } else if (a === 'commit') commitImport();
-    else if (a === 'srcNothing') markSource(S.imp.registry, 'ok');
-    else if (a === 'srcOk') markSource(el.dataset.n, 'ok');
-    else if (a === 'srcFail') markSource(el.dataset.n, 'echec');
-    else if (a === 'saveCfg') {
-      var txt2 = $('#cfg-json').value, nc;
-      try { nc = ES.mergeConfig(ES.DEFAULT_CONFIG, JSON.parse(txt2)); } catch (e) { notify('JSON invalide : ' + e.message, 'bad'); return; }
-      var errs = ES.validateConfig(nc);
-      if (JSON.stringify(nc.weights) !== JSON.stringify(S.cfg.weights) && nc.scoringVersion === S.cfg.scoringVersion) errs.push('le barème a changé : modifiez scoringVersion (par exemple ' + bumpVersion(S.cfg.scoringVersion) + ')');
-      if (errs.length) { notify('Configuration refusée : ' + errs.join(' ; '), 'bad'); return; }
-      S.cfg = nc; saveConfig().then(function () { computeAll(); render(); notify('Configuration enregistrée.', 'good'); });
-    } else if (a === 'resetCfg') {
-      var keep = S.cfg.alerts; S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, { alerts: keep });
-      saveConfig().then(function () { computeAll(); render(); notify('Valeurs par défaut rétablies (réglages d\'alerte conservés).', 'good'); });
-    } else if (a === 'exportAll') exportAll();
-    else if (a === 'doRestore') doRestore();
-    else if (a === 'cancelRestore') { S.restore = null; render(); }
-    else if (a === 'restatAll') {
-      var ks = Object.keys(S.inst);
-      busy('Recalcul…');
-      pool(ks, 4, restat, function (d, n) { busy('Recalcul : ' + d + '/' + n); }).then(function () { computeAll(); idle(); render(); notify('Statistiques recalculées.', 'good'); });
-    }
   });
-  function bumpVersion(v) { var p = String(v).split('.'); p[1] = String((+p[1] || 0) + 1); p[2] = '0'; return p.join('.'); }
-  function markSource(name, status) {
-    var s = S.src[name] || { name: name, log: [], countries: [] };
-    var reg = REGISTRIES.filter(function (r) { return r.name === name; })[0] || {};
-    s.lastAttempt = S.today; s.status = status;
-    if (status === 'ok') { s.lastSuccess = S.today; if (reg.country) s.countries = [reg.country]; s.note = null; s.log = [{ at: nowStamp(), accepted: 0, rejected: 0, added: 0, note: 'collecte réussie sans opération' }].concat(s.log || []).slice(0, 15); }
-    else { s.note = 'Échec signalé le ' + S.today; s.log = [{ at: nowStamp(), accepted: 0, rejected: 0, note: 'échec signalé' }].concat(s.log || []).slice(0, 15); }
-    if (status === 'ok' && !reg.country && !(s.countries || []).length) notify('Indiquez dans un import les pays couverts par ' + name + ' pour qu\'ils comptent comme couverture.', 'warn');
-    S.src[name] = s;
-    saveSource(name).then(function () { computeAll(); render(); notify(status === 'ok' ? name + ' : collecte enregistrée.' : name + ' : échec enregistré, alertes des pays concernés bloquées.', status === 'ok' ? 'good' : 'warn'); });
-  }
-  function offerFile(name, content, where) {
-    if (S.dl) {
-      S.dl.save({ filename: name, data: content }).then(function () { notify('Fichier proposé au téléchargement.', 'good'); }).catch(function (e) { if (e && e.code !== 'declined') showText(name, content); });
-    } else showText(name, content);
-  }
-  function showText(name, content) {
-    var box = document.getElementById('exportbox') || document.getElementById('main');
-    var div = document.createElement('div'); div.className = 'card';
-    div.innerHTML = '<h3>' + esc(name) + '</h3><p class="foot">Téléchargement indisponible dans cette vue : copiez ce contenu dans un fichier texte portant ce nom.</p><textarea class="code" rows="8" readonly id="exporttext">' + esc(content.length > 2e6 ? content.slice(0, 2e6) + '\n…(tronqué : utilisez la page dans claude.ai pour un export complet)' : content) + '</textarea>';
-    box.prepend(div);
-  }
-  function exportAll() {
-    var ks = Object.keys(S.inst);
-    busy('Préparation de la sauvegarde…');
-    pool(ks.filter(function (i) { return !S.prices[i]; }), 4, loadPrices, function (d, n) { busy('Sauvegarde : cours ' + d + '/' + n); }).then(function () {
-      var prices = {}; ks.forEach(function (i) { if (S.prices[i] && S.prices[i].rows && S.prices[i].rows.length) prices[i] = S.prices[i]; });
-      var dump = { format: 'euro-signal-backup', formatVersion: 1, engine: ES.ENGINE_VERSION, exportedAt: nowStamp(), config: S.cfg, instruments: S.inst, transactions: S.tx, events: S.ev, prices: prices, sources: S.src, alerts: S.alerts };
-      idle();
-      offerFile('euro-signal-sauvegarde-' + S.today + '.json', JSON.stringify(dump));
-    });
-  }
-  function doRestore() {
-    var d = S.restore; if (!d) return;
-    ensureWritable();
-    S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, d.config || {});
-    Object.assign(S.inst, d.instruments || {}); Object.assign(S.tx, d.transactions || {}); Object.assign(S.ev, d.events || {}); Object.assign(S.prices, d.prices || {}); Object.assign(S.src, d.sources || {}); Object.assign(S.alerts, d.alerts || {});
-    var jobs = [function () { return saveConfig(); }];
-    Object.keys(d.instruments || {}).forEach(function (i) { jobs.push(function () { return saveInst(S.inst[i]); }); });
-    Object.keys(d.transactions || {}).forEach(function (i) { jobs.push(function () { return saveTx(i); }); });
-    Object.keys(d.events || {}).forEach(function (i) { jobs.push(function () { return saveEv(i); }); });
-    Object.keys(d.prices || {}).forEach(function (i) { jobs.push(function () { return savePrices(i); }); });
-    Object.keys(d.sources || {}).forEach(function (n) { jobs.push(function () { return saveSource(n); }); });
-    Object.keys(d.alerts || {}).forEach(function (n) { jobs.push(function () { return saveAlert(S.alerts[n]); }); });
-    S.restore = null; busy('Restauration…');
-    pool(jobs, 4, function (j) { return j(); }, function (k, n) { busy('Restauration : ' + k + '/' + n); }).then(function () { return refreshRefs(); }).then(function () { idle(); render(); notify('Restauration terminée.', 'good'); });
-  }
-
   document.addEventListener('change', function (ev) {
     var t = ev.target;
     if (t.dataset.f) { S.filters[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; S.limit = 200; render(); return; }
-    if (t.dataset.tf) { S.txFilter[t.dataset.tf] = t.value; render(); return; }
-    if (t.dataset.imp) {
-      S.imp[t.dataset.imp] = t.value;
-      if (t.dataset.imp === 'kind') { S.imp.parsed = null; S.imp.map = {}; S.imp.target = ''; }
-      if (t.dataset.imp === 'registry' && S.imp.parsed) S.imp.warnings = S.imp.warnings || [];
-      if (t.dataset.imp !== 'text') render(); return;
-    }
-    if (t.dataset.ctry) { var c = t.dataset.ctry, l = S.imp.countries; if (t.checked && l.indexOf(c) < 0) l.push(c); if (!t.checked) S.imp.countries = l.filter(function (x) { return x !== c; }); return; }
-    if (t.dataset.map) { S.imp.map[t.dataset.map] = t.value || undefined; if (!t.value) delete S.imp.map[t.dataset.map]; render(); return; }
-    if (t.id === 'i-file' && t.files && t.files[0]) readFile(t.files[0]);
-    if (t.id === 'restore-file' && t.files && t.files[0]) {
-      t.files[0].text().then(function (txt) {
-        var d = JSON.parse(txt);
-        if (d.format !== 'euro-signal-backup') throw new Error('ce fichier n\'est pas une sauvegarde Euro Signal');
-        S.restore = d; render();
-      }).catch(function (e) { notify('Sauvegarde illisible : ' + e.message, 'bad'); });
-    }
+    if (t.dataset.tf) { S.txFilter[t.dataset.tf] = t.value; render(); }
   });
   document.addEventListener('input', function (ev) {
     var t = ev.target;
     if (t.dataset.f === 'q') { S.filters.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#f-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); }
-    if (t.dataset.imp === 'text') S.imp.text = t.value;
   });
   document.addEventListener('keydown', function (ev) {
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList && ev.target.classList.contains('rowlink')) { ev.preventDefault(); ev.target.click(); }
   });
-  function readFile(f) {
-    f.text().then(function (txt) { S.imp.text = txt; S.imp.fileName = f.name; S.imp.parsed = null; render(); notify('Fichier « ' + f.name + ' » chargé : cliquez sur Analyser.', 'good'); }).catch(function () { notify('Lecture du fichier impossible.', 'bad'); });
-  }
-  document.addEventListener('dragover', function (e) { if (e.target.closest && e.target.closest('#drop')) { e.preventDefault(); e.target.closest('#drop').classList.add('over'); } });
-  document.addEventListener('dragleave', function (e) { var d = e.target.closest && e.target.closest('#drop'); if (d) d.classList.remove('over'); });
-  document.addEventListener('drop', function (e) { var d = e.target.closest && e.target.closest('#drop'); if (!d) return; e.preventDefault(); d.classList.remove('over'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
-
-  document.addEventListener('submit', function (ev) {
-    var f = ev.target, kind = f.dataset.form; if (!kind) return;
-    ev.preventDefault();
-    var fd = {}; Array.prototype.forEach.call(f.elements, function (e) { if (e.name) fd[e.name] = e.type === 'checkbox' ? e.checked : e.value; });
-    var i = f.dataset.i;
-    if (kind === 'inst') {
-      var x = S.inst[i];
-      if (fd.peaStatus !== 'a_verifier' && (!fd.peaSource.trim() || !fd.peaDate)) { notify('Un statut PEA confirmé exige une source et une date.', 'bad'); return; }
-      ['name', 'ticker', 'venue', 'sector', 'shareType'].forEach(function (k) { x[k] = fd[k].trim() || null; });
-      x.country = fd.country || null; x.currency = fd.currency.trim().toUpperCase() || null; x.isReference = fd.isReference === 'true';
-      x.shortPct = fd.shortPct.trim() ? ES.parseNumber(fd.shortPct) : null;
-      x.peaStatus = fd.peaStatus; x.peaSource = fd.peaSource.trim() || null; x.peaDate = fd.peaDate || null;
-      S.editInst = null; ensureWritable();
-      saveInst(x).then(function () { computeOne(i); render(); notify('Fiche enregistrée.', 'good'); });
-    } else if (kind === 'bb') {
-      var bb = { id: 'bb' + ES.hash(i + fd.stage + fd.date + Date.now()), stage: fd.stage, date: fd.date, amount: ES.parseNumber(fd.amount), pctCapital: ES.parseNumber(fd.pctCapital), sourceUrl: fd.sourceUrl || null, note: fd.note || null, confirmed: !!fd.confirmed };
-      if (!ES.parseDate(bb.date) || bb.date > S.today) { notify('Date invalide.', 'bad'); return; }
-      var e1 = S.ev[i] || (S.ev[i] = { buybacks: [], results: [], splits: [] }); e1.buybacks.push(bb);
-      saveEv(i).then(function () { computeOne(i); render(); });
-    } else if (kind === 'res') {
-      var r = { id: 'res' + ES.hash(i + fd.pubDate + Date.now()), pubDate: fd.pubDate, period: fd.period || null, epsActual: ES.parseNumber(fd.epsActual), epsConsensus: ES.parseNumber(fd.epsConsensus), revActual: ES.parseNumber(fd.revActual), revConsensus: ES.parseNumber(fd.revConsensus), consensusDate: fd.consensusDate || null, guidance: fd.guidance || null, comparable: fd.comparable ? true : null, sourceUrl: fd.sourceUrl || null };
-      if (!ES.parseDate(r.pubDate) || r.pubDate > S.today) { notify('Date de publication invalide.', 'bad'); return; }
-      if (r.consensusDate && r.consensusDate >= r.pubDate) notify('Consensus postérieur à la publication : il ne sera pas utilisé.', 'warn');
-      var e2 = S.ev[i] || (S.ev[i] = { buybacks: [], results: [], splits: [] }); e2.results.push(r);
-      saveEv(i).then(function () { computeOne(i); render(); });
-    } else if (kind === 'split') {
-      var ratio = ES.parseNumber(fd.ratio);
-      if (!(ratio > 0) || !ES.parseDate(fd.date)) { notify('Date ou parité invalide.', 'bad'); return; }
-      var e3 = S.ev[i] || (S.ev[i] = { buybacks: [], results: [], splits: [] }); e3.splits = (e3.splits || []).concat([{ id: 'sp' + ES.hash(i + fd.date + ratio), date: fd.date, ratio: ratio }]);
-      saveEv(i).then(function () { return restat(i); }).then(function () { computeOne(i); render(); notify('Opération enregistrée ; cours et comparaisons ajustés.', 'good'); });
-    } else if (kind === 'mail') {
-      var na = Object.assign({}, S.cfg.alerts, { mode: fd.mode, recipient: fd.recipient.trim(), enabled: !!fd.enabled });
-      if (na.recipient && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(na.recipient)) { notify('Adresse email invalide.', 'bad'); return; }
-      if (na.enabled && na.mode !== 'simulation' && !na.recipient) { notify('Indiquez un destinataire avant d\'activer Gmail.', 'bad'); return; }
-      S.cfg.alerts = na; saveConfig().then(function () { render(); notify(na.enabled && na.mode === 'envoi' ? 'Envoi réel activé vers ' + na.recipient + '.' : 'Réglages des alertes enregistrés.', 'good'); });
-    } else if (kind === 'bt') runBacktest(fd);
-  });
-
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 

@@ -80,7 +80,7 @@ Ce que fait Euro Signal avec la clé, chaque soir :
 - **Garde-fou** : jamais plus de 900 crédits par mois. Si ce plafond est atteint, les pays concernés passent
   « partiels » et leurs alertes sont bloquées jusqu'au mois suivant, sans fausse conclusion « aucun achat ».
 
-Sans ce secret, ces trois pays apparaissent « Non configurés » dans l'onglet Sources. Pour arrêter : supprime
+Sans ce secret, ces trois pays apparaissent « Non configurés » dans l'onglet Comment ça marche, rubrique État des données. Pour arrêter : supprime
 le secret, puis résilie l'abonnement.
 
 ## Étape 4 — Premier lancement avec email de test (10 min d'attente)
@@ -96,6 +96,24 @@ le secret, puis résilie l'abonnement.
    l'écran d'accueil depuis le menu du navigateur.
 
 C'est terminé. Ensuite, tout tourne seul du lundi au vendredi à 18 h UTC (19 h ou 20 h à Paris).
+
+## Le tableau de bord en 4 onglets
+
+- **Opportunités** : les sociétés où un dirigeant a acheté, classées par décote (prix payé par rapport au plus haut
+  des 52 semaines). Touchez une ligne pour la fiche complète (graphique, déclarations, conseil d'achat et de revente).
+- **Achats des dirigeants** : toutes les déclarations des 3 derniers mois.
+- **Alertes et suivi** : les emails envoyés et leur évolution depuis l'envoi.
+- **Comment ça marche** : la méthode en 5 étapes, puis, repliés, le barème du score, l'état des sources,
+  les résultats passés (auto-apprentissage) et la liste des titres suivis.
+
+La page s'ouvre vite, même sur téléphone : le classement se charge d'abord, le détail des fiches (cours et
+déclarations complètes) seulement quand vous en ouvrez une.
+
+## Seuil des achats significatifs
+
+Seuls comptent les achats d'au moins **100 000 €** par dirigeant (cumulés sur 14 jours). Les petits achats
+symboliques sont ignorés dans le score, le classement et les alertes. Pour changer :
+`"minBuyerEur": 100000` dans `euro_signal/config.json`, rubrique `insiders`.
 
 ---
 
@@ -116,7 +134,7 @@ risques.
 
 ## Après l'alerte : suivi et signaux de sortie
 
-Chaque alerte envoyée est suivie pendant un an (onglet Alertes) : évolution depuis l'envoi, comparaison au CAC 40.
+Chaque alerte envoyée est suivie pendant un an (onglet Alertes et suivi) : évolution depuis l'envoi, comparaison au CAC 40.
 Un email « Signal de sortie » part une seule fois par signal si un dirigeant vend, si la MM50 repasse sous la MM200,
 si le cours tombe plus de 10 % sous le prix payé par les dirigeants ou s'il recule de 20 % depuis son plus haut.
 Ce ne sont pas des ordres de vente.
@@ -133,10 +151,10 @@ Le bouton « Je l'ai vendu » arrête le suivi. Vos positions ne sont jamais éc
 
 ## L'outil apprend de ses résultats
 
-Chaque mois, Euro Signal compare chaque composante du score (décote, panique, DG, cluster, tendance, force relative)
+Chaque mois, Euro Signal compare chaque composante du score (décote, panique, DG, cluster, tendance MM50 > MM200, force relative)
 aux résultats réels, 60 séances après chaque achat de dirigeant. Un poids ne bouge que d'un point par mois, seulement si
 l'écart est net sur au moins 60 cas, et reste entre 0 et 2 fois sa valeur d'origine. Chaque ajustement est annoncé par email
-et visible dans l'onglet Résultats passés. Pour désactiver : `"learning": {"mode": "off"}` dans `euro_signal/config.json`.
+et visible dans l'onglet Comment ça marche, rubrique Résultats passés. Pour désactiver : `"learning": {"mode": "off"}` dans `euro_signal/config.json`.
 
 ## Ce que l'outil ne fait pas (à savoir)
 
@@ -149,7 +167,7 @@ et visible dans l'onglet Résultats passés. Pour désactiver : `"learning": {"m
   pas de consensus de chiffre d'affaires, et beaucoup de petites capitalisations n'ont pas de consensus du tout.
 - **Éligibilité PEA** : jamais devinée. Elle est indiquée « à vérifier » dans chaque email ;
   vérifie-la avant d'acheter.
-- **Le score n'est pas une probabilité de hausse** et aucun ordre n'est passé. L'onglet Validation
+- **Le score n'est pas une probabilité de hausse** et aucun ordre n'est passé. La rubrique Résultats passés (onglet Comment ça marche)
   mesure, au fil des mois, ce qu'ont donné les achats passés ; les premiers mois, les effectifs sont
   trop faibles pour conclure.
 - **Données publiques** : le tableau de bord est visible par toute personne qui connaît l'adresse,
@@ -162,7 +180,7 @@ construit. Leurs collecteurs s'adaptent aux colonnes trouvées et déposent un c
 `data/diagnostics/` (fichiers `fsma.json` et `afm.json`). Il en va de même pour `insiderscreener.json` si l'API est configurée. Après le premier lancement,
 demande à Claude de « vérifier les diagnostics Euro Signal » : le dépôt étant public, il peut les lire et ajuster les
 collecteurs si un format diffère. En attendant, une source mal lue apparaît « partielle » ou
-« en échec » dans l'onglet Sources, et ses alertes restent bloquées.
+« en échec » dans l'onglet Comment ça marche, rubrique État des données, et ses alertes restent bloquées.
 
 ## Modifier un réglage
 
@@ -176,7 +194,7 @@ Exemples : `"minScore": 60` (seuil d'alerte) ou `"minAdv20Eur": 1000000` (liquid
 |---|---|
 | Croix rouge dans Actions | Clique dessus puis sur l'étape en rouge : le journal explique l'erreur. |
 | Pas d'email de test | Vérifie les 3 secrets (noms exacts) et le code à 16 lettres ; recrée-le si besoin. |
-| Onglet Sources : AMF « En échec » | Le site source n'a pas répondu. Les alertes sont bloquées, sans fausse conclusion « aucun achat ». Ça repart au prochain soir. |
+| État des données : AMF « En échec » | Le site source n'a pas répondu. Les alertes sont bloquées, sans fausse conclusion « aucun achat ». Ça repart au prochain soir. |
 | Un titre « sans ticker Yahoo » | Ajoute la correspondance ISIN → ticker dans `ISIN_TO_TICKER` de `run.py` (ex. `"FR0000062234": "ODET.PA"`). |
 | Alerte « Statut incertain » | Gmail a peut-être accepté le message avant une coupure. Elle n'est jamais renvoyée : regarde ton dossier Envoyés. |
 | Étape « 2b » : `clé absente` | Le secret `INSIDERSCREENER_API_KEY` n'est pas lu : vérifie son nom exact, puis relance. |

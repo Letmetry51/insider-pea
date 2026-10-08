@@ -12,7 +12,7 @@ function ok(v, m) { if (!v) throw new Error(m || 'condition fausse'); }
 function near(a, b, eps, m) { if (Math.abs(a - b) > (eps || 1e-6)) throw new Error((m || '') + ' attendu ≈' + b + ', obtenu ' + a); }
 
 const TODAY = '2026-10-07';
-const cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+const cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
 
 /* ---------- Dates ---------- */
 t('fenêtre de 3 mois calendaires (pas 90 jours)', () => {
@@ -448,7 +448,7 @@ t('Achats par une société (holding, SRL, GmbH, fondation…) exclus si exclude
 });
 
 t('Holding personnelle d\'un dirigeant comptée (cas Rheinmetall), mode strict, décote vs plus haut 52 semaines', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const atp = { type: 'achat', person: 'ATP Holding GmbH', associated: true, issuer: 'Rheinmetall AG' };
   ok(ES.isVoluntaryBuy(atp, c2), 'holding du DG comptée');
   ok(!ES.isVoluntaryBuy(atp, ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { excludeLegalEntities: 'strict' } })), 'strict : exclue');
@@ -462,7 +462,7 @@ t('Holding personnelle d\'un dirigeant comptée (cas Rheinmetall), mode strict, 
 });
 
 t('Croisement MM50 / MM200 après un achat de dirigeant', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const rows = []; let p = 100;
   for (let i = 0; i < 320; i++) { const d = ES.addDays('2025-01-01', i); p = i < 200 ? p * 0.998 : p * 1.01; rows.push([d, p, p, p, p, 1e5]); }
   const st = ES.computeStats(rows, [], rows[rows.length - 1][0], c2, 'EUR');
@@ -482,7 +482,7 @@ t('Le tableau de bord embarque exactement le moteur testé (pas de version désy
 });
 
 t('Stress test : devise, prix incohérents, liens, corrections, doublons entre registres', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const rows = []; for (let i = 0; i < 30; i++) rows.push([ES.addDays('2026-09-01', i), 250, 260, 240, 250, 1e5]);
   eq(ES.priceRefs({ txDate: '2026-09-10', price: 2.5, currency: 'GBP' }, rows, [], '2026-10-01', 'GBp').paidAdj, 250, 'GBP payé vs GBp coté');
   ok(!ES.priceRefs({ txDate: '2026-09-10', price: 2.5, currency: 'EUR' }, rows, [], '2026-10-01', 'GBp').available, 'EUR vs GBp : comparaison refusée');
@@ -509,11 +509,11 @@ t('Stress test : devise, prix incohérents, liens, corrections, doublons entre r
 });
 
 t('Force relative 6 mois et tendance du marché européen', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2026-09-20', pubDate: '2026-09-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 250, amount: 20000, currency: 'EUR' }];
   const st = { sessions: 300, sma50: 90, sma200: 85, lastCloseAdj: 95, rel6m: 14, marketAbove200: false };
   const sc = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx, events: {}, refs: {}, cfg: c2, today: '2026-10-07' });
-  ok(sc.families.market.items.some((x) => /plus fort que le marché/.test(x.label) && x.points === 3));
+  ok(sc.families.market.items.some((x) => /plus fort que le marché/.test(x.label) && x.points === c2.weights.market.relStrength));
   ok(sc.marketDown && sc.families.market.items.some((x) => /marché européen sous sa moyenne/.test(x.label) && x.points === 0));
   const rows = []; let p = 100; for (let i = 0; i < 200; i++) { p *= 1.002; rows.push([ES.addDays('2026-01-01', i), p, p, p, p, 1e5]); }
   const s2 = ES.computeStats(rows, [], rows[199][0], c2, 'EUR');
@@ -521,7 +521,7 @@ t('Force relative 6 mois et tendance du marché européen', () => {
 });
 
 t('Psychologie : achat pendant une vente panique ; argumentaire chiffré des emails', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const rows = []; let p = 100;
   for (let i = 0; i < 60; i++) { p = i < 45 ? p * 1.001 : p * 0.975; rows.push([ES.addDays('2026-07-01', i), p, p, p, p, 1e5]); }
   const r = ES.priceRefs({ txDate: rows[59][0], price: rows[59][4], currency: 'EUR' }, rows, [], rows[59][0], 'EUR');
@@ -547,13 +547,13 @@ t('Solidité financière : fragile, solide, inconnu ; alerte bloquée si fragile
   eq(ES.financialHealth({ totalDebt: 72e9, totalCash: 21e9, ebitda: 6.2e9, profitMargins: 0.02, sector: 'Consumer Cyclical', industry: 'Auto Manufacturers' }).status, 'solide', 'constructeur auto');
   eq(ES.financialHealth({ totalDebt: 9.3e6, totalCash: 21.5e6, ebitda: -18.9e6, profitMargins: 0, freeCashflow: -16.9e6 }).status, 'fragile', 'trésorerie qui s\'épuise (Circus)');
   eq(ES.financialHealth({ totalDebt: 33.8e9, totalCash: 9.5e9, ebitda: 5.77e9, profitMargins: 0.03, sector: 'Industrials', industry: 'Waste Management' }).status, 'solide', 'Veolia : 4,2 fois, normal pour le secteur');
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const d = ES.alertDecision({ inst: { isin: 'FR0000120271', fund: { totalDebt: 900, totalCash: 0, ebitda: 100 } }, score: { total: 80, independentFamilies: 3, eventFamilies: 2, contributing: [{ id: 'a', date: '2026-10-06' }], lastEventDate: '2026-10-06', ambiguousCount: 0 }, quality: { total: 90, coverage: { ok: true } }, overheat: { total: 0 }, universe: { status: 'retenu', reasons: [] }, cfg: c2, today: '2026-10-07', sentEventIds: {} });
   ok(!d.send && d.blocking.some((b) => /Solidité financière/.test(b)));
 });
 
 t('Auto-apprentissage : ajustement borné, significatif, une fois par mois', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
   const samples = [];
   for (let i = 0; i < 200; i++) samples.push({ excess: (i % 2 ? 0.08 : 0.06) + (i % 7) * 0.001, f: { panic: true, ceo: i % 3 === 0 } });
   for (let i = 0; i < 200; i++) samples.push({ excess: (i % 2 ? -0.01 : 0.01) + (i % 5) * 0.001, f: { panic: false, ceo: i % 3 === 0 } });
@@ -571,7 +571,7 @@ t('Auto-apprentissage : ajustement borné, significatif, une fois par mois', () 
 });
 
 t('Cluster regroupé, programme collectif repéré, seuil de 10 000 € par dirigeant', () => {
-  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 10000 } });
   const mk = (id, person, d, eur, extra) => Object.assign({ id, isin: 'FR0000133308', type: 'achat', txDate: d, pubDate: d, status: 'active', person, personKey: person.toLowerCase(), role: 'Membre du comité exécutif', price: 10, qty: eur / 10, amount: eur, currency: 'EUR' }, extra || {});
   const tx = [mk('a', 'Anne Durand', '2026-09-29', 20000), mk('b', 'Bruno Petit', '2026-09-29', 21000), mk('c', 'Carla Roux', '2026-09-30', 20500), mk('d', 'Denis Morel', '2026-09-30', 19800),
     mk('e', 'SCI Durand', '2026-09-30', 15000, { associated: true, linkedTo: 'Anne Durand' }), mk('f', 'Eric Blanc', '2026-09-30', 2000)];
@@ -583,6 +583,15 @@ t('Cluster regroupé, programme collectif repéré, seuil de 10 000 € par diri
   ok(sc.families.insiders.items.some((x) => /programme collectif/.test(x.label) && x.points < 0));
   const sig = ES.significantBuys([mk('g', 'Gilles Noir', '2026-09-01', 6000), mk('h', 'Gilles Noir', '2026-09-05', 6000)], c2);
   eq(sig.kept.length, 1, 'cumul sur 14 jours : le 2e achat franchit le seuil'); eq(sig.small.length, 1);
+});
+
+t('Seuil par défaut : 100 000 € investis par le dirigeant', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  eq(c.insiders.minBuyerEur, 100000);
+  const mk = (id, eur, d) => ({ id, type: 'achat', txDate: d, pubDate: d, person: 'Jean Martin', personKey: 'jm', amount: eur, currency: 'EUR', status: 'active' });
+  eq(ES.significantBuys([mk('a', 60000, '2026-09-01')], c).kept.length, 0);
+  eq(ES.significantBuys([mk('a', 60000, '2026-09-01'), mk('b', 50000, '2026-09-08')], c).kept.length, 1, 'cumul 110 k€ en 8 jours');
+  eq(ES.significantBuys([mk('a', 250000, '2026-09-01')], c).kept.length, 1);
 });
 
 console.log(results.join('\n'));

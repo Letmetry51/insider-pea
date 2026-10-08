@@ -599,16 +599,16 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.7.0',
+    scoringVersion: '2.0.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
-    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 10000 },
+    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
-      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, coordinatedCluster: -6, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
+      insiders: { cap: 40, floor: -10, anyBuy: 10, amountBig: 10, cluster: 12, pair: 5, coordinatedCluster: -6, ceoCfo: 6, repeat: 4, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
       results: { cap: 25, floor: -10, epsStrong: 8, epsMild: 4, epsStrongPct: 5, epsMildPct: 2, epsMiss: -6, revStrong: 7, revMild: 3, revStrongPct: 2, revMildPct: 0, guidanceRaised: 10, guidanceLowered: -10 },
-      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 3, relStrengthPts: 10, relWeakPts: 20 }
+      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 4, relStrengthPts: 10, relWeakPts: 20 }
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
@@ -818,7 +818,6 @@
       add(fi, buys.length + ' achat(s) volontaire(s) publiés depuis le ' + from, wi.anyBuy);
       buys.forEach(function (t) { contributing.push({ id: 'tx:' + t.id, date: ES.availDate(t), kind: 'initie', ambiguous: false }); });
       if (buyEur >= cfg.insiders.bigAmountEur) add(fi, 'montant cumulé ' + fmtEur(buyEur) + ' ≥ ' + fmtEur(cfg.insiders.bigAmountEur), wi.amountBig);
-      else if (buyEur >= cfg.insiders.mediumAmountEur) add(fi, 'montant cumulé ' + fmtEur(buyEur) + ' ≥ ' + fmtEur(cfg.insiders.mediumAmountEur), wi.amountMedium);
       if (buyUnknown) add(fi, buyUnknown + ' achat(s) au montant en euros inconnu : non comptés dans le montant', 0);
       var cl = ES.clusterInfo(buys, cfg.insiders.clusterWindowDays);
       if (cl.count >= 2) {
@@ -853,15 +852,14 @@
         var d = -a.paidVsHigh52Pct;
         if (!discount || d > discount.pct) discount = { pct: d, pos52: a.paidPos52, high52: a.ex52 && a.ex52.high, high52Date: a.ex52 && a.ex52.highDate, paid: r.paidAdj, date: t.txDate, person: t.person, ceo: t.ceo || t.cfo, amount: t.amount, currency: t.currency, id: t.id, full52: a.full52 };
       });
-      if (discount && discount.pct >= wi.discountBigPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountBig);
+      if (discount && discount.pct >= wi.discountBigPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')' + (discount.pos52 != null && discount.pos52 <= cfg.insiders.nearLowPct ? ', près du plus bas' : ''), wi.discountBig);
       else if (discount && discount.pct >= wi.discountMediumPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountMedium);
       buys.forEach(function (t) {
         var r = ctx.refs && ctx.refs[t.id], a = r && !r.outOfRange && r.atPurchase;
         if (a && ES.isPanic(a, wi) && !panic) panic = { date: t.txDate, drop10: a.drop10, rsi14: a.rsi14 };
       });
       if (panic) add(fi, 'achat pendant une vente panique (' + [panic.drop10 != null && panic.drop10 <= -wi.panicDropPct ? 'chute de ' + Math.round(-panic.drop10) + ' % en 10 séances' : null, panic.rsi14 != null && panic.rsi14 <= wi.panicRsi ? 'RSI ' + Math.round(panic.rsi14) : null].filter(Boolean).join(', ') + ', le ' + panic.date + ')', wi.panicBuy);
-      var near = buys.some(function (t) { var r = ctx.refs && ctx.refs[t.id]; return r && r.atPurchase && r.atPurchase.paidPos52 != null && r.atPurchase.paidPos52 <= cfg.insiders.nearLowPct; });
-      if (near) add(fi, 'achat dans le quart bas de l\'intervalle 52 semaines connu à la date d\'achat', wi.nearLow);
+      // « achat près du plus bas » : fusionné dans la décote (les deux mesuraient presque la même chose)
     }
     if (sells.length) {
       if (sellEur > buyEur && sellEur > 0) add(fi, 'ventes d\'initiés (' + fmtEur(sellEur) + ') supérieures aux achats', wi.netSeller);
@@ -923,14 +921,13 @@
     // --- Confirmation de marché
     var fm = F('market', 'Confirmation de marché'), wm = W.market, s = ctx.inst.stats || {};
     if (s.sessions) {
-      if (s.sma50 && s.sma200 && s.lastCloseAdj > s.sma50 && s.lastCloseAdj > s.sma200) add(fm, 'cours au-dessus des moyennes 50 et 200 séances', wm.trend);
       var firstBuy = buys.length ? buys.map(function (t) { return t.txDate; }).sort()[0] : null;
       if (s.sma50 && s.sma200 && s.sma50 > s.sma200) {
-        if (firstBuy && s.goldenCrossDate && s.goldenCrossDate >= firstBuy) add(fm, 'MM50 passée au-dessus de la MM200 le ' + s.goldenCrossDate + ', après l\'achat d\'un dirigeant (' + firstBuy + ')', wm.goldenCrossAfterBuy);
-        else add(fm, 'MM50 au-dessus de la MM200 (tendance de fond haussière)', 0);
+        add(fm, 'tendance de fond haussière (MM50 au-dessus de la MM200)', wm.trend);
+        if (firstBuy && s.goldenCrossDate && s.goldenCrossDate >= firstBuy) add(fm, 'croisement survenu le ' + s.goldenCrossDate + ', après l\'achat d\'un dirigeant (' + firstBuy + ')', wm.goldenCrossAfterBuy);
       }
       if (s.volRatio5_60 != null && s.volRatio5_60 >= wm.volumeRatio && s.ret1m > 0) add(fm, 'volumes 5 j = ' + s.volRatio5_60.toFixed(1) + '× la moyenne 60 j, en hausse', wm.volume);
-      if (s.ret3m != null && s.ret3m > 0) add(fm, 'performance 3 mois positive (' + s.ret3m.toFixed(1) + ' %, absolue, non relative au secteur)', wm.momentum);
+      // performance 3 mois : fusionnée dans la force relative 6 mois
       if (s.adv20Eur != null && s.adv20Eur >= wm.liquidityEur) add(fm, 'liquidité ' + fmtEur(s.adv20Eur) + '/jour', wm.liquidity);
       if (s.rel6m != null && isFinite(s.rel6m)) {
         if (s.rel6m >= wm.relStrengthPts) add(fm, 'plus fort que le marché européen sur 6 mois (' + (s.rel6m > 0 ? '+' : '') + s.rel6m.toFixed(0) + ' points, hors dernier mois)', wm.relStrength);
@@ -1087,9 +1084,9 @@
    */
   ES.LEARN_FEATURES = [
     ['discountBig', 'insiders', 'discountBig', 'Décote ≥ 40 %'], ['discountMedium', 'insiders', 'discountMedium', 'Décote 25 à 40 %'],
-    ['nearLow', 'insiders', 'nearLow', 'Achat près du plus bas 52 semaines'], ['panic', 'insiders', 'panicBuy', 'Achat dans la panique'],
+    ['panic', 'insiders', 'panicBuy', 'Achat dans la panique'],
     ['ceo', 'insiders', 'ceoCfo', 'Achat du DG ou du DAF'], ['cluster', 'insiders', 'cluster', 'Cluster de dirigeants'],
-    ['trend', 'market', 'trend', 'Cours au-dessus des MM50 et MM200'], ['relStrong', 'market', 'relStrength', 'Plus fort que le marché sur 6 mois']
+    ['trend', 'market', 'trend', 'Tendance de fond haussière (MM50 > MM200)'], ['relStrong', 'market', 'relStrength', 'Plus fort que le marché sur 6 mois']
   ];
   ES.calibrate = function (samples, cfg, prev, today) {
     var L = cfg.learning, month = today.slice(0, 7), base = ES.DEFAULT_CONFIG.weights;

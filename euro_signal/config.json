@@ -1,5 +1,5 @@
 {
- "scoringVersion": "1.7.0",
+ "scoringVersion": "2.0.0",
  "dashboardUrl": "https://letmetry51.github.io/insider-pea/euro-signal.html",
  "pea": {
   "strict": false
@@ -14,7 +14,7 @@
   "clusterMinBuyers": 3,
   "clusterWindowDays": 14,
   "excludeLegalEntities": "strict",
-  "minBuyerEur": 10000
+  "minBuyerEur": 100000
  },
  "universe": {
   "minAdv20Eur": 1000000,
