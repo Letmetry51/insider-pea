@@ -501,14 +501,16 @@ export function build(opts = {}) {
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };
   if (selCfg.enabled) {
-    const id = 'selection-' + week, dow = (new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1; // 1 = lundi
+    // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle
+    const resend = String(process.env.ES_RESEND_SELECTION || '').toLowerCase() === 'true';
+    const id = 'selection-' + week + (resend ? '-renvoi-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '') : ''), dow = (new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1; // 1 = lundi
     const prev = state.alerts[id];
     const done = prev && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(prev.status) > -1;
     const insBad = Object.keys(state.src).filter((n) => state.src[n].kind === 'déclarations' || /^(AMF|BaFin|CNMV|CONSOB|FSMA|AFM)$/.test(n)).filter((n) => state.src[n].status === 'echec');
     selection.sourcesDown = insBad;
     if (insBad.length && selection.verdict) selection.verdict = { key: 'na', icon: '⚠️', text: 'Données incomplètes : ' + insBad.join(', ') + ' en panne. Les sociétés concernées peuvent manquer à la sélection.' };
     const wait = insBad.length && dow < 5; // on attend que la source revienne, au plus tard le vendredi
-    if (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh) {
+    if ((resend && pFresh) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh)) {
       const since = events.length ? events.map((e) => e.date).sort()[0] : null;
       const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null), selection.track, selection.verdict);
       state.selections[week] = { date: today, items: selection.items.map((x) => ({ isin: x.isin, name: x.name, score: x.score })) };

@@ -11,6 +11,10 @@ on:
         description: "Envoyer aussi un email de test"
         type: boolean
         default: false
+      resend_selection:
+        description: "Renvoyer maintenant la sélection de la semaine (même si elle est déjà partie)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -77,6 +81,7 @@ jobs:
 
       - name: 5b. Calcul Euro Signal
         env:
+          ES_RESEND_SELECTION: ${{ github.event.inputs.resend_selection }}
           ES_MAIL_READY: ${{ secrets.GMAIL_APP_PASSWORD != '' && 'oui' || 'non' }}
         run: node euro_signal/build.mjs
 
