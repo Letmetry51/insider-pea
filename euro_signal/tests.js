@@ -508,6 +508,34 @@ t('Stress test : devise, prix incohérents, liens, corrections, doublons entre r
   ok(ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, BaFin: { status: 'ok', lastSuccess: '2026-10-01', countries: ['DE'] } }, c2, '2026-10-01').ok);
 });
 
+t('Force relative 6 mois et tendance du marché européen', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2026-09-20', pubDate: '2026-09-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 100, amount: 8000, currency: 'EUR' }];
+  const st = { sessions: 300, sma50: 90, sma200: 85, lastCloseAdj: 95, rel6m: 14, marketAbove200: false };
+  const sc = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx, events: {}, refs: {}, cfg: c2, today: '2026-10-07' });
+  ok(sc.families.market.items.some((x) => /plus fort que le marché/.test(x.label) && x.points === 3));
+  ok(sc.marketDown && sc.families.market.items.some((x) => /marché européen sous sa moyenne/.test(x.label) && x.points === 0));
+  const rows = []; let p = 100; for (let i = 0; i < 200; i++) { p *= 1.002; rows.push([ES.addDays('2026-01-01', i), p, p, p, p, 1e5]); }
+  const s2 = ES.computeStats(rows, [], rows[199][0], c2, 'EUR');
+  ok(Math.abs(s2.ret6m1 - (Math.pow(1.002, 105) - 1) * 100) < 1e-6, 'momentum 6 mois hors dernier mois');
+});
+
+t('Psychologie : achat pendant une vente panique ; argumentaire chiffré des emails', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const rows = []; let p = 100;
+  for (let i = 0; i < 60; i++) { p = i < 45 ? p * 1.001 : p * 0.975; rows.push([ES.addDays('2026-07-01', i), p, p, p, p, 1e5]); }
+  const r = ES.priceRefs({ txDate: rows[59][0], price: rows[59][4], currency: 'EUR' }, rows, [], rows[59][0], 'EUR');
+  ok(r.atPurchase.drop10 <= -15 && r.atPurchase.rsi14 < 30, 'chute et survente mesurées à la date d\'achat');
+  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: rows[59][0], pubDate: rows[59][0], status: 'active', person: 'Jean Martin', personKey: 'jm', price: rows[59][4], qty: 100, amount: 8000, currency: 'EUR' }];
+  const sc = ES.score({ inst: { isin: 'FR0000120271', stats: {} }, tx, events: {}, refs: { x: r }, cfg: c2, today: rows[59][0] });
+  ok(sc.panicBuy && sc.families.insiders.items.some((x) => /vente panique/.test(x.label) && x.points === 2));
+  const res = [{ group: 'Achat volontaire', horizon: 60, nExcess: 40, hitExcess: 55, meanExcess: 1.5 }, { group: 'Achat volontaire', horizon: 60, nExcess: 60, hitExcess: 45, meanExcess: -1 }];
+  const ra = ES.emailRationale(res, 'Achat volontaire', 60);
+  ok(/100 cas/.test(ra.text) && /49 %/.test(ra.text) && /\+0,0|0,0/.test(ra.text), ra.text);
+  ok(/trop petit/.test(ES.emailRationale([{ group: 'G', horizon: 60, nExcess: 5, hitExcess: 60, meanExcess: 3 }], 'G', 60).text));
+  ok(ra.html.indexOf('<script') < 0);
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

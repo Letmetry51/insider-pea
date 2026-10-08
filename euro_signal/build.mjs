@@ -59,6 +59,10 @@ export function build(opts = {}) {
   if (errs.length) throw new Error('config.json invalide : ' + errs.join(' ; '));
   const latest = readJSON(F.latest, null);
   const prices = readJSON(F.prices, { items: {}, unresolved: [] });
+  // Marché européen (STOXX Europe 600, sinon CAC 40) : tendance de fond et référence de force relative
+  const mRef = prices.market || prices.bench || null;
+  const mStats = mRef && Array.isArray(mRef.rows) && mRef.rows.length > 200 ? ES.computeStats(mRef.rows, [], today, ES.mergeConfig(ES.DEFAULT_CONFIG, {}), null) : null;
+  const mkt = mStats ? { ticker: mRef.ticker, ret6m1: mStats.ret6m1, above200: mStats.sma200 ? mStats.lastCloseAdj > mStats.sma200 : null, lastDate: mStats.lastDate } : null;
   const state = readRequired(F.state, { txArchive: {}, alerts: {}, src: {}, runs: [] }, 'data/euro-signal-state.json');
   state.txArchive = state.txArchive || {}; state.alerts = state.alerts || {}; state.src = state.src || {};
   if (!fs.existsSync(F.state)) { // journal disparu : on repart des alertes recopiées dans le tableau de bord, pour ne jamais renvoyer
@@ -165,6 +169,8 @@ export function build(opts = {}) {
       peaStatus: 'a_verifier', peaSource: null, peaDate: null, auto: true
     };
     i.stats = p && p.rows && p.rows.length ? ES.computeStats(p.rows, p.splits || [], today, cfg, i.currency) : { sessions: 0, empty: true };
+    if (mkt && i.stats.ret6m1 != null && mkt.ret6m1 != null) i.stats.rel6m = i.stats.ret6m1 - mkt.ret6m1;
+    if (mkt) { i.stats.marketAbove200 = mkt.above200; i.stats.marketIndex = mkt.ticker; }
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
     inst[isin] = i; tx[isin] = list;
   });
@@ -200,7 +206,10 @@ export function build(opts = {}) {
         mail.html = mail.html.replace('</h2>', '</h2>' + btn).replace(/<\/div>\s*$/, '<p><a href="' + ES.esc(dashUrl) + '">Ouvrir le tableau de bord complet</a></p></div>');
         mail.text = 'Fiche : ' + link + '\n\n' + mail.text + '\nTableau de bord : ' + dashUrl;
       }
-      outbox.push({ id: isin + '-' + decision.fingerprint, isin, name: i.name, subject: mail.subject, html: mail.html, text: mail.text, eventIds: decision.eventIds, score: score.total, version: cfg.scoringVersion });
+      const cluster = score.families.insiders.items.some((x) => /^cluster/.test(x.label));
+      const discTrend = !!(score.discount && score.discount.pct >= cfg.weights.insiders.discountMediumPct && score.trendUp);
+      const profile = cluster ? 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' : discTrend ? 'Décote ≥ ' + cfg.weights.insiders.discountMediumPct + ' % + MM50 > MM200' : score.panicBuy ? 'Achat dans la panique' : score.buys.some((t) => t.ceo || t.cfo) ? 'Achat DG ou DAF' : 'Achat volontaire';
+      outbox.push({ id: isin + '-' + decision.fingerprint, isin, name: i.name, subject: mail.subject, html: mail.html, text: mail.text, eventIds: decision.eventIds, score: score.total, version: cfg.scoringVersion, profile });
     }
   });
 
@@ -208,11 +217,23 @@ export function build(opts = {}) {
   const events = [];
   Object.keys(inst).forEach((isin) => {
     if (!pItems[isin]) return;
-    const buys = ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg)).sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
+    const R = refs[isin] || {};
+    const buys = ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R[t.id] && R[t.id].belowMarket) && ES.daysBetween(t.txDate, ES.availDate(t)) <= cfg.insiders.maxFilingLagDays).sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
+    // moyennes 50 / 200 connues à la date de publication (aucune donnée postérieure)
+    const adj = ES.adjustedSeries(ES.normalizeSeries(pItems[isin].rows), pItems[isin].splits || []);
+    const cum = [0]; adj.forEach((r) => cum.push(cum[cum.length - 1] + r[4]));
+    const trendAt = (d) => { let lo = 0, hi = adj.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; } if (k < 199) return null; return (cum[k + 1] - cum[k - 49]) / 50 > (cum[k + 1] - cum[k - 199]) / 200; };
+    const W = cfg.weights.insiders;
     let lastCluster = null;
     buys.forEach((t) => {
       const d = ES.availDate(t);
       events.push({ isin, date: d, group: 'Achat volontaire' });
+      const a = R[t.id] && !R[t.id].outOfRange ? R[t.id].atPurchase : null;
+      if (a && a.paidVsHigh52Pct != null && -a.paidVsHigh52Pct >= W.discountMediumPct) {
+        events.push({ isin, date: d, group: 'Décote ≥ ' + W.discountMediumPct + ' %' });
+        if (trendAt(d)) events.push({ isin, date: d, group: 'Décote ≥ ' + W.discountMediumPct + ' % + MM50 > MM200' });
+      }
+      if (a && ES.isPanic(a, W)) events.push({ isin, date: d, group: 'Achat dans la panique' });
       if (t.ceo || t.cfo) events.push({ isin, date: d, group: 'Achat DG ou DAF' });
       const known = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
       if (ES.clusterInfo(known, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin, date: d, group: 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }
@@ -222,6 +243,14 @@ export function build(opts = {}) {
   Object.keys(pItems).forEach((isin) => { series[isin] = { rows: pItems[isin].rows, splits: pItems[isin].splits || [] }; });
   const oos = cfg.backtest.oosStart || ES.addMonths(today, -6);
   const backtest = { results: ES.eventStudy(events, series, prices.bench ? { rows: prices.bench.rows, splits: [] } : null, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, oosStart: oos }), bench: prices.bench ? prices.bench.ticker : null, oosStart: oos, cost: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, events: events.length };
+
+  /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
+  outbox.forEach((m) => {
+    const r = ES.emailRationale(backtest.results, m.profile, 60);
+    const anchor = m.html.indexOf('Voir la fiche dans Euro Signal</a></p>') > -1 ? 'Voir la fiche dans Euro Signal</a></p>' : '</h2>';
+    m.html = m.html.replace(anchor, anchor + r.html);
+    m.text = r.text + '\n\n' + m.text;
+  });
 
   /* 7. Tableau de bord : cours allégés (clôtures, 260 séances) pour les titres actifs dans la fenêtre */
   const from = ES.windowStart(today, cfg.insiders.windowMonths);
@@ -241,7 +270,7 @@ export function build(opts = {}) {
     if (!r) return r;
     const o = { available: r.available, notes: r.notes, paidAdj: r.paidAdj, lastDate: r.lastDate, currentVsPaidPct: r.currentVsPaidPct, outOfRange: r.outOfRange, belowMarket: r.belowMarket, currencyMismatch: r.currencyMismatch };
     const a = r.atPurchase, t = r.today;
-    if (a) o.atPurchase = { paidVsHigh52Pct: a.paidVsHigh52Pct, paidVsLow52Pct: a.paidVsLow52Pct, paidPos52: a.paidPos52, paidVsHighAllPct: a.paidVsHighAllPct, paidVsLowAllPct: a.paidVsLowAllPct, paidPosAll: a.paidPosAll, full52: a.full52, ex52: a.ex52 ? { high: a.ex52.high, highDate: a.ex52.highDate, basis: a.ex52.basis, from: a.ex52.from } : null };
+    if (a) o.atPurchase = { drop10: a.drop10, rsi14: a.rsi14, paidVsHigh52Pct: a.paidVsHigh52Pct, paidVsLow52Pct: a.paidVsLow52Pct, paidPos52: a.paidPos52, paidVsHighAllPct: a.paidVsHighAllPct, paidVsLowAllPct: a.paidVsLowAllPct, paidPosAll: a.paidPosAll, full52: a.full52, ex52: a.ex52 ? { high: a.ex52.high, highDate: a.ex52.highDate, basis: a.ex52.basis, from: a.ex52.from } : null };
     if (t) o.today = { paidVsHigh52Pct: t.paidVsHigh52Pct, paidVsLow52Pct: t.paidVsLow52Pct, paidPos52: t.paidPos52, currentPos52: t.currentPos52, paidPosAll: t.paidPosAll, currentPosAll: t.currentPosAll, exAll: t.exAll ? { from: t.exAll.from, basis: t.exAll.basis } : null };
     return o;
   };
@@ -251,7 +280,7 @@ export function build(opts = {}) {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
     cfg, inst, tx: dashTx, ev: evOut, src: state.src, alerts: alertsMap, refs: dashRefs, prices: dashPrices, backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }
+    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt
   };
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);
 

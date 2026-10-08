@@ -95,5 +95,6 @@ jobs:
             echo "Pas de changement, rien à commiter"
           else
             git commit -m "📊 Mise à jour données $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git push
+            # si le code a été modifié pendant l'exécution, on se remet à jour avant d'envoyer (3 essais)
+            for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done
           fi

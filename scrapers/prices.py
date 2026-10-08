@@ -26,6 +26,7 @@ LATEST = DATA / "latest.json"
 TICKERS = DATA / "tickers.json"
 OUT = DATA / "prices.json"
 BENCH = "^FCHI"  # CAC 40, indice de référence de l'étude d'événements
+MARKET = "^STOXX"  # STOXX Europe 600 : force relative et tendance du marché européen
 EU_SUFFIXES = (".PA", ".AS", ".BR", ".MI", ".MC", ".DE", ".LS", ".IR", ".VI", ".HE")
 EU_ALL = EU_SUFFIXES + (".F", ".HM", ".SG", ".DU", ".MU", ".BE", ".HA")  # bourses régionales allemandes en dernier recours
 HOME = {"FR": ".PA", "DE": ".DE", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "PT": ".LS", "IE": ".IR", "AT": ".VI", "FI": ".HE", "LU": ".PA"}
@@ -171,7 +172,16 @@ def main():
             bench = {"ticker": BENCH, "rows": b["rows"]}
     except Exception as e:
         print("Indice de référence indisponible :", e)
-    OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "unresolved": unresolved}), encoding="utf-8")
+    market = None
+    try:
+        m = history(MARKET)
+        if m:
+            market = {"ticker": MARKET, "rows": m["rows"]}
+    except Exception as e:
+        print("Indice européen indisponible :", e)
+    if market is None and bench:
+        market = bench  # repli : CAC 40
+    OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "unresolved": unresolved}), encoding="utf-8")
     TICKERS.write_text(json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
     print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours")
     return 0

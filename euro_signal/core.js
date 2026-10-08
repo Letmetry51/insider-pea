@@ -528,6 +528,8 @@
     var c = closes[closes.length - 1];
     s.ret1m = closes.length > 21 ? (c / closes[closes.length - 22] - 1) * 100 : null;
     s.ret3m = closes.length > 63 ? (c / closes[closes.length - 64] - 1) * 100 : null;
+    // 6 mois hors dernier mois (mesure classique du momentum, moins sensible aux retournements de court terme)
+    s.ret6m1 = closes.length > 127 ? (closes[closes.length - 22] / closes[closes.length - 127] - 1) * 100 : null;
     s.rsi14 = rsi(closes, 14);
     s.distSma50 = s.sma50 ? (c / s.sma50 - 1) * 100 : null;
     var vols = adj.map(function (r) { return r[5]; }).filter(function (v) { return v != null; });
@@ -575,6 +577,10 @@
         paidVsHighAllPct: exAll ? (paid / exAll.high - 1) * 100 : null, paidVsLowAllPct: exAll ? (paid / exAll.low - 1) * 100 : null,
         paidPosAll: ES.rangePosition(paid, exAll)
       };
+      // Psychologie du marché au moment de l'achat : chute récente et survente (RSI 14)
+      var upto = adj.filter(function (r) { return r[0] <= tx.txDate; }).map(function (r) { return r[4]; });
+      if (upto.length > 11) { var mx = Math.max.apply(null, upto.slice(-11)); res.atPurchase.drop10 = (upto[upto.length - 1] / mx - 1) * 100; }
+      res.atPurchase.rsi14 = rsi(upto, 14);
       if (ex52 && !res.atPurchase.full52) res.notes.push('fenêtre 52 semaines incomplète à la date d\'achat (début ' + ex52.from + ')');
       var day = ES.extremes(adj, tx.txDate, tx.txDate);
       if (day) { res.dayLow = day.low; res.dayHigh = day.high; }
@@ -593,16 +599,16 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.3.0',
+    scoringVersion: '1.5.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30 },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
-      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, netSeller: -10, ceoCfoSale: -5 },
+      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
       results: { cap: 25, floor: -10, epsStrong: 8, epsMild: 4, epsStrongPct: 5, epsMildPct: 2, epsMiss: -6, revStrong: 7, revMild: 3, revStrongPct: 2, revMildPct: 0, guidanceRaised: 10, guidanceLowered: -10 },
-      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4 }
+      market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 3, relStrengthPts: 10, relWeakPts: 20 }
     },
     quality: { minForAlert: 60 },
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
@@ -702,6 +708,23 @@
     if (!m || !ES.isLegalEntity(t.person, t.issuer)) return false;
     return m === 'strict' || !t.associated;
   };
+  ES.isPanic = function (a, wi) { return !!a && ((a.drop10 != null && a.drop10 <= -wi.panicDropPct) || (a.rsi14 != null && a.rsi14 <= wi.panicRsi)); };
+  /** Argumentaire en tête d'email : principe, chiffres académiques, et nos propres mesures pour le profil de signal le plus proche. */
+  ES.emailRationale = function (results, group, horizon) {
+    var rows = (results || []).filter(function (r) { return r.group === group && r.horizon === horizon && r.nExcess; });
+    var n = 0, hit = 0, mean = 0;
+    rows.forEach(function (r) { n += r.nExcess; hit += r.hitExcess * r.nExcess; mean += r.meanExcess * r.nExcess; });
+    var p1 = 'Quand un dirigeant achète des actions de sa société avec son propre argent, il signale qu\'il juge le cours trop bas. Les études académiques mesurent en moyenne environ +0,4 % par mois de surperformance après ces achats (Jeng, Metrick et Zeckhauser, marché américain 1975-1996) ; l\'effet est plus net quand plusieurs dirigeants achètent ensemble ou après une forte baisse.';
+    var p2;
+    if (!n) p2 = 'Nos propres mesures sur ce type de signal (« ' + group + ' ») ne sont pas encore disponibles.';
+    else {
+      hit /= n; mean /= n;
+      p2 = 'Sur nos données (' + n + ' cas « ' + group + ' » depuis deux ans), le titre a battu le CAC 40 dans ' + Math.round(hit) + ' % des cas à ' + horizon + ' séances, avec un écart moyen de ' + (mean >= 0 ? '+' : '') + mean.toFixed(1).replace('.', ',') + ' point' + (Math.abs(mean) >= 2 ? 's' : '') + ', frais compris.';
+      if (n < 30) p2 += ' Échantillon encore trop petit pour conclure.';
+      else if (mean < 0) p2 += ' Sur la période récente, ce signal seul n\'a pas battu le marché : ce sont les combinaisons (décote, tendance, plusieurs signaux) qui font le tri.';
+    }
+    return { text: p1 + '\n' + p2, html: '<div style="background:#EEF6F2;border-left:4px solid #0D6A56;padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.45"><b>Pourquoi cette alerte ?</b><br>' + esc(p1) + '<br><br>' + esc(p2) + '</div>' };
+  };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
   };
@@ -743,7 +766,7 @@
     var sells = inWin.filter(function (t) { return t.type === 'vente'; });
     var corpBuys = inWin.filter(function (t) { return t.type === 'achat' && ES.excludedEntity(t, cfg); }).length;
     var holdBuys = buys.filter(function (t) { return t.associated && ES.isLegalEntity(t.person, t.issuer); }).length;
-    var buyEur = 0, buyUnknown = 0, discount = null;
+    var buyEur = 0, buyUnknown = 0, discount = null, panic = null;
     buys.forEach(function (t) { var e = ES.toEur(t.amount, t.currency); if (e == null) buyUnknown++; else buyEur += e; });
     var sellEur = sells.reduce(function (s, t) { return s + (ES.toEur(t.amount, t.currency) || 0); }, 0);
     if (buys.length) {
@@ -769,6 +792,11 @@
       });
       if (discount && discount.pct >= wi.discountBigPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountBig);
       else if (discount && discount.pct >= wi.discountMediumPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountMedium);
+      buys.forEach(function (t) {
+        var r = ctx.refs && ctx.refs[t.id], a = r && !r.outOfRange && r.atPurchase;
+        if (a && ES.isPanic(a, wi) && !panic) panic = { date: t.txDate, drop10: a.drop10, rsi14: a.rsi14 };
+      });
+      if (panic) add(fi, 'achat pendant une vente panique (' + [panic.drop10 != null && panic.drop10 <= -wi.panicDropPct ? 'chute de ' + Math.round(-panic.drop10) + ' % en 10 séances' : null, panic.rsi14 != null && panic.rsi14 <= wi.panicRsi ? 'RSI ' + Math.round(panic.rsi14) : null].filter(Boolean).join(', ') + ', le ' + panic.date + ')', wi.panicBuy);
       var near = buys.some(function (t) { var r = ctx.refs && ctx.refs[t.id]; return r && r.atPurchase && r.atPurchase.paidPos52 != null && r.atPurchase.paidPos52 <= cfg.insiders.nearLowPct; });
       if (near) add(fi, 'achat dans le quart bas de l\'intervalle 52 semaines connu à la date d\'achat', wi.nearLow);
     }
@@ -840,6 +868,11 @@
       if (s.volRatio5_60 != null && s.volRatio5_60 >= wm.volumeRatio && s.ret1m > 0) add(fm, 'volumes 5 j = ' + s.volRatio5_60.toFixed(1) + '× la moyenne 60 j, en hausse', wm.volume);
       if (s.ret3m != null && s.ret3m > 0) add(fm, 'performance 3 mois positive (' + s.ret3m.toFixed(1) + ' %, absolue, non relative au secteur)', wm.momentum);
       if (s.adv20Eur != null && s.adv20Eur >= wm.liquidityEur) add(fm, 'liquidité ' + fmtEur(s.adv20Eur) + '/jour', wm.liquidity);
+      if (s.rel6m != null && isFinite(s.rel6m)) {
+        if (s.rel6m >= wm.relStrengthPts) add(fm, 'plus fort que le marché européen sur 6 mois (' + (s.rel6m > 0 ? '+' : '') + s.rel6m.toFixed(0) + ' points, hors dernier mois)', wm.relStrength);
+        else if (s.rel6m <= -wm.relWeakPts) add(fm, 'nettement plus faible que le marché européen sur 6 mois (' + s.rel6m.toFixed(0) + ' points)', 0);
+      }
+      if (s.marketAbove200 === false) add(fm, 'marché européen sous sa moyenne 200 séances : environnement baissier, prudence', 0);
       // Leçon Rheinmetall 2026 : un dirigeant qui achète en pleine baisse n'indique pas le point bas
       var knife = cfg.insiders.fallingKnifeNote && buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200;
       if (knife) add(fm, 'tendance baissière (cours sous les moyennes 50 et 200 séances) : un achat de dirigeant ne marque pas forcément le point bas, entrer en plusieurs fois', 0);
@@ -861,7 +894,8 @@
       ambiguousCount: ambiguous.length, windowFrom: from,
       txInWindow: inWin, buys: buys, sells: sells, buyEur: buyEur, sellEur: sellEur, discount: discount,
       fallingKnife: !!(buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200),
-      trendUp: !!(s.sma50 && s.sma200 && s.sma50 > s.sma200), goldenCrossAfterBuy: !!(buys.length && s.sma50 > s.sma200 && s.goldenCrossDate && s.goldenCrossDate >= buys.map(function (t) { return t.txDate; }).sort()[0])
+      panicBuy: panic,
+      trendUp: !!(s.sma50 && s.sma200 && s.sma50 > s.sma200), marketDown: s.marketAbove200 === false, rel6m: s.rel6m != null ? s.rel6m : null, goldenCrossAfterBuy: !!(buys.length && s.sma50 > s.sma200 && s.goldenCrossDate && s.goldenCrossDate >= buys.map(function (t) { return t.txDate; }).sort()[0])
     };
   };
   ES.surprise = function (actual, consensus) {
