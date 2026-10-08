@@ -175,11 +175,12 @@
   "ticker": "A1OS.DE"
  },
  "DE0005120802": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "R1B.DE",
+  "method": "cotation du pays d'origine",
   "name": "Rubean AG",
-  "ticker": "R1B.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "R1B.DE"
  },
  "DE0005140008": {
   "exchange": "XETRA",
@@ -191,6 +192,7 @@
  "DE0005199905": {
   "checkedHome": "2026-10-08",
   "exchange": "Hamburg",
+  "homeTried": "ECK.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "LUDWIG BECK am Rathauseck - Textilhaus Feldmeier AG",
   "ticker": "ECK.HM"
@@ -212,6 +214,7 @@
  "DE0005405104": {
   "checkedHome": "2026-10-08",
   "exchange": "Frankfurt",
+  "homeTried": "TSS.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "InnoTec TSS AG",
   "ticker": "TSS.F"
@@ -226,6 +229,7 @@
  "DE0005430300": {
   "checkedHome": "2026-10-08",
   "exchange": "Hamburg",
+  "homeTried": "C9T.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "HÖVELRAT Holding AG",
   "ticker": "C9T.HM"
@@ -247,6 +251,7 @@
  "DE0005490601": {
   "checkedHome": "2026-10-08",
   "exchange": "Frankfurt",
+  "homeTried": "LEOW.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Leo International Precision Health AG",
   "ticker": "LEOW.F"
@@ -268,6 +273,7 @@
  "DE0005540306": {
   "checkedHome": "2026-10-08",
   "exchange": "Stuttgart",
+  "homeTried": "DLB.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "DLB-Anlageservice AG",
   "ticker": "DLB.SG"
@@ -322,11 +328,12 @@
   "ticker": "AB9.DE"
  },
  "DE0005765507": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "XTP.DE",
+  "method": "cotation du pays d'origine",
   "name": "Sino AG",
-  "ticker": "XTP.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "XTP.DE"
  },
  "DE0005785604": {
   "exchange": "Milan",
@@ -356,6 +363,7 @@
  "DE0006069008": {
   "checkedHome": "2026-10-08",
   "exchange": "Frankfurt",
+  "homeTried": "NLM.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "FRoSTA Aktiengesellschaft",
   "ticker": "NLM.F"
@@ -368,11 +376,12 @@
   "ticker": "HBH.DE"
  },
  "DE0006219934": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Dusseldorf Stock Exchange",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "JUN3.DE",
+  "method": "cotation du pays d'origine",
   "name": "Jungheinrich AG",
-  "ticker": "JUN3.DU"
+  "resolvedAt": "2026-10-08",
+  "ticker": "JUN3.DE"
  },
  "DE0006223407": {
   "exchange": "XETRA",
@@ -465,6 +474,7 @@
  "DE0007190001": {
   "checkedHome": "2026-10-08",
   "exchange": "Dusseldorf Stock Exchange",
+  "homeTried": "SSS.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Schulte-Schlagbaum AG",
   "resolvedAt": "2026-10-07",
@@ -499,11 +509,12 @@
   "ticker": "TPE.DE"
  },
  "DE0007507501": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "WSU.DE",
+  "method": "cotation du pays d'origine",
   "name": "WashTec AG",
-  "ticker": "WSU.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "WSU.DE"
  },
  "DE0007551509": {
   "exchange": "XETRA",
@@ -515,6 +526,7 @@
  "DE0007600405": {
   "checkedHome": "2026-10-08",
   "exchange": "Munich",
+  "homeTried": "VHO.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Value-Holdings AG",
   "ticker": "VHO.MU"
@@ -622,11 +634,12 @@
   "ticker": "GXI.DE"
  },
  "DE000A0N4N52": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "NFN.DE",
+  "method": "cotation du pays d'origine",
   "name": "NFON AG",
-  "ticker": "NFN.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "NFN.DE"
  },
  "DE000A0S9QZ8": {
   "exchange": "XETRA",
@@ -645,16 +658,18 @@
  "DE000A11QLP3": {
   "checkedHome": "2026-10-08",
   "exchange": "Munich",
+  "homeTried": "BENH.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "BENO Holding AG",
   "ticker": "BENH.MU"
  },
  "DE000A11QW68": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "HRPK.DE",
+  "method": "cotation du pays d'origine",
   "name": "7C Solarparken AG",
-  "ticker": "HRPK.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "HRPK.DE"
  },
  "DE000A12DM80": {
   "exchange": "XETRA",
@@ -664,11 +679,12 @@
   "ticker": "G24.DE"
  },
  "DE000A12UK08": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "ECF.DE",
+  "method": "cotation du pays d'origine",
   "name": "Mountain Alliance AG",
-  "ticker": "ECF.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "ECF.DE"
  },
  "DE000A12UP29": {
   "exchange": "XETRA",
@@ -680,16 +696,18 @@
  "DE000A161309": {
   "checkedHome": "2026-10-08",
   "exchange": "Frankfurt",
+  "homeTried": "KSW.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "KST Beteiligungs AG",
   "ticker": "KSW.F"
  },
  "DE000A161408": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "HFG.DE",
+  "method": "cotation du pays d'origine",
   "name": "HelloFresh SE",
-  "ticker": "HFG.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "HFG.DE"
  },
  "DE000A168205": {
   "exchange": "XETRA",
@@ -717,11 +735,12 @@
   "ticker": "NOEJ.DE"
  },
  "DE000A1MMCC8": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "ILM1.DE",
+  "method": "cotation du pays d'origine",
   "name": "Medios AG",
-  "ticker": "ILM1.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "ILM1.DE"
  },
  "DE000A1RFMY4": {
   "exchange": "XETRA",
@@ -745,18 +764,20 @@
   "ticker": "DBAN.DE"
  },
  "DE000A1YC913": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "FC9.DE",
+  "method": "cotation du pays d'origine",
   "name": "FCR Immobilien AG",
-  "ticker": "FC9.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "FC9.DE"
  },
  "DE000A254203": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "WOLF.DE",
+  "method": "cotation du pays d'origine",
   "name": "Meta Wolf AG",
-  "ticker": "WOLF.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "WOLF.DE"
  },
  "DE000A255F11": {
   "checkedHome": "2026-10-08",
@@ -766,11 +787,12 @@
   "ticker": "DE000A255F11.SG"
  },
  "DE000A2AAE22": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "CY1K.DE",
+  "method": "cotation du pays d'origine",
   "name": "SBF AG",
-  "ticker": "CY1K.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "CY1K.DE"
  },
  "DE000A2BPP88": {
   "ticker": null,
@@ -791,11 +813,12 @@
   "ticker": "AEIN.DE"
  },
  "DE000A2N4H07": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "WEW.DE",
+  "method": "cotation du pays d'origine",
   "name": "Westwing Group SE",
-  "ticker": "WEW.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "WEW.DE"
  },
  "DE000A2NB650": {
   "exchange": "XETRA",
@@ -805,11 +828,12 @@
   "ticker": "MUX.DE"
  },
  "DE000A2NBX80": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "INS.DE",
+  "method": "cotation du pays d'origine",
   "name": "Instone Real Estate Group SE",
-  "ticker": "INS.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "INS.DE"
  },
  "DE000A2YN355": {
   "exchange": "XETRA",
@@ -833,18 +857,20 @@
   "ticker": "SZ50.DE"
  },
  "DE000A3C35W0": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Munich",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "7V0.DE",
+  "method": "cotation du pays d'origine",
   "name": "Novogenia AG",
-  "ticker": "7V0.MU"
+  "resolvedAt": "2026-10-08",
+  "ticker": "7V0.DE"
  },
  "DE000A3E5C24": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Munich",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "CDZ0.DE",
+  "method": "cotation du pays d'origine",
   "name": "MHP Hotel AG",
-  "ticker": "CDZ0.MU"
+  "resolvedAt": "2026-10-08",
+  "ticker": "CDZ0.DE"
  },
  "DE000A3E5D56": {
   "exchange": "XETRA",
@@ -863,6 +889,7 @@
  "DE000A3H2234": {
   "checkedHome": "2026-10-08",
   "exchange": "Hamburg",
+  "homeTried": "LSNA.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Private Assets SE & Co. KGaA",
   "ticker": "LSNA.HM"
@@ -872,22 +899,25 @@
   "triedAt": "2026-10-07"
  },
  "DE000A40AEG0": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "PTP.DE",
+  "method": "cotation du pays d'origine",
   "name": "Pentixapharm Holding AG",
-  "ticker": "PTP.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "PTP.DE"
  },
  "DE000A40ET13": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Frankfurt",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "3ITN.DE",
+  "method": "cotation du pays d'origine",
   "name": "audius SE",
-  "ticker": "3ITN.F"
+  "resolvedAt": "2026-10-08",
+  "ticker": "3ITN.DE"
  },
  "DE000A40ET88": {
   "checkedHome": "2026-10-08",
   "exchange": "Dusseldorf Stock Exchange",
+  "homeTried": "FXT.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Finexity AG",
   "ticker": "FXT.DU"
@@ -927,6 +957,7 @@
  "DE000A421RZ9": {
   "checkedHome": "2026-10-08",
   "exchange": "Frankfurt",
+  "homeTried": "XK4.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Gabler Group AG",
   "ticker": "XK4.F"
@@ -2604,6 +2635,7 @@
  "FR001400T0D6": {
   "checkedHome": "2026-10-08",
   "exchange": "London",
+  "homeTried": "CAN.PA",
   "method": "recherche Yahoo par ISIN",
   "name": "Canal+ SA",
   "ticker": "CAN.L"
@@ -3608,12 +3640,12 @@
   "ticker": "CTPNV.AS"
  },
  "NL0015000RT3": {
-  "checkedHome": "2026-10-08",
-  "exchange": "Johannesburg Stock Exchange",
-  "method": "recherche Yahoo par ISIN",
+  "exchange": null,
+  "homeTried": "NRP.AS",
+  "method": "cotation du pays d'origine",
   "name": "NEPI Rockcastle N.V.",
-  "resolvedAt": "2026-10-07",
-  "ticker": "NRP.JO"
+  "resolvedAt": "2026-10-08",
+  "ticker": "NRP.AS"
  },
  "NL0015000X07": {
   "exchange": "Amsterdam",
