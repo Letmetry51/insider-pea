@@ -235,6 +235,18 @@ ul.plain li{margin:3px 0}
 /* Opportunités : version lisible */
 .selc h3{margin-bottom:2px}.selc .foot{margin:0 0 8px}ol.sel{margin:0;padding-left:1.4em}ol.sel li{padding:7px 4px;border-top:1px solid var(--line);cursor:pointer}ol.sel li:first-child{border-top:0}ol.sel li small{display:block;color:var(--muted)}ol.sel li:hover{background:var(--sunk)}
 .tabs .ts{display:none}@media (max-width:560px){.tabs .tl{display:none}.tabs .ts{display:inline}.tabs button{padding:8px 8px}}
+/* Carte « Je l'ai acheté » : bien détachée du conseil */
+.buybox{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.buybox summary{display:flex;gap:12px;align-items:center;cursor:pointer;list-style:none;font-size:1.05rem}
+.buybox summary::-webkit-details-marker{display:none}
+.buybox summary b{display:block;color:var(--accent)}.buybox summary small{display:block;color:var(--muted);font-size:.86rem;margin-top:2px}
+.buybox .bb-ic{font-size:1.6rem;flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;background:var(--accent);filter:saturate(1.1)}
+.buybox summary::after{content:'›';margin-left:auto;font-size:1.6rem;color:var(--accent);transition:transform .15s}.buybox details[open] summary::after{transform:rotate(90deg)}
+.buybox details[open] summary{margin-bottom:10px}
+.slab{display:block;font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+b.slab{display:inline;font-size:.78rem}
+.s-top{color:var(--good)}.s-strong{color:var(--accent)}.s-mid{color:var(--muted)}.s-low{color:var(--muted);opacity:.75}
+p.scale{font-size:.85rem;color:var(--muted);margin:-4px 0 14px;max-width:90ch}
 .hero{margin:18px 0 4px;max-width:80ch}
 .hero h2{font-size:1.55rem;margin-bottom:4px}
 .hero p{margin:0;color:var(--muted)}
@@ -1136,7 +1148,8 @@ details.pos summary{font-size:1rem}
     var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
-      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, score d\'au moins ' + (S.minScore || 0) + '/100. Classés par score, puis par décote.';
+      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, score d\'au moins ' + (S.minScore || 0) + '/100. Classés par score, puis par décote.' +
+      ' Lecture du score : 100 est un maximum théorique (tous les signaux à la fois), jamais atteint en pratique ; ' + ((cfg.alerts || {}).minScore || 45) + ' et plus = très fort (niveau d\'alerte), ' + (S.minScore || 30) + ' à ' + (((cfg.alerts || {}).minScore || 45) - 1) + ' = fort.';
     var why = function (x) {
       var w = [];
       if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines');
@@ -1155,7 +1168,7 @@ details.pos summary{font-size:1rem}
       return c;
     };
     var text = intro + '\n\n' + (rationale ? rationale.text + '\n\n' : '') + (n ? sel.map(function (x, k) {
-      return (k + 1) + '. ' + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — score ' + x.score + '/100\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+      return (k + 1) + '. ' + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — score ' + x.score + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
     }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
@@ -1164,7 +1177,7 @@ details.pos summary{font-size:1rem}
       (rationale ? rationale.html : '') +
       (n ? sel.map(function (x, k) {
         return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) +
-          ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100</span></div>' +
+          ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
           (x.sector ? '<div style="color:#55615c;font-size:13px">Secteur : ' + ES.esc(x.sector) + '</div>' : '') +
           '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
           (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
@@ -1173,6 +1186,14 @@ details.pos summary{font-size:1rem}
       '<p style="color:#55615c;font-size:12px;margin-top:14px">Ce n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.</p>' +
       (dashUrl ? '<p>' + btn(dashUrl, 'Ouvrir le tableau de bord') + '</p>' : '') + '</div>';
     return { subject: subject, text: text, html: html };
+  };
+  /** Lecture du score : 100 est un maximum théorique (tous les signaux à la fois) ; repères calés sur les seuils d'alerte et de sélection. */
+  ES.scoreLabel = function (total, cfg) {
+    var a = (cfg.alerts || {}).minScore || 45, s = (cfg.selection || {}).minScore || 30;
+    if (total >= a) return { key: 'top', label: 'très fort', hint: 'niveau d\'alerte (≥ ' + a + ')' };
+    if (total >= s) return { key: 'strong', label: 'fort', hint: 'retenu pour la sélection (' + s + ' à ' + (a - 1) + ')' };
+    if (total >= Math.round(s / 2)) return { key: 'mid', label: 'moyen', hint: Math.round(s / 2) + ' à ' + (s - 1) };
+    return { key: 'low', label: 'faible', hint: 'moins de ' + Math.round(s / 2) };
   };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
@@ -2025,7 +2046,7 @@ details.pos summary{font-size:1rem}
     return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="foot">' + esc(rule) + ' À étudier, pas un ordre d\'achat.</p><ol class="sel">' +
       sel.items.map(function (x) {
         var w = [x.sector || null, x.discountPct != null ? 'décote ' + Math.round(x.discountPct) + ' %' : null, x.ceo ? 'DG ou DAF' : null, x.buyers >= S.cfg.insiders.clusterMinBuyers ? x.buyers + ' acheteurs' : null, x.trendUp ? 'MM50 > MM200' : null, x.fallingKnife ? 'cours en repli' : null].filter(Boolean);
-        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b> <span class="muted">score ' + x.score + '</span><small>' + esc(w.join(' · ')) + '</small></li>';
+        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b> <span class="muted">score ' + x.score + ' · ' + ES.scoreLabel(x.score, S.cfg).label + '</span><small>' + esc(w.join(' · ')) + '</small></li>';
       }).join('') + '</ol></section>';
   }
   function vClassement() {
@@ -2092,7 +2113,7 @@ details.pos summary{font-size:1rem}
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
         '<td class="hide-m" data-l="Position 52 semaines">' + rangeBar(d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
-        '<td class="num scorecell" data-l="Score"><span class="big">' + c.score.total + '</span>' + scoreBar(c.score) + '</td>' +
+        '<td class="num scorecell" data-l="Score"><span class="big">' + c.score.total + '</span>' + scoreBar(c.score) + '<small class="slab s-' + ES.scoreLabel(c.score.total, S.cfg).key + '">' + ES.scoreLabel(c.score.total, S.cfg).label + '</small></td>' +
         '<td data-l="Statut">' + statusChip(i) + '</td></tr>';
     });
     h += '</tbody></table></div>';
@@ -2121,7 +2142,11 @@ details.pos summary{font-size:1rem}
       '<div class="fchips">' + uniChip(c.uni) + peaChip(x) + '</div></header>';
     h += brief(i, c);
     h += adviceSection(i, c);
-    h += '<section class="gauges">' + gauge('Opportunité', sc.total, 'Score explicable · barème ' + sc.version, 'acc') + gauge('Qualité des données', c.q.total, 'Couverture et complétude', c.q.total >= S.cfg.quality.minForAlert ? 'good' : 'warn') + gauge('Surchauffe', c.oh.total, 'Expérimental, hors score', c.oh.total >= 50 ? 'bad' : 'neutral') + '</section>';
+    var lab = ES.scoreLabel(sc.total, S.cfg), withBuys = Object.keys(S.computed).filter(function (k) { return S.computed[k].score.buys.length; });
+    var rank = 1 + withBuys.filter(function (k) { return S.computed[k].score.total > sc.total; }).length;
+    h += '<section class="gauges">' + gauge('Opportunité', sc.total, '<b class="slab s-' + lab.key + '">' + lab.label + '</b>' + (sc.buys.length ? ' · ' + (rank === 1 ? '1er' : rank + 'e') + ' sur ' + withBuys.length + ' sociétés avec achats' : '') + ' · barème ' + esc(sc.version), 'acc') + gauge('Qualité des données', c.q.total, 'Couverture et complétude', c.q.total >= S.cfg.quality.minForAlert ? 'good' : 'warn') + gauge('Surchauffe', c.oh.total, 'Expérimental, hors score', c.oh.total >= 50 ? 'bad' : 'neutral') + '</section>';
+    var SM = (S.cfg.selection || {}).minScore || 30, AM = S.cfg.alerts.minScore;
+    h += '<p class="scale">Comment lire le score : il additionne des signaux indépendants (initiés, rachats, résultats, marché). <b>100 est un maximum théorique</b>, atteint seulement si tous les signaux sont réunis en même temps : cela n\'arrive pas. Repères : <b>' + AM + ' et plus = très fort</b> (niveau d\'alerte, rare) ; ' + SM + ' à ' + (AM - 1) + ' = fort (sélection de la semaine) ; ' + Math.round(SM / 2) + ' à ' + (SM - 1) + ' = moyen ; en dessous = faible.</p>';
     if (c.uni.reasons.length) h += '<div class="note ' + (c.uni.status === 'rejete' ? 'bad' : 'warn') + '"><b>Univers :</b> ' + c.uni.reasons.map(esc).join(' ; ') + '</div>';
     h += '<div class="cols"><section class="card"><h3>Détail du score</h3>' + Object.keys(sc.families).map(function (k) {
       var fm = sc.families[k];
@@ -2189,7 +2214,7 @@ details.pos summary{font-size:1rem}
     var email = lsGet('email', ''), tgt = lsGet('target', '20'), stp = lsGet('stop', '15');
     var h = '<section class="card advice"><h3>Conseil d\'achat et de revente</h3><div class="cols2"><div><h4>Avant d\'acheter</h4><ul class="plain">' + buy.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div>' +
       '<div><h4>Pour revendre</h4><ul class="plain">' + sell.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div></div>';
-    h += '<details class="pos"' + (lsGet('open.' + i, '') ? ' open' : '') + '><summary>Je l\'ai acheté : me prévenir pour revendre</summary>' +
+    h += '</section><section class="card buybox"><details' + (lsGet('open.' + i, '') ? ' open' : '') + '><summary><span class="bb-ic" aria-hidden="true">🔔</span><span><b>Je l\'ai acheté : me prévenir pour revendre</b><small>Indiquez votre prix, votre objectif de hausse et votre seuil de protection : un email vous prévient au bon moment.</small></span></summary>' +
       '<p class="foot">Le tableau de bord est public : vos achats n\'y sont jamais enregistrés. Le bouton prépare un email à vous-même ; Euro Signal le lit chaque soir dans vos « Envoyés » et vous écrit, une seule fois par événement, quand l\'objectif est atteint, quand le seuil de protection est franchi ou quand un signal de sortie apparaît. Ces emails ne vont qu\'à vous.</p>' +
       '<div class="fgrid">' + fld('Votre adresse Gmail (gardée sur cet appareil)', '<input id="pos-email" type="email" autocomplete="email" value="' + esc(email) + '" placeholder="vous@gmail.com">') +
       fld('Prix d\'achat', '<input id="pos-price" inputmode="decimal" value="' + (last ? String(+last.toFixed(4)).replace('.', ',') : '') + '">') +
