@@ -628,7 +628,8 @@
     },
     quality: { minForAlert: 60 },
     display: { scoreCeiling: 60 },
-    valuation: { cheapPct: 20, richPct: 30 }, // décote / prime de valorisation par rapport aux pairs jugée nette // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
+    valuation: { cheapPct: 20, richPct: 30 },
+    accounts: { fscoreGood: 7, fscoreBad: 3 }, // F-score de Piotroski : 7 à 9 = comptes solides, 0 à 3 = comptes en dégradation // décote / prime de valorisation par rapport aux pairs jugée nette // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true },
@@ -891,6 +892,8 @@
       if (strongInsider) push('duel', '⚡', 'duel : ' + String(sh.totalPct).replace('.', ',') + ' % vendus à découvert contre des achats forts de dirigeants', 'warn');
       push('short', '⚠️', String(sh.totalPct).replace('.', ',') + ' % du capital vendu à découvert (' + sh.holders + ' fonds)', sh.totalPct >= 5 ? 'bad' : 'warn');
     } else if (sh) push('short', '⚠️', String(sh.totalPct).replace('.', ',') + ' % vendu à découvert', 'warn');
+    var acc = inst.accounts, fs = acc && acc.fscore && !acc.fscore.na ? acc.fscore.f9 : null;
+    if (fs != null) push('fscore', '📊', 'comptes ' + (fs >= cfg.accounts.fscoreGood ? 'solides' : fs <= cfg.accounts.fscoreBad ? 'en dégradation' : 'mitigés') + ' (F-score ' + fs + '/9)', fs >= cfg.accounts.fscoreGood ? 'good' : fs <= cfg.accounts.fscoreBad ? 'bad' : 'info');
     var h = ES.financialHealth(inst.fund);
     if (h.status === 'fragile') push('fragile', '🩺', 'solidité financière fragile', 'bad');
     if (inst.peaStatus === 'non_eligible') push('pea', '🚫', 'hors PEA', 'bad');
@@ -911,16 +914,20 @@
     if (has('fragile')) why.push('solidité financière fragile : la baisse du cours peut être justifiée');
     if (has('pea') && cfg.selection.peaOnly !== false) why.push('non éligible au PEA');
     if (has('sellers')) why.push('les dirigeants vendent plus qu\'ils n\'achètent');
+    var accF = inst.accounts && inst.accounts.fscore && !inst.accounts.fscore.na ? inst.accounts.fscore.f9 : null;
+    if (accF != null && accF <= 1) why.push('comptes en forte dégradation (F-score ' + accF + '/9)');
     if (opts.universe && opts.universe.status === 'rejete') why.push('titre peu liquide ou historique insuffisant');
     if (why.length) return mk('avoid');
     var lab = ES.scoreLabel(sc.total, cfg).key, hist = opts.histKey, caution = [];
     if (has('knife')) caution.push('cours encore en repli : entrer en plusieurs fois');
     if (has('rich')) caution.push('valorisation au-dessus des pairs');
+    if (accF != null && accF <= cfg.accounts.fscoreBad) caution.push('comptes en dégradation (F-score ' + accF + '/9)');
     if (inst.shorts && inst.shorts.totalPct >= 5) caution.push(has('duel') ? 'duel avec des vendeurs à découvert : issue binaire, position réduite' : 'fonds fortement vendeurs à découvert');
     if (inst.nextEarnings && opts.today && inst.nextEarnings >= opts.today && ES.daysBetween(opts.today, inst.nextEarnings) <= cfg.alerts.earningsWarnDays) caution.push('résultats dans moins de ' + cfg.alerts.earningsWarnDays + ' jours');
     if (sc.marketDown) caution.push('marché européen baissier');
-    if (lab === 'top' && hist !== 'wait' && caution.length <= 1) { why.push('note très forte' + (hist === 'rare' ? ', remarquable dans l\'historique' : '')); caution.forEach(function (c) { why.push('vigilance : ' + c); }); return mk('priority'); }
-    if (lab === 'top' || lab === 'strong') { why.push(lab === 'top' ? 'note très forte' : 'note forte'); caution.forEach(function (c) { why.push('vigilance : ' + c); }); if (hist === 'wait') why.push('ordinaire par rapport aux sélections passées'); return mk('watch'); }
+    var accTxt = accF != null && accF >= cfg.accounts.fscoreGood ? 'comptes solides et en amélioration (F-score ' + accF + '/9)' : null;
+    if (lab === 'top' && hist !== 'wait' && caution.length <= 1) { why.push('note très forte' + (hist === 'rare' ? ', remarquable dans l\'historique' : '')); if (accTxt) why.push(accTxt); caution.forEach(function (c) { why.push('vigilance : ' + c); }); return mk('priority'); }
+    if (lab === 'top' || lab === 'strong') { why.push(lab === 'top' ? 'note très forte' : 'note forte'); if (accTxt) why.push(accTxt); caution.forEach(function (c) { why.push('vigilance : ' + c); }); if (hist === 'wait') why.push('ordinaire par rapport aux sélections passées'); return mk('watch'); }
     why.push('signal encore modeste (note ' + ES.note(sc.total, cfg) + '/100)');
     return mk('wait');
   };
@@ -936,6 +943,7 @@
         buyDate: d ? d.date : recent[0].txDate, lastPub: recent.map(function (t) { return ES.availDate(t); }).sort().pop(), buyEur: eur || null,
         buyers: sc.cluster ? sc.cluster.count : 1, clusterFrom: sc.cluster ? sc.cluster.from : null, clusterTo: sc.cluster ? sc.cluster.to : null, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
         health: health.status, nextEarnings: c.inst.nextEarnings || null,
+        accounts: c.inst.accounts && c.inst.accounts.verdict ? { f9: c.inst.accounts.fscore && !c.inst.accounts.fscore.na ? c.inst.accounts.fscore.f9 : null, key: c.inst.accounts.verdict.key, text: c.inst.accounts.verdict.text, good: c.inst.accounts.verdict.good, bad: c.inst.accounts.verdict.bad } : null,
         peer: c.inst.peer || null, position: c.inst.position ? { label: c.inst.position.label, key: c.inst.position.key, rank: c.inst.position.rank, of: c.inst.position.of, industry: c.inst.position.industry } : null, shorts: c.inst.shorts ? { totalPct: c.inst.shorts.totalPct, holders: c.inst.shorts.holders } : null });
     });
     out.sort(function (a, b) { return b.score - a.score || (b.discountPct || 0) - (a.discountPct || 0); });
@@ -959,6 +967,7 @@
       if (x.trendUp) w.push('tendance de fond haussière (MM50 > MM200)');
       if (x.position && (x.position.key === 'leader' || x.position.key === 'challenger')) w.push((x.position.key === 'leader' ? 'leader de son industrie' : 'challenger de son industrie') + ' (n° ' + x.position.rank + ' sur ' + x.position.of + ' sociétés européennes suivies, par chiffre d\'affaires)');
       if (x.peer && x.peer.discountPct >= cfg.valuation.cheapPct) w.push('valorisation ' + Math.round(x.peer.discountPct) + ' % sous ses pairs (' + x.peer.metric + ' ' + String(x.peer.value).replace('.', ',') + ' contre ' + String(x.peer.peerMedian).replace('.', ',') + ', ' + x.peer.peers + ' sociétés comparables)');
+      if (x.accounts && x.accounts.key !== 'na') w.push('📊 ' + x.accounts.text.charAt(0).toLowerCase() + x.accounts.text.slice(1) + (x.accounts.good.length || x.accounts.bad.length ? ' : ' + x.accounts.good.concat(x.accounts.bad).slice(0, 3).join(', ') : ''));
       if (x.shorts) w.push('positions vendeuses actuelles : ' + x.shorts.holders + ' fonds' + ' parie' + (x.shorts.holders > 1 ? 'nt' : '') + ' à la baisse, ' + String(x.shorts.totalPct).replace('.', ',') + ' % du capital');
       return w;
     };
@@ -1101,6 +1110,80 @@
     var n = k === 'top' ? (histKey === 'rare' ? 5 : 4) : k === 'strong' ? 3 : k === 'mid' ? 2 : 1;
     return { n: n, text: '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n) };
   };
+  /**
+   * Analyse des comptes annuels : tendances sur les derniers exercices et F-score de Piotroski (0 à 9).
+   * fin : { years: [{ date, revenue, grossProfit, operatingIncome, netIncome, ebitda, interestExpense, totalAssets, currentAssets,
+   *   currentLiabilities, totalDebt, longTermDebt, cash, equity, shares, cfo, capex, fcf }], currency }
+   * opts.asOf : date d'analyse ; seuls les exercices clos au moins 120 jours avant sont utilisés (comptes publiés à cette date).
+   * opts.sector / opts.industry : banques et assurances → F-score non applicable.
+   */
+  ES.accountsAnalysis = function (fin, opts) {
+    opts = opts || {};
+    var n = function (v) { v = +v; return Number.isFinite(v) ? v : null; };
+    var limit = opts.asOf ? ES.addDays(opts.asOf, -120) : null;
+    var Y = (fin && Array.isArray(fin.years) ? fin.years : []).filter(function (y) { return y && typeof y.date === 'string' && (!limit || y.date <= limit); })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(-4).map(function (y) {
+        var o = { date: y.date };
+        ['revenue', 'grossProfit', 'operatingIncome', 'netIncome', 'ebitda', 'interestExpense', 'totalAssets', 'currentAssets', 'currentLiabilities', 'totalDebt', 'longTermDebt', 'cash', 'equity', 'shares', 'cfo', 'capex', 'fcf'].forEach(function (k) { o[k] = n(y[k]); });
+        if (o.fcf == null && o.cfo != null && o.capex != null) o.fcf = o.cfo + o.capex; // capex négatif chez Yahoo
+        return o;
+      });
+    if (!Y.length) return null;
+    var sec = String(opts.sector || '') + ' ' + String(opts.industry || '');
+    var fin_ = /financial|bank|insurance|banque|assurance|capital markets|asset management|credit services/i.test(sec);
+    var div = function (a, b) { return a != null && b != null && b !== 0 ? a / b : null; };
+    var rows = Y.map(function (y) {
+      var nd = y.totalDebt != null && y.cash != null ? y.totalDebt - y.cash : null;
+      return { date: y.date, year: y.date.slice(0, 4), revenue: y.revenue, opMargin: div(y.operatingIncome, y.revenue) != null ? div(y.operatingIncome, y.revenue) * 100 : null,
+        netIncome: y.netIncome, netMargin: div(y.netIncome, y.revenue) != null ? div(y.netIncome, y.revenue) * 100 : null, fcf: y.fcf,
+        netDebtEbitda: fin_ ? null : (y.ebitda > 0 && nd != null ? nd / y.ebitda : null), netCash: nd != null && nd < 0,
+        roe: y.equity > 0 && y.netIncome != null ? y.netIncome / y.equity * 100 : null, equityRatio: div(y.equity, y.totalAssets) != null ? div(y.equity, y.totalAssets) * 100 : null };
+    });
+    var first = Y[0], last = Y[Y.length - 1], prev = Y.length > 1 ? Y[Y.length - 2] : null, out = { years: rows, n: Y.length, currency: (fin && fin.currency) || null, notes: [] };
+    // Tendances lisibles
+    var nyr = Y.length - 1;
+    if (nyr >= 1 && first.revenue > 0 && last.revenue > 0) out.revenueCagr = (Math.pow(last.revenue / first.revenue, 1 / nyr) - 1) * 100;
+    var r0 = rows[0], r1 = rows[rows.length - 1];
+    if (nyr >= 1 && r0.opMargin != null && r1.opMargin != null) out.opMarginDelta = r1.opMargin - r0.opMargin;
+    out.fcfPositiveYears = Y.filter(function (y) { return y.fcf != null && y.fcf > 0; }).length;
+    out.fcfKnownYears = Y.filter(function (y) { return y.fcf != null; }).length;
+    if (nyr >= 1 && first.shares > 0 && last.shares > 0) out.dilutionPct = (last.shares / first.shares - 1) * 100;
+    if (last.interestExpense && last.operatingIncome != null) out.interestCover = last.operatingIncome / Math.abs(last.interestExpense);
+    // F-score de Piotroski (Piotroski, 2000) : 9 critères binaires sur les deux derniers exercices
+    if (fin_) out.fscore = { na: true, reason: 'non applicable aux banques, assurances et sociétés financières (comptes d\'une autre nature)' };
+    else if (!prev) out.fscore = { na: true, reason: 'un seul exercice disponible' };
+    else {
+      var roa = function (y) { return div(y.netIncome, y.totalAssets); }, cr = function (y) { return div(y.currentAssets, y.currentLiabilities); };
+      var lev = function (y) { return y.totalAssets ? (y.longTermDebt != null ? y.longTermDebt : y.totalDebt) / y.totalAssets : null; };
+      var gm = function (y) { return div(y.grossProfit, y.revenue); }, ato = function (y) { return div(y.revenue, y.totalAssets); };
+      var cmp = function (a, b, better) { return a == null || b == null ? null : better === 'up' ? a > b : a < b; };
+      var crit = [
+        ['roa', 'Bénéfice positif (rentabilité des actifs > 0)', roa(last) == null ? null : roa(last) > 0],
+        ['cfo', 'Flux de trésorerie d\'exploitation positif', last.cfo == null ? null : last.cfo > 0],
+        ['droa', 'Rentabilité des actifs en hausse sur un an', cmp(roa(last), roa(prev), 'up')],
+        ['accrual', 'Trésorerie d\'exploitation supérieure au bénéfice (bénéfice de qualité)', last.cfo == null || last.netIncome == null ? null : last.cfo > last.netIncome],
+        ['lev', 'Endettement à long terme en baisse (rapporté aux actifs)', lev(last) == null || lev(prev) == null ? null : lev(last) < lev(prev) || (lev(last) === 0 && lev(prev) === 0)],
+        ['liq', 'Liquidité à court terme en hausse', cmp(cr(last), cr(prev), 'up')],
+        ['shares', 'Pas de nouvelles actions émises (pas de dilution)', last.shares == null || prev.shares == null ? null : last.shares <= prev.shares * 1.01],
+        ['gm', 'Marge brute en hausse', cmp(gm(last), gm(prev), 'up')],
+        ['ato', 'Rotation des actifs en hausse (plus de ventes par euro d\'actif)', cmp(ato(last), ato(prev), 'up')]
+      ].map(function (c) { return { k: c[0], label: c[1], ok: c[2] }; });
+      var known = crit.filter(function (c) { return c.ok != null; }), pts = known.filter(function (c) { return c.ok; }).length;
+      out.fscore = known.length >= 7 ? { score: pts, avail: known.length, f9: Math.round(pts * 9 / known.length), items: crit, year: last.date.slice(0, 4) }
+        : { na: true, reason: 'comptes trop incomplets (' + known.length + ' critères sur 9 calculables)', items: crit };
+    }
+    // Verdict en une phrase
+    var f = out.fscore && !out.fscore.na ? out.fscore.f9 : null, good = [], bad = [];
+    if (out.revenueCagr != null) (out.revenueCagr >= 3 ? good : out.revenueCagr <= -3 ? bad : []).push('chiffre d\'affaires ' + (out.revenueCagr >= 0 ? '+' : '') + out.revenueCagr.toFixed(1).replace('.', ',') + ' % par an');
+    if (out.opMarginDelta != null) (out.opMarginDelta >= 1 ? good : out.opMarginDelta <= -1 ? bad : []).push('marge opérationnelle ' + (out.opMarginDelta >= 0 ? '+' : '') + out.opMarginDelta.toFixed(1).replace('.', ',') + ' point' + (Math.abs(out.opMarginDelta) >= 2 ? 's' : ''));
+    if (out.fcfKnownYears >= 2) (out.fcfPositiveYears === out.fcfKnownYears ? good : out.fcfPositiveYears === 0 ? bad : []).push('trésorerie disponible ' + (out.fcfPositiveYears === out.fcfKnownYears ? 'positive chaque année' : out.fcfPositiveYears === 0 ? 'négative chaque année' : 'irrégulière'));
+    if (out.dilutionPct != null && out.dilutionPct >= 5) bad.push('dilution de ' + Math.round(out.dilutionPct) + ' % (nouvelles actions)');
+    if (out.interestCover != null && out.interestCover < 2 && !fin_) bad.push(out.interestCover <= 0 ? 'résultat d\'exploitation négatif : intérêts non couverts' : 'intérêts peu couverts (résultat d\'exploitation = ' + out.interestCover.toFixed(1).replace('.', ',') + ' fois les intérêts)');
+    var key = f == null ? (bad.length > good.length ? 'bad' : good.length > bad.length ? 'good' : 'mixed') : f >= 7 ? 'good' : f <= 3 ? 'bad' : 'mixed';
+    if (f == null && !good.length && !bad.length) key = 'na';
+    out.verdict = { key: key, good: good, bad: bad, text: ({ good: 'Comptes solides et en amélioration', mixed: 'Comptes mitigés', bad: 'Comptes en dégradation', na: 'Comptes insuffisants pour conclure' }[key]) + (f != null ? ' (F-score ' + f + '/9)' : '') };
+    return out;
+  };
   /** Positions vendeuses nettes publiées (≥ 0,5 % du capital) en vigueur à une date. list : [{ holder, pct, from, to, country }] */
   ES.shortInfo = function (list, day) {
     var cur = (Array.isArray(list) ? list : []).filter(function (p) { return p && typeof p === 'object' && +p.pct >= 0.5 && +p.pct <= 25 && (!p.from || p.from <= day) && (!p.to || p.to > day); }).map(function (p) { return { holder: p.holder, pct: +p.pct, from: p.from, to: p.to }; });
@@ -1117,7 +1200,8 @@
     ['smallMid', 'Petite ou moyenne valeur (capitalisation < 2 Md€)'],
     ['bigVsCap', 'Achat ≥ 0,05 % de la capitalisation'],
     ['peerCheap', 'Valorisation ≥ 20 % sous ses pairs'],
-    ['shorted', 'Achat pendant que des fonds parient à la baisse (≥ 0,5 % du capital)']
+    ['shorted', 'Achat pendant que des fonds parient à la baisse (≥ 0,5 % du capital)'],
+    ['fscoreHigh', 'Comptes solides : F-score de Piotroski ≥ 7 (comptes publiés à la date de l\'achat)']
   ];
   ES.observeStats = function (samples, cfg) {
     var L = cfg.learning, ok = (samples || []).filter(function (s) { return s.excess != null && isFinite(s.excess); });

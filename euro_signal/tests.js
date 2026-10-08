@@ -715,6 +715,26 @@ t('Avis croisé : éviter, priorité, duel avec les vendeurs à découvert, rais
   eq(ES.selectionBlockers({ inst: solid, score: sc(47), quality: { total: 90, coverage: { ok: true } }, universe: { status: 'retenu' } }, c, '2026-10-08').length, 0);
 });
 
+t('Analyse des comptes : F-score de Piotroski, comptes publiés à la date, cas non applicables', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const y = (d, k) => ({ date: d, revenue: 80 * k, grossProfit: 30 * k * k, operatingIncome: 6 * k * k, netIncome: 4 * k * k, ebitda: 11 * k, totalAssets: 190, currentAssets: 70 * k, currentLiabilities: 50, totalDebt: 70 / k, longTermDebt: 50 / k, cash: 15, equity: 80, shares: 10, cfo: 9 * k * k, capex: -4 });
+  const good = { currency: 'EUR', years: [y('2023-12-31', 1), y('2024-12-31', 1.1), y('2025-12-31', 1.2)] };
+  const a = ES.accountsAnalysis(good, { asOf: '2026-10-08', sector: 'Industrials' });
+  eq(a.n, 3); eq(a.fscore.f9, 9, 'tout s\'améliore'); eq(a.verdict.key, 'good'); ok(/F-score 9\/9/.test(a.verdict.text));
+  eq(ES.accountsAnalysis(good, { asOf: '2025-03-01' }).n, 1, 'comptes 2024 pas encore publiés au 01/03/2025');
+  const bad = { years: [y('2024-12-31', 1.2), y('2025-12-31', 0.8)].map((x, k) => (k ? Object.assign(x, { netIncome: -5, cfo: -2, shares: 13 }) : x)) };
+  const b = ES.accountsAnalysis(bad, { asOf: '2026-10-08', sector: 'Technology' });
+  ok(b.fscore.f9 <= 3, 'dégradation : ' + b.fscore.f9); eq(b.verdict.key, 'bad'); ok(b.verdict.bad.some((t) => /dilution/.test(t)));
+  ok(ES.accountsAnalysis(good, { sector: 'Financial Services', industry: 'Banks - Regional' }).fscore.na, 'banque : non applicable');
+  ok(ES.accountsAnalysis({ years: [{ date: '2025-12-31', revenue: 1 }, { date: '2024-12-31', revenue: 1 }] }, {}).fscore.na, 'trop incomplet');
+  eq(ES.accountsAnalysis({ years: 'x' }, {}), null); eq(ES.accountsAnalysis(null, {}), null);
+  const sc = { total: 50, buys: [{ txDate: '2026-10-01', pubDate: '2026-10-01', ceo: true }], buyEur: 3e6, sellEur: 0, discount: { pct: 30 }, cluster: null };
+  const solid = { totalDebt: 1e8, totalCash: 5e8, ebitda: 3e8, freeCashflow: 1e8, sector: 'Industrials' };
+  const adv = ES.advice({ fund: solid, accounts: b }, sc, c, { histKey: 'rare', today: '2026-10-08' });
+  ok(adv.signals.some((g) => g.k === 'fscore' && g.tone === 'bad'), 'symbole 📊 rouge'); ok(/comptes en dégradation/.test(adv.why.join(' ')) || adv.key === 'avoid', adv.key + ' ' + adv.why.join(' ; '));
+  ok(ES.advice({ fund: solid, accounts: a }, sc, c, { histKey: 'rare', today: '2026-10-08' }).why.some((w) => /comptes solides/.test(w)));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

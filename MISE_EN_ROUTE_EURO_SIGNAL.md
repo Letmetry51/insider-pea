@@ -176,6 +176,16 @@ si les semaines « exceptionnelles » rapportent vraiment plus.
 - **Position concurrentielle** : rang par chiffre d'affaires dans son industrie parmi les sociétés européennes suivies
   (au moins 5) : Leader (n° 1), Challenger (n° 2 et 3), Suiveur, Acteur de niche (moins de 3 % du total).
 
+## Analyse des comptes (📊)
+
+Pour chaque société suivie, Euro Signal lit les 4 derniers exercices publiés (compte de résultat, bilan, flux de
+trésorerie) et affiche dans la fiche : chiffre d'affaires, marge opérationnelle, résultat net, trésorerie disponible,
+dette nette / EBITDA et rentabilité des fonds propres, avec leur tendance, puis le **F-score de Piotroski** (0 à 9) point
+par point : 7 à 9 = comptes solides et en amélioration, 0 à 3 = en dégradation. Un F-score faible rend l'avis plus prudent
+(0 ou 1 : « éviter »). Non applicable aux banques et assurances. Les comptes sont relus tous les 30 jours ; la première
+collecte se complète sur quelques soirs, en commençant par les sociétés où un dirigeant a acheté. Le F-score est aussi mesuré
+« en observation » (comptes publiés à la date de chaque achat) avant de peser dans la note.
+
 ## L'avis croisé et les symboles
 
 Pour chaque société où un dirigeant a acheté, Euro Signal croise la note, le repère historique, la solidité financière,

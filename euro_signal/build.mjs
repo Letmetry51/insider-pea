@@ -14,7 +14,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const DATA = path.join(ROOT, 'data');
 const F = {
-  latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), shorts: path.join(DATA, 'shorts.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
+  latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), shorts: path.join(DATA, 'shorts.json'), financials: path.join(DATA, 'financials.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
   out: path.join(DATA, 'euro-signal.json'), detail: path.join(DATA, 'euro-signal-detail.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
@@ -223,7 +223,13 @@ export function build(opts = {}) {
   let peers = {}, positions = {};
   try { peers = ES.peerValuation(inst); } catch (e) { console.warn('  Valorisation vs pairs ignorée : ' + e.message); }
   try { positions = ES.marketPosition(inst); } catch (e) { console.warn('  Position concurrentielle ignorée : ' + e.message); }
+  // Comptes annuels (4 exercices) : analyse et F-score de Piotroski, avec les seuls comptes publiés à ce jour
+  const finRaw = readJSON(F.financials, { items: {} });
+  const finList = isObj(finRaw.items) ? finRaw.items : {};
+  const accAt = (isin, d) => { try { const i = inst[isin]; return ES.accountsAnalysis(finList[isin], { asOf: d, sector: i.sector || (i.fund && i.fund.sector), industry: i.fund && i.fund.industry }); } catch (e) { return null; } };
   Object.keys(inst).forEach((isin) => {
+    const a = finList[isin] ? accAt(isin, today) : null;
+    if (a) inst[isin].accounts = a;
     if (peers[isin]) inst[isin].peer = peers[isin];
     if (positions[isin]) inst[isin].position = positions[isin];
     const sh = ES.shortInfo(shortsList[isin], today);
@@ -351,7 +357,8 @@ export function build(opts = {}) {
           smallMid: cap ? cap < 2e9 : undefined,
           bigVsCap: cap ? known2.filter((b) => (b.personKey || b.person) === (t.personKey || t.person)).reduce((a, b) => a + (ES.toEur(b.amount, b.currency) || 0), 0) / cap >= 0.0005 : undefined,
           peerCheap: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].peerDisc != null ? state.obsAtBuy[t.id].peerDisc >= cfg.valuation.cheapPct : undefined,
-          shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined } });
+          shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
+          fscoreHigh: (() => { const a = finList[isin] ? accAt(isin, d) : null; return a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined; })() } });
       if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null };
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
       const known = known2;
@@ -561,7 +568,14 @@ export function build(opts = {}) {
     mainTx[isin] = l;
     if (dashRefs[isin]) { mainRefs[isin] = {}; l.forEach((t) => { if (dashRefs[isin][t.id]) mainRefs[isin][t.id] = dashRefs[isin][t.id]; }); }
   });
-  const detail = { format: 'euro-signal-detail', generatedAt: new Date().toISOString(), today, tx: dashTx, refs: dashRefs, prices: dashPrices };
+  // Comptes : détail (exercices, critères) dans le fichier des fiches ; le classement ne garde que le verdict et le F-score
+  const accountsFull = {};
+  Object.keys(inst).forEach((isin) => {
+    const a = inst[isin].accounts; if (!a) return;
+    accountsFull[isin] = a;
+    inst[isin].accounts = { fscore: a.fscore ? (a.fscore.na ? { na: true, reason: a.fscore.reason } : { f9: a.fscore.f9, score: a.fscore.score, avail: a.fscore.avail, year: a.fscore.year }) : null, verdict: a.verdict, n: a.n, summary: true };
+  });
+  const detail = { format: 'euro-signal-detail', generatedAt: new Date().toISOString(), today, tx: dashTx, refs: dashRefs, prices: dashPrices, accounts: accountsFull };
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
