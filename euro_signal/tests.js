@@ -673,13 +673,28 @@ t('Pairs, positions vendeuses, critères en observation, repère historique', ()
   const hist = [40, 45, 50, 52, 55, 58, 60, 62, 65, 70, 72, 75];
   eq(ES.historicRank(80, hist).key, 'rare'); eq(ES.historicRank(66, hist).key, 'good'); eq(ES.historicRank(45, hist).key, 'wait'); eq(ES.historicRank(80, [1, 2]).key, 'na');
   const items = [{ note: 83, hist: ES.historicRank(83, hist) }];
-  eq(ES.weekVerdict(items, hist, [50, 55, 60, 65, 70, 75]).key, 'strong');
-  eq(ES.weekVerdict([{ note: 52 }], hist, [50, 55, 60, 65, 70, 75]).key, 'weak');
-  eq(ES.weekVerdict([], hist, []).key, 'empty'); eq(ES.weekVerdict([{ note: 70 }], hist, [60]).key, 'na');
+  eq(ES.weekVerdict(items, [50, 55, 60, 65, 70, 75]).key, 'strong');
+  eq(ES.weekVerdict([{ note: 52 }], [50, 55, 60, 65, 70, 75]).key, 'weak');
+  eq(ES.weekVerdict([], []).key, 'empty'); eq(ES.weekVerdict([{ note: 70 }], [60]).key, 'na');
   const x = { isin: 'FR0000000001', name: 'Soc', score: 50, discountPct: 30, ceo: true, buyers: 1, hist: ES.historicRank(83, hist), peer: pv.FR0000000001, shorts: { totalPct: 0.7, holders: 1 } };
-  const m = ES.buildSelectionEmail([x], '2026-W41', c, null, '2026-10-08', null, null, ES.weekVerdict([{ note: 83, hist: x.hist }], hist, [50, 55, 60, 65, 70, 75]));
+  const m = ES.buildSelectionEmail([x], '2026-W41', c, null, '2026-10-08', null, null, ES.weekVerdict([{ note: 83, hist: x.hist }], [50, 55, 60, 65, 70, 75]));
   ok(/Semaine exceptionnelle/.test(m.text) && /Cette semaine/.test(m.html), 'verdict en tête');
   ok(/remarquable/.test(m.text) && /50 % sous ses pairs/.test(m.text) && /1 fonds parient à la baisse/.test(m.text), m.text.slice(0, 400));
+});
+
+t('Leader / challenger, étoiles, données mal formées tolérées', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const mk = (rev, cur, ind) => ({ fund: { revenue: rev, currency: cur, industry: ind || 'Auto Parts' } });
+  const inst = { A: mk(9e9, 'EUR'), B: mk(5e9, 'EUR'), B2: mk(5e9, 'EUR'), C: mk(3e9, 'GBP'), D: mk(1e9, 'EUR'), E: mk(2e7, 'EUR'), F: mk(4e9, null), G: mk('x', 'EUR') };
+  const mp = ES.marketPosition(inst);
+  eq(mp.A.key, 'leader'); eq(mp.A.of, 5, 'classe d\'actions en double, devise inconnue et valeur invalide écartées');
+  eq(mp.B.key, 'challenger'); ok(!mp.B2 && !mp.F && !mp.G); eq(mp.E.key, 'niche');
+  eq(Object.keys(ES.marketPosition({ A: mk(1, 'EUR'), B: mk(2, 'EUR') })).length, 0, 'moins de 5 sociétés : pas de classement');
+  eq(ES.stars(50, c, 'rare').n, 5); eq(ES.stars(50, c, 'good').n, 4); eq(ES.stars(30, c).n, 3); eq(ES.stars(15, c).n, 2); eq(ES.stars(2, c).n, 1);
+  eq(ES.shortInfo({ holder: 'x', pct: 1 }, '2026-10-08'), null, 'liste attendue');
+  eq(ES.shortInfo([{ holder: 'x', pct: '1.5', from: '2026-01-01' }], '2026-10-08').totalPct, 1.5, 'pourcentage en texte converti');
+  eq(ES.shortInfo([{ holder: 'x', pct: 40, from: '2026-01-01' }], '2026-10-08'), null, 'valeur aberrante ignorée');
+  const pv = ES.peerValuation({ A: { fund: { evToEbitda: '12', industry: 'X', sector: 'Y' } } }); eq(Object.keys(pv).length, 0);
 });
 
 console.log(results.join('\n'));

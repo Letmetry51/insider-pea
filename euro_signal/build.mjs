@@ -21,8 +21,11 @@ const F = {
 // NaN / Infinity écrits par Python : remplacés seulement en position de valeur (jamais dans un texte)
 const sanitize = (txt) => txt.replace(/([:\[,]\s*)-?(?:NaN|Infinity)(?=\s*[,\]}])/g, '$1null');
 function readJSON(file, fallback) {
-  try { return JSON.parse(sanitize(fs.readFileSync(file, 'utf8'))); }
-  catch (e) { if (fallback === undefined) throw e; return fallback; }
+  try {
+    const v = JSON.parse(sanitize(fs.readFileSync(file, 'utf8')));
+    if ((v === null || typeof v !== 'object') && fallback !== undefined) return fallback; // « null », nombre, chaîne : inutilisable
+    return v;
+  } catch (e) { if (fallback === undefined) throw e; return fallback; }
 }
 /** Fichier indispensable : absent = valeur par défaut ; présent mais illisible = arrêt (jamais d'écrasement silencieux). */
 function readRequired(file, fallback, label) {
@@ -189,16 +192,30 @@ export function build(opts = {}) {
     inst[isin] = i; tx[isin] = list;
   });
   // Valorisation par rapport aux pairs (même industrie, sinon même secteur) et positions vendeuses publiées
-  const peers = ES.peerValuation(inst);
+  // Informations croisées : jamais bloquantes (une donnée mal formée est ignorée, le calcul continue)
   const shortsRaw = readJSON(F.shorts, { items: {}, sources: {} });
-  const shortsList = shortsRaw.items || {};
+  const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);
+  const shortsSrc = {};
+  Object.keys(isObj(shortsRaw.sources) ? shortsRaw.sources : {}).forEach((cc) => { const x = shortsRaw.sources[cc]; if (isObj(x)) shortsSrc[cc] = { name: String(x.name || cc), status: x.status === 'ok' ? 'ok' : 'echec', open: Number.isFinite(+x.open) ? +x.open : null, note: x.note ? String(x.note).slice(0, 160) : null }; });
+  const shortsList = {};
+  Object.keys(isObj(shortsRaw.items) ? shortsRaw.items : {}).forEach((isin) => {
+    const l = shortsRaw.items[isin];
+    if (!Array.isArray(l)) return;
+    const ok = l.filter((p) => isObj(p) && Number.isFinite(+p.pct)).map((p) => ({ holder: String(p.holder || '?').slice(0, 80), pct: +p.pct, from: typeof p.from === 'string' ? p.from : null, to: typeof p.to === 'string' ? p.to : null, country: String(p.country || '') }));
+    if (ok.length) shortsList[isin] = ok;
+  });
+  let peers = {}, positions = {};
+  try { peers = ES.peerValuation(inst); } catch (e) { console.warn('  Valorisation vs pairs ignorée : ' + e.message); }
+  try { positions = ES.marketPosition(inst); } catch (e) { console.warn('  Position concurrentielle ignorée : ' + e.message); }
   Object.keys(inst).forEach((isin) => {
     if (peers[isin]) inst[isin].peer = peers[isin];
+    if (positions[isin]) inst[isin].position = positions[isin];
     const sh = ES.shortInfo(shortsList[isin], today);
     if (sh) inst[isin].shorts = sh;
   });
   // Mémoire des critères non historisés au moment où un achat devient public (valorisation, positions vendeuses)
-  state.obsAtBuy = state.obsAtBuy || {};
+  state.obsAtBuy = isObj(state.obsAtBuy) ? state.obsAtBuy : {};
+  Object.keys(state.obsAtBuy).forEach((k) => { if (!isObj(state.obsAtBuy[k]) || typeof state.obsAtBuy[k].at !== 'string') delete state.obsAtBuy[k]; });
 
   /* 5. Comparaisons, score, qualité, surchauffe, décision d'alerte */
   const sentIds = {};
@@ -270,13 +287,17 @@ export function build(opts = {}) {
   };
   const SHORT_HIST = { FR: 1, IT: 1, ES: 1, NL: 1, BE: 1 }; // régulateurs publiant l'historique ; Allemagne : à partir de la première collecte
   state.shortsSince = state.shortsSince || {};
-  Object.keys(shortsRaw.sources || {}).forEach((cc) => { if (shortsRaw.sources[cc].status === 'ok' && !state.shortsSince[cc]) state.shortsSince[cc] = today; });
-  const shortCovered = (isin, d) => { const cc = isin.slice(0, 2); return SHORT_HIST[cc] ? !!state.shortsSince[cc] : state.shortsSince[cc] ? d >= state.shortsSince[cc] : false; };
+  Object.keys(shortsSrc).forEach((cc) => { if (shortsSrc[cc].status === 'ok' && !state.shortsSince[cc]) state.shortsSince[cc] = today; });
+  const shortOk = (cc) => shortsSrc[cc] && shortsSrc[cc].status === 'ok';
+  const shortCovered = (isin, d) => {
+    const own = (shortsList[isin] || []).map((p) => p.country).filter(Boolean), cc = isin.slice(0, 2);
+    const ccs = own.length ? own : [cc]; // titre déclaré auprès d'un autre régulateur (ex. Airbus, ISIN NL, à l'AMF)
+    return ccs.some((c) => shortOk(c) && (SHORT_HIST[c] || (state.shortsSince[c] && d >= state.shortsSince[c])));
+  };
   const events = [], samples = [];
   const bAdj = prices.bench ? ES.adjustedSeries(ES.normalizeSeries(prices.bench.rows), []) : null;
   const bIdx = {}; if (bAdj) bAdj.forEach((r, k) => { bIdx[r[0]] = k; });
-  const mAdj = mRef && mRef.rows ? ES.adjustedSeries(ES.normalizeSeries(mRef.rows), []) : null;
-  const ret6m1At = (a, d) => { let k = -1; for (let q = a.length - 1; q >= 0; q--) if (a[q][0] <= d) { k = q; break; } return k >= 126 ? (a[k - 21][4] / a[k - 126][4] - 1) * 100 : null; };
+  const mAdj = mAdj0, ret6m1At = r6;
   Object.keys(inst).forEach((isin) => {
     if (!pItems[isin]) return;
     const R = refs[isin] || {};
@@ -302,8 +323,7 @@ export function build(opts = {}) {
       if (a && ES.isPanic(a, W)) push('Achat dans la panique', d);
       // composantes connues à la date de publication, et résultat réel 60 séances plus tard
       const disc = a && a.paidVsHigh52Pct != null ? -a.paidVsHigh52Pct : null;
-      let kk = -1; { let lo = 0, hi = adj.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (adj[m][0] <= d) { kk = m; lo = m + 1; } else hi = m - 1; } }
-      const above = kk >= 199 ? (cum[kk + 1] - cum[kk - 49]) / 50 > (cum[kk + 1] - cum[kk - 199]) / 200 : null; // MM50 > MM200 à la date de publication
+      const above = trendAt(d); // MM50 > MM200 à la date de publication
       const rs = mAdj ? (() => { const x = ret6m1At(adj, d), y = ret6m1At(mAdj, d); return x != null && y != null ? x - y : null; })() : null;
       const known2 = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
       raw.push({ isin, date: d, excess: bAdj ? ES.forwardExcess(adj, bAdj, bIdx, d, cfg.learning.horizon, cfg.backtest.costRoundTripPct / 100) : null,
@@ -314,11 +334,11 @@ export function build(opts = {}) {
           sectorStrong: sectorStrongAt(inst[isin].sector, d), sectorBreadth: breadthAt(inst[isin].sector, d),
           smallMid: cap ? cap < 2e9 : undefined,
           bigVsCap: cap ? known2.filter((b) => (b.personKey || b.person) === (t.personKey || t.person)).reduce((a, b) => a + (ES.toEur(b.amount, b.currency) || 0), 0) / cap >= 0.0005 : undefined,
-          peerCheap: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].peerDisc != null ? state.obsAtBuy[t.id].peerDisc >= 20 : undefined,
+          peerCheap: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].peerDisc != null ? state.obsAtBuy[t.id].peerDisc >= cfg.valuation.cheapPct : undefined,
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined } });
-      if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null, shortPct: inst[isin].shorts ? inst[isin].shorts.totalPct : 0 };
+      if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null };
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
-      const known = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
+      const known = known2;
       if (ES.clusterInfo(known, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin, date: d, group: 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }
     });
     // Un cluster (ou une série d'achats rapprochés) = un seul cas : fenêtre ouverte au premier achat, close après clusterWindowDays
@@ -341,12 +361,18 @@ export function build(opts = {}) {
     : Object.assign({ month: null, version: 0, weights: {}, log: [], stats: [] }, learnPrev || {}, { changed: [] });
   learning.mode = cfg.learning.mode; learning.samples = samples.length; learning.withOutcome = samples.filter((x) => x.excess != null).length; learning.baseVersion = baseVersion;
   if (learning.changed.length && cfg.learning.mode === 'auto') {
+    state.pendingInfo = state.pendingInfo || {};
     const lines = learning.changed.map((e) => e.label + ' : ' + e.from + ' → ' + e.to + ' point(s) (écart mesuré ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt sur ' + e.nWith + ' cas, t = ' + e.t + ')');
-    outbox.push({ id: 'apprentissage-' + learning.month, kind: 'info', isin: null, name: 'Barème', subject: '[Euro Signal] Barème ajusté automatiquement (' + learning.month + ')',
+    state.pendingInfo['apprentissage-' + learning.month] = ({ id: 'apprentissage-' + learning.month, kind: 'info', isin: null, name: 'Barème', subject: '[Euro Signal] Barème ajusté automatiquement (' + learning.month + ')',
       text: 'Euro Signal a comparé ses signaux aux résultats réels et ajusté son barème :\n' + lines.join('\n') + '\n\nRègles : un pas au plus par mois, seulement si l\'écart est net sur au moins ' + cfg.learning.minCases + ' cas, entre 0 et 2 fois le poids d\'origine. Pour désactiver : "learning": {"mode": "off"} dans euro_signal/config.json.',
       html: '<div style="font-family:Arial,sans-serif;font-size:14px"><h2>Barème ajusté automatiquement</h2><p>Euro Signal a comparé ses signaux aux résultats réels (' + learning.withOutcome + ' achats suivis sur ' + cfg.learning.horizon + ' séances) :</p><ul>' + lines.map((l) => '<li>' + ES.esc(l) + '</li>').join('') + '</ul><p style="color:#55615c;font-size:12px">Un pas au plus par mois, seulement si l\'écart est net sur au moins ' + cfg.learning.minCases + ' cas, entre 0 et 2 fois le poids d\'origine. Désactivable dans euro_signal/config.json.</p>' + (dashUrl ? '<p><a href="' + ES.esc(dashUrl) + '">Voir l\'onglet Résultats passés</a></p>' : '') + '</div>',
       eventIds: ['learn:' + learning.month], score: null, version: cfg.scoringVersion });
-  }
+  }  // Emails d'information en attente (barème) : renvoyés chaque soir jusqu'à un envoi confirmé ou incertain, jamais deux fois
+  Object.keys(state.pendingInfo || {}).forEach((id) => {
+    const a = state.alerts[id], sent = a && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(a.status) > -1;
+    if (sent) delete state.pendingInfo[id]; else outbox.push(state.pendingInfo[id]);
+  });
+
 
   /* 6c. Suivi des alertes envoyées et signaux de sortie */
   const followups = [];
@@ -391,11 +417,12 @@ export function build(opts = {}) {
   const week = ES.isoWeek(today);
   const selection = { week, items: ES.weeklySelection(cands, cfg, today) };
   // « Nouveau » : absent de la sélection précédente
-  state.selections = state.selections || {};
+  state.selections = isObj(state.selections) ? state.selections : {};
+  Object.keys(state.selections).forEach((w) => { const v = state.selections[w]; if (!isObj(v) || !Array.isArray(v.items) || typeof v.date !== 'string') delete state.selections[w]; });
   const prevWeek = Object.keys(state.selections).filter((w) => w < week).sort().pop();
   if (prevWeek) { const was = new Set(state.selections[prevWeek].items.map((x) => x.isin)); selection.items.forEach((x) => { x.isNew = !was.has(x.isin); }); }
   // Suivi des sélections passées (tableau de bord et email) : performance depuis l'envoi, comparée au CAC 40
-  const closeAt = (rows, splits, d) => { const a = ES.adjustedSeries(ES.normalizeSeries(rows), splits || []); let v = null; for (const r of a) { if (r[0] <= d) v = r[4]; else break; } return { at: v, last: a.length ? a[a.length - 1][4] : null }; };
+  const closeAt = (rows, splits, d) => { const a = ES.adjustedSeries(ES.normalizeSeries(rows), splits || []); const nx = a.find((r) => r[0] > d); return { at: nx ? nx[1] || nx[4] : null, last: a.length ? a[a.length - 1][4] : null }; }; // ouverture de la séance suivant l'envoi
   const selectionTrack = Object.keys(state.selections).filter((w) => w < week).sort().slice(-26).map((w) => {
     const S0 = state.selections[w], b = prices.bench ? closeAt(prices.bench.rows, [], S0.date) : null;
     const bench = b && b.at && b.last ? (b.last / b.at - 1) * 100 : null;
@@ -404,7 +431,7 @@ export function build(opts = {}) {
   selection.track = ES.selectionTrackSummary(selectionTrack);
   // Repère historique : sélections rejouées chaque lundi passé, avec uniquement l'information connue ce jour-là
   const replay = [];
-  {
+  try {
     const firstAvail = Object.values(sigAll).flat().sort()[0];
     const monday = (d) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
     let D = firstAvail ? monday(ES.addDays(firstAvail, 7)) : null;
@@ -430,21 +457,29 @@ export function build(opts = {}) {
         const sc = ES.score({ inst: iD, tx: txD, events: evOut[isin] || { buybacks: [], results: [] }, refs: rf, cfg, today: D0 });
         if (!sc.buys.length || sc.ambiguousCount || sc.total < (selCfg.minScore || 0)) return;
         if (!sc.buys.some((t) => ES.availDate(t) >= from)) return;
-        notes.push(ES.note(sc.total, cfg));
+        notes.push({ isin, note: ES.note(sc.total, cfg) });
       });
-      notes.sort((a, b) => b - a);
-      replay.push({ week: ES.isoWeek(D0), date: D0, notes: notes.slice(0, selCfg.size || 5) });
+      notes.sort((a, b) => b.note - a.note);
+      replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.slice(0, selCfg.size || 5) });
     });
-  }
-  const histNotes = replay.flatMap((w) => w.notes), weekBest = replay.filter((w) => w.notes.length).map((w) => w.notes[0]);
+  } catch (e) { console.warn('  Repère historique indisponible : ' + e.message); replay.length = 0; }
+  // Une société retenue plusieurs lundis de suite = un seul dossier (sa meilleure note), pour ne pas se comparer à elle-même
+  const episodes = {}, histNotes = [];
+  replay.forEach((w, k) => w.picks.forEach((x) => { const e = episodes[x.isin]; if (e && e.last === k - 1) { e.note = Math.max(e.note, x.note); e.last = k; } else { if (e) histNotes.push(e.note); episodes[x.isin] = { note: x.note, last: k }; } }));
+  Object.keys(episodes).forEach((i) => histNotes.push(episodes[i].note));
+  const weekBest = replay.filter((w) => w.picks.length).map((w) => w.picks[0].note);
   selection.items.forEach((x) => { x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes); });
-  selection.verdict = ES.weekVerdict(selection.items, histNotes, weekBest);
+  selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };
   if (selCfg.enabled) {
     const id = 'selection-' + week, dow = (new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1; // 1 = lundi
     const prev = state.alerts[id];
     const done = prev && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(prev.status) > -1;
-    if (!done && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh) {
+    const insBad = Object.keys(state.src).filter((n) => state.src[n].kind === 'déclarations' || /^(AMF|BaFin|CNMV|CONSOB|FSMA|AFM)$/.test(n)).filter((n) => state.src[n].status === 'echec');
+    selection.sourcesDown = insBad;
+    if (insBad.length && selection.verdict) selection.verdict = { key: 'na', icon: '⚠️', text: 'Données incomplètes : ' + insBad.join(', ') + ' en panne. Les sociétés concernées peuvent manquer à la sélection.' };
+    const wait = insBad.length && dow < 5; // on attend que la source revienne, au plus tard le vendredi
+    if (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh) {
       const since = events.length ? events.map((e) => e.date).sort()[0] : null;
       const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null), selection.track, selection.verdict);
       state.selections[week] = { date: today, items: selection.items.map((x) => ({ isin: x.isin, name: x.name, score: x.score })) };
@@ -501,7 +536,7 @@ export function build(opts = {}) {
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
     cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups, selection, selectionTrack, shortsSrc: shortsRaw.sources || {},
+    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
   };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });

@@ -18,7 +18,8 @@ from scrapers.scoring import compute_insider_score, compute_tech_guard, compute_
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-# Mapping ISIN -> ticker Yahoo Finance (pour enrichissement optionnel)
+# Mapping ISIN -> ticker Yahoo Finance (pour enrichissement optionnel). Euro Signal (scrapers/prices.py) privilégie
+# la recherche Yahoo par ISIN et n'utilise cette table qu'en secours (revue du 2026-10-08 : 5 erreurs corrigées).
 # Plus on en ajoute, plus on aura d'infos analystes dans le dashboard.
 # Pour les ISINs absents, seule la partie "achat d'initié" sera affichée (pas de potentiel analystes).
 ISIN_TO_TICKER = {
@@ -29,33 +30,26 @@ ISIN_TO_TICKER = {
     "FR0014003TT8": "DSY.PA", "FR0000120321": "OR.PA", "FR0000052292": "RMS.PA",
     "FR0000121485": "KER.PA", "FR0000045072": "ACA.PA", "FR0000120628": "CS.PA",
     "NL0000235190": "AIR.PA", "FR0000073272": "SAF.PA", "FR001400AJ45": "ML.PA",
-    "FR0000125486": "DG.PA", "FR0000133308": "ORA.PA", "FR0010220475": "PUB.PA",
+    "FR0000125486": "DG.PA", "FR0000133308": "ORA.PA", "FR0010220475": "ALO.PA",
     "FR0000121667": "EL.PA", "FR0000120172": "CA.PA", "FR0000130577": "BN.PA",
     # SBF 120 / Mid caps où les insiders achètent souvent
     "FR0013230612": "TKO.PA",       # Tikehau Capital
     "FR0013269123": "RUI.PA",       # Rubis
     "FR0000054470": "UBI.PA",       # Ubisoft
     "FR0010588079": "FREY.PA",      # Frey
-    "FR0010626500": "ARG.PA",       # Argan
-    "FR0000031122": "EIFF.PA",      # Société Tour Eiffel
-    "FR0000120164": "LNA.PA",       # LNA Santé
     "FR0000031775": "VCT.PA",       # Vicat
-    "FR0000053381": "CGM.PA",       # Cegedim
     "FR0000066755": "PIG.PA",       # Haulotte
     "FR0013344173": "RBO.PA",       # Roche Bobois
-    "FR0000062739": "ABCA.PA",      # ABC Arbitrage
     "FR0000121709": "SK.PA",        # SEB (Groupe SEB)
-    "FR0014000MR3": "EXENS.PA",     # Exosens
+    "FR0014000MR3": "ERF.PA",       # Eurofins Scientific
     "FR0004040608": "ABCA.PA",      # ABC Arbitrage (ISIN alternatif)
     "FR0000074148": "FNAC.PA",      # Fnac Darty
     "FR0000125007": "SGO.PA",       # Saint-Gobain
-    "FR0000130809": "SU.PA",        # Société Générale
-    "FR0000120404": "ENGI.PA",      # Accor (ex Engie)
+    "FR0000130809": "GLE.PA",       # Société Générale
+    "FR0000120404": "AC.PA",        # Accor
     "FR0010208488": "ENGI.PA",      # Engie
-    "FR0000053225": "DAST.PA",      # Dassault Aviation
-    "FR0000184798": "GDS.PA",       # Gecina
-    "FR0010040865": "GFC.PA",       # Coface
-    "FR0000035370": "GTT.PA",       # GTT
+    "FR0000053225": "MMT.PA",       # M6 Métropole Télévision
+    "FR0010040865": "GFC.PA",       # Gecina
     # International
     "BE0974293251": "ABI.BR",       # AB InBev
     "NL0011821202": "INGA.AS",      # ING

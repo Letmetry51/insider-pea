@@ -13,7 +13,7 @@ comptent), compare au dernier cours et vous écrit, une seule fois par événeme
   - signal de sortie : vente d'un dirigeant, MM50 repassée sous la MM200, recul de 20 % depuis le plus haut atteint
     depuis votre achat.
 L'unicité des envois est vérifiée dans votre dossier « Envoyés » (référence dans l'objet) : rien n'est stocké ailleurs.
-Le journal GitHub étant public, le script n'y écrit que des compteurs, jamais un ISIN, un prix ou une adresse.
+Le journal GitHub étant public, le script n'y écrit rien de personnel : ni ISIN, ni prix, ni adresse, ni même le nombre de positions.
 """
 import email
 import imaplib
@@ -204,7 +204,7 @@ def main():
                     sent += 1
         except Exception as e:
             print("Positions : envoi interrompu (" + type(e).__name__ + ")")
-    print("Positions suivies : %d ; alertes de revente envoyées : %d" % (len(positions), sent))
+    print("Positions : contrôle effectué")  # journal public : ni nombre de positions, ni nombre d'alertes
     return 0
 
 

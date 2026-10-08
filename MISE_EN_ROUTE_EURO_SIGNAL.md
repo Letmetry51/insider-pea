@@ -126,7 +126,7 @@ Par défaut, trois sortes d'emails seulement :
 - **chaque lundi, la sélection de la semaine** (les 5 meilleurs dossiers, avec les nouveautés signalées et le bilan
   des sélections précédentes comparé au CAC 40) ;
 - **les alertes de revente** sur les achats que tu as déclarés (objectif atteint, seuil de protection franchi…) ;
-- **les signaux de sortie** (vente d'un dirigeant, MM50 repassée sous la MM200…).
+- **les signaux de sortie** sur ces mêmes achats déclarés (vente d'un dirigeant, MM50 repassée sous la MM200, recul de 20 %).
 
 Les dossiers « très forts » ne font plus l'objet d'un email séparé : ils sont repris dans la sélection du lundi et
 visibles chaque soir dans le tableau de bord. Pour retrouver un email par alerte d'achat :
@@ -172,6 +172,15 @@ si les semaines « exceptionnelles » rapportent vraiment plus.
   et foncières) comparé à la médiane d'au moins 5 sociétés de la même industrie, sinon du même secteur.
 - **Positions vendeuses des fonds** (≥ 0,5 % du capital), publiées par l'AMF, le Bundesanzeiger, la CNMV, la Consob, l'AFM
   et la FSMA : un dirigeant qui achète pendant que des fonds parient à la baisse est signalé dans la fiche et la sélection.
+
+- **Position concurrentielle** : rang par chiffre d'affaires dans son industrie parmi les sociétés européennes suivies
+  (au moins 5) : Leader (n° 1), Challenger (n° 2 et 3), Suiveur, Acteur de niche (moins de 3 % du total).
+
+## Les étoiles
+
+★★★★★ très fort et remarquable dans l'historique · ★★★★ très fort (note ≥ 75) · ★★★ fort (50 à 74) · ★★ moyen ·
+★ faible. Elles s'affichent pour les sociétés où un dirigeant a acheté, dans le classement, la sélection, la fiche et
+les emails.
 
 ## Critères en observation
 

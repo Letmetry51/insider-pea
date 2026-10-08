@@ -32,6 +32,7 @@ BROWSER = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8"}
 ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 KEEP_FROM = (date.today() - timedelta(days=3 * 365)).isoformat()
+STALE_OPEN = (date.today() - timedelta(days=365)).isoformat()  # sans nouvelle déclaration depuis un an : position présumée close
 
 SOURCES = {
     "FR": {"name": "AMF", "urls": ["https://www.data.gouv.fr/api/1/datasets/r/c2539d1c-8531-4937-9cba-3bd8e9786cc5"],
@@ -57,7 +58,7 @@ def pct_of(v):
         return None
     if isinstance(v, (int, float)):
         x = float(v)
-        return x * 100 if 0 < x < 0.2 else x  # cellule Excel au format pourcentage (0,0062 = 0,62 %)
+        return x if x == x else None
     s = str(v).strip().replace("%", "").replace("\xa0", "").replace(" ", "")
     if "," in s and "." in s:
         s = s.replace(".", "").replace(",", ".")
@@ -138,8 +139,13 @@ def rows_to_records(rows, country, diag):
         diag.append({"country": country, "error": "en-tête introuvable", "first": [list(map(str, r))[:8] for r in rows[:3]]})
         return []
     diag.append({"country": country, "header": [str(c) for c in rows[hdr]][:12], "mapped": idx})
-    out = []
-    for r in rows[hdr + 1:]:
+    out, body = [], rows[hdr + 1:]
+    # Échelle décidée pour toute la colonne : un fichier où toutes les valeurs sont < 0,3 est en fraction (0,0062 = 0,62 %).
+    # Valeur par valeur, une notification « passée sous 0,5 % » à 0,10 % deviendrait 10 %.
+    vals = [pct_of(r[idx["pct"]]) for r in body if idx["pct"] < len(r)]
+    vals = [v for v in vals if v is not None and v > 0]
+    scale = 100.0 if vals and max(vals) < 0.3 else 1.0
+    for r in body:
         try:
             isin = str(r[idx["isin"]] or "").strip().upper()
         except IndexError:
@@ -147,6 +153,7 @@ def rows_to_records(rows, country, diag):
         if not ISIN_RE.match(isin):
             continue
         p = pct_of(r[idx["pct"]] if idx["pct"] < len(r) else None)
+        p = p * scale if p is not None else None
         d = day_of(r[idx["date"]]) if "date" in idx and idx["date"] < len(r) else None
         e = day_of(r[idx["end"]]) if "end" in idx and idx["end"] < len(r) else None
         if p is None or p < 0 or p > 50:
@@ -262,7 +269,9 @@ def intervals(recs):
         seq = [d[k] for k in sorted(d)]
         for k, r in enumerate(seq):
             to = seq[k + 1]["date"] if k + 1 < len(seq) else r.get("end")
-            if r["pct"] < 0.5 or (to and to < KEEP_FROM):
+            if not to and r["date"] < STALE_OPEN:
+                to = (datetime.fromisoformat(r["date"]) + timedelta(days=365)).date().isoformat()
+            if r["pct"] < 0.5 or r["pct"] > 25 or (to and to < KEEP_FROM):
                 continue
             items.setdefault(isin, []).append({"holder": r["holder"], "pct": r["pct"], "from": r["date"], "to": to, "country": r["country"]})
     return items
@@ -272,6 +281,8 @@ def main():
     prev = {}
     try:
         prev = json.loads(OUT.read_text(encoding="utf-8"))
+        if not isinstance(prev, dict):
+            prev = {}
     except Exception:
         pass
     diag, all_items, sources = [], {}, {}
@@ -301,6 +312,20 @@ def main():
             if not recs:
                 raise RuntimeError("fichier vide ou colonnes non reconnues")
             it = intervals(recs)
+            if cc == "DE":  # fichier des positions en vigueur seulement : une position disparue est close à la date du jour
+                today = date.today().isoformat()
+                now = {(isin, norm(p["holder"]), p["from"]) for isin, lst in it.items() for p in lst}
+                for isin, lst in (prev.get("items") or {}).items():
+                    for p in lst if isinstance(lst, list) else []:
+                        if not isinstance(p, dict) or p.get("country") != "DE":
+                            continue
+                        if (isin, norm(p.get("holder")), p.get("from")) in now:
+                            continue
+                        q = dict(p)
+                        if not q.get("to"):
+                            q["to"] = today
+                        if q["to"] >= KEEP_FROM:
+                            it.setdefault(isin, []).append(q)
             for isin, lst in it.items():
                 all_items.setdefault(isin, []).extend(lst)
             open_n = sum(1 for lst in it.values() for p in lst if not p["to"])
@@ -310,7 +335,7 @@ def main():
             old = (prev.get("sources") or {}).get(cc) or {}
             sources[cc] = {"name": src["name"], "status": "echec", "note": note, "lastSuccess": old.get("lastSuccess")}
             for isin, lst in (prev.get("items") or {}).items():  # positions de la veille conservées pour ce pays
-                keep = [p for p in lst if p.get("country") == cc]
+                keep = [p for p in (lst if isinstance(lst, list) else []) if isinstance(p, dict) and p.get("country") == cc]
                 if keep:
                     all_items.setdefault(isin, []).extend(keep)
         print("Positions vendeuses %s (%s) : %s" % (cc, src["name"], sources[cc]["status"] + (" — %d notifications, %d positions en vigueur" % (sources[cc]["notifications"], sources[cc]["open"]) if sources[cc]["status"] == "ok" else " — " + note)))

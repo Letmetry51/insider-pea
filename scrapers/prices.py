@@ -70,9 +70,10 @@ def search_yahoo(isin):
 
 
 def resolve(isin, cache, manual, today):
-    if isin in manual and manual[isin]:
-        return {"ticker": manual[isin], "method": "correspondance insider-pea"}
+    """Recherche Yahoo par ISIN d'abord (fait foi) ; la table manuelle d'insider-pea ne sert qu'en secours."""
     c = cache.get(isin)
+    if manual.get(isin) and c and not c.get("ticker"):
+        return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"}
     if c and c.get("ticker") and not (not str(c["ticker"]).endswith(EU_SUFFIXES) and not c.get("checkedHome")):
         return c
     if c and c.get("ticker"):  # cotation hors grandes places européennes : une nouvelle recherche, une seule fois
@@ -90,7 +91,7 @@ def resolve(isin, cache, manual, today):
         time.sleep(0.3)
         return found
     cache[isin] = {"ticker": None, "triedAt": today.isoformat()}
-    return None
+    return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"} if manual.get(isin) else None
 
 
 def history(ticker):

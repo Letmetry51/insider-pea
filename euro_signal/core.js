@@ -611,7 +611,8 @@
       market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 4, relStrengthPts: 10, relWeakPts: 20 }
     },
     quality: { minForAlert: 60 },
-    display: { scoreCeiling: 60 }, // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
+    display: { scoreCeiling: 60 },
+    valuation: { cheapPct: 20, richPct: 30 }, // décote / prime de valorisation par rapport aux pairs jugée nette // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1 },
@@ -841,14 +842,14 @@
         buyDate: d ? d.date : recent[0].txDate, lastPub: recent.map(function (t) { return ES.availDate(t); }).sort().pop(), buyEur: eur || null,
         buyers: sc.cluster ? sc.cluster.count : 1, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
         health: health.status, nextEarnings: c.inst.nextEarnings || null,
-        peer: c.inst.peer || null, shorts: c.inst.shorts ? { totalPct: c.inst.shorts.totalPct, holders: c.inst.shorts.holders } : null });
+        peer: c.inst.peer || null, position: c.inst.position ? { label: c.inst.position.label, key: c.inst.position.key, rank: c.inst.position.rank, of: c.inst.position.of, industry: c.inst.position.industry } : null, shorts: c.inst.shorts ? { totalPct: c.inst.shorts.totalPct, holders: c.inst.shorts.holders } : null });
     });
     out.sort(function (a, b) { return b.score - a.score || (b.discountPct || 0) - (a.discountPct || 0); });
     return out.slice(0, S.size || 5);
   };
   /** Email « Sélection de la semaine » : une liste courte à étudier, jamais un ordre d'achat. */
   ES.buildSelectionEmail = function (sel, week, cfg, dashUrl, today, rationale, track, verdict) {
-    var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
+    var n = sel.length, S = cfg.selection || {};
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
       ' derniers jours : titre liquide, données fiables, pas de fragilité financière, note d\'au moins ' + ES.note(S.minScore || 0, cfg) + '/100. Classés par note, puis par décote.' +
@@ -861,14 +862,15 @@
       if (x.buyEur) w.push(fmtEur(x.buyEur) + ' achetés');
       if (x.panic) w.push('achat pendant une vente panique');
       if (x.trendUp) w.push('tendance de fond haussière (MM50 > MM200)');
-      if (x.peer && x.peer.discountPct >= 15) w.push('valorisation ' + Math.round(x.peer.discountPct) + ' % sous ses pairs (' + x.peer.metric + ' ' + String(x.peer.value).replace('.', ',') + ' contre ' + String(x.peer.peerMedian).replace('.', ',') + ', ' + x.peer.peers + ' sociétés comparables)');
+      if (x.position && (x.position.key === 'leader' || x.position.key === 'challenger')) w.push((x.position.key === 'leader' ? 'leader de son industrie' : 'challenger de son industrie') + ' (n° ' + x.position.rank + ' sur ' + x.position.of + ' sociétés européennes suivies, par chiffre d\'affaires)');
+      if (x.peer && x.peer.discountPct >= cfg.valuation.cheapPct) w.push('valorisation ' + Math.round(x.peer.discountPct) + ' % sous ses pairs (' + x.peer.metric + ' ' + String(x.peer.value).replace('.', ',') + ' contre ' + String(x.peer.peerMedian).replace('.', ',') + ', ' + x.peer.peers + ' sociétés comparables)');
       if (x.shorts) w.push('acheté pendant que ' + x.shorts.holders + ' fonds parient à la baisse (' + String(x.shorts.totalPct).replace('.', ',') + ' % du capital)');
       return w;
     };
     var care = function (x) {
       var c = [];
       if (x.fallingKnife) c.push('cours en repli : entrer en plusieurs fois');
-      if (x.peer && x.peer.discountPct <= -30) c.push('valorisation ' + Math.round(-x.peer.discountPct) + ' % au-dessus de ses pairs');
+      if (x.peer && x.peer.discountPct <= -cfg.valuation.richPct) c.push('valorisation ' + Math.round(-x.peer.discountPct) + ' % au-dessus de ses pairs');
       if (x.nextEarnings && (!today || (x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 30))) c.push('résultats le ' + x.nextEarnings + ' : acheter juste avant revient à parier sur leur contenu');
       if (x.health === 'inconnu') c.push('solidité financière non vérifiable');
       return c;
@@ -880,7 +882,7 @@
         (track.bench != null ? ', contre ' + pcs(track.bench) + ' pour le CAC 40 ; ' + Math.round(track.beatPct) + ' % des dossiers ont fait mieux que l\'indice' : '') + '.';
     }
     var text = (verdict && verdict.text ? (verdict.icon ? verdict.icon + ' ' : '') + verdict.text + '\n\n' : '') + intro + '\n\n' + (tr ? tr + '\n\n' : '') + (rationale ? rationale.text + '\n\n' : '') + (n ? sel.map(function (x, k) {
-      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — note ' + ES.note(x.score, cfg) + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')' + (x.hist && x.hist.key !== 'na' ? '\n   ' + x.hist.icon + ' ' + x.hist.label : '') + '\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — ' + ES.stars(x.score, cfg, x.hist && x.hist.key).text + ' note ' + ES.note(x.score, cfg) + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')' + (x.hist && x.hist.key !== 'na' ? '\n   ' + x.hist.icon + ' ' + x.hist.label : '') + '\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
     }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
@@ -890,8 +892,8 @@
       (tr ? '<p style="margin:0 0 14px"><b>' + ES.esc(tr) + '</b></p>' : '') +
       (rationale ? rationale.html : '') +
       (n ? sel.map(function (x, k) {
-        return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) + (x.isNew ? ' <span style="background:#B0281F;color:#ffffff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle">NOUVEAU</span>' : '') +
-          ' <span style="font-weight:normal;color:#55615c;font-size:13px">note ' + ES.note(x.score, cfg) + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
+        return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + ES.esc(x.name) + (x.country ? ' <span style="font-size:11px;color:#55615c;border:1px solid #CBD3CD;border-radius:3px;padding:0 4px;vertical-align:middle">' + ES.esc(x.country) + '</span>' : '') + (x.isNew ? ' <span style="background:#B0281F;color:#ffffff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle">NOUVEAU</span>' : '') +
+          '<br><span style="color:#E0A800;font-size:20px;letter-spacing:2px">' + ES.stars(x.score, cfg, x.hist && x.hist.key).text + '</span> <span style="font-weight:normal;color:#55615c;font-size:13px">note ' + ES.note(x.score, cfg) + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
           (x.sector ? '<div style="color:#55615c;font-size:13px">Secteur : ' + ES.esc(x.sector) + '</div>' : '') +
           (x.hist && x.hist.key !== 'na' ? '<div style="margin:4px 0 0;font-size:13px;font-weight:bold;color:' + ({ rare: '#1F7A3E', good: '#8a6400', wait: '#55615c' }[x.hist.key]) + '">' + x.hist.icon + ' ' + ES.esc(x.hist.label) + '</div>' : '') +
           '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
@@ -909,7 +911,7 @@
   };
   /** Lecture du score : 100 est un maximum théorique (tous les signaux à la fois) ; repères calés sur les seuils d'alerte et de sélection. */
   ES.scoreLabel = function (total, cfg) {
-    var a = (cfg.alerts || {}).minScore || 45, s = (cfg.selection || {}).minScore || 30;
+    var a = cfg.alerts.minScore, s = cfg.selection.minScore;
     var N = function (v) { return ES.note(v, cfg); };
     if (total >= a) return { key: 'top', label: 'très fort', hint: 'note ' + N(a) + ' et plus' };
     if (total >= s) return { key: 'strong', label: 'fort', hint: 'note ' + N(s) + ' à ' + (N(a) - 1) };
@@ -934,8 +936,10 @@
    */
   ES.peerValuation = function (inst) {
     var FIN = /financial|bank|insurance|real estate|reit/i;
-    var metricOf = function (f) {
-      if (!f) return null;
+    var num = function (v) { v = +v; return Number.isFinite(v) ? v : null; };
+    var metricOf = function (f0) {
+      if (!f0 || typeof f0 !== 'object') return null;
+      var f = { sector: f0.sector, industry: f0.industry, priceToBook: num(f0.priceToBook), evToEbitda: num(f0.evToEbitda), forwardPE: num(f0.forwardPE) };
       var sec = String(f.sector || '') + ' ' + String(f.industry || '');
       if (FIN.test(sec)) return f.priceToBook > 0 && f.priceToBook < 20 ? { key: 'pb', label: 'cours / actif net', v: f.priceToBook } : null;
       if (f.evToEbitda > 0 && f.evToEbitda < 60) return { key: 'ev', label: 'VE / EBITDA', v: f.evToEbitda };
@@ -962,9 +966,43 @@
     });
     return out;
   };
+  /**
+   * Position concurrentielle : rang par chiffre d'affaires dans l'industrie (au moins 4 sociétés), parmi les sociétés suivies
+   * par Euro Signal (cotées en France, Allemagne, Italie, Espagne, Pays-Bas, Belgique). Conversion approximative en euros.
+   */
+  ES.FX_EUR = { EUR: 1, USD: 0.92, GBP: 1.17, CHF: 1.06, SEK: 0.087, DKK: 0.134, NOK: 0.085, PLN: 0.23 };
+  ES.marketPosition = function (inst) {
+    var groups = {};
+    Object.keys(inst || {}).forEach(function (isin) {
+      var f = inst[isin] && inst[isin].fund, rev = f ? +f.revenue : NaN;
+      if (!f || !(rev > 0) || !f.industry) return;
+      var fx = ES.FX_EUR[f.currency || inst[isin].currency || '']; if (!fx) return; // devise inconnue : pas de comparaison
+      var g = groups[f.industry] = groups[f.industry] || [];
+      if (g.some(function (o) { return o.raw === rev; })) return; // même chiffre d'affaires = autre classe d'actions de la même société
+      g.push({ isin: isin, rev: rev * fx, raw: rev });
+    });
+    var out = {};
+    Object.keys(groups).forEach(function (ind) {
+      var g = groups[ind].sort(function (a, b) { return b.rev - a.rev; });
+      if (g.length < 5) return;
+      var tot = g.reduce(function (a, x) { return a + x.rev; }, 0);
+      g.forEach(function (x, k) {
+        var share = x.rev / tot * 100;
+        var key = k === 0 ? 'leader' : k <= 2 ? 'challenger' : share < 3 ? 'niche' : 'follower';
+        out[x.isin] = { key: key, label: { leader: 'Leader', challenger: 'Challenger', follower: 'Suiveur', niche: 'Acteur de niche' }[key], rank: k + 1, of: g.length, industry: ind, sharePct: +share.toFixed(1), revenueEur: Math.round(x.rev) };
+      });
+    });
+    return out;
+  };
+  /** Étoiles d'un coup d'œil : 5 = très fort et remarquable dans l'historique, 4 = très fort, 3 = fort, 2 = moyen, 1 = faible. */
+  ES.stars = function (total, cfg, histKey) {
+    var k = ES.scoreLabel(total, cfg).key;
+    var n = k === 'top' ? (histKey === 'rare' ? 5 : 4) : k === 'strong' ? 3 : k === 'mid' ? 2 : 1;
+    return { n: n, text: '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n) };
+  };
   /** Positions vendeuses nettes publiées (≥ 0,5 % du capital) en vigueur à une date. list : [{ holder, pct, from, to, country }] */
   ES.shortInfo = function (list, day) {
-    var cur = (list || []).filter(function (p) { return p && p.pct >= 0.5 && (!p.from || p.from <= day) && (!p.to || p.to > day); });
+    var cur = (Array.isArray(list) ? list : []).filter(function (p) { return p && typeof p === 'object' && +p.pct >= 0.5 && +p.pct <= 25 && (!p.from || p.from <= day) && (!p.to || p.to > day); }).map(function (p) { return { holder: p.holder, pct: +p.pct, from: p.from, to: p.to }; });
     if (!cur.length) return null;
     var byHolder = {};
     cur.forEach(function (p) { var k = String(p.holder || '?').toLowerCase(); if (!byHolder[k] || p.from > byHolder[k].from) byHolder[k] = p; });
@@ -1010,7 +1048,7 @@
     if (pct >= 60) return { key: 'good', icon: '🟡', label: 'bon dossier : au-dessus de la moyenne des sélections passées', short: 'Bon', pct: pct };
     return { key: 'wait', icon: '⚪', label: 'ordinaire : sous la moyenne des sélections passées, rien ne presse', short: 'Ordinaire', pct: pct };
   };
-  ES.weekVerdict = function (items, hist, weekBest) {
+  ES.weekVerdict = function (items, weekBest) {
     var notes = (items || []).map(function (x) { return x.note; }).filter(function (x) { return x != null; });
     var wb = (weekBest || []).filter(function (x) { return x != null; });
     if (!notes.length) return { key: 'empty', text: 'Aucun dossier cette semaine : rien à faire.' };
@@ -1281,7 +1319,7 @@
     if (s.distSma50 != null && s.distSma50 >= o.distSma50Pct) add('cours ' + Math.round(s.distSma50) + ' % au-dessus de la moyenne 50 séances', 20);
     if (s.ret1m != null && s.ret1m >= o.ret1mPct) add('hausse de ' + Math.round(s.ret1m) + ' % en un mois', 20);
     if (s.upVolumeSpike) add('séance de hausse avec volume > 3× la moyenne', 15);
-    if (inst.shortPct != null) add('positions vendeuses publiées : ' + inst.shortPct + ' % du capital (information, non notée)', 0);
+    if (inst.shorts) add('positions vendeuses publiées : ' + String(inst.shorts.totalPct).replace('.', ',') + ' % du capital (' + inst.shorts.holders + ' fonds), information non notée', 0);
     if (inst.revision30d != null && isFinite(inst.revision30d)) add('révision du BPA annuel estimé par les analystes sur 30 jours : ' + (inst.revision30d > 0 ? '+' : '') + inst.revision30d.toFixed(1) + ' % (information, non notée)', 0);
     var unavailable = ['recherches Google (non accessibles)', 'tonalité des actualités (non mesurée)', 'flux institutionnels (non observables de façon fiable)'].concat(inst.revision30d == null ? ['révisions d\'analystes (non disponibles pour ce titre)'] : []);
     return { total: Math.min(100, total), items: items, unavailable: unavailable, experimental: true };
@@ -1412,7 +1450,7 @@
   function num2(v) { return v == null ? 'n.d.' : v.toFixed(2).replace('.', ','); }
   ES.fmtPct = pct; ES.esc = esc;
   ES.buildEmail = function (a) {
-    var i = a.inst, s = a.score, subj = '[Euro Signal] ' + (i.name || i.isin) + ' — note ' + ES.note(s.total, a.cfg) + '/100 (barème ' + s.version + ')';
+    var i = a.inst, s = a.score, subj = '[Euro Signal] ' + ES.stars(s.total, a.cfg || ES.DEFAULT_CONFIG).text + ' ' + (i.name || i.isin) + ' — note ' + ES.note(s.total, a.cfg) + '/100 (barème ' + s.version + ')';
     var h = [], t = [];
     h.push('<div style="font-family:Arial,sans-serif;font-size:14px;color:#1c2321;max-width:680px">');
     h.push('<h2 style="margin:0 0 4px">' + esc(i.name || i.isin) + '</h2>');
