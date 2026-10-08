@@ -599,13 +599,13 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.6.0',
+    scoringVersion: '1.7.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
-    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30 },
+    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 10000 },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
-      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
+      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, coordinatedCluster: -6, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
       results: { cap: 25, floor: -10, epsStrong: 8, epsMild: 4, epsStrongPct: 5, epsMildPct: 2, epsMiss: -6, revStrong: 7, revMild: 3, revStrongPct: 2, revMildPct: 0, guidanceRaised: 10, guidanceLowered: -10 },
       market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 3, relStrengthPts: 10, relWeakPts: 20 }
@@ -756,6 +756,19 @@
     if (!reasons.length && known < 2) return { status: 'inconnu', reasons: ['données financières trop incomplètes'], notes: notes };
     return { status: reasons.length ? 'fragile' : 'solide', reasons: reasons, notes: notes, asOf: f.asOf || null, financial: fin };
   };
+  ES.significantBuys = function (buys, cfg) {
+    var min = cfg.insiders.minBuyerEur || 0, w = cfg.insiders.clusterWindowDays;
+    if (!min) return { kept: buys, small: [] };
+    var kept = [], small = [];
+    buys.forEach(function (t) {
+      var e = ES.toEur(t.amount, t.currency);
+      if (e == null) { kept.push(t); return; } // montant inconnu ou hors euro : non filtrable, conservé
+      var k = ES.buyerKey(t) || t.personKey, from = ES.addDays(t.txDate, -(w - 1)), pub = ES.availDate(t), tot = 0;
+      buys.forEach(function (b) { if ((ES.buyerKey(b) || b.personKey) === k && b.txDate >= from && b.txDate <= t.txDate && ES.availDate(b) <= pub) tot += ES.toEur(b.amount, b.currency) || 0; });
+      (tot >= min ? kept : small).push(t);
+    });
+    return { kept: kept, small: small };
+  };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
   };
@@ -792,12 +805,13 @@
     var belowMkt = function (t) { var r = ctx.refs && ctx.refs[t.id]; return !!(r && r.belowMarket); };
     var lateDays = function (t) { return t.pubDate && t.txDate ? ES.daysBetween(t.txDate, t.pubDate) : 0; };
     var cand = inWin.filter(function (t) { return ES.isVoluntaryBuy(t, cfg); });
-    var buys = cand.filter(function (t) { return !belowMkt(t) && lateDays(t) <= cfg.insiders.maxFilingLagDays; });
+    var sig = ES.significantBuys(cand.filter(function (t) { return !belowMkt(t) && lateDays(t) <= cfg.insiders.maxFilingLagDays; }), cfg);
+    var buys = sig.kept, nSmall = sig.small.length;
     var nBelow = cand.filter(belowMkt).length, nLate = cand.filter(function (t) { return !belowMkt(t) && lateDays(t) > cfg.insiders.maxFilingLagDays; }).length;
     var sells = inWin.filter(function (t) { return t.type === 'vente'; });
     var corpBuys = inWin.filter(function (t) { return t.type === 'achat' && ES.excludedEntity(t, cfg); }).length;
     var holdBuys = buys.filter(function (t) { return t.associated && ES.isLegalEntity(t.person, t.issuer); }).length;
-    var buyEur = 0, buyUnknown = 0, discount = null, panic = null;
+    var buyEur = 0, buyUnknown = 0, discount = null, panic = null, clusterOut = null;
     buys.forEach(function (t) { var e = ES.toEur(t.amount, t.currency); if (e == null) buyUnknown++; else buyEur += e; });
     var sellEur = sells.reduce(function (s, t) { return s + (ES.toEur(t.amount, t.currency) || 0); }, 0);
     if (buys.length) {
@@ -807,8 +821,26 @@
       else if (buyEur >= cfg.insiders.mediumAmountEur) add(fi, 'montant cumulé ' + fmtEur(buyEur) + ' ≥ ' + fmtEur(cfg.insiders.mediumAmountEur), wi.amountMedium);
       if (buyUnknown) add(fi, buyUnknown + ' achat(s) au montant en euros inconnu : non comptés dans le montant', 0);
       var cl = ES.clusterInfo(buys, cfg.insiders.clusterWindowDays);
-      if (cl.count >= cfg.insiders.clusterMinBuyers) add(fi, 'cluster : ' + cl.count + ' dirigeants indépendants entre le ' + cl.from + ' et le ' + cl.to, wi.cluster);
-      else if (cl.count === 2) add(fi, '2 dirigeants indépendants sur ' + cfg.insiders.clusterWindowDays + ' jours', wi.pair);
+      if (cl.count >= 2) {
+        // Regroupement des achats du cluster : un acheteur = une ligne (proches rattachés à leur dirigeant)
+        var inCl = buys.filter(function (t) { return t.txDate >= cl.from && t.txDate <= cl.to && ES.buyerKey(t); }), per = {};
+        inCl.forEach(function (t) {
+          var k = ES.buyerKey(t), p = per[k] = per[k] || { name: t.associated ? (t.linkedTo || t.person) : t.person, role: t.associated ? null : t.role, ceo: false, eur: 0, n: 0, dates: {} };
+          if (!t.associated) { p.name = t.person; p.role = t.role; }
+          p.ceo = p.ceo || !!(t.ceo || t.cfo); p.eur += ES.toEur(t.amount, t.currency) || 0; p.n++; p.dates[t.txDate] = 1;
+        });
+        var buyers = Object.keys(per).map(function (k) { return per[k]; }).sort(function (a, b) { return b.eur - a.eur; });
+        var total = buyers.reduce(function (x, b) { return x + b.eur; }, 0), amts = buyers.map(function (b) { return b.eur; }).filter(function (v) { return v > 0; });
+        var spanDays = ES.daysBetween(cl.from, cl.to), m = amts.length ? amts.reduce(function (x, y) { return x + y; }, 0) / amts.length : 0;
+        var cv = amts.length > 2 && m > 0 ? Math.sqrt(amts.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / amts.length) / m : null;
+        // Tous le même jour (ou presque) avec des montants proches : souvent un programme collectif organisé plutôt que des convictions indépendantes
+        var coordinated = buyers.length >= cfg.insiders.clusterMinBuyers && spanDays <= 2 && cv != null && cv < 0.35;
+        clusterOut = { count: cl.count, from: cl.from, to: cl.to, totalEur: total, buyers: buyers.map(function (b) { return { name: b.name, role: b.role, ceo: b.ceo, eur: b.eur, n: b.n }; }), coordinated: coordinated };
+        var names = buyers.slice(0, 4).map(function (b) { return (b.name || '?') + (b.ceo ? ' (DG/DAF)' : ''); }).join(', ') + (buyers.length > 4 ? ' et ' + (buyers.length - 4) + ' autre(s)' : '');
+        if (cl.count >= cfg.insiders.clusterMinBuyers) add(fi, 'cluster : ' + cl.count + ' dirigeants indépendants entre le ' + cl.from + ' et le ' + cl.to + (total ? ' (' + fmtEur(total) + ' au total)' : '') + ' : ' + names, wi.cluster);
+        else add(fi, '2 dirigeants indépendants sur ' + cfg.insiders.clusterWindowDays + ' jours : ' + names, wi.pair);
+        if (coordinated) add(fi, 'achats groupés sur ' + (spanDays + 1) + ' jour(s) avec des montants proches : possible programme collectif organisé par la société, signal moins fort qu\'il n\'y paraît', wi.coordinatedCluster);
+      }
       var unattached = buys.filter(function (t) { return t.associated && !t.linkedTo; }).length;
       if (unattached) add(fi, unattached + ' achat(s) de personnes liées sans dirigeant identifié : exclus du comptage des acheteurs', 0);
       if (buys.some(function (t) { return t.ceo || t.cfo; })) add(fi, 'achat du directeur général ou du directeur financier', wi.ceoCfo);
@@ -835,6 +867,7 @@
       if (sellEur > buyEur && sellEur > 0) add(fi, 'ventes d\'initiés (' + fmtEur(sellEur) + ') supérieures aux achats', wi.netSeller);
       if (sells.some(function (t) { return t.ceo || t.cfo; })) add(fi, 'vente du directeur général ou du directeur financier', wi.ceoCfoSale);
     }
+    if (nSmall) add(fi, nSmall + ' petit(s) achat(s) (moins de ' + fmtEur(cfg.insiders.minBuyerEur) + ' investis par le dirigeant sur ' + cfg.insiders.clusterWindowDays + ' jours) : ignorés', 0);
     if (nBelow) add(fi, nBelow + ' achat(s) à un prix très inférieur au cours du jour (exercice d\'options, plan, livraison) : exclus', 0);
     if (nLate) add(fi, nLate + ' achat(s) déclaré(s) plus de ' + cfg.insiders.maxFilingLagDays + ' jours après l\'opération : information ancienne, exclus', 0);
     if (corpBuys) add(fi, corpBuys + ' achat(s) par une société qui n\'est pas la holding d\'un dirigeant (fonds, investisseur, émetteur) : exclus', 0);
@@ -925,7 +958,7 @@
       ambiguousCount: ambiguous.length, windowFrom: from,
       txInWindow: inWin, buys: buys, sells: sells, buyEur: buyEur, sellEur: sellEur, discount: discount,
       fallingKnife: !!(buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200),
-      panicBuy: panic,
+      panicBuy: panic, cluster: clusterOut,
       trendUp: !!(s.sma50 && s.sma200 && s.sma50 > s.sma200), marketDown: s.marketAbove200 === false, rel6m: s.rel6m != null ? s.rel6m : null, goldenCrossAfterBuy: !!(buys.length && s.sma50 > s.sma200 && s.goldenCrossDate && s.goldenCrossDate >= buys.map(function (t) { return t.txDate; }).sort()[0])
     };
   };

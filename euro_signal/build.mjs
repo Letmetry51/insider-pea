@@ -242,36 +242,46 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     if (!pItems[isin]) return;
     const R = refs[isin] || {};
-    const buys = ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R[t.id] && R[t.id].belowMarket) && ES.daysBetween(t.txDate, ES.availDate(t)) <= cfg.insiders.maxFilingLagDays).sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
+    const buys = ES.significantBuys(ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R[t.id] && R[t.id].belowMarket) && ES.daysBetween(t.txDate, ES.availDate(t)) <= cfg.insiders.maxFilingLagDays), cfg).kept.sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
     // moyennes 50 / 200 connues à la date de publication (aucune donnée postérieure)
     const adj = ES.adjustedSeries(ES.normalizeSeries(pItems[isin].rows), pItems[isin].splits || []);
     const cum = [0]; adj.forEach((r) => cum.push(cum[cum.length - 1] + r[4]));
     const trendAt = (d) => { let lo = 0, hi = adj.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; } if (k < 199) return null; return (cum[k + 1] - cum[k - 49]) / 50 > (cum[k + 1] - cum[k - 199]) / 200; };
     const W = cfg.weights.insiders;
     let lastCluster = null;
+    const lastBy = {}; // regroupement : un même groupe ne compte qu'une fois par société sur la fenêtre du cluster
+    const push = (g, d) => { if (lastBy[g] && ES.daysBetween(lastBy[g], d) < cfg.insiders.clusterWindowDays) return false; lastBy[g] = d; events.push({ isin, date: d, group: g }); return true; };
+    const raw = [];
     buys.forEach((t) => {
       const d = ES.availDate(t);
-      events.push({ isin, date: d, group: 'Achat volontaire' });
+      push('Achat volontaire', d);
       const a = R[t.id] && !R[t.id].outOfRange ? R[t.id].atPurchase : null;
       if (a && a.paidVsHigh52Pct != null && -a.paidVsHigh52Pct >= W.discountMediumPct) {
-        events.push({ isin, date: d, group: 'Décote ≥ ' + W.discountMediumPct + ' %' });
-        if (trendAt(d)) events.push({ isin, date: d, group: 'Décote ≥ ' + W.discountMediumPct + ' % + MM50 > MM200' });
+        push('Décote ≥ ' + W.discountMediumPct + ' %', d);
+        if (trendAt(d)) push('Décote ≥ ' + W.discountMediumPct + ' % + MM50 > MM200', d);
       }
-      if (a && ES.isPanic(a, W)) events.push({ isin, date: d, group: 'Achat dans la panique' });
+      if (a && ES.isPanic(a, W)) push('Achat dans la panique', d);
       // composantes connues à la date de publication, et résultat réel 60 séances plus tard
       const disc = a && a.paidVsHigh52Pct != null ? -a.paidVsHigh52Pct : null;
       let kk = -1; { let lo = 0, hi = adj.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (adj[m][0] <= d) { kk = m; lo = m + 1; } else hi = m - 1; } }
       const above = kk >= 199 ? adj[kk][4] > (cum[kk + 1] - cum[kk - 49]) / 50 && adj[kk][4] > (cum[kk + 1] - cum[kk - 199]) / 200 : null;
       const rs = mAdj ? (() => { const x = ret6m1At(adj, d), y = ret6m1At(mAdj, d); return x != null && y != null ? x - y : null; })() : null;
       const known2 = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
-      samples.push({ isin, date: d, excess: bAdj ? ES.forwardExcess(adj, bAdj, bIdx, d, cfg.learning.horizon, cfg.backtest.costRoundTripPct / 100) : null,
+      raw.push({ isin, date: d, excess: bAdj ? ES.forwardExcess(adj, bAdj, bIdx, d, cfg.learning.horizon, cfg.backtest.costRoundTripPct / 100) : null,
         f: { discountBig: disc != null ? disc >= W.discountBigPct : undefined, discountMedium: disc != null ? disc >= W.discountMediumPct && disc < W.discountBigPct : undefined,
           nearLow: a && a.paidPos52 != null ? a.paidPos52 <= cfg.insiders.nearLowPct : undefined, panic: a ? ES.isPanic(a, W) : undefined, ceo: !!(t.ceo || t.cfo),
           cluster: ES.clusterInfo(known2, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers, trend: above == null ? undefined : above, relStrong: rs == null ? undefined : rs >= cfg.weights.market.relStrengthPts } });
-      if (t.ceo || t.cfo) events.push({ isin, date: d, group: 'Achat DG ou DAF' });
+      if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
       const known = buys.filter((b) => ES.availDate(b) <= d && b.txDate >= ES.addDays(t.txDate, -(cfg.insiders.clusterWindowDays - 1)) && b.txDate <= t.txDate);
       if (ES.clusterInfo(known, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin, date: d, group: 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }
     });
+    // Un cluster (ou une série d'achats rapprochés) = un seul cas : fenêtre ouverte au premier achat, close après clusterWindowDays
+    let win = null;
+    const flush = () => { if (!win) return; const last = win.items[win.items.length - 1]; const f = {};
+      win.items.forEach((x) => Object.keys(x.f).forEach((k) => { if (x.f[k] === true) f[k] = true; else if (x.f[k] === false && f[k] !== true) f[k] = false; }));
+      samples.push({ isin, date: last.date, f, excess: bAdj ? ES.forwardExcess(adj, bAdj, bIdx, last.date, cfg.learning.horizon, cfg.backtest.costRoundTripPct / 100) : null, n: win.items.length }); win = null; };
+    raw.forEach((x) => { if (win && ES.daysBetween(win.start, x.date) >= cfg.insiders.clusterWindowDays) flush(); if (!win) win = { start: x.date, items: [] }; win.items.push(x); });
+    flush();
   });
   const series = {};
   Object.keys(pItems).forEach((isin) => { series[isin] = { rows: pItems[isin].rows, splits: pItems[isin].splits || [] }; });

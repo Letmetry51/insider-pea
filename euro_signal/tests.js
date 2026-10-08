@@ -467,7 +467,7 @@ t('Croisement MM50 / MM200 après un achat de dirigeant', () => {
   for (let i = 0; i < 320; i++) { const d = ES.addDays('2025-01-01', i); p = i < 200 ? p * 0.998 : p * 1.01; rows.push([d, p, p, p, p, 1e5]); }
   const st = ES.computeStats(rows, [], rows[rows.length - 1][0], c2, 'EUR');
   ok(st.sma50 > st.sma200 && st.goldenCrossDate, 'croisement détecté');
-  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2025-08-20', pubDate: '2025-08-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 100, amount: 8000, currency: 'EUR' }];
+  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2025-08-20', pubDate: '2025-08-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 250, amount: 20000, currency: 'EUR' }];
   const sc = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx, events: {}, refs: {}, cfg: c2, today: rows[rows.length - 1][0] });
   ok(sc.goldenCrossAfterBuy && sc.families.market.items.some((x) => /après l'achat d'un dirigeant/.test(x.label) && x.points === c2.weights.market.goldenCrossAfterBuy));
   const sc2 = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx: [Object.assign({}, tx[0], { txDate: '2025-10-01', pubDate: '2025-10-02' })], events: {}, refs: {}, cfg: c2, today: rows[rows.length - 1][0] });
@@ -510,7 +510,7 @@ t('Stress test : devise, prix incohérents, liens, corrections, doublons entre r
 
 t('Force relative 6 mois et tendance du marché européen', () => {
   const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
-  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2026-09-20', pubDate: '2026-09-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 100, amount: 8000, currency: 'EUR' }];
+  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: '2026-09-20', pubDate: '2026-09-21', status: 'active', person: 'Jean Martin', personKey: 'jm', price: 80, qty: 250, amount: 20000, currency: 'EUR' }];
   const st = { sessions: 300, sma50: 90, sma200: 85, lastCloseAdj: 95, rel6m: 14, marketAbove200: false };
   const sc = ES.score({ inst: { isin: 'FR0000120271', stats: st }, tx, events: {}, refs: {}, cfg: c2, today: '2026-10-07' });
   ok(sc.families.market.items.some((x) => /plus fort que le marché/.test(x.label) && x.points === 3));
@@ -526,7 +526,7 @@ t('Psychologie : achat pendant une vente panique ; argumentaire chiffré des ema
   for (let i = 0; i < 60; i++) { p = i < 45 ? p * 1.001 : p * 0.975; rows.push([ES.addDays('2026-07-01', i), p, p, p, p, 1e5]); }
   const r = ES.priceRefs({ txDate: rows[59][0], price: rows[59][4], currency: 'EUR' }, rows, [], rows[59][0], 'EUR');
   ok(r.atPurchase.drop10 <= -15 && r.atPurchase.rsi14 < 30, 'chute et survente mesurées à la date d\'achat');
-  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: rows[59][0], pubDate: rows[59][0], status: 'active', person: 'Jean Martin', personKey: 'jm', price: rows[59][4], qty: 100, amount: 8000, currency: 'EUR' }];
+  const tx = [{ id: 'x', isin: 'FR0000120271', type: 'achat', txDate: rows[59][0], pubDate: rows[59][0], status: 'active', person: 'Jean Martin', personKey: 'jm', price: rows[59][4], qty: 100, amount: 20000, currency: 'EUR' }];
   const sc = ES.score({ inst: { isin: 'FR0000120271', stats: {} }, tx, events: {}, refs: { x: r }, cfg: c2, today: rows[59][0] });
   ok(sc.panicBuy && sc.families.insiders.items.some((x) => /vente panique/.test(x.label) && x.points === 2));
   const res = [{ group: 'Achat volontaire', horizon: 60, nExcess: 40, hitExcess: 55, meanExcess: 1.5 }, { group: 'Achat volontaire', horizon: 60, nExcess: 60, hitExcess: 45, meanExcess: -1 }];
@@ -568,6 +568,21 @@ t('Auto-apprentissage : ajustement borné, significatif, une fois par mois', () 
   eq(w.weights.insiders.panicBuy, 2 * c2.weights.insiders.panicBuy, 'plafond : 2 fois le poids d\'origine');
   const few = ES.calibrate(samples.slice(0, 50).concat(samples.slice(200, 250)), c2, null, '2026-11-02');
   eq(few.changed.length, 0, 'pas assez de cas');
+});
+
+t('Cluster regroupé, programme collectif repéré, seuil de 10 000 € par dirigeant', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const mk = (id, person, d, eur, extra) => Object.assign({ id, isin: 'FR0000133308', type: 'achat', txDate: d, pubDate: d, status: 'active', person, personKey: person.toLowerCase(), role: 'Membre du comité exécutif', price: 10, qty: eur / 10, amount: eur, currency: 'EUR' }, extra || {});
+  const tx = [mk('a', 'Anne Durand', '2026-09-29', 20000), mk('b', 'Bruno Petit', '2026-09-29', 21000), mk('c', 'Carla Roux', '2026-09-30', 20500), mk('d', 'Denis Morel', '2026-09-30', 19800),
+    mk('e', 'SCI Durand', '2026-09-30', 15000, { associated: true, linkedTo: 'Anne Durand' }), mk('f', 'Eric Blanc', '2026-09-30', 2000)];
+  const sc = ES.score({ inst: { isin: 'FR0000133308', stats: {} }, tx, events: {}, refs: {}, cfg: c2, today: '2026-10-07' });
+  eq(sc.cluster.count, 4, 'proche rattaché, petit achat ignoré'); eq(sc.cluster.buyers.length, 4);
+  eq(sc.cluster.buyers.find((b) => b.name === 'Anne Durand').eur, 35000, 'achat du proche ajouté à son dirigeant');
+  ok(sc.cluster.coordinated, 'même jour, montants proches');
+  ok(sc.families.insiders.items.some((x) => /petit\(s\) achat\(s\)/.test(x.label)));
+  ok(sc.families.insiders.items.some((x) => /programme collectif/.test(x.label) && x.points < 0));
+  const sig = ES.significantBuys([mk('g', 'Gilles Noir', '2026-09-01', 6000), mk('h', 'Gilles Noir', '2026-09-05', 6000)], c2);
+  eq(sig.kept.length, 1, 'cumul sur 14 jours : le 2e achat franchit le seuil'); eq(sig.small.length, 1);
 });
 
 console.log(results.join('\n'));
