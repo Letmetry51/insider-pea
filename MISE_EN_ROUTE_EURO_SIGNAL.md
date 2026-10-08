@@ -144,6 +144,7 @@ collecteurs si un format diffère. En attendant, une source mal lue apparaît «
 
 Fichier `euro_signal/config.json` : clique sur le crayon (Edit), modifie, puis **Commit changes**.
 Exemples : `"minScore": 60` (seuil d'alerte) ou `"minAdv20Eur": 1000000` (liquidité minimale).
+`"excludeLegalEntities": true` : seuls les achats de personnes physiques comptent (holdings, SRL, GmbH, fonds et fondations exclus). Mets `false` pour les compter à nouveau.
 
 ## En cas de problème
 

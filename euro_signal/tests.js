@@ -435,6 +435,18 @@ t('Opérations non volontaires : attribution gratuite, sell-to-cover, prix nul (
   eq(ES.fromCollectorRecord(Object.assign({}, base, { nature: 'Purchase / Acquisition', price: '12,73', quantity: '13.430' }), { today: TODAY }).rec.type, 'achat', 'achat ordinaire inchangé');
 });
 
+t('Achats par une société (holding, SRL, GmbH, fondation…) exclus si excludeLegalEntities', () => {
+  ['MBB Capital Management GmbH', 'HACIA S.A.', 'Giacomelli Holding SRL', 'Inversiones Río Arnoia, S.L.', 'KPS Stiftung', 'VALSEBA', 'Icecat International B.V.', 'Aktieselskabet af 1.2.2017']
+    .forEach((n) => ok(ES.isLegalEntity(n), n));
+  ['Abend, Robert', 'JEAN PIERRE SBRAIRE', 'Sole S.', 'Marc de Garidel', 'FRANCISCO LUCIANO GONZALEZ ANTUÑA', 'Sterley, Dr. Nadine', 'Anne-Sophie Le Lay']
+    .forEach((n) => ok(!ES.isLegalEntity(n), n));
+  ok(ES.isLegalEntity('Interparfums', 'INTERPARFUMS'), 'émetteur déclarant');
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { excludeLegalEntities: true } });
+  ok(!ES.isVoluntaryBuy({ type: 'achat', person: 'DM Holding S.r.l.' }, c2));
+  ok(ES.isVoluntaryBuy({ type: 'achat', person: 'Alberto Donati' }, c2));
+  ok(ES.isVoluntaryBuy({ type: 'achat', person: 'DM Holding S.r.l.' }, ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { excludeLegalEntities: false } })), 'désactivable');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

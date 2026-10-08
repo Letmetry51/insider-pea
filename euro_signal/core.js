@@ -553,9 +553,9 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.0.0',
+    scoringVersion: '1.1.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
-    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true },
+    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
@@ -627,7 +627,27 @@
     if (t.associated) return t.linkedTo ? ES.personKey(t.linkedTo) : null;
     return t.personKey || null;
   };
-  ES.isVoluntaryBuy = function (t, cfg) { return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true); };
+  /** Déclarant personne morale (holding, société, fonds, fondation…) d'après son nom, toutes langues du périmètre. */
+  var LEGAL_FORMS = /(^| )(sa|sas|sasu|sarl|eurl|sca|sci|scp|sc|snc|selarl|se|srl|srls|spa|sapa|sas|ss|sl|slu|sau|sccl|gmbh|ag|kg|kgaa|ug|ohg|gbr|ev|bv|nv|cv|vof|bvba|sprl|commv|scrl|ltd|ltda|lda|limited|llc|llp|plc|inc|corp|lp|scs|scpi|sicar|gie|aps|ab|oy|oyj|aktieselskabet|sicav|fcp|fcpe|sgr|sim|a s)( |$)/;
+  var LEGAL_WORDS = /(^| )(holding|holdings|participations?|participaciones|partecipazioni|deelnemingen|beteiligungs?\w*|invest|investissements?|investments?|investment|inversiones|inversora|investimenti|capital|partners|management|gestion|gestora|gestioni|family office|familienstiftung|stiftung|stichting|fondation|foundation|fondazione|fundacion|fonds|fund|funds|trust|beheer|verwaltungs?\w*|vermogensverwaltung|patrimoine|patrimonial|patrimoniale|societe|societa|sociedad|company|compagnie|groupe|group|gruppo|grupo|finanziaria|fiduciaria|immobiliare|cartera|consulting|conseil|ventures|equity|asset|assets|gestao|investimentos|administracao|participacoes|sociedade|holdco|maatschap|financiere|finance|industries|industrie|beteiligung)( |$)/;
+  ES.isLegalEntity = function (name, issuer) {
+    if (!name) return false;
+    var t = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    if (LEGAL_FORMS.test(t) || LEGAL_WORDS.test(t)) return true;
+    // Un seul mot (« VALSEBA », « ALTAFI 2 ») : une personne physique a au moins un prénom et un nom
+    var words = t.split(' ').filter(function (w) { return /[a-z]/.test(w); });
+    if (words.length === 1 && words[0].length >= 3) return true;
+    // Le déclarant est l'émetteur lui-même (rachat d'actions déclaré comme une opération d'initié)
+    if (issuer) {
+      var i = String(issuer).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+      if (i && (t === i || (i.length >= 4 && t.indexOf(i) === 0))) return true;
+    }
+    return false;
+  };
+  ES.isVoluntaryBuy = function (t, cfg) {
+    return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) &&
+      !(cfg.insiders.excludeLegalEntities && ES.isLegalEntity(t.person, t.issuer));
+  };
   /** Nombre maximal d'acheteurs indépendants distincts dans une fenêtre glissante de N jours (dates de transaction). */
   ES.clusterInfo = function (buys, days) {
     var pts = buys.map(function (t) { return { d: t.txDate, k: ES.buyerKey(t) }; }).filter(function (p) { return p.k; })
@@ -660,6 +680,7 @@
     var inWin = ES.activeTx(ctx.tx).filter(function (t) { return ES.availDate(t) >= from && ES.availDate(t) <= today; });
     var buys = inWin.filter(function (t) { return ES.isVoluntaryBuy(t, cfg); });
     var sells = inWin.filter(function (t) { return t.type === 'vente'; });
+    var corpBuys = cfg.insiders.excludeLegalEntities ? inWin.filter(function (t) { return t.type === 'achat' && ES.isLegalEntity(t.person, t.issuer); }).length : 0;
     var buyEur = 0, buyUnknown = 0;
     buys.forEach(function (t) { var e = ES.toEur(t.amount, t.currency); if (e == null) buyUnknown++; else buyEur += e; });
     var sellEur = sells.reduce(function (s, t) { return s + (ES.toEur(t.amount, t.currency) || 0); }, 0);
@@ -685,6 +706,7 @@
       if (sellEur > buyEur && sellEur > 0) add(fi, 'ventes d\'initiés (' + fmtEur(sellEur) + ') supérieures aux achats', wi.netSeller);
       if (sells.some(function (t) { return t.ceo || t.cfo; })) add(fi, 'vente du directeur général ou du directeur financier', wi.ceoCfoSale);
     }
+    if (corpBuys) add(fi, corpBuys + ' achat(s) par une société (holding, fonds, SRL…) : exclus, seules les personnes physiques comptent', 0);
     var nonVol = inWin.filter(function (t) { return ['attribution', 'option', 'souscription', 'transfert', 'don', 'nantissement', 'dividende', 'instrument', 'autre_nv'].indexOf(t.type) > -1; }).length;
     if (nonVol) add(fi, nonVol + ' opération(s) non volontaire(s) (attributions, options, souscriptions…) : ignorées', 0);
     var ambiguous = inWin.filter(function (t) { return t.type === 'inconnu' || t.type === 'autre'; });
