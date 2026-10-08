@@ -713,6 +713,47 @@
   };
   ES.isPanic = function (a, wi) { return !!a && ((a.drop10 != null && a.drop10 <= -wi.panicDropPct) || (a.rsi14 != null && a.rsi14 <= wi.panicRsi)); };
   /** Argumentaire en tête d'email : principe, chiffres académiques, et nos propres mesures pour le profil de signal le plus proche. */
+  /** Secteur d'activité en français (classification Yahoo Finance). */
+  var SECTORS_FR = { 'Basic Materials': 'Matériaux de base', 'Communication Services': 'Médias et télécoms', 'Consumer Cyclical': 'Consommation cyclique',
+    'Consumer Defensive': 'Consommation courante', 'Energy': 'Énergie', 'Financial Services': 'Finance', 'Healthcare': 'Santé', 'Industrials': 'Industrie',
+    'Real Estate': 'Immobilier', 'Technology': 'Technologie', 'Utilities': 'Services aux collectivités' };
+  ES.sectorFr = function (s) { return s ? SECTORS_FR[s] || String(s) : null; };
+  /** Résultat mesuré d'un groupe de signaux, échantillon et hors échantillon réunis. */
+  ES.groupOutcome = function (results, group, horizon) {
+    var o = { n: 0, up: 0, mean: 0, nEx: 0, beat: 0, meanEx: 0 };
+    (results || []).filter(function (r) { return r.group === group && r.horizon === horizon; }).forEach(function (r) {
+      o.n += r.n; o.up += r.hit * r.n; o.mean += r.mean * r.n;
+      if (r.nExcess) { o.nEx += r.nExcess; o.beat += r.hitExcess * r.nExcess; o.meanEx += r.meanExcess * r.nExcess; }
+    });
+    if (o.n) { o.up /= o.n; o.mean /= o.n; }
+    if (o.nEx) { o.beat /= o.nEx; o.meanEx /= o.nEx; }
+    return o;
+  };
+  /** « Pourquoi cette méthode » : fondement académique + ce que nos propres données mesurent, sans enjoliver. */
+  ES.methodRationale = function (results, cfg, since) {
+    var H = 60, pc = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
+    var p1 = 'Pourquoi cette méthode ? Un dirigeant qui achète des actions de sa propre société avec son argent connaît mieux que personne ses perspectives : il ne le fait que s\'il juge le cours trop bas. ' +
+      'Les études académiques mesurent une surperformance d\'environ 0,4 % par mois après ces achats (Jeng, Metrick et Zeckhauser, marché américain), plus nette sur les petites et moyennes valeurs, ' +
+      'quand l\'achat est important, quand plusieurs dirigeants achètent ensemble ou après une forte baisse. D\'où nos filtres : au moins ' + fmtEur(cfg.insiders.minBuyerEur) +
+      ' par dirigeant, décote par rapport au plus haut de l\'année, achat du DG ou du DAF, cluster, société financièrement solide.';
+    var lines = [], labels = [['Achat volontaire', 'achat de dirigeant d\'au moins ' + fmtEur(cfg.insiders.minBuyerEur)], ['Décote ≥ ' + cfg.weights.insiders.discountMediumPct + ' %', 'même achat, payé au moins ' + cfg.weights.insiders.discountMediumPct + ' % sous le plus haut 52 semaines'], ['Achat DG ou DAF', 'achat du DG ou du DAF']];
+    var total = 0, best = 0;
+    labels.forEach(function (l) {
+      var o = ES.groupOutcome(results, l[0], H);
+      if (!o.n) return;
+      total = Math.max(total, o.n); best = Math.max(best, o.nEx ? o.beat : 0);
+      lines.push('• ' + l[1] + ' : le cours était plus haut ' + H + ' séances plus tard (environ 3 mois) dans ' + Math.round(o.up) + ' % des cas, variation moyenne ' + pc(o.mean) +
+        (o.nEx ? ', mieux que le CAC 40 dans ' + Math.round(o.beat) + ' % des cas' : '') + ' (' + o.n + ' cas).');
+    });
+    var p2 = 'Ce que mesurent nos propres données européennes' + (since ? ' (déclarations depuis le ' + since + ')' : '') + ', coûts de transaction déduits :';
+    var p3 = !lines.length ? 'Pas encore assez de recul pour mesurer : les premiers résultats à 3 mois arrivent avec le temps.'
+      : (total < 100 ? 'Recul encore court (moins de 100 cas) : ces chiffres se précisent chaque soir. ' : '') +
+        (best < 55 ? 'Pour l\'instant, nos données ne montrent pas d\'avantage net : cette liste sert à étudier des dossiers, pas à acheter les yeux fermés.' : 'Le signal se confirme sur nos données, sans garantie pour l\'avenir.');
+    var text = p1 + '\n\n' + p2 + '\n' + (lines.length ? lines.join('\n') + '\n' : '') + p3;
+    var html = '<div style="background:#EEF6F2;border-left:4px solid #0D6A56;padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.45"><b>Pourquoi cette méthode ?</b><br>' + esc(p1.replace(/^Pourquoi cette méthode \? /, '')) +
+      '<br><br>' + esc(p2) + (lines.length ? '<ul style="margin:6px 0 6px 18px;padding:0">' + lines.map(function (l) { return '<li>' + esc(l.replace(/^• /, '')) + '</li>'; }).join('') + '</ul>' : '<br>') + '<i>' + esc(p3) + '</i></div>';
+    return { text: text, html: html };
+  };
   ES.emailRationale = function (results, group, horizon) {
     var rows = (results || []).filter(function (r) { return r.group === group && r.horizon === horizon && r.nExcess; });
     var n = 0, hit = 0, mean = 0;
@@ -722,7 +763,8 @@
     if (!n) p2 = 'Nos propres mesures sur ce type de signal (« ' + group + ' ») ne sont pas encore disponibles.';
     else {
       hit /= n; mean /= n;
-      p2 = 'Sur les ' + n + ' cas « ' + group + ' » que nous avons suivis, le titre a battu le CAC 40 dans ' + Math.round(hit) + ' % des cas à ' + horizon + ' séances, avec un écart moyen de ' + (mean >= 0 ? '+' : '') + mean.toFixed(1).replace('.', ',') + ' point' + (Math.abs(mean) >= 2 ? 's' : '') + ', frais compris.';
+      var o = ES.groupOutcome(results, group, horizon);
+      p2 = 'Sur les ' + n + ' cas « ' + group + ' » que nous avons suivis, le cours était plus haut ' + horizon + ' séances plus tard (environ 3 mois) dans ' + Math.round(o.up) + ' % des cas et a battu le CAC 40 dans ' + Math.round(hit) + ' % des cas à ' + horizon + ' séances, avec un écart moyen de ' + (mean >= 0 ? '+' : '') + mean.toFixed(1).replace('.', ',') + ' point' + (Math.abs(mean) >= 2 ? 's' : '') + ', frais compris.';
       if (n < 30) p2 += ' Échantillon encore trop petit pour conclure.';
       else if (mean < 0) p2 += ' Sur la période récente, ce signal seul n\'a pas battu le marché : ce sont les combinaisons (décote, tendance, plusieurs signaux) qui font le tri.';
     }
@@ -793,7 +835,7 @@
       var recent = sc.buys.filter(function (t) { return ES.availDate(t) >= from; });
       if (!recent.length) return;
       var d = sc.discount, eur = sc.buyEur;
-      out.push({ isin: c.isin, name: c.inst.name || c.isin, country: c.inst.country || null, score: sc.total,
+      out.push({ isin: c.isin, name: c.inst.name || c.isin, country: c.inst.country || null, sector: ES.sectorFr(c.inst.sector || (c.inst.fund && c.inst.fund.sector)), score: sc.total,
         discountPct: d ? d.pct : null, buyer: d ? d.person : recent[0].person, ceo: sc.buys.some(function (t) { return t.ceo || t.cfo; }),
         buyDate: d ? d.date : recent[0].txDate, lastPub: recent.map(function (t) { return ES.availDate(t); }).sort().pop(), buyEur: eur || null,
         buyers: sc.cluster ? sc.cluster.count : 1, trendUp: sc.trendUp, fallingKnife: sc.fallingKnife, panic: !!sc.panicBuy,
@@ -803,7 +845,7 @@
     return out.slice(0, S.size || 5);
   };
   /** Email « Sélection de la semaine » : une liste courte à étudier, jamais un ordre d'achat. */
-  ES.buildSelectionEmail = function (sel, week, cfg, dashUrl, today) {
+  ES.buildSelectionEmail = function (sel, week, cfg, dashUrl, today, rationale) {
     var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
@@ -825,16 +867,18 @@
       if (x.health === 'inconnu') c.push('solidité financière non vérifiable');
       return c;
     };
-    var text = intro + '\n\n' + (n ? sel.map(function (x, k) {
-      return (k + 1) + '. ' + x.name + ' — score ' + x.score + '/100\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+    var text = intro + '\n\n' + (rationale ? rationale.text + '\n\n' : '') + (n ? sel.map(function (x, k) {
+      return (k + 1) + '. ' + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — score ' + x.score + '/100\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
     }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
     var html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:680px;color:#1b2420"><h2 style="margin:0 0 6px">Sélection de la semaine</h2>' +
       '<p style="color:#55615c;margin:0 0 14px">' + ES.esc(intro) + '</p>' +
+      (rationale ? rationale.html : '') +
       (n ? sel.map(function (x, k) {
         return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) +
           ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100</span></div>' +
+          (x.sector ? '<div style="color:#55615c;font-size:13px">Secteur : ' + ES.esc(x.sector) + '</div>' : '') +
           '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
           (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
           (dashUrl ? btn(dashUrl + '#' + x.isin, 'Voir la fiche') : '') + '</div>';
@@ -1238,8 +1282,9 @@
     var h = [], t = [];
     h.push('<div style="font-family:Arial,sans-serif;font-size:14px;color:#1c2321;max-width:680px">');
     h.push('<h2 style="margin:0 0 4px">' + esc(i.name || i.isin) + '</h2>');
-    h.push('<p style="margin:0 0 12px;color:#55615c">' + esc([i.isin, i.ticker, i.venue, 'domicile ' + (i.country || '?'), 'PEA : ' + ES.PEA_LABEL[i.peaStatus || 'a_verifier']].filter(Boolean).join(' · ')) + '</p>');
-    t.push((i.name || i.isin) + ' (' + i.isin + ')', 'Score d\'opportunité ' + s.total + '/100 — barème ' + s.version, '');
+    var secFr = ES.sectorFr(i.sector || (i.fund && i.fund.sector));
+    h.push('<p style="margin:0 0 12px;color:#55615c">' + esc([secFr ? 'Secteur : ' + secFr + (i.fund && i.fund.industry ? ' (' + i.fund.industry + ')' : '') : null, i.isin, i.ticker, i.venue, 'domicile ' + (i.country || '?'), 'PEA : ' + ES.PEA_LABEL[i.peaStatus || 'a_verifier']].filter(Boolean).join(' · ')) + '</p>');
+    t.push((i.name || i.isin) + ' (' + i.isin + ')' + (secFr ? ' — secteur : ' + secFr : ''), 'Score d\'opportunité ' + s.total + '/100 — barème ' + s.version, '');
     h.push('<p><b>Score d\'opportunité : ' + s.total + '/100</b> · qualité des données ' + a.quality.total + '/100 · surchauffe (expérimental) ' + a.overheat.total + '/100</p>');
     h.push('<p style="color:#55615c;font-size:12px">Ce score classe des dossiers à examiner. Ce n\'est pas une probabilité de hausse : il n\'a pas été validé statistiquement. Aucun ordre n\'est passé.</p>');
     h.push('<table style="border-collapse:collapse;width:100%">');

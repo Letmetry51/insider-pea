@@ -618,6 +618,23 @@ t('Sélection de la semaine : filtres durs, tri, 5 au plus, email échappé', ()
   ok(/Aucune société/.test(ES.buildSelectionEmail([], '2026-W41', c, null, '2026-10-08').text), 'semaine sans dossier');
 });
 
+t('Secteur en français et argumentaire de méthode honnête', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  eq(ES.sectorFr('Industrials'), 'Industrie'); eq(ES.sectorFr('Inconnu'), 'Inconnu'); eq(ES.sectorFr(null), null);
+  const res = [{ group: 'Achat volontaire', horizon: 60, sample: 'échantillon', n: 50, mean: 2, hit: 50, nExcess: 50, meanExcess: 1, hitExcess: 46 },
+    { group: 'Achat volontaire', horizon: 60, sample: 'hors échantillon', n: 50, mean: 0, hit: 42, nExcess: 50, meanExcess: -0.4, hitExcess: 46 }];
+  const o = ES.groupOutcome(res, 'Achat volontaire', 60); eq(o.n, 100); eq(Math.round(o.up), 46); eq(Math.round(o.beat), 46);
+  const r = ES.methodRationale(res, c, '01/06/2026');
+  ok(/plus haut 60 séances plus tard \(environ 3 mois\) dans 46 % des cas/.test(r.text), 'chiffre mesuré');
+  ok(/pas d'avantage net/.test(r.text), 'pas d\'avantage affiché quand il n\'existe pas');
+  ok(/100 k€/.test(r.text), 'seuil cité');
+  const good = res.map((x) => Object.assign({}, x, { n: 200, nExcess: 200, hitExcess: 62 }));
+  ok(/se confirme/.test(ES.methodRationale(good, c, null).text));
+  ok(/Pas encore assez de recul/.test(ES.methodRationale([], c, null).text));
+  const m = ES.buildSelectionEmail([{ isin: 'DE0006305006', name: 'DEUTZ', country: 'DE', sector: 'Industrie', score: 50, discountPct: 22, ceo: false, buyers: 4, buyEur: 2e6, trendUp: true }], '2026-W41', c, 'https://x.org/es.html', '2026-10-08', r);
+  ok(/Secteur : Industrie/.test(m.html) && /DEUTZ \(Industrie\)/.test(m.text) && /Pourquoi cette méthode/.test(m.html));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

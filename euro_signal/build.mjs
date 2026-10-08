@@ -351,7 +351,8 @@ export function build(opts = {}) {
     const prev = state.alerts[id];
     const done = prev && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(prev.status) > -1;
     if (!done && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh) {
-      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today);
+      const since = events.length ? events.map((e) => e.date).sort()[0] : null;
+      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null));
       outbox.push({ id, kind: 'selection', isin: null, name: 'Sélection ' + week, subject: mail.subject, text: mail.text, html: mail.html,
         eventIds: ['selection:' + week], score: null, version: cfg.scoringVersion });
     }
