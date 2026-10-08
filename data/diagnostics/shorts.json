@@ -1,73 +1,87 @@
 [
  {
   "country": "FR",
-  "error": "en-tête introuvable",
-  "first": [
-   [
-    "Detenteur de la position courte nette",
-    "Legal Entity Identifier detenteur",
-    "Emetteur / issuer",
-    "Ratio",
-    "code ISIN",
-    "Date de debut position",
-    "Date de debut de publication position",
-    "Date de fin de publication position"
-   ],
-   [
-    "12 WEST CAPITAL MANAGEMENT LP",
-    "549300CTKKI0FKNCD259",
-    "UBISOFT ENTERTAINMENT",
-    "0.35",
-    "FR0000054470",
-    "2015-10-06",
-    "2015-10-07",
-    "2015-10-08"
-   ],
-   [
-    "12 WEST CAPITAL MANAGEMENT LP",
-    "549300CTKKI0FKNCD259",
-    "UBISOFT ENTERTAINMENT",
-    "1.17",
-    "FR0000054470",
-    "2015-10-05",
-    "2015-10-06",
-    "2015-10-08"
-   ]
-  ]
+  "header": [
+   "Detenteur de la position courte nette",
+   "Legal Entity Identifier detenteur",
+   "Emetteur / issuer",
+   "Ratio",
+   "code ISIN",
+   "Date de debut position",
+   "Date de debut de publication position",
+   "Date de fin de publication position"
+  ],
+  "mapped": {
+   "isin": 4,
+   "holder": 0,
+   "pct": 3,
+   "date": 5,
+   "end": 7
+  }
  },
  {
-  "country": "FR",
+  "country": "IT",
+  "error": "UnicodeDecodeError : 'utf-8' codec can't decode byte 0xe9 in position 604: invalid continuation byte",
+  "response": {
+   "url": "https://www.consob.it/web/area-pubblica/pnc",
+   "status": 200,
+   "type": "text/html;charset=UTF-8",
+   "head": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+  }
+ },
+ {
+  "country": "IT",
+  "header": [
+   "Detentore",
+   "LEI del Detentore",
+   "Emittente",
+   "LEI dell'Emittente",
+   "ISIN",
+   "Perc. posizione netta corta",
+   "Data della posizione",
+   "None"
+  ],
+  "mapped": {
+   "isin": 4,
+   "holder": 0,
+   "pct": 5,
+   "date": 6
+  }
+ },
+ {
+  "country": "IT",
+  "header": [
+   "Detentore",
+   "LEI del Detentore",
+   "Emittente",
+   "LEI dell'Emittente",
+   "ISIN",
+   "Perc. posizione netta corta",
+   "Data della posizione",
+   "None"
+  ],
+  "mapped": {
+   "isin": 4,
+   "holder": 0,
+   "pct": 5,
+   "date": 6
+  }
+ },
+ {
+  "country": "IT",
   "error": "en-tête introuvable",
   "first": [
    [
-    "Detenteur de la position courte nette",
-    "Legal Entity Identifier detenteur",
-    "Emetteur / issuer",
-    "Ratio",
-    "code ISIN",
-    "Date de debut position",
-    "Date de debut de publication position",
-    "Date de fin de publication position"
+    "Date of publication",
+    "None"
    ],
    [
-    "12 WEST CAPITAL MANAGEMENT LP",
-    "549300CTKKI0FKNCD259",
-    "UBISOFT ENTERTAINMENT",
-    "0.35",
-    "FR0000054470",
-    "2015-10-06",
-    "2015-10-07",
-    "2015-10-08"
+    "Data di pubblicazione",
+    "None"
    ],
    [
-    "12 WEST CAPITAL MANAGEMENT LP",
-    "549300CTKKI0FKNCD259",
-    "UBISOFT ENTERTAINMENT",
-    "1.17",
-    "FR0000054470",
-    "2015-10-05",
-    "2015-10-06",
-    "2015-10-08"
+    "07/10/2026",
+    "None"
    ]
   ]
  },
@@ -200,6 +214,60 @@
    "holder": 0,
    "pct": 3,
    "date": 4
+  }
+ },
+ {
+  "country": "BE",
+  "error": "ValueError : page HTML reçue au lieu d'un fichier",
+  "response": {
+   "url": "https://www.fsma.be/en/de-shortselling?page&_format=csv",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "head": "3c68746d6c3e3c686561643e3c7374796c653e0a6469762c"
+  }
+ },
+ {
+  "country": "BE",
+  "header": [
+   "Position date",
+   "Change Position Date",
+   "Issuer",
+   "ISIN",
+   "Position holder",
+   "Net short position"
+  ],
+  "mapped": {
+   "isin": 3,
+   "holder": 4,
+   "pct": 5,
+   "date": 0
+  }
+ },
+ {
+  "country": "BE",
+  "error": "ValueError : page HTML reçue au lieu d'un fichier",
+  "response": {
+   "url": "https://www.fsma.be/en/de-shortselling-history?page&_format=csv",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "head": "3c68746d6c3e3c686561643e3c7374796c653e0a6469762c"
+  }
+ },
+ {
+  "country": "BE",
+  "header": [
+   "Position date",
+   "Change Position Date",
+   "Issuer",
+   "ISIN",
+   "Position holder",
+   "Net short position"
+  ],
+  "mapped": {
+   "isin": 3,
+   "holder": 4,
+   "pct": 5,
+   "date": 0
   }
  },
  {
