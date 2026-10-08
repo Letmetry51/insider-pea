@@ -214,7 +214,7 @@ export function build(opts = {}) {
     const decision = ES.alertDecision({ inst: i, score, quality, overheat, universe: uni, cfg, today, sentEventIds: sentIds[isin] || {} });
     cands.push({ isin, inst: i, score, quality, universe: uni });
     computed[isin] = { score: score.total, quality: quality.total, overheat: overheat.total, send: decision.send, blocking: decision.blocking.length };
-    if (decision.send) {
+    if (decision.send && cfg.alerts.buyEmails !== false) { // alertes d'achat séparées (désactivables : la sélection du lundi les reprend)
       const health = ES.financialHealth(i.fund);
       const warn = uni.reasons.concat(['Éligibilité PEA non confirmée automatiquement : à vérifier avant tout achat.']);
       if (health.status === 'inconnu') warn.push('Solidité financière non vérifiable (données indisponibles) : regarder l\'endettement et la trésorerie avant d\'acheter.');
@@ -346,13 +346,27 @@ export function build(opts = {}) {
   const selCfg = cfg.selection || {};
   const week = ES.isoWeek(today);
   const selection = { week, items: ES.weeklySelection(cands, cfg, today) };
+  // « Nouveau » : absent de la sélection précédente
+  state.selections = state.selections || {};
+  const prevWeek = Object.keys(state.selections).filter((w) => w < week).sort().pop();
+  if (prevWeek) { const was = new Set(state.selections[prevWeek].items.map((x) => x.isin)); selection.items.forEach((x) => { x.isNew = !was.has(x.isin); }); }
+  // Suivi des sélections passées (tableau de bord et email) : performance depuis l'envoi, comparée au CAC 40
+  const closeAt = (rows, splits, d) => { const a = ES.adjustedSeries(ES.normalizeSeries(rows), splits || []); let v = null; for (const r of a) { if (r[0] <= d) v = r[4]; else break; } return { at: v, last: a.length ? a[a.length - 1][4] : null }; };
+  const selectionTrack = Object.keys(state.selections).filter((w) => w < week).sort().slice(-26).map((w) => {
+    const S0 = state.selections[w], b = prices.bench ? closeAt(prices.bench.rows, [], S0.date) : null;
+    const bench = b && b.at && b.last ? (b.last / b.at - 1) * 100 : null;
+    return { week: w, date: S0.date, bench, items: S0.items.map((x) => { const p = pItems[x.isin]; const c = p ? closeAt(p.rows, p.splits, S0.date) : null; return { isin: x.isin, name: x.name, score: x.score, perf: c && c.at && c.last ? (c.last / c.at - 1) * 100 : null }; }) };
+  });
+  selection.track = ES.selectionTrackSummary(selectionTrack);
   if (selCfg.enabled) {
     const id = 'selection-' + week, dow = (new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1; // 1 = lundi
     const prev = state.alerts[id];
     const done = prev && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(prev.status) > -1;
     if (!done && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh) {
       const since = events.length ? events.map((e) => e.date).sort()[0] : null;
-      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null));
+      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null), selection.track);
+      state.selections[week] = { date: today, items: selection.items.map((x) => ({ isin: x.isin, name: x.name, score: x.score })) };
+      Object.keys(state.selections).sort().slice(0, -60).forEach((w) => { delete state.selections[w]; });
       outbox.push({ id, kind: 'selection', isin: null, name: 'Sélection ' + week, subject: mail.subject, text: mail.text, html: mail.html,
         eventIds: ['selection:' + week], score: null, version: cfg.scoringVersion });
     }
@@ -405,7 +419,7 @@ export function build(opts = {}) {
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
     cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups, selection,
+    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups, selection, selectionTrack,
     learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion }
   };
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);

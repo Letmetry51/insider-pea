@@ -121,7 +121,16 @@ symboliques sont ignorés dans le score, le classement et les alertes. Pour chan
 
 ## Ce que tu reçois
 
-Un email seulement quand **toutes** les conditions sont réunies :
+Par défaut, trois sortes d'emails seulement :
+
+- **chaque lundi, la sélection de la semaine** (les 5 meilleurs dossiers, avec les nouveautés signalées et le bilan
+  des sélections précédentes comparé au CAC 40) ;
+- **les alertes de revente** sur les achats que tu as déclarés (objectif atteint, seuil de protection franchi…) ;
+- **les signaux de sortie** (vente d'un dirigeant, MM50 repassée sous la MM200…).
+
+Les dossiers « très forts » ne font plus l'objet d'un email séparé : ils sont repris dans la sélection du lundi et
+visibles chaque soir dans le tableau de bord. Pour retrouver un email par alerte d'achat :
+`"buyEmails": true` dans la rubrique `alerts` de `euro_signal/config.json`. Les conditions d'une alerte d'achat sont :
 
 - titre liquide (au moins 1 M€ échangés par jour en moyenne sur 20 séances) et 200 séances de cours ;
 - cours à jour et collecte AMF à jour ;

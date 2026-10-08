@@ -635,6 +635,20 @@ t('Secteur en français et argumentaire de méthode honnête', () => {
   ok(/Secteur : Industrie/.test(m.html) && /DEUTZ \(Industrie\)/.test(m.text) && /Pourquoi cette méthode/.test(m.html));
 });
 
+t('Sélection : nouveautés, bilan des sélections passées, alertes d\'achat désactivables', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  eq(c.alerts.buyEmails, true, 'par défaut (compatibilité)');
+  const tr = [{ week: '2026-W41', bench: 2, items: [{ perf: 5 }, { perf: -1 }, { perf: null }] }, { week: '2026-W42', bench: 0, items: [{ perf: 3 }] }];
+  const s = ES.selectionTrackSummary(tr);
+  eq(s.n, 3); eq(s.weeks, 2); eq(Math.round(s.avg * 100) / 100, 2.33); eq(Math.round(s.beatPct), 67, '5>2 et 3>0, pas -1');
+  eq(ES.selectionTrackSummary([]), null);
+  const x = { isin: 'FR0000000001', name: 'Soc', score: 40, discountPct: 30, ceo: true, buyers: 1, isNew: true };
+  const m = ES.buildSelectionEmail([x], '2026-W42', c, null, '2026-10-12', null, s);
+  ok(/\[NOUVEAU\] Soc/.test(m.text) && />NOUVEAU</.test(m.html), 'nouveauté signalée');
+  ok(/Suivi des sélections précédentes \(2 semaines, 3 dossiers\) : \+2,3 %/.test(m.text), 'bilan en tête');
+  ok(/fort/.test(m.text), 'libellé du score');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);
