@@ -599,7 +599,7 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '2.2.0',
+    scoringVersion: '2.3.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
@@ -611,6 +611,7 @@
       market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 4, relStrengthPts: 10, relWeakPts: 20 }
     },
     quality: { minForAlert: 60 },
+    display: { scoreCeiling: 60 }, // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1 },
@@ -849,8 +850,8 @@
     var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
-      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, score d\'au moins ' + (S.minScore || 0) + '/100. Classés par score, puis par décote.' +
-      ' Lecture du score : 100 est un maximum théorique (tous les signaux à la fois), jamais atteint en pratique ; ' + ((cfg.alerts || {}).minScore || 45) + ' et plus = très fort (niveau d\'alerte), ' + (S.minScore || 30) + ' à ' + (((cfg.alerts || {}).minScore || 45) - 1) + ' = fort.';
+      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, note d\'au moins ' + ES.note(S.minScore || 0, cfg) + '/100. Classés par note, puis par décote.' +
+      ' Lecture de la note : 100 = dossier idéal réaliste (achats de dirigeants et tendance de marché au maximum) ; ' + ES.note((cfg.alerts || {}).minScore || 45, cfg) + ' et plus = très fort, ' + ES.note(S.minScore || 30, cfg) + ' à ' + (ES.note((cfg.alerts || {}).minScore || 45, cfg) - 1) + ' = fort.';
     var why = function (x) {
       var w = [];
       if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines');
@@ -875,7 +876,7 @@
         (track.bench != null ? ', contre ' + pcs(track.bench) + ' pour le CAC 40 ; ' + Math.round(track.beatPct) + ' % des dossiers ont fait mieux que l\'indice' : '') + '.';
     }
     var text = intro + '\n\n' + (tr ? tr + '\n\n' : '') + (rationale ? rationale.text + '\n\n' : '') + (n ? sel.map(function (x, k) {
-      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — score ' + x.score + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — note ' + ES.note(x.score, cfg) + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
     }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
@@ -885,7 +886,7 @@
       (rationale ? rationale.html : '') +
       (n ? sel.map(function (x, k) {
         return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) + (x.isNew ? ' <span style="background:#B0281F;color:#ffffff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle">NOUVEAU</span>' : '') +
-          ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
+          ' <span style="font-weight:normal;color:#55615c;font-size:13px">note ' + ES.note(x.score, cfg) + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
           (x.sector ? '<div style="color:#55615c;font-size:13px">Secteur : ' + ES.esc(x.sector) + '</div>' : '') +
           '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
           (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
@@ -895,13 +896,19 @@
       (dashUrl ? '<p>' + btn(dashUrl, 'Ouvrir le tableau de bord') + '</p>' : '') + '</div>';
     return { subject: subject, text: text, html: html };
   };
+  /** Note sur 100 affichée : points bruts rapportés au maximum réaliste (display.scoreCeiling), plafonnée à 100. Le calcul, les seuils et l'apprentissage restent en points bruts. */
+  ES.note = function (total, cfg) {
+    var c = (cfg && cfg.display && cfg.display.scoreCeiling) || 60;
+    return Math.max(0, Math.min(100, Math.round((total || 0) * 100 / c)));
+  };
   /** Lecture du score : 100 est un maximum théorique (tous les signaux à la fois) ; repères calés sur les seuils d'alerte et de sélection. */
   ES.scoreLabel = function (total, cfg) {
     var a = (cfg.alerts || {}).minScore || 45, s = (cfg.selection || {}).minScore || 30;
-    if (total >= a) return { key: 'top', label: 'très fort', hint: 'niveau d\'alerte (≥ ' + a + ')' };
-    if (total >= s) return { key: 'strong', label: 'fort', hint: 'retenu pour la sélection (' + s + ' à ' + (a - 1) + ')' };
-    if (total >= Math.round(s / 2)) return { key: 'mid', label: 'moyen', hint: Math.round(s / 2) + ' à ' + (s - 1) };
-    return { key: 'low', label: 'faible', hint: 'moins de ' + Math.round(s / 2) };
+    var N = function (v) { return ES.note(v, cfg); };
+    if (total >= a) return { key: 'top', label: 'très fort', hint: 'note ' + N(a) + ' et plus' };
+    if (total >= s) return { key: 'strong', label: 'fort', hint: 'note ' + N(s) + ' à ' + (N(a) - 1) };
+    if (total >= Math.round(s / 2)) return { key: 'mid', label: 'moyen', hint: 'note ' + N(Math.round(s / 2)) + ' à ' + (N(s) - 1) };
+    return { key: 'low', label: 'faible', hint: 'note inférieure à ' + N(Math.round(s / 2)) };
   };
   /** Bilan des sélections passées : performance moyenne de chaque dossier depuis l'envoi, comparée au CAC 40. */
   ES.selectionTrackSummary = function (track) {
@@ -1305,14 +1312,14 @@
   function num2(v) { return v == null ? 'n.d.' : v.toFixed(2).replace('.', ','); }
   ES.fmtPct = pct; ES.esc = esc;
   ES.buildEmail = function (a) {
-    var i = a.inst, s = a.score, subj = '[Euro Signal] ' + (i.name || i.isin) + ' — score ' + s.total + '/100 (barème ' + s.version + ')';
+    var i = a.inst, s = a.score, subj = '[Euro Signal] ' + (i.name || i.isin) + ' — note ' + ES.note(s.total, a.cfg) + '/100 (barème ' + s.version + ')';
     var h = [], t = [];
     h.push('<div style="font-family:Arial,sans-serif;font-size:14px;color:#1c2321;max-width:680px">');
     h.push('<h2 style="margin:0 0 4px">' + esc(i.name || i.isin) + '</h2>');
     var secFr = ES.sectorFr(i.sector || (i.fund && i.fund.sector));
     h.push('<p style="margin:0 0 12px;color:#55615c">' + esc([secFr ? 'Secteur : ' + secFr + (i.fund && i.fund.industry ? ' (' + i.fund.industry + ')' : '') : null, i.isin, i.ticker, i.venue, 'domicile ' + (i.country || '?'), 'PEA : ' + ES.PEA_LABEL[i.peaStatus || 'a_verifier']].filter(Boolean).join(' · ')) + '</p>');
-    t.push((i.name || i.isin) + ' (' + i.isin + ')' + (secFr ? ' — secteur : ' + secFr : ''), 'Score d\'opportunité ' + s.total + '/100 — barème ' + s.version, '');
-    h.push('<p><b>Score d\'opportunité : ' + s.total + '/100</b> · qualité des données ' + a.quality.total + '/100 · surchauffe (expérimental) ' + a.overheat.total + '/100</p>');
+    t.push((i.name || i.isin) + ' (' + i.isin + ')' + (secFr ? ' — secteur : ' + secFr : ''), 'Note d\'opportunité ' + ES.note(s.total, a.cfg) + '/100 (' + s.total + ' points) — barème ' + s.version, '');
+    h.push('<p><b>Note d\'opportunité : ' + ES.note(s.total, a.cfg) + '/100</b> (' + s.total + ' points bruts) · qualité des données ' + a.quality.total + '/100 · surchauffe (expérimental) ' + a.overheat.total + '/100</p>');
     h.push('<p style="color:#55615c;font-size:12px">Ce score classe des dossiers à examiner. Ce n\'est pas une probabilité de hausse : il n\'a pas été validé statistiquement. Aucun ordre n\'est passé.</p>');
     h.push('<table style="border-collapse:collapse;width:100%">');
     Object.keys(s.families).forEach(function (k) {

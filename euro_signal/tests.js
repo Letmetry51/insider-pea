@@ -346,7 +346,7 @@ t('email : contenu obligatoire et mention non probabiliste', () => {
   const overheat = ES.overheat(inst, cfg);
   const decision = ES.alertDecision({ inst, score, quality, overheat, universe: ES.universeStatus(inst, cfg), cfg, today: TODAY, sentEventIds: {} });
   const m = ES.buildEmail({ inst, score, quality, overheat, decision, refs: {}, events: ev, today: TODAY });
-  ok(/score 8\d|score 9\d|score 7\d|score 6\d/.test(m.subject), m.subject);
+  ok(/note \d+\/100/.test(m.subject) && m.text.indexOf(score.total + " points") > -1, m.subject);
   ok(/pas une probabilité/.test(m.html)); ok(/Opérations d'initiés/.test(m.html)); ok(/Risques/.test(m.html)); ok(/https?:|u/.test(m.html));
   ok(m.text.indexOf('<') === -1, 'version texte sans HTML');
 });
@@ -647,6 +647,13 @@ t('Sélection : nouveautés, bilan des sélections passées, alertes d\'achat d�
   ok(/\[NOUVEAU\] Soc/.test(m.text) && />NOUVEAU</.test(m.html), 'nouveauté signalée');
   ok(/Suivi des sélections précédentes \(2 semaines, 3 dossiers\) : \+2,3 %/.test(m.text), 'bilan en tête');
   ok(/fort/.test(m.text), 'libellé du score');
+});
+
+t('Note /100 : points bruts rapportés au maximum réaliste (60), plafonnée', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  eq(ES.note(50, c), 83); eq(ES.note(45, c), 75); eq(ES.note(30, c), 50); eq(ES.note(33, c), 55); eq(ES.note(80, c), 100); eq(ES.note(-5, c), 0);
+  eq(ES.scoreLabel(45, c).hint, 'note 75 et plus');
+  eq(ES.note(30, ES.mergeConfig(c, { display: { scoreCeiling: 100 } })), 30, 'réglable');
 });
 
 console.log(results.join('\n'));

@@ -1,5 +1,5 @@
 {
- "scoringVersion": "2.2.0",
+ "scoringVersion": "2.3.0",
  "dashboardUrl": "https://letmetry51.github.io/insider-pea/euro-signal.html",
  "pea": {
   "strict": false
@@ -47,5 +47,8 @@
   "minScore": 30,
   "recentDays": 30,
   "weekday": 1
+ },
+ "display": {
+  "scoreCeiling": 60
  }
 }

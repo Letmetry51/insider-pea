@@ -134,7 +134,7 @@ visibles chaque soir dans le tableau de bord. Pour retrouver un email par alerte
 
 - titre liquide (au moins 1 M€ échangés par jour en moyenne sur 20 séances) et 200 séances de cours ;
 - cours à jour et collecte AMF à jour ;
-- score ≥ 45/100 (en pratique, seuls les 2 ou 3 meilleurs dossiers du moment l'atteignent) ;
+- note ≥ 75/100 (100 = dossier idéal réaliste ; en pratique, seuls les 2 ou 3 meilleurs dossiers du moment l'atteignent) ;
 - au moins deux familles de signaux indépendantes (initiés, rachats, résultats, marché), dont un événement publié depuis moins de 14 jours ;
 - aucune déclaration ambiguë ;
 - information nouvelle : jamais deux fois la même alerte.
@@ -147,7 +147,7 @@ risques.
 
 Même quand aucune alerte ne part, tu reçois chaque lundi soir un email « Sélection de la semaine » avec les
 5 meilleurs dossiers du moment : achat d'au moins 100 000 € par un dirigeant ces 30 derniers jours, titre liquide,
-données fiables, société solide, score d'au moins 30/100, classés par score puis par décote. C'est une liste courte
+données fiables, société solide, note d'au moins 50/100, classés par note puis par décote. C'est une liste courte
 à étudier, pas un ordre d'achat. La même liste est en tête de l'onglet Opportunités. Si aucune société ne remplit
 les critères, l'email le dit : mieux vaut ne rien faire que forcer un choix. Réglages : rubrique `selection` de
 `euro_signal/config.json` (`size`, `minScore`, `recentDays`, `weekday`, `enabled`).

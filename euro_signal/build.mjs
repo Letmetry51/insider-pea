@@ -221,7 +221,7 @@ export function build(opts = {}) {
       else warn.push('Solidité financière : ' + health.status + (health.notes.length ? ' (' + health.notes.join(', ') + ')' : ''));
       if (i.nextEarnings && ES.daysBetween(today, i.nextEarnings) <= cfg.alerts.earningsWarnDays) warn.push('Résultats prévus le ' + i.nextEarnings + ' (dans ' + ES.daysBetween(today, i.nextEarnings) + ' jours) : acheter juste avant revient à parier sur leur contenu.');
       if (score.marketDown) warn.push('Marché européen sous sa moyenne 200 séances : environnement baissier.');
-      const mail = ES.buildEmail({ inst: i, score, quality, overheat, decision, refs: refs[isin], events: ev, today, universeWarnings: warn });
+      const mail = ES.buildEmail({ inst: i, score, quality, overheat, decision, refs: refs[isin], events: ev, today, universeWarnings: warn, cfg });
       if (dashUrl) {
         const link = dashUrl + '#' + isin; // ouvre directement la fiche de la société
         const btn = '<p style="margin:10px 0 14px"><a href="' + ES.esc(link) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Voir la fiche dans Euro Signal</a></p>';

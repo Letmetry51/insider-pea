@@ -899,7 +899,7 @@ details.pos summary{font-size:1rem}
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '2.2.0',
+    scoringVersion: '2.3.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
@@ -911,6 +911,7 @@ details.pos summary{font-size:1rem}
       market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, liquidity: 4, liquidityEur: 5000000, goldenCrossAfterBuy: 4, relStrength: 4, relStrengthPts: 10, relWeakPts: 20 }
     },
     quality: { minForAlert: 60 },
+    display: { scoreCeiling: 60 }, // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1 },
@@ -1149,8 +1150,8 @@ details.pos summary{font-size:1rem}
     var n = sel.length, S = cfg.selection || {}, flagOf = { FR: '🇫🇷', DE: '🇩🇪', IT: '🇮🇹', ES: '🇪🇸', NL: '🇳🇱', BE: '🇧🇪' };
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var intro = 'Les meilleurs dossiers parmi les sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + (S.recentDays || 30) +
-      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, score d\'au moins ' + (S.minScore || 0) + '/100. Classés par score, puis par décote.' +
-      ' Lecture du score : 100 est un maximum théorique (tous les signaux à la fois), jamais atteint en pratique ; ' + ((cfg.alerts || {}).minScore || 45) + ' et plus = très fort (niveau d\'alerte), ' + (S.minScore || 30) + ' à ' + (((cfg.alerts || {}).minScore || 45) - 1) + ' = fort.';
+      ' derniers jours : titre liquide, données fiables, pas de fragilité financière, note d\'au moins ' + ES.note(S.minScore || 0, cfg) + '/100. Classés par note, puis par décote.' +
+      ' Lecture de la note : 100 = dossier idéal réaliste (achats de dirigeants et tendance de marché au maximum) ; ' + ES.note((cfg.alerts || {}).minScore || 45, cfg) + ' et plus = très fort, ' + ES.note(S.minScore || 30, cfg) + ' à ' + (ES.note((cfg.alerts || {}).minScore || 45, cfg) - 1) + ' = fort.';
     var why = function (x) {
       var w = [];
       if (x.discountPct != null) w.push('payé ' + Math.round(x.discountPct) + ' % sous le plus haut 52 semaines');
@@ -1175,7 +1176,7 @@ details.pos summary{font-size:1rem}
         (track.bench != null ? ', contre ' + pcs(track.bench) + ' pour le CAC 40 ; ' + Math.round(track.beatPct) + ' % des dossiers ont fait mieux que l\'indice' : '') + '.';
     }
     var text = intro + '\n\n' + (tr ? tr + '\n\n' : '') + (rationale ? rationale.text + '\n\n' : '') + (n ? sel.map(function (x, k) {
-      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — score ' + x.score + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — note ' + ES.note(x.score, cfg) + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
     }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
@@ -1185,7 +1186,7 @@ details.pos summary{font-size:1rem}
       (rationale ? rationale.html : '') +
       (n ? sel.map(function (x, k) {
         return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + (flagOf[x.country] || '') + ' ' + ES.esc(x.name) + (x.isNew ? ' <span style="background:#B0281F;color:#ffffff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle">NOUVEAU</span>' : '') +
-          ' <span style="font-weight:normal;color:#55615c;font-size:13px">score ' + x.score + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
+          ' <span style="font-weight:normal;color:#55615c;font-size:13px">note ' + ES.note(x.score, cfg) + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
           (x.sector ? '<div style="color:#55615c;font-size:13px">Secteur : ' + ES.esc(x.sector) + '</div>' : '') +
           '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
           (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
@@ -1195,13 +1196,19 @@ details.pos summary{font-size:1rem}
       (dashUrl ? '<p>' + btn(dashUrl, 'Ouvrir le tableau de bord') + '</p>' : '') + '</div>';
     return { subject: subject, text: text, html: html };
   };
+  /** Note sur 100 affichée : points bruts rapportés au maximum réaliste (display.scoreCeiling), plafonnée à 100. Le calcul, les seuils et l'apprentissage restent en points bruts. */
+  ES.note = function (total, cfg) {
+    var c = (cfg && cfg.display && cfg.display.scoreCeiling) || 60;
+    return Math.max(0, Math.min(100, Math.round((total || 0) * 100 / c)));
+  };
   /** Lecture du score : 100 est un maximum théorique (tous les signaux à la fois) ; repères calés sur les seuils d'alerte et de sélection. */
   ES.scoreLabel = function (total, cfg) {
     var a = (cfg.alerts || {}).minScore || 45, s = (cfg.selection || {}).minScore || 30;
-    if (total >= a) return { key: 'top', label: 'très fort', hint: 'niveau d\'alerte (≥ ' + a + ')' };
-    if (total >= s) return { key: 'strong', label: 'fort', hint: 'retenu pour la sélection (' + s + ' à ' + (a - 1) + ')' };
-    if (total >= Math.round(s / 2)) return { key: 'mid', label: 'moyen', hint: Math.round(s / 2) + ' à ' + (s - 1) };
-    return { key: 'low', label: 'faible', hint: 'moins de ' + Math.round(s / 2) };
+    var N = function (v) { return ES.note(v, cfg); };
+    if (total >= a) return { key: 'top', label: 'très fort', hint: 'note ' + N(a) + ' et plus' };
+    if (total >= s) return { key: 'strong', label: 'fort', hint: 'note ' + N(s) + ' à ' + (N(a) - 1) };
+    if (total >= Math.round(s / 2)) return { key: 'mid', label: 'moyen', hint: 'note ' + N(Math.round(s / 2)) + ' à ' + (N(s) - 1) };
+    return { key: 'low', label: 'faible', hint: 'note inférieure à ' + N(Math.round(s / 2)) };
   };
   /** Bilan des sélections passées : performance moyenne de chaque dossier depuis l'envoi, comparée au CAC 40. */
   ES.selectionTrackSummary = function (track) {
@@ -1605,14 +1612,14 @@ details.pos summary{font-size:1rem}
   function num2(v) { return v == null ? 'n.d.' : v.toFixed(2).replace('.', ','); }
   ES.fmtPct = pct; ES.esc = esc;
   ES.buildEmail = function (a) {
-    var i = a.inst, s = a.score, subj = '[Euro Signal] ' + (i.name || i.isin) + ' — score ' + s.total + '/100 (barème ' + s.version + ')';
+    var i = a.inst, s = a.score, subj = '[Euro Signal] ' + (i.name || i.isin) + ' — note ' + ES.note(s.total, a.cfg) + '/100 (barème ' + s.version + ')';
     var h = [], t = [];
     h.push('<div style="font-family:Arial,sans-serif;font-size:14px;color:#1c2321;max-width:680px">');
     h.push('<h2 style="margin:0 0 4px">' + esc(i.name || i.isin) + '</h2>');
     var secFr = ES.sectorFr(i.sector || (i.fund && i.fund.sector));
     h.push('<p style="margin:0 0 12px;color:#55615c">' + esc([secFr ? 'Secteur : ' + secFr + (i.fund && i.fund.industry ? ' (' + i.fund.industry + ')' : '') : null, i.isin, i.ticker, i.venue, 'domicile ' + (i.country || '?'), 'PEA : ' + ES.PEA_LABEL[i.peaStatus || 'a_verifier']].filter(Boolean).join(' · ')) + '</p>');
-    t.push((i.name || i.isin) + ' (' + i.isin + ')' + (secFr ? ' — secteur : ' + secFr : ''), 'Score d\'opportunité ' + s.total + '/100 — barème ' + s.version, '');
-    h.push('<p><b>Score d\'opportunité : ' + s.total + '/100</b> · qualité des données ' + a.quality.total + '/100 · surchauffe (expérimental) ' + a.overheat.total + '/100</p>');
+    t.push((i.name || i.isin) + ' (' + i.isin + ')' + (secFr ? ' — secteur : ' + secFr : ''), 'Note d\'opportunité ' + ES.note(s.total, a.cfg) + '/100 (' + s.total + ' points) — barème ' + s.version, '');
+    h.push('<p><b>Note d\'opportunité : ' + ES.note(s.total, a.cfg) + '/100</b> (' + s.total + ' points bruts) · qualité des données ' + a.quality.total + '/100 · surchauffe (expérimental) ' + a.overheat.total + '/100</p>');
     h.push('<p style="color:#55615c;font-size:12px">Ce score classe des dossiers à examiner. Ce n\'est pas une probabilité de hausse : il n\'a pas été validé statistiquement. Aucun ordre n\'est passé.</p>');
     h.push('<table style="border-collapse:collapse;width:100%">');
     Object.keys(s.families).forEach(function (k) {
@@ -2015,8 +2022,8 @@ details.pos summary{font-size:1rem}
   function alertBadge() { var n = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; }).length; return n ? ' <span class="count">' + n + '</span>' : ''; }
 
   function scoreBar(sc) {
-    var f = sc.families, seg = function (k) { var p = Math.max(0, f[k].points); return p ? '<i class="f-' + k + '" style="width:' + p + '%" title="' + esc(f[k].label) + ' : ' + p + '/' + f[k].cap + '"></i>' : ''; };
-    return '<div class="sbar" role="img" aria-label="Score ' + sc.total + ' sur 100">' + seg('insiders') + seg('buyback') + seg('results') + seg('market') + '</div>';
+    var f = sc.families, seg = function (k) { var p = Math.max(0, f[k].points); return p ? '<i class="f-' + k + '" style="width:' + Math.min(100, p * 100 / ((S.cfg.display || {}).scoreCeiling || 60)) + '%" title="' + esc(f[k].label) + ' : ' + p + '/' + f[k].cap + '"></i>' : ''; };
+    return '<div class="sbar" role="img" aria-label="Note ' + ES.note(sc.total, S.cfg) + ' sur 100">' + seg('insiders') + seg('buyback') + seg('results') + seg('market') + '</div>';
   }
   function famChips(sc) {
     var L = { insiders: 'I', buyback: 'R', results: 'E', market: 'M' };
@@ -2065,7 +2072,7 @@ details.pos summary{font-size:1rem}
     return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="foot">' + esc(rule) + ' À étudier, pas un ordre d\'achat.</p><ol class="sel">' +
       sel.items.map(function (x) {
         var w = [x.sector || null, x.discountPct != null ? 'décote ' + Math.round(x.discountPct) + ' %' : null, x.ceo ? 'DG ou DAF' : null, x.buyers >= S.cfg.insiders.clusterMinBuyers ? x.buyers + ' acheteurs' : null, x.trendUp ? 'MM50 > MM200' : null, x.fallingKnife ? 'cours en repli' : null].filter(Boolean);
-        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + ' <span class="muted">score ' + x.score + ' · ' + ES.scoreLabel(x.score, S.cfg).label + '</span><small>' + esc(w.join(' · ')) + '</small></li>';
+        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + ' <span class="muted">note ' + ES.note(x.score, S.cfg) + ' · ' + ES.scoreLabel(x.score, S.cfg).label + '</span><small>' + esc(w.join(' · ')) + '</small></li>';
       }).join('') + '</ol></section>';
   }
   function vClassement() {
@@ -2115,16 +2122,16 @@ details.pos summary{font-size:1rem}
     h += '<div class="toolbar"><input id="f-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q) + '" data-f="q" aria-label="Rechercher">' +
       '<select id="f-country" data-f="country" aria-label="Pays"><option value="">Tous les pays</option>' + Object.keys(ctry).sort().map(function (c) { return '<option value="' + c + '"' + (f.country === c ? ' selected' : '') + '>' + flag(c) + (COUNTRIES[c] || c) + '</option>'; }).join('') + '</select>' +
       '<select id="f-sector" data-f="sector" aria-label="Secteur"><option value="">Tous les secteurs</option>' + Object.keys(secs).sort(function (a, b) { return a.localeCompare(b, 'fr'); }).map(function (c) { return '<option value="' + esc(c) + '"' + (f.sector === c ? ' selected' : '') + '>' + esc(c) + ' (' + secs[c] + ')</option>'; }).join('') + '</select>' +
-      '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['discount', 'Trier par décote'], ['score', 'Trier par score'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'discount') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+      '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['discount', 'Trier par décote'], ['score', 'Trier par note'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'discount') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
     h += '<details class="help"><summary>Comment lire ce tableau ?</summary><ul class="plain">' +
       '<li><b>Décote</b> : de combien le prix payé par le dirigeant était sous le plus haut des 52 semaines. <span class="disc deep">−40 % et plus</span> <span class="disc mid">−25 à −40 %</span> <span class="disc low">moins de −25 %</span></li>' +
       '<li><b>Position 52 semaines</b> : ● prix payé, ◆ cours actuel, entre le plus bas (à gauche) et le plus haut (à droite).</li>' +
       '<li><b>Depuis l\'achat</b> : évolution du cours depuis le prix payé.</li>' +
       '<li><b>Force relative</b> : performance sur 6 mois (hors dernier mois) comparée au STOXX Europe 600 ; +3 points si le titre fait au moins 10 points de mieux.</li>' +
       '<li><b>MM50 > MM200</b> : la moyenne des 50 dernières séances est au-dessus de celle des 200 ; un croisement survenu après l\'achat du dirigeant ajoute 4 points.</li>' +
-      '<li><b>Score /100</b> : initiés, rachats, résultats et tendance de marché. Une alerte part à ' + S.cfg.alerts.minScore + ' avec au moins ' + S.cfg.alerts.minFamilies + ' familles de signaux.</li>' +
+      '<li><b>Note /100</b> : initiés, rachats, résultats et tendance de marché ; 100 = dossier idéal réaliste. Très fort à partir de ' + ES.note(S.cfg.alerts.minScore, S.cfg) + ', avec au moins ' + S.cfg.alerts.minFamilies + ' familles de signaux.</li>' +
       '<li><b>Attention</b> : une forte décote ne garantit pas le point bas. En 2026, le DG de Rheinmetall a acheté à −21 %, −37 % et −42 % avant de nouvelles baisses ; seul son achat à −52 %, au plus bas, a rapporté rapidement.</li></ul></details>';
-    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th class="hide-m">Position 52 semaines</th><th class="num">Depuis l\'achat</th><th class="num">Score</th><th>Statut</th></tr></thead><tbody>';
+    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th class="hide-m">Position 52 semaines</th><th class="num">Depuis l\'achat</th><th class="num">Note</th><th>Statut</th></tr></thead><tbody>';
     list.slice(0, S.limit).forEach(function (i) {
       var x = S.inst[i], c = S.computed[i], d = c.score.discount, r = d && (S.refs[i] || {})[d.id];
       var who = d ? 'payé ' + fmtN(d.paid) + ' le ' + shortDate(d.date) + ' · ' + esc(shortName(d.person)) + (d.ceo ? ' (DG/DAF)' : '') : (c.score.buys.length ? c.score.buys.length + ' achat(s), cours indisponibles' : 'aucun achat récent');
@@ -2132,7 +2139,7 @@ details.pos summary{font-size:1rem}
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
         '<td class="hide-m" data-l="Position 52 semaines">' + rangeBar(d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
-        '<td class="num scorecell" data-l="Score"><span class="big">' + c.score.total + '</span>' + scoreBar(c.score) + '<small class="slab s-' + ES.scoreLabel(c.score.total, S.cfg).key + '">' + ES.scoreLabel(c.score.total, S.cfg).label + '</small></td>' +
+        '<td class="num scorecell" data-l="Note"><span class="big">' + ES.note(c.score.total, S.cfg) + '</span>' + scoreBar(c.score) + '<small class="slab s-' + ES.scoreLabel(c.score.total, S.cfg).key + '">' + ES.scoreLabel(c.score.total, S.cfg).label + '</small></td>' +
         '<td data-l="Statut">' + statusChip(i) + '</td></tr>';
     });
     h += '</tbody></table></div>';
@@ -2163,9 +2170,9 @@ details.pos summary{font-size:1rem}
     h += adviceSection(i, c);
     var lab = ES.scoreLabel(sc.total, S.cfg), withBuys = Object.keys(S.computed).filter(function (k) { return S.computed[k].score.buys.length; });
     var rank = 1 + withBuys.filter(function (k) { return S.computed[k].score.total > sc.total; }).length;
-    h += '<section class="gauges">' + gauge('Opportunité', sc.total, '<b class="slab s-' + lab.key + '">' + lab.label + '</b>' + (sc.buys.length ? ' · ' + (rank === 1 ? '1er' : rank + 'e') + ' sur ' + withBuys.length + ' sociétés avec achats' : '') + ' · barème ' + esc(sc.version), 'acc') + gauge('Qualité des données', c.q.total, 'Couverture et complétude', c.q.total >= S.cfg.quality.minForAlert ? 'good' : 'warn') + gauge('Surchauffe', c.oh.total, 'Expérimental, hors score', c.oh.total >= 50 ? 'bad' : 'neutral') + '</section>';
+    h += '<section class="gauges">' + gauge('Note d\'opportunité', ES.note(sc.total, S.cfg), '<b class="slab s-' + lab.key + '">' + lab.label + '</b>' + (sc.buys.length ? ' · ' + (rank === 1 ? '1er' : rank + 'e') + ' sur ' + withBuys.length + ' sociétés avec achats' : '') + ' · barème ' + esc(sc.version), 'acc') + gauge('Qualité des données', c.q.total, 'Couverture et complétude', c.q.total >= S.cfg.quality.minForAlert ? 'good' : 'warn') + gauge('Surchauffe', c.oh.total, 'Expérimental, hors score', c.oh.total >= 50 ? 'bad' : 'neutral') + '</section>';
     var SM = (S.cfg.selection || {}).minScore || 30, AM = S.cfg.alerts.minScore;
-    h += '<p class="scale">Comment lire le score : il additionne des signaux indépendants (initiés, rachats, résultats, marché). <b>100 est un maximum théorique</b>, atteint seulement si tous les signaux sont réunis en même temps : cela n\'arrive pas. Repères : <b>' + AM + ' et plus = très fort</b> (niveau d\'alerte, rare) ; ' + SM + ' à ' + (AM - 1) + ' = fort (sélection de la semaine) ; ' + Math.round(SM / 2) + ' à ' + (SM - 1) + ' = moyen ; en dessous = faible.</p>';
+    h += '<p class="scale">Comment lire la note : elle additionne des signaux indépendants (initiés, rachats, résultats, marché). <b>100 = dossier idéal réaliste</b> : achats de dirigeants et tendance de marché au maximum (' + ((S.cfg.display || {}).scoreCeiling || 60) + ' points bruts) ; ici ' + sc.total + ' points. Repères : <b>' + ES.note(AM, S.cfg) + ' et plus = très fort</b> (rare) ; ' + ES.note(SM, S.cfg) + ' à ' + (ES.note(AM, S.cfg) - 1) + ' = fort (sélection de la semaine) ; ' + ES.note(Math.round(SM / 2), S.cfg) + ' à ' + (ES.note(SM, S.cfg) - 1) + ' = moyen ; en dessous = faible.</p>';
     if (c.uni.reasons.length) h += '<div class="note ' + (c.uni.status === 'rejete' ? 'bad' : 'warn') + '"><b>Univers :</b> ' + c.uni.reasons.map(esc).join(' ; ') + '</div>';
     h += '<div class="cols"><section class="card"><h3>Détail du score</h3>' + Object.keys(sc.families).map(function (k) {
       var fm = sc.families[k];
@@ -2418,8 +2425,8 @@ details.pos summary{font-size:1rem}
     var ready = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; });
     var mailReady = S.snapshot && S.snapshot.mail && S.snapshot.mail.ready;
     var a = S.cfg.alerts;
-    var h = '<h2 class="vt">Alertes</h2><section class="card"><h3>Envoi automatique</h3>' + (a.buyEmails === false ? '<p class="note">Emails envoyés : la <b>sélection de la semaine</b> (lundi), les alertes de <b>revente</b> sur vos achats et les <b>signaux de sortie</b>. Les dossiers très forts (score ≥ ' + a.minScore + ') ne font plus l\'objet d\'un email séparé : ils sont repris dans la sélection du lundi. Pour les réactiver : "buyEmails": true dans euro_signal/config.json.</p>' : '') + (mailReady ? '<p class="note">Gmail est configuré : les emails partent automatiquement après le calcul du soir.</p>' : '<p class="note warn">Gmail n\'est pas encore configuré : les alertes sont seulement journalisées (simulation). Ajoutez les trois secrets décrits dans le guide pour activer l\'envoi.</p>') +
-      '<p class="foot">Conditions d\'envoi : titre retenu dans l\'univers ; qualité ≥ ' + S.cfg.quality.minForAlert + ' ; collecte AMF à jour ; score ≥ ' + a.minScore + ' ; au moins ' + a.minFamilies + ' familles indépendantes dont un événement ; publication depuis ' + a.recentEventDays + ' jours ; aucune déclaration ambiguë ; information non déjà signalée' + (S.cfg.pea.strict ? ' ; PEA confirmé' : ' ; PEA non vérifié automatiquement (mentionné dans l\'email)') + '.</p></section>';
+    var h = '<h2 class="vt">Alertes</h2><section class="card"><h3>Envoi automatique</h3>' + (a.buyEmails === false ? '<p class="note">Emails envoyés : la <b>sélection de la semaine</b> (lundi), les alertes de <b>revente</b> sur vos achats et les <b>signaux de sortie</b>. Les dossiers très forts (note ≥ ' + ES.note(a.minScore, S.cfg) + ') ne font plus l\'objet d\'un email séparé : ils sont repris dans la sélection du lundi. Pour les réactiver : "buyEmails": true dans euro_signal/config.json.</p>' : '') + (mailReady ? '<p class="note">Gmail est configuré : les emails partent automatiquement après le calcul du soir.</p>' : '<p class="note warn">Gmail n\'est pas encore configuré : les alertes sont seulement journalisées (simulation). Ajoutez les trois secrets décrits dans le guide pour activer l\'envoi.</p>') +
+      '<p class="foot">Conditions d\'envoi : titre retenu dans l\'univers ; qualité ≥ ' + S.cfg.quality.minForAlert + ' ; collecte AMF à jour ; note ≥ ' + ES.note(a.minScore, S.cfg) + ' ; au moins ' + a.minFamilies + ' familles indépendantes dont un événement ; publication depuis ' + a.recentEventDays + ' jours ; aucune déclaration ambiguë ; information non déjà signalée' + (S.cfg.pea.strict ? ' ; PEA confirmé' : ' ; PEA non vérifié automatiquement (mentionné dans l\'email)') + '.</p></section>';
     h += '<section class="card"><h3>' + (a.buyEmails === false ? 'Très forts aujourd\'hui' : 'Remplissent les conditions aujourd\'hui') + ' <span class="muted">· ' + ready.length + '</span></h3>' + (ready.length ? '<ul class="evs">' + ready.map(function (i) { var c = S.computed[i]; return '<li><div><b>' + esc(S.inst[i].name) + '</b><small>score ' + c.score.total + ' · qualité ' + c.q.total + ' · dernier événement ' + c.score.lastEventDate + '</small></div><button class="ghost small" data-a="open" data-i="' + i + '">Voir</button></li>'; }).join('') + '</ul>' : '<p class="muted">Aucun titre ne remplit toutes les conditions aujourd\'hui. Les blocages sont détaillés dans chaque fiche.</p>') + '</section>';
     var log = Object.keys(S.alerts).map(function (k) { return S.alerts[k]; }).sort(function (x, y) { return (x.createdAt || '') < (y.createdAt || '') ? 1 : -1; });
     h += '<section class="card"><h3>Journal</h3>' + (log.length ? '<div class="tablewrap"><table class="grid"><thead><tr><th>Date</th><th>Société</th><th>Objet</th><th>Statut</th></tr></thead><tbody>' + log.slice(0, 200).map(function (x) { var st = ALERT_STATUS[x.status] || [x.status, 'neutral']; return '<tr><td>' + esc(String(x.createdAt || '').slice(0, 16).replace('T', ' ')) + '</td><td>' + esc(x.name || x.isin) + '</td><td>' + esc(x.subject || '') + (x.error ? '<small class="neg">' + esc(x.error) + '</small>' : '') + '</td><td><span class="chip ' + st[1] + '">' + st[0] + '</span></td></tr>'; }).join('') + '</tbody></table></div>' : '<p class="muted">Aucune alerte pour l\'instant.</p>') +
@@ -2512,8 +2519,8 @@ details.pos summary{font-size:1rem}
     h += '<section class="card"><ol class="steps">' +
       step('Collecte, chaque soir de semaine', 'Déclarations des dirigeants de 6 pays (AMF, BaFin, CNMV, Consob, FSMA, AFM), cours, résultats, communiqués et données financières des sociétés.') +
       step('Tri des achats', 'Seuls comptent les achats volontaires de personnes physiques (ou de leur holding personnelle selon le réglage), d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + ' par dirigeant sur ' + c.insiders.clusterWindowDays + ' jours. Attributions gratuites, options, déclarations tardives et sociétés d\'investissement sont écartées.') +
-      step('Score sur 100', 'Initiés (décote du prix payé, cluster, DG, panique), rachats d\'actions, résultats et tendance de marché. Le détail de chaque point est visible dans la fiche.') +
-      step('Emails', 'Alerte : seulement si le score atteint ' + c.alerts.minScore + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle. Sélection de la semaine : chaque lundi, les ' + ((c.selection || {}).size || 5) + ' meilleurs dossiers du moment (score d\'au moins ' + ((c.selection || {}).minScore || 0) + '), même quand aucune alerte ne part.') +
+      step('Note sur 100', 'Initiés (décote du prix payé, cluster, DG, panique), rachats d\'actions, résultats et tendance de marché. Le détail de chaque point est visible dans la fiche.') +
+      step('Emails', 'Alerte : seulement si la note atteint ' + ES.note(c.alerts.minScore, c) + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle. Sélection de la semaine : chaque lundi, les ' + ((c.selection || {}).size || 5) + ' meilleurs dossiers du moment (note d\'au moins ' + ES.note((c.selection || {}).minScore || 0, c) + '), même quand aucune alerte ne part.') +
       step('Suivi et apprentissage', 'Chaque alerte et chaque achat que vous déclarez sont suivis ; chaque mois, l\'outil mesure ce qui a marché et ajuste son barème, avec des garde-fous.') + '</ol>' +
       '<p class="foot">Le score aide à trier ; ce n\'est pas une probabilité de hausse et aucun ordre n\'est passé. L\'éligibilité PEA est toujours à vérifier. Réglages : fichier euro_signal/config.json du dépôt GitHub.</p>' +
       '<p class="foot"><b>Sur téléphone :</b> menu du navigateur → « Ajouter à l\'écran d\'accueil » (Android) ou bouton Partager → « Sur l\'écran d\'accueil » (iPhone). Euro Signal s\'ouvre alors comme une application, et le dernier classement reste consultable sans connexion.</p></section>';
