@@ -65081,6 +65081,31 @@
    "amount": "2.820,00",
    "numberLocale": "eu",
    "collectedAt": "2026-10-08"
+  },
+  "IS:NL:txn_11341172": {
+   "registry": "AFM",
+   "country": "NL",
+   "id": "txn_11341172",
+   "via": "Insider Screener API (secours)",
+   "url": "https://www.insiderscreener.com/en/company/ctp-nv",
+   "published": "2026-10-08",
+   "txDate": "2026-10-08",
+   "issuer": "Ctp NV",
+   "isin": null,
+   "instrument": "Share",
+   "person": "\nR.L.  Vos\n",
+   "role": "Director or Supervisory Board Member",
+   "linkedTo": null,
+   "nature": "BUY",
+   "natureCode": "BUY",
+   "price": "12.460000",
+   "currency": "EUR",
+   "quantity": "100000.0000",
+   "amount": "1246000.00",
+   "place": "NL",
+   "status": null,
+   "numberLocale": "en",
+   "collectedAt": "2026-10-08"
   }
  },
  "sources": {
@@ -65216,7 +65241,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-0"
   ]
  },
- "generated_at": "2026-10-08T21:06:26.005401+00:00",
+ "generated_at": "2026-10-08T22:52:04.909427+00:00",
  "cursors": {
   "DE": "2026-10-02",
   "ES": "2026-10-08",
@@ -65224,6 +65249,6 @@
   "NL": "2026-10-08"
  },
  "isUsage": {
-  "2026-10": 550
+  "2026-10": 570
  }
 }
