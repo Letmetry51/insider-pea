@@ -27,6 +27,9 @@ DATA = ROOT / "data"
 OUT = DATA / "shorts.json"
 DIAG = DATA / "diagnostics" / "shorts.json"
 UA = {"User-Agent": "Mozilla/5.0 (Euro Signal; suivi personnel des déclarations publiques)"}
+BROWSER = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+           "Accept": "text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*;q=0.8",
+           "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8"}
 ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 KEEP_FROM = (date.today() - timedelta(days=3 * 365)).isoformat()
 
@@ -89,7 +92,7 @@ def day_of(v):
 COLS = {
     "isin": [r"\bisin\b"],
     "holder": [r"holder", r"detentore", r"detenteur", r"titular", r"houder", r"positionsinhaber", r"tenedor"],
-    "pct": [r"net short position", r"posizione netta", r"position courte nette", r"posicion corta", r"posicion neta", r"netto short", r"^position$", r"positie", r"%", r"pourcentage"],
+    "pct": [r"net short position", r"posizione netta", r"position courte nette", r"posicion corta", r"posicion neta", r"netto short", r"^position$", r"^ratio$", r"positie", r"%", r"pourcentage"],
     "date": [r"position date", r"data della posizione", r"date de debut", r"date de la position", r"fecha", r"positiedatum", r"^datum$", r"date de position", r"^date$"],
     "end": [r"date de fin", r"end date", r"fin de publication"],
 }
@@ -154,7 +157,7 @@ def rows_to_records(rows, country, diag):
 
 def decode(b):
     if b[:2] in (b"\xff\xfe", b"\xfe\xff"):
-        return b.decode("utf-16")
+        return b.decode("utf-16", "replace")
     for enc in ("utf-8-sig", "cp1252", "latin-1"):
         try:
             return b.decode(enc)
@@ -199,8 +202,12 @@ def parse_bytes(b, country, diag):
     return rows_to_records(list(csv.reader(io.StringIO(text), delimiter=delim)), country, diag)
 
 
-def fetch(url, session=None):
-    r = (session or requests).get(url, headers=UA, timeout=90, allow_redirects=True)
+LAST = {}
+
+
+def fetch(url, session=None, headers=None):
+    r = (session or requests).get(url, headers=headers or UA, timeout=90, allow_redirects=True)
+    LAST.update({"url": url[:160], "status": r.status_code, "type": r.headers.get("content-type", "")[:80], "head": r.content[:24].hex()})
     r.raise_for_status()
     return r.content
 
@@ -278,12 +285,17 @@ def main():
                 errors = []
                 for k, u in enumerate(urls):
                     try:
-                        got = parse_bytes(fetch(u), cc, diag)
+                        try:
+                            got = parse_bytes(fetch(u), cc, diag)
+                        except Exception as e1:
+                            diag.append({"country": cc, "error": type(e1).__name__ + " : " + str(e1)[:100], "response": dict(LAST)})
+                            got = parse_bytes(fetch(u, headers=BROWSER), cc, diag)  # second essai avec un en-tête de navigateur
                         recs += got
                         if cc in ("IT", "FR") and got:
                             break  # premier fichier valide suffit (variantes du même fichier)
                     except Exception as e:
                         errors.append(type(e).__name__)
+                        diag.append({"country": cc, "error": type(e).__name__ + " : " + str(e)[:100], "response": dict(LAST)})
                 if not recs and errors:
                     raise RuntimeError("/".join(errors))
             if not recs:
