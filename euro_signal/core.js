@@ -730,18 +730,26 @@
   /** Solidité financière (dernières données publiées, non historisées) : solide / fragile / inconnu. */
   ES.financialHealth = function (f) {
     if (!f || typeof f !== 'object') return { status: 'inconnu', reasons: ['données financières indisponibles'], notes: [] };
-    var reasons = [], notes = [], fin = /financial|bank|insurance|banque|assurance/i.test(String(f.sector || '') + ' ' + String(f.industry || ''));
+    var sec = String(f.sector || '') + ' ' + String(f.industry || '');
+    // Dette non comparable : banques, assurances, foncières (jugées sur la valeur des actifs) et constructeurs automobiles (dette de leur banque captive)
+    var fin = /financial|bank|insurance|banque|assurance|real estate|reit|auto manufacturers|rental & leasing|asset management/i.test(sec);
+    var maxLev = /utilit|waste|infrastructure|telecom|toll|railroad/i.test(sec) ? 7 : 4.5; // dette Yahoo y compris loyers (IFRS 16) ; secteurs régulés : endettement plus élevé normal
+    var reasons = [], notes = [];
     var debt = f.totalDebt, cash = f.totalCash, ebitda = f.ebitda, net = debt != null && cash != null ? debt - cash : null;
     if (!fin && net != null) {
       if (ebitda != null && ebitda > 0) {
         var lev = net / ebitda;
-        if (lev > 4) reasons.push('dette nette égale à ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
+        if (lev > maxLev) reasons.push('dette nette (loyers compris) égale à ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
         else if (lev < 0) notes.push('trésorerie nette positive');
         else notes.push('dette nette ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
       } else if (ebitda != null && ebitda <= 0 && net > 0) reasons.push('EBITDA négatif avec une dette nette');
     }
+    if (!fin && f.freeCashflow != null && f.freeCashflow < 0 && (ebitda == null || ebitda <= 0) && cash != null) {
+      var runway = cash / -f.freeCashflow;
+      if (runway < 2) reasons.push('trésorerie couvrant environ ' + (runway < 1 ? 'moins d\'un an' : Math.round(runway * 10) / 10 + ' an(s)').replace('.', ',') + ' de consommation au rythme actuel');
+    }
     if (f.profitMargins != null && f.profitMargins < -0.15) reasons.push('pertes importantes (marge nette ' + Math.round(f.profitMargins * 100) + ' %)');
-    if (f.freeCashflow != null && f.operatingCashflow != null && f.freeCashflow < 0 && f.operatingCashflow < 0 && (f.profitMargins == null || f.profitMargins < 0)) reasons.push('l\'activité consomme de la trésorerie et perd de l\'argent');
+    if (!fin && f.freeCashflow != null && f.operatingCashflow != null && f.freeCashflow < 0 && f.operatingCashflow < 0 && (f.profitMargins == null || f.profitMargins < 0)) reasons.push('l\'activité consomme de la trésorerie et perd de l\'argent');
     if (!fin && f.currentRatio != null && f.currentRatio < 0.8) notes.push('liquidité de court terme tendue (ratio ' + f.currentRatio.toFixed(2).replace('.', ',') + ')');
     if (f.freeCashflow != null && f.freeCashflow > 0) notes.push('flux de trésorerie disponible positif');
     var known = [debt, cash, ebitda, f.profitMargins, f.freeCashflow].filter(function (v) { return v != null; }).length;

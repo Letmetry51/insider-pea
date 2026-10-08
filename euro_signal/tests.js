@@ -543,6 +543,10 @@ t('Solidité financière : fragile, solide, inconnu ; alerte bloquée si fragile
   eq(ES.financialHealth({ totalDebt: 100, totalCash: 300, ebitda: 80, profitMargins: 0.12, freeCashflow: 50 }).status, 'solide');
   eq(ES.financialHealth({ totalDebt: 1e12, totalCash: 1e9, ebitda: 1e8, profitMargins: 0.2, sector: 'Financial Services' }).status, 'solide', 'banque : dette non comparable');
   eq(ES.financialHealth({ profitMargins: -0.4, freeCashflow: -5, operatingCashflow: -3 }).status, 'fragile');
+  eq(ES.financialHealth({ totalDebt: 10e9, totalCash: 0.6e9, ebitda: 1e9, profitMargins: 0.5, sector: 'Real Estate' }).status, 'solide', 'foncière');
+  eq(ES.financialHealth({ totalDebt: 72e9, totalCash: 21e9, ebitda: 6.2e9, profitMargins: 0.02, sector: 'Consumer Cyclical', industry: 'Auto Manufacturers' }).status, 'solide', 'constructeur auto');
+  eq(ES.financialHealth({ totalDebt: 9.3e6, totalCash: 21.5e6, ebitda: -18.9e6, profitMargins: 0, freeCashflow: -16.9e6 }).status, 'fragile', 'trésorerie qui s\'épuise (Circus)');
+  eq(ES.financialHealth({ totalDebt: 33.8e9, totalCash: 9.5e9, ebitda: 5.77e9, profitMargins: 0.03, sector: 'Industrials', industry: 'Waste Management' }).status, 'solide', 'Veolia : 4,2 fois, normal pour le secteur');
   const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const d = ES.alertDecision({ inst: { isin: 'FR0000120271', fund: { totalDebt: 900, totalCash: 0, ebitda: 100 } }, score: { total: 80, independentFamilies: 3, eventFamilies: 2, contributing: [{ id: 'a', date: '2026-10-06' }], lastEventDate: '2026-10-06', ambiguousCount: 0 }, quality: { total: 90, coverage: { ok: true } }, overheat: { total: 0 }, universe: { status: 'retenu', reasons: [] }, cfg: c2, today: '2026-10-07', sentEventIds: {} });
   ok(!d.send && d.blocking.some((b) => /Solidité financière/.test(b)));

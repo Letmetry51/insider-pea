@@ -121,6 +121,16 @@ Un email « Signal de sortie » part une seule fois par signal si un dirigeant v
 si le cours tombe plus de 10 % sous le prix payé par les dirigeants ou s'il recule de 20 % depuis son plus haut.
 Ce ne sont pas des ordres de vente.
 
+## Vos achats : conseil de revente et alertes personnelles
+
+Dans la fiche d'un titre, l'encadré « Conseil d'achat et de revente » donne des repères pour entrer et pour sortir.
+Si vous achetez, ouvrez « Je l'ai acheté : me prévenir pour revendre », indiquez votre prix, votre objectif de hausse
+(par exemple +20 %) et votre seuil de protection (par exemple −15 %), puis envoyez l'email préparé (il vous est adressé).
+Chaque soir, Euro Signal relit ces emails dans vos « Envoyés » et vous écrit une seule fois par événement : objectif atteint,
+seuil de protection franchi, vente d'un dirigeant, MM50 repassée sous la MM200, recul de 20 % depuis le plus haut.
+Le bouton « Je l'ai vendu » arrête le suivi. Vos positions ne sont jamais écrites dans le dépôt ni sur le tableau de bord
+(qui sont publics) et ces emails ne vont qu'à vous. Pour changer un objectif, renvoyez simplement un nouvel email.
+
 ## L'outil apprend de ses résultats
 
 Chaque mois, Euro Signal compare chaque composante du score (décote, panique, DG, cluster, tendance, force relative)

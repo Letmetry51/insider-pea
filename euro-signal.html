@@ -252,6 +252,10 @@ details.help .disc{font-size:.78rem}
 .brief>div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
 .brief>div:first-child{border-left:4px solid var(--good)}.brief>div:last-child{border-left:4px solid var(--warn)}
 .brief ul{margin:0;padding-left:18px;font-size:.92rem}.brief li{margin:4px 0}
+.advice .cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:4px 20px}
+.advice h4{margin-top:4px}
+details.pos{border-top:1px solid var(--line);padding-top:10px}
+details.pos summary{font-size:1rem}
 @media (max-width:900px){.hide-m{display:none}}
 @media (max-width:640px){
   table.cards thead{display:none}
@@ -1008,18 +1012,26 @@ details.help .disc{font-size:.78rem}
   /** Solidité financière (dernières données publiées, non historisées) : solide / fragile / inconnu. */
   ES.financialHealth = function (f) {
     if (!f || typeof f !== 'object') return { status: 'inconnu', reasons: ['données financières indisponibles'], notes: [] };
-    var reasons = [], notes = [], fin = /financial|bank|insurance|banque|assurance/i.test(String(f.sector || '') + ' ' + String(f.industry || ''));
+    var sec = String(f.sector || '') + ' ' + String(f.industry || '');
+    // Dette non comparable : banques, assurances, foncières (jugées sur la valeur des actifs) et constructeurs automobiles (dette de leur banque captive)
+    var fin = /financial|bank|insurance|banque|assurance|real estate|reit|auto manufacturers|rental & leasing|asset management/i.test(sec);
+    var maxLev = /utilit|waste|infrastructure|telecom|toll|railroad/i.test(sec) ? 7 : 4.5; // dette Yahoo y compris loyers (IFRS 16) ; secteurs régulés : endettement plus élevé normal
+    var reasons = [], notes = [];
     var debt = f.totalDebt, cash = f.totalCash, ebitda = f.ebitda, net = debt != null && cash != null ? debt - cash : null;
     if (!fin && net != null) {
       if (ebitda != null && ebitda > 0) {
         var lev = net / ebitda;
-        if (lev > 4) reasons.push('dette nette égale à ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
+        if (lev > maxLev) reasons.push('dette nette (loyers compris) égale à ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
         else if (lev < 0) notes.push('trésorerie nette positive');
         else notes.push('dette nette ' + lev.toFixed(1).replace('.', ',') + ' fois l\'EBITDA');
       } else if (ebitda != null && ebitda <= 0 && net > 0) reasons.push('EBITDA négatif avec une dette nette');
     }
+    if (!fin && f.freeCashflow != null && f.freeCashflow < 0 && (ebitda == null || ebitda <= 0) && cash != null) {
+      var runway = cash / -f.freeCashflow;
+      if (runway < 2) reasons.push('trésorerie couvrant environ ' + (runway < 1 ? 'moins d\'un an' : Math.round(runway * 10) / 10 + ' an(s)').replace('.', ',') + ' de consommation au rythme actuel');
+    }
     if (f.profitMargins != null && f.profitMargins < -0.15) reasons.push('pertes importantes (marge nette ' + Math.round(f.profitMargins * 100) + ' %)');
-    if (f.freeCashflow != null && f.operatingCashflow != null && f.freeCashflow < 0 && f.operatingCashflow < 0 && (f.profitMargins == null || f.profitMargins < 0)) reasons.push('l\'activité consomme de la trésorerie et perd de l\'argent');
+    if (!fin && f.freeCashflow != null && f.operatingCashflow != null && f.freeCashflow < 0 && f.operatingCashflow < 0 && (f.profitMargins == null || f.profitMargins < 0)) reasons.push('l\'activité consomme de la trésorerie et perd de l\'argent');
     if (!fin && f.currentRatio != null && f.currentRatio < 0.8) notes.push('liquidité de court terme tendue (ratio ' + f.currentRatio.toFixed(2).replace('.', ',') + ')');
     if (f.freeCashflow != null && f.freeCashflow > 0) notes.push('flux de trésorerie disponible positif');
     var known = [debt, cash, ebitda, f.profitMargins, f.freeCashflow].filter(function (v) { return v != null; }).length;
@@ -2124,6 +2136,7 @@ details.help .disc{font-size:.78rem}
       '<div class="fchips">' + uniChip(c.uni) + peaChip(x) + (S.ro ? '' : '<button class="ghost small" data-a="editInst" data-i="' + i + '">Modifier la fiche et le PEA</button>') + '</div></header>';
     if (S.editInst === i) h += instForm(x);
     h += brief(i, c);
+    h += adviceSection(i, c);
     h += '<section class="gauges">' + gauge('Opportunité', sc.total, 'Score explicable · barème ' + sc.version, 'acc') + gauge('Qualité des données', c.q.total, 'Couverture et complétude', c.q.total >= S.cfg.quality.minForAlert ? 'good' : 'warn') + gauge('Surchauffe', c.oh.total, 'Expérimental, hors score', c.oh.total >= 50 ? 'bad' : 'neutral') + '</section>';
     if (c.uni.reasons.length) h += '<div class="note ' + (c.uni.status === 'rejete' ? 'bad' : 'warn') + '"><b>Univers :</b> ' + c.uni.reasons.map(esc).join(' ; ') + '</div>';
     h += '<div class="cols"><section class="card"><h3>Détail du score</h3>' + Object.keys(sc.families).map(function (k) {
@@ -2169,6 +2182,64 @@ details.help .disc{font-size:.78rem}
     if (c.q.total < S.cfg.quality.minForAlert) check.push('Données incomplètes : qualité ' + c.q.total + '/100.');
     if (!check.length) check.push('Rien de particulier signalé par les données.');
     return '<section class="brief"><div><h3>Ce qui ressort</h3><ul>' + plus.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div><div><h3>À vérifier avant d\'acheter</h3><ul class="chk">' + check.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div></section>';
+  }
+  /* ----- Conseil d'achat et de revente, alertes de revente personnelles (via votre Gmail) ----- */
+  function lsGet(k, d) { try { var v = window.localStorage.getItem('es.' + k); return v == null ? d : v; } catch (e) { return d; } }
+  function lsSet(k, v) { try { window.localStorage.setItem('es.' + k, v); } catch (e) { } }
+  function adviceSection(i, c) {
+    var x = S.inst[i], sc = c.score, hl = ES.financialHealth(x.fund), st = x.stats || {}, last = st.lastCloseAdj || st.lastClose;
+    var buy = [], sell = [];
+    if (hl.status === 'fragile') buy.push('<b>Prudence :</b> la société est financièrement fragile. Un achat de dirigeant ne suffit pas à compenser ce risque.');
+    else if (!sc.buys.length) buy.push('Aucun achat récent de dirigeant : pas de signal d\'entrée selon la méthode Euro Signal.');
+    else {
+      if (sc.fallingKnife) buy.push('Tendance baissière : entrer en plusieurs fois, par exemple un tiers maintenant, un tiers si le cours repasse au-dessus de sa moyenne 50 séances, un tiers après les prochains résultats.');
+      else buy.push('Tendance favorable ou neutre : une entrée en une ou deux fois est cohérente avec le signal.');
+      if (x.nextEarnings && ES.daysBetween(S.today, x.nextEarnings) >= 0 && ES.daysBetween(S.today, x.nextEarnings) <= S.cfg.alerts.earningsWarnDays) buy.push('Résultats le ' + shortDate(x.nextEarnings) + ' : attendre la publication ou n\'entrer qu\'en partie.');
+      if (sc.discount) buy.push('Repère : le dirigeant a payé ' + fmtN(sc.discount.paid) + ' le ' + shortDate(sc.discount.date) + '. Acheter nettement au-dessus réduit l\'avantage du signal.');
+      if (sc.marketDown) buy.push('Marché européen baissier : réduire la taille de la position.');
+    }
+    buy.push('Vérifier l\'éligibilité PEA auprès de votre courtier avant tout achat.');
+    var paid = sc.discount ? sc.discount.paid : null;
+    sell.push('Fixez un <b>objectif de hausse</b> (par exemple +20 %) : vous recevrez un email quand il sera atteint.');
+    sell.push('Fixez un <b>seuil de protection</b> (par exemple −15 %)' + (paid ? ' ; repère : passer plus de 10 % sous le prix payé par le dirigeant (' + fmtN(paid) + ') invalide le signal.' : '.'));
+    sell.push('Signaux surveillés automatiquement : vente d\'un dirigeant, MM50 repassée sous la MM200, recul de 20 % depuis le plus haut atteint depuis votre achat.');
+    var email = lsGet('email', ''), tgt = lsGet('target', '20'), stp = lsGet('stop', '15');
+    var h = '<section class="card advice"><h3>Conseil d\'achat et de revente</h3><div class="cols2"><div><h4>Avant d\'acheter</h4><ul class="plain">' + buy.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div>' +
+      '<div><h4>Pour revendre</h4><ul class="plain">' + sell.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></div></div>';
+    h += '<details class="pos"' + (lsGet('open.' + i, '') ? ' open' : '') + '><summary>Je l\'ai acheté : me prévenir pour revendre</summary>' +
+      '<p class="foot">Le tableau de bord est public : vos achats n\'y sont jamais enregistrés. Le bouton prépare un email à vous-même ; Euro Signal le lit chaque soir dans vos « Envoyés » et vous écrit, une seule fois par événement, quand l\'objectif est atteint, quand le seuil de protection est franchi ou quand un signal de sortie apparaît. Ces emails ne vont qu\'à vous.</p>' +
+      '<div class="fgrid">' + fld('Votre adresse Gmail (gardée sur cet appareil)', '<input id="pos-email" type="email" autocomplete="email" value="' + esc(email) + '" placeholder="vous@gmail.com">') +
+      fld('Prix d\'achat', '<input id="pos-price" inputmode="decimal" value="' + (last ? String(+last.toFixed(4)).replace('.', ',') : '') + '">') +
+      fld('Date d\'achat', '<input id="pos-date" type="date" value="' + esc(S.today) + '" max="' + esc(S.today) + '">') +
+      fld('Objectif de hausse (%)', '<input id="pos-target" inputmode="decimal" value="' + esc(tgt) + '">') +
+      fld('Seuil de protection (%)', '<input id="pos-stop" inputmode="decimal" value="' + esc(stp) + '">') + '</div>' +
+      '<div class="row mt"><button data-a="posBuy" data-i="' + i + '">Préparer l\'email « Je l\'ai acheté »</button><button class="ghost" data-a="posSell" data-i="' + i + '">Je l\'ai vendu : arrêter le suivi</button></div>' +
+      '<p class="foot">L\'email s\'ouvre dans votre messagerie : il suffit de l\'envoyer. Pour changer l\'objectif plus tard, renvoyez simplement un nouvel email depuis ce formulaire.</p></details></section>';
+    return h;
+  }
+  function posMail(i, kind) {
+    var x = S.inst[i], v = function (id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+    var to = v('pos-email');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { notify('Indiquez votre adresse Gmail (celle configurée dans Euro Signal).', 'warn'); return; }
+    lsSet('email', to);
+    var subject, body;
+    if (kind === 'buy') {
+      var price = ES.parseNumber(v('pos-price')), tg = ES.parseNumber(v('pos-target')), sp = ES.parseNumber(v('pos-stop'));
+      if (!(price > 0)) { notify('Indiquez le prix d\'achat.', 'warn'); return; }
+      if (tg != null) lsSet('target', String(tg)); if (sp != null) lsSet('stop', String(Math.abs(sp)));
+      subject = '[Euro Signal] Position ' + i;
+      body = 'Société : ' + (x.name || i) + '\nISIN : ' + i + '\nPrix d\'achat : ' + String(price).replace('.', ',') + '\nDate d\'achat : ' + (v('pos-date') || S.today) +
+        (tg != null ? '\nObjectif de hausse : ' + String(tg).replace('.', ',') + ' %' : '') + (sp != null ? '\nSeuil de protection : ' + String(Math.abs(sp)).replace('.', ',') + ' %' : '') +
+        '\n\n(Email lu automatiquement par Euro Signal chaque soir. Ne pas modifier l\'objet.)';
+      lsSet('open.' + i, '1');
+    } else {
+      subject = '[Euro Signal] Vente ' + i;
+      body = 'Société : ' + (x.name || i) + '\nISIN : ' + i + '\nDate : ' + S.today + '\n\n(Fin du suivi de cette position par Euro Signal.)';
+      lsSet('open.' + i, '');
+    }
+    var url = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    if (window.__esMailHook) { window.__esMailHook(url); return; } // tests automatiques
+    window.location.href = url;
   }
   function kv(k, v) { return '<div><dt>' + k + '</dt><dd>' + esc(v) + '</dd></div>'; }
   function gauge(label, v, sub, kind) { return '<div class="gauge ' + kind + '"><span class="lbl">' + label + '</span><span class="val">' + v + '<small>/100</small></span><div class="track"><i style="width:' + Math.max(0, Math.min(100, v)) + '%"></i></div><span class="sub">' + sub + '</span></div>'; }
@@ -2805,6 +2876,7 @@ details.help .disc{font-size:.78rem}
     else if (a === 'open') { S.sel = i; S.view = 'fiche'; S.editInst = null; try { history.replaceState(null, '', '#' + i); } catch (e) { } render(); window.scrollTo(0, 0); }
     else if (a === 'more') { S.limit += 200; render(); }
     else if (a === 'quick') { S.filters.quick = el.dataset.v; S.limit = 200; render(); }
+    else if (a === 'posBuy' || a === 'posSell') posMail(i, a === 'posBuy' ? 'buy' : 'sell');
     else if (a === 'reload') { if (S.mode === 'db') loadAll(); else { computeAll(); render(); } }
     else if (a === 'leaveDemo') leaveDemo();
     else if (a === 'demo') startDemo(S.db ? null : 'Stockage indisponible.', !!S.db);

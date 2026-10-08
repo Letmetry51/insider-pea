@@ -84,6 +84,13 @@ jobs:
           ES_TEST_EMAIL: ${{ inputs.test_email }}
         run: python euro_signal/send_alerts.py
 
+      - name: "6b. Vos positions - alertes de revente (lues dans votre Gmail, jamais écrites dans le dépôt)"
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python euro_signal/positions.py
+        continue-on-error: true
+
       - name: 7. Enregistrement des données
         # Toujours exécuté, même après une erreur, pour conserver le journal des alertes déjà envoyées
         if: always()
