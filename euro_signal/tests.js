@@ -447,6 +447,20 @@ t('Achats par une société (holding, SRL, GmbH, fondation…) exclus si exclude
   ok(ES.isVoluntaryBuy({ type: 'achat', person: 'DM Holding S.r.l.' }, ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { excludeLegalEntities: false } })), 'désactivable');
 });
 
+t('Holding personnelle d\'un dirigeant comptée (cas Rheinmetall), mode strict, décote vs plus haut 52 semaines', () => {
+  const c2 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const atp = { type: 'achat', person: 'ATP Holding GmbH', associated: true, issuer: 'Rheinmetall AG' };
+  ok(ES.isVoluntaryBuy(atp, c2), 'holding du DG comptée');
+  ok(!ES.isVoluntaryBuy(atp, ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { excludeLegalEntities: 'strict' } })), 'strict : exclue');
+  ok(!ES.isVoluntaryBuy({ type: 'achat', person: 'BPIFRANCE INVESTISSEMENT', associated: false }, c2), 'investisseur exclu');
+  const tx = [Object.assign({ id: 'BaFin:1', isin: 'DE0007030009', txDate: '2026-09-29', pubDate: '2026-09-29', status: 'active', price: 950, qty: 525, amount: 498750, currency: 'EUR', ceo: false, board: true, personKey: 'atp' }, atp)];
+  const refs = { 'BaFin:1': { available: true, paidAdj: 950, atPurchase: { paidVsHigh52Pct: -52, paidPos52: 1, ex52: { high: 1972, highDate: '2025-10-06' }, full52: true } } };
+  const sc = ES.score({ inst: { isin: 'DE0007030009', stats: { sessions: 300, sma50: 1080, sma200: 1336, lastCloseAdj: 953 } }, tx, events: {}, refs, cfg: c2, today: '2026-10-07' });
+  eq(Math.round(sc.discount.pct), 52);
+  ok(sc.families.insiders.items.some((x) => /52 % sous le plus haut/.test(x.label) && x.points === c2.weights.insiders.discountBig));
+  ok(sc.fallingKnife && sc.families.market.items.some((x) => /tendance baissière/.test(x.label)));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

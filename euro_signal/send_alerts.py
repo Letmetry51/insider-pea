@@ -11,6 +11,7 @@ Aucune garantie « exactement une fois » n'est possible avec SMTP.
 """
 import json
 import os
+import re
 import smtplib
 import ssl
 import sys
@@ -45,7 +46,9 @@ def now():
 def main():
     user = os.environ.get("GMAIL_USER", "").strip()
     pwd = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "").strip()
-    to = os.environ.get("ALERT_TO", "").strip() or user
+    # Plusieurs destinataires possibles : adresses séparées par des virgules, points-virgules ou espaces
+    to_list = [a for a in re.split(r"[,;\s]+", os.environ.get("ALERT_TO", "")) if "@" in a] or ([user] if user else [])
+    to = ", ".join(to_list)
     live = bool(user and pwd and to)
     state = load(STATE, {})
     state.setdefault("alerts", {})
@@ -70,7 +73,7 @@ def main():
         if live:
             try:
                 send("[Euro Signal] Email de test", "Email de test envoyé par Euro Signal depuis GitHub Actions le " + now() + ". Aucune alerte dans ce message.", None)
-                print("Email de test envoyé à", to)
+                print("Email de test envoyé à", len(to_list), "destinataire(s)")  # jamais les adresses : le journal est public
             except Exception as e:
                 print("ÉCHEC de l'email de test :", type(e).__name__, str(e)[:200])
         else:

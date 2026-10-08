@@ -27,6 +27,8 @@ TICKERS = DATA / "tickers.json"
 OUT = DATA / "prices.json"
 BENCH = "^FCHI"  # CAC 40, indice de référence de l'étude d'événements
 EU_SUFFIXES = (".PA", ".AS", ".BR", ".MI", ".MC", ".DE", ".LS", ".IR", ".VI", ".HE")
+EU_ALL = EU_SUFFIXES + (".F", ".HM", ".SG", ".DU", ".MU", ".BE", ".HA")  # bourses régionales allemandes en dernier recours
+HOME = {"FR": ".PA", "DE": ".DE", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "PT": ".LS", "IE": ".IR", "AT": ".VI", "FI": ".HE", "LU": ".PA"}
 UA = {"User-Agent": "Mozilla/5.0 (euro-signal personal)"}
 
 
@@ -59,7 +61,9 @@ def search_yahoo(isin):
     eq = [q for q in quotes if q.get("quoteType") == "EQUITY" and q.get("symbol")]
     if not eq:
         return None
-    eq.sort(key=lambda q: (not q["symbol"].endswith(".PA"), not q["symbol"].endswith(EU_SUFFIXES)))
+    home = HOME.get(isin[:2], ".PA")
+    # Cotation du pays d'origine d'abord (prix déclarés en euros), puis grandes places européennes, puis le reste
+    eq.sort(key=lambda q: (not q["symbol"].endswith(home), not q["symbol"].endswith(EU_SUFFIXES), not q["symbol"].endswith(EU_ALL)))
     q = eq[0]
     return {"ticker": q["symbol"], "exchange": q.get("exchDisp") or q.get("exchange"), "name": q.get("longname") or q.get("shortname")}
 
@@ -68,8 +72,14 @@ def resolve(isin, cache, manual, today):
     if isin in manual and manual[isin]:
         return {"ticker": manual[isin], "method": "correspondance insider-pea"}
     c = cache.get(isin)
-    if c and c.get("ticker"):
+    if c and c.get("ticker") and not (not str(c["ticker"]).endswith(EU_SUFFIXES) and not c.get("checkedHome")):
         return c
+    if c and c.get("ticker"):  # cotation hors grandes places européennes : une nouvelle recherche, une seule fois
+        found = search_yahoo(isin) or c
+        found.update({"checkedHome": today.isoformat(), "method": found.get("method") or "recherche Yahoo par ISIN"})
+        cache[isin] = found
+        time.sleep(0.3)
+        return found
     if c and not c.get("ticker") and c.get("triedAt", "") > (today - timedelta(days=7)).isoformat():
         return None
     found = search_yahoo(isin)

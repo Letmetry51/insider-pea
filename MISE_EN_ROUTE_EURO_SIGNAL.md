@@ -50,7 +50,7 @@ Crée ces trois secrets, un par un :
 |---|---|
 | `GMAIL_USER` | ton adresse Gmail (celle du mot de passe d'application) |
 | `GMAIL_APP_PASSWORD` | le code de 16 lettres de l'étape 2 |
-| `ALERT_TO` | l'adresse qui reçoit les alertes (la même, en général) |
+| `ALERT_TO` | l'adresse qui reçoit les alertes ; plusieurs adresses possibles, séparées par des virgules |
 
 Les secrets sont chiffrés par GitHub : personne ne peut les relire, même dans un dépôt public.
 **Créer ces secrets vaut activation de l'envoi réel.** Sans eux, Euro Signal reste en simulation :
@@ -144,7 +144,7 @@ collecteurs si un format diffère. En attendant, une source mal lue apparaît «
 
 Fichier `euro_signal/config.json` : clique sur le crayon (Edit), modifie, puis **Commit changes**.
 Exemples : `"minScore": 60` (seuil d'alerte) ou `"minAdv20Eur": 1000000` (liquidité minimale).
-`"excludeLegalEntities": true` : seuls les achats de personnes physiques comptent (holdings, SRL, GmbH, fonds et fondations exclus). Mets `false` pour les compter à nouveau.
+`"excludeLegalEntities": true` : les achats de sociétés (fonds, investisseurs, l'émetteur lui-même) sont exclus, mais la holding personnelle d'un dirigeant compte comme lui. `"strict"` exclut toutes les sociétés, `false` les compte toutes.
 
 ## En cas de problème
 

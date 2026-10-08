@@ -553,13 +553,13 @@
 
   /* ============================ Configuration ============================ */
   ES.DEFAULT_CONFIG = {
-    scoringVersion: '1.1.0',
+    scoringVersion: '1.2.0',
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
-    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true },
+    insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, mediumAmountEur: 100000, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true },
     pea: { strict: true },
     sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
     weights: {
-      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, ceoCfo: 6, repeat: 4, nearLow: 3, netSeller: -10, ceoCfoSale: -5 },
+      insiders: { cap: 40, floor: -10, anyBuy: 10, amountMedium: 5, amountBig: 10, cluster: 12, pair: 5, ceoCfo: 6, repeat: 4, nearLow: 3, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
       results: { cap: 25, floor: -10, epsStrong: 8, epsMild: 4, epsStrongPct: 5, epsMildPct: 2, epsMiss: -6, revStrong: 7, revMild: 3, revStrongPct: 2, revMildPct: 0, guidanceRaised: 10, guidanceLowered: -10 },
       market: { cap: 20, floor: 0, trend: 6, volume: 6, volumeRatio: 1.5, momentum: 4, liquidity: 4, liquidityEur: 5000000 }
@@ -644,9 +644,15 @@
     }
     return false;
   };
+  /** Société exclue du comptage : par défaut, seules les sociétés qui ne sont pas la holding personnelle d'un dirigeant
+   *  (fonds, investisseur, l'émetteur lui-même). Mode « strict » : toutes les sociétés. */
+  ES.excludedEntity = function (t, cfg) {
+    var m = cfg.insiders.excludeLegalEntities;
+    if (!m || !ES.isLegalEntity(t.person, t.issuer)) return false;
+    return m === 'strict' || !t.associated;
+  };
   ES.isVoluntaryBuy = function (t, cfg) {
-    return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) &&
-      !(cfg.insiders.excludeLegalEntities && ES.isLegalEntity(t.person, t.issuer));
+    return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
   };
   /** Nombre maximal d'acheteurs indépendants distincts dans une fenêtre glissante de N jours (dates de transaction). */
   ES.clusterInfo = function (buys, days) {
@@ -680,8 +686,9 @@
     var inWin = ES.activeTx(ctx.tx).filter(function (t) { return ES.availDate(t) >= from && ES.availDate(t) <= today; });
     var buys = inWin.filter(function (t) { return ES.isVoluntaryBuy(t, cfg); });
     var sells = inWin.filter(function (t) { return t.type === 'vente'; });
-    var corpBuys = cfg.insiders.excludeLegalEntities ? inWin.filter(function (t) { return t.type === 'achat' && ES.isLegalEntity(t.person, t.issuer); }).length : 0;
-    var buyEur = 0, buyUnknown = 0;
+    var corpBuys = inWin.filter(function (t) { return t.type === 'achat' && ES.excludedEntity(t, cfg); }).length;
+    var holdBuys = buys.filter(function (t) { return t.associated && ES.isLegalEntity(t.person, t.issuer); }).length;
+    var buyEur = 0, buyUnknown = 0, discount = null;
     buys.forEach(function (t) { var e = ES.toEur(t.amount, t.currency); if (e == null) buyUnknown++; else buyEur += e; });
     var sellEur = sells.reduce(function (s, t) { return s + (ES.toEur(t.amount, t.currency) || 0); }, 0);
     if (buys.length) {
@@ -699,6 +706,14 @@
       var per = {};
       buys.forEach(function (t) { var k = ES.buyerKey(t); if (k) (per[k] = per[k] || {})[t.txDate] = 1; });
       if (Object.keys(per).some(function (k) { return Object.keys(per[k]).length >= 2; })) add(fi, 'achats répétés par un même dirigeant (dates distinctes)', wi.repeat);
+      buys.forEach(function (t) {
+        var r = ctx.refs && ctx.refs[t.id], a = r && r.atPurchase;
+        if (!a || a.paidVsHigh52Pct == null || r.outOfRange) return; // prix payé incohérent avec les cours (mauvaise cotation, devise, opération sur titres)
+        var d = -a.paidVsHigh52Pct;
+        if (!discount || d > discount.pct) discount = { pct: d, pos52: a.paidPos52, high52: a.ex52 && a.ex52.high, high52Date: a.ex52 && a.ex52.highDate, paid: r.paidAdj, date: t.txDate, person: t.person, ceo: t.ceo || t.cfo, amount: t.amount, currency: t.currency, id: t.id, full52: a.full52 };
+      });
+      if (discount && discount.pct >= wi.discountBigPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountBig);
+      else if (discount && discount.pct >= wi.discountMediumPct) add(fi, 'prix payé ' + Math.round(discount.pct) + ' % sous le plus haut 52 semaines (' + discount.date + ')', wi.discountMedium);
       var near = buys.some(function (t) { var r = ctx.refs && ctx.refs[t.id]; return r && r.atPurchase && r.atPurchase.paidPos52 != null && r.atPurchase.paidPos52 <= cfg.insiders.nearLowPct; });
       if (near) add(fi, 'achat dans le quart bas de l\'intervalle 52 semaines connu à la date d\'achat', wi.nearLow);
     }
@@ -706,7 +721,8 @@
       if (sellEur > buyEur && sellEur > 0) add(fi, 'ventes d\'initiés (' + fmtEur(sellEur) + ') supérieures aux achats', wi.netSeller);
       if (sells.some(function (t) { return t.ceo || t.cfo; })) add(fi, 'vente du directeur général ou du directeur financier', wi.ceoCfoSale);
     }
-    if (corpBuys) add(fi, corpBuys + ' achat(s) par une société (holding, fonds, SRL…) : exclus, seules les personnes physiques comptent', 0);
+    if (corpBuys) add(fi, corpBuys + ' achat(s) par une société qui n\'est pas la holding d\'un dirigeant (fonds, investisseur, émetteur) : exclus', 0);
+    if (holdBuys) add(fi, holdBuys + ' achat(s) via la holding personnelle d\'un dirigeant : comptés comme les siens', 0);
     var nonVol = inWin.filter(function (t) { return ['attribution', 'option', 'souscription', 'transfert', 'don', 'nantissement', 'dividende', 'instrument', 'autre_nv'].indexOf(t.type) > -1; }).length;
     if (nonVol) add(fi, nonVol + ' opération(s) non volontaire(s) (attributions, options, souscriptions…) : ignorées', 0);
     var ambiguous = inWin.filter(function (t) { return t.type === 'inconnu' || t.type === 'autre'; });
@@ -762,6 +778,9 @@
       if (s.volRatio5_60 != null && s.volRatio5_60 >= wm.volumeRatio && s.ret1m > 0) add(fm, 'volumes 5 j = ' + s.volRatio5_60.toFixed(1) + '× la moyenne 60 j, en hausse', wm.volume);
       if (s.ret3m != null && s.ret3m > 0) add(fm, 'performance 3 mois positive (' + s.ret3m.toFixed(1) + ' %, absolue, non relative au secteur)', wm.momentum);
       if (s.adv20Eur != null && s.adv20Eur >= wm.liquidityEur) add(fm, 'liquidité ' + fmtEur(s.adv20Eur) + '/jour', wm.liquidity);
+      // Leçon Rheinmetall 2026 : un dirigeant qui achète en pleine baisse n'indique pas le point bas
+      var knife = cfg.insiders.fallingKnifeNote && buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200;
+      if (knife) add(fm, 'tendance baissière (cours sous les moyennes 50 et 200 séances) : un achat de dirigeant ne marque pas forcément le point bas, entrer en plusieurs fois', 0);
     }
 
     var total = 0, families = 0;
@@ -778,7 +797,8 @@
       eventFamilies: families, independentFamilies: families + (marketFamily ? 1 : 0),
       contributing: contributing, lastEventDate: contributing.length ? contributing[0].date : null,
       ambiguousCount: ambiguous.length, windowFrom: from,
-      txInWindow: inWin, buys: buys, sells: sells, buyEur: buyEur, sellEur: sellEur
+      txInWindow: inWin, buys: buys, sells: sells, buyEur: buyEur, sellEur: sellEur, discount: discount,
+      fallingKnife: !!(buys.length && s.sma50 && s.sma200 && s.lastCloseAdj < s.sma50 && s.lastCloseAdj < s.sma200)
     };
   };
   ES.surprise = function (actual, consensus) {
