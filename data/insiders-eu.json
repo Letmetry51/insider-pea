@@ -64937,7 +64937,7 @@
    "lastAttempt": "2026-10-08",
    "status": "ok",
    "rows": 50,
-   "fetched": 7,
+   "fetched": 0,
    "backlog": 0,
    "note": null,
    "lastSuccess": "2026-10-08"
@@ -65043,7 +65043,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-0"
   ]
  },
- "generated_at": "2026-10-08T07:07:22.337569+00:00",
+ "generated_at": "2026-10-08T07:26:45.526947+00:00",
  "cursors": {
   "DE": "2026-10-02",
   "ES": "2026-10-07",
@@ -65051,6 +65051,6 @@
   "NL": "2026-10-08"
  },
  "isUsage": {
-  "2026-10": 290
+  "2026-10": 310
  }
 }
