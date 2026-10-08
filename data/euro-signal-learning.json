@@ -1,8 +1,79 @@
 {
- "month": null,
+ "month": "2026-10",
  "version": 0,
  "weights": {},
  "log": [],
- "stats": [],
- "note": "Recalibrage demandé le 2026-10-08 : un cluster compte pour un seul cas et les achats de moins de 10 000 € par dirigeant sont ignorés ; les ajustements calculés sur l'ancienne méthode sont annulés."
+ "stats": [
+  {
+   "feature": "discountBig",
+   "label": "Décote ≥ 40 %",
+   "nWith": 12,
+   "nWithout": 71,
+   "meanWith": -8.11715321848145,
+   "meanWithout": 1.8180156980195503,
+   "t": -2.094101444363091,
+   "action": "pas assez de cas (12 / 60 requis)"
+  },
+  {
+   "feature": "discountMedium",
+   "label": "Décote 25 à 40 %",
+   "nWith": 30,
+   "nWithout": 53,
+   "meanWith": 0.04834813457018197,
+   "meanWithout": 0.5702421113302876,
+   "t": -0.15716704946810264,
+   "action": "pas assez de cas (30 / 60 requis)"
+  },
+  {
+   "feature": "panic",
+   "label": "Achat dans la panique",
+   "nWith": 22,
+   "nWithout": 61,
+   "meanWith": -2.4431610844297995,
+   "meanWithout": 1.4003740950010857,
+   "t": -1.1375124295884154,
+   "action": "pas assez de cas (22 / 60 requis)"
+  },
+  {
+   "feature": "ceo",
+   "label": "Achat du DG ou du DAF",
+   "nWith": 33,
+   "nWithout": 64,
+   "meanWith": 3.5634777804710103,
+   "meanWithout": -2.230795597660039,
+   "t": 1.3438815342641677,
+   "action": "pas assez de cas (33 / 60 requis)"
+  },
+  {
+   "feature": "cluster",
+   "label": "Cluster de dirigeants",
+   "nWith": 4,
+   "nWithout": 93,
+   "meanWith": -11.162005036929203,
+   "meanWithout": 0.20937493175287875,
+   "t": -2.7056610232540983,
+   "action": "pas assez de cas (4 / 60 requis)"
+  },
+  {
+   "feature": "trend",
+   "label": "Tendance de fond haussière (MM50 > MM200)",
+   "nWith": 40,
+   "nWithout": 55,
+   "meanWith": 1.919754881041963,
+   "meanWithout": -1.7406371670220215,
+   "t": 0.9339697361826689,
+   "action": "pas assez de cas (40 / 60 requis)"
+  },
+  {
+   "feature": "relStrong",
+   "label": "Plus fort que le marché sur 6 mois",
+   "nWith": 25,
+   "nWithout": 70,
+   "meanWith": 0.6591847508157965,
+   "meanWithout": -0.5060638244989656,
+   "t": 0.20933761618798633,
+   "action": "pas assez de cas (25 / 60 requis)"
+  }
+ ],
+ "updatedAt": "2026-10-08T09:29:29.506Z"
 }

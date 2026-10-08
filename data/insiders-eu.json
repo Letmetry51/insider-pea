@@ -64910,6 +64910,31 @@
    "status": null,
    "numberLocale": "en",
    "collectedAt": "2026-10-08"
+  },
+  "IS:ES:txn_11340506": {
+   "registry": "CNMV",
+   "country": "ES",
+   "id": "txn_11340506",
+   "via": "Insider Screener API",
+   "url": "https://www.insiderscreener.com/en/company/ebro-foods-sa",
+   "published": "2026-10-08",
+   "txDate": "2026-10-05",
+   "issuer": "Ebro Foods SA",
+   "isin": "ES0112501012",
+   "instrument": "Share",
+   "person": "EMPRESAS COMERCIALES E INDUSTRIALES VALENCIANAS, S.L.",
+   "role": "Closely associated person (TRENOR VERGÉS)",
+   "linkedTo": "JAVIER GOMEZ",
+   "nature": "BUY",
+   "natureCode": "BUY",
+   "price": "17.950000",
+   "currency": "EUR",
+   "quantity": "16700.0000",
+   "amount": "299765.00",
+   "place": "ES",
+   "status": null,
+   "numberLocale": "en",
+   "collectedAt": "2026-10-08"
   }
  },
  "sources": {
@@ -64964,7 +64989,7 @@
    "via": "Insider Screener API (relève horaire du registre CNMV)",
    "lastAttempt": "2026-10-08",
    "status": "ok",
-   "rows": 24,
+   "rows": 25,
    "lastSuccess": "2026-10-08",
    "note": null
   },
@@ -65043,14 +65068,14 @@
    "https://www.fsma.be/en/manager-transaction/xior-0"
   ]
  },
- "generated_at": "2026-10-08T08:05:26.609321+00:00",
+ "generated_at": "2026-10-08T09:12:30.453195+00:00",
  "cursors": {
   "DE": "2026-10-02",
-  "ES": "2026-10-07",
+  "ES": "2026-10-08",
   "IT": "2026-10-07",
   "NL": "2026-10-08"
  },
  "isUsage": {
-  "2026-10": 330
+  "2026-10": 350
  }
 }
