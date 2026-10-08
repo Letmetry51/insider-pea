@@ -264,6 +264,21 @@ body.offline::before{content:'Hors connexion : dernier classement enregistré su
 .stars .e{color:#9AA19B;font-style:normal}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .h-good{color:#E6B84A}:root:not([data-theme="light"]) .stars .e{color:#5E6862}}
 :root[data-theme="dark"] .h-good{color:#E6B84A}:root[data-theme="dark"] .stars .e{color:#5E6862}
+/* Avis croisé et symboles */
+.adv{display:inline-block;font-weight:700;font-size:.8rem;padding:3px 9px;border-radius:999px;white-space:nowrap;line-height:1.4}
+.adv.big{font-size:1rem;padding:6px 14px}
+.adv-priority{background:#DDF1E3;color:#1A5C33}.adv-watch{background:#FFF1C9;color:#6E4F00}.adv-wait{background:var(--sunk);color:var(--muted)}.adv-avoid{background:#FBDDD8;color:#8E2219}
+.sigs{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.sg{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 2px;border-radius:6px;font-size:.85rem;cursor:help}
+.sg-good{background:#E3F3E8}.sg-warn{background:#FFF1D6}.sg-bad{background:#FBD9D4;box-shadow:inset 0 0 0 1px #C0392B}.sg-info{background:var(--sunk)}
+.sgcs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.sgc{font-size:.84rem;padding:3px 9px;border-radius:999px}.sgc.sg-good{color:#1A5C33}.sgc.sg-warn{color:#6E4F00}.sgc.sg-bad{color:#8E2219;font-weight:700}.sgc.sg-info{color:var(--muted)}
+.advcard .advhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}.advcard .advhead .muted{font-size:.82rem}
+.advcard.adv-b-priority{border-left:5px solid #1F7A3E}.advcard.adv-b-watch{border-left:5px solid #C99A00}.advcard.adv-b-avoid{border-left:5px solid #B0281F}.advcard.adv-b-wait{border-left:5px solid var(--line)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sg-good,:root:not([data-theme="light"]) .sgc.sg-good{background:#1F3A2A}:root:not([data-theme="light"]) .sg-warn,:root:not([data-theme="light"]) .sgc.sg-warn{background:#3A3018}:root:not([data-theme="light"]) .sg-bad,:root:not([data-theme="light"]) .sgc.sg-bad{background:#4A1F1A}
+ :root:not([data-theme="light"]) .sgc.sg-good{color:#9FDCB4}:root:not([data-theme="light"]) .sgc.sg-warn{color:#F0CE79}:root:not([data-theme="light"]) .sgc.sg-bad{color:#F5A99F}}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+.proof h4{margin:14px 0 4px}
 .hero{margin:18px 0 4px;max-width:80ch}
 .hero h2{font-size:1.55rem;margin-bottom:4px}
 .hero p{margin:0;color:var(--muted)}
@@ -1167,16 +1182,85 @@ details.pos summary{font-size:1rem}
    * moins de recentDays jours, score ≥ minScore. Tri : score, puis décote.
    * cands : [{ isin, inst, score, quality, universe }]
    */
+  /** Raisons pour lesquelles une société ne peut pas entrer dans la sélection de la semaine (liste vide = éligible). */
+  ES.selectionBlockers = function (c, cfg, today) {
+    var S = cfg.selection, sc = c.score, out = [], health = ES.financialHealth(c.inst.fund);
+    if (!sc || !sc.buys.length) return ['aucun achat significatif de dirigeant (au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ') sur ' + cfg.insiders.windowMonths + ' mois'];
+    if (c.universe && c.universe.status !== 'retenu') out.push('titre non retenu : ' + ((c.universe.reasons || [])[0] || 'liquidité ou historique de cours insuffisant'));
+    if (health.status === 'fragile') out.push('solidité financière fragile : ' + health.reasons.join(', '));
+    if (S.peaOnly !== false && c.inst.peaStatus === 'non_eligible') out.push('non éligible au PEA' + (c.inst.peaSource ? ' (' + c.inst.peaSource + ')' : ''));
+    if (c.quality && (c.quality.total < cfg.quality.minForAlert || (c.quality.coverage && !c.quality.coverage.ok))) out.push('données incomplètes (qualité ' + c.quality.total + '/100)');
+    if (sc.ambiguousCount) out.push('déclaration ambiguë à vérifier');
+    if (sc.total < S.minScore) out.push('note ' + ES.note(sc.total, cfg) + '/100, sous le seuil de ' + ES.note(S.minScore, cfg));
+    var from = ES.addDays(today, -S.recentDays);
+    if (!sc.buys.some(function (t) { return ES.availDate(t) >= from; })) out.push('dernier achat significatif publié il y a plus de ' + S.recentDays + ' jours');
+    return out;
+  };
+  /**
+   * Signaux croisés, lisibles d'un coup d'œil : { k, icon, text, tone: good | warn | bad | info }.
+   * Ventes à découvert : avertissement rouge ; face à des achats forts de dirigeants, « duel » (issue binaire, risque élevé).
+   */
+  ES.crossSignals = function (inst, sc, cfg) {
+    var out = [], push = function (k, icon, text, tone) { out.push({ k: k, icon: icon, text: text, tone: tone }); };
+    if (!sc) return out;
+    var ceo = sc.buys.some(function (t) { return t.ceo || t.cfo; }), big = sc.buyEur >= cfg.insiders.bigAmountEur, cl = sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers;
+    var strongInsider = sc.buys.length && (ceo || big || cl);
+    if (ceo) push('ceo', '👔', 'le DG ou le DAF achète', 'good');
+    if (cl) push('cluster', '👥', sc.cluster.count + ' dirigeants achètent', 'good');
+    if (big) push('big', '💰', fmtEur(sc.buyEur) + ' achetés', 'good');
+    if (sc.discount && sc.discount.pct >= cfg.weights.insiders.discountMediumPct) push('disc', '🏷️', 'payé ' + Math.round(sc.discount.pct) + ' % sous le plus haut', 'good');
+    if (sc.panicBuy) push('panic', '😱', 'achat dans la panique', 'good');
+    if (sc.trendUp) push('trend', '📈', 'tendance de fond haussière', 'good');
+    if (sc.fallingKnife) push('knife', '🔻', 'cours en repli', 'warn');
+    var p = inst.peer;
+    if (p && p.discountPct >= cfg.valuation.cheapPct) push('cheap', '💶', Math.round(p.discountPct) + ' % moins chère que ses pairs', 'good');
+    else if (p && p.discountPct <= -cfg.valuation.richPct) push('rich', '💸', Math.round(-p.discountPct) + ' % plus chère que ses pairs', 'warn');
+    var pos = inst.position;
+    if (pos && (pos.key === 'leader' || pos.key === 'challenger')) push('pos', '🏆', (pos.key === 'leader' ? 'leader' : 'challenger') + ' de son industrie', 'good');
+    var sh = inst.shorts;
+    if (sh && sh.totalPct >= 2) {
+      if (strongInsider) push('duel', '⚡', 'duel : ' + String(sh.totalPct).replace('.', ',') + ' % vendus à découvert contre des achats forts de dirigeants', 'warn');
+      push('short', '⚠️', String(sh.totalPct).replace('.', ',') + ' % du capital vendu à découvert (' + sh.holders + ' fonds)', sh.totalPct >= 5 ? 'bad' : 'warn');
+    } else if (sh) push('short', '⚠️', String(sh.totalPct).replace('.', ',') + ' % vendu à découvert', 'warn');
+    var h = ES.financialHealth(inst.fund);
+    if (h.status === 'fragile') push('fragile', '🩺', 'solidité financière fragile', 'bad');
+    if (inst.peaStatus === 'non_eligible') push('pea', '🚫', 'hors PEA', 'bad');
+    if (sc.sellEur > sc.buyEur && sc.sellEur > 0) push('sellers', '🔴', 'dirigeants vendeurs nets', 'bad');
+    if (inst.nextEarnings) push('earn', '📅', 'résultats le ' + ES.frDate(inst.nextEarnings), 'info');
+    return out;
+  };
+  /**
+   * Avis croisé (aide à la décision, jamais un ordre) : priority | watch | wait | avoid, avec ses raisons.
+   * Croise la note, le repère historique, la solidité, la valorisation, les ventes à découvert, la tendance et le calendrier.
+   */
+  ES.advice = function (inst, sc, cfg, opts) {
+    opts = opts || {};
+    var sig = ES.crossSignals(inst, sc, cfg), has = function (k) { return sig.some(function (x) { return x.k === k; }); };
+    var why = [], A = { priority: { icon: '🟢', label: 'À étudier en priorité' }, watch: { icon: '🟡', label: 'À surveiller' }, wait: { icon: '⚪', label: 'Attendre' }, avoid: { icon: '🔴', label: 'Éviter pour l\'instant' } };
+    var mk = function (k) { return { key: k, icon: A[k].icon, label: A[k].label, why: why, signals: sig }; };
+    if (!sc || !sc.buys.length) { why.push('aucun achat significatif de dirigeant récent'); return mk('wait'); }
+    if (has('fragile')) why.push('solidité financière fragile : la baisse du cours peut être justifiée');
+    if (has('pea') && cfg.selection.peaOnly !== false) why.push('non éligible au PEA');
+    if (has('sellers')) why.push('les dirigeants vendent plus qu\'ils n\'achètent');
+    if (opts.universe && opts.universe.status === 'rejete') why.push('titre peu liquide ou historique insuffisant');
+    if (why.length) return mk('avoid');
+    var lab = ES.scoreLabel(sc.total, cfg).key, hist = opts.histKey, caution = [];
+    if (has('knife')) caution.push('cours encore en repli : entrer en plusieurs fois');
+    if (has('rich')) caution.push('valorisation au-dessus des pairs');
+    if (inst.shorts && inst.shorts.totalPct >= 5) caution.push(has('duel') ? 'duel avec des vendeurs à découvert : issue binaire, position réduite' : 'fonds fortement vendeurs à découvert');
+    if (inst.nextEarnings && opts.today && inst.nextEarnings >= opts.today && ES.daysBetween(opts.today, inst.nextEarnings) <= cfg.alerts.earningsWarnDays) caution.push('résultats dans moins de ' + cfg.alerts.earningsWarnDays + ' jours');
+    if (sc.marketDown) caution.push('marché européen baissier');
+    if (lab === 'top' && hist !== 'wait' && caution.length <= 1) { why.push('note très forte' + (hist === 'rare' ? ', remarquable dans l\'historique' : '')); caution.forEach(function (c) { why.push('vigilance : ' + c); }); return mk('priority'); }
+    if (lab === 'top' || lab === 'strong') { why.push(lab === 'top' ? 'note très forte' : 'note forte'); caution.forEach(function (c) { why.push('vigilance : ' + c); }); if (hist === 'wait') why.push('ordinaire par rapport aux sélections passées'); return mk('watch'); }
+    why.push('signal encore modeste (note ' + ES.note(sc.total, cfg) + '/100)');
+    return mk('wait');
+  };
   ES.weeklySelection = function (cands, cfg, today) {
     var S = cfg.selection || {}, from = ES.addDays(today, -(S.recentDays || 30)), out = [];
     (cands || []).forEach(function (c) {
+      if (ES.selectionBlockers(c, cfg, today).length) return;
       var sc = c.score, health = ES.financialHealth(c.inst.fund);
-      if (!sc || !sc.buys.length || c.universe.status !== 'retenu' || health.status === 'fragile') return;
-      if (S.peaOnly !== false && c.inst.peaStatus === 'non_eligible') return; // investisseur PEA : titres exclus du PEA écartés
-      if (c.quality.total < cfg.quality.minForAlert || !c.quality.coverage.ok || sc.ambiguousCount) return;
-      if (sc.total < (S.minScore || 0)) return;
       var recent = sc.buys.filter(function (t) { return ES.availDate(t) >= from; });
-      if (!recent.length) return;
       var d = sc.discount, eur = sc.buyEur;
       out.push({ isin: c.isin, name: c.inst.name || c.isin, country: c.inst.country || null, sector: ES.sectorFr(c.inst.sector || (c.inst.fund && c.inst.fund.sector)), score: sc.total,
         discountPct: d ? d.pct : null, buyer: d ? d.person : recent[0].person, ceo: sc.buys.some(function (t) { return t.ceo || t.cfo; }),
@@ -1224,7 +1308,7 @@ details.pos summary{font-size:1rem}
         (track.bench != null ? ', contre ' + pcs(track.bench) + ' pour le CAC 40 ; ' + Math.round(track.beatPct) + ' % des dossiers ont fait mieux que l\'indice' : '') + '.';
     }
     var text = (verdict && verdict.text ? (verdict.icon ? verdict.icon + ' ' : '') + verdict.text + '\n\n' : '') + intro + '\n\n' + (tr ? tr + '\n\n' : '') + (rationale ? rationale.text + '\n\n' : '') + (n ? sel.map(function (x, k) {
-      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — ' + ES.stars(x.score, cfg, x.hist && x.hist.key).text + ' note ' + ES.note(x.score, cfg) + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')' + (x.hist && x.hist.key !== 'na' ? '\n   ' + x.hist.icon + ' ' + x.hist.label : '') + '\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
+      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — ' + ES.stars(x.score, cfg, x.hist && x.hist.key).text + ' note ' + ES.note(x.score, cfg) + '/100 (' + ES.scoreLabel(x.score, cfg).label + ')' + (x.advice ? '\n   ' + x.advice.icon + ' AVIS : ' + x.advice.label.toUpperCase() + (x.advice.why.length ? ' (' + x.advice.why.join(' ; ') + ')' : '') : '') + (x.hist && x.hist.key !== 'na' ? '\n   ' + x.hist.icon + ' ' + x.hist.label : '') + (x.advice && x.advice.signals.length ? '\n   ' + x.advice.signals.map(function (g) { return g.icon + ' ' + g.text; }).join(' · ') : '') + '\n   ' + why(x).join(' ; ') + (care(x).length ? '\n   À surveiller : ' + care(x).join(' ; ') : '') + (dashUrl ? '\n   Fiche : ' + dashUrl + '#' + x.isin : '');
     }).join('\n\n') : 'Aucune société ne remplit tous les critères cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\nCe n\'est ni une alerte ni un conseil d\'achat : une liste courte à étudier. L\'éligibilité PEA est à vérifier avant tout achat.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + ES.esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
@@ -1237,6 +1321,8 @@ details.pos summary{font-size:1rem}
         return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + ES.esc(x.name) + (x.country ? ' <span style="font-size:11px;color:#55615c;border:1px solid #CBD3CD;border-radius:3px;padding:0 4px;vertical-align:middle">' + ES.esc(x.country) + '</span>' : '') + (x.isNew ? ' <span style="background:#B0281F;color:#ffffff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle">NOUVEAU</span>' : '') +
           '<br><span style="color:#E0A800;font-size:20px;letter-spacing:2px">' + ES.stars(x.score, cfg, x.hist && x.hist.key).text + '</span> <span style="font-weight:normal;color:#55615c;font-size:13px">note ' + ES.note(x.score, cfg) + '/100 · ' + ES.scoreLabel(x.score, cfg).label + '</span></div>' +
           (x.sector ? '<div style="color:#55615c;font-size:13px">Secteur : ' + ES.esc(x.sector) + '</div>' : '') +
+          (x.advice ? '<div style="margin:8px 0 4px;padding:6px 10px;border-radius:6px;font-weight:bold;' + ({ priority: 'background:#E3F3E8;color:#1F5F35', watch: 'background:#FFF6DC;color:#7A5600', wait: 'background:#F1F2F1;color:#3D4641', avoid: 'background:#FBE6E3;color:#8E2219' }[x.advice.key]) + '">' + x.advice.icon + ' Avis : ' + ES.esc(x.advice.label) + (x.advice.why.length ? '<span style="font-weight:normal"> — ' + ES.esc(x.advice.why.join(' ; ')) + '</span>' : '') + '</div>' : '') +
+          (x.advice && x.advice.signals.length ? '<div style="margin:4px 0;font-size:13px;line-height:1.7">' + x.advice.signals.map(function (g) { return '<span style="display:inline-block;margin:0 6px 2px 0;padding:1px 7px;border-radius:10px;' + ({ good: 'background:#E3F3E8;color:#1F5F35', warn: 'background:#FFF1D6;color:#7A5600', bad: 'background:#FBE0DC;color:#9E1F14;font-weight:bold', info: 'background:#EEF1EF;color:#3D4641' }[g.tone]) + '">' + g.icon + ' ' + ES.esc(g.text) + '</span>'; }).join('') + '</div>' : '') +
           (x.hist && x.hist.key !== 'na' ? '<div style="margin:4px 0 0;font-size:13px;font-weight:bold;color:' + ({ rare: '#1F7A3E', good: '#8a6400', wait: '#55615c' }[x.hist.key]) + '">' + x.hist.icon + ' ' + ES.esc(x.hist.label) + '</div>' : '') +
           '<ul style="margin:6px 0 6px 18px;padding:0">' + why(x).map(function (w) { return '<li>' + ES.esc(w) + '</li>'; }).join('') + '</ul>' +
           (care(x).length ? '<p style="margin:0 0 8px;color:#8a5a00"><b>À surveiller :</b> ' + ES.esc(care(x).join(' ; ')) + '</p>' : '') +
@@ -2267,6 +2353,35 @@ details.pos summary{font-size:1rem}
     var v = Math.round(d.pct), k = v >= S.cfg.weights.insiders.discountBigPct ? 'deep' : v >= S.cfg.weights.insiders.discountMediumPct ? 'mid' : 'low';
     return '<span class="disc ' + k + '">' + (v > 0 ? '−' : '+') + Math.abs(v) + ' %</span>';
   }
+  /** Avis croisé d'une société (même règle que l'email) et ses symboles. */
+  function adviceOf(i) {
+    var c = S.computed[i]; if (!c) return null;
+    if (c.adv) return c.adv;
+    var h = c.score.buys.length ? histOf(ES.note(c.score.total, S.cfg)) : null;
+    return (c.adv = ES.advice(S.inst[i], c.score, S.cfg, { histKey: h && h.key, today: S.today, universe: c.uni }));
+  }
+  function advBadge(a, big) { return a ? '<span class="adv adv-' + a.key + (big ? ' big' : '') + '" title="' + esc(a.why.join(' ; ')) + '">' + a.icon + ' ' + esc(a.label) + '</span>' : ''; }
+  function sigIcons(sig, max) {
+    var l = (sig || []).filter(function (g) { return g.tone !== 'info'; });
+    var bad = l.filter(function (g) { return g.tone === 'bad'; }), rest = l.filter(function (g) { return g.tone !== 'bad'; });
+    l = bad.concat(rest).slice(0, max || 8); // les alertes rouges d'abord
+    return l.length ? '<span class="sigs">' + l.map(function (g) { return '<span class="sg sg-' + g.tone + '" title="' + esc(g.text) + '">' + g.icon + '</span>'; }).join('') + '</span>' : '';
+  }
+  function sigChips(sig) { return (sig || []).map(function (g) { return '<span class="sgc sg-' + g.tone + '">' + g.icon + ' ' + esc(g.text) + '</span>'; }).join(''); }
+  /** « Notre avis » : synthèse croisée en tête de fiche, et place dans la sélection de la semaine. */
+  function adviceCard(i, c) {
+    var a = adviceOf(i), sel = (S.snapshot && S.snapshot.selection && S.snapshot.selection.items) || [], k = -1;
+    sel.forEach(function (x, j) { if (x.isin === i) k = j; });
+    var selTxt;
+    if (k > -1) selTxt = '✅ Dans la sélection de la semaine (n° ' + (k + 1) + ' sur ' + sel.length + ').';
+    else {
+      var bl = ES.selectionBlockers({ inst: S.inst[i], score: c.score, quality: c.q, universe: c.uni }, S.cfg, S.today);
+      selTxt = bl.length ? '✖ Pas dans la sélection : ' + bl.join(' ; ') + '.' : '✖ Éligible, mais pas parmi les ' + S.cfg.selection.size + ' meilleures notes de la semaine.';
+    }
+    return '<section class="card advcard adv-b-' + a.key + '"><div class="advhead">' + advBadge(a, true) + '<span class="muted">Avis croisé : note, repère historique, solidité, valorisation, ventes à découvert, tendance, calendrier. Aide à la décision, pas un ordre.</span></div>' +
+      (a.why.length ? '<ul class="plain">' + a.why.map(function (w) { return '<li>' + esc(w.charAt(0).toUpperCase() + w.slice(1)) + '</li>'; }).join('') + '</ul>' : '') +
+      (a.signals.length ? '<div class="sgcs">' + sigChips(a.signals) + '</div>' : '') + '<p class="foot">' + esc(selTxt) + '</p></section>';
+  }
   function statusChip(isin) {
     var c = S.computed[isin];
     if (c.dec.send) return '<span class="chip good">Alerte prête</span>';
@@ -2293,7 +2408,7 @@ details.pos summary{font-size:1rem}
       sel.items.map(function (x) {
         var w = [x.sector || null, x.discountPct != null ? 'décote ' + Math.round(x.discountPct) + ' %' : null, x.ceo ? 'DG ou DAF' : null, x.buyers >= S.cfg.insiders.clusterMinBuyers ? x.buyers + ' acheteurs' : null, x.trendUp ? 'MM50 > MM200' : null, x.fallingKnife ? 'cours en repli' : null].filter(Boolean);
         var st = ES.stars(x.score, S.cfg, x.hist && x.hist.key);
-        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + (x.hist && x.hist.key !== 'na' ? ' <span class="hist h-' + x.hist.key + '" title="' + esc(x.hist.label) + '">' + x.hist.icon + ' ' + esc(x.hist.short) + '</span>' : '') + '<span class="selnote"><span class="stars s' + st.n + '">' + starInner(st) + '</span> <span class="muted">note ' + ES.note(x.score, S.cfg) + ' · ' + ES.scoreLabel(x.score, S.cfg).label + '</span></span>' + (x.position && (x.position.key === 'leader' || x.position.key === 'challenger') ? ' ' + posChip(x.position) : '') + '<small>' + esc(w.join(' · ')) + '</small></li>';
+        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + (x.hist && x.hist.key !== 'na' ? ' <span class="hist h-' + x.hist.key + '" title="' + esc(x.hist.label) + '">' + x.hist.icon + ' ' + esc(x.hist.short) + '</span>' : '') + '<span class="selnote">' + advBadge(x.advice || adviceOf(x.isin)) + ' <span class="stars s' + st.n + '">' + starInner(st) + '</span> <span class="muted">note ' + ES.note(x.score, S.cfg) + ' · ' + ES.scoreLabel(x.score, S.cfg).label + '</span></span>' + (x.position && (x.position.key === 'leader' || x.position.key === 'challenger') ? ' ' + posChip(x.position) : '') + sigIcons((x.advice || adviceOf(x.isin) || {}).signals, 10) + '<small>' + esc(w.join(' · ')) + '</small></li>';
       }).join('') + '</ol></section>';
   }
   function vClassement() {
@@ -2330,7 +2445,7 @@ details.pos summary{font-size:1rem}
     };
     list.sort(sorters[f.sort] || sorters.discount);
     var ctry = {}, secs = {}; keys.forEach(function (i) { if (S.inst[i].country) ctry[S.inst[i].country] = 1; var sc = secOf(S.inst[i]); if (sc && qf(S.computed[i])) secs[sc] = (secs[sc] || 0) + 1; });
-    var h = '<section class="hero"><h2>Où les dirigeants achètent-ils ?</h2><p>Les sociétés dont un dirigeant a acheté des actions depuis le ' + shortDate(ES.windowStart(S.today, S.cfg.insiders.windowMonths)) + ', classées par <b>décote</b> : l\'écart entre le prix qu\'il a payé et le plus haut des 52 semaines précédentes. Touchez une ligne pour le détail.</p></section>';
+    var h = '<section class="hero"><h2>Où les dirigeants achètent-ils ?</h2><p>Les sociétés dont un dirigeant a acheté des actions depuis le ' + shortDate(ES.windowStart(S.today, S.cfg.insiders.windowMonths)) + ', classées par <b>décote</b> : l\'écart entre le prix qu\'il a payé et le plus haut des 52 semaines précédentes. Touchez une ligne pour le détail. <button type="button" class="linkbtn" data-a="proof">Méthode et preuves chiffrées →</button></p></section>';
     h += '<section class="summary">' +
       (S.cfg.alerts.buyEmails === false ? stat('Très forts (★★★★ et plus)', String(topN), topN ? 'dossiers avec une note ≥ ' + ES.note(S.cfg.alerts.minScore, S.cfg) : 'aucun aujourd\'hui', 'classement', topN ? 'good' : '') : stat('Alertes prêtes', String(ready), ready ? 'à regarder en priorité' : 'aucune aujourd\'hui', 'alertes', ready ? 'good' : '')) +
       stat('Achats cette semaine', String(recent), withBuys + (withBuys > 1 ? ' sociétés' : ' société') + ' avec achats sur ' + S.cfg.insiders.windowMonths + ' mois', 'inities') +
@@ -2352,16 +2467,16 @@ details.pos summary{font-size:1rem}
       '<li><b>MM50 > MM200</b> : la moyenne des 50 dernières séances est au-dessus de celle des 200 ; un croisement survenu après l\'achat du dirigeant ajoute 4 points.</li>' +
       '<li><b>Note /100</b> : initiés, rachats, résultats et tendance de marché ; 100 = dossier idéal réaliste. Très fort à partir de ' + ES.note(S.cfg.alerts.minScore, S.cfg) + ', avec au moins ' + S.cfg.alerts.minFamilies + ' familles de signaux.</li>' +
       '<li><b>Attention</b> : une forte décote ne garantit pas le point bas. En 2026, le DG de Rheinmetall a acheté à −21 %, −37 % et −42 % avant de nouvelles baisses ; seul son achat à −52 %, au plus bas, a rapporté rapidement.</li></ul></details>';
-    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th class="hide-m">Position 52 semaines</th><th class="num">Depuis l\'achat</th><th class="num">Note</th><th>Statut</th></tr></thead><tbody>';
+    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th class="hide-m">Position 52 semaines</th><th class="num">Depuis l\'achat</th><th class="num">Note</th><th>Avis</th></tr></thead><tbody>';
     list.slice(0, S.limit).forEach(function (i) {
       var x = S.inst[i], c = S.computed[i], d = c.score.discount, r = d && (S.refs[i] || {})[d.id];
       var who = d ? 'payé ' + fmtN(d.paid) + ' le ' + shortDate(d.date) + ' · ' + esc(shortName(d.person)) + (d.ceo ? ' (DG/DAF)' : '') : (c.score.buys.length ? c.score.buys.length + ' achat(s), cours indisponibles' : 'aucun achat récent');
-      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small></td>' +
+      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + (c.score.buys.length ? sigIcons(adviceOf(i).signals) : '') + '</td>' +
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
         '<td class="hide-m" data-l="Position 52 semaines">' + rangeBar(d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
         '<td class="num scorecell" data-l="Note">' + (c.score.buys.length ? starsHtml(c.score.total) : '') + '<span class="big">' + ES.note(c.score.total, S.cfg) + '</span>' + scoreBar(c.score) + '<small class="slab s-' + ES.scoreLabel(c.score.total, S.cfg).key + '">' + ES.scoreLabel(c.score.total, S.cfg).label + '</small></td>' +
-        '<td data-l="Statut">' + statusChip(i) + '</td></tr>';
+        '<td data-l="Avis">' + (c.score.buys.length ? advBadge(adviceOf(i)) : statusChip(i)) + '</td></tr>';
     });
     h += '</tbody></table></div>';
     if (!list.length) h += '<p class="muted pad">Aucune société ne correspond. Essayez « Tous les titres ».</p>';
@@ -2387,6 +2502,7 @@ details.pos summary{font-size:1rem}
       kv('ISIN', i) + kv('Ticker', x.ticker || 'n.d.') + kv('Domiciliation', x.country ? (COUNTRIES[x.country] || x.country) : 'inconnue') + kv('Place de cotation', (x.venue || 'n.d.') + (x.isReference === false ? ' (secondaire)' : '')) +
       kv('Registres consultés', Object.keys(regs).join(', ') || 'aucun') + kv('Devise', x.currency || 'n.d.') + kv('Secteur', (secOf(x) || 'n.d.') + (x.fund && x.fund.industry ? ' — ' + ES.industryFr(x.fund.industry) : '')) + '</dl></div>' +
       '<div class="fchips">' + uniChip(c.uni) + peaChip(x) + '</div></header>';
+    h += adviceCard(i, c);
     var lab = ES.scoreLabel(sc.total, S.cfg), withBuys = Object.keys(S.computed).filter(function (k) { return S.computed[k].score.buys.length; });
     var rank = 1 + withBuys.filter(function (k) { return S.computed[k].score.total > sc.total; }).length;
     if (sc.buys.length) h += '<div class="starline">' + starsHtml(sc.total, true) + '<span><b>' + ES.note(sc.total, S.cfg) + '/100 · ' + esc(lab.label) + '</b>' + (x.position ? ' · ' + posChip(x.position) : '') + '</span></div>';
@@ -2441,7 +2557,12 @@ details.pos summary{font-size:1rem}
       else if (pv.discountPct <= -S.cfg.valuation.richPct) check.push('Valorisation ' + Math.round(-pv.discountPct) + ' % au-dessus de ses pairs : ' + pvTxt + '. La décote du cours ne veut pas dire que l\'action est bon marché.');
       else plus.push('Valorisation proche de ses pairs : ' + pvTxt + '.');
     }
-    if (x.shorts) (b.length ? plus : check).push('<b>Positions vendeuses actuelles</b> : ' + fmtN(x.shorts.totalPct, 2) + '\u00a0% du capital vendu à découvert par ' + x.shorts.holders + ' fonds (' + x.shorts.top.map(function (p) { return esc(p.holder) + ' ' + fmtN(p.pct, 2) + ' %'; }).join(', ') + ')' + (b.length ? '. Les dirigeants achètent à contre-courant : conviction forte, mais les fonds peuvent avoir vu un problème.' : '.'));
+    if (x.shorts) {
+      var shTxt = fmtN(x.shorts.totalPct, 2) + '\u00a0% du capital vendu à découvert par ' + x.shorts.holders + ' fonds (' + x.shorts.top.map(function (p) { return esc(p.holder) + ' ' + fmtN(p.pct, 2) + '\u00a0%'; }).join(', ') + ')';
+      var duel = (adviceOf(i).signals || []).some(function (g) { return g.k === 'duel'; });
+      if (x.shorts.totalPct >= 2) check.push('<b class="neg">⚠️ Ventes à découvert</b> : ' + shTxt + '. ' + (duel ? '⚡ Duel : les dirigeants achètent fort à contre-courant. Si les dirigeants ont raison, les vendeurs à découvert devront racheter (hausse brutale possible) ; s\'ils ont tort, la baisse peut continuer. Issue binaire : position réduite.' : 'Des fonds professionnels parient sur la baisse : chercher ce qu\'ils reprochent à la société.'));
+      else check.push('Ventes à découvert modestes : ' + shTxt + '.');
+    }
     if (sc.sellEur > sc.buyEur && sc.sellEur > 0) check.push('Les dirigeants ont plus vendu (' + ES.fmtEur(sc.sellEur) + ') qu\'acheté.');
     if (c.oh.total >= 50) check.push('Signes de surchauffe du cours (indicateur expérimental).');
     if (c.q.total < S.cfg.quality.minForAlert) check.push('Données incomplètes : qualité ' + c.q.total + '/100.');
@@ -2608,7 +2729,7 @@ details.pos summary{font-size:1rem}
 
   /* ----- Initiés ----- */
   function vInities() {
-    var f = S.txFilter, from = ES.windowStart(S.today, S.cfg.insiders.windowMonths), rows = [];
+    var f = S.txFilter, from = ES.windowStart(S.today, S.cfg.insiders.windowMonths), rows = [], fq = ES.norm(f.q || '');
     Object.keys(S.tx).forEach(function (isin) {
       (S.tx[isin] || []).forEach(function (t) {
         if (ES.availDate(t) < from) return;
@@ -2616,14 +2737,15 @@ details.pos summary{font-size:1rem}
         if (f.registry && t.registry !== f.registry) return;
         var inst = S.inst[isin] || {};
         if (f.country && inst.country !== f.country) return;
+        if (fq && ES.norm([inst.name, isin, inst.ticker, t.person, t.issuer].join(' ')).indexOf(fq) < 0) return;
         rows.push({ t: t, inst: inst, isin: isin });
       });
     });
     rows.sort(function (a, b) { return ES.availDate(a.t) < ES.availDate(b.t) ? 1 : -1; });
     var regs = {}; Object.keys(S.tx).forEach(function (i) { S.tx[i].forEach(function (t) { regs[t.registry] = 1; }); });
     var clusterIsins = Object.keys(S.computed).filter(function (i) { return S.computed[i].score.families.insiders.items.some(function (it) { return /^cluster/.test(it.label); }); });
-    var h = '<h2 class="vt">Achats et ventes des dirigeants</h2><p class="lead">Publications depuis le ' + from + ' (' + S.cfg.insiders.windowMonths + ' mois calendaires). ' + clusterIsins.length + ' titre(s) avec un cluster d\'au moins ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants indépendants sur ' + S.cfg.insiders.clusterWindowDays + ' jours.</p>';
-    h += '<div class="toolbar"><select id="t-type" data-tf="type" aria-label="Nature"><option value="">Toutes natures</option>' + [['achat', 'Achats'], ['vente', 'Ventes'], ['nonvol', 'Non volontaires (attributions, options…)'], ['autre', 'Ambiguës']].map(function (o) { return '<option value="' + o[0] + '"' + (f.type === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+    var h = '<h2 class="vt">Achats et ventes des dirigeants</h2><p class="lead">Publications depuis le ' + from + ' (' + S.cfg.insiders.windowMonths + ' mois calendaires). ' + clusterIsins.length + (clusterIsins.length > 1 ? ' sociétés' : ' société') + ' avec un cluster d\'au moins ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants indépendants sur ' + S.cfg.insiders.clusterWindowDays + ' jours.</p>';
+    h += '<div class="toolbar"><input id="t-q" type="search" placeholder="Rechercher une société ou un dirigeant" value="' + esc(f.q || '') + '" data-tf="q" aria-label="Rechercher une société ou un dirigeant"><select id="t-type" data-tf="type" aria-label="Nature"><option value="">Toutes natures</option>' + [['achat', 'Achats'], ['vente', 'Ventes'], ['nonvol', 'Non volontaires (attributions, options…)'], ['autre', 'Ambiguës']].map(function (o) { return '<option value="' + o[0] + '"' + (f.type === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<select id="t-reg" data-tf="registry" aria-label="Registre"><option value="">Tous registres</option>' + Object.keys(regs).sort().map(function (r) { return '<option' + (f.registry === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select>' +
       '<select id="t-c" data-tf="country" aria-label="Pays"><option value="">Tous pays de domiciliation</option>' + Object.keys(COUNTRIES).map(function (c) { return '<option value="' + c + '"' + (f.country === c ? ' selected' : '') + '>' + COUNTRIES[c] + '</option>'; }).join('') + '</select></div>';
     if (!rows.length) return h + '<p class="muted pad">Aucune opération ne correspond.</p>';
@@ -2746,8 +2868,29 @@ details.pos summary{font-size:1rem}
       ob.map(function (o) { return '<li><b>' + esc(o.label) + '</b> — ' + o.nWith + ' cas avec' + (o.meanWith != null ? ' : ' + pct(o.meanWith) + ' vs CAC 40' : '') + (o.meanWithout != null ? ', contre ' + pct(o.meanWithout) + ' sans' : '') + (o.t != null ? ' (t = ' + fmtN(o.t, 1) + ')' : '') + '<br><small class="muted">' + esc(o.action) + '</small></li>'; }).join('') + '</ul></section>';
     return h;
   }
+  /** Méthode et preuves : la logique en bref et ce que mesurent nos propres données (chiffres réels, recalculés chaque soir). */
+  function proofCard() {
+    var c = S.cfg, snap = S.snapshot || {}, res = (snap.backtest && snap.backtest.results) || [], H = 60;
+    var groups = [['Achat volontaire', 'Tout achat de dirigeant ≥ ' + ES.fmtEur(c.insiders.minBuyerEur)], ['Décote ≥ ' + c.weights.insiders.discountMediumPct + ' %', 'Payé ≥ ' + c.weights.insiders.discountMediumPct + ' % sous le plus haut 52 semaines'], ['Achat DG ou DAF', 'Achat du DG ou du DAF'], ['Achat dans la panique', 'Achat pendant une vente panique'], ['Cluster ≥ ' + c.insiders.clusterMinBuyers + ' dirigeants', c.insiders.clusterMinBuyers + ' dirigeants ou plus en ' + c.insiders.clusterWindowDays + ' jours'], ['Décote ≥ ' + c.weights.insiders.discountMediumPct + ' % + MM50 > MM200', 'Décote et tendance de fond haussière']];
+    var rows = groups.map(function (g) { var o = ES.groupOutcome(res, g[0], H); return { label: g[1], o: o }; }).filter(function (r) { return r.o.n; });
+    var best = rows.reduce(function (m, r) { return r.o.nEx >= 30 ? Math.max(m, r.o.beat) : m; }, 0), total = rows.length ? rows[0].o.n : 0;
+    var tr = snap.selectionTrack ? ES.selectionTrackSummary(snap.selectionTrack) : null;
+    var concl = !rows.length ? 'Pas encore assez de recul pour mesurer.' : best >= 55 ? 'Sur nos données, au moins un signal bat le CAC 40 plus d\'une fois sur deux (sur 30 cas ou plus). C\'est encourageant, sans garantie pour l\'avenir.' : 'Honnêtement : sur nos données, aucun signal ne bat encore nettement le CAC 40. La méthode sert à repérer des dossiers à étudier, pas à acheter les yeux fermés. Les chiffres se précisent chaque soir.';
+    var h = '<section class="card proof" id="preuves"><h3>Méthode et preuves</h3>' +
+      '<p><b>L\'idée.</b> Un dirigeant qui achète des actions de sa propre société avec son argent connaît mieux que personne ses perspectives : il ne le fait que s\'il juge le cours trop bas. Les études universitaires mesurent une surperformance d\'environ 0,4 % par mois après ces achats (Jeng, Metrick et Zeckhauser, marché américain), plus nette sur les petites et moyennes valeurs, quand plusieurs dirigeants achètent ensemble ou après une forte baisse.</p>' +
+      '<p><b>La logique en 4 filtres.</b> ① Seuls comptent les achats volontaires de dirigeants d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + '. ② Une note croise la force de l\'achat (montant, DG, cluster, décote, panique), la tendance de marché, les rachats et les résultats. ③ L\'avis écarte les sociétés fragiles, hors PEA ou peu liquides, et signale ce qui demande de la prudence (cours en repli, ventes à découvert, valorisation, résultats proches). ④ Le repère historique dit si la semaine est exceptionnelle ou ordinaire.</p>' +
+      '<h4>Ce que mesurent nos propres données</h4><p class="foot">Achats européens suivis depuis le ' + esc(ES.frDate((snap.selection && snap.selection.reference && snap.selection.reference.from) || '') || '?') + ', résultat ' + H + ' séances (environ 3 mois) après la publication, frais déduits, comparé au CAC 40.</p>';
+    if (rows.length) h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Type d\'achat</th><th class="num">Cas</th><th class="num">Cours en hausse</th><th class="num">Variation moyenne</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td class="c-name" data-l="Type">' + esc(r.label) + '</td><td class="num" data-l="Cas">' + r.o.n + (r.o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse">' + Math.round(r.o.up) + ' %</td><td class="num" data-l="Moyenne"><span class="' + (r.o.mean >= 0 ? 'pos' : 'neg') + '">' + pct(r.o.mean) + '</span></td><td class="num" data-l="Bat le CAC">' + (r.o.nEx ? Math.round(r.o.beat) + ' %' : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    if (tr) h += '<p class="mt"><b>Sélections de la semaine déjà envoyées</b> : ' + pct(tr.avg) + ' en moyenne depuis l\'envoi' + (tr.bench != null ? ', contre ' + pct(tr.bench) + ' pour le CAC 40 ; ' + Math.round(tr.beatPct) + ' % des dossiers ont fait mieux' : '') + ' (' + tr.n + ' dossiers, ' + tr.weeks + ' semaine' + (tr.weeks > 1 ? 's' : '') + ').</p>';
+    else h += '<p class="mt muted">Bilan des sélections envoyées : disponible dès la deuxième semaine.</p>';
+    h += '<p class="note">' + esc(concl) + '</p>' +
+      '<h4>Lire l\'avis et les symboles</h4><p>' + ['priority', 'watch', 'wait', 'avoid'].map(function (k) { return advBadge({ key: k, icon: { priority: '🟢', watch: '🟡', wait: '⚪', avoid: '🔴' }[k], label: { priority: 'À étudier en priorité', watch: 'À surveiller', wait: 'Attendre', avoid: 'Éviter pour l\'instant' }[k], why: [] }); }).join(' ') + '</p>' +
+      '<p class="foot">👔 DG ou DAF · 👥 plusieurs dirigeants · 💰 gros montant · 🏷️ forte décote · 😱 achat dans la panique · 📈 tendance haussière · 🔻 cours en repli · 💶 moins chère que ses pairs · 💸 plus chère · 🏆 leader ou challenger · <b class="neg">⚠️ ventes à découvert</b> · ⚡ duel dirigeants contre vendeurs à découvert (issue binaire) · 🩺 fragile · 🚫 hors PEA · 📅 résultats. Les étoiles mesurent la force du signal, l\'avis tient compte des risques.</p></section>';
+    return h;
+  }
   function vAide() {
-    var c = S.cfg, h = '<h2 class="vt">Comment ça marche</h2>';
+    var c = S.cfg, h = '<h2 class="vt">Comment ça marche</h2>' + proofCard();
     h += '<section class="card"><ol class="steps">' +
       step('Collecte, chaque soir de semaine', 'Déclarations des dirigeants de 6 pays (AMF, BaFin, CNMV, Consob, FSMA, AFM), cours, résultats, communiqués et données financières des sociétés.') +
       step('Tri des achats', 'Seuls comptent les achats volontaires de personnes physiques (ou de leur holding personnelle selon le réglage), d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + ' par dirigeant sur ' + c.insiders.clusterWindowDays + ' jours. Attributions gratuites, options, déclarations tardives et sociétés d\'investissement sont écartées.') +
@@ -2784,6 +2927,7 @@ details.pos summary{font-size:1rem}
     if (el.tagName === 'A') return;
     ev.preventDefault();
     if (a === 'view') { S.view = el.dataset.v; S.limit = 200; if (location.hash) history.replaceState(null, '', location.pathname + location.search); render(); window.scrollTo(0, 0); }
+    else if (a === 'proof') { S.view = 'aide'; render(); var pr = document.getElementById('preuves'); if (pr) pr.scrollIntoView(); }
     else if (a === 'open') { S.sel = i; S.view = 'fiche'; try { history.replaceState(null, '', '#' + i); } catch (e) { } render(); window.scrollTo(0, 0); }
     else if (a === 'more') { S.limit += 200; render(); }
     else if (a === 'quick') { S.filters.quick = el.dataset.v; S.limit = 200; render(); }
@@ -2793,10 +2937,11 @@ details.pos summary{font-size:1rem}
   document.addEventListener('change', function (ev) {
     var t = ev.target;
     if (t.dataset.f) { S.filters[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; S.limit = 200; render(); return; }
-    if (t.dataset.tf) { S.txFilter[t.dataset.tf] = t.value; render(); }
+    if (t.dataset.tf && t.dataset.tf !== 'q') { S.txFilter[t.dataset.tf] = t.value; render(); }
   });
   document.addEventListener('input', function (ev) {
     var t = ev.target;
+    if (t.dataset.tf === 'q') { S.txFilter.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#t-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); return; }
     if (t.dataset.f === 'q') { S.filters.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#f-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); }
   });
   document.addEventListener('keydown', function (ev) {

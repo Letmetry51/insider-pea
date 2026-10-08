@@ -697,6 +697,24 @@ t('Leader / challenger, étoiles, données mal formées tolérées', () => {
   const pv = ES.peerValuation({ A: { fund: { evToEbitda: '12', industry: 'X', sector: 'Y' } } }); eq(Object.keys(pv).length, 0);
 });
 
+t('Avis croisé : éviter, priorité, duel avec les vendeurs à découvert, raisons hors sélection', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const buy = { txDate: '2026-10-01', pubDate: '2026-10-01', ceo: true, person: 'X' };
+  const sc = (total, extra) => Object.assign({ total, buys: [buy], buyEur: 4.9e6, sellEur: 0, discount: { pct: 54 }, cluster: null, trendUp: false, fallingKnife: false }, extra || {});
+  const fragile = { fund: { totalDebt: 5e9, totalCash: 1e8, ebitda: -2e8, freeCashflow: -6e8, operatingCashflow: -3e8, profitMargins: -0.3, sector: 'Communication Services' }, shorts: { totalPct: 11.59, holders: 11 } };
+  const a = ES.advice(fragile, sc(47), c, { today: '2026-10-08' });
+  eq(a.key, 'avoid'); ok(/fragile/.test(a.why.join(' ')));
+  ok(a.signals.some((g) => g.k === 'duel') && a.signals.some((g) => g.k === 'short' && g.tone === 'bad'), 'VAD rouge et duel');
+  const solid = { fund: { totalDebt: 1e8, totalCash: 5e8, ebitda: 3e8, freeCashflow: 1e8, sector: 'Industrials' } };
+  eq(ES.advice(solid, sc(50), c, { histKey: 'rare', today: '2026-10-08' }).key, 'priority');
+  eq(ES.advice(solid, sc(50, { fallingKnife: true, marketDown: true }), c, { histKey: 'good', today: '2026-10-08' }).key, 'watch', 'deux motifs de prudence');
+  eq(ES.advice(solid, sc(35), c, { today: '2026-10-08' }).key, 'watch'); eq(ES.advice(solid, sc(15), c, { today: '2026-10-08' }).key, 'wait');
+  eq(ES.advice({ fund: solid.fund, peaStatus: 'non_eligible' }, sc(50), c, { today: '2026-10-08' }).key, 'avoid', 'hors PEA');
+  const bl = ES.selectionBlockers({ inst: fragile, score: sc(47), quality: { total: 90, coverage: { ok: true } }, universe: { status: 'retenu' } }, c, '2026-10-08');
+  eq(bl.length, 1); ok(/fragile/.test(bl[0]));
+  eq(ES.selectionBlockers({ inst: solid, score: sc(47), quality: { total: 90, coverage: { ok: true } }, universe: { status: 'retenu' } }, c, '2026-10-08').length, 0);
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

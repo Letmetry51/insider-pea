@@ -176,6 +176,21 @@ si les semaines « exceptionnelles » rapportent vraiment plus.
 - **Position concurrentielle** : rang par chiffre d'affaires dans son industrie parmi les sociétés européennes suivies
   (au moins 5) : Leader (n° 1), Challenger (n° 2 et 3), Suiveur, Acteur de niche (moins de 3 % du total).
 
+## L'avis croisé et les symboles
+
+Pour chaque société où un dirigeant a acheté, Euro Signal croise la note, le repère historique, la solidité financière,
+la valorisation, les ventes à découvert, la tendance et le calendrier, et donne un avis (aide à la décision, jamais un ordre) :
+🟢 à étudier en priorité · 🟡 à surveiller · ⚪ attendre · 🔴 éviter pour l'instant (société fragile, hors PEA, dirigeants
+vendeurs nets ou titre peu liquide). La fiche dit aussi pourquoi une société n'est pas dans la sélection de la semaine.
+
+Symboles : 👔 DG ou DAF · 👥 plusieurs dirigeants · 💰 gros montant · 🏷️ forte décote · 😱 achat dans la panique ·
+📈 tendance haussière · 🔻 cours en repli · 💶 moins chère que ses pairs · 💸 plus chère · 🏆 leader ou challenger ·
+⚠️ ventes à découvert (rouge au-delà de 5 % du capital) · ⚡ duel : des fonds parient à la baisse pendant que les
+dirigeants achètent fort. Le duel n'est ni bon ni mauvais en soi : l'issue est binaire (rebond violent si les dirigeants ont
+raison, chute si les fonds ont vu un problème), donc position réduite.
+
+La rubrique « Méthode et preuves » (onglet Comment ça marche) résume la logique et les résultats mesurés sur nos données.
+
 ## Les étoiles
 
 ★★★★★ très fort et remarquable dans l'historique · ★★★★ très fort (note ≥ 75) · ★★★ fort (50 à 74) · ★★ moyen ·

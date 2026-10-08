@@ -492,7 +492,12 @@ export function build(opts = {}) {
   }));
   Object.keys(episodes).forEach((i) => histNotes.push(episodes[i].note));
   const weekBest = replay.map((w, k) => w.picks.filter((x) => !ongoing(x.isin, k))).filter((p) => p.length).map((p) => p[0].note);
-  selection.items.forEach((x) => { x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes); });
+  const candBy = {}; cands.forEach((c) => { candBy[c.isin] = c; });
+  selection.items.forEach((x) => {
+    x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes);
+    const c = candBy[x.isin];
+    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ icon: g.icon, text: g.text, tone: g.tone })) }; }
+  });
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };
   if (selCfg.enabled) {
