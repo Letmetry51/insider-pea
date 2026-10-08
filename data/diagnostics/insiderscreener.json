@@ -1,5 +1,5 @@
 {
- "at": "2026-10-08T14:24:53.534792+00:00",
+ "at": "2026-10-08T16:27:59.542379+00:00",
  "markets": {
   "DE": {
    "from": "2026-09-29",
@@ -656,7 +656,7 @@
    "error": null
   },
   "IT": {
-   "from": "2026-10-04",
+   "from": "2026-10-05",
    "samples": [
     {
      "object": "insider_transaction",
@@ -1333,7 +1333,7 @@
  },
  "credits": {
   "thisRun": 20,
-  "thisMonth": 470,
+  "thisMonth": 490,
   "monthlyBudget": 900
  }
 }
