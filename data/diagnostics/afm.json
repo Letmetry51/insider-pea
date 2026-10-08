@@ -1,9 +1,9 @@
 {
  "status": 200,
  "contentType": null,
- "bytes": 668646,
+ "bytes": 668996,
  "encoding": "cp1252",
- "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-01 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sole S.\";\"Sole\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Mann E.\";\"Mann\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Wortmann - Kool C.M.\";\"Wortmann - Kool\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Firmenich A.\";\"Firmenich\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Ramsay J.\";\"Ramsay\"\r\n\"2026-09-30 00:00:00\";\"argenx SE\";\"Plueckebaum A.\";\"Plueckebaum\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Leysen T.\";\"Leysen\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Mahieu C.\";\"Mahieu",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Querci N.\";\"Querci\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sole S.\";\"Sole\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Nieri G.\";\"Nieri\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Giordani M.A.E.\";\"Giordani\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sala S.G.\";\"Sala\"\r\n\"2026-10-01 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sole S.\";\"Sole\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Mann E.\";\"Mann\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Wortmann - K",
  "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
  "delimiter": ";",
  "headers": [
@@ -14,28 +14,28 @@
  ],
  "sampleRows": [
   [
-   "2026-10-01 00:00:00",
+   "2026-10-02 00:00:00",
+   "MFE-MEDIAFOREUROPE N.V.",
+   "Querci N.",
+   "Querci"
+  ],
+  [
+   "2026-10-02 00:00:00",
    "MFE-MEDIAFOREUROPE N.V.",
    "Sole S.",
    "Sole"
   ],
   [
-   "2026-09-30 00:00:00",
-   "DSM-Firmenich AG",
-   "Mann E.",
-   "Mann"
-  ],
-  [
-   "2026-09-30 00:00:00",
-   "DSM-Firmenich AG",
-   "Wortmann - Kool C.M.",
-   "Wortmann - Kool"
+   "2026-10-02 00:00:00",
+   "MFE-MEDIAFOREUROPE N.V.",
+   "Nieri G.",
+   "Nieri"
   ]
  ],
- "rowCount": 9482,
+ "rowCount": 9487,
  "columnMap": {
   "issuer": "Issuing institution"
  },
- "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>202610013B8D9F0C-FE2A-42B6-9BF1-37D225559222</meldingid><transactiedatum>10/1/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sole S.</meldingsplichtige><meldingsplichtigeachternaam>Sole</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sole S. - </vermelding></vermelding><vermelding><meldingid>2026093016D3566C-F0E9-4B5D-A76B-4F5EA2D62E6B</meldingid><transactiedatum>9/30/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>DSM-Firmenich AG</uitgevendeinstelling><meldingsplichtige>Mann E.</meldingsplichtige><meldingsplichtigeachternaam>Mann</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>member  Board of Directors</functie><lei>506700G44V67MPM4BI12</lei><vermelding>DSM-Firmenich AG - Mann E. - </vermelding></vermelding><vermelding><meldingid>202609303A53BBB3-7F5B-481E-ACFC-7E7F5B128880</meldingid><transactiedatum>9/30/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>DSM-Firmenich AG</uitgevendeinstelling><meldingsplichtige>Wortmann - Kool C.M.</meldingsplichtige><meldingsplichtigeachternaam>Wortmann - Kool</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>member  Board of Directors</functie><lei>506700G44V67MPM4BI12</lei><vermelding>DSM-Firmenich AG - Wortmann - Kool C.M. - </vermelding></vermelding><vermelding><meldingid>2026093062FA2FC3-EF29-4525-95CA-AB194A850223</meldingid><transactiedatum>9/30/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>DSM-Firmenich AG</uitgevendeinstelling><meldingsplichtige>Firmenich A.</meldingsplichtige><meldingsplichtigeachternaam>Firmenich</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>member  Board of Directors</functie><lei>506700G44V67MPM4BI12</lei><vermelding>DSM-Firmenich AG - Firmenich A. - </vermelding></vermelding><vermelding><meldingid>202609306E6B87D8-F8D1-4222-94F4-174963A6C68A</meldingid><transactiedatum>9/30/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>DSM-Firmenich AG</uitgevendeinstelling><meldingsplichtige>Ramsay J.</meldingsplichtige><meldingsplichtigeachternaam>Ramsay</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>member  Board of Directors</functie><lei>506700G44V67MPM4BI12</lei><vermelding>DSM-Firmenich AG - Ramsay J. - </vermelding></vermelding><vermelding><meldingid>20260930958D6469-B15B-477C-B055-D7C436FFE4E2</meldingid><transactiedatum>9/30/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Plueckebaum A.</meldingsplichtige><meldingsplichtigeachternaam>Plueckebaum</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Global Head of Digital Technologies</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Plueckebaum A. - </vermeldin",
- "at": "2026-10-07T22:38:20.834879+00:00"
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>20261002236E95CD-073B-4289-8DAE-4ACD50B5391C</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Querci N.</meldingsplichtige><meldingsplichtigeachternaam>Querci</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Querci N. - </vermelding></vermelding><vermelding><meldingid>202610023A3C563C-4954-47C4-8BE6-29DEC8BDA3AF</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sole S.</meldingsplichtige><meldingsplichtigeachternaam>Sole</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sole S. - </vermelding></vermelding><vermelding><meldingid>202610026BBF3291-52AC-4EC7-8D3A-43BD7F173DB0</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Nieri G.</meldingsplichtige><meldingsplichtigeachternaam>Nieri</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Nieri G. - </vermelding></vermelding><vermelding><meldingid>20261002CD76335E-2F72-4BD3-B112-043921F1558E</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Giordani M.A.E.</meldingsplichtige><meldingsplichtigeachternaam>Giordani</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Giordani M.A.E. - </vermelding></vermelding><vermelding><meldingid>20261002F39B30B5-E532-42EB-9C70-49ED816483C9</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sala S.G.</meldingsplichtige><meldingsplichtigeachternaam>Sala</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sala S.G. - </vermelding></vermelding><vermelding><meldingid>202610013B8D9F0C-FE2A-42B6-9BF1-37D225559222</meldingid><transactiedatum>10/1/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sole S.</meldingsplichtige><meldingsplichtigeachternaam>Sole</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sole S. - </vermelding></vermelding><vermelding",
+ "at": "2026-10-08T07:03:01.925830+00:00"
 }
