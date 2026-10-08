@@ -735,6 +735,26 @@ t('Analyse des comptes : F-score de Piotroski, comptes publiés à la date, cas 
   ok(ES.advice({ fund: solid, accounts: a }, sc, c, { histKey: 'rare', today: '2026-10-08' }).why.some((w) => /comptes solides/.test(w)));
 });
 
+t('Psychologie : achat habituel ou inhabituel, palmarès, achat record, humeur du marché', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const h = [{ date: '2025-03-10', eur: 2e5, ret: 0.1, excess: 0.05 }, { date: '2025-06-01', eur: 1e5, ret: -0.05, excess: -0.02 }, { date: '2025-10-02', eur: 1.5e5, ret: 0.2, excess: 0.12 }];
+  const p1 = ES.buyerProfile(h, { date: '2026-10-05', eur: 9e5 }, '2025-01-17');
+  eq(p1.routine, 'habituel', 'déjà en octobre 2025'); eq(p1.track.n, 3); eq(p1.track.beat, 2); ok(p1.record, '9e5 ≥ 2 × 2e5');
+  eq(ES.buyerProfile(h, { date: '2026-08-05', eur: 1e5 }, '2025-01-17').routine, 'inhabituel');
+  eq(ES.buyerProfile([], { date: '2025-06-05', eur: 1e5 }, '2025-01-17').routine, 'inconnu', 'archive trop courte');
+  const serial = []; for (let k = 1; k <= 8; k++) serial.push({ date: ES.addDays('2026-09-30', -35 * k), eur: 1e5, ret: 0, excess: 0 });
+  eq(ES.buyerProfile(serial, { date: '2026-10-05', eur: 1e5 }, '2025-01-17').routine, 'habituel', 'acheteur en série');
+  eq(ES.buyerProfile(h, { date: '2025-05-20', eur: 1e5 }, '2025-01-17').track, null, 'achats passés pas encore jugeables (moins de 90 jours)');
+  const rows = []; let px = 100; for (let k = 0; k < 400; k++) { px *= k > 380 ? 0.985 : 1 + (k % 2 ? 0.002 : -0.0015); rows.push([ES.addDays('2025-01-01', k), px, px, px, px, 1]); }
+  const m = ES.marketMood(rows, rows[rows.length - 1][0]); ok(m && m.key === 'fear', 'chute récente : peur (' + (m && m.key) + ')');
+  eq(ES.marketMood(rows.slice(0, 100), '2025-04-01'), null, 'historique trop court');
+  const sc = { total: 50, buys: [{ txDate: '2026-10-01', pubDate: '2026-10-01', ceo: true }], buyEur: 3e6, sellEur: 0, discount: { pct: 30 }, cluster: null };
+  const solid = { totalDebt: 1e8, totalCash: 5e8, ebitda: 3e8, freeCashflow: 1e8, sector: 'Industrials' };
+  const a = ES.advice({ fund: solid, buyerProfiles: { x: Object.assign({ name: 'X' }, p1) } }, sc, c, { histKey: 'rare', today: '2026-10-08', mood: m });
+  ok(a.signals.some((g) => g.k === 'routine') && a.signals.some((g) => g.k === 'record') && a.signals.some((g) => g.k === 'track'), 'symboles 🔁 💪 🏅');
+  ok(/peur du marché/.test(a.why.join(' ')) || a.key !== 'priority', a.why.join(' ; '));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

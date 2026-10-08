@@ -892,6 +892,12 @@
       if (strongInsider) push('duel', '⚡', 'duel : ' + String(sh.totalPct).replace('.', ',') + ' % vendus à découvert contre des achats forts de dirigeants', 'warn');
       push('short', '⚠️', String(sh.totalPct).replace('.', ',') + ' % du capital vendu à découvert (' + sh.holders + ' fonds)', sh.totalPct >= 5 ? 'bad' : 'warn');
     } else if (sh) push('short', '⚠️', String(sh.totalPct).replace('.', ',') + ' % vendu à découvert', 'warn');
+    var bp = inst.buyerProfiles || {}, bpl = Object.keys(bp).map(function (k) { return bp[k]; });
+    if (bpl.length && bpl.some(function (b) { return b.routine === 'inhabituel'; })) push('opportunistic', '🧭', 'achat inhabituel pour ce dirigeant', 'good');
+    else if (bpl.length && bpl.every(function (b) { return b.routine === 'habituel'; })) push('routine', '🔁', 'achat habituel (même période chaque année ou achats en continu) : peu informatif', 'warn');
+    var tr = bpl.filter(function (b) { return b.track && b.track.n >= 2; }).sort(function (a, b) { return b.track.n - a.track.n; })[0];
+    if (tr) push('track', '🏅', 'palmarès du dirigeant : ' + tr.track.beat + ' achat' + (tr.track.beat > 1 ? 's' : '') + ' sur ' + tr.track.n + ' ont battu le CAC 40', tr.track.beat / tr.track.n >= 0.6 ? 'good' : tr.track.beat / tr.track.n <= 0.34 ? 'bad' : 'info');
+    if (bpl.some(function (b) { return b.record; })) push('record', '💪', 'achat record pour ce dirigeant', 'good');
     var acc = inst.accounts, fs = acc && acc.fscore && !acc.fscore.na ? acc.fscore.f9 : null;
     if (fs != null) push('fscore', '📊', 'comptes ' + (fs >= cfg.accounts.fscoreGood ? 'solides' : fs <= cfg.accounts.fscoreBad ? 'en dégradation' : 'mitigés') + ' (F-score ' + fs + '/9)', fs >= cfg.accounts.fscoreGood ? 'good' : fs <= cfg.accounts.fscoreBad ? 'bad' : 'info');
     var h = ES.financialHealth(inst.fund);
@@ -925,7 +931,15 @@
     if (inst.shorts && inst.shorts.totalPct >= 5) caution.push(has('duel') ? 'duel avec des vendeurs à découvert : issue binaire, position réduite' : 'fonds fortement vendeurs à découvert');
     if (inst.nextEarnings && opts.today && inst.nextEarnings >= opts.today && ES.daysBetween(opts.today, inst.nextEarnings) <= cfg.alerts.earningsWarnDays) caution.push('résultats dans moins de ' + cfg.alerts.earningsWarnDays + ' jours');
     if (sc.marketDown) caution.push('marché européen baissier');
+    if (has('routine')) caution.push('achats habituels de ce dirigeant, peu informatifs');
+    if (opts.mood && opts.mood.key === 'greed') caution.push('marché européen euphorique');
     var accTxt = accF != null && accF >= cfg.accounts.fscoreGood ? 'comptes solides et en amélioration (F-score ' + accF + '/9)' : null;
+    var extra = [];
+    if (has('opportunistic')) extra.push('achat inhabituel pour ce dirigeant');
+    var trk = sig.filter(function (x) { return x.k === 'track' && x.tone === 'good'; })[0]; if (trk) extra.push(trk.text);
+    if (has('record')) extra.push('achat record pour ce dirigeant');
+    if (opts.mood && opts.mood.key === 'fear') extra.push('achat pendant la peur du marché (comportement contrarien)');
+    if (accTxt) extra.unshift(accTxt); accTxt = extra.length ? extra.join(' ; ') : null;
     if (lab === 'top' && hist !== 'wait' && caution.length <= 1) { why.push('note très forte' + (hist === 'rare' ? ', remarquable dans l\'historique' : '')); if (accTxt) why.push(accTxt); caution.forEach(function (c) { why.push('vigilance : ' + c); }); return mk('priority'); }
     if (lab === 'top' || lab === 'strong') { why.push(lab === 'top' ? 'note très forte' : 'note forte'); if (accTxt) why.push(accTxt); caution.forEach(function (c) { why.push('vigilance : ' + c); }); if (hist === 'wait') why.push('ordinaire par rapport aux sélections passées'); return mk('watch'); }
     why.push('signal encore modeste (note ' + ES.note(sc.total, cfg) + '/100)');
@@ -1184,6 +1198,54 @@
     out.verdict = { key: key, good: good, bad: bad, text: ({ good: 'Comptes solides et en amélioration', mixed: 'Comptes mitigés', bad: 'Comptes en dégradation', na: 'Comptes insuffisants pour conclure' }[key]) + (f != null ? ' (F-score ' + f + '/9)' : '') };
     return out;
   };
+  /**
+   * Profil d'un acheteur au moment d'un achat (aucune donnée postérieure) :
+   * - habituel ou inhabituel (Cohen, Malloy et Pomorski, 2012 : les achats « de routine », au même mois chaque année,
+   *   n'annoncent rien ; les achats inhabituels sont ceux qui ont battu le marché) ;
+   * - palmarès : ses achats passés (toutes sociétés), résultat 60 séances plus tard, comparé au CAC 40 ;
+   * - conviction : montant record par rapport à ses propres achats passés.
+   * hist : [{ date, eur, ret, excess }] achats significatifs passés de la même personne ; t : { date, eur } ; archiveFrom : début de l'archive.
+   */
+  ES.buyerProfile = function (hist, t, archiveFrom) {
+    var d = t.date, before = (hist || []).filter(function (h) { return h && h.date < d && ES.daysBetween(h.date, d) > 20; });
+    var month = d.slice(5, 7), y = +d.slice(0, 4), years = 0, seen = 0;
+    for (var k = 1; k <= 3; k++) {
+      var yy = String(y - k);
+      if (archiveFrom && archiveFrom > yy + '-' + month + '-28') break; // ce mois-là n'est pas couvert par l'archive
+      seen++;
+      if (before.some(function (h) { return h.date.slice(0, 4) === yy && h.date.slice(5, 7) === month; })) years++;
+    }
+    // Acheteur en série : achats dans au moins 6 mois différents sur les 12 derniers = habituel, quel que soit le mois
+    var y1 = {}; before.forEach(function (h) { if (ES.daysBetween(h.date, d) <= 365) y1[h.date.slice(0, 7)] = 1; });
+    var monthsActive = Object.keys(y1).length;
+    var routine = monthsActive >= 6 ? 'habituel' : !seen ? 'inconnu' : years >= 2 || (years >= 1 && seen === 1) ? 'habituel' : 'inhabituel';
+    var done = before.filter(function (h) { return h.excess != null && ES.daysBetween(h.date, d) >= 90; });
+    var track = done.length ? { n: done.length, up: done.filter(function (h) { return h.ret > 0; }).length, beat: done.filter(function (h) { return h.excess > 0; }).length,
+      avgExcess: done.reduce(function (a, h) { return a + h.excess; }, 0) / done.length * 100 } : null;
+    var amounts = before.map(function (h) { return h.eur; }).filter(function (v) { return v > 0; });
+    var record = amounts.length >= 2 && t.eur > 0 ? t.eur >= 2 * Math.max.apply(null, amounts) : null;
+    return { routine: routine, monthsActive: monthsActive, sameMonthYears: years, yearsSeen: seen, track: track, record: record, pastBuys: before.length, firstBuy: !before.length && !!archiveFrom && ES.daysBetween(archiveFrom, d) >= 365 };
+  };
+  /**
+   * Humeur du marché (aspect psychologique) à une date : volatilité sur 20 séances comparée à l'année écoulée et recul
+   * depuis le plus haut 52 semaines de l'indice européen. rows : séries ajustées [[date, o, h, l, c, v]].
+   */
+  ES.marketMood = function (rows, d) {
+    if (!Array.isArray(rows) || rows.length < 260) return null;
+    var k = -1; for (var q = rows.length - 1; q >= 0; q--) if (rows[q][0] <= d) { k = q; break; }
+    if (k < 260) return null;
+    var vol = function (e) { var r = []; for (var i = e - 19; i <= e; i++) r.push(Math.log(rows[i][4] / rows[i - 1][4])); var m = r.reduce(function (a, x) { return a + x; }, 0) / r.length; return Math.sqrt(r.reduce(function (a, x) { return a + (x - m) * (x - m); }, 0) / (r.length - 1)) * Math.sqrt(252) * 100; };
+    var v = vol(k), past = []; for (var e = Math.max(21, k - 250); e < k; e += 5) past.push(vol(e));
+    var pct = Math.round(past.filter(function (x) { return x < v; }).length / past.length * 100);
+    var hi = Math.max.apply(null, rows.slice(k - 251, k + 1).map(function (r) { return r[4]; })), dd = (rows[k][4] / hi - 1) * 100;
+    var r6 = (rows[k][4] / rows[k - 126][4] - 1) * 100;
+    var key = pct >= 80 || dd <= -10 ? 'fear' : pct <= 20 && dd > -3 && r6 >= 12 ? 'greed' : 'neutral';
+    return { key: key, volPct: Math.round(v * 10) / 10, volRank: pct, drawdownPct: Math.round(dd * 10) / 10, ret6m: Math.round(r6 * 10) / 10,
+      icon: { fear: '😨', greed: '🤩', neutral: '😐' }[key], label: { fear: 'peur', greed: 'euphorie', neutral: 'calme' }[key],
+      text: { fear: 'Marché européen dans la peur (volatilité plus forte que ' + pct + ' % de l\'année écoulée, ' + (Math.round(dd * 10) / 10).toString().replace('.', ',') + ' % sous son plus haut). Historiquement, les achats de dirigeants pendant les paniques de marché ont souvent été bien placés, mais la baisse peut durer.',
+        greed: 'Marché européen euphorique (volatilité au plus bas, ' + (Math.round(r6 * 10) / 10).toString().replace('.', ',') + ' % en 6 mois, proche de ses plus hauts) : prudence, c\'est souvent le moment où les bonnes nouvelles sont déjà dans les cours.',
+        neutral: 'Marché européen calme : ni peur ni euphorie.' }[key] };
+  };
   /** Positions vendeuses nettes publiées (≥ 0,5 % du capital) en vigueur à une date. list : [{ holder, pct, from, to, country }] */
   ES.shortInfo = function (list, day) {
     var cur = (Array.isArray(list) ? list : []).filter(function (p) { return p && typeof p === 'object' && +p.pct >= 0.5 && +p.pct <= 25 && (!p.from || p.from <= day) && (!p.to || p.to > day); }).map(function (p) { return { holder: p.holder, pct: +p.pct, from: p.from, to: p.to }; });
@@ -1201,7 +1263,11 @@
     ['bigVsCap', 'Achat ≥ 0,05 % de la capitalisation'],
     ['peerCheap', 'Valorisation ≥ 20 % sous ses pairs'],
     ['shorted', 'Achat pendant que des fonds parient à la baisse (≥ 0,5 % du capital)'],
-    ['fscoreHigh', 'Comptes solides : F-score de Piotroski ≥ 7 (comptes publiés à la date de l\'achat)']
+    ['fscoreHigh', 'Comptes solides : F-score de Piotroski ≥ 7 (comptes publiés à la date de l\'achat)'],
+    ['opportunistic', 'Achat inhabituel pour ce dirigeant (pas au même mois les années précédentes)'],
+    ['trackGood', 'Dirigeant dont les achats passés ont battu le CAC 40 au moins 2 fois sur 3'],
+    ['personalRecord', 'Achat record pour ce dirigeant (au moins 2 fois son plus gros achat passé)'],
+    ['marketFear', 'Achat pendant la peur du marché européen (volatilité dans les 20 % les plus hautes de l\'année ou recul de 10 %)']
   ];
   ES.observeStats = function (samples, cfg) {
     var L = cfg.learning, ok = (samples || []).filter(function (s) { return s.excess != null && isFinite(s.excess); });

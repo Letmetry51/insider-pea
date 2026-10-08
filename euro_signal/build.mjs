@@ -293,6 +293,31 @@ export function build(opts = {}) {
     const R0 = refs[isin] || {};
     sigAll[isin] = ES.significantBuys(ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket)), cfg).kept.map((t) => ES.availDate(t));
   });
+  // Profil des acheteurs : historique de chaque dirigeant (toutes sociétés), résultat 60 séances après chaque achat
+  const bAdj0 = prices.bench ? ES.adjustedSeries(ES.normalizeSeries(prices.bench.rows), []) : null;
+  const bIdx0 = {}; if (bAdj0) bAdj0.forEach((r, k) => { bIdx0[r[0]] = k; });
+  const archiveFrom = Object.values(tx).flat().map((t) => t.txDate).filter(Boolean).sort()[0] || null;
+  const buyerHist = {};
+  const fwdRet = (a, d, h) => { if (!a) return null; let i = 0; while (i < a.length && a[i][0] <= d) i++; if (i + h >= a.length) return null; const e = a[i][1] != null ? a[i][1] : a[i][4]; return a[i + h][4] / e - 1; };
+  Object.keys(inst).forEach((isin) => {
+    const R0 = refs[isin] || {};
+    ES.significantBuys(ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket)), cfg).kept.forEach((t) => {
+      const key = ES.buyerKey(t) || t.personKey; if (!key) return;
+      const d = ES.availDate(t), a = adjAll[isin];
+      (buyerHist[key] = buyerHist[key] || []).push({ isin, id: t.id, date: d, eur: ES.toEur(t.amount, t.currency) || 0, ret: fwdRet(a, d, cfg.learning.horizon), excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, cfg.learning.horizon, 0) : null });
+    });
+  });
+  const profileOf = (t) => { const key = ES.buyerKey(t) || t.personKey; if (!key) return null; return ES.buyerProfile(buyerHist[key], { date: ES.availDate(t), eur: ES.toEur(t.amount, t.currency) || 0 }, archiveFrom); };
+  // Humeur du marché (psychologie) : aujourd'hui et à chaque date d'achat
+  // Profils des acheteurs de la fenêtre actuelle (affichés dans la fiche, utilisés par l'avis croisé)
+  cands.forEach((c) => {
+    const bp = {};
+    (c.score.buys || []).forEach((t) => { const key = ES.buyerKey(t) || t.personKey; if (!key) return; const pf = profileOf(t); if (!pf) return;
+      const prev = bp[key]; if (!prev || ES.availDate(t) > prev.date) bp[key] = Object.assign({ name: t.associated && t.linkedTo ? t.linkedTo : t.person, date: ES.availDate(t), ceo: !!(t.ceo || t.cfo) }, pf); });
+    if (Object.keys(bp).length) inst[c.isin].buyerProfiles = bp;
+  });
+  const moodCache = {};
+  const moodAt = (d) => { if (!(d in moodCache)) { try { moodCache[d] = ES.marketMood(mAdj0, d); } catch (e) { moodCache[d] = null; } } return moodCache[d]; };
   const r6 = (a, d) => { if (!a) return null; let lo = 0, hi = a.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (a[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; } return k >= 126 ? (a[k - 21][4] / a[k - 126][4] - 1) * 100 : null; };
   const mAdj0 = mRef && mRef.rows ? ES.adjustedSeries(ES.normalizeSeries(mRef.rows), []) : null;
   const secCache = {};
@@ -358,7 +383,8 @@ export function build(opts = {}) {
           bigVsCap: cap ? known2.filter((b) => (b.personKey || b.person) === (t.personKey || t.person)).reduce((a, b) => a + (ES.toEur(b.amount, b.currency) || 0), 0) / cap >= 0.0005 : undefined,
           peerCheap: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].peerDisc != null ? state.obsAtBuy[t.id].peerDisc >= cfg.valuation.cheapPct : undefined,
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
-          fscoreHigh: (() => { const a = finList[isin] ? accAt(isin, d) : null; return a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined; })() } });
+          fscoreHigh: (() => { const a = finList[isin] ? accAt(isin, d) : null; return a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined; })(),
+          ...(() => { const pf = profileOf(t), m = moodAt(d); return { opportunistic: !pf || pf.routine === 'inconnu' ? undefined : pf.routine === 'inhabituel', trackGood: pf && pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n >= 2 / 3 : undefined, personalRecord: pf && pf.record != null ? pf.record : undefined, marketFear: m ? m.key === 'fear' : undefined }; })() } });
       if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null };
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
       const known = known2;
@@ -503,7 +529,7 @@ export function build(opts = {}) {
   selection.items.forEach((x) => {
     x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes);
     const c = candBy[x.isin];
-    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ icon: g.icon, text: g.text, tone: g.tone })) }; }
+    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe, mood: moodAt(today) }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ icon: g.icon, text: g.text, tone: g.tone })) }; }
   });
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };
@@ -581,7 +607,7 @@ export function build(opts = {}) {
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
     cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: mkt, followups, selection, selectionTrack, shortsSrc,
+    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
   };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });

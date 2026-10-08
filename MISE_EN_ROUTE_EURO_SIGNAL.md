@@ -186,6 +186,21 @@ par point : 7 à 9 = comptes solides et en amélioration, 0 à 3 = en dégradati
 collecte se complète sur quelques soirs, en commençant par les sociétés où un dirigeant a acheté. Le F-score est aussi mesuré
 « en observation » (comptes publiés à la date de chaque achat) avant de peser dans la note.
 
+## Qui achète, et l'humeur du marché (psychologie)
+
+- **🧭 Achat inhabituel / 🔁 achat habituel** : un dirigeant qui achète chaque année à la même période, ou presque tous les
+  mois, n'apprend rien au marché (Cohen, Malloy et Pomorski, 2012) ; un achat inhabituel est bien plus parlant. L'archive
+  remonte à janvier 2025 : ce classement s'affine avec le temps.
+- **🏅 Palmarès** : les achats passés du même dirigeant (toutes sociétés), cours 3 mois plus tard comparé au CAC 40.
+- **💪 Achat record** : au moins 2 fois son plus gros achat passé. Les registres européens ne publient pas la participation
+  totale des dirigeants ; c'est l'indicateur de conviction le plus proche.
+- **😨 / 🤩 Humeur du marché** : volatilité de l'indice européen comparée à l'année écoulée et recul depuis son plus haut.
+  Des dirigeants qui achètent pendant la peur du marché, c'est un comportement contrarien souvent bien placé ; un marché
+  euphorique appelle la prudence. Côté société, la psychologie était déjà suivie : achat dans la panique (😱), décote par
+  rapport au plus haut 52 semaines (point d'ancrage des investisseurs), surchauffe, ventes à découvert.
+
+Ces quatre critères sont mesurés « en observation » avant de peser dans la note.
+
 ## L'avis croisé et les symboles
 
 Pour chaque société où un dirigeant a acheté, Euro Signal croise la note, le repère historique, la solidité financière,
