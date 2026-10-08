@@ -53,7 +53,9 @@ def press_items(t):
 
 FUND_KEYS = {"totalDebt": "totalDebt", "totalCash": "totalCash", "ebitda": "ebitda", "freeCashflow": "freeCashflow",
              "operatingCashflow": "operatingCashflow", "profitMargins": "profitMargins", "returnOnEquity": "returnOnEquity",
-             "currentRatio": "currentRatio", "debtToEquity": "debtToEquity", "marketCap": "marketCap"}
+             "currentRatio": "currentRatio", "debtToEquity": "debtToEquity", "marketCap": "marketCap",
+             # multiples de valorisation : comparaison aux sociétés du même secteur (décote par rapport aux pairs)
+             "forwardPE": "forwardPE", "trailingPE": "trailingPE", "evToEbitda": "enterpriseToEbitda", "priceToBook": "priceToBook"}
 
 
 def fundamentals(t):

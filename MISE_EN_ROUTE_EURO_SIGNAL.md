@@ -152,6 +152,34 @@ données fiables, société solide, note d'au moins 50/100, classés par note pu
 les critères, l'email le dit : mieux vaut ne rien faire que forcer un choix. Réglages : rubrique `selection` de
 `euro_signal/config.json` (`size`, `minScore`, `recentDays`, `weekday`, `enabled`).
 
+## Acheter cette semaine ou attendre ? Le repère historique
+
+Chaque soir, Euro Signal rejoue les sélections des lundis passés (jusqu'à 52 semaines), avec seulement l'information
+connue ce jour-là. Chaque dossier de la sélection est situé par rapport à ces sélections passées :
+
+- 🟢 **Remarquable** : parmi les 10 % meilleurs dossiers des sélections passées ;
+- 🟡 **Bon** : au-dessus de la moyenne ;
+- ⚪ **Ordinaire** : sous la moyenne, rien ne presse.
+
+L'email et le tableau de bord donnent aussi un verdict pour la semaine entière : 🟢 semaine exceptionnelle (le meilleur
+dossier bat 80 % des semaines passées), 🟡 semaine dans la moyenne, ⚪ semaine faible (mieux vaut attendre). Ce repère
+mesure la force du signal, pas un rendement promis : le bilan des sélections passées (comparé au CAC 40) dira avec le temps
+si les semaines « exceptionnelles » rapportent vraiment plus.
+
+## Informations croisées
+
+- **Valorisation par rapport aux pairs** : VE/EBITDA (à défaut PER prévisionnel ; cours/actif net pour banques, assurances
+  et foncières) comparé à la médiane d'au moins 5 sociétés de la même industrie, sinon du même secteur.
+- **Positions vendeuses des fonds** (≥ 0,5 % du capital), publiées par l'AMF, le Bundesanzeiger, la CNMV, la Consob, l'AFM
+  et la FSMA : un dirigeant qui achète pendant que des fonds parient à la baisse est signalé dans la fiche et la sélection.
+
+## Critères en observation
+
+Rotation sectorielle (secteur plus fort que le marché sur 6 mois), achats de dirigeants dans plusieurs sociétés du même
+secteur, petites et moyennes valeurs, montant de l'achat rapporté à la capitalisation, valorisation sous les pairs, positions
+vendeuses : ces critères sont mesurés chaque soir contre le CAC 40 (rubrique Résultats passés), **sans effet sur la note**.
+Un critère n'entre dans la note que s'il montre un avantage net sur au moins 60 cas, à la revue de janvier.
+
 ## Après l'alerte : suivi et signaux de sortie
 
 Chaque alerte envoyée est suivie pendant un an (onglet Alertes et suivi) : évolution depuis l'envoi, comparaison au CAC 40.

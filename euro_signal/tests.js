@@ -656,6 +656,32 @@ t('Note /100 : points bruts rapportés au maximum réaliste (60), plafonnée', (
   eq(ES.note(30, ES.mergeConfig(c, { display: { scoreCeiling: 100 } })), 30, 'réglable');
 });
 
+t('Pairs, positions vendeuses, critères en observation, repère historique', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const mk = (isin, ev, ind, sec) => ({ isin, fund: { evToEbitda: ev, industry: ind || 'Specialty Industrial Machinery', sector: sec || 'Industrials' } });
+  const inst = {}; [['FR0000000001', 5], ['FR0000000002', 10], ['FR0000000003', 11], ['FR0000000004', 9], ['FR0000000005', 12], ['FR0000000006', 10]].forEach((x) => { inst[x[0]] = mk(x[0], x[1]); });
+  inst.FR0000000007 = { isin: 'FR0000000007', fund: { priceToBook: 0.8, sector: 'Financial Services', industry: 'Banks' } };
+  const pv = ES.peerValuation(inst);
+  eq(pv.FR0000000001.peers, 5); eq(pv.FR0000000001.peerMedian, 10); eq(pv.FR0000000001.discountPct, 50, '5 contre 10 : 50 % sous les pairs');
+  eq(pv.FR0000000001.level, 'industrie'); ok(!pv.FR0000000007, 'banque sans pairs comparables : rien');
+  const sh = ES.shortInfo([{ holder: 'A', pct: 0.7, from: '2026-09-01', to: null }, { holder: 'B', pct: 0.6, from: '2026-01-01', to: '2026-05-01' }, { holder: 'A', pct: 0.6, from: '2026-08-01', to: '2026-09-01' }], '2026-10-08');
+  eq(sh.holders, 1); eq(sh.totalPct, 0.7); eq(ES.shortInfo([{ holder: 'B', pct: 0.6, from: '2026-01-01', to: '2026-05-01' }], '2026-10-08'), null, 'position close');
+  ok(ES.shortInfo([{ holder: 'B', pct: 0.6, from: '2026-01-01', to: '2026-05-01' }], '2026-03-01'), 'en vigueur à la date passée');
+  const smp = []; for (let k = 0; k < 70; k++) { smp.push({ f: { smallMid: true }, excess: 0.05 + (k % 7) * 0.001 }); smp.push({ f: { smallMid: false }, excess: -0.01 + (k % 5) * 0.001 }); }
+  const ob = ES.observeStats(smp, c); const sm = ob.find((o) => o.feature === 'smallMid');
+  eq(sm.nWith, 70); ok(/candidat/.test(sm.action), sm.action); ok(/en observation/.test(ob.find((o) => o.feature === 'shorted').action));
+  const hist = [40, 45, 50, 52, 55, 58, 60, 62, 65, 70, 72, 75];
+  eq(ES.historicRank(80, hist).key, 'rare'); eq(ES.historicRank(66, hist).key, 'good'); eq(ES.historicRank(45, hist).key, 'wait'); eq(ES.historicRank(80, [1, 2]).key, 'na');
+  const items = [{ note: 83, hist: ES.historicRank(83, hist) }];
+  eq(ES.weekVerdict(items, hist, [50, 55, 60, 65, 70, 75]).key, 'strong');
+  eq(ES.weekVerdict([{ note: 52 }], hist, [50, 55, 60, 65, 70, 75]).key, 'weak');
+  eq(ES.weekVerdict([], hist, []).key, 'empty'); eq(ES.weekVerdict([{ note: 70 }], hist, [60]).key, 'na');
+  const x = { isin: 'FR0000000001', name: 'Soc', score: 50, discountPct: 30, ceo: true, buyers: 1, hist: ES.historicRank(83, hist), peer: pv.FR0000000001, shorts: { totalPct: 0.7, holders: 1 } };
+  const m = ES.buildSelectionEmail([x], '2026-W41', c, null, '2026-10-08', null, null, ES.weekVerdict([{ note: 83, hist: x.hist }], hist, [50, 55, 60, 65, 70, 75]));
+  ok(/Semaine exceptionnelle/.test(m.text) && /Cette semaine/.test(m.html), 'verdict en tête');
+  ok(/remarquable/.test(m.text) && /50 % sous ses pairs/.test(m.text) && /1 fonds parient à la baisse/.test(m.text), m.text.slice(0, 400));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

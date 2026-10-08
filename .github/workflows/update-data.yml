@@ -60,6 +60,10 @@ jobs:
         run: python scrapers/insiderscreener.py
         continue-on-error: true
 
+      - name: 2c. Positions vendeuses des fonds (AMF, Bundesanzeiger, CNMV, Consob, AFM, FSMA)
+        run: python scrapers/shorts.py
+        continue-on-error: true
+
       - name: 3. Cours Yahoo Finance
         run: python scrapers/prices.py
         continue-on-error: true
