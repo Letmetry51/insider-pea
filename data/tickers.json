@@ -83,6 +83,13 @@
   "resolvedAt": "2026-10-08",
   "ticker": "XIOR.BR"
  },
+ "BE0974293251": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Anheuser-Busch InBev SA/NV",
+  "resolvedAt": "2026-10-08",
+  "ticker": "ABI.BR"
+ },
  "BE0974334667": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -1508,6 +1515,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "NEX.PA"
  },
+ "FR0000045072": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Crédit Agricole S.A.",
+  "resolvedAt": "2026-10-08",
+  "ticker": "ACA.PA"
+ },
  "FR0000050049": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -1543,12 +1557,26 @@
   "resolvedAt": "2026-10-07",
   "ticker": "ATO.PA"
  },
+ "FR0000052292": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Hermès International Société en commandite par actions",
+  "resolvedAt": "2026-10-08",
+  "ticker": "RMS.PA"
+ },
  "FR0000052680": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
   "name": "Oeneo SA",
   "resolvedAt": "2026-10-07",
   "ticker": "SBT.PA"
+ },
+ "FR0000053225": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Métropole Télévision S.A.",
+  "resolvedAt": "2026-10-08",
+  "ticker": "MMT.PA"
  },
  "FR0000053506": {
   "exchange": "Paris",
@@ -1563,6 +1591,13 @@
   "name": "Altamir Ord",
   "resolvedAt": "2026-10-07",
   "ticker": "LTA.PA"
+ },
+ "FR0000054470": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ubisoft Entertainment SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "UBI.PA"
  },
  "FR0000054900": {
   "exchange": "Paris",
@@ -1659,6 +1694,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "GUI.PA"
  },
+ "FR0000066755": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Haulotte Group SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "PIG.PA"
+ },
  "FR0000066961": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -1683,6 +1725,13 @@
   "name": "Pierre et Vacances SA",
   "resolvedAt": "2026-10-07",
   "ticker": "VAC.PA"
+ },
+ "FR0000073272": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Safran SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "SAF.PA"
  },
  "FR0000073298": {
   "exchange": "Paris",
@@ -1719,6 +1768,20 @@
   "resolvedAt": "2026-10-07",
   "ticker": "ALU10.PA"
  },
+ "FR0000120172": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Carrefour SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "CA.PA"
+ },
+ "FR0000120404": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Accor SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "AC.PA"
+ },
  "FR0000120503": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -1733,6 +1796,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "QDT.PA"
  },
+ "FR0000120628": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "AXA SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "CS.PA"
+ },
  "FR0000120644": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -1740,12 +1810,26 @@
   "resolvedAt": "2026-10-07",
   "ticker": "BN.PA"
  },
+ "FR0000120693": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Pernod Ricard SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "RI.PA"
+ },
  "FR0000120966": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
   "name": "Société BIC SA",
   "resolvedAt": "2026-10-07",
   "ticker": "BB.PA"
+ },
+ "FR0000121014": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "LVMH Moët Hennessy - Louis Vuitton, Société Européenne",
+  "resolvedAt": "2026-10-08",
+  "ticker": "MC.PA"
  },
  "FR0000121121": {
   "exchange": "Paris",
@@ -1768,12 +1852,54 @@
   "resolvedAt": "2026-10-07",
   "ticker": "HO.PA"
  },
+ "FR0000121485": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Kering SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "KER.PA"
+ },
+ "FR0000121667": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "EssilorLuxottica Société anonyme",
+  "resolvedAt": "2026-10-08",
+  "ticker": "EL.PA"
+ },
+ "FR0000121709": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "SEB SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "SK.PA"
+ },
+ "FR0000121972": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Schneider Electric S.E.",
+  "resolvedAt": "2026-10-08",
+  "ticker": "SU.PA"
+ },
  "FR0000124141": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
   "name": "Veolia Environnement SA",
   "resolvedAt": "2026-10-07",
   "ticker": "VIE.PA"
+ },
+ "FR0000125338": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Capgemini SE",
+  "resolvedAt": "2026-10-08",
+  "ticker": "CAP.PA"
+ },
+ "FR0000125486": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Vinci SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "DG.PA"
  },
  "FR0000127771": {
   "exchange": "Paris",
@@ -1803,12 +1929,33 @@
   "resolvedAt": "2026-10-07",
   "ticker": "FGR.PA"
  },
+ "FR0000130809": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Société Générale Société anonyme",
+  "resolvedAt": "2026-10-08",
+  "ticker": "GLE.PA"
+ },
+ "FR0000131104": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "BNP Paribas SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "BNP.PA"
+ },
  "FR0000131906": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
   "name": "Renault SA",
   "resolvedAt": "2026-10-07",
   "ticker": "RNO.PA"
+ },
+ "FR0000133308": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Orange S.A.",
+  "resolvedAt": "2026-10-08",
+  "ticker": "ORA.PA"
  },
  "FR0000185423": {
   "exchange": "Paris",
@@ -1844,6 +1991,13 @@
   "name": "Parrot S.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "PARRO.PA"
+ },
+ "FR0004040608": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ABC arbitrage SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "ABCA.PA"
  },
  "FR0004045847": {
   "exchange": "Paris",
@@ -1912,6 +2066,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "BVI.PA"
  },
+ "FR0010040865": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Gecina",
+  "resolvedAt": "2026-10-08",
+  "ticker": "GFC.PA"
+ },
  "FR0010112524": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -1946,6 +2107,13 @@
   "name": "Groupe Pizzorno Environnement",
   "resolvedAt": "2026-10-07",
   "ticker": "GPE.PA"
+ },
+ "FR0010220475": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Alstom SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "ALO.PA"
  },
  "FR0010221234": {
   "exchange": "Paris",
@@ -2041,6 +2209,13 @@
   "name": "Getlink SE",
   "resolvedAt": "2026-10-07",
   "ticker": "GET.PA"
+ },
+ "FR0010588079": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Frey SA",
+  "resolvedAt": "2026-10-08",
+  "ticker": "FREY.PA"
  },
  "FR0010667147": {
   "exchange": "Paris",
@@ -2186,6 +2361,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "SOI.PA"
  },
+ "FR0013230612": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Tikehau Capital",
+  "resolvedAt": "2026-10-08",
+  "ticker": "TKO.PA"
+ },
  "FR0013230950": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -2203,6 +2385,13 @@
   "name": "Ayvens",
   "resolvedAt": "2026-10-07",
   "ticker": "AYV.PA"
+ },
+ "FR0013269123": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Rubis",
+  "resolvedAt": "2026-10-08",
+  "ticker": "RUI.PA"
  },
  "FR0013280286": {
   "exchange": "Paris",
@@ -2238,6 +2427,13 @@
   "name": "2CRSI S.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "AL2SI.PA"
+ },
+ "FR0013344173": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Roche Bobois S.A.",
+  "resolvedAt": "2026-10-08",
+  "ticker": "RBO.PA"
  },
  "FR0013374667": {
   "exchange": "Paris",
@@ -2287,6 +2483,13 @@
   "name": "EPC Groupe",
   "resolvedAt": "2026-10-07",
   "ticker": "EXPL.PA"
+ },
+ "FR0014003TT8": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Dassault Systèmes SE",
+  "resolvedAt": "2026-10-08",
+  "ticker": "DSY.PA"
  },
  "FR0014003U94": {
   "exchange": "Paris",
@@ -3178,6 +3381,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "HIK.MI"
  },
+ "IT0005678104": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Kaleon S.p.A.",
+  "resolvedAt": "2026-10-08",
+  "ticker": "ALKLN.PA"
+ },
  "IT0005680373": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
@@ -3269,6 +3479,13 @@
   "name": "STMicroelectronics N.V.",
   "resolvedAt": "2026-10-07",
   "ticker": "STMPA.PA"
+ },
+ "NL0000235190": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Airbus SE",
+  "resolvedAt": "2026-10-08",
+  "ticker": "AIR.PA"
  },
  "NL0000288876": {
   "ticker": null,
