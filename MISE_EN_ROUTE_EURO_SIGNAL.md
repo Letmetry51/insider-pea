@@ -92,8 +92,10 @@ le secret, puis résilie l'abonnement.
    Tant que ce rattrapage n'est pas fini, la source FSMA apparaît « partielle » et les alertes des
    sociétés belges restent bloquées. Ensuite, comptez une vingtaine de minutes.
 4. Vérifie ta boîte mail : un message « [Euro Signal] Email de test » doit être arrivé.
-5. Ouvre https://letmetry51.github.io/insider-pea/euro-signal.html. Sur téléphone, ajoute-la à
-   l'écran d'accueil depuis le menu du navigateur.
+5. Ouvre https://letmetry51.github.io/insider-pea/euro-signal.html. Sur téléphone, installe-la comme une
+   application : menu du navigateur → « Ajouter à l'écran d'accueil » (Android, Chrome) ou bouton Partager →
+   « Sur l'écran d'accueil » (iPhone, Safari). Elle s'ouvre alors en plein écran avec son icône, et le dernier
+   classement reste consultable sans connexion.
 
 C'est terminé. Ensuite, tout tourne seul du lundi au vendredi à 18 h UTC (19 h ou 20 h à Paris).
 

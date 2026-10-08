@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="euro-signal.webmanifest"><meta name="theme-color" content="#17201C"><link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Euro Signal"><meta name="apple-mobile-web-app-status-bar-style" content="black"></head><body>
 <title>Euro Signal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1816,7 +1816,11 @@ details.pos summary{font-size:1rem}
   window.__ES_STATE = S; // pour le débogage dans la console
 
   /* =========================== Stockage =========================== */
-  function boot() { render(); tryRemote(); }
+  function boot() {
+    render(); tryRemote();
+    // Application installable : icône sur l'écran d'accueil, dernier classement consultable hors connexion
+    try { if ('serviceWorker' in navigator && (/^https:$/.test(location.protocol) || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
+  }
   function defang(o) {
     if (typeof o === 'string') return o.replace(/</g, '‹').replace(/>/g, '›');
     if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) o[i] = defang(o[i]); return o; }
@@ -2406,7 +2410,8 @@ details.pos summary{font-size:1rem}
       step('Score sur 100', 'Initiés (décote du prix payé, cluster, DG, panique), rachats d\'actions, résultats et tendance de marché. Le détail de chaque point est visible dans la fiche.') +
       step('Emails', 'Alerte : seulement si le score atteint ' + c.alerts.minScore + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle. Sélection de la semaine : chaque lundi, les ' + ((c.selection || {}).size || 5) + ' meilleurs dossiers du moment (score d\'au moins ' + ((c.selection || {}).minScore || 0) + '), même quand aucune alerte ne part.') +
       step('Suivi et apprentissage', 'Chaque alerte et chaque achat que vous déclarez sont suivis ; chaque mois, l\'outil mesure ce qui a marché et ajuste son barème, avec des garde-fous.') + '</ol>' +
-      '<p class="foot">Le score aide à trier ; ce n\'est pas une probabilité de hausse et aucun ordre n\'est passé. L\'éligibilité PEA est toujours à vérifier. Réglages : fichier euro_signal/config.json du dépôt GitHub.</p></section>';
+      '<p class="foot">Le score aide à trier ; ce n\'est pas une probabilité de hausse et aucun ordre n\'est passé. L\'éligibilité PEA est toujours à vérifier. Réglages : fichier euro_signal/config.json du dépôt GitHub.</p>' +
+      '<p class="foot"><b>Sur téléphone :</b> menu du navigateur → « Ajouter à l\'écran d\'accueil » (Android) ou bouton Partager → « Sur l\'écran d\'accueil » (iPhone). Euro Signal s\'ouvre alors comme une application, et le dernier classement reste consultable sans connexion.</p></section>';
     var det = function (title, body) { return '<details class="card fold"><summary>' + title + '</summary>' + body + '</details>'; };
     h += det('Barème actuel (version ' + esc(c.scoringVersion) + ')', baremeTable());
     h += det('État des données', vSources());
