@@ -1936,6 +1936,7 @@ details.help .disc{font-size:.78rem}
       buys: ['Avec achats de dirigeants', function (c) { return c.score.buys.length > 0; }],
       deep: ['Décote ≥ ' + W.discountBigPct + ' %', function (c) { return c.score.discount && c.score.discount.pct >= W.discountBigPct; }],
       low: ['Achetés près du plus bas', function (c) { return c.score.discount && c.score.discount.pos52 != null && c.score.discount.pos52 <= S.cfg.insiders.nearLowPct; }],
+      trend: ['Décote + MM50 > MM200', function (c) { return c.score.discount && c.score.discount.pct >= W.discountMediumPct && c.score.trendUp; }],
       ceo: ['Achat du DG ou du DAF', function (c) { return c.score.buys.some(function (t) { return t.ceo || t.cfo; }); }],
       ready: ['Alertes prêtes', function (c) { return c.dec.send; }],
       all: ['Tous les titres', function () { return true; }]
@@ -1972,6 +1973,7 @@ details.help .disc{font-size:.78rem}
       '<li><b>Décote</b> : de combien le prix payé par le dirigeant était sous le plus haut des 52 semaines. <span class="disc deep">−40 % et plus</span> <span class="disc mid">−25 à −40 %</span> <span class="disc low">moins de −25 %</span></li>' +
       '<li><b>Position 52 semaines</b> : ● prix payé, ◆ cours actuel, entre le plus bas (à gauche) et le plus haut (à droite).</li>' +
       '<li><b>Depuis l\'achat</b> : évolution du cours depuis le prix payé.</li>' +
+      '<li><b>MM50 > MM200</b> : la moyenne des 50 dernières séances est au-dessus de celle des 200 ; un croisement survenu après l\'achat du dirigeant ajoute 4 points.</li>' +
       '<li><b>Score /100</b> : initiés, rachats, résultats et tendance de marché. Une alerte part à ' + S.cfg.alerts.minScore + ' avec au moins ' + S.cfg.alerts.minFamilies + ' familles de signaux.</li>' +
       '<li><b>Attention</b> : une forte décote ne garantit pas le point bas. En 2026, le DG de Rheinmetall a acheté à −21 %, −37 % et −42 % avant de nouvelles baisses ; seul son achat à −52 %, au plus bas, a rapporté rapidement.</li></ul></details>';
     h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th class="hide-m">Position 52 semaines</th><th class="num">Depuis l\'achat</th><th class="num">Score</th><th>Statut</th></tr></thead><tbody>';
