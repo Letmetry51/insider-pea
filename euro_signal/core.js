@@ -1205,6 +1205,47 @@
     return out;
   };
   /**
+   * Les comptes « en clair » : une phrase qu'un enfant de 10 ans comprend (la société vue comme une boutique) et un conseil.
+   * a : résultat complet de ES.accountsAnalysis. → { text, advice, tone: good | mixed | bad | na } ou null.
+   */
+  ES.accountsPlain = function (a, fund) {
+    if (!a || !a.years || !a.years.length) return null;
+    var R = a.years, last = R[R.length - 1], f = a.fscore && !a.fscore.na ? a.fscore.f9 : null;
+    var fin = a.fscore && a.fscore.na && /banques|financi/.test(a.fscore.reason || '');
+    var r0 = function (v) { return Math.round(v); };
+    if (fin) {
+      var roe = last.roe;
+      if (roe == null) return { tone: 'na', text: 'C\'est une banque ou une assurance : ses comptes ne se lisent pas comme ceux d\'une boutique.', advice: 'Ne te fie pas aux comptes ici, regarde surtout le reste de la fiche.' };
+      return roe >= 10 ? { tone: 'good', text: 'C\'est une banque ou une assurance qui gagne bien sa vie : avec 100 € confiés par ses propriétaires, elle a gagné ' + r0(roe) + ' € l\'an dernier.', advice: 'Les comptes sont rassurants, tu peux t\'intéresser à ce dossier.' }
+        : roe > 0 ? { tone: 'mixed', text: 'C\'est une banque ou une assurance qui gagne un peu d\'argent : ' + r0(roe) + ' € par an pour 100 € confiés par ses propriétaires.', advice: 'Rien d\'inquiétant, mais rien d\'exceptionnel : achète petit si tu achètes.' }
+        : { tone: 'bad', text: 'C\'est une banque ou une assurance qui a perdu de l\'argent l\'an dernier.', advice: 'Prudence : attends qu\'elle redevienne rentable.' };
+    }
+    var parts = [], warn = [];
+    var g = a.revenueCagr;
+    parts.push(g == null ? 'une boutique' : g >= 3 ? 'une boutique qui vend de plus en plus' : g <= -3 ? 'une boutique qui vend de moins en moins' : 'une boutique qui vend à peu près autant chaque année');
+    var m = last.opMargin != null ? last.opMargin : last.netMargin, nm = last.netMargin;
+    var holdingProfit = m != null && m <= -0.5 && nm != null && nm > 0.5; // holding : perte sur l'activité, bénéfice grâce aux participations
+    if (m != null) parts.push(holdingProfit ? 'perd un peu d\'argent sur ses ventes mais en gagne grâce à ses placements (' + r0(nm) + ' € de bénéfice pour 100 € de ventes)' : m >= 0.5 ? 'garde ' + r0(m) + ' € sur 100 € de ventes une fois ses frais payés' : m > -0.5 ? 'ne garde presque rien une fois ses frais payés' : 'dépense plus qu\'elle ne gagne (elle perd ' + r0(-m) + ' € sur 100 € de ventes)');
+    // Dette : chiffres Yahoo du moment (dettes de location comprises) quand ils existent, plus complets que la ligne « Total Debt » des comptes
+    var nd = last.netDebtEbitda, netCash = last.netCash;
+    if (fund && fund.totalDebt != null && fund.totalCash != null && fund.ebitda > 0) { nd = (fund.totalDebt - fund.totalCash) / fund.ebitda; netCash = nd < 0; }
+    if (netCash) parts.push('a plus d\'argent en caisse que de dettes');
+    else if (nd != null) parts.push(nd < 1.5 ? 'a peu de dettes' : nd <= 3 ? 'a des dettes raisonnables' : 'a beaucoup de dettes (il lui faudrait ' + String(Math.round(nd * 10) / 10).replace('.', ',') + ' ans de bénéfices pour les rembourser)');
+    else if (a.fcfKnownYears >= 2) parts.push(a.fcfPositiveYears === a.fcfKnownYears ? 'remplit sa caisse chaque année' : a.fcfPositiveYears === 0 ? 'vide sa caisse chaque année' : 'remplit sa caisse certaines années seulement');
+    if (a.dilutionPct != null && a.dilutionPct >= 10) warn.push('elle a créé beaucoup de nouvelles actions, alors ta part du gâteau rétrécit');
+    if (a.fcfKnownYears >= 2 && a.fcfPositiveYears === 0 && nd != null) warn.push('sa caisse se vide chaque année');
+    var list = parts.slice(1), text = 'C\'est comme ' + parts[0] + (list.length ? ', qui ' + (list.length > 1 ? list.slice(0, -1).join(', ') + ' et ' + list[list.length - 1] : list[0]) : '') + '.' + (warn.length ? ' Attention : ' + warn.join(' et ') + '.' : '');
+    var loss = m != null && m <= -0.5 && !holdingProfit, heavy = nd != null && nd > 3 && !netCash;
+    var tone = f != null ? (f >= 7 ? 'good' : f <= 3 ? 'bad' : 'mixed') : (loss || heavy ? 'bad' : (a.verdict && a.verdict.key) || 'mixed');
+    if ((loss || heavy) && tone === 'good') tone = 'mixed';
+    var advice = loss ? 'Prudence : une boutique qui perd de l\'argent peut encore baisser ; attends qu\'elle redevienne rentable ou achète très petit.'
+      : heavy ? 'Méfie-toi : les dettes coûtent cher quand les affaires ralentissent ; n\'en mets pas beaucoup.'
+      : tone === 'good' ? 'Les comptes sont en bonne santé : ils ne t\'empêchent pas d\'acheter, le reste de la fiche décide.'
+      : tone === 'bad' ? 'Les comptes se dégradent : n\'achète pas seulement parce qu\'un dirigeant achète.'
+      : 'Rien d\'inquiétant mais rien d\'exceptionnel : si tu achètes, commence petit et regarde les prochains résultats.';
+    return { tone: tone, text: text, advice: advice };
+  };
+  /**
    * Profil d'un acheteur au moment d'un achat (aucune donnée postérieure) :
    * - habituel ou inhabituel (Cohen, Malloy et Pomorski, 2012 : les achats « de routine », au même mois chaque année,
    *   n'annoncent rien ; les achats inhabituels sont ceux qui ont battu le marché) ;

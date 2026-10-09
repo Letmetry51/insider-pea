@@ -320,6 +320,8 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .syn2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:4px 20px;margin-top:8px}
 .syn2 h4{margin:6px 0 2px;font-size:.9rem;text-transform:uppercase;letter-spacing:.04em}.syn-pro h4{color:var(--good)}.syn-con h4{color:var(--warn)}
 .syn2 ul{margin:0}.syn2 li{margin:3px 0}
+.kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:2px 0}
+.kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
 .cmpline{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--neutral-soft);font-size:.9rem}
 .advice .cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:4px 20px}
 .advice h4{margin-top:4px}
@@ -1556,6 +1558,47 @@ details.pos summary{font-size:1rem}
     return out;
   };
   /**
+   * Les comptes « en clair » : une phrase qu'un enfant de 10 ans comprend (la société vue comme une boutique) et un conseil.
+   * a : résultat complet de ES.accountsAnalysis. → { text, advice, tone: good | mixed | bad | na } ou null.
+   */
+  ES.accountsPlain = function (a, fund) {
+    if (!a || !a.years || !a.years.length) return null;
+    var R = a.years, last = R[R.length - 1], f = a.fscore && !a.fscore.na ? a.fscore.f9 : null;
+    var fin = a.fscore && a.fscore.na && /banques|financi/.test(a.fscore.reason || '');
+    var r0 = function (v) { return Math.round(v); };
+    if (fin) {
+      var roe = last.roe;
+      if (roe == null) return { tone: 'na', text: 'C\'est une banque ou une assurance : ses comptes ne se lisent pas comme ceux d\'une boutique.', advice: 'Ne te fie pas aux comptes ici, regarde surtout le reste de la fiche.' };
+      return roe >= 10 ? { tone: 'good', text: 'C\'est une banque ou une assurance qui gagne bien sa vie : avec 100 € confiés par ses propriétaires, elle a gagné ' + r0(roe) + ' € l\'an dernier.', advice: 'Les comptes sont rassurants, tu peux t\'intéresser à ce dossier.' }
+        : roe > 0 ? { tone: 'mixed', text: 'C\'est une banque ou une assurance qui gagne un peu d\'argent : ' + r0(roe) + ' € par an pour 100 € confiés par ses propriétaires.', advice: 'Rien d\'inquiétant, mais rien d\'exceptionnel : achète petit si tu achètes.' }
+        : { tone: 'bad', text: 'C\'est une banque ou une assurance qui a perdu de l\'argent l\'an dernier.', advice: 'Prudence : attends qu\'elle redevienne rentable.' };
+    }
+    var parts = [], warn = [];
+    var g = a.revenueCagr;
+    parts.push(g == null ? 'une boutique' : g >= 3 ? 'une boutique qui vend de plus en plus' : g <= -3 ? 'une boutique qui vend de moins en moins' : 'une boutique qui vend à peu près autant chaque année');
+    var m = last.opMargin != null ? last.opMargin : last.netMargin, nm = last.netMargin;
+    var holdingProfit = m != null && m <= -0.5 && nm != null && nm > 0.5; // holding : perte sur l'activité, bénéfice grâce aux participations
+    if (m != null) parts.push(holdingProfit ? 'perd un peu d\'argent sur ses ventes mais en gagne grâce à ses placements (' + r0(nm) + ' € de bénéfice pour 100 € de ventes)' : m >= 0.5 ? 'garde ' + r0(m) + ' € sur 100 € de ventes une fois ses frais payés' : m > -0.5 ? 'ne garde presque rien une fois ses frais payés' : 'dépense plus qu\'elle ne gagne (elle perd ' + r0(-m) + ' € sur 100 € de ventes)');
+    // Dette : chiffres Yahoo du moment (dettes de location comprises) quand ils existent, plus complets que la ligne « Total Debt » des comptes
+    var nd = last.netDebtEbitda, netCash = last.netCash;
+    if (fund && fund.totalDebt != null && fund.totalCash != null && fund.ebitda > 0) { nd = (fund.totalDebt - fund.totalCash) / fund.ebitda; netCash = nd < 0; }
+    if (netCash) parts.push('a plus d\'argent en caisse que de dettes');
+    else if (nd != null) parts.push(nd < 1.5 ? 'a peu de dettes' : nd <= 3 ? 'a des dettes raisonnables' : 'a beaucoup de dettes (il lui faudrait ' + String(Math.round(nd * 10) / 10).replace('.', ',') + ' ans de bénéfices pour les rembourser)');
+    else if (a.fcfKnownYears >= 2) parts.push(a.fcfPositiveYears === a.fcfKnownYears ? 'remplit sa caisse chaque année' : a.fcfPositiveYears === 0 ? 'vide sa caisse chaque année' : 'remplit sa caisse certaines années seulement');
+    if (a.dilutionPct != null && a.dilutionPct >= 10) warn.push('elle a créé beaucoup de nouvelles actions, alors ta part du gâteau rétrécit');
+    if (a.fcfKnownYears >= 2 && a.fcfPositiveYears === 0 && nd != null) warn.push('sa caisse se vide chaque année');
+    var list = parts.slice(1), text = 'C\'est comme ' + parts[0] + (list.length ? ', qui ' + (list.length > 1 ? list.slice(0, -1).join(', ') + ' et ' + list[list.length - 1] : list[0]) : '') + '.' + (warn.length ? ' Attention : ' + warn.join(' et ') + '.' : '');
+    var loss = m != null && m <= -0.5 && !holdingProfit, heavy = nd != null && nd > 3 && !netCash;
+    var tone = f != null ? (f >= 7 ? 'good' : f <= 3 ? 'bad' : 'mixed') : (loss || heavy ? 'bad' : (a.verdict && a.verdict.key) || 'mixed');
+    if ((loss || heavy) && tone === 'good') tone = 'mixed';
+    var advice = loss ? 'Prudence : une boutique qui perd de l\'argent peut encore baisser ; attends qu\'elle redevienne rentable ou achète très petit.'
+      : heavy ? 'Méfie-toi : les dettes coûtent cher quand les affaires ralentissent ; n\'en mets pas beaucoup.'
+      : tone === 'good' ? 'Les comptes sont en bonne santé : ils ne t\'empêchent pas d\'acheter, le reste de la fiche décide.'
+      : tone === 'bad' ? 'Les comptes se dégradent : n\'achète pas seulement parce qu\'un dirigeant achète.'
+      : 'Rien d\'inquiétant mais rien d\'exceptionnel : si tu achètes, commence petit et regarde les prochains résultats.';
+    return { tone: tone, text: text, advice: advice };
+  };
+  /**
    * Profil d'un acheteur au moment d'un achat (aucune donnée postérieure) :
    * - habituel ou inhabituel (Cohen, Malloy et Pomorski, 2012 : les achats « de routine », au même mois chaque année,
    *   n'annoncent rien ; les achats inhabituels sont ceux qui ont battu le marché) ;
@@ -2654,6 +2697,7 @@ details.pos summary{font-size:1rem}
     return '<section class="card advcard adv-b-' + a.key + '"><div class="synhead">' + (sc.buys.length ? starsHtml(sc.total, true) + '<span class="synnote"><b>' + note + '</b>/100 · ' + esc(lab.label) + '</span>' : '') + advBadge(a, true) + '</div>' +
       (hr && hr.key !== 'na' ? '<p class="hist h-' + hr.key + '">' + hr.icon + ' ' + esc(hr.label) + '</p>' : '') +
       '<div class="syn2">' + (sm.pros.length ? '<div class="syn-pro"><h4>Pourquoi</h4>' + li(sm.pros) + '</div>' : '') + (sm.cons.length ? '<div class="syn-con"><h4>Attention</h4>' + li(sm.cons) + '</div>' : '') + '</div>' +
+      kidLine(S.inst[i].accounts) +
       (cmp ? '<p class="cmpline">🎯 <b>Dossiers comparables</b> : ' + esc(cmp.text) + '.</p>' : '') +
       '<p class="foot">' + esc(selTxt) + ' · aide à la décision, pas un ordre.</p></section>';
   }
@@ -2671,9 +2715,15 @@ details.pos summary{font-size:1rem}
     var up = b > a, good = higherIsBetter ? up : !up;
     return '<span class="ar ' + (good ? 'ar-good' : 'ar-bad') + '">' + (up ? '↗' : '↘') + '</span>';
   }
+  /** Les comptes en clair : une phrase pour un enfant de 10 ans et un conseil (calculés le soir à partir des comptes complets). */
+  function kidLine(a) {
+    var p = a && a.plain;
+    return p && p.text ? '<div class="kidline kid-' + esc(p.tone || 'na') + '"><p>📊 <b>Les comptes en clair</b> : ' + esc(p.text) + '</p><p>👉 <b>Conseil</b> : ' + esc(p.advice) + '</p></div>' : '';
+  }
   function accountsSection(i) {
     var a = S.inst[i] && S.inst[i].accounts;
     var h = '<section class="card accounts"><h3>📊 Analyse des comptes</h3>';
+    h += kidLine(a);
     if (a && a.summary && !S.detailLoaded) return h + '<p class="muted">' + esc(a.verdict ? a.verdict.text : '') + ' — chargement du détail…</p></section>';
     if (!a || !a.years || !a.years.length) return h + '<p class="muted">Comptes annuels pas encore collectés pour cette société (complétés au fil des soirs, en commençant par les sociétés où un dirigeant a acheté).</p></section>';
     var v = a.verdict || { key: 'na', text: 'Comptes insuffisants pour conclure', good: [], bad: [] };
