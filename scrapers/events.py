@@ -69,6 +69,9 @@ def fundamentals(t):
     out = {k: num(inf.get(src)) for k, src in FUND_KEYS.items()}
     if all(v is None for v in out.values()):
         return None
+    # Dirigeants publiés (nom, fonction) : sert à reconnaître le DG et le DAF quand la déclaration ne dit que « membre du directoire »
+    officers = [{"name": o.get("name"), "title": o.get("title")} for o in (inf.get("companyOfficers") or []) if isinstance(o, dict) and o.get("name") and o.get("title")][:15]
+    out.update({"officers": officers or None})
     out.update({"sector": inf.get("sector"), "industry": inf.get("industry"), "currency": inf.get("financialCurrency"),
                 "asOf": datetime.now(timezone.utc).date().isoformat()})
     return out

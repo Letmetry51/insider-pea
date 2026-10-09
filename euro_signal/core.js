@@ -1249,6 +1249,30 @@
         neutral: 'Marché européen calme : ni peur ni euphorie.' }[key] };
   };
   /** Statistiques de résultats : [{ ret, excess }] (fractions) → probabilité de hausse, gain médian, fourchette, % battant le CAC 40. */
+  /** Fonction d'un dirigeant publiée par Yahoo (« Chief Executive Officer », « CFO & Member of Management Board »…) → 'ceo' | 'cfo' | null. Adjoints exclus. */
+  ES.officerRole = function (title) {
+    var t = ES.norm(title || '');
+    if (!t || /\b(deputy|vice|adjoint|delegue|stellvertret|interim|former|ancien)\b/.test(t)) return null;
+    if (/\b(ceo|chief executive|president directeur general|directeur general|directrice generale|vorstandsvorsitzende|vorsitzender des vorstands|chairman of the (management|executive) board|chair of the (management|executive) board|managing director|consejero delegado|amministratore delegato|chief executive officer)\b/.test(t)) return 'ceo';
+    if (/\b(cfo|chief financial|finance director|financial director|directeur financier|directrice financiere|finanzvorstand|director financiero|direttore finanziario)\b/.test(t)) return 'cfo';
+    return null;
+  };
+  /** Le déclarant (personne physique) figure-t-il parmi les dirigeants publiés comme DG ou DAF ? Tous les mots du nom le plus court (initiales exclues) doivent se retrouver dans l'autre, deux mots au moins. */
+  ES.officerMatch = function (person, officers) {
+    if (!person || !Array.isArray(officers)) return null;
+    var toks = function (n) { return ES.personKey(n).split(' ').filter(function (w) { return w.length >= 2 && ['prof', 'ing', 'mag', 'phd', 'mba', 'jr', 'sir', 'dott', 'ir'].indexOf(w) < 0; }); };
+    var a = toks(person);
+    if (a.length < 2) return null;
+    for (var k = 0; k < officers.length; k++) {
+      var o = officers[k], role = o && ES.officerRole(o.title);
+      if (!role) continue;
+      var b = toks(o.name);
+      if (b.length < 2) continue;
+      var sm = a.length <= b.length ? a : b, lg = a.length <= b.length ? b : a;
+      if (sm.every(function (w) { return lg.indexOf(w) > -1; })) return role;
+    }
+    return null;
+  };
   /** Euro Signal ne suit que des sociétés européennes : un ISIN américain ou canadien sur une déclaration européenne trahit une confusion de société (ex. « CEG NV » rattaché à Constellation Energy). */
   ES.EUROPE_ISIN = 'AT BE BG CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MT NL NO PL PT RO SE SI SK'.split(' ');
   ES.isEuropeanIsin = function (isin) { return typeof isin === 'string' && ES.EUROPE_ISIN.indexOf(isin.slice(0, 2).toUpperCase()) > -1; };

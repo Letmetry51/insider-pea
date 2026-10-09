@@ -214,7 +214,13 @@ export function build(opts = {}) {
     i.nextEarnings = er && er.nextEarnings && er.nextEarnings > today ? er.nextEarnings : (state.nextEarnings || {})[isin] > today ? state.nextEarnings[isin] : null;
     if (i.nextEarnings) (state.nextEarnings = state.nextEarnings || {})[isin] = i.nextEarnings;
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
-    inst[isin] = i; tx[isin] = list;
+    // DG et DAF reconnus aussi par la liste des dirigeants publiée (déclarations allemandes : « membre du directoire » sans plus de détail)
+    const off = i.fund && Array.isArray(i.fund.officers) ? i.fund.officers : null;
+    inst[isin] = i; tx[isin] = off ? list.map((t) => {
+      if (t.ceo || t.cfo || t.associated || (t.type !== 'achat' && t.type !== 'vente') || ES.isLegalEntity(t.person, t.issuer)) return t;
+      const r = ES.officerMatch(t.person, off);
+      return r ? Object.assign({}, t, { ceo: r === 'ceo', cfo: r === 'cfo', roleSource: 'liste des dirigeants Yahoo' }) : t;
+    }) : list;
   });
   // Valorisation par rapport aux pairs (même industrie, sinon même secteur) et positions vendeuses publiées
   // Deux ISIN pour la même cotation (ancien et nouveau code après une opération sur titres) : un seul dossier, le plus récent
@@ -523,10 +529,10 @@ export function build(opts = {}) {
         const sc = ES.score({ inst: iD, tx: txD, events: evOut[isin] || { buybacks: [], results: [] }, refs: rf, cfg, today: D0 });
         if (!sc.buys.length || sc.ambiguousCount || sc.total < (selCfg.minScore || 0)) return;
         if (!sc.buys.some((t) => ES.availDate(t) >= from)) return;
-        notes.push({ isin, note: ES.note(sc.total, cfg) });
+        notes.push({ isin, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => t.ceo || t.cfo), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers) });
       });
       notes.sort((a, b) => b.note - a.note);
-      replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.slice(0, selCfg.size || 5) });
+      replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.slice(0, selCfg.size || 5), cands: notes });
     });
   } catch (e) { console.warn('  Repère historique indisponible : ' + e.message); replay.length = 0; }
   // Une société retenue plusieurs lundis de suite = un seul dossier (sa meilleure note). Les dossiers de la sélection actuelle
@@ -553,17 +559,25 @@ export function build(opts = {}) {
   // Fiabilité mesurée : ce que sont devenues les sélections rejouées, 60 séances (≈ 3 mois) plus tard, frais de 0,5 % déduits.
   // Une société retenue plusieurs lundis de suite ne compte qu'une fois (à sa première semaine).
   try {
-    const H = cfg.learning.horizon, cost = cfg.backtest.costRoundTripPct / 100, outs = [], lastSeen = {};
-    replay.forEach((w, k) => w.picks.forEach((x) => {
-      const cont = lastSeen[x.isin] === k - 1; lastSeen[x.isin] = k;
-      if (cont) return;
-      const a = adjAll[x.isin], r = fwdRet(a, w.date, H);
-      if (r == null) return;
-      outs.push({ isin: x.isin, date: w.date, note: x.note, ret: r - cost, excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, w.date, H, cost) : null });
-    }));
+    const H = cfg.learning.horizon, cost = cfg.backtest.costRoundTripPct / 100, N = selCfg.size || 5;
+    const outsOf = (pick) => {
+      const outs = [], lastSeen = {};
+      replay.forEach((w, k) => pick(w).forEach((x) => {
+        const cont = lastSeen[x.isin] === k - 1; lastSeen[x.isin] = k;
+        if (cont) return;
+        const a = adjAll[x.isin], r = fwdRet(a, w.date, H);
+        if (r == null) return;
+        outs.push({ isin: x.isin, date: w.date, note: x.note, ret: r - cost, excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, w.date, H, cost) : null });
+      }));
+      return outs;
+    };
+    const outs = outsOf((w) => w.picks);
+    // Variantes de règle, rejouées de la même façon : ne garder que les achats du DG ou du DAF, ou aussi les clusters
+    const variant = (f) => { const o = outsOf((w) => (w.cands || []).filter(f).slice(0, N)); const st = ES.outcomeStats(o); if (st) st.perWeek = Math.round(replay.reduce((a, w) => a + Math.min(N, (w.cands || []).filter(f).length), 0) / Math.max(1, replay.length) * 10) / 10; return st; };
+    const variants = { current: variant(() => true), dg: variant((x) => x.dg), dgCluster: variant((x) => x.dg || x.cl), cluster: variant((x) => x.cl) };
     const band = (lo, hi) => ES.outcomeStats(outs.filter((o) => o.note >= lo && o.note < hi));
     selection.replayStats = { horizon: H, all: ES.outcomeStats(outs), top: band(ES.note(cfg.alerts.minScore, cfg), 101), strong: band(ES.note(cfg.selection.minScore, cfg), ES.note(cfg.alerts.minScore, cfg)),
-      from: outs.length ? outs.map((o) => o.date).sort()[0] : null, to: outs.length ? outs.map((o) => o.date).sort().pop() : null };
+      from: outs.length ? outs.map((o) => o.date).sort()[0] : null, to: outs.length ? outs.map((o) => o.date).sort().pop() : null, variants };
   } catch (e) { console.warn('  Fiabilité rejouée indisponible : ' + e.message); }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle

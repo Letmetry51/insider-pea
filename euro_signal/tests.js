@@ -711,6 +711,15 @@ t('Fiabilité mesurée et avis résumé (3 raisons, 2 points d\'attention)', () 
   ok(/🎯 Fiabilité mesurée/.test(m.html) && /#aide/.test(m.html));
 });
 
+t('DG et DAF reconnus par la liste des dirigeants publiée (déclarations « membre du directoire »)', () => {
+  const off = [{ name: 'Dr. Sebastian C. Schulte', title: 'CEO & Chairman of Management Board' }, { name: 'Mr. Oliver Neu', title: 'CFO & Member of Management Board' }, { name: 'Jean Dupont', title: 'Deputy CEO' }, { name: 'Anne Martin', title: 'Directrice Générale' }];
+  eq(ES.officerMatch('Schulte, Dr. Sebastian C.', off), 'ceo'); eq(ES.officerMatch('Neu, Oliver', off), 'cfo');
+  eq(ES.officerMatch('Simone Schulte', off), null, 'même nom de famille, autre personne'); eq(ES.officerMatch('Jean Dupont', off), null, 'adjoint exclu');
+  eq(ES.officerMatch('MARTIN Anne', off), 'ceo'); eq(ES.officerMatch('Schulte', off), null, 'un seul mot : trop ambigu');
+  eq(ES.officerRole('Président du Conseil de Surveillance'), null); eq(ES.officerRole('Président-Directeur Général'), 'ceo'); eq(ES.officerRole('Chief Financial Officer'), 'cfo');
+  ok(ES.isEuropeanIsin('NL0000226223') && !ES.isEuropeanIsin('US21037T1097'));
+});
+
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {
   const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const mk = (rev, cur, ind) => ({ fund: { revenue: rev, currency: cur, industry: ind || 'Auto Parts' } });
