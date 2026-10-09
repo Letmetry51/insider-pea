@@ -110,6 +110,7 @@ export function build(opts = {}) {
     const r = ES.fromCollectorRecord(rec, { today });
     if (!r.ok) { (euRejects[rec.registry] = euRejects[rec.registry] || []).push({ isin: rec.isin, company: rec.issuer, declaration: rec.id, errors: r.errors }); return; }
     if (r.rec.type === 'instrument') return;
+    if (!ES.isEuropeanIsin(r.rec.isin)) { (euRejects[rec.registry] = euRejects[rec.registry] || []).push({ isin: rec.isin, company: rec.issuer, declaration: rec.id, errors: ['ISIN hors Europe pour une déclaration européenne : société probablement confondue'] }); return; }
     (incoming[r.rec.isin] = incoming[r.rec.isin] || []).push(r.rec);
   });
   Object.keys(eu.sources || {}).forEach((name) => {
@@ -127,6 +128,7 @@ export function build(opts = {}) {
     state.txArchive[isin] = m.list;
   });
   const keepFrom = ES.addMonths(today, -36);
+  Object.keys(state.txArchive).forEach((isin) => { if (!ES.isEuropeanIsin(isin)) delete state.txArchive[isin]; }); // confusions de société déjà archivées
   Object.keys(state.txArchive).forEach((isin) => {
     state.txArchive[isin] = state.txArchive[isin].filter((t) => t.txDate >= keepFrom);
     if (!state.txArchive[isin].length) delete state.txArchive[isin];

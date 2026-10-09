@@ -1249,6 +1249,9 @@
         neutral: 'Marché européen calme : ni peur ni euphorie.' }[key] };
   };
   /** Statistiques de résultats : [{ ret, excess }] (fractions) → probabilité de hausse, gain médian, fourchette, % battant le CAC 40. */
+  /** Euro Signal ne suit que des sociétés européennes : un ISIN américain ou canadien sur une déclaration européenne trahit une confusion de société (ex. « CEG NV » rattaché à Constellation Energy). */
+  ES.EUROPE_ISIN = 'AT BE BG CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MT NL NO PL PT RO SE SI SK'.split(' ');
+  ES.isEuropeanIsin = function (isin) { return typeof isin === 'string' && ES.EUROPE_ISIN.indexOf(isin.slice(0, 2).toUpperCase()) > -1; };
   ES.outcomeStats = function (list) {
     var r = (list || []).filter(function (x) { return x && x.ret != null && isFinite(x.ret); });
     if (!r.length) return null;

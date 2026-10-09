@@ -295,8 +295,9 @@ p.mood{margin:8px 0 10px;padding:8px 12px;border-radius:8px;background:var(--sun
 .rbar{position:relative;height:16px;width:150px;margin-top:2px}
 .rbar .rb-track{position:absolute;left:0;right:0;top:7px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--good),var(--line) 50%,var(--bad))}
 .rbar .rb-paid,.rbar .rb-now{position:absolute;top:2px;width:12px;height:12px;margin-left:-6px}
-.rbar .rb-paid{border-radius:50%;background:var(--ink);border:2px solid var(--surface)}
-.rbar .rb-now{background:var(--accent);transform:rotate(45deg) scale(.8);border:2px solid var(--surface)}
+.rbar .rb-paid{border-radius:50%;background:transparent;border:2.5px solid var(--ink);width:13px;height:13px;margin-left:-6.5px;top:1.5px;z-index:2;box-shadow:0 0 0 1.5px var(--surface)}
+.rbar .rb-now{background:var(--accent);border-radius:2px;border:2px solid var(--surface);width:11px;height:11px;margin-left:-5.5px;top:2.5px;z-index:1}
+.lg-dot{color:var(--ink)}.lg-sq{color:var(--accent)}
 .rb-lbl{display:flex;justify-content:space-between;width:150px;font-size:.66rem}
 details.help{margin:0 0 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px}
 details.help ul{margin-top:8px}
@@ -1599,6 +1600,9 @@ details.pos summary{font-size:1rem}
         neutral: 'Marché européen calme : ni peur ni euphorie.' }[key] };
   };
   /** Statistiques de résultats : [{ ret, excess }] (fractions) → probabilité de hausse, gain médian, fourchette, % battant le CAC 40. */
+  /** Euro Signal ne suit que des sociétés européennes : un ISIN américain ou canadien sur une déclaration européenne trahit une confusion de société (ex. « CEG NV » rattaché à Constellation Energy). */
+  ES.EUROPE_ISIN = 'AT BE BG CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MT NL NO PL PT RO SE SI SK'.split(' ');
+  ES.isEuropeanIsin = function (isin) { return typeof isin === 'string' && ES.EUROPE_ISIN.indexOf(isin.slice(0, 2).toUpperCase()) > -1; };
   ES.outcomeStats = function (list) {
     var r = (list || []).filter(function (x) { return x && x.ret != null && isFinite(x.ret); });
     if (!r.length) return null;
@@ -2581,7 +2585,7 @@ details.pos summary{font-size:1rem}
     if (paidPos == null && curPos == null) return '<span class="muted">n.d.</span>';
     return '<div class="rbar" role="img" aria-label="Prix payé à ' + (paidPos != null ? Math.round(c(paidPos)) : '?') + ' % de l\'intervalle 52 semaines, cours actuel à ' + (curPos != null ? Math.round(c(curPos)) : '?') + ' %"><i class="rb-track"></i>' +
       (paidPos != null ? '<i class="rb-paid" style="left:' + c(paidPos) + '%" title="Prix payé"></i>' : '') + (curPos != null ? '<i class="rb-now" style="left:' + c(curPos) + '%" title="Cours actuel"></i>' : '') +
-      '</div><small class="rb-lbl"><span>bas</span><span>haut</span></small>';
+      '</div><small class="rb-lbl"><span>bas 52 s.</span><span>haut</span></small>';
   }
   function discPill(d) {
     if (!d) return '<span class="muted">n.d.</span>';
@@ -2732,19 +2736,19 @@ details.pos summary{font-size:1rem}
       '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['discount', 'Trier par décote'], ['score', 'Trier par note'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'discount') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
     h += '<details class="help"><summary>Comment lire ce tableau ?</summary><ul class="plain">' +
       '<li><b>Décote</b> : de combien le prix payé par le dirigeant était sous le plus haut des 52 semaines. <span class="disc deep">−40 % et plus</span> <span class="disc mid">−25 à −40 %</span> <span class="disc low">moins de −25 %</span></li>' +
-      '<li><b>Position 52 semaines</b> : ● prix payé, ◆ cours actuel, entre le plus bas (à gauche) et le plus haut (à droite).</li>' +
+      '<li><b>Prix payé / cours</b> : sur la barre des 52 dernières semaines (plus bas à gauche, plus haut à droite), ○ = prix payé par le dirigeant, ■ = cours actuel. Carré à droite du rond : le cours a monté depuis l\'achat.</li>' +
       '<li><b>Depuis l\'achat</b> : évolution du cours depuis le prix payé.</li>' +
       '<li><b>Force relative</b> : performance sur 6 mois (hors dernier mois) comparée au STOXX Europe 600 ; +3 points si le titre fait au moins 10 points de mieux.</li>' +
       '<li><b>MM50 > MM200</b> : la moyenne des 50 dernières séances est au-dessus de celle des 200 ; un croisement survenu après l\'achat du dirigeant ajoute 4 points.</li>' +
       '<li><b>Note /100</b> : initiés, rachats, résultats et tendance de marché ; 100 = dossier idéal réaliste. Très fort à partir de ' + ES.note(S.cfg.alerts.minScore, S.cfg) + ', avec au moins ' + S.cfg.alerts.minFamilies + ' familles de signaux.</li>' +
       '<li><b>Attention</b> : une forte décote ne garantit pas le point bas. En 2026, le DG de Rheinmetall a acheté à −21 %, −37 % et −42 % avant de nouvelles baisses ; seul son achat à −52 %, au plus bas, a rapporté rapidement.</li></ul></details>';
-    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th class="hide-m">Position 52 semaines</th><th class="num">Depuis l\'achat</th><th class="num">Note</th><th>Avis</th></tr></thead><tbody>';
+    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Décote</th><th>Prix payé <span class="lg-dot">○</span> / cours <span class="lg-sq">■</span></th><th class="num">Depuis l\'achat</th><th class="num">Note</th><th>Avis</th></tr></thead><tbody>';
     list.slice(0, S.limit).forEach(function (i) {
       var x = S.inst[i], c = S.computed[i], d = c.score.discount, r = d && (S.refs[i] || {})[d.id];
       var who = d ? 'payé ' + fmtN(d.paid) + ' le ' + shortDate(d.date) + ' · ' + esc(shortName(d.person)) + (d.ceo ? ' (DG/DAF)' : '') : (c.score.buys.length ? c.score.buys.length + ' achat(s), cours indisponibles' : 'aucun achat récent');
       h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + (c.score.buys.length ? sigIcons(adviceOf(i).signals) : '') + '</td>' +
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
-        '<td class="hide-m" data-l="Position 52 semaines">' + rangeBar(d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
+        '<td data-l="Prix payé ○ / cours ■">' + rangeBar(r && r.today && r.today.paidPos52 != null ? r.today.paidPos52 : d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
         '<td class="num scorecell" data-l="Note">' + (c.score.buys.length ? starsHtml(c.score.total) : '') + '<span class="big">' + ES.note(c.score.total, S.cfg) + '</span>' + scoreBar(c.score) + '<small class="slab s-' + ES.scoreLabel(c.score.total, S.cfg).key + '">' + ES.scoreLabel(c.score.total, S.cfg).label + '</small></td>' +
         '<td data-l="Avis">' + (c.score.buys.length ? advBadge(adviceOf(i)) : statusChip(i)) + '</td></tr>';
@@ -3036,10 +3040,10 @@ details.pos summary{font-size:1rem}
       '<select id="t-reg" data-tf="registry" aria-label="Registre"><option value="">Tous registres</option>' + Object.keys(regs).sort().map(function (r) { return '<option' + (f.registry === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select>' +
       '<select id="t-c" data-tf="country" aria-label="Pays"><option value="">Tous pays de domiciliation</option>' + Object.keys(COUNTRIES).map(function (c) { return '<option value="' + c + '"' + (f.country === c ? ' selected' : '') + '>' + COUNTRIES[c] + '</option>'; }).join('') + '</select></div>';
     if (!rows.length) return h + '<p class="muted pad">Aucune opération ne correspond.</p>';
-    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Publication</th><th>Déclarant</th><th>Nature</th><th class="num">Prix</th><th class="num">Montant</th><th class="num" title="Prix payé par rapport au plus haut des 52 semaines précédant l\'achat">Décote</th><th class="num hide-s">Depuis l\'achat</th><th class="hide-s">Registre</th></tr></thead><tbody>';
+    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Publication</th><th>Déclarant</th><th>Nature</th><th class="num">Prix</th><th class="num">Montant</th><th class="num" title="Prix payé par rapport au plus haut des 52 semaines précédant l\'achat">Décote</th><th title="Sur les 52 dernières semaines, du plus bas (à gauche) au plus haut (à droite)">Prix payé <span class="lg-dot">○</span> / cours <span class="lg-sq">■</span></th><th class="num">Depuis l\'achat</th></tr></thead><tbody>';
     rows.slice(0, 400).forEach(function (r) {
       var t = r.t, ref = (S.refs[r.isin] || {})[t.id];
-      h += '<tr class="rowlink" data-a="open" data-i="' + r.isin + '" tabindex="0"><td class="c-name" data-l="Société"><b>' + esc(r.inst.name || r.isin) + '</b><small>' + esc(r.isin) + '</small></td><td data-l="Publication">' + (t.pubDate ? shortDate(t.pubDate) : '<span class="muted">tx ' + shortDate(t.txDate) + '</span>') + '</td><td data-l="Déclarant">' + esc(t.person || 'n.d.') + '<small>' + esc(frRole(t.role)) + (t.associated && !/liée/i.test(frRole(t.role)) ? ' · personne liée' : '') + ((t.ceo || t.cfo) ? ' · DG/DAF' : '') + '</small></td><td data-l="Nature">' + ES.TX_TYPES[t.type] + (t.status === 'annulee' ? ' <span class="chip bad">annulée</span>' : '') + '</td><td class="num" data-l="Prix">' + (t.price != null ? fmtN(t.price) : 'n.d.') + '</td><td class="num" data-l="Montant">' + fmtMoney(t.amount, t.currency) + '</td><td class="num" data-l="Décote">' + (t.type === 'achat' && ref && !ref.outOfRange && ref.atPurchase && ref.atPurchase.paidVsHigh52Pct != null ? discPill({ pct: -ref.atPurchase.paidVsHigh52Pct }) : '<span class="muted">—</span>') + '</td><td class="num hide-s" data-l="Depuis l\'achat">' + (ref && ref.available && !ref.outOfRange ? pct(ref.currentVsPaidPct) : 'n.d.') + '</td><td class="hide-s" data-l="Registre">' + esc(t.registry) + '</td></tr>';
+      h += '<tr class="rowlink" data-a="open" data-i="' + r.isin + '" tabindex="0"><td class="c-name" data-l="Société"><b>' + flag(r.inst.country) + esc(r.inst.name || r.isin) + '</b><small>' + esc(r.isin + ' · ' + t.registry) + '</small></td><td data-l="Publication">' + (t.pubDate ? shortDate(t.pubDate) : '<span class="muted">tx ' + shortDate(t.txDate) + '</span>') + '</td><td data-l="Déclarant">' + esc(t.person || 'n.d.') + '<small>' + esc(frRole(t.role)) + (t.associated && !/liée/i.test(frRole(t.role)) ? ' · personne liée' : '') + ((t.ceo || t.cfo) ? ' · DG/DAF' : '') + '</small></td><td data-l="Nature">' + ES.TX_TYPES[t.type] + (t.status === 'annulee' ? ' <span class="chip bad">annulée</span>' : '') + '</td><td class="num" data-l="Prix">' + (t.price != null ? fmtN(t.price) : 'n.d.') + '</td><td class="num" data-l="Montant">' + fmtMoney(t.amount, t.currency) + '</td><td class="num" data-l="Décote">' + (t.type === 'achat' && ref && !ref.outOfRange && ref.atPurchase && ref.atPurchase.paidVsHigh52Pct != null ? discPill({ pct: -ref.atPurchase.paidVsHigh52Pct }) : '<span class="muted">—</span>') + '</td><td data-l="Prix payé ○ / cours ■">' + ((t.type === 'achat' || t.type === 'vente') && ref && ref.available && !ref.outOfRange && ref.today ? rangeBar(ref.today.paidPos52, ref.today.currentPos52) : '<span class="muted">—</span>') + '</td><td class="num" data-l="Depuis l\'achat">' + (ref && ref.available && !ref.outOfRange ? '<span class="' + (ref.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(ref.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td></tr>';
     });
     return h + '</tbody></table></div>' + (rows.length > 400 ? '<p class="muted pad">400 premières lignes affichées sur ' + rows.length + '.</p>' : '');
   }
