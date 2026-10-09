@@ -328,6 +328,8 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .fsverdict{margin:4px 0 0}.fsgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:4px 18px}
 .fsg h5{margin:8px 0 4px;font-size:.88rem}.fsg ul.fsl{columns:1}.fsl li small{display:block;color:var(--muted);font-size:.8rem;margin:1px 0 4px 18px}
 .fsscale{margin:12px 0 4px}.fsscale summary{cursor:pointer;font-weight:600;color:var(--accent)}.fsscale p{font-size:.9rem}
+.selout{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--warn-soft);border-left:4px solid var(--warn);font-size:.9rem}.selrule{margin:2px 0 10px;font-size:.9rem}
+.dgc{display:block;margin-top:4px;font-size:.78rem;font-weight:600}.dg-ok{color:var(--good)}.dg-old{color:var(--warn)}.dg-no{color:var(--muted)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
 .cmpline{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--neutral-soft);font-size:.9rem}
@@ -2716,6 +2718,22 @@ details.pos summary{font-size:1rem}
     return '<span class="disc ' + k + '">' + (v > 0 ? '−' : '+') + Math.abs(v) + ' %</span>';
   }
   /** Avis croisé d'une société (même règle que l'email) et ses symboles. */
+  /** Achat du DG ou du DAF le plus récent : la sélection de la semaine n'en retient que de moins de 30 jours. */
+  function dgInfo(i) {
+    var c = S.computed[i], R = (S.cfg.selection || {}).recentDays || 30;
+    if (!c || !c.score.buys.length) return null;
+    var d = c.score.buys.filter(function (t) { return t.ceo || t.cfo; }).map(function (t) { return ES.availDate(t); }).sort().pop();
+    if (!d) return { none: true, R: R };
+    var n = ES.daysBetween(d, S.today);
+    return { date: d, days: n, recent: n <= R, R: R };
+  }
+  function dgChip(i) {
+    var g = dgInfo(i);
+    if (!g || !(S.cfg.selection || {}).requireCeoCfo) return '';
+    if (g.none) return '<small class="dgc dg-no" title="La sélection de la semaine exige un achat du DG ou du DAF de moins de ' + g.R + ' jours">✖ Pas d\'achat du DG/DAF · hors sélection</small>';
+    return g.recent ? '<small class="dgc dg-ok" title="Éligible à la sélection de la semaine">✅ DG/DAF il y a ' + g.days + ' j · sélectionnable</small>'
+      : '<small class="dgc dg-old" title="La sélection de la semaine exige un achat du DG ou du DAF de moins de ' + g.R + ' jours">⏱ DG/DAF il y a ' + g.days + ' j · hors sélection (plus de ' + g.R + ' j)</small>';
+  }
   function adviceOf(i) {
     var c = S.computed[i]; if (!c) return null;
     if (c.adv) return c.adv;
@@ -2734,7 +2752,9 @@ details.pos summary{font-size:1rem}
     var a = adviceOf(i), sc = c.score, sm = ES.adviceSummary(a), sel = (S.snapshot && S.snapshot.selection && S.snapshot.selection.items) || [], k = -1;
     sel.forEach(function (x, j) { if (x.isin === i) k = j; });
     var selTxt;
+    var dg = dgInfo(i);
     if (k > -1) selTxt = '✅ Dans la sélection de la semaine (n° ' + (k + 1) + ' sur ' + sel.length + ')';
+    else if (dg && S.cfg.selection.requireCeoCfo && !dg.recent && sc.buys.length) selTxt = '⏱ Hors sélection de la semaine : ' + (dg.none ? 'aucun achat du DG ou du DAF' : 'dernier achat du DG ou du DAF le ' + shortDate(dg.date) + ', il y a ' + dg.days + ' jours') + ' (la sélection exige moins de ' + dg.R + ' jours). L\'avis reste valable : à suivre en dehors de la sélection';
     else {
       var bl = ES.selectionBlockers({ inst: S.inst[i], score: sc, quality: c.q, universe: c.uni }, S.cfg, S.today);
       selTxt = '✖ Hors sélection : ' + (bl.length ? bl.join(' ; ') : 'pas parmi les ' + S.cfg.selection.size + ' meilleures notes');
@@ -2746,7 +2766,7 @@ details.pos summary{font-size:1rem}
       (hr && hr.key !== 'na' ? '<p class="hist h-' + hr.key + '">' + hr.icon + ' ' + esc(hr.label) + '</p>' : '') +
       '<div class="syn2">' + (sm.pros.length ? '<div class="syn-pro"><h4>Pourquoi</h4>' + li(sm.pros) + '</div>' : '') + (sm.cons.length ? '<div class="syn-con"><h4>Attention</h4>' + li(sm.cons) + '</div>' : '') + '</div>' +
       (cmp ? '<p class="cmpline">🎯 <b>Dossiers comparables</b> : ' + esc(cmp.text) + '.</p>' : '') +
-      '<p class="foot">' + esc(selTxt) + ' · aide à la décision, pas un ordre.</p></section>';
+      '<p class="' + (/^⏱/.test(selTxt) ? 'selout' : 'foot') + '">' + esc(selTxt) + ' · aide à la décision, pas un ordre.</p></section>';
   }
   function statusChip(isin) {
     var c = S.computed[isin];
@@ -2848,7 +2868,8 @@ details.pos summary{font-size:1rem}
     var rule = 'Achat d\'au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ' par ' + (S.cfg.selection.requireCeoCfo ? 'le DG ou le DAF' : 'un dirigeant') + ' ces ' + ((S.cfg.selection || {}).recentDays || 30) + ' derniers jours, société solide, données fiables, classées par note.';
     if (!sel.items.length) return '<section class="card selc"><h3>Sélection de la semaine</h3><p class="muted">Aucune société ne remplit tous les critères en ce moment. ' + esc(rule) + '</p></section>';
     var v = sel.verdict;
-    return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3>' + (v && v.text ? '<p class="verdict v-' + esc(v.key) + '">' + (v.icon || '') + ' ' + esc(v.text) + '</p>' : '') + '<ol class="sel">' +
+    var R = (S.cfg.selection || {}).recentDays || 30;
+    return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3>' + (S.cfg.selection.requireCeoCfo ? '<p class="selrule">⏱ Règle : achat du <b>DG ou du DAF</b> de <b>moins de ' + R + ' jours</b>. Les autres dossiers bien notés restent visibles dans la liste ci-dessous, avec le délai depuis l\'achat du DG/DAF.</p>' : '') + (v && v.text ? '<p class="verdict v-' + esc(v.key) + '">' + (v.icon || '') + ' ' + esc(v.text) + '</p>' : '') + '<ol class="sel">' +
       sel.items.map(function (x) {
         var adv = x.advice || adviceOf(x.isin) || { why: [], signals: [] }, sm = ES.adviceSummary(adv), st = ES.stars(x.score, S.cfg, x.hist && x.hist.key);
         var w = [x.sector || null, sm.pros[0] || null, sm.cons[0] || null].filter(Boolean);
@@ -2869,6 +2890,7 @@ details.pos summary{font-size:1rem}
       low: ['Achetés près du plus bas', function (c) { return c.score.discount && c.score.discount.pos52 != null && c.score.discount.pos52 <= S.cfg.insiders.nearLowPct; }],
       trend: ['Décote + MM50 > MM200', function (c) { return c.score.discount && c.score.discount.pct >= W.discountMediumPct && c.score.trendUp; }],
       ceo: ['Achat du DG ou du DAF', function (c) { return c.score.buys.some(function (t) { return t.ceo || t.cfo; }); }],
+      dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (c, i) { var g = dgInfo(i); return !!(g && g.recent); }],
       fs8: ['F-score 8 ou 9', function (c, i) { var a = S.inst[i] && S.inst[i].accounts; return !!(a && a.fscore && !a.fscore.na && a.fscore.f9 >= 8); }],
       ready: ['Alertes prêtes', function (c) { return c.dec.send; }],
       all: ['Tous les titres', function () { return true; }]
@@ -2929,7 +2951,7 @@ details.pos summary{font-size:1rem}
         '<td data-l="Prix payé ○ / cours ■">' + rangeBar(r && r.today && r.today.paidPos52 != null ? r.today.paidPos52 : d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
         '<td class="num scorecell" data-l="Note">' + (c.score.buys.length ? starsHtml(c.score.total) : '') + '<span class="big">' + ES.note(c.score.total, S.cfg) + '</span>' + scoreBar(c.score) + '<small class="slab s-' + ES.scoreLabel(c.score.total, S.cfg).key + '">' + ES.scoreLabel(c.score.total, S.cfg).label + '</small></td>' +
-        '<td data-l="Avis">' + (c.score.buys.length ? advBadge(adviceOf(i)) : statusChip(i)) + '</td></tr>';
+        '<td data-l="Avis">' + (c.score.buys.length ? advBadge(adviceOf(i)) + dgChip(i) : statusChip(i)) + '</td></tr>';
     });
     h += '</tbody></table></div>';
     if (!list.length) h += '<p class="muted pad">Aucune société ne correspond. Essayez « Tous les titres ».</p>';
