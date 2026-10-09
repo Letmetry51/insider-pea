@@ -252,7 +252,12 @@ export function build(opts = {}) {
   const accAt = (isin, d) => { try { const i = inst[isin]; return ES.accountsAnalysis(finList[isin], { asOf: d, sector: i.sector || (i.fund && i.fund.sector), industry: i.fund && i.fund.industry }); } catch (e) { return null; } };
   Object.keys(inst).forEach((isin) => {
     const a = finList[isin] ? accAt(isin, today) : null;
-    if (a) { try { a.plain = ES.accountsPlain(a, inst[isin].fund, { nextEarnings: inst[isin].nextEarnings }); } catch (e) { a.plain = null; } inst[isin].accounts = a; }
+    if (a) {
+      try { a.plain = ES.accountsPlain(a, inst[isin].fund, { nextEarnings: inst[isin].nextEarnings }); } catch (e) { a.plain = null; }
+      // Une seule conclusion par fiche : la lecture complète (pertes, société en développement, trésorerie) prime sur le seul F-score
+      if (a.plain && a.plain.tone === 'bad' && a.verdict && a.verdict.key === 'good') a.verdict = Object.assign({}, a.verdict, { key: 'mixed', text: a.verdict.text.replace('Comptes solides et en amélioration', 'Comptes mitigés') });
+      inst[isin].accounts = a;
+    }
     if (peers[isin]) inst[isin].peer = peers[isin];
     if (positions[isin]) inst[isin].position = positions[isin];
     const sh = ES.shortInfo(shortsList[isin], today);
