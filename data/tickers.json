@@ -125,6 +125,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "SYENS.BR"
  },
+ "BE0974502347": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Floridienne S.A.",
+  "resolvedAt": "2026-10-09",
+  "ticker": "FLOB.BR"
+ },
  "BG1100003166": {
   "exchange": "XETRA",
   "method": "recherche Yahoo par ISIN",
@@ -3688,6 +3695,13 @@
   "method": "recherche Yahoo par ISIN",
   "name": "ADTRAN Holdings, Inc.",
   "ticker": "ADTN"
+ },
+ "US21037T1097": {
+  "exchange": "NASDAQ",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Constellation Energy Corporation",
+  "resolvedAt": "2026-10-09",
+  "ticker": "CEG"
  },
  "US2220702037": {
   "checkedHome": "2026-10-08",

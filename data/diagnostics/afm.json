@@ -1,9 +1,9 @@
 {
  "status": 200,
  "contentType": null,
- "bytes": 668996,
+ "bytes": 669581,
  "encoding": "cp1252",
- "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Querci N.\";\"Querci\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sole S.\";\"Sole\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Nieri G.\";\"Nieri\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Giordani M.A.E.\";\"Giordani\"\r\n\"2026-10-02 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sala S.G.\";\"Sala\"\r\n\"2026-10-01 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Sole S.\";\"Sole\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Mann E.\";\"Mann\"\r\n\"2026-09-30 00:00:00\";\"DSM-Firmenich AG\";\"Wortmann - K",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-08 00:00:00\";\"CEG N.V.\";\"Bayoglu U.\";\"Bayoglu\"\r\n\"2026-10-06 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Berlusconi P.S.\";\"Berlusconi\"\r\n\"2026-10-06 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Giordani M.A.E.\";\"Giordani\"\r\n\"2026-10-06 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Nieri G.\";\"Nieri\"\r\n\"2026-10-06 00:00:00\";\"SWI Capital Holding Limited\";\"George M-H.\";\"George\"\r\n\"2026-10-05 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Giordani M.A.E.\";\"Giordani\"\r\n\"2026-10-05 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Berlusconi P.S.\";\"Berlusconi\"\r\n\"2026-10-05 ",
  "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
  "delimiter": ";",
  "headers": [
@@ -14,28 +14,28 @@
  ],
  "sampleRows": [
   [
-   "2026-10-02 00:00:00",
-   "MFE-MEDIAFOREUROPE N.V.",
-   "Querci N.",
-   "Querci"
+   "2026-10-08 00:00:00",
+   "CEG N.V.",
+   "Bayoglu U.",
+   "Bayoglu"
   ],
   [
-   "2026-10-02 00:00:00",
+   "2026-10-06 00:00:00",
    "MFE-MEDIAFOREUROPE N.V.",
-   "Sole S.",
-   "Sole"
+   "Berlusconi P.S.",
+   "Berlusconi"
   ],
   [
-   "2026-10-02 00:00:00",
+   "2026-10-06 00:00:00",
    "MFE-MEDIAFOREUROPE N.V.",
-   "Nieri G.",
-   "Nieri"
+   "Giordani M.A.E.",
+   "Giordani"
   ]
  ],
- "rowCount": 9487,
+ "rowCount": 9495,
  "columnMap": {
   "issuer": "Issuing institution"
  },
- "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>20261002236E95CD-073B-4289-8DAE-4ACD50B5391C</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Querci N.</meldingsplichtige><meldingsplichtigeachternaam>Querci</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Querci N. - </vermelding></vermelding><vermelding><meldingid>202610023A3C563C-4954-47C4-8BE6-29DEC8BDA3AF</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sole S.</meldingsplichtige><meldingsplichtigeachternaam>Sole</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sole S. - </vermelding></vermelding><vermelding><meldingid>202610026BBF3291-52AC-4EC7-8D3A-43BD7F173DB0</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Nieri G.</meldingsplichtige><meldingsplichtigeachternaam>Nieri</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Nieri G. - </vermelding></vermelding><vermelding><meldingid>20261002CD76335E-2F72-4BD3-B112-043921F1558E</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Giordani M.A.E.</meldingsplichtige><meldingsplichtigeachternaam>Giordani</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Giordani M.A.E. - </vermelding></vermelding><vermelding><meldingid>20261002F39B30B5-E532-42EB-9C70-49ED816483C9</meldingid><transactiedatum>10/2/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sala S.G.</meldingsplichtige><meldingsplichtigeachternaam>Sala</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sala S.G. - </vermelding></vermelding><vermelding><meldingid>202610013B8D9F0C-FE2A-42B6-9BF1-37D225559222</meldingid><transactiedatum>10/1/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Sole S.</meldingsplichtige><meldingsplichtigeachternaam>Sole</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Sole S. - </vermelding></vermelding><vermelding",
- "at": "2026-10-08T22:51:24.459772+00:00"
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>2026100888927E45-A7B4-4AE8-A738-8D39B258EE1C</meldingid><transactiedatum>10/8/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>CEG N.V.</uitgevendeinstelling><meldingsplichtige>Bayoglu U.</meldingsplichtige><meldingsplichtigeachternaam>Bayoglu</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO and Managing Board Member at  Nexent Bank N.V.</functie><lei>724500XMW8FY9YNPRJ73</lei><vermelding>CEG N.V. - Bayoglu U. - </vermelding></vermelding><vermelding><meldingid>20261006647A6ECA-B29A-41D9-89F7-8925A17EEDF1</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Berlusconi P.S.</meldingsplichtige><meldingsplichtigeachternaam>Berlusconi</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Berlusconi P.S. - </vermelding></vermelding><vermelding><meldingid>202610066A769961-954F-426F-8D1A-2E21492A53C7</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Giordani M.A.E.</meldingsplichtige><meldingsplichtigeachternaam>Giordani</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Giordani M.A.E. - </vermelding></vermelding><vermelding><meldingid>20261006C9FB1074-CDA3-4136-AD5A-312AD9EC899D</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Nieri G.</meldingsplichtige><meldingsplichtigeachternaam>Nieri</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Nieri G. - </vermelding></vermelding><vermelding><meldingid>20261006EDA45A1F-CA00-4C2A-937F-8FCFD3591CC6</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>SWI Capital Holding Limited</uitgevendeinstelling><meldingsplichtige>George M-H.</meldingsplichtige><meldingsplichtigeachternaam>George</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CEO</functie><lei>391200TF46LFEOGZR692</lei><vermelding>SWI Capital Holding Limited - George M-H. - </vermelding></vermelding><vermelding><meldingid>202610058AFFEE56-D9E9-4647-890F-D194F11E267F</meldingid><transactiedatum>10/5/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Giordani M.A.E.</meldingsplichtige><meldingsplichtigeachternaam>Giordani</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-M",
+ "at": "2026-10-09T07:09:28.316484+00:00"
 }
