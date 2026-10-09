@@ -252,7 +252,7 @@ export function build(opts = {}) {
   const accAt = (isin, d) => { try { const i = inst[isin]; return ES.accountsAnalysis(finList[isin], { asOf: d, sector: i.sector || (i.fund && i.fund.sector), industry: i.fund && i.fund.industry }); } catch (e) { return null; } };
   Object.keys(inst).forEach((isin) => {
     const a = finList[isin] ? accAt(isin, today) : null;
-    if (a) inst[isin].accounts = a;
+    if (a) { try { a.plain = ES.accountsPlain(a, inst[isin].fund, { nextEarnings: inst[isin].nextEarnings }); } catch (e) { a.plain = null; } inst[isin].accounts = a; }
     if (peers[isin]) inst[isin].peer = peers[isin];
     if (positions[isin]) inst[isin].position = positions[isin];
     const sh = ES.shortInfo(shortsList[isin], today);
@@ -530,7 +530,8 @@ export function build(opts = {}) {
         if (!sc.buys.length || sc.ambiguousCount || sc.total < (selCfg.minScore || 0)) return;
         if (!sc.buys.some((t) => ES.availDate(t) >= from)) return;
         if (sc.sellEur > sc.buyEur && sc.sellEur > 0) return;
-        notes.push({ isin, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => (t.ceo || t.cfo) && ES.availDate(t) >= from), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers) });
+        const acD = finList[isin] ? accAt(isin, D0) : null; // comptes publiés à cette date seulement
+        notes.push({ isin, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => (t.ceo || t.cfo) && ES.availDate(t) >= from), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers), fs: acD && acD.fscore && !acD.fscore.na ? acD.fscore.f9 : null });
       });
       notes.sort((a, b) => b.note - a.note);
       replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.filter((x) => !selCfg.requireCeoCfo || x.dg).slice(0, selCfg.size || 5), cands: notes });
@@ -575,11 +576,35 @@ export function build(opts = {}) {
     const outs = outsOf((w) => w.picks);
     // Variantes de règle, rejouées de la même façon : ne garder que les achats du DG ou du DAF, ou aussi les clusters
     const variant = (f) => { const o = outsOf((w) => (w.cands || []).filter(f).slice(0, N)); const st = ES.outcomeStats(o); if (st) st.perWeek = Math.round(replay.reduce((a, w) => a + Math.min(N, (w.cands || []).filter(f).length), 0) / Math.max(1, replay.length) * 10) / 10; return st; };
-    const variants = { current: variant(() => true), dg: variant((x) => x.dg), dgCluster: variant((x) => x.dg || x.cl), cluster: variant((x) => x.cl) };
+    const G = cfg.accounts.fscoreGood;
+    const variants = { current: variant(() => true), dg: variant((x) => x.dg), dgCluster: variant((x) => x.dg || x.cl), cluster: variant((x) => x.cl),
+      f7: variant((x) => x.fs != null && x.fs >= G), dgF7: variant((x) => x.dg && x.fs != null && x.fs >= G) };
     const band = (lo, hi) => ES.outcomeStats(outs.filter((o) => o.note >= lo && o.note < hi));
     selection.replayStats = { horizon: H, all: ES.outcomeStats(outs), top: band(ES.note(cfg.alerts.minScore, cfg), 101), strong: band(ES.note(cfg.selection.minScore, cfg), ES.note(cfg.alerts.minScore, cfg)),
       from: outs.length ? outs.map((o) => o.date).sort()[0] : null, to: outs.length ? outs.map((o) => o.date).sort().pop() : null, variants };
   } catch (e) { console.warn('  Fiabilité rejouée indisponible : ' + e.message); }
+  // F-score seul (stratégie de Piotroski, sans achat de dirigeant) sur les sociétés liquides suivies : chaque exercice,
+  // signal 120 jours après la clôture (comptes publiés), résultat 60 séances plus tard, comparé au CAC 40, frais déduits
+  try {
+    const H = cfg.learning.horizon, cost = cfg.backtest.costRoundTripPct / 100, pts = [];
+    Object.keys(inst).forEach((isin) => {
+      const a = adjAll[isin], i = inst[isin];
+      if (!a || !finList[isin] || i.benchmark || ES.universeStatus(i, cfg).status !== 'retenu') return;
+      const full = accAt(isin, today);
+      if (!full || !full.fscoreHistory) return;
+      full.fscoreHistory.forEach((h) => {
+        const row = (full.years || []).find((y) => y.year === h.year);
+        if (h.na || h.f9 == null || !row) return;
+        const d = ES.addDays(row.date, 120), r = fwdRet(a, d, H);
+        if (r == null || d < a[0][0]) return;
+        const ins = (sigAll[isin] || []).some((x) => x <= d && x >= ES.addDays(d, -180)); // achat de dirigeant dans les 6 mois précédant le signal
+        pts.push({ isin, date: d, f9: h.f9, ins, ret: r - cost, excess: bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, H, cost) : null });
+      });
+    });
+    const st = (f) => ES.outcomeStats(pts.filter(f));
+    selection.piotroski = { horizon: H, n: pts.length, low: st((p) => p.f9 <= 3), mid: st((p) => p.f9 >= 4 && p.f9 <= 6), high: st((p) => p.f9 >= 7), top: st((p) => p.f9 >= 8),
+      highIns: st((p) => p.f9 >= 7 && p.ins), highNoIns: st((p) => p.f9 >= 7 && !p.ins), from: pts.length ? pts.map((p) => p.date).sort()[0] : null };
+  } catch (e) { console.warn('  Test du F-score seul indisponible : ' + e.message); }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle
     const resend = String(process.env.ES_RESEND_SELECTION || '').toLowerCase() === 'true';
@@ -646,9 +671,11 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     const a = inst[isin].accounts; if (!a) return;
     accountsFull[isin] = a;
-    try { a.plain = ES.accountsPlain(a, inst[isin].fund, { nextEarnings: inst[isin].nextEarnings }); } catch (e) { a.plain = null; }
-    inst[isin].accounts = { fscore: a.fscore ? (a.fscore.na ? { na: true, reason: a.fscore.reason } : { f9: a.fscore.f9, score: a.fscore.score, avail: a.fscore.avail, year: a.fscore.year }) : null, verdict: a.verdict, n: a.n, plain: a.plain, summary: true };
+    // Fichier principal allégé : le texte complet de la lecture des comptes n'est lu qu'à l'ouverture d'une fiche (fichier détail)
+    inst[isin].accounts = { fscore: a.fscore ? (a.fscore.na ? { na: true, reason: a.fscore.reason } : { f9: a.fscore.f9, score: a.fscore.score, avail: a.fscore.avail, year: a.fscore.year }) : null, verdict: a.verdict, n: a.n, plain: a.plain ? { tone: a.plain.tone, label: a.plain.label } : null, fscoreHistory: a.fscoreHistory || null, fscoreTrend: a.fscoreTrend || null, summary: true };
   });
+  // Liste des dirigeants (Yahoo) : sert seulement au calcul (DG et DAF), pas au tableau de bord
+  Object.keys(inst).forEach((isin) => { const f = inst[isin].fund; if (f && f.officers) { const c = Object.assign({}, f); delete c.officers; inst[isin].fund = c; } });
   const detail = { format: 'euro-signal-detail', generatedAt: new Date().toISOString(), today, tx: dashTx, refs: dashRefs, prices: dashPrices, accounts: accountsFull };
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,

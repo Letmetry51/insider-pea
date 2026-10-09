@@ -756,6 +756,19 @@ t('Lecture des comptes pour l\'investisseur : synthèse chiffrée et conseil', (
   ok(/4,5 ans de résultat pour rembourser sa dette, ce qui est lourd/.test(debt.explain), debt.explain);
   ok(/pour 100 € apportés par ses actionnaires, l'établissement a gagné 12,0 €/.test(bank.explain) && /plus que le rendement/.test(bank.explain), bank.explain);
   eq(ES.accountsPlain(null), null);
+  // Société en développement (chiffre d'affaires marginal) et phase d'investissement (trésorerie d'exploitation positive, free cash-flow négatif)
+  const bio = ES.accountsPlain(ES.accountsAnalysis({ years: [y('2023-12-31', 2, -40, -42, 0, 200, -38, -35, 100), y('2024-12-31', 3, -50, -49, 0, 150, -48, -40, 120)] }, {}));
+  ok(/encore marginal, marges non significatives/.test(bio.text) && !/−1/.test(bio.text.split('Free')[1] || '') && /phase de développement/.test(bio.advice) && bio.tone === 'bad', bio.text);
+  const inv = Object.assign({}, y('2024-12-31', 500, 100, 60, 2000, 100, 300, -50, 100)); inv.cfo = 200e6;
+  const util = ES.accountsPlain(ES.accountsAnalysis({ years: [Object.assign(y('2023-12-31', 480, 95, 55, 1900, 100, 290, -40, 100), { cfo: 190e6 }), inv] }, {}));
+  ok(/Phase d'investissement/.test(util.advice) && !/Consommation de trésorerie/.test(util.advice) && util.tone !== 'bad', util.advice);
+  // Évolution du F-score : un score par exercice (chacun comparé au précédent)
+  const z = (d, ni, cfo, ltd, sh, gp, rev) => ({ date: d, revenue: rev, grossProfit: gp, operatingIncome: ni, netIncome: ni, totalAssets: 1000, currentAssets: 300, currentLiabilities: 200, longTermDebt: ltd, totalDebt: ltd, cash: 50, equity: 400, shares: sh, cfo, capex: -10, ebitda: ni + 20 });
+  const ev = ES.accountsAnalysis({ years: [z('2021-12-31', 50, 60, 300, 100, 400, 1000), z('2022-12-31', 40, 30, 320, 110, 380, 950), z('2023-12-31', 45, 60, 300, 110, 390, 980), z('2024-12-31', 70, 90, 250, 110, 420, 1100)] }, {});
+  eq(ev.fscoreHistory.map((h) => h.year).join(','), '2022,2023,2024', 'un F-score par exercice comparé au précédent');
+  ok(ev.fscoreHistory[0].f9 < ev.fscoreHistory[2].f9, JSON.stringify(ev.fscoreHistory)); eq(ev.fscoreTrend.key, 'up');
+  eq(ev.fscore.f9, ev.fscoreHistory[2].f9, 'dernier F-score = F-score affiché');
+  ok(/évolution \d → \d → \d depuis 2022, en amélioration/.test(ES.accountsPlain(ev).text), ES.accountsPlain(ev).text);
 });
 
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {
