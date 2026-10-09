@@ -3021,6 +3021,7 @@ details.pos summary{font-size:1rem}
       lo = Math.min(lo, r.paidAdj); hi = Math.max(hi, r.paidAdj);
     });
     var pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+    L = Math.max(L, 12 + 7 * fmtN(hi, hi < 10 ? 2 : 1).length); // cours à 4 chiffres (1 966,3) : marge élargie pour ne pas couper l'étiquette
     var n = adj.length, xs = function (k) { return L + (W - L - R) * (n === 1 ? 0.5 : k / (n - 1)); }, ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
     var idx = {}; adj.forEach(function (r, k) { idx[r[0]] = k; });
     var path = adj.map(function (r, k) { return (k ? 'L' : 'M') + xs(k).toFixed(1) + ' ' + ys(r[4]).toFixed(1); }).join(' ');
