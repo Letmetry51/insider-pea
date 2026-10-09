@@ -106,13 +106,28 @@ export function build(opts = {}) {
   eu.sources = eu.sources && typeof eu.sources === 'object' ? Object.fromEntries(Object.entries(eu.sources).filter(([, v]) => v && typeof v === 'object')) : {};
   const euSrc = {};
   const euRejects = {};
+  const foreign = [];
   Object.values(eu.records || {}).filter((rec) => rec && typeof rec === 'object').forEach((rec) => {
     const r = ES.fromCollectorRecord(rec, { today });
     if (!r.ok) { (euRejects[rec.registry] = euRejects[rec.registry] || []).push({ isin: rec.isin, company: rec.issuer, declaration: rec.id, errors: r.errors }); return; }
     if (r.rec.type === 'instrument') return;
-    if (!ES.isEuropeanIsin(r.rec.isin)) { (euRejects[rec.registry] = euRejects[rec.registry] || []).push({ isin: rec.isin, company: rec.issuer, declaration: rec.id, errors: ['ISIN hors Europe pour une déclaration européenne : société probablement confondue'] }); return; }
+    if (!ES.isEuropeanIsin(r.rec.isin)) { foreign.push({ r, rec }); return; }
     (incoming[r.rec.isin] = incoming[r.rec.isin] || []).push(r.rec);
   });
+  // ISIN hors Europe (ADR américain, ou société confondue par la source) : rattaché à la cotation européenne de même nom si elle existe, sinon écarté
+  const nameKey = (n) => String(n || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\b(n\.?v|s\.?a|s\.?e|ag|s\.?p\.?a|plc|se|sa|nv|holding|holdings|group|inc|corp|corporation)\b\.?/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  const euByName = {};
+  const addName = (n, isin) => { const k = nameKey(n); if (k.length >= 4 && ES.isEuropeanIsin(isin)) euByName[k] = euByName[k] || isin; };
+  Object.keys(incoming).forEach((isin) => incoming[isin].forEach((t) => addName(t.issuer, isin)));
+  Object.keys(state.txArchive).forEach((isin) => (state.txArchive[isin] || []).forEach((t) => addName(t.issuer, isin)));
+  Object.keys(prices.items || {}).forEach((isin) => addName((prices.items[isin] || {}).name, isin));
+  let remapped = 0;
+  foreign.forEach(({ r, rec }) => {
+    const to = euByName[nameKey(rec.issuer)];
+    if (to) { r.rec.isin = to; r.rec.id = String(r.rec.id || '').replace(rec.isin, to) || r.rec.id; (incoming[to] = incoming[to] || []).push(r.rec); remapped++; return; }
+    (euRejects[rec.registry] = euRejects[rec.registry] || []).push({ isin: rec.isin, company: rec.issuer, declaration: rec.id, errors: ['ISIN hors Europe sans cotation européenne connue : société confondue ou non éligible'] });
+  });
+  if (foreign.length) console.log(`  ISIN hors Europe : ${remapped} rattaché(s) à leur cotation européenne, ${foreign.length - remapped} écarté(s)`);
   Object.keys(eu.sources || {}).forEach((name) => {
     const s0 = eu.sources[name];
     const fresh = s0.lastSuccess && ES.daysBetween(s0.lastSuccess, today) <= 3;
