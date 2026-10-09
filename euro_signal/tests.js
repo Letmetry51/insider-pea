@@ -722,6 +722,20 @@ t('DG et DAF reconnus par la liste des dirigeants publiée (déclarations « mem
   ['CEO, President & Chairman of Management Board of Fresenius Management SE', 'Chairman of the Board of Management & CEO - HORNBACH Management AG', 'CEO & Chairman of Management Board', 'MD, CEO & Executive Director'].forEach((x) => eq(ES.officerRole(x), 'ceo', x));
 });
 
+t('Sélection : achat du DG ou du DAF exigé (réglage), vendeurs nets et comptes en forte dégradation écartés', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, { selection: { requireCeoCfo: true } });
+  const base = { inst: { name: 'Soc', fund: null }, quality: { total: 90, coverage: { ok: true } }, universe: { status: 'retenu' } };
+  const mk = (buys, extra) => Object.assign({}, base, { score: Object.assign({ total: 40, buys, ambiguousCount: 0, buyEur: 300000, sellEur: 0 }, extra || {}) });
+  const b = (ceo, d) => ({ txDate: d || '2026-10-01', pubDate: d || '2026-10-01', person: 'X', ceo });
+  ok(ES.selectionBlockers(mk([b(false)]), c, '2026-10-08').some((x) => /DG ou du DAF/.test(x)), 'administrateur seul : écarté');
+  eq(ES.selectionBlockers(mk([b(true)]), c, '2026-10-08').length, 0, 'DG récent : retenu');
+  ok(ES.selectionBlockers(mk([b(false), b(true, '2026-08-01')]), c, '2026-10-08').some((x) => /DG ou du DAF/.test(x)), 'achat du DG trop ancien');
+  eq(ES.selectionBlockers(mk([b(false)]), ES.mergeConfig(ES.DEFAULT_CONFIG, {}), '2026-10-08').length, 0, 'réglage désactivé par défaut');
+  ok(ES.selectionBlockers(mk([b(true)], { sellEur: 900000 }), c, '2026-10-08').some((x) => /vendent plus/.test(x)), 'vendeurs nets');
+  const f = mk([b(true)]); f.inst = { name: 'Soc', fund: null, accounts: { fscore: { f9: 1 } } };
+  ok(ES.selectionBlockers(f, c, '2026-10-08').some((x) => /F-score 1/.test(x)));
+});
+
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {
   const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const mk = (rev, cur, ind) => ({ fund: { revenue: rev, currency: cur, industry: ind || 'Auto Parts' } });

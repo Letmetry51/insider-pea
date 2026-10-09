@@ -632,7 +632,7 @@
     accounts: { fscoreGood: 7, fscoreBad: 3 }, // F-score de Piotroski : 7 à 9 = comptes solides, 0 à 3 = comptes en dégradation // décote / prime de valorisation par rapport aux pairs jugée nette // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
-    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true },
+    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60], oosStart: '' }
@@ -864,6 +864,10 @@
     if (sc.total < S.minScore) out.push('note ' + ES.note(sc.total, cfg) + '/100, sous le seuil de ' + ES.note(S.minScore, cfg));
     var from = ES.addDays(today, -S.recentDays);
     if (!sc.buys.some(function (t) { return ES.availDate(t) >= from; })) out.push('dernier achat significatif publié il y a plus de ' + S.recentDays + ' jours');
+    else if (S.requireCeoCfo && !sc.buys.some(function (t) { return (t.ceo || t.cfo) && ES.availDate(t) >= from; })) out.push('pas d\'achat du DG ou du DAF ces ' + S.recentDays + ' derniers jours (seul signal qui tient sur nos données)');
+    if (sc.sellEur > sc.buyEur && sc.sellEur > 0) out.push('les dirigeants vendent plus qu\'ils n\'achètent');
+    var fs = c.inst.accounts && c.inst.accounts.fscore && !c.inst.accounts.fscore.na ? c.inst.accounts.fscore.f9 : null;
+    if (fs != null && fs <= 1) out.push('comptes en forte dégradation (F-score ' + fs + '/9)');
     return out;
   };
   /**
@@ -968,7 +972,7 @@
     var n = sel.length, S = cfg.selection || {};
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var A = cfg.alerts.minScore, M = S.minScore;
-    var intro = 'Sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + S.recentDays + ' derniers jours, solides et liquides' + (S.peaOnly !== false ? ', éligibles au PEA' : '') + '. Note sur 100 : ' + ES.note(A, cfg) + ' et plus = très fort, ' + ES.note(M, cfg) + ' à ' + (ES.note(A, cfg) - 1) + ' = fort.';
+    var intro = 'Sociétés où ' + (S.requireCeoCfo ? 'le DG ou le DAF' : 'un dirigeant') + ' a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + S.recentDays + ' derniers jours, solides et liquides' + (S.peaOnly !== false ? ', éligibles au PEA' : '') + '. Note sur 100 : ' + ES.note(A, cfg) + ' et plus = très fort, ' + ES.note(M, cfg) + ' à ' + (ES.note(A, cfg) - 1) + ' = fort.';
     // Repli quand l'avis croisé n'est pas fourni (tests, anciennes données) : faits bruts
     var why = function (x) {
       var w = [];

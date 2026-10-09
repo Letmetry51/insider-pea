@@ -983,7 +983,7 @@ details.pos summary{font-size:1rem}
     accounts: { fscoreGood: 7, fscoreBad: 3 }, // F-score de Piotroski : 7 à 9 = comptes solides, 0 à 3 = comptes en dégradation // décote / prime de valorisation par rapport aux pairs jugée nette // note /100 affichée : 100 = maximum réaliste (initiés + marché au plafond = 60 points bruts)
     overheat: { rsiHigh: 75, rsiExtreme: 82, distSma50Pct: 20, ret1mPct: 25, blockAlertsAbove: null },
     alerts: { minScore: 45, minFamilies: 2, recentEventDays: 14, mode: 'simulation', recipient: '', enabled: false, blockFragile: true, earningsWarnDays: 21, buyEmails: true },
-    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true },
+    selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60], oosStart: '' }
@@ -1215,6 +1215,10 @@ details.pos summary{font-size:1rem}
     if (sc.total < S.minScore) out.push('note ' + ES.note(sc.total, cfg) + '/100, sous le seuil de ' + ES.note(S.minScore, cfg));
     var from = ES.addDays(today, -S.recentDays);
     if (!sc.buys.some(function (t) { return ES.availDate(t) >= from; })) out.push('dernier achat significatif publié il y a plus de ' + S.recentDays + ' jours');
+    else if (S.requireCeoCfo && !sc.buys.some(function (t) { return (t.ceo || t.cfo) && ES.availDate(t) >= from; })) out.push('pas d\'achat du DG ou du DAF ces ' + S.recentDays + ' derniers jours (seul signal qui tient sur nos données)');
+    if (sc.sellEur > sc.buyEur && sc.sellEur > 0) out.push('les dirigeants vendent plus qu\'ils n\'achètent');
+    var fs = c.inst.accounts && c.inst.accounts.fscore && !c.inst.accounts.fscore.na ? c.inst.accounts.fscore.f9 : null;
+    if (fs != null && fs <= 1) out.push('comptes en forte dégradation (F-score ' + fs + '/9)');
     return out;
   };
   /**
@@ -1319,7 +1323,7 @@ details.pos summary{font-size:1rem}
     var n = sel.length, S = cfg.selection || {};
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' dossier' + (n > 1 ? 's' : '') + ' à étudier' : 'aucun dossier');
     var A = cfg.alerts.minScore, M = S.minScore;
-    var intro = 'Sociétés où un dirigeant a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + S.recentDays + ' derniers jours, solides et liquides' + (S.peaOnly !== false ? ', éligibles au PEA' : '') + '. Note sur 100 : ' + ES.note(A, cfg) + ' et plus = très fort, ' + ES.note(M, cfg) + ' à ' + (ES.note(A, cfg) - 1) + ' = fort.';
+    var intro = 'Sociétés où ' + (S.requireCeoCfo ? 'le DG ou le DAF' : 'un dirigeant') + ' a acheté au moins ' + fmtEur(cfg.insiders.minBuyerEur) + ' ces ' + S.recentDays + ' derniers jours, solides et liquides' + (S.peaOnly !== false ? ', éligibles au PEA' : '') + '. Note sur 100 : ' + ES.note(A, cfg) + ' et plus = très fort, ' + ES.note(M, cfg) + ' à ' + (ES.note(A, cfg) - 1) + ' = fort.';
     // Repli quand l'avis croisé n'est pas fourni (tests, anciennes données) : faits bruts
     var why = function (x) {
       var w = [];
@@ -2701,7 +2705,7 @@ details.pos summary{font-size:1rem}
   function selectionCard() {
     var sel = S.snapshot && S.snapshot.selection;
     if (!sel || !sel.items) return '';
-    var rule = 'Achat d\'au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ' par un dirigeant ces ' + ((S.cfg.selection || {}).recentDays || 30) + ' derniers jours, société solide, données fiables, classées par note.';
+    var rule = 'Achat d\'au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ' par ' + (S.cfg.selection.requireCeoCfo ? 'le DG ou le DAF' : 'un dirigeant') + ' ces ' + ((S.cfg.selection || {}).recentDays || 30) + ' derniers jours, société solide, données fiables, classées par note.';
     if (!sel.items.length) return '<section class="card selc"><h3>Sélection de la semaine</h3><p class="muted">Aucune société ne remplit tous les critères en ce moment. ' + esc(rule) + '</p></section>';
     var v = sel.verdict;
     return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3>' + (v && v.text ? '<p class="verdict v-' + esc(v.key) + '">' + (v.icon || '') + ' ' + esc(v.text) + '</p>' : '') + '<ol class="sel">' +
@@ -3202,7 +3206,7 @@ details.pos summary{font-size:1rem}
   function variantsBlock(v) {
     if (!v || !v.current) return '';
     var pc = function (x) { return '<span class="' + (x >= 0 ? 'pos' : 'neg') + '">' + pct(x) + '</span>'; };
-    var rows = [['Règle actuelle (tout dirigeant)', v.current], ['DG ou DAF seulement', v.dg], ['DG, DAF ou ≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants', v.dgCluster], ['≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants seulement', v.cluster]].filter(function (r) { return r[1] && r[1].n; });
+    var rows = [['Tout dirigeant' + (S.cfg.selection.requireCeoCfo ? ' (ancienne règle)' : ' (règle actuelle)'), v.current], ['DG ou DAF seulement' + (S.cfg.selection.requireCeoCfo ? ' (règle actuelle)' : ''), v.dg], ['DG, DAF ou ≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants', v.dgCluster], ['≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants seulement', v.cluster]].filter(function (r) { return r[1] && r[1].n; });
     return '<h4 class="mt">Et avec une règle plus stricte ?</h4><p class="foot">Mêmes lundis rejoués, en ne retenant que certains acheteurs (au plus ' + S.cfg.selection.size + ' dossiers par semaine).</p>' +
       '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Règle</th><th class="num">Dossiers</th><th class="num">Par semaine</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
       rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Règle">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="Par semaine">' + fmtN(o.perWeek, 1) + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b></td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>';
@@ -3235,7 +3239,7 @@ details.pos summary{font-size:1rem}
       step('Collecte, chaque soir de semaine', 'Déclarations des dirigeants de 6 pays (AMF, BaFin, CNMV, Consob, FSMA, AFM), cours, résultats, communiqués et données financières des sociétés.') +
       step('Tri des achats', 'Seuls comptent les achats volontaires de personnes physiques (ou de leur holding personnelle selon le réglage), d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + ' par dirigeant sur ' + c.insiders.clusterWindowDays + ' jours. Attributions gratuites, options, déclarations tardives et sociétés d\'investissement sont écartées.') +
       step('Note sur 100', 'Initiés (décote du prix payé, cluster, DG, panique), rachats d\'actions, résultats et tendance de marché. Le détail de chaque point est visible dans la fiche.') +
-      step('Emails', 'Alerte : seulement si la note atteint ' + ES.note(c.alerts.minScore, c) + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle. Sélection de la semaine : chaque lundi, les ' + ((c.selection || {}).size || 5) + ' meilleurs dossiers du moment (note d\'au moins ' + ES.note((c.selection || {}).minScore || 0, c) + '), même quand aucune alerte ne part.') +
+      step('Emails', 'Alerte : seulement si la note atteint ' + ES.note(c.alerts.minScore, c) + ' avec au moins ' + c.alerts.minFamilies + ' familles de signaux, des données à jour, une société financièrement solide et une information nouvelle. Sélection de la semaine : chaque lundi, les ' + ((c.selection || {}).size || 5) + ' meilleurs dossiers du moment (note d\'au moins ' + ES.note((c.selection || {}).minScore || 0, c) + (c.selection.requireCeoCfo ? ', achat récent du DG ou du DAF' : '') + '), même quand aucune alerte ne part.') +
       step('Suivi et apprentissage', 'Chaque alerte et chaque achat que vous déclarez sont suivis ; chaque mois, l\'outil mesure ce qui a marché et ajuste son barème, avec des garde-fous.') + '</ol>' +
       '<p class="foot">Le score aide à trier ; ce n\'est pas une probabilité de hausse et aucun ordre n\'est passé. L\'éligibilité PEA est toujours à vérifier. Réglages : fichier euro_signal/config.json du dépôt GitHub.</p>' +
       '<p class="foot"><b>Sur téléphone :</b> menu du navigateur → « Ajouter à l\'écran d\'accueil » (Android) ou bouton Partager → « Sur l\'écran d\'accueil » (iPhone). Euro Signal s\'ouvre alors comme une application, et le dernier classement reste consultable sans connexion.</p></section>';

@@ -529,10 +529,11 @@ export function build(opts = {}) {
         const sc = ES.score({ inst: iD, tx: txD, events: evOut[isin] || { buybacks: [], results: [] }, refs: rf, cfg, today: D0 });
         if (!sc.buys.length || sc.ambiguousCount || sc.total < (selCfg.minScore || 0)) return;
         if (!sc.buys.some((t) => ES.availDate(t) >= from)) return;
-        notes.push({ isin, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => t.ceo || t.cfo), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers) });
+        if (sc.sellEur > sc.buyEur && sc.sellEur > 0) return;
+        notes.push({ isin, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => (t.ceo || t.cfo) && ES.availDate(t) >= from), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers) });
       });
       notes.sort((a, b) => b.note - a.note);
-      replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.slice(0, selCfg.size || 5), cands: notes });
+      replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.filter((x) => !selCfg.requireCeoCfo || x.dg).slice(0, selCfg.size || 5), cands: notes });
     });
   } catch (e) { console.warn('  Repère historique indisponible : ' + e.message); replay.length = 0; }
   // Une société retenue plusieurs lundis de suite = un seul dossier (sa meilleure note). Les dossiers de la sélection actuelle

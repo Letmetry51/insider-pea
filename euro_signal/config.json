@@ -46,7 +46,8 @@
   "size": 5,
   "minScore": 30,
   "recentDays": 30,
-  "weekday": 1
+  "weekday": 1,
+  "requireCeoCfo": true
  },
  "display": {
   "scoreCeiling": 60
