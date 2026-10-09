@@ -736,19 +736,20 @@ t('Sélection : achat du DG ou du DAF exigé (réglage), vendeurs nets et compte
   ok(ES.selectionBlockers(f, c, '2026-10-08').some((x) => /F-score 1/.test(x)));
 });
 
-t('Comptes en clair : une phrase simple et un conseil', () => {
-  const y = (d, rev, op, ni, debt, cash, ebitda, fcf, shares) => ({ date: d, revenue: rev, operatingIncome: op, netIncome: ni, totalDebt: debt, cash, ebitda, fcf, shares, totalAssets: 1000, equity: 400, cfo: fcf, currentAssets: 300, currentLiabilities: 200, grossProfit: rev / 2 });
+t('Lecture des comptes pour l\'investisseur : synthèse chiffrée et conseil', () => {
+  const y = (d, rev, op, ni, debt, cash, ebitda, fcf, shares) => ({ date: d, revenue: rev * 1e6, operatingIncome: op * 1e6, netIncome: ni * 1e6, totalDebt: debt * 1e6, cash: cash * 1e6, ebitda: ebitda * 1e6, fcf: fcf * 1e6, shares, totalAssets: 1000e6, equity: 400e6, cfo: fcf * 1e6, currentAssets: 300e6, currentLiabilities: 200e6, grossProfit: rev * 5e5 });
   const good = ES.accountsAnalysis({ years: [y('2022-12-31', 100, 10, 6, 50, 80, 15, 5, 100), y('2023-12-31', 110, 12, 8, 50, 90, 17, 6, 100), y('2024-12-31', 125, 15, 10, 40, 100, 20, 8, 100)] }, {});
-  const p = ES.accountsPlain(good);
-  ok(/vend de plus en plus/.test(p.text) && /garde 12 € sur 100 €/.test(p.text) && /plus d'argent en caisse que de dettes/.test(p.text), p.text);
+  const p = ES.accountsPlain(good, null, { nextEarnings: '2026-11-05' });
+  ok(/Chiffre d'affaires de 125 M€ en 2024, en croissance de 11,8 % par an depuis 2022 ; marge opérationnelle de 12,0 % \(\+2,0 pts/.test(p.text), p.text);
+  ok(/Free cash-flow positif sur les 3 exercices/.test(p.text) && /Trésorerie nette/.test(p.text) && /F-score de Piotroski/.test(p.text), p.text);
   const loss = ES.accountsPlain(ES.accountsAnalysis({ years: [y('2023-12-31', 100, -5, -6, 300, 10, 20, -5, 100), y('2024-12-31', 90, -9, -10, 320, 10, 20, -8, 130)] }, {}));
-  ok(/vend de moins en moins/.test(loss.text) && /perd 10 € sur 100 €/.test(loss.text) && /part du gâteau/.test(loss.text) && /Prudence/.test(loss.advice), loss.text + ' ' + loss.advice);
+  ok(/marge opérationnelle de −10,0 %/.test(loss.text) && /Nombre d'actions en hausse de 30 %/.test(loss.text) && /Activité déficitaire/.test(loss.advice) && /Dilution significative/.test(loss.advice) && loss.tone === 'bad', loss.text + ' ' + loss.advice);
   const hold = ES.accountsPlain(ES.accountsAnalysis({ years: [y('2023-12-31', 100, -5, 20, 10, 500, 5, 1, 100), y('2024-12-31', 100, -5, 20, 10, 500, 5, 1, 100)] }, {}));
-  ok(/grâce à ses placements/.test(hold.text) && !/Prudence/.test(hold.advice), 'holding');
-  const debt = ES.accountsPlain(good, { totalDebt: 500, totalCash: 50, ebitda: 100 });
-  ok(/beaucoup de dettes \(il lui faudrait 4,5 ans/.test(debt.text) && /Méfie-toi/.test(debt.advice), 'dette du moment (locations comprises) prioritaire');
+  ok(/grâce aux participations/.test(hold.text) && /Profil de holding/.test(hold.advice) && !/déficitaire/.test(hold.advice), 'holding');
+  const debt = ES.accountsPlain(good, { totalDebt: 500e6, totalCash: 50e6, ebitda: 100e6 });
+  ok(/Dette nette \/ EBITDA de 4,5×, dettes locatives incluses : levier élevé/.test(debt.text) && /Levier élevé/.test(debt.advice), debt.text);
   const bank = ES.accountsPlain(ES.accountsAnalysis({ years: [y('2023-12-31', 100, 10, 40, 0, 0, 0, 0, 100), y('2024-12-31', 100, 10, 48, 0, 0, 0, 0, 100)] }, { sector: 'Financial Services', industry: 'Banks - Diversified' }));
-  ok(/banque ou une assurance qui gagne bien sa vie : avec 100 €/.test(bank.text), bank.text);
+  ok(/Établissement financier : rentabilité des fonds propres \(ROE\) de 12,0 %/.test(bank.text) && /CET1/.test(bank.advice), bank.text);
   eq(ES.accountsPlain(null), null);
 });
 

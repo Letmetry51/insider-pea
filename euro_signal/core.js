@@ -1205,45 +1205,68 @@
     return out;
   };
   /**
-   * Les comptes « en clair » : une phrase qu'un enfant de 10 ans comprend (la société vue comme une boutique) et un conseil.
-   * a : résultat complet de ES.accountsAnalysis. → { text, advice, tone: good | mixed | bad | na } ou null.
+   * Lecture des comptes pour l'investisseur : synthèse chiffrée (croissance, rentabilité, trésorerie, bilan, dilution, F-score)
+   * et conseil. a : résultat complet de ES.accountsAnalysis ; fund : données Yahoo du moment (dette locative comprise) ;
+   * opts.nextEarnings : prochaine publication. → { tone: good | mixed | bad | na, label, text, advice } ou null.
    */
-  ES.accountsPlain = function (a, fund) {
+  ES.accountsPlain = function (a, fund, opts) {
     if (!a || !a.years || !a.years.length) return null;
-    var R = a.years, last = R[R.length - 1], f = a.fscore && !a.fscore.na ? a.fscore.f9 : null;
+    opts = opts || {};
+    var R = a.years, last = R[R.length - 1], first = R[0], f = a.fscore && !a.fscore.na ? a.fscore.f9 : null, nyr = R.length - 1;
     var fin = a.fscore && a.fscore.na && /banques|financi/.test(a.fscore.reason || '');
-    var r0 = function (v) { return Math.round(v); };
+    var c1 = function (v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ',').replace('-', '−'); };
+    var sg = function (v) { return (v >= 0 ? '+' : '−') + c1(Math.abs(v)); };
+    var cur = a.currency && a.currency !== 'EUR' ? ' ' + a.currency : '€';
+    var big = function (v) { var x = Math.abs(v), t = x >= 1e9 ? c1(x / 1e9) + ' Md' : x >= 1e6 ? Math.round(x / 1e6) + ' M' : Math.round(x / 1e3) + ' k'; return (v < 0 ? '−' : '') + t + cur; };
+    var WEAK = { roa: 'exercice déficitaire', cfo: 'flux d\'exploitation négatif', droa: 'rentabilité des actifs en baisse', accrual: 'bénéfice peu converti en trésorerie', lev: 'endettement long terme en hausse', liq: 'liquidité court terme en baisse', shares: 'émission d\'actions', gm: 'marge brute en baisse', ato: 'rotation des actifs en baisse' };
+    var weak = f != null && a.fscore.items ? a.fscore.items.filter(function (x) { return x.ok === false; }).map(function (x) { return WEAK[x.k]; }).filter(Boolean) : [];
+    var fsTxt = f != null ? ' F-score de Piotroski : ' + f + '/9 sur l\'exercice ' + a.fscore.year + (weak.length && weak.length <= 5 ? ' (points faibles : ' + weak.join(', ') + ')' : '') + '.' : '';
+    var nxt = opts.nextEarnings ? ' (publication attendue le ' + ES.frDate(opts.nextEarnings) + ')' : '';
+    var atNext = opts.nextEarnings ? 'lors de la publication du ' + ES.frDate(opts.nextEarnings) : 'à la prochaine publication';
+    var LBL = { good: 'Profil financier solide', mixed: 'Profil financier intermédiaire', bad: 'Profil financier fragile', na: 'Profil financier non évaluable' };
     if (fin) {
-      var roe = last.roe;
-      if (roe == null) return { tone: 'na', text: 'C\'est une banque ou une assurance : ses comptes ne se lisent pas comme ceux d\'une boutique.', advice: 'Ne te fie pas aux comptes ici, regarde surtout le reste de la fiche.' };
-      return roe >= 10 ? { tone: 'good', text: 'C\'est une banque ou une assurance qui gagne bien sa vie : avec 100 € confiés par ses propriétaires, elle a gagné ' + r0(roe) + ' € l\'an dernier.', advice: 'Les comptes sont rassurants, tu peux t\'intéresser à ce dossier.' }
-        : roe > 0 ? { tone: 'mixed', text: 'C\'est une banque ou une assurance qui gagne un peu d\'argent : ' + r0(roe) + ' € par an pour 100 € confiés par ses propriétaires.', advice: 'Rien d\'inquiétant, mais rien d\'exceptionnel : achète petit si tu achètes.' }
-        : { tone: 'bad', text: 'C\'est une banque ou une assurance qui a perdu de l\'argent l\'an dernier.', advice: 'Prudence : attends qu\'elle redevienne rentable.' };
+      var roes = R.map(function (y) { return y.roe; }).filter(function (v) { return v != null; });
+      if (!roes.length) return { tone: 'na', label: LBL.na, text: 'Établissement financier : les ratios industriels (marge opérationnelle, dette nette / EBITDA) ne s\'appliquent pas et la rentabilité des fonds propres n\'est pas disponible.', advice: 'Apprécier la solvabilité (ratio CET1, ou ratio de solvabilité pour un assureur) et la qualité des actifs dans le rapport annuel avant toute décision.' };
+      var roe = roes[roes.length - 1], tone = roe >= 10 ? 'good' : roe > 0 ? 'mixed' : 'bad';
+      return { tone: tone, label: LBL[tone],
+        text: 'Établissement financier : rentabilité des fonds propres (ROE) de ' + c1(roe) + ' % sur le dernier exercice' + (roes.length > 1 ? ', contre ' + c1(roes[0]) + ' % en ' + first.year : '') + (last.netIncome != null ? ', pour un résultat net de ' + big(last.netIncome) : '') + '. Les ratios industriels (marge, dette / EBITDA) ne s\'appliquent pas.',
+        advice: (tone === 'good' ? 'Rentabilité supérieure au coût du capital du secteur (≈ 10 %) : un fondamental favorable. ' : tone === 'mixed' ? 'Rentabilité inférieure au coût du capital du secteur (≈ 10 %) : la décote de valorisation est souvent justifiée. ' : 'Exercice déficitaire : risque de provisions supplémentaires et de suspension du dividende. ') + 'Vérifier la solvabilité (CET1 ou ratio de solvabilité) dans le rapport annuel' + nxt + '.' };
     }
-    var parts = [], warn = [];
-    var g = a.revenueCagr;
-    parts.push(g == null ? 'une boutique' : g >= 3 ? 'une boutique qui vend de plus en plus' : g <= -3 ? 'une boutique qui vend de moins en moins' : 'une boutique qui vend à peu près autant chaque année');
-    var m = last.opMargin != null ? last.opMargin : last.netMargin, nm = last.netMargin;
-    var holdingProfit = m != null && m <= -0.5 && nm != null && nm > 0.5; // holding : perte sur l'activité, bénéfice grâce aux participations
-    if (m != null) parts.push(holdingProfit ? 'perd un peu d\'argent sur ses ventes mais en gagne grâce à ses placements (' + r0(nm) + ' € de bénéfice pour 100 € de ventes)' : m >= 0.5 ? 'garde ' + r0(m) + ' € sur 100 € de ventes une fois ses frais payés' : m > -0.5 ? 'ne garde presque rien une fois ses frais payés' : 'dépense plus qu\'elle ne gagne (elle perd ' + r0(-m) + ' € sur 100 € de ventes)');
-    // Dette : chiffres Yahoo du moment (dettes de location comprises) quand ils existent, plus complets que la ligne « Total Debt » des comptes
-    var nd = last.netDebtEbitda, netCash = last.netCash;
-    if (fund && fund.totalDebt != null && fund.totalCash != null && fund.ebitda > 0) { nd = (fund.totalDebt - fund.totalCash) / fund.ebitda; netCash = nd < 0; }
-    if (netCash) parts.push('a plus d\'argent en caisse que de dettes');
-    else if (nd != null) parts.push(nd < 1.5 ? 'a peu de dettes' : nd <= 3 ? 'a des dettes raisonnables' : 'a beaucoup de dettes (il lui faudrait ' + String(Math.round(nd * 10) / 10).replace('.', ',') + ' ans de bénéfices pour les rembourser)');
-    else if (a.fcfKnownYears >= 2) parts.push(a.fcfPositiveYears === a.fcfKnownYears ? 'remplit sa caisse chaque année' : a.fcfPositiveYears === 0 ? 'vide sa caisse chaque année' : 'remplit sa caisse certaines années seulement');
-    if (a.dilutionPct != null && a.dilutionPct >= 10) warn.push('elle a créé beaucoup de nouvelles actions, alors ta part du gâteau rétrécit');
-    if (a.fcfKnownYears >= 2 && a.fcfPositiveYears === 0 && nd != null) warn.push('sa caisse se vide chaque année');
-    var list = parts.slice(1), text = 'C\'est comme ' + parts[0] + (list.length ? ', qui ' + (list.length > 1 ? list.slice(0, -1).join(', ') + ' et ' + list[list.length - 1] : list[0]) : '') + '.' + (warn.length ? ' Attention : ' + warn.join(' et ') + '.' : '');
-    var loss = m != null && m <= -0.5 && !holdingProfit, heavy = nd != null && nd > 3 && !netCash;
-    var tone = f != null ? (f >= 7 ? 'good' : f <= 3 ? 'bad' : 'mixed') : (loss || heavy ? 'bad' : (a.verdict && a.verdict.key) || 'mixed');
-    if ((loss || heavy) && tone === 'good') tone = 'mixed';
-    var advice = loss ? 'Prudence : une boutique qui perd de l\'argent peut encore baisser ; attends qu\'elle redevienne rentable ou achète très petit.'
-      : heavy ? 'Méfie-toi : les dettes coûtent cher quand les affaires ralentissent ; n\'en mets pas beaucoup.'
-      : tone === 'good' ? 'Les comptes sont en bonne santé : ils ne t\'empêchent pas d\'acheter, le reste de la fiche décide.'
-      : tone === 'bad' ? 'Les comptes se dégradent : n\'achète pas seulement parce qu\'un dirigeant achète.'
-      : 'Rien d\'inquiétant mais rien d\'exceptionnel : si tu achètes, commence petit et regarde les prochains résultats.';
-    return { tone: tone, text: text, advice: advice };
+    var t = [], adv = [];
+    // Activité et rentabilité
+    var g = a.revenueCagr, m = last.opMargin, nm = last.netMargin, dm = a.opMarginDelta;
+    var s1 = last.revenue != null ? 'Chiffre d\'affaires de ' + big(last.revenue) + ' en ' + last.year : 'Chiffre d\'affaires non publié';
+    if (g != null) s1 += ', ' + (Math.abs(g) < 1 ? 'stable' : g > 0 ? 'en croissance de ' + c1(g) + ' % par an' : 'en recul de ' + c1(-g) + ' % par an') + ' depuis ' + first.year + (Math.abs(g) >= 25 ? ' (effet de périmètre probable : cessions ou acquisitions)' : '');
+    var holding = m != null && m < 0 && nm != null && nm > 0;
+    if (m != null) s1 += ' ; marge opérationnelle de ' + c1(m) + ' %' + (dm != null && nyr >= 1 ? ' (' + sg(dm) + ' pt' + (Math.abs(dm) >= 2 ? 's' : '') + ' sur la période)' : '') + (holding ? ', mais résultat net positif (' + c1(nm) + ' % du chiffre d\'affaires) grâce aux participations' : nm != null && Math.abs(nm - m) > 5 ? ', marge nette de ' + c1(nm) + ' %' : '');
+    t.push(s1 + '.');
+    // Trésorerie
+    if (a.fcfKnownYears >= 2) {
+      var fcfL = last.fcf, conv = fcfL != null && last.revenue > 0 ? fcfL / last.revenue * 100 : null;
+      t.push('Free cash-flow ' + (a.fcfPositiveYears === a.fcfKnownYears ? 'positif sur les ' + a.fcfKnownYears + ' exercices' : a.fcfPositiveYears === 0 ? 'négatif sur les ' + a.fcfKnownYears + ' exercices' : 'positif ' + a.fcfPositiveYears + ' exercice' + (a.fcfPositiveYears > 1 ? 's' : '') + ' sur ' + a.fcfKnownYears) + (fcfL != null ? ' (' + big(fcfL) + ' en ' + last.year + (conv != null ? ', ' + c1(conv) + ' % du chiffre d\'affaires' : '') + ')' : '') + '.');
+    }
+    // Bilan : données du moment (dette locative comprise) quand elles existent
+    var nd = last.netDebtEbitda, netCash = last.netCash, ndAbs = null, src = '';
+    if (fund && fund.totalDebt != null && fund.totalCash != null && fund.ebitda > 0) { ndAbs = fund.totalDebt - fund.totalCash; nd = ndAbs / fund.ebitda; netCash = ndAbs < 0; src = ', dettes locatives incluses'; }
+    var s3 = netCash ? 'Trésorerie nette' + (ndAbs != null ? ' de ' + big(-ndAbs) : '') + ' : bilan sans risque de refinancement' : nd != null ? 'Dette nette / EBITDA de ' + c1(nd) + '×' + src + (nd < 1.5 ? ' : endettement faible' : nd <= 3 ? ' : endettement modéré' : ' : levier élevé') : null;
+    if (a.interestCover != null && !netCash) s3 = (s3 ? s3 + ' ; ' : '') + 'couverture des intérêts ' + (a.interestCover <= 0 ? 'non assurée (résultat d\'exploitation négatif)' : 'de ' + c1(a.interestCover) + '×');
+    if (a.dilutionPct != null && a.dilutionPct >= 5) s3 = (s3 ? s3 + '. ' : '') + 'Nombre d\'actions en hausse de ' + Math.round(a.dilutionPct) + ' % depuis ' + first.year + ' (dilution des actionnaires)';
+    if (s3) t.push(s3 + '.');
+    var text = t.join(' ') + fsTxt;
+    // Conseil
+    var loss = m != null && m < -0.5 && !holding, lev = nd != null && nd > 3 && !netCash, burn = a.fcfKnownYears >= 2 && a.fcfPositiveYears === 0;
+    var tone = f != null ? (f >= 7 ? 'good' : f <= 3 ? 'bad' : 'mixed') : (a.verdict && a.verdict.key) || 'mixed';
+    if (loss || burn) tone = 'bad'; else if (lev && tone === 'good') tone = 'mixed';
+    if (holding) adv.push('Profil de holding : la valeur repose sur les participations ; raisonner en décote sur actif net réévalué plutôt qu\'en marge opérationnelle.');
+    if (loss) adv.push('Activité déficitaire : risque de dépréciations ou d\'augmentation de capital ; attendre un retour à la rentabilité opérationnelle ou limiter la position.');
+    else if (burn) adv.push('Consommation de trésorerie récurrente : la société dépend de ses financements ; vérifier la liquidité disponible et les échéances de dette.');
+    if (lev) adv.push('Levier élevé : forte sensibilité au cycle et aux taux ; privilégier une position réduite et suivre le désendettement.');
+    if (a.dilutionPct != null && a.dilutionPct >= 10) adv.push('Dilution significative : vérifier l\'usage des fonds levés (acquisitions, refinancement) et la création de valeur par action.');
+    if (!adv.length || (adv.length === 1 && holding)) adv.push(tone === 'good' ? 'Qualité financière avérée : les comptes ne freinent pas l\'investissement ; la décision se joue sur la valorisation et le signal des dirigeants.'
+      : tone === 'bad' ? 'Comptes en dégradation : l\'achat d\'un dirigeant ne suffit pas, attendre une amélioration visible des résultats' + nxt + '.'
+      : g != null && g >= 5 && dm != null && dm >= 1 ? 'Dynamique opérationnelle favorable (croissance et marges en hausse) ; le F-score moyen tient aux points faibles relevés : à confirmer ' + atNext + ' avant de renforcer.'
+      : 'Fondamentaux corrects sans dynamique d\'amélioration nette : position de taille modérée, à réévaluer ' + atNext + '.');
+    return { tone: tone, label: LBL[tone], text: text, advice: adv.join(' ') };
   };
   /**
    * Profil d'un acheteur au moment d'un achat (aucune donnée postérieure) :

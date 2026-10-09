@@ -646,7 +646,7 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     const a = inst[isin].accounts; if (!a) return;
     accountsFull[isin] = a;
-    try { a.plain = ES.accountsPlain(a, inst[isin].fund); } catch (e) { a.plain = null; }
+    try { a.plain = ES.accountsPlain(a, inst[isin].fund, { nextEarnings: inst[isin].nextEarnings }); } catch (e) { a.plain = null; }
     inst[isin].accounts = { fscore: a.fscore ? (a.fscore.na ? { na: true, reason: a.fscore.reason } : { f9: a.fscore.f9, score: a.fscore.score, avail: a.fscore.avail, year: a.fscore.year }) : null, verdict: a.verdict, n: a.n, plain: a.plain, summary: true };
   });
   const detail = { format: 'euro-signal-detail', generatedAt: new Date().toISOString(), today, tx: dashTx, refs: dashRefs, prices: dashPrices, accounts: accountsFull };
