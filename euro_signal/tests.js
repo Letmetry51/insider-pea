@@ -718,6 +718,8 @@ t('DG et DAF reconnus par la liste des dirigeants publiée (déclarations « mem
   eq(ES.officerMatch('MARTIN Anne', off), 'ceo'); eq(ES.officerMatch('Schulte', off), null, 'un seul mot : trop ambigu');
   eq(ES.officerRole('Président du Conseil de Surveillance'), null); eq(ES.officerRole('Président-Directeur Général'), 'ceo'); eq(ES.officerRole('Chief Financial Officer'), 'cfo');
   ok(ES.isEuropeanIsin('NL0000226223') && !ES.isEuropeanIsin('US21037T1097'));
+  ['Executive VP, CEO of Orange France & Director of Orange Middle East and Africa', 'Chief Executive Officer of Opaline', 'Division CEO of Nutrition Plant Engineering & Member of Executive Board', 'Censor & Special Advisor to the Chairman of the Management Board', 'Executive Managing Director of  Client'].forEach((x) => eq(ES.officerRole(x), null, x));
+  ['CEO, President & Chairman of Management Board of Fresenius Management SE', 'Chairman of the Board of Management & CEO - HORNBACH Management AG', 'CEO & Chairman of Management Board', 'MD, CEO & Executive Director'].forEach((x) => eq(ES.officerRole(x), 'ceo', x));
 });
 
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {

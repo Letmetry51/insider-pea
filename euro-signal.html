@@ -1603,7 +1603,10 @@ details.pos summary{font-size:1rem}
   /** Fonction d'un dirigeant publiée par Yahoo (« Chief Executive Officer », « CFO & Member of Management Board »…) → 'ceo' | 'cfo' | null. Adjoints exclus. */
   ES.officerRole = function (title) {
     var t = ES.norm(title || '');
-    if (!t || /\b(deputy|vice|adjoint|delegue|stellvertret|interim|former|ancien)\b/.test(t)) return null;
+    if (!t || /\b(deputy|vice|adjoint|delegue|stellvertret|interim|former|ancien|advisor|adviser|censor|conseiller|consultant)\b/.test(t)) return null;
+    // « CEO of Orange France », « Division CEO of … », « Managing Director of Client » : dirigeant d'une filiale ou d'une division, pas du groupe
+    t = t.replace(/\b(division|regional|country|segment|business unit)\s+(ceo|chief executive officer|cfo|managing director)\b[^&,]*/g, ' ')
+      .replace(/\b(chief executive officer|ceo|managing director|executive managing director|md|cfo|chief financial officer|directeur general|directeur financier)\s+(of|de|du|des|d)\s+[^&,]*/g, ' ');
     if (/\b(ceo|chief executive|president directeur general|directeur general|directrice generale|vorstandsvorsitzende|vorsitzender des vorstands|chairman of the (management|executive) board|chair of the (management|executive) board|managing director|consejero delegado|amministratore delegato|chief executive officer)\b/.test(t)) return 'ceo';
     if (/\b(cfo|chief financial|finance director|financial director|directeur financier|directrice financiere|finanzvorstand|director financiero|direttore finanziario)\b/.test(t)) return 'cfo';
     return null;
