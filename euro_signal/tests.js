@@ -750,6 +750,11 @@ t('Lecture des comptes pour l\'investisseur : synthèse chiffrée et conseil', (
   ok(/Dette nette \/ EBITDA de 4,5×, dettes locatives incluses : levier élevé/.test(debt.text) && /Levier élevé/.test(debt.advice), debt.text);
   const bank = ES.accountsPlain(ES.accountsAnalysis({ years: [y('2023-12-31', 100, 10, 40, 0, 0, 0, 0, 100), y('2024-12-31', 100, 10, 48, 0, 0, 0, 0, 100)] }, { sector: 'Financial Services', industry: 'Banks - Diversified' }));
   ok(/Établissement financier : rentabilité des fonds propres \(ROE\) de 12,0 %/.test(bank.text) && /CET1/.test(bank.advice), bank.text);
+  ok(/^En clair : l'entreprise vend nettement plus chaque année ; elle gagne davantage sur chaque euro vendu \(12,0 centimes par euro\)/.test(p.explain) && /plus de liquidités que de dettes/.test(p.explain), p.explain);
+  ok(/perd de l'argent sur son activité/.test(loss.explain) && /émis 30 % d'actions en plus/.test(loss.explain), loss.explain);
+  ok(/grâce aux sociétés qu'elle détient/.test(hold.explain));
+  ok(/4,5 ans de résultat pour rembourser sa dette, ce qui est lourd/.test(debt.explain), debt.explain);
+  ok(/pour 100 € apportés par ses actionnaires, l'établissement a gagné 12,0 €/.test(bank.explain) && /plus que le rendement/.test(bank.explain), bank.explain);
   eq(ES.accountsPlain(null), null);
 });
 

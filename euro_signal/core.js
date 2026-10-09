@@ -1228,7 +1228,8 @@
       var roes = R.map(function (y) { return y.roe; }).filter(function (v) { return v != null; });
       if (!roes.length) return { tone: 'na', label: LBL.na, text: 'Établissement financier : les ratios industriels (marge opérationnelle, dette nette / EBITDA) ne s\'appliquent pas et la rentabilité des fonds propres n\'est pas disponible.', advice: 'Apprécier la solvabilité (ratio CET1, ou ratio de solvabilité pour un assureur) et la qualité des actifs dans le rapport annuel avant toute décision.' };
       var roe = roes[roes.length - 1], tone = roe >= 10 ? 'good' : roe > 0 ? 'mixed' : 'bad';
-      return { tone: tone, label: LBL[tone],
+      var exB = 'En clair : pour 100 € apportés par ses actionnaires, l\'établissement a ' + (roe >= 0 ? 'gagné ' + c1(roe) : 'perdu ' + c1(-roe)) + ' € sur le dernier exercice' + (roes.length > 1 ? ' (' + c1(roes[0]) + ' € en ' + first.year + ')' : '') + ', soit ' + (roe >= 10 ? 'plus' : 'moins') + ' que le rendement d\'environ 10 € que les investisseurs exigent en général d\'une banque ou d\'un assureur.';
+      return { tone: tone, label: LBL[tone], explain: exB,
         text: 'Établissement financier : rentabilité des fonds propres (ROE) de ' + c1(roe) + ' % sur le dernier exercice' + (roes.length > 1 ? ', contre ' + c1(roes[0]) + ' % en ' + first.year : '') + (last.netIncome != null ? ', pour un résultat net de ' + big(last.netIncome) : '') + '. Les ratios industriels (marge, dette / EBITDA) ne s\'appliquent pas.',
         advice: (tone === 'good' ? 'Rentabilité supérieure au coût du capital du secteur (≈ 10 %) : un fondamental favorable. ' : tone === 'mixed' ? 'Rentabilité inférieure au coût du capital du secteur (≈ 10 %) : la décote de valorisation est souvent justifiée. ' : 'Exercice déficitaire : risque de provisions supplémentaires et de suspension du dividende. ') + 'Vérifier la solvabilité (CET1 ou ratio de solvabilité) dans le rapport annuel' + nxt + '.' };
     }
@@ -1266,7 +1267,20 @@
       : tone === 'bad' ? 'Comptes en dégradation : l\'achat d\'un dirigeant ne suffit pas, attendre une amélioration visible des résultats' + nxt + '.'
       : g != null && g >= 5 && dm != null && dm >= 1 ? 'Dynamique opérationnelle favorable (croissance et marges en hausse) ; le F-score moyen tient aux points faibles relevés : à confirmer ' + atNext + ' avant de renforcer.'
       : 'Fondamentaux corrects sans dynamique d\'amélioration nette : position de taille modérée, à réévaluer ' + atNext + '.');
-    return { tone: tone, label: LBL[tone], text: text, advice: adv.join(' ') };
+    // En clair : ce que disent les chiffres, sans jargon
+    var e = [];
+    if (g != null) e.push(Math.abs(g) >= 25 ? 'ses ventes ont fortement changé avec son périmètre (cessions ou acquisitions), ce qui fausse la comparaison' : g >= 8 ? 'elle vend nettement plus chaque année' : g >= 3 ? 'elle vend un peu plus chaque année' : g > -3 ? 'elle vend à peu près autant qu\'il y a ' + nyr + ' ans' : 'elle vend moins qu\'il y a ' + nyr + ' ans');
+    if (holding) e.push('elle perd de l\'argent sur son activité propre mais en gagne grâce aux sociétés qu\'elle détient');
+    else if (loss) e.push('ses coûts dépassent ses ventes : elle perd de l\'argent sur son activité');
+    else if (m != null) e.push(dm != null && dm >= 1 ? 'elle gagne davantage sur chaque euro vendu (' + c1(m) + ' centimes par euro)' : dm != null && dm <= -1 ? 'elle gagne moins sur chaque euro vendu (' + c1(m) + ' centimes par euro, contre ' + c1(m - dm) + ' en ' + first.year + ')' : 'elle conserve ' + c1(m) + ' centimes de résultat par euro vendu');
+    if (a.fcfKnownYears >= 2) e.push(a.fcfPositiveYears === a.fcfKnownYears ? 'elle dégage chaque année plus d\'argent qu\'elle n\'en dépense, investissements compris' : a.fcfPositiveYears === 0 ? 'elle dépense chaque année plus d\'argent qu\'elle n\'en encaisse et doit donc se financer' : 'elle dégage de l\'argent ' + a.fcfPositiveYears + ' année' + (a.fcfPositiveYears > 1 ? 's' : '') + ' sur ' + a.fcfKnownYears + ' seulement');
+    if (netCash) e.push('elle dispose de plus de liquidités que de dettes');
+    else if (nd != null) e.push(nd < 1.5 ? 'elle pourrait rembourser sa dette en moins d\'un an et demi de résultat' : nd <= 3 ? 'il lui faudrait environ ' + c1(nd) + ' ans de résultat pour rembourser sa dette, un niveau maîtrisé' : 'il lui faudrait ' + c1(nd) + ' ans de résultat pour rembourser sa dette, ce qui est lourd');
+    if (a.dilutionPct != null && a.dilutionPct >= 5) e.push('elle a émis ' + Math.round(a.dilutionPct) + ' % d\'actions en plus, ce qui réduit d\'autant la part de chaque actionnaire');
+    if (e.length) e[0] = e[0].replace(/^elle /, 'l\'entreprise ').replace(/^ses /, 'les ').replace(/^il lui /, 'il lui ');
+    var ex = e.length ? 'En clair : ' + e.join(' ; ') + '.' : '';
+    if (f != null) ex += f >= 7 ? ' La note de santé (F-score ' + f + '/9) confirme une amélioration sur presque tous les critères.' : weak.length ? ' La note de santé (F-score ' + f + '/9) est pénalisée surtout par : ' + weak.slice(0, 3).join(', ') + '.' : '';
+    return { tone: tone, label: LBL[tone], text: text, explain: ex.trim(), advice: adv.join(' ') };
   };
   /**
    * Profil d'un acheteur au moment d'un achat (aucune donnée postérieure) :
