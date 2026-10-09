@@ -533,6 +533,21 @@ export function build(opts = {}) {
   });
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };
+  // Fiabilité mesurée : ce que sont devenues les sélections rejouées, 60 séances (≈ 3 mois) plus tard, frais de 0,5 % déduits.
+  // Une société retenue plusieurs lundis de suite ne compte qu'une fois (à sa première semaine).
+  try {
+    const H = cfg.learning.horizon, cost = cfg.backtest.costRoundTripPct / 100, outs = [], lastSeen = {};
+    replay.forEach((w, k) => w.picks.forEach((x) => {
+      const cont = lastSeen[x.isin] === k - 1; lastSeen[x.isin] = k;
+      if (cont) return;
+      const a = adjAll[x.isin], r = fwdRet(a, w.date, H);
+      if (r == null) return;
+      outs.push({ isin: x.isin, date: w.date, note: x.note, ret: r - cost, excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, w.date, H, cost) : null });
+    }));
+    const band = (lo, hi) => ES.outcomeStats(outs.filter((o) => o.note >= lo && o.note < hi));
+    selection.replayStats = { horizon: H, all: ES.outcomeStats(outs), top: band(ES.note(cfg.alerts.minScore, cfg), 101), strong: band(ES.note(cfg.selection.minScore, cfg), ES.note(cfg.alerts.minScore, cfg)),
+      from: outs.length ? outs.map((o) => o.date).sort()[0] : null, to: outs.length ? outs.map((o) => o.date).sort().pop() : null };
+  } catch (e) { console.warn('  Fiabilité rejouée indisponible : ' + e.message); }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle
     const resend = String(process.env.ES_RESEND_SELECTION || '').toLowerCase() === 'true';
@@ -545,7 +560,7 @@ export function build(opts = {}) {
     const wait = insBad.length && dow < 5; // on attend que la source revienne, au plus tard le vendredi
     if ((resend && pFresh) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh)) {
       const since = events.length ? events.map((e) => e.date).sort()[0] : null;
-      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null), selection.track, selection.verdict);
+      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null), selection.track, selection.verdict, selection.replayStats);
       state.selections[week] = { date: today, items: selection.items.map((x) => ({ isin: x.isin, name: x.name, score: x.score })) };
       Object.keys(state.selections).sort().slice(0, -60).forEach((w) => { delete state.selections[w]; });
       outbox.push({ id, kind: 'selection', isin: null, name: 'Sélection ' + week, subject: mail.subject, text: mail.text, html: mail.html,

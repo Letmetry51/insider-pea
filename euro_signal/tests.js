@@ -632,7 +632,7 @@ t('Secteur en français et argumentaire de méthode honnête', () => {
   ok(/se confirme/.test(ES.methodRationale(good, c, null).text));
   ok(/Pas encore assez de recul/.test(ES.methodRationale([], c, null).text));
   const m = ES.buildSelectionEmail([{ isin: 'DE0006305006', name: 'DEUTZ', country: 'DE', sector: 'Industrie', score: 50, discountPct: 22, ceo: false, buyers: 4, buyEur: 2e6, trendUp: true }], '2026-W41', c, 'https://x.org/es.html', '2026-10-08', r);
-  ok(/Secteur : Industrie/.test(m.html) && /DEUTZ \(Industrie\)/.test(m.text) && /Pourquoi cette méthode/.test(m.html));
+  ok(/DE · Industrie/.test(m.html) && /DEUTZ \(Industrie\)/.test(m.text) && /Pourquoi cette méthode/.test(m.html));
 });
 
 t('Sélection : nouveautés, bilan des sélections passées, alertes d\'achat désactivables', () => {
@@ -645,7 +645,7 @@ t('Sélection : nouveautés, bilan des sélections passées, alertes d\'achat d�
   const x = { isin: 'FR0000000001', name: 'Soc', score: 40, discountPct: 30, ceo: true, buyers: 1, isNew: true };
   const m = ES.buildSelectionEmail([x], '2026-W42', c, null, '2026-10-12', null, s);
   ok(/\[NOUVEAU\] Soc/.test(m.text) && />NOUVEAU</.test(m.html), 'nouveauté signalée');
-  ok(/Suivi des sélections précédentes \(2 semaines, 3 dossiers\) : \+2,3 %/.test(m.text), 'bilan en tête');
+  ok(/Sélections déjà envoyées \(3 dossiers\) : \+2,3 %/.test(m.text), 'bilan en tête');
   ok(/fort/.test(m.text), 'libellé du score');
 });
 
@@ -680,6 +680,34 @@ t('Pairs, positions vendeuses, critères en observation, repère historique', ()
   const m = ES.buildSelectionEmail([x], '2026-W41', c, null, '2026-10-08', null, null, ES.weekVerdict([{ note: 83, hist: x.hist }], [50, 55, 60, 65, 70, 75]));
   ok(/Semaine exceptionnelle/.test(m.text) && /Semaine exceptionnelle<\/b>/.test(m.html), 'verdict en tête');
   ok(/remarquable/.test(m.text) && /50 % sous ses pairs/.test(m.text) && /1 fonds parie à la baisse/.test(m.text), m.text.slice(0, 400));
+});
+
+t('Fiabilité mesurée et avis résumé (3 raisons, 2 points d\'attention)', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const outs = []; for (let k = 0; k < 20; k++) outs.push({ ret: (k - 6) / 100, excess: (k - 9) / 100 });
+  const st = ES.outcomeStats(outs);
+  eq(st.n, 20); eq(st.upPct, 65, '13 sur 20 au-dessus de 0'); eq(Math.round(st.median * 10) / 10, 3.5); eq(st.beatPct, 50);
+  eq(ES.outcomeStats([]), null);
+  const rs = { all: st, top: ES.outcomeStats(outs.slice(0, 5)), strong: st, from: '2024-10-07' };
+  const cp = ES.comparables(rs, 80, c);
+  eq(cp.scope, 'toutes les sélections', 'trop peu de cas très forts : repli sur l\'ensemble');
+  ok(/65 % en hausse 3 mois plus tard, gain médian \+3,5/.test(cp.text), cp.text);
+  eq(ES.comparables(rs, 40, c), null, 'sous le seuil de sélection : rien');
+  eq(ES.comparables(rs, 55, c).scope, 'notes de 50 à 74');
+  ok(/Fiabilité mesurée : sur 20 dossiers/.test(ES.reliabilityText(rs)) && /Pas encore d'avantage net/.test(ES.reliabilityText(rs)));
+  eq(ES.reliabilityText(null), null);
+  const a = { key: 'watch', why: ['note forte', 'vigilance : cours encore en repli : entrer en plusieurs fois', 'vigilance : résultats dans moins de 15 jours'],
+    signals: [{ k: 'trend', icon: '📈', text: 'tendance', tone: 'good' }, { k: 'ceo', icon: '👔', text: 'le DG achète', tone: 'good' }, { k: 'cluster', icon: '👥', text: '3 dirigeants', tone: 'good' }, { k: 'disc', icon: '🏷️', text: 'décote', tone: 'good' },
+      { k: 'knife', icon: '🔻', text: 'cours en repli', tone: 'warn' }, { k: 'short', icon: '⚠️', text: '6 % vendu', tone: 'bad' }] };
+  const s = ES.adviceSummary(a);
+  eq(s.pros.length, 3); ok(/^👥/.test(s.pros[0]) && /^👔/.test(s.pros[1]), 'cluster et DG d\'abord');
+  eq(s.cons.length, 2); ok(/^⚠️/.test(s.cons[0]) && /^🔻/.test(s.cons[1]), s.cons.join(' | '));
+  eq(s.morePros, 1);
+  const av = ES.adviceSummary({ key: 'avoid', why: ['solidité financière fragile : la baisse du cours peut être justifiée'], signals: [{ k: 'fragile', icon: '🩺', text: 'fragile', tone: 'bad' }] });
+  eq(av.cons.length, 1, 'pas de doublon raison / symbole'); ok(/^🔴 Solidité/.test(av.cons[0]));
+  const m = ES.buildSelectionEmail([{ isin: 'FR0000000001', name: 'Soc', score: 50, advice: Object.assign({ icon: '🟡', label: 'À surveiller' }, a) }], '2026-W41', c, 'https://x.org/es.html', '2026-10-08', null, null, null, rs);
+  ok(/Pourquoi : 👥 3 dirigeants/.test(m.text) && /Attention : ⚠️ 6 % vendu/.test(m.text), m.text.slice(0, 300));
+  ok(/🎯 Fiabilité mesurée/.test(m.html) && /#aide/.test(m.html));
 });
 
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {
