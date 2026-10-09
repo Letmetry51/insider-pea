@@ -282,6 +282,11 @@ def main():
         save(OUT, st)
         print("Insider Screener : clé absente, Allemagne / Espagne / Italie non collectées")
         return 0
+    # Une seule relève par jour : les calculs relancés à la main le même jour réutilisent la relève du jour (crédits préservés)
+    srcs = [st["sources"].get(reg, {}) for reg, _ in MARKETS.values()]
+    if st.get("lastRunDay") == today.isoformat() and srcs and all(x.get("status") == "ok" for x in srcs) and os.environ.get("IS_FORCE", "").lower() != "true":
+        print("Insider Screener : relève déjà faite aujourd'hui, réutilisée (aucun crédit dépensé)")
+        return 0
     headers = {"X-API-Key": key, "Accept": "application/json", "User-Agent": "EuroSignal/1.1 (usage personnel)"}
     budget = Budget(st)
     diag = {"at": datetime.now(timezone.utc).isoformat(), "markets": {}}
@@ -324,6 +329,7 @@ def main():
         print(f"Insider Screener {m} (secours {reg}) : {n} lignes, " + ("ÉCHEC — " + err if err else ("complet" if complete else "partiel")))
 
     diag["credits"] = {"thisRun": budget.run, "thisMonth": budget.used_month, "monthlyBudget": MONTHLY_BUDGET}
+    st["lastRunDay"] = today.isoformat()
     save(DIAG, diag)
     st["generated_at"] = datetime.now(timezone.utc).isoformat()
     save(OUT, st)
