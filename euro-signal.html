@@ -2734,7 +2734,6 @@ details.pos summary{font-size:1rem}
     return '<section class="card advcard adv-b-' + a.key + '"><div class="synhead">' + (sc.buys.length ? starsHtml(sc.total, true) + '<span class="synnote"><b>' + note + '</b>/100 · ' + esc(lab.label) + '</span>' : '') + advBadge(a, true) + '</div>' +
       (hr && hr.key !== 'na' ? '<p class="hist h-' + hr.key + '">' + hr.icon + ' ' + esc(hr.label) + '</p>' : '') +
       '<div class="syn2">' + (sm.pros.length ? '<div class="syn-pro"><h4>Pourquoi</h4>' + li(sm.pros) + '</div>' : '') + (sm.cons.length ? '<div class="syn-con"><h4>Attention</h4>' + li(sm.cons) + '</div>' : '') + '</div>' +
-      kidLine(S.inst[i].accounts) +
       (cmp ? '<p class="cmpline">🎯 <b>Dossiers comparables</b> : ' + esc(cmp.text) + '.</p>' : '') +
       '<p class="foot">' + esc(selTxt) + ' · aide à la décision, pas un ordre.</p></section>';
   }
@@ -2770,7 +2769,7 @@ details.pos summary{font-size:1rem}
     var p1 = function (x) { return x == null || !isFinite(x) ? 'n.d.' : fmtN(x, 1) + ' %'; };
     h += '<div class="tablewrap"><table class="grid acct"><thead><tr><th>Exercice</th><th class="num" title="Premier exercice comparé au dernier">Tendance</th>' + R.map(function (y) { return '<th class="num">' + esc(y.year) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       row('Chiffre d\'affaires' + cur, 'revenue', big, true) + row('Marge opérationnelle', 'opMargin', p1, true) + row('Résultat net' + cur, 'netIncome', big, true) +
-      row('Trésorerie disponible (FCF)' + cur, 'fcf', big, true) + row('Dette nette / EBITDA', 'netDebtEbitda', function (x) { return x == null || !isFinite(x) ? 'n.d.' : x < 0 ? 'trésorerie nette' : fmtN(x, 1) + '×'; }, false) +
+      row('Trésorerie disponible (FCF)' + cur, 'fcf', big, true) + row('Dette nette / EBITDA (comptes publiés, hors loyers)', 'netDebtEbitda', function (x) { return x == null || !isFinite(x) ? 'n.d.' : x < 0 ? 'trésorerie nette' : fmtN(x, 1) + '×'; }, false) +
       row('Rentabilité des fonds propres', 'roe', p1, true) + '</tbody></table></div>';
     var fs = a.fscore;
     if (fs && !fs.na) {
