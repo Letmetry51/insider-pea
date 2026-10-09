@@ -65386,8 +65386,8 @@
    "kind": "déclarations",
    "via": "afm.nl (export CSV officiel)",
    "lastAttempt": "2026-10-09",
-   "status": "ok",
-   "note": "complété via Insider Screener (collecte directe : l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : relevé complété via Insider Screener)",
+   "status": "partiel",
+   "note": "l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : relevé complété via Insider Screener",
    "rows": 9495,
    "kept": 0,
    "lastSuccess": "2026-10-09"
@@ -65402,7 +65402,7 @@
    "lastAttempt": "2026-10-09",
    "status": "ok",
    "rows": 50,
-   "fetched": 3,
+   "fetched": 0,
    "backlog": 0,
    "note": null,
    "lastSuccess": "2026-10-09"
@@ -65513,7 +65513,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-0"
   ]
  },
- "generated_at": "2026-10-09T07:11:43.334437+00:00",
+ "generated_at": "2026-10-09T07:54:15.095831+00:00",
  "cursors": {
   "DE": "2026-10-02",
   "ES": "2026-10-08",

@@ -3697,10 +3697,10 @@
   "ticker": "ADTN"
  },
  "US21037T1097": {
+  "checkedHome": "2026-10-09",
   "exchange": "NASDAQ",
   "method": "recherche Yahoo par ISIN",
   "name": "Constellation Energy Corporation",
-  "resolvedAt": "2026-10-09",
   "ticker": "CEG"
  },
  "US2220702037": {
