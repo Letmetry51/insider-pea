@@ -529,7 +529,7 @@ export function build(opts = {}) {
   selection.items.forEach((x) => {
     x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes);
     const c = candBy[x.isin];
-    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe, mood: moodAt(today) }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ icon: g.icon, text: g.text, tone: g.tone })) }; }
+    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe, mood: moodAt(today) }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ k: g.k, icon: g.icon, text: g.text, tone: g.tone })) }; }
   });
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };

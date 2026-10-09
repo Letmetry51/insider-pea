@@ -691,7 +691,8 @@ t('Fiabilité mesurée et avis résumé (3 raisons, 2 points d\'attention)', () 
   const rs = { all: st, top: ES.outcomeStats(outs.slice(0, 5)), strong: st, from: '2024-10-07' };
   const cp = ES.comparables(rs, 80, c);
   eq(cp.scope, 'toutes les sélections', 'trop peu de cas très forts : repli sur l\'ensemble');
-  ok(/65 % en hausse 3 mois plus tard, gain médian \+3,5/.test(cp.text), cp.text);
+  ok(/trop peu pour conclure \(65 % en hausse à 3 mois, gain médian \+3,5/.test(cp.text), cp.text);
+  const big = { all: ES.outcomeStats(outs.concat(outs, outs)) }; ok(/65 % en hausse 3 mois plus tard/.test(ES.comparables(big, 80, c).text));
   eq(ES.comparables(rs, 40, c), null, 'sous le seuil de sélection : rien');
   eq(ES.comparables(rs, 55, c).scope, 'notes de 50 à 74');
   ok(/Fiabilité mesurée : sur 20 dossiers/.test(ES.reliabilityText(rs)) && /Pas encore d'avantage net/.test(ES.reliabilityText(rs)));

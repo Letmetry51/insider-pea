@@ -896,7 +896,7 @@
     if (bpl.length && bpl.some(function (b) { return b.routine === 'inhabituel'; })) push('opportunistic', '🧭', 'achat inhabituel pour ce dirigeant', 'good');
     else if (bpl.length && bpl.every(function (b) { return b.routine === 'habituel'; })) push('routine', '🔁', 'achat habituel (même période chaque année ou achats en continu) : peu informatif', 'warn');
     var tr = bpl.filter(function (b) { return b.track && b.track.n >= 2; }).sort(function (a, b) { return b.track.n - a.track.n; })[0];
-    if (tr) push('track', '🏅', 'palmarès du dirigeant : ' + tr.track.beat + ' achat' + (tr.track.beat > 1 ? 's' : '') + ' sur ' + tr.track.n + ' ont battu le CAC 40', tr.track.beat / tr.track.n >= 0.6 ? 'good' : tr.track.beat / tr.track.n <= 0.34 ? 'bad' : 'info');
+    if (tr) push('track', '🏅', 'palmarès du dirigeant : ' + tr.track.beat + ' de ses ' + tr.track.n + ' achats passés ' + (tr.track.beat > 1 ? 'ont' : 'a') + ' battu le CAC 40', tr.track.beat / tr.track.n >= 0.6 ? 'good' : tr.track.beat / tr.track.n <= 0.34 ? 'bad' : 'info');
     if (bpl.some(function (b) { return b.record; })) push('record', '💪', 'achat record pour ce dirigeant', 'good');
     var acc = inst.accounts, fs = acc && acc.fscore && !acc.fscore.na ? acc.fscore.f9 : null;
     if (fs != null) push('fscore', '📊', 'comptes ' + (fs >= cfg.accounts.fscoreGood ? 'solides' : fs <= cfg.accounts.fscoreBad ? 'en dégradation' : 'mitigés') + ' (F-score ' + fs + '/9)', fs >= cfg.accounts.fscoreGood ? 'good' : fs <= cfg.accounts.fscoreBad ? 'bad' : 'info');
@@ -1271,6 +1271,8 @@
     var b = note >= top ? rs.top : rs.strong, scope = note >= top ? 'notes de ' + top + ' et plus' : 'notes de ' + strong + ' à ' + (top - 1);
     if (!b || b.n < 10) { b = rs.all; scope = 'toutes les sélections'; }
     if (!b || b.n < 10) return null;
+    if (b.n < 30) return { n: b.n, upPct: b.upPct, median: b.median, p25: b.p25, p75: b.p75, beatPct: b.beatPct, scope: scope, few: true,
+      text: 'seulement ' + b.n + ' dossiers passés mesurés, trop peu pour conclure (' + b.upPct + ' % en hausse à 3 mois, gain médian ' + pcS(b.median) + ')' };
     return { n: b.n, upPct: b.upPct, median: b.median, p25: b.p25, p75: b.p75, beatPct: b.beatPct, scope: scope,
       text: b.upPct + ' % en hausse 3 mois plus tard, gain médian ' + pcS(b.median) + ' (la moitié des cas entre ' + pcS(b.p25) + ' et ' + pcS(b.p75) + ')' + (b.beatPct != null ? ', ' + b.beatPct + ' % ont battu le CAC 40' : '') + ' — ' + b.n + ' dossiers passés, ' + scope };
   };
@@ -1279,7 +1281,7 @@
     var a = rs && rs.all;
     if (!a || a.n < 10) return null;
     return 'Fiabilité mesurée : sur ' + a.n + ' dossiers des sélections passées (rejouées' + (rs.from ? ' depuis le ' + ES.frDate(rs.from) : '') + '), ' + a.upPct + ' % étaient en hausse 3 mois plus tard, gain médian ' + pcS(a.median) +
-      (a.beatPct != null ? ', ' + a.beatPct + ' % ont fait mieux que le CAC 40' : '') + ' (frais déduits). ' + (a.beatPct != null && a.beatPct >= 55 ? 'Encourageant, sans garantie.' : 'Pas encore d\'avantage net : à étudier, pas à acheter les yeux fermés.');
+      (a.beatPct != null ? ', ' + a.beatPct + ' % ont fait mieux que le CAC 40' : '') + ' (frais déduits). ' + (a.n < 30 ? 'Trop peu de cas pour conclure. ' : '') + (a.beatPct != null && a.beatPct >= 55 ? 'Encourageant, sans garantie.' : 'Pas encore d\'avantage net : à étudier, pas à acheter les yeux fermés.');
   };
   /**
    * Avis résumé pour une lecture rapide : au plus 3 raisons (signaux favorables) et 2 points d'attention (3 si « éviter »).
@@ -1289,6 +1291,8 @@
     var pros = [], cons = [];
     if (!a) return { pros: pros, cons: cons };
     var sig = a.signals || [], has = {}, cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
+    var ICON = { '⚡': 'duel', '⚠️': 'short', '🔻': 'knife', '💸': 'rich', '🔁': 'routine', '🩺': 'fragile', '🚫': 'pea', '🔴': 'sellers', '📊': 'fscore', '👥': 'cluster', '👔': 'ceo', '🏷️': 'disc', '🧭': 'opportunistic', '💪': 'record', '😱': 'panic', '💶': 'cheap', '💰': 'big', '🏆': 'pos', '🏅': 'track', '📈': 'trend' };
+    sig = sig.map(function (g) { return g.k ? g : Object.assign({ k: ICON[g.icon] || '' }, g); });
     sig.forEach(function (g) { has[g.k] = 1; });
     var PRI = ['cluster', 'ceo', 'disc', 'opportunistic', 'record', 'panic', 'cheap', 'fscore', 'big', 'pos', 'track', 'trend'];
     sig.filter(function (g) { return g.tone === 'good'; }).sort(function (x, y) { return PRI.indexOf(x.k) - PRI.indexOf(y.k); }).forEach(function (g) { pros.push(g.icon + ' ' + cap(g.text)); });
@@ -1299,7 +1303,7 @@
     a.why.forEach(function (w) {
       if (a.key === 'avoid') { other.push('🔴 ' + cap(w)); return; }
       if (/^vigilance : /.test(w)) { var t = w.slice(12); if (!covered.test(t)) other.push(ico(t) + cap(t)); }
-      else if (/^(ordinaire|signal encore modeste|aucun achat)/.test(w)) other.push(ico(w) + cap(w));
+      else if (/^(signal encore modeste|aucun achat)/.test(w)) other.push(ico(w) + cap(w)); // « ordinaire » : déjà dit par le repère historique affiché à côté
     });
     cons = a.key === 'avoid' ? other.concat(bad, warn) : bad.concat(warn.slice(0, 1), other, warn.slice(1));
     var seen = {};
