@@ -846,11 +846,41 @@ t('Portefeuille simulé : entrées le lendemain du lundi, taille par le risque, 
   const s = ES.paperPortfolio({ weeks: [{ date: days[99], picks: ['UP'] }], series: { UP: up }, bench, sells: { UP: [days[150]] }, cfg: c, today: days[399] });
   ok(/vente du DG/.test(s.list[0].why), 'sortie à la vente du dirigeant');
   eq(ES.paperPortfolio({ weeks: [], series: {}, bench, sells: {}, cfg: c }), null);
+  const k = ES.paperPortfolio({ weeks: [{ date: days[99], picks: [] }], series: {}, bench, sells: {}, cfg: c, today: days[399], core: true, coreFeePct: 0 });
+  near(k.ret, k.bench, 0.05, 'sans signal, le cœur indiciel suit l\'indice');
+  const k2 = ES.paperPortfolio({ weeks: [{ date: days[99], picks: ['UP'] }], series: { UP: up }, bench, sells: {}, cfg: c, today: days[399], core: true });
+  ok(k2.exposure > 0 && k2.ret > r.ret, 'liquidités placées dans l\'indice : performance supérieure au portefeuille avec liquidités dormantes');
 });
 
 t('Entités HTML décodées, DG régional non compté comme DG du groupe', () => {
   eq(ES.unescapeHtml('People, Innovation &amp;amp; Transformation'), 'People, Innovation & Transformation'); eq(ES.unescapeHtml(null), null);
   eq(ES.classifyRole('Country Manager France & CEO Global Business Activities (GBA)').ceo, false); eq(ES.classifyRole('Chief Executive Officer').ceo, true);
+});
+
+t('Coût d\'attendre le lundi : entrée le lendemain de la publication contre le lendemain du lundi', () => {
+  const days = []; let d = '2026-01-04'; for (let k = 0; k < 30; k++) { d = ES.addDays(d, 1); days.push(d); } // du lundi 5 janvier 2026
+  const rows = days.map((x, k) => [x, 100 + k, 100 + k, 100 + k, 100 + k, 1]), flat = days.map((x) => [x, 100, 100, 100, 100, 1]);
+  const w = ES.waitCost([{ isin: 'A', date: '2026-01-06' }, { isin: 'A', date: '2026-01-12' }], { A: rows }, flat);
+  eq(w.n, 2); ok(w.mean > 0, 'cours en hausse : attendre a coûté'); eq(w.median >= 0, true);
+  const monday = ES.waitCost([{ isin: 'A', date: '2026-01-12' }], { A: rows }, flat); near(monday.mean, 0, 1e-9, 'publié un lundi : même entrée');
+  eq(ES.waitCost([], {}, flat), null);
+});
+
+t('Revue de la méthode : critères fixés à l\'avance et décision', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, { rules: { review: { date: '2027-01-31', minCases: 50 } } });
+  const res = [{ group: 'Achat DG ou DAF', horizon: 120, sample: 'échantillon', n: 60, mean: 5, hit: 60, nExcess: 60, meanExcess: 3, hitExcess: 60, nEx2: 60, meanEx2: 4, hitEx2: 70, nSec: 60, meanSec: 2, hitSec: 60 }];
+  const good = ES.reviewStatus({ backtest: { results: res }, selection: { paper: { core: { ret: 15, bench: 12 } }, waitCost: { dg: { n: 40, mean: 0.4, t: 0.8 } } } }, c);
+  eq(good.decision.key, 'keep'); eq(good.items.length, 4); eq(good.items[3].ok, false);
+  const bad = ES.reviewStatus({ backtest: { results: [Object.assign({}, res[0], { hitEx2: 30 })] }, selection: { paper: { core: { ret: 5, bench: 12 } } } }, c);
+  eq(bad.decision.key, 'drop');
+  eq(ES.reviewStatus({ backtest: { results: [] }, selection: {} }, c).decision.key, 'extend', 'trop peu de cas : prolonger');
+});
+
+t('Devises : conversion des montants hors zone euro', () => {
+  ES.setFx({ SEK: 11, NOK: 'x', DKK: 7.46 });
+  near(ES.toEur(1.1e6, 'SEK'), 1e5, 1e-6); eq(ES.toEur(100, 'NOK'), null, 'taux invalide ignoré'); eq(ES.toEur(100, 'EUR'), 100); eq(ES.toEur(100, 'JPY'), null);
+  ES.setFx({});
+  eq(ES.toEur(100, 'SEK'), null, 'sans taux : non converti');
 });
 
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {

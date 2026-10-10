@@ -75,6 +75,9 @@ export function build(opts = {}) {
   const mkt = mStats ? { ticker: mRef.ticker, ret6m1: mStats.ret6m1, above200: mStats.sma200 ? mStats.lastCloseAdj > mStats.sma200 : null, lastDate: mStats.lastDate } : null;
   const state = readRequired(F.state, { txArchive: {}, alerts: {}, src: {}, runs: [] }, 'data/euro-signal-state.json');
   state.txArchive = state.txArchive || {}; state.alerts = state.alerts || {}; state.src = state.src || {};
+  // Taux de change du soir (conservés d'un soir à l'autre si la collecte échoue) : montants et liquidité hors zone euro
+  if (prices.fx && typeof prices.fx === 'object' && Object.keys(prices.fx).length) state.fx = prices.fx;
+  ES.setFx(state.fx || {});
   if (!fs.existsSync(F.state)) { // journal disparu : on repart des alertes recopiées dans le tableau de bord, pour ne jamais renvoyer
     const prevDash = readJSON(F.out, null);
     if (prevDash && prevDash.alerts) { state.alerts = prevDash.alerts; console.warn('  Journal absent : ' + Object.keys(state.alerts).length + ' alerte(s) reprises du tableau de bord'); }
@@ -640,13 +643,21 @@ export function build(opts = {}) {
       highIns: st((p) => p.f9 >= 7 && p.ins), highNoIns: st((p) => p.f9 >= 7 && !p.ins), from: pts.length ? pts.map((p) => p.date).sort()[0] : null,
       h120: { low: st((p) => p.f9 <= 3, 1), mid: st((p) => p.f9 >= 4 && p.f9 <= 6, 1), high: st((p) => p.f9 >= 7, 1), top: st((p) => p.f9 >= 8, 1) } };
   } catch (e) { console.warn('  Test du F-score seul indisponible : ' + e.message); }
+  // Coût d'attendre le lundi (mesure seulement, la règle ne change pas avant la revue)
+  try {
+    const seen = {}, evOf = (g) => events.filter((e) => e.group === g).filter((e) => { const k = g + e.isin + e.date; if (seen[k]) return false; seen[k] = 1; return true; });
+    selection.waitCost = { dg: ES.waitCost(evOf('Achat DG ou DAF'), adjAll, mAdj0), all: ES.waitCost(evOf('Achat volontaire'), adjAll, mAdj0) };
+  } catch (e) { console.warn('  Coût d\'attente indisponible : ' + e.message); }
   // Portefeuille simulé : toutes les règles appliquées jour après jour aux sélections du lundi rejouées (aucune donnée future)
   try {
     const sells = {};
     Object.keys(tx).forEach((isin) => { const l = ES.activeTx(tx[isin]).filter((t) => t.type === 'vente' && (t.ceo || t.cfo)).map((t) => ES.availDate(t)); if (l.length) sells[isin] = l; });
-    const N = selCfg.size || 5, run = (pick) => ES.paperPortfolio({ weeks: replay.map((w) => ({ date: w.date, picks: pick(w).map((x) => x.isin) })), series: adjAll, bench: mAdj0, sells, cfg, today });
+    const N = selCfg.size || 5, run = (pick, core) => ES.paperPortfolio({ weeks: replay.map((w) => ({ date: w.date, picks: pick(w).map((x) => x.isin) })), series: adjAll, bench: mAdj0, sells, cfg, today, core });
     const named = (r) => { if (r) { const nm = (i) => (inst[i] && inst[i].name) || i; r.list.forEach((t) => { t.name = nm(t.isin); }); r.open.forEach((t) => { t.name = nm(t.isin); }); } return r; };
-    selection.paper = { rule: named(run((w) => w.picks)), all: named(run((w) => (w.cands || []).slice(0, N))), bench: mRef ? mRef.ticker : null };
+    const coreRule = run((w) => w.picks, true);
+    selection.paper = { rule: named(run((w) => w.picks)), all: named(run((w) => (w.cands || []).slice(0, N))), bench: mRef ? mRef.ticker : null,
+      // Cœur indiciel + satellite Euro Signal : la question qui compte pour un épargnant (faire mieux que l'indice seul ?)
+      core: coreRule ? { ret: coreRule.ret, bench: coreRule.bench, maxDD: coreRule.maxDD, benchMaxDD: coreRule.benchMaxDD, curve: coreRule.curve.map((p) => [p[0], p[1]]), coreAll: (() => { const r = run((w) => (w.cands || []).slice(0, N), true); return r ? { ret: r.ret, maxDD: r.maxDD, curve: r.curve.map((p) => [p[0], p[1]]) } : null; })() } : null };
   } catch (e) { console.warn('  Portefeuille simulé indisponible : ' + e.message); }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle
@@ -654,7 +665,7 @@ export function build(opts = {}) {
     const id = 'selection-' + week + (resend ? '-renvoi-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '') : ''), dow = (new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1; // 1 = lundi
     const prev = state.alerts[id];
     const done = prev && ['envoyee', 'incertain', 'en_cours'].concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee']).indexOf(prev.status) > -1;
-    const insBad = Object.keys(state.src).filter((n) => state.src[n].kind === 'déclarations' || /^(AMF|BaFin|CNMV|CONSOB|FSMA|AFM)$/.test(n)).filter((n) => state.src[n].status === 'echec');
+    const insBad = Object.keys(state.src).filter((n) => state.src[n].kind === 'déclarations' || /^(AMF|BaFin|CNMV|CONSOB|FSMA|AFM|FI)$/.test(n)).filter((n) => state.src[n].status === 'echec');
     selection.sourcesDown = insBad;
     if (insBad.length && selection.verdict) selection.verdict = { key: 'na', icon: '⚠️', text: 'Données incomplètes : ' + insBad.join(', ') + ' en panne. Les sociétés concernées peuvent manquer à la sélection.' };
     const wait = insBad.length && dow < 5; // on attend que la source revienne, au plus tard le vendredi
@@ -726,7 +737,7 @@ export function build(opts = {}) {
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
     cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
-    mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
+    fx: ES.FX, mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, frozenUntil: learning.frozenUntil || null, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
   };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });

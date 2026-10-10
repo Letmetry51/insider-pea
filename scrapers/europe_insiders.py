@@ -377,9 +377,96 @@ def afm_collect(st):
     diag("afm", d)
 
 
+# Suède : registre public des déclarations de dirigeants de Finansinspektionen (export CSV officiel, gratuit)
+FI_URL = ("https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=&PersonILedandeSt%C3%A4llningNamn="
+          "&Transaktionsdatum.From=&Transaktionsdatum.To=&Publiceringsdatum.From={frm}&Publiceringsdatum.To={to}&button=export")
+FI_COLS = {
+    "published": ["publication date", "publiceringsdatum"],
+    "issuer": ["issuer", "emittent"],
+    "notifier": ["notifier", "anmalningsskyldig", "anmälningsskyldig"],
+    "pdmr": ["person discharging managerial responsibilities", "person i ledande stallning", "person i ledande ställning"],
+    "role": ["position", "befattning"],
+    "associated": ["closely associated", "narstaende", "närstående"],
+    "amendment": ["amendment", "korrigering"],
+    "program": ["linked to share option programme", "ar kopplad till aktieprogram", "är kopplad till aktieprogram", "linked to share programme"],
+    "nature": ["nature of transaction", "karaktar", "karaktär"],
+    "instrument": ["instrument type", "instrumenttyp"],
+    "isin": ["isin"],
+    "txDate": ["transaction date", "transaktionsdatum"],
+    "quantity": ["volume", "volym"],
+    "unit": ["unit", "volymsenhet"],
+    "price": ["price", "pris"],
+    "currency": ["currency", "valuta"],
+    "place": ["trading venue", "handelsplats"],
+    "status": ["status"],
+}
+
+
+def fi_collect(st):
+    src = st["sources"].get("FI", {})
+    src.update({"name": "FI", "countries": ["SE"], "kind": "déclarations", "via": "fi.se (export CSV officiel, registre Insynshandel)", "lastAttempt": date.today().isoformat()})
+    d = {}
+    try:
+        since = (date.today() - timedelta(days=WINDOW_DAYS)).isoformat()
+        frm = max(since, (src.get("lastSuccess") and (date.fromisoformat(src["lastSuccess"]) - timedelta(days=10)).isoformat()) or since)
+        r = requests.get(FI_URL.format(frm=frm, to=date.today().isoformat()), headers=UA, timeout=120)
+        d["status"], d["contentType"], d["bytes"] = r.status_code, r.headers.get("content-type"), len(r.content)
+        if r.status_code != 200 or not r.content:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        txt, enc = decode(r.content)
+        d["encoding"], d["head"] = enc, txt[:600]
+        first = txt.split("\n")[0]
+        delim = max([";", ",", "\t", "|"], key=lambda c: first.count(c))
+        rows = list(csv.reader(io.StringIO(txt), delimiter=delim))
+        headers = [h.strip().lstrip("\ufeff") for h in rows[0]] if rows else []
+        nh = [norm(h) for h in headers]
+        colmap = {}
+        for field, syns in FI_COLS.items():
+            for sname in syns:
+                k = norm(sname)
+                if k in nh and nh.index(k) not in colmap.values():
+                    colmap[field] = nh.index(k)
+                    break
+        d.update({"delimiter": delim, "headers": headers, "columnMap": {k: headers[v] for k, v in colmap.items()}, "rowCount": max(0, len(rows) - 1), "sampleRows": rows[1:3]})
+        kept = 0
+        for row in rows[1:]:
+            get = lambda f: (row[colmap[f]].strip() if f in colmap and colmap[f] < len(row) else None)
+            tx, pub = iso_date(get("txDate")), iso_date(get("published"))
+            if not tx or (pub or tx) < since:
+                continue
+            if norm(get("status")) in ("revoked", "makulerad", "cancelled"):
+                continue
+            yes = lambda v: norm(v) in ("yes", "ja", "true", "x")
+            assoc = yes(get("associated"))
+            person = (get("notifier") if assoc else get("pdmr")) or get("pdmr") or get("notifier")
+            role = (get("role") or "") + (" (closely associated person, linked to " + (get("pdmr") or "?") + ")" if assoc else "")
+            nature = (get("nature") or "") + (" (share option programme)" if yes(get("program")) else "")
+            unit = norm(get("unit"))
+            qty = get("quantity") if unit in ("", "quantity", "antal", "st", "styck", "number") else None  # volumes en montant nominal (obligations) ignorés
+            rid = f"{tx}-{norm(get('issuer'))[:30]}-{norm(person)[:30]}-{get('isin') or ''}-{get('price') or ''}-{get('quantity') or ''}-{pub or ''}"
+            rec = {"registry": "FI", "country": "SE", "id": re.sub(r"[^A-Za-z0-9_.:-]", "_", rid)[:150], "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn",
+                   "via": "fi.se", "published": pub or tx, "issuer": get("issuer"), "person": person, "role": role.strip() or None, "isin": get("isin"),
+                   "instrument": get("instrument") or "Share", "nature": nature, "txDate": tx, "currency": get("currency"), "quantity": qty, "price": get("price"),
+                   "amount": None, "place": get("place"), "numberLocale": "auto", "linkedTo": get("pdmr") if assoc else None, "collectedAt": date.today().isoformat()}
+            st["records"][f"FI:{rec['id']}"] = rec
+            kept += 1
+        complete = all(f in colmap for f in ("isin", "nature", "txDate", "price"))
+        src.update({"status": "ok" if complete else "partiel", "rows": d["rowCount"], "kept": kept,
+                    "note": None if complete else "export sans ISIN, nature, date ou prix reconnu : format à adapter (voir data/diagnostics/fi.json)"})
+        if complete:
+            src["lastSuccess"] = date.today().isoformat()
+        print(f"FI (Suède) : {d['rowCount']} lignes depuis le {frm}, {kept} retenues, colonnes reconnues : {sorted(colmap)}")
+    except Exception as e:
+        src.update({"status": "echec", "note": "export inaccessible : " + str(e)[:120]})
+        d["error"] = repr(e)[:300]
+        print("FI : échec", e)
+    st["sources"]["FI"] = src
+    diag("fi", d)
+
+
 def main():
     st = load_state()
-    for name, fn in (("AFM", afm_collect), ("FSMA", fsma_collect)):
+    for name, fn in (("AFM", afm_collect), ("FSMA", fsma_collect), ("FI", fi_collect)):
         try:
             fn(st)
         except Exception as e:  # une source en panne n'arrête pas les autres

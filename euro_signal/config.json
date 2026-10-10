@@ -31,7 +31,14 @@
  },
  "rules": {
   "frozenUntil": "2027-01-31",
-  "reviewMinCases": 50
+  "reviewMinCases": 50,
+  "review": {
+   "date": "2027-01-31",
+   "fixedOn": "2026-10-10",
+   "minCases": 50,
+   "maxUnderperfPts": 3,
+   "waitCostPct": 1
+  }
  },
  "learning": {
   "mode": "auto",

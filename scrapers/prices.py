@@ -252,7 +252,20 @@ def main():
         print("Indice européen indisponible :", e)
     if market is None and bench:
         market = bench  # repli : CAC 40
-    OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "unresolved": unresolved}), encoding="utf-8")
+    # Taux de change (unités de devise pour 1 euro, dernière clôture) : convertit montants et liquidité des sociétés hors zone euro
+    fx = {}
+    for cur in ("SEK", "NOK", "DKK", "CHF", "GBP", "USD", "PLN", "CZK", "HUF", "ISK"):
+        try:
+            f = history("EUR" + cur + "=X")
+            closes = [r[4] for r in (f or {}).get("rows", []) if r and r[4]]
+            if closes and closes[-1] > 0:
+                fx[cur] = closes[-1]
+        except Exception:
+            pass
+    if "GBP" in fx:
+        fx["GBp"] = fx["GBP"] * 100  # cotations londoniennes en pence
+    print(f"Taux de change : {len(fx)} devises")
+    OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "fx": fx, "unresolved": unresolved}), encoding="utf-8")
     TICKERS.write_text(json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
     print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours")
     return 0

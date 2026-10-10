@@ -259,14 +259,14 @@
     autre: 'Autre (nature ambiguë)', inconnu: 'Type non déterminé'
   };
   var TYPE_RULES = [
-    ['attribution', /(attribution gratuite|actions? gratuites?|actions? de performance|performance share|free share|grant|award|vesting|acquisition definitive|zuteilung|assegnazione gratuita|entrega gratuita|toekenning)/],
-    ['option', /(exercice|exercise|option|ausubung|ausuebung|esercizio|ejercicio|warrant|bsa|stock option)/],
-    ['souscription', /(souscription|subscription|zeichnung|sottoscrizione|suscripcion|inschrijving|augmentation de capital|capital increase|kapitalerhohung|ampliacion)/],
-    ['nantissement', /(nantissement|pledge|verpfandung|pegno|prenda|pret de titres|securities lending)/],
-    ['don', /(\bdon\b|donation|gift|schenkung|erbschaft|succession|heritage|inheritance|donazione|herencia)/],
+    ['attribution', /(attribution gratuite|actions? gratuites?|actions? de performance|performance share|free share|grant|award|vesting|acquisition definitive|zuteilung|assegnazione gratuita|entrega gratuita|toekenning|tilldelning|aktieprogram|share option programme|share programme)/],
+    ['option', /(exercice|exercise|option|ausubung|ausuebung|esercizio|ejercicio|warrant|bsa|stock option|losen|teckningsoption)/],
+    ['souscription', /(souscription|subscription|zeichnung|sottoscrizione|suscripcion|inschrijving|augmentation de capital|capital increase|kapitalerhohung|ampliacion|teckning|nyemission)/],
+    ['nantissement', /(nantissement|pledge|verpfandung|pegno|prenda|pret de titres|securities lending|pantsattning|vardepapperslan)/],
+    ['don', /(\bdon\b|donation|gift|schenkung|erbschaft|succession|heritage|inheritance|donazione|herencia|\bgava\b|\barv\b)/],
     ['transfert', /(transfert|transfer|ubertragung|uebertragung|trasferimento|traspaso|apport)/],
-    ['vente', /(cession|vente|verkauf|\bsale\b|\bsell\b|\bsold\b|disposal|vendita|venta|verkoop|^s$|^v$)/],
-    ['achat', /(acquisition|achat|\bkauf\b|purchase|\bbuy\b|\bbought\b|acquisto|compra|aankoop|^p$|^a$|^k$)/]
+    ['vente', /(cession|vente|verkauf|\bsale\b|\bsell\b|\bsold\b|disposal|vendita|venta|verkoop|avyttring|^s$|^v$)/],
+    ['achat', /(acquisition|achat|\bkauf\b|purchase|\bbuy\b|\bbought\b|acquisto|compra|aankoop|forvarv|^p$|^a$|^k$)/]
   ];
   ES.classifyType = function (text) {
     var t = ES.norm(text);
@@ -508,7 +508,7 @@
     var l20 = rows.slice(-20).filter(function (r) { return r[5] != null; });
     s.adv20 = l20.length >= 10 ? mean(l20.map(function (r) { return r[4] * r[5]; })) : null;
     if (s.adv20 != null && !isFinite(s.adv20)) s.adv20 = null;
-    s.adv20Eur = currency === 'EUR' ? s.adv20 : null;
+    s.adv20Eur = currency === 'EUR' ? s.adv20 : (s.adv20 != null && currency && ES.FX[currency] ? s.adv20 / ES.FX[currency] : null);
     // anomalies : variations quotidiennes extrêmes (sur cours ajustés), éventuels splits non déclarés
     var anomalies = [], recent = adj.slice(-261);
     for (var i = 1; i < recent.length; i++) {
@@ -619,7 +619,7 @@
     universe: { minAdv20Eur: 1000000, minSessions: 200, maxStaleBusinessDays: 3, maxDailyMovePct: 40, suspensionZeroVolumeDays: 5, maxAnnualVolPct: 120, requireOrdinaryShares: true, requireReferenceListing: true },
     insiders: { windowMonths: 3, clusterMinBuyers: 3, clusterWindowDays: 14, bigAmountEur: 500000, nearLowPct: 25, excludePlanned: true, excludeLegalEntities: true, fallingKnifeNote: true, maxFilingLagDays: 30, minBuyerEur: 100000 },
     pea: { strict: true },
-    sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB' }, acceptAggregatorsAsCoverage: true },
+    sources: { maxRegistryAgeDays: 7, registryByCountry: { FR: 'AMF', DE: 'BaFin', BE: 'FSMA', NL: 'AFM', ES: 'CNMV', IT: 'CONSOB', SE: 'FI' }, acceptAggregatorsAsCoverage: true },
     weights: {
       insiders: { cap: 40, floor: -10, anyBuy: 10, amountBig: 10, cluster: 12, pair: 5, coordinatedCluster: -6, ceoCfo: 6, repeat: 4, discountBig: 5, discountBigPct: 40, discountMedium: 3, discountMediumPct: 25, panicBuy: 2, panicDropPct: 15, panicRsi: 30, netSeller: -10, ceoCfoSale: -5 },
       buyback: { cap: 15, floor: -5, announced: 8, executing: 4, largeSize: 3, largeSizePct: 2, suspended: -5 },
@@ -635,7 +635,7 @@
     sizing: { riskPct: 1, stopMinPct: 10, stopMaxPct: 30, maxPct: 8 },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
-    rules: { frozenUntil: '', reviewMinCases: 50 },
+    rules: { frozenUntil: '', reviewMinCases: 50, review: { date: '', fixedOn: '', minCases: 50, maxUnderperfPts: 3, waitCostPct: 1 } },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60, 120], oosStart: '' }
   };
@@ -1507,10 +1507,13 @@
     var bIdx = {}; B.forEach(function (r, k) { bIdx[r[0]] = k; });
     var weekAfter = {}; o.weeks.forEach(function (w) { var d = days.filter(function (x) { return x > w.date; })[0]; if (d) (weekAfter[d] = weekAfter[d] || []).push(w); });
     var cash = 100, pos = {}, trades = [], curve = [], last = {}, b0 = null, peakEq = 100, maxDD = 0, bPeak = null, bMaxDD = 0, expo = 0;
+    // Cœur indiciel : la part non investie suit l'indice (fonds indiciel, frais annuels déduits) au lieu de dormir en liquidités
+    var core = !!o.core, fee = core ? Math.pow(1 - (o.coreFeePct != null ? o.coreFeePct : 0.2) / 100, 1 / 252) : 1, prevB = null;
     var volAt = function (a, k) { if (k < 61) return null; var r = []; for (var j = k - 59; j <= k; j++) if (a[j - 1][4] > 0) r.push(Math.log(a[j][4] / a[j - 1][4])); var m = r.reduce(function (x, y) { return x + y; }, 0) / r.length; return Math.sqrt(r.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / (r.length - 1)) * Math.sqrt(252) * 100; };
     var close = function (isin, d) { var a = o.series[isin], k = a ? at(isin)[d] : null; if (k != null && a[k][4] > 0) last[isin] = a[k][4]; return last[isin]; };
     var equity = function () { return cash + Object.keys(pos).reduce(function (t, i) { return t + pos[i].shares * (last[i] || pos[i].entry); }, 0); };
     days.forEach(function (d, n) {
+      if (core) { var bkk = bIdx[d], bvv = bkk != null ? B[bkk][4] : null; if (bvv && prevB) cash *= bvv / prevB * fee; if (bvv) prevB = bvv; }
       // 1. Entrées du lundi : à l'ouverture de la première séance qui suit
       (weekAfter[d] || []).forEach(function (w) {
         w.picks.forEach(function (isin) {
@@ -1550,6 +1553,49 @@
     return { from: days[0], to: days[days.length - 1], sessions: days.length, ret: eqEnd - 100, bench: curve.length && curve[curve.length - 1][2] != null ? curve[curve.length - 1][2] - 100 : null,
       maxDD: maxDD * 100, benchMaxDD: bMaxDD * 100, exposure: expo / days.length * 100, trades: closed.length, winPct: closed.length ? Math.round(wins.length / closed.length * 100) : null,
       avgWin: avg(wins), avgLoss: avg(closed.filter(function (t) { return t.ret <= 0; })), open: openPos, list: trades.slice(-30).reverse(), curve: curve };
+  };
+  /**
+   * Coût d'attendre la sélection du lundi : écart entre une entrée à l'ouverture qui suit la publication et une entrée
+   * à l'ouverture qui suit le lundi suivant (même sortie), corrigé de l'indice. Positif = attendre a coûté.
+   * evs : [{ isin, date }] ; series : { isin: lignes ajustées } ; bench : lignes ajustées de l'indice.
+   */
+  ES.waitCost = function (evs, series, bench) {
+    var bI = {}; (bench || []).forEach(function (r, k) { bI[r[0]] = k; });
+    var first = function (a, d) { var lo = 0, hi = a.length - 1, k = -1; while (lo <= hi) { var m = (lo + hi) >> 1; if (a[m][0] > d) { k = m; hi = m - 1; } else lo = m + 1; } return k; };
+    var px = function (r) { return r[1] != null && r[1] > 0 ? r[1] : r[4]; }, out = [];
+    (evs || []).forEach(function (e) {
+      var a = series[e.isin]; if (!a || !a.length) return;
+      var wd = new Date(e.date + 'T12:00:00Z').getUTCDay(), mon = ES.addDays(e.date, wd === 1 ? 0 : (8 - wd) % 7 || 7);
+      var i1 = first(a, e.date), i2 = first(a, mon);
+      if (i1 < 0 || i2 < 0 || i2 < i1) return;
+      var r = px(a[i2]) / px(a[i1]) - 1, b1 = bI[a[i1][0]], b2 = bI[a[i2][0]];
+      var br = b1 != null && b2 != null ? px(bench[b2]) / px(bench[b1]) - 1 : 0;
+      out.push({ cost: (r - br) * 100, days: i2 - i1 });
+    });
+    if (!out.length) return null;
+    var v = out.map(function (x) { return x.cost; }).sort(function (x, y) { return x - y; }), n = v.length;
+    var m = v.reduce(function (x, y) { return x + y; }, 0) / n, sd = n > 1 ? Math.sqrt(v.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / (n - 1)) : null;
+    return { n: n, mean: m, median: v[Math.floor(n / 2)], upPct: Math.round(v.filter(function (x) { return x > 0; }).length / n * 100), t: sd ? m / (sd / Math.sqrt(n)) : null, avgDays: out.reduce(function (x, y) { return x + y.days; }, 0) / n };
+  };
+  /**
+   * Revue de la méthode : critères écrits à l'avance (rules.review), évalués sur les mesures du soir.
+   * → { items: [{ k, label, now, ok }], decision: { key, text }, date, fixedOn }
+   */
+  ES.reviewStatus = function (snap, cfg) {
+    var Rv = (cfg.rules && cfg.rules.review) || {}, res = (snap && snap.backtest && snap.backtest.results) || [], sel = (snap && snap.selection) || {};
+    var o = ES.groupOutcome(res, 'Achat DG ou DAF', 120), w = o.nEx2 ? ES.wilson(o.beat2, o.nEx2) : null, K = sel.paper && sel.paper.core, wc = sel.waitCost && sel.waitCost.dg;
+    var f1 = function (v) { return (v >= 0 ? '+' : '−') + Math.abs(Math.round(v * 10) / 10).toString().replace('.', ',') + ' %'; };
+    var items = [
+      { k: 'cases', label: 'Au moins ' + Rv.minCases + ' achats du DG ou du DAF mesurés à 6 mois', now: o.n + ' mesurés', ok: o.n >= Rv.minCases },
+      { k: 'edge', label: 'Part des achats DG/DAF qui battent le STOXX 600 à 6 mois : marge d\'erreur entièrement au-dessus de 50 %', now: w ? Math.round(o.beat2) + ' % (fourchette ' + w[0] + ' – ' + w[1] + ' %)' : 'non mesurable', ok: !!(w && w[0] > 50) },
+      { k: 'paper', label: 'Portefeuille « indice + Euro Signal » au moins aussi bon que l\'indice seul', now: K && K.bench != null ? f1(K.ret) + ' contre ' + f1(K.bench) : 'non mesurable', ok: !!(K && K.bench != null && K.ret >= K.bench) },
+      { k: 'wait', label: 'Attendre le lundi coûte plus de ' + String(Rv.waitCostPct).replace('.', ',') + ' % en moyenne (écart net, t ≥ 2) : passer aux alertes au fil de l\'eau', now: wc ? f1(wc.mean) + ' en moyenne sur ' + wc.n + ' cas' + (wc.t != null ? ' (t = ' + (Math.round(wc.t * 10) / 10).toString().replace('.', ',') + ')' : '') : 'non mesurable', ok: !!(wc && wc.mean > Rv.waitCostPct && wc.t != null && wc.t >= 2), optional: true }
+    ];
+    var under = K && K.bench != null ? K.bench - K.ret : null, decision;
+    if (items[0].ok && items[1].ok && items[2].ok) decision = { key: 'keep', text: 'Garder la règle DG/DAF et envisager une part plus grande du portefeuille.' };
+    else if (items[0].ok && ((w && w[1] < 50) || (under != null && under > Rv.maxUnderperfPts))) decision = { key: 'drop', text: 'Abandonner la règle : rester sur l\'indice seul, Euro Signal ne servant plus qu\'à la veille.' };
+    else decision = { key: 'extend', text: 'Pas encore de preuve dans un sens ou dans l\'autre : prolonger l\'observation de 6 mois, sans changer les règles.' };
+    return { items: items, decision: decision, date: Rv.date || null, fixedOn: Rv.fixedOn || null };
   };
   /** Intervalle de confiance à 95 % (Wilson) d'une proportion : pct = part observée (0-100), n = nombre de cas. → [bas, haut] en %. */
   ES.wilson = function (pct, n) {
@@ -1716,7 +1762,15 @@
     }
     return best;
   };
-  ES.toEur = function (amount, currency) { return amount != null && currency === 'EUR' ? amount : null; };
+  /** Taux de change : unités de devise pour 1 euro (ex. SEK ≈ 11). Fixés à chaque calcul d'après les cours du soir. */
+  ES.FX = {};
+  ES.setFx = function (m) { ES.FX = {}; if (m && typeof m === 'object') Object.keys(m).forEach(function (k) { var v = +m[k]; if (Number.isFinite(v) && v > 0) ES.FX[k] = v; }); };
+  ES.toEur = function (amount, currency) {
+    if (amount == null || !isFinite(amount)) return null;
+    if (currency === 'EUR') return amount;
+    var r = currency && ES.FX[currency];
+    return r ? amount / r : null;
+  };
 
   /* =============================== Score =============================== */
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
