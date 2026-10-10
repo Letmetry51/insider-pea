@@ -846,6 +846,11 @@ t('Portefeuille simulé : entrées le lendemain du lundi, taille par le risque, 
   eq(ES.paperPortfolio({ weeks: [], series: {}, bench, sells: {}, cfg: c }), null);
 });
 
+t('Entités HTML décodées, DG régional non compté comme DG du groupe', () => {
+  eq(ES.unescapeHtml('People, Innovation &amp;amp; Transformation'), 'People, Innovation & Transformation'); eq(ES.unescapeHtml(null), null);
+  eq(ES.classifyRole('Country Manager France & CEO Global Business Activities (GBA)').ceo, false); eq(ES.classifyRole('Chief Executive Officer').ceo, true);
+});
+
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {
   const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const mk = (rev, cur, ind) => ({ fund: { revenue: rev, currency: cur, industry: ind || 'Auto Parts' } });

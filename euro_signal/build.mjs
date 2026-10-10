@@ -142,6 +142,8 @@ export function build(opts = {}) {
     Object.keys(mergeStats).forEach((k) => { mergeStats[k] += m.stats[k]; });
     state.txArchive[isin] = m.list;
   });
+  // Textes déjà archivés avec des entités HTML (« &amp; » publié par certaines sources) : nettoyés
+  Object.values(state.txArchive).forEach((l) => (l || []).forEach((t) => { ['person', 'role', 'issuer', 'natureText', 'linkedTo'].forEach((k) => { if (typeof t[k] === 'string') t[k] = ES.unescapeHtml(t[k]); }); }));
   const keepFrom = ES.addMonths(today, -36);
   Object.keys(state.txArchive).forEach((isin) => { if (!ES.isEuropeanIsin(isin)) delete state.txArchive[isin]; }); // confusions de société déjà archivées
   Object.keys(state.txArchive).forEach((isin) => {

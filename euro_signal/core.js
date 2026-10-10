@@ -280,7 +280,7 @@
     if (/(directeur general|president directeur|\bpdg\b|\bceo\b|chief executive|vorstandsvorsitz|vorsitzender des vorstands|amministratore delegato|consejero delegado|ceo|managing director|algemeen directeur|chief exec)/.test(t)) r.ceo = true;
     if (/(directeur financier|\bdaf\b|\bcfo\b|chief financial|finanzvorstand|finanzchef|direttore finanziario|director financiero|financieel directeur)/.test(t)) r.cfo = true;
     // fonctions qui ne sont pas celles du DG ou du DAF de l'émetteur lui-même
-    if (/(filiale|subsidiary|adjoint|division|deputy|head of|des fonctions|en charge|business unit)/.test(t)) { r.ceo = false; r.cfo = false; }
+    if (/(filiale|subsidiary|adjoint|division|deputy|head of|des fonctions|en charge|business unit|country manager|business activities|regional|region )/.test(t)) { r.ceo = false; r.cfo = false; }
     if (/(administrateur|conseil|board|aufsichtsrat|vorstand|consigliere|consejero|bestuurder|commissaris|director)/.test(t)) r.board = true;
     if (/(personne liee|etroitement liee|closely associated|eng verbundene|strettamente legat|estrechamente vinculad|nauw gelieerd|\bpca\b|personne morale liee|related person|related party)/.test(t)) r.associated = true;
     return r;
@@ -2213,7 +2213,10 @@
   ES.safeUrl = function (u) { u = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : ''; };
   ES.cleanCurrency = function (c) { c = String(c == null ? '' : c).trim(); return /^[A-Za-z]{3}$/.test(c) ? (c === 'GBp' || c === 'GBX' ? 'GBp' : c.toUpperCase()) : null; };
   var NON_VOLUNTARY = /\b(free (allocation|shares?|grant)|gratuit|gratis|gratuito|grant(ed)?|awards?|vesting|vested|attribu(tion|zione)|assegnazione|toekenning|zuteilung|sell[- ]to[- ]cover|incentive plan|piano di incentivazione|plan de incentivos|stock option|exercise of options?)\b/i;
+  ES.unescapeHtml = function (v) { return typeof v === 'string' && v.indexOf('&') > -1 ? v.replace(/&amp;(amp;)*/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : v; };
   ES.fromCollectorRecord = function (r, opts) {
+    // Certaines sources publient du texte HTML échappé (« &amp; ») : décodé avant tout traitement
+    if (r && typeof r === 'object') r = Object.keys(r).reduce(function (o, k) { o[k] = ES.unescapeHtml(r[k]); return o; }, {});
     var errors = [], warnings = [], today = opts.today, loc = r.numberLocale || 'auto';
     var isin = String(r.isin || '').trim().toUpperCase().replace(/\s/g, '');
     var ins = ES.norm(r.instrument);
