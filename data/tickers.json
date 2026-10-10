@@ -154,10 +154,10 @@
   "ticker": "IDNTT.MI"
  },
  "CH1398992755": {
+  "checkedHome": "2026-10-10",
   "exchange": "London",
   "method": "recherche Yahoo par ISIN",
   "name": "Multitude AG",
-  "resolvedAt": "2026-10-10",
   "ticker": "0R4W.L"
  },
  "CI0000053161": {
@@ -907,11 +907,11 @@
   "ticker": "7V0.DE"
  },
  "DE000A3DKE67": {
+  "checkedHome": "2026-10-10",
   "exchange": "Dusseldorf Stock Exchange",
   "homeTried": "9MO.DE",
   "method": "recherche Yahoo par ISIN",
   "name": "Commertunity AG",
-  "resolvedAt": "2026-10-10",
   "ticker": "9MO.DU"
  },
  "DE000A3E5C24": {
