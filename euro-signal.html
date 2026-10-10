@@ -337,7 +337,7 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .pfchart .pf-lbl{font-size:11px;fill:var(--ink)}.pfchart .pf-x{stroke:var(--muted);stroke-width:1}
 .lg.pf-r-k,.lg.pf-a-k,.lg.pf-b-k{display:inline-block;width:16px;height:0;border-top:2px solid var(--s1);vertical-align:middle;margin-right:6px}.lg.pf-a-k{border-top-color:var(--s2)}.lg.pf-b-k{border-top:2px dashed var(--muted)}
 .qsr{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px}.qs{font-size:.74rem;padding:1px 7px;border-radius:10px;border:1px solid var(--line);white-space:nowrap}
-.qs-good{background:var(--good-soft);border-color:transparent}.qs-bad{background:var(--bad-soft);border-color:transparent}.qs-mid{background:var(--warn-soft);border-color:transparent}.qs-info{background:var(--sunk)}
+.qs-good{background:var(--good-soft);border-color:transparent}.qs-bad{background:var(--bad-soft);border-color:transparent}.qs-mid{background:var(--warn-soft);border-color:transparent}.qs-info{background:var(--sunk)}.qs-na{color:var(--muted);border-style:dashed}
 .ci{display:block;font-size:.72rem;color:var(--muted);font-weight:400}
 .dgc{display:block;margin-top:4px;font-size:.78rem;font-weight:600}.dg-ok{color:var(--good)}.dg-old{color:var(--warn)}.dg-no{color:var(--muted)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
@@ -3079,20 +3079,27 @@ details.pos summary{font-size:1rem}
   function secOf(x) { return ES.sectorFr(x.sector || (x.fund && x.fund.sector)); }
   /** Scores clés en une ligne, pour une lecture rapide d'un dossier (couleur + texte, jamais la couleur seule). */
   function quickScores(isin, x) {
+    // Mêmes critères, dans le même ordre, pour chaque dossier : « n.d. » quand la donnée manque, pour comparer d'un coup d'œil
     var i = S.inst[isin] || {}, a = i.accounts || {}, out = [], q = function (tone, txt, tip) { out.push('<span class="qs qs-' + tone + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + txt + '</span>'); };
     var fs = a.fscore && !a.fscore.na ? a.fscore.f9 : null, tr = a.fscoreTrend ? { up: ' ↗', down: ' ↘', flat: '' }[a.fscoreTrend.key] || '' : '';
     if (fs != null) q(fs >= S.cfg.accounts.fscoreGood ? 'good' : fs <= S.cfg.accounts.fscoreBad ? 'bad' : 'mid', '📊 F-score ' + fs + '/9' + tr, 'Santé des comptes (Piotroski), flèche : évolution sur les exercices disponibles');
-    if (a.altman) q({ safe: 'good', grey: 'mid', distress: 'bad' }[a.altman.zone] || 'mid', '🧯 Altman ' + { safe: 'sûr', grey: 'gris', distress: 'détresse' }[a.altman.zone], 'Risque de défaillance (Altman Z\'\' ' + fmtN(a.altman.z, 1) + ')');
-    if (a.beneish) q(a.beneish.flag ? 'bad' : 'good', '🔍 Beneish ' + (a.beneish.flag ? 'alerte' : 'OK'), 'Qualité des comptes (Beneish M ' + fmtN(a.beneish.m, 2) + ')');
+    else q('na', '📊 F-score n.d.', (a.fscore && a.fscore.reason) || 'Comptes non disponibles');
+    if (a.altman && !a.altman.na && a.altman.zone) q({ safe: 'good', grey: 'mid', distress: 'bad' }[a.altman.zone] || 'mid', '🧯 Altman ' + { safe: 'sûr', grey: 'gris', distress: 'détresse' }[a.altman.zone], 'Risque de défaillance (Altman Z\'\' ' + fmtN(a.altman.z, 1) + ')');
+    else q('na', '🧯 Altman n.d.', (a.altman && a.altman.reason) || 'Postes comptables manquants dans la source');
+    if (a.beneish && !a.beneish.na && a.beneish.m != null) q(a.beneish.flag ? 'bad' : 'good', '🔍 Beneish ' + (a.beneish.flag ? 'alerte' : 'OK'), 'Qualité des comptes (Beneish M ' + fmtN(a.beneish.m, 2) + ')');
+    else q('na', '🔍 Beneish n.d.', (a.beneish && a.beneish.reason) || 'Postes comptables manquants dans la source');
     var d = x && x.discountPct != null ? x.discountPct : null;
-    if (d != null) q(d >= S.cfg.weights.insiders.discountMediumPct ? 'good' : 'mid', '🏷️ décote ' + Math.round(d) + ' %', 'Prix payé par le dirigeant sous le plus haut des 52 semaines');
+    if (d != null) q(d >= S.cfg.weights.insiders.discountMediumPct ? 'good' : 'mid', '🏷️ décote ' + Math.round(d) + ' %', 'Prix payé par le dirigeant sous le plus haut des 52 semaines'); else q('na', '🏷️ décote n.d.');
     var pv = i.peer; if (pv && pv.discountPct != null) q(pv.discountPct >= S.cfg.valuation.cheapPct ? 'good' : pv.discountPct <= -S.cfg.valuation.richPct ? 'bad' : 'mid', '💶 ' + (pv.discountPct >= 0 ? Math.round(pv.discountPct) + ' % sous' : Math.round(-pv.discountPct) + ' % au-dessus de') + ' ses pairs', 'Valorisation (' + pv.metric + ') comparée aux sociétés comparables');
+    else q('na', '💶 pairs n.d.', 'Pas assez de sociétés comparables suivies (holding, activité atypique) ou multiple non publié');
     if (i.shorts && i.shorts.totalPct >= 0.5) q(i.shorts.totalPct >= 2 ? 'bad' : 'mid', '⚠️ VAD ' + fmtN(i.shorts.totalPct, 1) + ' %', 'Part du capital vendue à découvert par des fonds');
-    var ow = ES.ownership(i.fund); if (ow.floatPct != null && ow.floatPct < 40) q('mid', '🏛️ flottant ' + Math.round(ow.floatPct) + ' %', 'Part du capital échangée en Bourse');
+    else q('good', '⚠️ VAD aucune', 'Aucune position vendeuse publiée (seuil de publication : 0,5 % du capital)');
+    var ow = ES.ownership(i.fund);
+    if (ow.floatPct != null) q(ow.floatPct < 20 ? 'bad' : ow.floatPct < 40 ? 'mid' : 'good', '🏛️ flottant ' + Math.round(ow.floatPct) + ' %', 'Part du capital échangée en Bourse' + (ow.insidersPct != null ? ' ; dirigeants et proches : ' + Math.round(ow.insidersPct) + ' %' : '')); else q('na', '🏛️ flottant n.d.');
     var c = S.computed[isin];
-    if (c) { var z = ES.positionSize(i, c.score, (x && x.advice) || adviceOf(isin), S.cfg); if (z.pct) q('info', '⚖️ taille ' + fmtN(z.pct, z.pct % 1 ? 1 : 0) + ' %', 'Taille suggérée : part du portefeuille au plus, seuil de protection −' + z.stopPct + ' %'); }
-    var g = dgInfo(isin); if (g && !g.none) q(g.recent ? 'good' : 'mid', '👔 DG/DAF il y a ' + g.days + ' j', 'Dernier achat du DG ou du DAF');
-    return out.length ? '<div class="qsr">' + out.join('') + '</div>' : '';
+    if (c) { var z = ES.positionSize(i, c.score, (x && x.advice) || adviceOf(isin), S.cfg); q(z.pct ? 'info' : 'na', '⚖️ taille ' + (z.pct ? fmtN(z.pct, z.pct % 1 ? 1 : 0) + ' %' : 'aucune'), z.pct ? 'Taille suggérée : part du portefeuille au plus, seuil de protection −' + z.stopPct + ' %' : z.reasons.join(', ')); }
+    var g = dgInfo(isin); if (g && !g.none) q(g.recent ? 'good' : 'mid', '👔 DG/DAF il y a ' + g.days + ' j', 'Dernier achat du DG ou du DAF'); else q('na', '👔 DG/DAF aucun');
+    return '<div class="qsr">' + out.join('') + '</div>';
   }
   function selectionCard() {
     var sel = S.snapshot && S.snapshot.selection;
