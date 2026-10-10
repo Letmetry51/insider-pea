@@ -806,6 +806,46 @@ t('Actionnariat et révisions des analystes : signaux croisés et critères en o
   ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'revisionUp') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'controlled'));
 });
 
+t('Contrôles anti-piège : Altman Z\'\' et Beneish M', () => {
+  const az = ES.altmanZ({ date: '2025-12-31', totalAssets: 1000, currentAssets: 400, currentLiabilities: 250, retainedEarnings: 300, ebit: 120, equity: 450, totalLiabilities: 550 });
+  eq(az.z, 3.63); eq(az.zone, 'safe');
+  eq(ES.altmanZ({ date: '2025-12-31', totalAssets: 1000, currentAssets: 100, currentLiabilities: 300, retainedEarnings: -400, ebit: -50, equity: 50, totalLiabilities: 950 }).zone, 'distress');
+  ok(ES.altmanZ({ date: '2025-12-31', totalAssets: 1000 }).na, 'postes manquants');
+  const c = { date: '2025-12-31', revenue: 1100, receivables: 250, grossProfit: 400, totalAssets: 1200, currentAssets: 500, ppe: 300, depreciation: -50, netIncome: 120, cfo: 60, sga: 200, totalLiabilities: 700 };
+  const p = { date: '2024-12-31', revenue: 1000, receivables: 150, grossProfit: 420, totalAssets: 1000, currentAssets: 450, ppe: 300, depreciation: -50, netIncome: 90, cfo: 100, sga: 180, totalLiabilities: 600 };
+  const bm = ES.beneishM(c, p); eq(bm.m, -1.46); eq(bm.flag, true); ok(/créances/.test(bm.flags.join()));
+  const clean = ES.beneishM(Object.assign({}, c, { receivables: 165, cfo: 150, currentAssets: 600 }), p); eq(clean.flag, false, clean.m);
+  ok(ES.beneishM({ date: '2025-12-31' }, p).na);
+  const y = (d, ex) => Object.assign({ date: d, revenue: 1000e6, grossProfit: 400e6, operatingIncome: 100e6, netIncome: 60e6, totalAssets: 2000e6, currentAssets: 300e6, currentLiabilities: 400e6, totalDebt: 900e6, longTermDebt: 800e6, cash: 50e6, equity: 100e6, shares: 100, cfo: 120e6, capex: -60e6, ebitda: 200e6, ebit: 100e6, retainedEarnings: -500e6, totalLiabilities: 1900e6, receivables: 100e6, ppe: 900e6, depreciation: 80e6, sga: 150e6 }, ex || {});
+  const a = ES.accountsAnalysis({ years: [y('2023-12-31'), y('2024-12-31')] }, {});
+  eq(a.altman.zone, 'distress'); const pl = ES.accountsPlain(a);
+  ok(/zone de détresse/.test(pl.text) && /Risque de défaillance/.test(pl.advice) && pl.tone === 'bad', pl.text + ' | ' + pl.advice);
+  ok(ES.crossSignals({ accounts: a }, { buys: [{}], buyEur: 0, sellEur: 0 }, ES.mergeConfig(ES.DEFAULT_CONFIG, {})).some((g) => g.k === 'altman' && g.tone === 'bad'));
+});
+
+t('Marge d\'erreur (Wilson) et gel des règles', () => {
+  eq(ES.wilson(56, 43).join('-'), '41-70'); eq(ES.wilson(50, 10).join('-'), '24-76'); eq(ES.wilson(0, 5)[0], 0); eq(ES.wilson(50, 0), null);
+  eq(ES.mergeConfig(ES.DEFAULT_CONFIG, {}).rules.reviewMinCases, 50);
+});
+
+t('Portefeuille simulé : entrées le lendemain du lundi, taille par le risque, sorties par les règles', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const days = []; let d = '2025-01-01'; for (let k = 0; k < 400; k++) { d = ES.addDays(d, 1); days.push(d); }
+  const mk = (f) => days.map((x, k) => { const v = f(k); return [x, v, v, v, v, 1000]; });
+  const bench = mk((k) => 100 + k * 0.01);
+  const up = mk((k) => 100 * (1 + 0.002 * Math.max(0, k - 100)) * (1 + 0.01 * Math.sin(k)));
+  const down = mk((k) => (k < 100 ? 100 * (1 + 0.01 * Math.sin(k)) : 100 - (k - 100) * 0.5));
+  const r = ES.paperPortfolio({ weeks: [{ date: days[99], picks: ['UP', 'DN'] }], series: { UP: up, DN: down }, bench, sells: {}, cfg: c, today: days[399] });
+  ok(r && r.trades >= 1, JSON.stringify(r && r.list));
+  const dn = r.list.find((x) => x.isin === 'DN'); ok(dn && /seuil de protection/.test(dn.why) && dn.ret < 0, JSON.stringify(dn));
+  const u = r.list.find((x) => x.isin === 'UP'); ok(u && /6 mois/.test(u.why) && u.ret > 0, JSON.stringify(u));
+  ok(r.maxDD < 0 && r.maxDD > -5, 'perte limitée à environ 1 % par ligne : ' + r.maxDD);
+  ok(r.curve.length > 10 && r.curve[0][2] != null);
+  const s = ES.paperPortfolio({ weeks: [{ date: days[99], picks: ['UP'] }], series: { UP: up }, bench, sells: { UP: [days[150]] }, cfg: c, today: days[399] });
+  ok(/vente du DG/.test(s.list[0].why), 'sortie à la vente du dirigeant');
+  eq(ES.paperPortfolio({ weeks: [], series: {}, bench, sells: {}, cfg: c }), null);
+});
+
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {
   const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const mk = (rev, cur, ind) => ({ fund: { revenue: rev, currency: cur, industry: ind || 'Auto Parts' } });

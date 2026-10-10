@@ -416,7 +416,8 @@ export function build(opts = {}) {
           // Actionnariat : données du moment (l'actionnariat change lentement)
           controlled: ES.ownership(inst[isin].fund).controlled, lowFloat: ES.ownership(inst[isin].fund).lowFloat,
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
-          fscoreHigh: (() => { const a = finList[isin] ? accAt(isin, d) : null; return a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined; })(),
+          ...(() => { const a = finList[isin] ? accAt(isin, d) : null; return { fscoreHigh: a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined,
+            altmanDistress: a && a.altman && !a.altman.na ? a.altman.zone === 'distress' : undefined, beneishFlag: a && a.beneish && !a.beneish.na ? a.beneish.flag : undefined }; })(),
           ...(() => { const pf = profileOf(t), m = moodAt(d); return { opportunistic: !pf || pf.routine === 'inconnu' ? undefined : pf.routine === 'inhabituel', trackGood: pf && pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n >= 2 / 3 : undefined, personalRecord: pf && pf.record != null ? pf.record : undefined, marketFear: m ? m.key === 'fear' : undefined }; })() } });
       if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null, rev30: Number.isFinite(+inst[isin].revision30d) && inst[isin].revision30d !== null ? +inst[isin].revision30d : null };
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
@@ -456,6 +457,10 @@ export function build(opts = {}) {
   const learning = canLearn ? ES.calibrate(samples, ES.mergeConfig(cfg, {}), learnPrev, today)
     : Object.assign({ month: null, version: 0, weights: {}, log: [], stats: [] }, learnPrev || {}, { changed: [] });
   learning.mode = cfg.learning.mode; learning.samples = samples.length; learning.withOutcome = samples.filter((x) => x.excess != null).length; learning.baseVersion = baseVersion;
+  // Règles figées jusqu'à la revue (protection contre le sur-ajustement sur peu de cas) : les mesures continuent, le barème ne bouge pas
+  const frozen = !!(cfg.rules && cfg.rules.frozenUntil && today <= cfg.rules.frozenUntil);
+  learning.frozenUntil = frozen ? cfg.rules.frozenUntil : null;
+  if (frozen && learning.changed.length) { learning.changed = []; learning.weights = (learnPrev && learnPrev.weights) || {}; learning.version = (learnPrev && learnPrev.version) || 0; }
   if (learning.changed.length && cfg.learning.mode === 'auto') {
     state.pendingInfo = state.pendingInfo || {};
     const lines = learning.changed.map((e) => e.label + ' : ' + e.from + ' → ' + e.to + ' point(s) (écart mesuré ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt sur ' + e.nWith + ' cas, t = ' + e.t + ')');
@@ -633,6 +638,14 @@ export function build(opts = {}) {
       highIns: st((p) => p.f9 >= 7 && p.ins), highNoIns: st((p) => p.f9 >= 7 && !p.ins), from: pts.length ? pts.map((p) => p.date).sort()[0] : null,
       h120: { low: st((p) => p.f9 <= 3, 1), mid: st((p) => p.f9 >= 4 && p.f9 <= 6, 1), high: st((p) => p.f9 >= 7, 1), top: st((p) => p.f9 >= 8, 1) } };
   } catch (e) { console.warn('  Test du F-score seul indisponible : ' + e.message); }
+  // Portefeuille simulé : toutes les règles appliquées jour après jour aux sélections du lundi rejouées (aucune donnée future)
+  try {
+    const sells = {};
+    Object.keys(tx).forEach((isin) => { const l = ES.activeTx(tx[isin]).filter((t) => t.type === 'vente' && (t.ceo || t.cfo)).map((t) => ES.availDate(t)); if (l.length) sells[isin] = l; });
+    const N = selCfg.size || 5, run = (pick) => ES.paperPortfolio({ weeks: replay.map((w) => ({ date: w.date, picks: pick(w).map((x) => x.isin) })), series: adjAll, bench: mAdj0, sells, cfg, today });
+    const named = (r) => { if (r) { const nm = (i) => (inst[i] && inst[i].name) || i; r.list.forEach((t) => { t.name = nm(t.isin); }); r.open.forEach((t) => { t.name = nm(t.isin); }); } return r; };
+    selection.paper = { rule: named(run((w) => w.picks)), all: named(run((w) => (w.cands || []).slice(0, N))), bench: mRef ? mRef.ticker : null };
+  } catch (e) { console.warn('  Portefeuille simulé indisponible : ' + e.message); }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle
     const resend = String(process.env.ES_RESEND_SELECTION || '').toLowerCase() === 'true';
@@ -700,7 +713,8 @@ export function build(opts = {}) {
     const a = inst[isin].accounts; if (!a) return;
     accountsFull[isin] = a;
     // Fichier principal allégé : le texte complet de la lecture des comptes n'est lu qu'à l'ouverture d'une fiche (fichier détail)
-    inst[isin].accounts = { fscore: a.fscore ? (a.fscore.na ? { na: true, reason: a.fscore.reason } : { f9: a.fscore.f9, score: a.fscore.score, avail: a.fscore.avail, year: a.fscore.year }) : null, verdict: a.verdict, n: a.n, plain: a.plain ? { tone: a.plain.tone, label: a.plain.label } : null, fscoreHistory: a.fscoreHistory || null, fscoreTrend: a.fscoreTrend || null, summary: true };
+    inst[isin].accounts = { fscore: a.fscore ? (a.fscore.na ? { na: true, reason: a.fscore.reason } : { f9: a.fscore.f9, score: a.fscore.score, avail: a.fscore.avail, year: a.fscore.year }) : null, verdict: a.verdict, n: a.n, plain: a.plain ? { tone: a.plain.tone, label: a.plain.label } : null, fscoreHistory: a.fscoreHistory || null, fscoreTrend: a.fscoreTrend || null,
+      altman: a.altman && !a.altman.na ? { z: a.altman.z, zone: a.altman.zone } : null, beneish: a.beneish && !a.beneish.na ? { m: a.beneish.m, flag: a.beneish.flag } : null, summary: true };
   });
   // Liste des dirigeants (Yahoo) : sert seulement au calcul (DG et DAF), pas au tableau de bord
   Object.keys(inst).forEach((isin) => { const f = inst[isin].fund; if (f && f.officers) { const c = Object.assign({}, f); delete c.officers; inst[isin].fund = c; } });
@@ -711,7 +725,7 @@ export function build(opts = {}) {
     cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
     mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
-    learning: { mode: learning.mode, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
+    learning: { mode: learning.mode, frozenUntil: learning.frozenUntil || null, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
   };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);

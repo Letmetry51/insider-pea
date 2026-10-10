@@ -29,6 +29,10 @@
    120
   ]
  },
+ "rules": {
+  "frozenUntil": "2027-01-31",
+  "reviewMinCases": 50
+ },
  "learning": {
   "mode": "auto",
   "minCases": 60,

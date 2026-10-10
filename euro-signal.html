@@ -8,7 +8,7 @@
 /* Mise en page : barre de titre + onglets ; classement dense ; fiche titre en deux colonnes (score | cours), cartes d'opérations au format des notifications MAR art. 19. */
 :root{
   --bg:#EDF0EC; --surface:#F9FAF7; --sunk:#E3E8E3; --ink:#17201C; --muted:#56635C; --line:#CBD3CD;
-  --accent:#0D6A56; --accent-ink:#FFFFFF; --accent-soft:#D5EAE2;
+  --accent:#0D6A56; --accent-ink:#FFFFFF; --accent-soft:#D5EAE2; --s1:#2a78d6; --s2:#eb6834;
   --good:#1F7A3E; --good-soft:#DCEFE1; --warn:#9A5B00; --warn-soft:#F6E8CF; --bad:#B0281F; --bad-soft:#F7DCD8; --neutral-soft:#E2E6E3;
   --f-insiders:#0E7A63; --f-buyback:#4A5FC1; --f-results:#B26B00; --f-market:#7C5AA8;
   --chart-line:#0D6A56; --chart-area:rgba(13,106,86,.10);
@@ -19,14 +19,14 @@
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111614; --surface:#18201C; --sunk:#0D1210; --ink:#E3EAE6; --muted:#97A59E; --line:#2C3832;
-  --accent:#4CC3A3; --accent-ink:#06231B; --accent-soft:#173A31;
+  --accent:#4CC3A3; --accent-ink:#06231B; --accent-soft:#173A31; --s1:#3987e5; --s2:#d95926;
   --good:#63C98D; --good-soft:#163222; --warn:#E5AB4E; --warn-soft:#382A12; --bad:#F2887C; --bad-soft:#3D1D19; --neutral-soft:#242D29;
   --f-insiders:#43BFA0; --f-buyback:#8E9DF2; --f-results:#E2A649; --f-market:#B99CE2;
   --chart-line:#4CC3A3; --chart-area:rgba(76,195,163,.12); color-scheme:dark;
 }}
 :root[data-theme="dark"]{
   --bg:#111614; --surface:#18201C; --sunk:#0D1210; --ink:#E3EAE6; --muted:#97A59E; --line:#2C3832;
-  --accent:#4CC3A3; --accent-ink:#06231B; --accent-soft:#173A31;
+  --accent:#4CC3A3; --accent-ink:#06231B; --accent-soft:#173A31; --s1:#3987e5; --s2:#d95926;
   --good:#63C98D; --good-soft:#163222; --warn:#E5AB4E; --warn-soft:#382A12; --bad:#F2887C; --bad-soft:#3D1D19; --neutral-soft:#242D29;
   --f-insiders:#43BFA0; --f-buyback:#8E9DF2; --f-results:#E2A649; --f-market:#B99CE2;
   --chart-line:#4CC3A3; --chart-area:rgba(76,195,163,.12); color-scheme:dark;
@@ -329,6 +329,14 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .fsg h5{margin:8px 0 4px;font-size:.88rem}.fsg ul.fsl{columns:1}.fsl li small{display:block;color:var(--muted);font-size:.8rem;margin:1px 0 4px 18px}
 .fsscale{margin:12px 0 4px}.fsscale summary{cursor:pointer;font-weight:600;color:var(--accent)}.fsscale p{font-size:.9rem}
 .selout{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--warn-soft);border-left:4px solid var(--warn);font-size:.9rem}.selrule{margin:2px 0 10px;font-size:.9rem}
+.pfstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px;margin:8px 0}
+.pfs{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:2px}.pfs .lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.pfs .val{font-size:1.5rem;font-weight:700}.pfs .sub{font-size:.8rem;color:var(--muted)}
+.pfwrap{position:relative}.pftip{position:absolute;top:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:.78rem;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.15);color:var(--ink)}
+.pfchart .pf-r{fill:none;stroke:var(--s1);stroke-width:2}.pfchart .pf-a{fill:none;stroke:var(--s2);stroke-width:2}.pfchart .pf-b{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:5 4}
+.pfchart .pf-r-dot{fill:var(--s1);stroke:var(--surface);stroke-width:2}.pfchart .pf-a-dot{fill:var(--s2);stroke:var(--surface);stroke-width:2}.pfchart .pf-b-dot{fill:var(--muted);stroke:var(--surface);stroke-width:2}
+.pfchart .pf-lbl{font-size:11px;fill:var(--ink)}.pfchart .pf-x{stroke:var(--muted);stroke-width:1}
+.lg.pf-r-k,.lg.pf-a-k,.lg.pf-b-k{display:inline-block;width:16px;height:0;border-top:2px solid var(--s1);vertical-align:middle;margin-right:6px}.lg.pf-a-k{border-top-color:var(--s2)}.lg.pf-b-k{border-top:2px dashed var(--muted)}
+.ci{display:block;font-size:.72rem;color:var(--muted);font-weight:400}
 .dgc{display:block;margin-top:4px;font-size:.78rem;font-weight:600}.dg-ok{color:var(--good)}.dg-old{color:var(--warn)}.dg-no{color:var(--muted)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
@@ -998,6 +1006,7 @@ details.pos summary{font-size:1rem}
     sizing: { riskPct: 1, stopMinPct: 10, stopMaxPct: 30, maxPct: 8 },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
+    rules: { frozenUntil: '', reviewMinCases: 50 },
     learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60, 120], oosStart: '' }
   };
@@ -1274,6 +1283,9 @@ details.pos summary{font-size:1rem}
     // Lecture des comptes complète (pertes, levier, trésorerie) quand elle existe, sinon F-score seul
     var at = acc && acc.plain && acc.plain.tone !== 'na' ? acc.plain.tone : fs == null ? null : fs >= cfg.accounts.fscoreGood ? 'good' : fs <= cfg.accounts.fscoreBad ? 'bad' : 'mixed';
     if (at) push('fscore', '📊', 'comptes ' + ({ good: 'solides', mixed: 'mitigés', bad: 'fragiles' }[at]) + (fs != null ? ' (F-score ' + fs + '/9)' : ''), at === 'good' ? 'good' : at === 'bad' ? 'bad' : 'info');
+    var az = acc && acc.altman && !acc.altman.na ? acc.altman : null, bm = acc && acc.beneish && !acc.beneish.na ? acc.beneish : null;
+    if (az && az.zone === 'distress') push('altman', '🧯', 'risque de défaillance (score d\'Altman ' + String(az.z).replace('.', ',') + ', zone de détresse)', 'bad');
+    if (bm && bm.flag) push('beneish', '🔍', 'comptes à vérifier (score de Beneish ' + String(bm.m).replace('.', ',') + ')', 'warn');
     var rv = +inst.revision30d;
     if (Number.isFinite(rv) && rv >= 1) push('revUp', '🔭', 'analystes : prévisions de bénéfice relevées de ' + (Math.round(rv * 10) / 10).toString().replace('.', ',') + ' % en 30 jours', 'good');
     else if (Number.isFinite(rv) && rv <= -1) push('revDown', '🔭', 'analystes : prévisions de bénéfice abaissées de ' + (Math.round(-rv * 10) / 10).toString().replace('.', ',') + ' % en 30 jours', 'warn');
@@ -1523,7 +1535,8 @@ details.pos summary{font-size:1rem}
     var Y = (fin && Array.isArray(fin.years) ? fin.years : []).filter(function (y) { return y && typeof y.date === 'string' && (!limit || y.date <= limit); })
       .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(-4).map(function (y) {
         var o = { date: y.date };
-        ['revenue', 'grossProfit', 'operatingIncome', 'netIncome', 'ebitda', 'interestExpense', 'totalAssets', 'currentAssets', 'currentLiabilities', 'totalDebt', 'longTermDebt', 'cash', 'equity', 'shares', 'cfo', 'capex', 'fcf'].forEach(function (k) { o[k] = n(y[k]); });
+        ['revenue', 'grossProfit', 'operatingIncome', 'netIncome', 'ebitda', 'interestExpense', 'totalAssets', 'currentAssets', 'currentLiabilities', 'totalDebt', 'longTermDebt', 'cash', 'equity', 'shares', 'cfo', 'capex', 'fcf',
+          'ebit', 'sga', 'depreciation', 'retainedEarnings', 'totalLiabilities', 'receivables', 'ppe'].forEach(function (k) { o[k] = n(y[k]); });
         if (o.fcf == null && o.cfo != null && o.capex != null) o.fcf = o.cfo + o.capex; // capex négatif chez Yahoo
         return o;
       });
@@ -1580,6 +1593,10 @@ details.pos summary{font-size:1rem}
       var hv = out.fscoreHistory.filter(function (h) { return !h.na; });
       if (hv.length >= 2) { var d = hv[hv.length - 1].f9 - hv[0].f9; out.fscoreTrend = { from: hv[0].year, to: hv[hv.length - 1].year, delta: d, key: d >= 2 ? 'up' : d <= -2 ? 'down' : 'flat' }; }
     }
+    // Altman Z'' (1995, version pour sociétés non manufacturières et hors États-Unis, sans cours de Bourse) : risque de défaillance
+    if (!fin_) out.altman = ES.altmanZ(last);
+    // Beneish M-score (1999, 8 ratios) : probabilité de comptes « arrangés » (manipulation des résultats)
+    if (!fin_ && prev) out.beneish = ES.beneishM(last, prev);
     // Verdict en une phrase
     var f = out.fscore && !out.fscore.na ? out.fscore.f9 : null, good = [], bad = [];
     if (out.revenueCagr != null) (out.revenueCagr >= 3 ? good : out.revenueCagr <= -3 ? bad : []).push('chiffre d\'affaires ' + (out.revenueCagr >= 0 ? '+' : '') + out.revenueCagr.toFixed(1).replace('.', ',') + ' % par an');
@@ -1593,6 +1610,41 @@ details.pos summary{font-size:1rem}
     if (key === 'good' && !fin_ && last.netIncome != null && last.netIncome < 0) { key = 'mixed'; bad.push('exercice ' + last.date.slice(0, 4) + ' en perte'); }
     out.verdict = { key: key, good: good, bad: bad, text: ({ good: 'Comptes solides et en amélioration', mixed: 'Comptes mitigés', bad: 'Comptes en dégradation', na: 'Comptes insuffisants pour conclure' }[key]) + (f != null ? ' (F-score ' + f + '/9)' : '') };
     return out;
+  };
+  /** Altman Z'' = 6,56 X1 + 3,26 X2 + 6,72 X3 + 1,05 X4 ; sûr > 2,6, zone grise 1,1 à 2,6, détresse < 1,1. */
+  ES.altmanZ = function (y) {
+    if (!y || !(y.totalAssets > 0)) return null;
+    var wc = y.currentAssets != null && y.currentLiabilities != null ? y.currentAssets - y.currentLiabilities : null;
+    var ebit = y.ebit != null ? y.ebit : y.operatingIncome, tl = y.totalLiabilities != null ? y.totalLiabilities : y.equity != null ? y.totalAssets - y.equity : null;
+    if (wc == null || y.retainedEarnings == null || ebit == null || y.equity == null || !(tl > 0)) return { na: true, reason: 'postes comptables manquants (réserves, passif)' };
+    var x1 = wc / y.totalAssets, x2 = y.retainedEarnings / y.totalAssets, x3 = ebit / y.totalAssets, x4 = y.equity / tl;
+    var z = 6.56 * x1 + 3.26 * x2 + 6.72 * x3 + 1.05 * x4;
+    return { z: Math.round(z * 100) / 100, zone: z > 2.6 ? 'safe' : z >= 1.1 ? 'grey' : 'distress', year: y.date.slice(0, 4), parts: { x1: x1, x2: x2, x3: x3, x4: x4 } };
+  };
+  /** Beneish M-score (8 ratios, exercice comparé au précédent) ; au-dessus de −1,78 : profil de comptes possiblement manipulés. */
+  ES.beneishM = function (c, p) {
+    var d = function (a, b) { return a != null && b != null && b !== 0 ? a / b : null; };
+    var need = [c.revenue, p.revenue, c.receivables, p.receivables, c.grossProfit, p.grossProfit, c.totalAssets, p.totalAssets, c.currentAssets, p.currentAssets, c.ppe, p.ppe, c.depreciation, p.depreciation, c.netIncome, c.cfo];
+    if (need.some(function (v) { return v == null; }) || !(c.revenue > 0 && p.revenue > 0)) return { na: true, reason: 'postes comptables manquants (créances, immobilisations, amortissements)' };
+    var dsri = d(d(c.receivables, c.revenue), d(p.receivables, p.revenue));
+    var gmi = d(d(p.grossProfit, p.revenue), d(c.grossProfit, c.revenue));
+    var aqi = d(1 - (c.currentAssets + c.ppe) / c.totalAssets, 1 - (p.currentAssets + p.ppe) / p.totalAssets);
+    var sgi = d(c.revenue, p.revenue);
+    var depi = d(d(Math.abs(p.depreciation), Math.abs(p.depreciation) + p.ppe), d(Math.abs(c.depreciation), Math.abs(c.depreciation) + c.ppe));
+    var sgai = c.sga != null && p.sga != null ? d(d(c.sga, c.revenue), d(p.sga, p.revenue)) : 1;
+    var lv = function (y) { var tl = y.totalLiabilities != null ? y.totalLiabilities : (y.currentLiabilities != null && y.longTermDebt != null ? y.currentLiabilities + y.longTermDebt : null); return d(tl, y.totalAssets); };
+    var lvgi = d(lv(c), lv(p)) != null ? d(lv(c), lv(p)) : 1;
+    var tata = (c.netIncome - c.cfo) / c.totalAssets;
+    var R = [dsri, gmi, aqi, sgi, depi];
+    if (R.some(function (v) { return v == null || !isFinite(v) || v <= 0 || v > 20; })) return { na: true, reason: 'ratios non significatifs (variations trop fortes ou nulles)' };
+    var m = -4.84 + 0.92 * dsri + 0.528 * gmi + 0.404 * aqi + 0.892 * sgi + 0.115 * depi - 0.172 * sgai + 4.679 * tata - 0.327 * lvgi;
+    var flags = [];
+    if (dsri > 1.4) flags.push('créances en forte hausse par rapport aux ventes');
+    if (gmi > 1.2) flags.push('marge brute en net recul');
+    if (aqi > 1.3) flags.push('hausse des actifs « immatériels » ou peu tangibles');
+    if (sgi > 1.5) flags.push('croissance des ventes très forte (pression à afficher des résultats)');
+    if (tata > 0.05) flags.push('bénéfice nettement supérieur à la trésorerie encaissée');
+    return { m: Math.round(m * 100) / 100, flag: m > -1.78, year: c.date.slice(0, 4), flags: flags, ratios: { dsri: dsri, gmi: gmi, aqi: aqi, sgi: sgi, depi: depi, sgai: sgai, lvgi: lvgi, tata: tata } };
   };
   /**
    * Lecture des comptes pour l'investisseur : synthèse chiffrée (croissance, rentabilité, trésorerie, bilan, dilution, F-score)
@@ -1650,12 +1702,16 @@ details.pos summary{font-size:1rem}
     if (a.interestCover != null && !netCash) s3 = (s3 ? s3 + ' ; ' : '') + 'couverture des intérêts ' + (a.interestCover <= 0 ? 'non assurée (résultat d\'exploitation négatif)' : 'de ' + c1(a.interestCover) + '×');
     if (a.dilutionPct != null && a.dilutionPct >= 5) s3 = (s3 ? s3 + '. ' : '') + 'Nombre d\'actions en hausse de ' + Math.round(a.dilutionPct) + ' % depuis ' + first.year + ' (dilution des actionnaires)';
     if (s3) t.push(s3 + '.');
-    var text = t.join(' ') + fsTxt;
+    var az = a.altman && !a.altman.na ? a.altman : null, bm = a.beneish && !a.beneish.na ? a.beneish : null;
+    var risk = [];
+    if (az) risk.push('Score de défaillance d\'Altman (Z\'\') : ' + c1(az.z) + ({ safe: ', zone sûre', grey: ', zone grise', distress: ', zone de détresse' }[az.zone]));
+    if (bm) risk.push('score de manipulation de Beneish : ' + c1(bm.m) + (bm.flag ? ', au-dessus du seuil d\'alerte de −1,78' + (bm.flags.length ? ' (' + bm.flags.slice(0, 2).join(', ') + ')' : '') : ', sous le seuil d\'alerte'));
+    var text = t.join(' ') + fsTxt + (risk.length ? ' ' + risk.join(' ; ').replace(/^s/, 'S') + '.' : '');
     // Conseil
     var loss = !early && m != null && m < -0.5 && !holding, lev = nd != null && nd > 3 && !netCash, burn = a.fcfKnownYears >= 2 && a.fcfPositiveYears === 0;
     var invest = burn && last.cfo != null && last.cfo > 0; // trésorerie d'exploitation positive, investissements supérieurs : phase d'investissement, pas détresse
     var tone = f != null ? (f >= 7 ? 'good' : f <= 3 ? 'bad' : 'mixed') : (a.verdict && a.verdict.key) || 'mixed';
-    if (early || loss || (burn && !invest)) tone = 'bad'; else if ((lev || invest) && tone === 'good') tone = 'mixed';
+    if (early || loss || (burn && !invest) || (az && az.zone === 'distress')) tone = 'bad'; else if ((lev || invest || (bm && bm.flag)) && tone === 'good') tone = 'mixed';
     if (early) adv.push('Société en phase de développement : sa valeur dépend de ses projets (essais, contrats, homologations), pas de ses comptes actuels ; risque élevé de nouvelles augmentations de capital, à réserver à une petite part du portefeuille.');
     if (investCo) adv.push('Société d\'investissement ou holding : ses résultats viennent de ses participations ; raisonner en décote sur actif net réévalué et regarder la qualité des actifs détenus.');
     if (holding) adv.push('Profil de holding : la valeur repose sur les participations ; raisonner en décote sur actif net réévalué plutôt qu\'en marge opérationnelle.');
@@ -1663,6 +1719,8 @@ details.pos summary{font-size:1rem}
     else if (invest) adv.push('Phase d\'investissement : l\'activité dégage de la trésorerie mais les investissements la dépassent chaque année ; vérifier qu\'ils sont financés sans dilution excessive et qu\'ils commencent à rapporter.');
     else if (burn && !early) adv.push('Consommation de trésorerie récurrente : la société dépend de ses financements ; vérifier la liquidité disponible et les échéances de dette.');
     if (lev) adv.push('Levier élevé : forte sensibilité au cycle et aux taux ; privilégier une position réduite et suivre le désendettement.');
+    if (az && az.zone === 'distress') adv.push('Risque de défaillance : le score d\'Altman est en zone de détresse ; un achat de dirigeant ne protège pas d\'une restructuration ou d\'une augmentation de capital.');
+    if (bm && bm.flag) adv.push('Comptes à examiner de près : le profil de Beneish ressemble à celui de sociétés qui ont embelli leurs résultats ; lire le rapport des commissaires aux comptes et l\'évolution des créances avant d\'investir.');
     if (a.dilutionPct != null && a.dilutionPct >= 10) adv.push('Dilution significative : vérifier l\'usage des fonds levés (acquisitions, refinancement) et la création de valeur par action.');
     if (tr && tr.key === 'down' && f != null && f >= 4) adv.push('Tendance défavorable : la note de santé recule de ' + hist[0].f9 + ' à ' + f + ' depuis ' + tr.from + ', vérifier que la dégradation est ponctuelle avant d\'investir.');
     if (tr && tr.key === 'up' && f != null && f <= 6 && !loss && !burn) adv.push('Tendance favorable : la note de santé progresse de ' + hist[0].f9 + ' à ' + f + ' depuis ' + tr.from + ', un redressement à confirmer.');
@@ -1685,6 +1743,9 @@ details.pos summary{font-size:1rem}
     if (a.dilutionPct != null && a.dilutionPct >= 5) e.push('elle a émis ' + Math.round(a.dilutionPct) + ' % d\'actions en plus, ce qui réduit d\'autant la part de chaque actionnaire');
     if (e.length) e[0] = e[0].replace(/^elle /, 'l\'entreprise ').replace(/^ses /, 'les ').replace(/^il lui /, 'il lui ');
     var ex = e.length ? 'En clair : ' + e.join(' ; ') + '.' : '';
+    if (az && az.zone === 'distress') ex += ' Son bilan ressemble à celui des entreprises qui ont fait défaut dans les deux ans : peu de réserves, faible rentabilité des actifs ou fonds propres minces.';
+    else if (az && az.zone === 'safe') ex += ' Son bilan est loin de la zone de risque de faillite.';
+    if (bm && bm.flag) ex += ' Certains postes comptables évoluent comme chez les sociétés qui ont embelli leurs résultats : ce n\'est pas une preuve, mais une raison de vérifier.';
     if (tr && tr.key !== 'flat') ex += ' La santé financière ' + (tr.key === 'up' ? 's\'améliore' : 'se dégrade') + ' : la note est passée de ' + hist[0].f9 + ' à ' + hist[hist.length - 1].f9 + ' sur 9 entre ' + tr.from + ' et ' + tr.to + '.';
     if (f != null) ex += f >= 7 ? ' La note de santé (F-score ' + f + '/9) confirme une amélioration sur presque tous les critères.' : weak.length ? ' La note de santé (F-score ' + f + '/9) est pénalisée surtout par : ' + weak.slice(0, 3).join(', ') + '.' : '';
     return { tone: tone, label: LBL[tone], text: text, explain: ex.trim(), advice: adv.join(' ') };
@@ -1788,6 +1849,74 @@ details.pos summary{font-size:1rem}
     var pct = Math.max(0.5, Math.round(Math.min(Z.maxPct, base * f) * 2) / 2);
     return { pct: pct, stopPct: stop, base: Math.round(Math.min(Z.maxPct, base) * 2) / 2, reasons: why, staged: !!sc.fallingKnife, riskPct: Z.riskPct, vol: Number.isFinite(vol) ? vol : null };
   };
+  /**
+   * Portefeuille simulé : applique toutes les règles, jour après jour, sans regarder l'avenir.
+   * o.weeks : [{ date, picks: [isin] }] (sélections du lundi, calculées avec les seules données connues ce jour-là)
+   * o.series : { isin: lignes ajustées [date, ouverture, haut, bas, clôture, volume] } ; o.bench : idem pour l'indice
+   * o.sells : { isin: [dates de publication de ventes du DG ou du DAF] } ; o.cfg : sizing, exits, backtest.costRoundTripPct
+   * Entrée à l'ouverture de la séance qui suit le lundi ; taille : 1 % de risque / seuil adapté à la volatilité (plafond 8 %) ;
+   * sorties : seuil de protection, recul de 20 % depuis le plus haut, vente du DG ou du DAF, 6 mois écoulés.
+   */
+  ES.paperPortfolio = function (o) {
+    var cfg = o.cfg || {}, Z = Object.assign({ riskPct: 1, stopMinPct: 10, stopMaxPct: 30, maxPct: 8 }, cfg.sizing || {}), cost = ((cfg.backtest && cfg.backtest.costRoundTripPct) || 0.5) / 100;
+    var dd = ((cfg.exits && cfg.exits.drawdownFromPeakPct) || 20) / 100, maxHold = o.maxHold || 120, B = o.bench || [];
+    if (!B.length || !(o.weeks || []).length) return null;
+    var start = o.weeks[0].date, days = B.map(function (r) { return r[0]; }).filter(function (d) { return d > start && (!o.today || d <= o.today); });
+    if (days.length < 2) return null;
+    var idx = {}, at = function (isin) { if (!idx[isin]) { var m = {}; (o.series[isin] || []).forEach(function (r, k) { m[r[0]] = k; }); idx[isin] = m; } return idx[isin]; };
+    var bIdx = {}; B.forEach(function (r, k) { bIdx[r[0]] = k; });
+    var weekAfter = {}; o.weeks.forEach(function (w) { var d = days.filter(function (x) { return x > w.date; })[0]; if (d) (weekAfter[d] = weekAfter[d] || []).push(w); });
+    var cash = 100, pos = {}, trades = [], curve = [], last = {}, b0 = null, peakEq = 100, maxDD = 0, bPeak = null, bMaxDD = 0, expo = 0;
+    var volAt = function (a, k) { if (k < 61) return null; var r = []; for (var j = k - 59; j <= k; j++) if (a[j - 1][4] > 0) r.push(Math.log(a[j][4] / a[j - 1][4])); var m = r.reduce(function (x, y) { return x + y; }, 0) / r.length; return Math.sqrt(r.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / (r.length - 1)) * Math.sqrt(252) * 100; };
+    var close = function (isin, d) { var a = o.series[isin], k = a ? at(isin)[d] : null; if (k != null && a[k][4] > 0) last[isin] = a[k][4]; return last[isin]; };
+    var equity = function () { return cash + Object.keys(pos).reduce(function (t, i) { return t + pos[i].shares * (last[i] || pos[i].entry); }, 0); };
+    days.forEach(function (d, n) {
+      // 1. Entrées du lundi : à l'ouverture de la première séance qui suit
+      (weekAfter[d] || []).forEach(function (w) {
+        w.picks.forEach(function (isin) {
+          if (pos[isin]) return;
+          var a = o.series[isin], k = a ? at(isin)[d] : null; if (k == null) return;
+          var px = a[k][1] != null && a[k][1] > 0 ? a[k][1] : a[k][4], v = volAt(a, k - 1);
+          var stop = v != null ? Math.min(Z.stopMaxPct, Math.max(Z.stopMinPct, Math.round(v / 2))) : 15, size = Math.min(Z.maxPct, Z.riskPct / stop * 100);
+          var amt = Math.min(cash, equity() * size / 100); if (amt < equity() * 0.005) return;
+          cash -= amt; pos[isin] = { shares: amt * (1 - cost / 2) / px, entry: px, date: d, n: n, stop: stop, peak: px, size: Math.round(size * 10) / 10 }; last[isin] = px;
+        });
+      });
+      // 2. Sorties à la clôture
+      Object.keys(pos).forEach(function (isin) {
+        var p = pos[isin], c = close(isin, d); if (c == null) return;
+        p.peak = Math.max(p.peak, c);
+        var r = c / p.entry - 1, why = null;
+        if (r <= -p.stop / 100) why = 'seuil de protection (−' + p.stop + ' %)';
+        else if (p.peak > p.entry && c / p.peak - 1 <= -dd) why = 'recul de ' + Math.round(dd * 100) + ' % depuis le plus haut';
+        else if ((o.sells[isin] || []).some(function (x) { return x > p.date && x <= d; })) why = 'vente du DG ou du DAF';
+        else if (n - p.n >= maxHold) why = '6 mois écoulés';
+        if (!why) return;
+        cash += p.shares * c * (1 - cost / 2);
+        trades.push({ isin: isin, from: p.date, to: d, ret: (c * (1 - cost / 2)) / (p.entry / (1 - cost / 2)) - 1, why: why, size: p.size });
+        delete pos[isin];
+      });
+      Object.keys(pos).forEach(function (isin) { close(isin, d); });
+      var eq = equity(), bk = bIdx[d], bv = bk != null ? B[bk][4] : null;
+      if (b0 == null && bv) b0 = bv;
+      peakEq = Math.max(peakEq, eq); maxDD = Math.min(maxDD, eq / peakEq - 1);
+      var bi = bv && b0 ? bv / b0 * 100 : null; if (bi != null) { bPeak = Math.max(bPeak || bi, bi); bMaxDD = Math.min(bMaxDD, bi / bPeak - 1); }
+      expo += 1 - cash / eq;
+      if (n % 5 === 0 || n === days.length - 1) curve.push([d, Math.round(eq * 100) / 100, bi != null ? Math.round(bi * 100) / 100 : null]);
+    });
+    var eqEnd = equity(), closed = trades.filter(function (t) { return t.ret != null; }), wins = closed.filter(function (t) { return t.ret > 0; });
+    var openPos = Object.keys(pos).map(function (i) { return { isin: i, from: pos[i].date, ret: (last[i] || pos[i].entry) / pos[i].entry - 1, size: pos[i].size }; });
+    var avg = function (l) { return l.length ? l.reduce(function (x, t) { return x + t.ret; }, 0) / l.length * 100 : null; };
+    return { from: days[0], to: days[days.length - 1], sessions: days.length, ret: eqEnd - 100, bench: curve.length && curve[curve.length - 1][2] != null ? curve[curve.length - 1][2] - 100 : null,
+      maxDD: maxDD * 100, benchMaxDD: bMaxDD * 100, exposure: expo / days.length * 100, trades: closed.length, winPct: closed.length ? Math.round(wins.length / closed.length * 100) : null,
+      avgWin: avg(wins), avgLoss: avg(closed.filter(function (t) { return t.ret <= 0; })), open: openPos, list: trades.slice(-30).reverse(), curve: curve };
+  };
+  /** Intervalle de confiance à 95 % (Wilson) d'une proportion : pct = part observée (0-100), n = nombre de cas. → [bas, haut] en %. */
+  ES.wilson = function (pct, n) {
+    if (!(n > 0) || pct == null || !isFinite(pct)) return null;
+    var p = Math.max(0, Math.min(1, pct / 100)), z = 1.96, d = 1 + z * z / n, c = (p + z * z / (2 * n)) / d, m = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+    return [Math.max(0, Math.round((c - m) * 100)), Math.min(100, Math.round((c + m) * 100))];
+  };
   /** Euro Signal ne suit que des sociétés européennes : un ISIN américain ou canadien sur une déclaration européenne trahit une confusion de société (ex. « CEG NV » rattaché à Constellation Energy). */
   ES.EUROPE_ISIN = 'AT BE BG CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR HU IE IM IS IT JE LI LT LU LV MC MT NL NO PL PT RO SE SI SK'.split(' ');
   ES.isEuropeanIsin = function (isin) { return typeof isin === 'string' && ES.EUROPE_ISIN.indexOf(isin.slice(0, 2).toUpperCase()) > -1; };
@@ -1834,7 +1963,7 @@ details.pos summary{font-size:1rem}
     if (!a || typeof a !== 'object') return { pros: pros, cons: cons, morePros: 0, moreCons: 0 };
     a = Object.assign({ why: [] }, a, { why: Array.isArray(a.why) ? a.why : [] });
     var sig = Array.isArray(a.signals) ? a.signals : [], has = {}, cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
-    var ICON = { '🔭': 'revUp', '🏛️': 'control', '⚡': 'duel', '⚠️': 'short', '🔻': 'knife', '💸': 'rich', '🔁': 'routine', '🩺': 'fragile', '🚫': 'pea', '🔴': 'sellers', '📊': 'fscore', '👥': 'cluster', '👔': 'ceo', '🏷️': 'disc', '🧭': 'opportunistic', '💪': 'record', '😱': 'panic', '💶': 'cheap', '💰': 'big', '🏆': 'pos', '🏅': 'track', '📈': 'trend' };
+    var ICON = { '🧯': 'altman', '🔍': 'beneish', '🔭': 'revUp', '🏛️': 'control', '⚡': 'duel', '⚠️': 'short', '🔻': 'knife', '💸': 'rich', '🔁': 'routine', '🩺': 'fragile', '🚫': 'pea', '🔴': 'sellers', '📊': 'fscore', '👥': 'cluster', '👔': 'ceo', '🏷️': 'disc', '🧭': 'opportunistic', '💪': 'record', '😱': 'panic', '💶': 'cheap', '💰': 'big', '🏆': 'pos', '🏅': 'track', '📈': 'trend' };
     sig = sig.map(function (g) { return g.k ? g : Object.assign({ k: ICON[g.icon] || '' }, g); });
     sig.forEach(function (g) { has[g.k] = 1; });
     var PRI = ['cluster', 'ceo', 'disc', 'opportunistic', 'record', 'revUp', 'panic', 'cheap', 'fscore', 'big', 'pos', 'track', 'trend'];
@@ -1878,6 +2007,8 @@ details.pos summary{font-size:1rem}
     ['revisionUp', 'Prévisions de bénéfice des analystes relevées d\'au moins 1 % sur 30 jours (relevé au moment de l\'achat)'],
     ['revisionDown', 'Prévisions de bénéfice des analystes abaissées d\'au moins 1 % sur 30 jours (relevé au moment de l\'achat)'],
     ['controlled', 'Société contrôlée : dirigeants et proches détiennent au moins 30 % du capital'],
+    ['altmanDistress', 'Bilan en zone de détresse selon Altman (Z\'\' < 1,1, comptes publiés à la date de l\'achat)'],
+    ['beneishFlag', 'Profil de comptes « arrangés » selon Beneish (M > −1,78, comptes publiés à la date de l\'achat)'],
     ['lowFloat', 'Flottant inférieur à 40 % du capital (peu d\'actions échangées en Bourse)']
   ];
   /** Actionnariat : part détenue par les dirigeants et leurs proches (0 à 1) et flottant, d'après Yahoo. */
@@ -2870,6 +3001,17 @@ details.pos summary{font-size:1rem}
       }).join('') + '</ul></div>';
     }).join('') + '</div>';
   }
+  /** Deux contrôles anti-piège : risque de défaillance (Altman) et comptes possiblement embellis (Beneish). */
+  function riskScores(a) {
+    var az = a.altman, bm = a.beneish, n = function (v) { return fmtN(v, 2); };
+    var ZL = { safe: ['good', 'Zone sûre'], grey: ['mid', 'Zone grise'], distress: ['bad', 'Zone de détresse'] };
+    var h = '<h4 class="mt">Contrôles anti-piège</h4><div class="fsgroups">';
+    h += '<div class="fsg"><h5>🧯 Risque de défaillance (Altman Z\'\')</h5>' + (az && !az.na ? '<p><span class="fsc fs-' + ZL[az.zone][0] + '">' + n(az.z) + '</span> <b>' + ZL[az.zone][1] + '</b> <span class="muted">(exercice ' + esc(az.year) + ')</span></p>' : '<p class="muted">' + esc(az && az.reason ? az.reason.charAt(0).toUpperCase() + az.reason.slice(1) : 'Non calculable') + ' : postes en cours de collecte, complétés au fil des soirs.</p>') +
+      '<p class="foot">Combine fonds de roulement, réserves accumulées, rentabilité et solidité des fonds propres (Altman, version 1995 adaptée aux sociétés non industrielles et hors États-Unis). Au-dessus de 2,6 : risque faible ; de 1,1 à 2,6 : zone grise ; sous 1,1 : profil proche des sociétés qui ont fait défaut dans les deux ans.</p></div>';
+    h += '<div class="fsg"><h5>🔍 Qualité des comptes (Beneish M)</h5>' + (bm && !bm.na ? '<p><span class="fsc fs-' + (bm.flag ? 'bad' : 'good') + '">' + n(bm.m) + '</span> <b>' + (bm.flag ? 'Au-dessus du seuil d\'alerte' : 'Sous le seuil d\'alerte') + '</b> <span class="muted">(exercice ' + esc(bm.year) + ')</span></p>' + (bm.flags && bm.flags.length ? '<p>Points relevés : ' + esc(bm.flags.join(' ; ')) + '.</p>' : '') : '<p class="muted">' + esc(bm && bm.reason ? bm.reason.charAt(0).toUpperCase() + bm.reason.slice(1) : 'Non calculable') + '.</p>') +
+      '<p class="foot">Huit ratios (créances, marge brute, qualité des actifs, croissance, amortissements, frais, endettement, part du bénéfice non encaissée) comparés à l\'exercice précédent (Beneish, 1999). Au-dessus de −1,78 : profil semblable aux sociétés qui ont embelli leurs comptes. Ce n\'est pas une preuve de fraude, mais une raison de lire le rapport annuel de près.</p></div></div>';
+    return h;
+  }
   function fscoreScale() {
     var G = S.cfg.accounts.fscoreGood, B = S.cfg.accounts.fscoreBad;
     var rows = [['8 – 9', 'top', 'Excellent', 'Comptes en nette amélioration sur presque tous les plans : rentable, encaisse son bénéfice, se désendette, ne dilue pas, gagne en efficacité.'],
@@ -2905,6 +3047,7 @@ details.pos summary{font-size:1rem}
       h += fscoreEvolution(a);
       h += fscoreCriteria(fs);
     } else if (fs) h += '<p class="foot">F-score : ' + esc(fs.reason) + '.</p>';
+    h += riskScores(a);
     h += fscoreScale();
     h += '<p class="foot">Source : comptes annuels publiés (Yahoo Finance), ' + Y.length + ' exercice' + (Y.length > 1 ? 's' : '') + '.</p>';
     return h + '</section>';
@@ -3419,6 +3562,47 @@ details.pos summary{font-size:1rem}
       ob.map(function (o) { return '<li><b>' + esc(o.label) + '</b> — ' + o.nWith + ' cas avec' + (o.meanWith != null ? ' : ' + pct(o.meanWith) + ' vs CAC 40' : '') + (o.meanWithout != null ? ', contre ' + pct(o.meanWithout) + ' sans' : '') + (o.t != null ? ' (t = ' + fmtN(o.t, 1) + ')' : '') + '<br><small class="muted">' + esc(o.action) + '</small></li>'; }).join('') + '</ul></section>';
     return h;
   }
+  /** Portefeuille simulé : la méthode complète appliquée jour après jour aux sélections passées, comparée au STOXX Europe 600. */
+  function paperCard(P) {
+    var R = P && P.rule, A = P && P.all;
+    var h = '<h4>Portefeuille simulé</h4>';
+    if (!R || !R.curve || R.curve.length < 3) return h + '<p class="muted">Pas encore assez d\'historique pour simuler le portefeuille.</p>';
+    var pc = function (v) { return v == null ? 'n.d.' : '<span class="' + (v >= 0 ? 'pos' : 'neg') + '">' + pct(v) + '</span>'; };
+    h += '<p class="foot">Ce que la méthode aurait donné, appliquée à la lettre depuis le ' + esc(ES.frDate(R.from)) + ' : achat de chaque société sélectionnée le lundi, à l\'ouverture du lendemain, avec la taille suggérée (1 % de risque, seuil de protection adapté à la volatilité, 8 % au plus par ligne) ; vente au seuil de protection, après un recul de 20 % depuis le plus haut, à la vente du DG ou du DAF ou au bout de 6 mois ; frais déduits ; la part non investie reste en liquidités. Point de départ : 100.</p>';
+    h += '<div class="pfstats">' + [['Règle actuelle (DG/DAF)', R], ['Tout dirigeant', A]].filter(function (x) { return x[1]; }).map(function (x) {
+      var r = x[1];
+      return '<div class="pfs"><span class="lbl">' + esc(x[0]) + '</span><span class="val">' + pc(r.ret) + '</span><span class="sub">STOXX 600 : ' + pc(r.bench) + ' · pire baisse ' + pc(r.maxDD) + ' (indice ' + pct(r.benchMaxDD) + ') · ' + r.trades + ' vente' + (r.trades > 1 ? 's' : '') + (r.winPct != null ? ', ' + r.winPct + ' % gagnantes' : '') + ' · investi en moyenne à ' + Math.round(r.exposure) + ' %</span></div>';
+    }).join('') + '</div>';
+    // Courbes indexées à 100 : un seul axe, deux portefeuilles et l'indice en référence (pointillés)
+    var C = R.curve, a2 = {}; (A && A.curve || []).forEach(function (p) { a2[p[0]] = p[1]; });
+    var pts = C.map(function (p) { return { d: p[0], r: p[1], a: a2[p[0]] != null ? a2[p[0]] : null, b: p[2] }; });
+    S.pfPts = pts;
+    var narrow = window.innerWidth < 560, W = narrow ? 380 : 720, H = 230, L = 40, Rm = narrow ? 70 : 110, T = 12, B = 24;
+    var vals = []; pts.forEach(function (p) { [p.r, p.a, p.b].forEach(function (v) { if (v != null) vals.push(v); }); });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+    var xs = function (k) { return L + (W - L - Rm) * (pts.length === 1 ? 0.5 : k / (pts.length - 1)); }, ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
+    var path = function (key) { var d = '', on = false; pts.forEach(function (p, k) { var v = p[key]; if (v == null) { on = false; return; } d += (on ? 'L' : 'M') + xs(k).toFixed(1) + ' ' + ys(v).toFixed(1); on = true; }); return d; };
+    var lastOf = function (key) { for (var k = pts.length - 1; k >= 0; k--) if (pts[k][key] != null) return { k: k, v: pts[k][key] }; return null; };
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart pfchart" role="img" aria-label="Valeur du portefeuille simulé (base 100) comparée au STOXX Europe 600">';
+    [lo + pad, 100, hi - pad].forEach(function (v) { svg += '<line x1="' + L + '" x2="' + (W - Rm) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" class="grid"' + (v === 100 ? ' style="stroke-dasharray:2 3"' : '') + '/><text x="' + (L - 6) + '" y="' + (ys(v) + 4).toFixed(1) + '" text-anchor="end" class="ax">' + fmtN(v, 0) + '</text>'; });
+    svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(pts[0].d) + '</text><text x="' + (W - Rm) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">' + shortDate(pts[pts.length - 1].d) + '</text>';
+    svg += '<path d="' + path('b') + '" class="pf-b"/>' + (A ? '<path d="' + path('a') + '" class="pf-a"/>' : '') + '<path d="' + path('r') + '" class="pf-r"/>';
+    [['r', 'Règle actuelle', 'pf-r'], ['a', 'Tout dirigeant', 'pf-a'], ['b', 'STOXX 600', 'pf-b']].forEach(function (s0) { var e = lastOf(s0[0]); if (!e || (s0[0] === 'a' && !A)) return; svg += '<circle cx="' + xs(e.k).toFixed(1) + '" cy="' + ys(e.v).toFixed(1) + '" r="4" class="' + s0[2] + '-dot"/><text x="' + (xs(e.k) + 8).toFixed(1) + '" y="' + (ys(e.v) + 4).toFixed(1) + '" class="pf-lbl">' + s0[1] + ' ' + fmtN(e.v, 0) + '</text>'; });
+    svg += '<line class="pf-x" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" style="display:none"/><rect class="pf-hit" x="' + L + '" y="0" width="' + (W - L - Rm) + '" height="' + H + '" fill="transparent" data-w="' + W + '" data-l="' + L + '" data-r="' + Rm + '"/></svg>';
+    h += '<div class="chartwrap pfwrap">' + svg + '<div class="pftip" hidden></div></div><p class="legend2"><span><i class="lg pf-r-k"></i>Règle actuelle (DG/DAF)</span>' + (A ? '<span><i class="lg pf-a-k"></i>Tout dirigeant</span>' : '') + '<span><i class="lg pf-b-k"></i>STOXX Europe 600 (référence)</span></p>';
+    var rows = (R.open || []).map(function (t) { return '<tr><td class="c-name" data-l="Société">' + esc(t.name || t.isin) + '</td><td data-l="Achat">' + shortDate(t.from) + '</td><td data-l="Vente"><span class="chip neutral">en cours</span></td><td class="num" data-l="Taille">' + fmtN(t.size, 1) + ' %</td><td class="num" data-l="Résultat">' + pc(t.ret * 100) + '</td><td data-l="Motif">—</td></tr>'; })
+      .concat((R.list || []).slice(0, 12).map(function (t) { return '<tr><td class="c-name" data-l="Société">' + esc(t.name || t.isin) + '</td><td data-l="Achat">' + shortDate(t.from) + '</td><td data-l="Vente">' + shortDate(t.to) + '</td><td class="num" data-l="Taille">' + fmtN(t.size, 1) + ' %</td><td class="num" data-l="Résultat">' + pc(t.ret * 100) + '</td><td data-l="Motif">' + esc(t.why) + '</td></tr>'; }));
+    if (rows.length) h += '<details class="fsscale"><summary>Opérations du portefeuille simulé (règle actuelle)</summary><div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Achat</th><th>Vente</th><th class="num">Taille</th><th class="num">Résultat</th><th>Motif</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div></details>';
+    h += '<p class="foot">Limites : les tailles ne tiennent pas compte des réductions de l\'avis (levier, duel…) faute d\'historique de ces données, et la période est encore courte. C\'est le juge de paix de la méthode : il se précisera semaine après semaine.</p>';
+    return h;
+  }
+  /** Marge d'erreur d'un pourcentage (intervalle de Wilson à 95 %). */
+  function ci(p, n) { var w = ES.wilson(p, n); return w ? '<small class="ci" title="Marge d\'erreur à 95 % : la vraie valeur se situe très probablement dans cette fourchette">' + w[0] + '–' + w[1] + ' %</small>' : ''; }
+  function freezeNote() {
+    var r = S.cfg.rules || {}, L = S.snapshot && S.snapshot.learning;
+    var until = (L && L.frozenUntil) || (r.frozenUntil && S.today <= r.frozenUntil ? r.frozenUntil : null);
+    return until ? '<p class="selrule">🔒 <b>Règles figées jusqu\'au ' + esc(ES.frDate(until)) + '</b> : les mesures continuent chaque soir, mais le barème et les règles de sélection ne changent pas avant la revue (objectif : environ ' + (r.reviewMinCases || 50) + ' dossiers mesurés à 6 mois). C\'est la protection classique contre les règles trouvées par hasard sur trop peu de cas.</p>' : '';
+  }
   /** Fiabilité de la sélection : sélections du lundi rejouées sur 2 ans avec les seules données connues à chaque date, résultat 3 mois plus tard. */
   function relBlock(rs) {
     var h = '<h4>Fiabilité de la sélection</h4>';
@@ -3431,7 +3615,7 @@ details.pos summary{font-size:1rem}
     var rows = [['★★★★ Très fort (note ' + T + '+)', rs.top], ['★★★ Fort (' + F + ' à ' + (T - 1) + ')', rs.strong], ['Toutes les sélections', rs.all]].filter(function (r) { return r[1] && r[1].n; });
     return h + '<p class="foot">Chaque lundi passé, la sélection a été recalculée avec les seules informations connues ce jour-là, puis suivie 3 mois (60 séances), frais de 0,5 % déduits.' + (rs.from ? ' Sélections du ' + esc(ES.frDate(rs.from)) + ' au ' + esc(ES.frDate(rs.to)) + '.' : '') + '</p>' +
       '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Note</th><th class="num">Dossiers</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Moitié des cas entre</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Note">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b></td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Fourchette">' + pct(o.p25) + ' à ' + pct(o.p75) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Note">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b>' + ci(o.upPct, o.n) + '</td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Fourchette">' + pct(o.p25) + ' à ' + pct(o.p75) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' + ci(o.beatPct, o.n) : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
       '<p class="note">' + esc(ES.reliabilityText(rs) || ('Seulement ' + rs.all.n + ' dossier' + (rs.all.n > 1 ? 's' : '') + ' passé' + (rs.all.n > 1 ? 's' : '') + ' mesurable' + (rs.all.n > 1 ? 's' : '') + ' avec la règle actuelle : trop peu pour conclure, les chiffres se précisent chaque semaine.')) + '</p>' + extra;
   }
   /** F-score seul (Piotroski) : toutes les sociétés liquides suivies, avec ou sans achat de dirigeant, 120 jours après chaque clôture. */
@@ -3443,7 +3627,7 @@ details.pos summary{font-size:1rem}
     var six = q.high || q.low ? '<p class="foot"><b>À 6 mois :</b> F-score ' + G + ' à 9 — ' + s6(q.high) + ' ; 4 à 6 — ' + s6(q.mid) + ' ; 0 à 3 — ' + s6(q.low) + '.</p>' : '';
     return '<h4 class="mt">Et le F-score seul ?</h4><p class="foot">Toutes les sociétés liquides suivies, notées sur chaque exercice disponible, achetées 120 jours après la clôture (comptes publiés) et gardées 3 mois, frais déduits' + (p.from ? ', depuis le ' + esc(ES.frDate(p.from)) : '') + '.</p>' +
       '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Groupe</th><th class="num">Cas</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Écart moyen vs CAC 40</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Groupe">' + esc(r[0]) + '</td><td class="num" data-l="Cas">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b></td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Écart vs CAC">' + (o.meanExcess != null ? pc(o.meanExcess) : 'n.d.') + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' + six +
+      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Groupe">' + esc(r[0]) + '</td><td class="num" data-l="Cas">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b>' + ci(o.upPct, o.n) + '</td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Écart vs CAC">' + (o.meanExcess != null ? pc(o.meanExcess) : 'n.d.') + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' + ci(o.beatPct, o.n) : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' + six +
       '<p class="foot">Achats d\'initiés d\'abord ou F-score d\'abord ? Les deux ordres donnent la même liste : les sociétés qui remplissent les deux conditions. Le F-score ne change qu\'une fois par an et dit si l\'entreprise va mieux ; l\'achat du dirigeant arrive à un moment précis et sert de déclencheur. D\'où notre choix : l\'achat du DG ou du DAF déclenche, le F-score écarte les comptes en forte dégradation et signale les comptes solides. Pour l\'approche inverse, le filtre « F-score 8 ou 9 » de la page Opportunités liste les sociétés aux comptes les plus solides.</p>';
   }
   /** Et si la règle était plus stricte ? Mêmes semaines rejouées, en ne gardant que certains acheteurs. */
@@ -3453,7 +3637,7 @@ details.pos summary{font-size:1rem}
     var rows = [['Tout dirigeant' + (S.cfg.selection.requireCeoCfo ? ' (ancienne règle)' : ' (règle actuelle)'), v.current], ['DG ou DAF seulement' + (S.cfg.selection.requireCeoCfo ? ' (règle actuelle)' : ''), v.dg], ['DG, DAF ou ≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants', v.dgCluster], ['≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants seulement', v.cluster], ['Tout dirigeant, F-score ≥ ' + S.cfg.accounts.fscoreGood, v.f7], ['DG ou DAF et F-score ≥ ' + S.cfg.accounts.fscoreGood, v.dgF7]].filter(function (r) { return r[1] && r[1].n; });
     return '<h4 class="mt">Et avec une règle plus stricte ?</h4><p class="foot">Mêmes lundis rejoués, en ne retenant que certains acheteurs (au plus ' + S.cfg.selection.size + ' dossiers par semaine).</p>' +
       '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Règle</th><th class="num">Dossiers</th><th class="num">Par semaine</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Règle">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="Par semaine">' + fmtN(o.perWeek, 1) + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b></td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Règle">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="Par semaine">' + fmtN(o.perWeek, 1) + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b>' + ci(o.upPct, o.n) + '</td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' + ci(o.beatPct, o.n) : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   }
   /** Méthode et preuves : la logique en bref et ce que mesurent nos propres données (chiffres réels, recalculés chaque soir). */
   function proofCard() {
@@ -3466,18 +3650,18 @@ details.pos summary{font-size:1rem}
     var h = '<section class="card proof" id="preuves"><h3>Méthode et preuves</h3>' +
       '<p><b>L\'idée.</b> Un dirigeant qui achète avec son propre argent connaît mieux que personne sa société. Les études mesurent environ +0,4 % par mois de surperformance après ces achats (Jeng, Metrick et Zeckhauser), surtout sur les petites et moyennes valeurs, quand plusieurs dirigeants achètent ensemble ou après une forte baisse.</p>' +
       '<p><b>En 4 étapes.</b> ① Achats volontaires de dirigeants d\'au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + '. ② Une note sur 100 (force de l\'achat, tendance, rachats, résultats). ③ Un avis qui écarte les sociétés fragiles ou hors PEA et signale les risques. ④ Un repère : semaine exceptionnelle ou ordinaire.</p>' +
-      relBlock(snap.selection && snap.selection.replayStats) +
+      freezeNote() + paperCard(snap.selection && snap.selection.paper) + relBlock(snap.selection && snap.selection.replayStats) +
       '<h4>Ce que mesure chaque type d\'achat</h4><div class="segs" role="group" aria-label="Horizon">' + [[60, 'à 3 mois'], [120, 'à 6 mois']].map(function (x) { return '<button class="' + (H === x[0] ? 'on' : '') + '" data-a="proofH" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       '<p class="foot">Achats européens suivis depuis le ' + esc(ES.frDate((snap.selection && snap.selection.reference && snap.selection.reference.from) || '') || '?') + ', résultat ' + H + ' séances (environ ' + (H >= 120 ? '6' : '3') + ' mois) après la publication, frais déduits. Trois comparaisons : le CAC 40, le STOXX Europe 600 (plus représentatif d\'un univers européen) et la médiane des autres sociétés du même secteur (ce qui reste quand on retire l\'effet secteur).</p>';
     if (rows.length) h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Type d\'achat</th><th class="num">Cas</th><th class="num">Cours en hausse</th><th class="num">Variation moyenne</th><th class="num">Bat le CAC 40</th><th class="num">Bat le STOXX 600</th><th class="num">Bat son secteur</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r.o, cell = function (n, beat, m) { return n ? Math.round(beat) + ' %<small class="' + (m >= 0 ? 'pos' : 'neg') + '">' + pct(m) + '</small>' : 'n.d.'; };
-        return '<tr><td class="c-name" data-l="Type">' + esc(r.label) + '</td><td class="num" data-l="Cas">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse">' + Math.round(o.up) + ' %</td><td class="num" data-l="Moyenne"><span class="' + (o.mean >= 0 ? 'pos' : 'neg') + '">' + pct(o.mean) + '</span></td><td class="num" data-l="Bat le CAC 40">' + cell(o.nEx, o.beat, o.meanEx) + '</td><td class="num" data-l="Bat le STOXX 600">' + cell(o.nEx2, o.beat2, o.meanEx2) + '</td><td class="num" data-l="Bat son secteur">' + cell(o.nSec, o.beatSec, o.meanSec) + '</td></tr>'; }).join('') + '</tbody></table></div><p class="foot">Dans chaque case : part des cas qui ont fait mieux, puis écart moyen.</p>';
+      rows.map(function (r) { var o = r.o, cell = function (n, beat, m) { return n ? Math.round(beat) + ' %' + ci(beat, n) + '<small class="' + (m >= 0 ? 'pos' : 'neg') + '">' + pct(m) + '</small>' : 'n.d.'; };
+        return '<tr><td class="c-name" data-l="Type">' + esc(r.label) + '</td><td class="num" data-l="Cas">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse">' + Math.round(o.up) + ' %</td><td class="num" data-l="Moyenne"><span class="' + (o.mean >= 0 ? 'pos' : 'neg') + '">' + pct(o.mean) + '</span></td><td class="num" data-l="Bat le CAC 40">' + cell(o.nEx, o.beat, o.meanEx) + '</td><td class="num" data-l="Bat le STOXX 600">' + cell(o.nEx2, o.beat2, o.meanEx2) + '</td><td class="num" data-l="Bat son secteur">' + cell(o.nSec, o.beatSec, o.meanSec) + '</td></tr>'; }).join('') + '</tbody></table></div><p class="foot">Dans chaque case : part des cas qui ont fait mieux, sa marge d\'erreur (fourchette où se situe la vraie valeur 95 fois sur 100), puis l\'écart moyen. Une fourchette qui contient 50 % veut dire : pas encore de preuve d\'avantage.</p>';
     else if (H >= 120) h += '<p class="muted">Pas encore assez de recul pour mesurer à 6 mois.</p>';
     if (tr) h += '<p class="mt"><b>Sélections de la semaine déjà envoyées</b> : ' + pct(tr.avg) + ' en moyenne depuis l\'envoi' + (tr.bench != null ? ', contre ' + pct(tr.bench) + ' pour le CAC 40 ; ' + Math.round(tr.beatPct) + ' % des dossiers ont fait mieux' : '') + ' (' + tr.n + ' dossiers, ' + tr.weeks + ' semaine' + (tr.weeks > 1 ? 's' : '') + ').</p>';
     else h += '<p class="mt muted">Bilan des sélections envoyées : disponible dès la deuxième semaine.</p>';
     h += '<p class="note">' + esc(concl) + '</p>' +
       '<h4>Lire l\'avis et les symboles</h4><p>' + ['priority', 'watch', 'wait', 'avoid'].map(function (k) { return advBadge({ key: k, icon: { priority: '🟢', watch: '🟡', wait: '⚪', avoid: '🔴' }[k], label: { priority: 'À étudier en priorité', watch: 'À surveiller', wait: 'Attendre', avoid: 'Éviter pour l\'instant' }[k], why: [] }); }).join(' ') + '</p>' +
-      '<p class="foot">👔 DG ou DAF · 🧭 achat inhabituel · 🔁 achat habituel (peu informatif) · 🏅 palmarès du dirigeant · 💪 achat record pour lui · 📊 F-score des comptes · 🔭 révisions des analystes · 🏛️ société contrôlée · 😨 / 🤩 humeur du marché (peur / euphorie) · 👥 plusieurs dirigeants · 💰 gros montant · 🏷️ forte décote · 😱 achat dans la panique · 📈 tendance haussière · 🔻 cours en repli · 💶 moins chère que ses pairs · 💸 plus chère · 🏆 leader ou challenger · <b class="neg">⚠️ ventes à découvert</b> · ⚡ duel dirigeants contre vendeurs à découvert (issue binaire) · 🩺 fragile · 🚫 hors PEA · 📅 résultats. Les étoiles mesurent la force du signal, l\'avis tient compte des risques.</p></section>';
+      '<p class="foot">👔 DG ou DAF · 🧭 achat inhabituel · 🔁 achat habituel (peu informatif) · 🏅 palmarès du dirigeant · 💪 achat record pour lui · 📊 F-score des comptes · 🔭 révisions des analystes · 🏛️ société contrôlée · 🧯 risque de défaillance (Altman) · 🔍 comptes à vérifier (Beneish) · 😨 / 🤩 humeur du marché (peur / euphorie) · 👥 plusieurs dirigeants · 💰 gros montant · 🏷️ forte décote · 😱 achat dans la panique · 📈 tendance haussière · 🔻 cours en repli · 💶 moins chère que ses pairs · 💸 plus chère · 🏆 leader ou challenger · <b class="neg">⚠️ ventes à découvert</b> · ⚡ duel dirigeants contre vendeurs à découvert (issue binaire) · 🩺 fragile · 🚫 hors PEA · 📅 résultats. Les étoiles mesurent la force du signal, l\'avis tient compte des risques.</p></section>';
     return h;
   }
   function vAide() {
@@ -3534,6 +3718,19 @@ details.pos summary{font-size:1rem}
     var t = ev.target;
     if (t.dataset.tf === 'q') { S.txFilter.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#t-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); return; }
     if (t.dataset.f === 'q') { S.filters.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#f-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); }
+  });
+  // Portefeuille simulé : réticule et infobulle au survol
+  document.addEventListener('mousemove', function (ev) {
+    var hit = ev.target.closest && ev.target.closest('.pf-hit'); var wrap = hit && hit.closest('.pfwrap');
+    document.querySelectorAll('.pfwrap').forEach(function (w) { if (w !== wrap) { var t = w.querySelector('.pftip'); if (t) t.hidden = true; var x = w.querySelector('.pf-x'); if (x) x.style.display = 'none'; } });
+    if (!hit || !S.pfPts) return;
+    var svg = hit.ownerSVGElement, box = svg.getBoundingClientRect(), W = +hit.dataset.w, L = +hit.dataset.l, Rm = +hit.dataset.r;
+    var x = (ev.clientX - box.left) / box.width * W, k = Math.max(0, Math.min(S.pfPts.length - 1, Math.round((x - L) / (W - L - Rm) * (S.pfPts.length - 1)))), p = S.pfPts[k];
+    var X = L + (W - L - Rm) * (S.pfPts.length === 1 ? 0.5 : k / (S.pfPts.length - 1)), line = svg.querySelector('.pf-x');
+    line.setAttribute('x1', X); line.setAttribute('x2', X); line.style.display = '';
+    var tip = wrap.querySelector('.pftip'); tip.hidden = false;
+    tip.innerHTML = '<b>' + shortDate(p.d) + '</b><br>Règle actuelle : ' + fmtN(p.r, 1) + (p.a != null ? '<br>Tout dirigeant : ' + fmtN(p.a, 1) : '') + (p.b != null ? '<br>STOXX 600 : ' + fmtN(p.b, 1) : '');
+    var left = X / W * box.width; tip.style.left = Math.min(box.width - 150, Math.max(0, left + 10)) + 'px';
   });
   document.addEventListener('keydown', function (ev) {
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList && ev.target.classList.contains('rowlink')) { ev.preventDefault(); ev.target.click(); }
