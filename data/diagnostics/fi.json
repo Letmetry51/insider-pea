@@ -39,11 +39,158 @@
    "2026-07-31",
    "2026-08-06",
    119
+  ],
+  [
+   "2026-08-07",
+   "2026-08-13",
+   129
+  ],
+  [
+   "2026-08-14",
+   "2026-08-20",
+   219
+  ],
+  [
+   "2026-08-21",
+   "2026-08-27",
+   267
+  ],
+  [
+   "2026-08-28",
+   "2026-09-03",
+   404
+  ],
+  [
+   "2026-09-04",
+   "2026-09-10",
+   248
+  ],
+  [
+   "2026-09-11",
+   "2026-09-17",
+   366
+  ],
+  [
+   "2026-09-18",
+   "2026-09-24",
+   252
+  ],
+  [
+   "2026-09-25",
+   "2026-10-01",
+   334
+  ],
+  [
+   "2026-10-02",
+   "2026-10-08",
+   225
+  ],
+  [
+   "2026-10-09",
+   "2026-10-10",
+   25
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n06/08/2026 22:02:42;Mangold AB;549300F7ULEE3V59UW34;Per- Åhlgren;Per Åhlgren;Chairman of the Board of Directors;Yes;;;Yes;;Acquisition;Share;Mangold AB;SE0001449380;04/08/2026 00:00:00;2.0;Quantity;1690.0;SEK;NASDAQ STOCKHOLM AB;Current;\r\n06/08/2026 22:02:42;Mangold AB;549",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n10/10/2026 13:43:38;Proport invest ab;984500F33AB40805EE63;Ing-Marie Agneta Thunvik;Ing-Marie Agneta Thunvik;Chairman of the Board of Directors;;;;Yes;;Acquisition;Share;Proport invest AB;SE0027767724;09/10/2026 00:00:00;11600.0;Quantity;2.01;SEK;SPOTLIGHT STOCK MARKET;Cur",
  "delimiter": ";",
- "error": "ConnectionError(ProtocolError('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))",
- "at": "2026-10-10T22:05:49.338656+00:00"
+ "headers": [
+  "Publication date",
+  "Issuer",
+  "LEI-code",
+  "Notifier",
+  "Person discharging managerial responsibilities",
+  "Position",
+  "Closely associated",
+  "Amendment",
+  "Details of amendment",
+  "Initial notification",
+  "Linked to share option programme",
+  "Nature of transaction",
+  "Intrument type",
+  "Instrument name",
+  "ISIN",
+  "Transaction date",
+  "Volume",
+  "Unit",
+  "Price",
+  "Currency",
+  "Trading venue",
+  "Status",
+  ""
+ ],
+ "columnMap": {
+  "published": "Publication date",
+  "issuer": "Issuer",
+  "notifier": "Notifier",
+  "pdmr": "Person discharging managerial responsibilities",
+  "role": "Position",
+  "associated": "Closely associated",
+  "amendment": "Amendment",
+  "program": "Linked to share option programme",
+  "nature": "Nature of transaction",
+  "instrument": "Intrument type",
+  "isin": "ISIN",
+  "txDate": "Transaction date",
+  "quantity": "Volume",
+  "unit": "Unit",
+  "price": "Price",
+  "currency": "Currency",
+  "place": "Trading venue",
+  "status": "Status"
+ },
+ "rowCount": 4847,
+ "sampleRows": [
+  [
+   "18/06/2026 21:13:47",
+   "Sinch AB (publ)",
+   "549300UXY7QM6IDCGI12",
+   "Brett Scorza",
+   "Brett Scorza",
+   "Other member of the company's administrative, management or supervisory body",
+   "",
+   "",
+   "",
+   "Yes",
+   "Yes",
+   "Allotment",
+   "Option",
+   "Sinch LTI 2026 Series 1",
+   "",
+   "17/06/2026 00:00:00",
+   "75000.0",
+   "Quantity",
+   "0.0",
+   "SEK",
+   "Outside a trading venue",
+   "Current",
+   ""
+  ],
+  [
+   "18/06/2026 20:32:10",
+   "Freemelt Holding AB",
+   "549300H8OR0SJ7WUDC61",
+   "Mikael Wahlsten",
+   "Mikael Wahlsten",
+   "Member of the Board of Directors",
+   "",
+   "",
+   "",
+   "Yes",
+   "",
+   "Exercise decrease",
+   "Warrant",
+   "Freemelt Holding AB TO 1",
+   "SE0023849203",
+   "16/06/2026 00:00:00",
+   "27000.0",
+   "Quantity",
+   "0.90",
+   "SEK",
+   "Outside a trading venue",
+   "Current",
+   ""
+  ]
+ ],
+ "at": "2026-10-10T22:37:27.992665+00:00"
 }
