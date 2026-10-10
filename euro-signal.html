@@ -336,6 +336,8 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .pfchart .pf-r-dot{fill:var(--s1);stroke:var(--surface);stroke-width:2}.pfchart .pf-a-dot{fill:var(--s2);stroke:var(--surface);stroke-width:2}.pfchart .pf-b-dot{fill:var(--muted);stroke:var(--surface);stroke-width:2}
 .pfchart .pf-lbl{font-size:11px;fill:var(--ink)}.pfchart .pf-x{stroke:var(--muted);stroke-width:1}
 .lg.pf-r-k,.lg.pf-a-k,.lg.pf-b-k{display:inline-block;width:16px;height:0;border-top:2px solid var(--s1);vertical-align:middle;margin-right:6px}.lg.pf-a-k{border-top-color:var(--s2)}.lg.pf-b-k{border-top:2px dashed var(--muted)}
+.qsr{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px}.qs{font-size:.74rem;padding:1px 7px;border-radius:10px;border:1px solid var(--line);white-space:nowrap}
+.qs-good{background:var(--good-soft);border-color:transparent}.qs-bad{background:var(--bad-soft);border-color:transparent}.qs-mid{background:var(--warn-soft);border-color:transparent}.qs-info{background:var(--sunk)}
 .ci{display:block;font-size:.72rem;color:var(--muted);font-weight:400}
 .dgc{display:block;margin-top:4px;font-size:.78rem;font-weight:600}.dg-ok{color:var(--good)}.dg-old{color:var(--warn)}.dg-no{color:var(--muted)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
@@ -3075,6 +3077,23 @@ details.pos summary{font-size:1rem}
   }
   /* Sélection de la semaine : la liste courte calculée chaque soir (même règles que l'email du lundi) */
   function secOf(x) { return ES.sectorFr(x.sector || (x.fund && x.fund.sector)); }
+  /** Scores clés en une ligne, pour une lecture rapide d'un dossier (couleur + texte, jamais la couleur seule). */
+  function quickScores(isin, x) {
+    var i = S.inst[isin] || {}, a = i.accounts || {}, out = [], q = function (tone, txt, tip) { out.push('<span class="qs qs-' + tone + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + txt + '</span>'); };
+    var fs = a.fscore && !a.fscore.na ? a.fscore.f9 : null, tr = a.fscoreTrend ? { up: ' ↗', down: ' ↘', flat: '' }[a.fscoreTrend.key] || '' : '';
+    if (fs != null) q(fs >= S.cfg.accounts.fscoreGood ? 'good' : fs <= S.cfg.accounts.fscoreBad ? 'bad' : 'mid', '📊 F-score ' + fs + '/9' + tr, 'Santé des comptes (Piotroski), flèche : évolution sur les exercices disponibles');
+    if (a.altman) q({ safe: 'good', grey: 'mid', distress: 'bad' }[a.altman.zone] || 'mid', '🧯 Altman ' + { safe: 'sûr', grey: 'gris', distress: 'détresse' }[a.altman.zone], 'Risque de défaillance (Altman Z\'\' ' + fmtN(a.altman.z, 1) + ')');
+    if (a.beneish) q(a.beneish.flag ? 'bad' : 'good', '🔍 Beneish ' + (a.beneish.flag ? 'alerte' : 'OK'), 'Qualité des comptes (Beneish M ' + fmtN(a.beneish.m, 2) + ')');
+    var d = x && x.discountPct != null ? x.discountPct : null;
+    if (d != null) q(d >= S.cfg.weights.insiders.discountMediumPct ? 'good' : 'mid', '🏷️ décote ' + Math.round(d) + ' %', 'Prix payé par le dirigeant sous le plus haut des 52 semaines');
+    var pv = i.peer; if (pv && pv.discountPct != null) q(pv.discountPct >= S.cfg.valuation.cheapPct ? 'good' : pv.discountPct <= -S.cfg.valuation.richPct ? 'bad' : 'mid', '💶 ' + (pv.discountPct >= 0 ? Math.round(pv.discountPct) + ' % sous' : Math.round(-pv.discountPct) + ' % au-dessus de') + ' ses pairs', 'Valorisation (' + pv.metric + ') comparée aux sociétés comparables');
+    if (i.shorts && i.shorts.totalPct >= 0.5) q(i.shorts.totalPct >= 2 ? 'bad' : 'mid', '⚠️ VAD ' + fmtN(i.shorts.totalPct, 1) + ' %', 'Part du capital vendue à découvert par des fonds');
+    var ow = ES.ownership(i.fund); if (ow.floatPct != null && ow.floatPct < 40) q('mid', '🏛️ flottant ' + Math.round(ow.floatPct) + ' %', 'Part du capital échangée en Bourse');
+    var c = S.computed[isin];
+    if (c) { var z = ES.positionSize(i, c.score, (x && x.advice) || adviceOf(isin), S.cfg); if (z.pct) q('info', '⚖️ taille ' + fmtN(z.pct, z.pct % 1 ? 1 : 0) + ' %', 'Taille suggérée : part du portefeuille au plus, seuil de protection −' + z.stopPct + ' %'); }
+    var g = dgInfo(isin); if (g && !g.none) q(g.recent ? 'good' : 'mid', '👔 DG/DAF il y a ' + g.days + ' j', 'Dernier achat du DG ou du DAF');
+    return out.length ? '<div class="qsr">' + out.join('') + '</div>' : '';
+  }
   function selectionCard() {
     var sel = S.snapshot && S.snapshot.selection;
     if (!sel || !sel.items) return '';
@@ -3085,8 +3104,8 @@ details.pos summary{font-size:1rem}
     return '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3>' + (S.cfg.selection.requireCeoCfo ? '<p class="selrule">⏱ Règle : achat du <b>DG ou du DAF</b> de <b>moins de ' + R + ' jours</b>. Les autres dossiers bien notés restent visibles dans la liste ci-dessous, avec le délai depuis l\'achat du DG/DAF.</p>' : '') + (v && v.text ? '<p class="verdict v-' + esc(v.key) + '">' + (v.icon || '') + ' ' + esc(v.text) + '</p>' : '') + '<ol class="sel">' +
       sel.items.map(function (x) {
         var adv = x.advice || adviceOf(x.isin) || { why: [], signals: [] }, sm = ES.adviceSummary(adv), st = ES.stars(x.score, S.cfg, x.hist && x.hist.key);
-        var w = [x.sector || null, sm.pros[0] || null, sm.cons[0] || null].filter(Boolean);
-        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + '<span class="selnote"><span class="stars s' + st.n + '">' + starInner(st) + '</span> <b>' + ES.note(x.score, S.cfg) + '</b><span class="muted">/100</span> ' + advBadge(adv) + '</span><small>' + esc(w.join(' · ')) + '</small></li>';
+        var w = [x.sector || null, sm.pros[0] || null, sm.cons[0] ? sm.cons[0].split(' : ')[0] : null].filter(Boolean);
+        return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + '<span class="selnote"><span class="stars s' + st.n + '">' + starInner(st) + '</span> <b>' + ES.note(x.score, S.cfg) + '</b><span class="muted">/100</span> ' + advBadge(adv) + '</span><small>' + esc(w.join(' · ')) + '</small>' + quickScores(x.isin, x) + '</li>';
       }).join('') + '</ol><p class="foot">' + esc(rule) + ' À étudier, pas un ordre d\'achat.</p></section>';
   }
   function vClassement() {
