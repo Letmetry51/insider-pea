@@ -338,6 +338,16 @@ t('étude d\'événements : entrée après publication, coûts déduits, hors é
   near(ins.meanExcess, -0.5, 1e-9, 'excès vs indice = coûts');
 });
 
+t('étude d\'événements : second indice (STOXX 600) et écart au secteur', () => {
+  const rows = makeSeries(200, 100, { drift: 0.001 });
+  const evs = [{ isin: 'X', date: rows[10][0], group: 'achat' }];
+  const r = ES.eventStudy(evs, { X: { rows, splits: [] } }, { rows, splits: [] }, { costRoundTripPct: 0.5, horizons: [20, 120], bench2: { rows, splits: [] }, sectorRet: () => 0.02 });
+  const a = r.find((x) => x.horizon === 20), b = r.find((x) => x.horizon === 120);
+  near(a.meanEx2, -0.5, 1e-9, 'même série que l\'action : écart = coûts'); eq(a.nSec, 1);
+  near(a.meanSec, a.mean - 2, 1e-9, 'secteur à +2 % retranché'); ok(b && b.n === 1, 'horizon 6 mois calculé');
+  const o = ES.groupOutcome(r, 'achat', 20); near(o.meanEx2, -0.5, 1e-9); eq(o.nSec, 1);
+});
+
 /* ---------- Email ---------- */
 t('email : contenu obligatoire et mention non probabiliste', () => {
   const { inst, txs, ev } = strongCase();
@@ -769,6 +779,29 @@ t('Lecture des comptes pour l\'investisseur : synthèse chiffrée et conseil', (
   ok(ev.fscoreHistory[0].f9 < ev.fscoreHistory[2].f9, JSON.stringify(ev.fscoreHistory)); eq(ev.fscoreTrend.key, 'up');
   eq(ev.fscore.f9, ev.fscoreHistory[2].f9, 'dernier F-score = F-score affiché');
   ok(/évolution \d → \d → \d depuis 2022, en amélioration/.test(ES.accountsPlain(ev).text), ES.accountsPlain(ev).text);
+});
+
+t('Taille de position : risque de 1 % du capital, seuil adapté à la volatilité, réductions cumulées', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const sc = { buys: [{}], fallingKnife: true, marketDown: false };
+  const p = ES.positionSize({ stats: { volAnnPct: 30 }, fund: {} }, sc, { key: 'priority', signals: [] }, c);
+  eq(p.stopPct, 15); eq(p.pct, 6.5, '1 % / 15 % ≈ 6,7 % arrondi au demi-point'); ok(p.staged, 'entrée en plusieurs fois si repli');
+  const q = ES.positionSize({ stats: { volAnnPct: 60 }, fund: { totalDebt: 500, totalCash: 50, ebitda: 100, marketCap: 3e8 } }, sc, { key: 'watch', signals: [{ k: 'duel' }] }, c);
+  eq(q.stopPct, 30); ok(q.pct >= 0.5 && q.pct < 1, String(q.pct)); eq(q.reasons.length, 4);
+  eq(ES.positionSize({ stats: {} }, sc, { key: 'avoid', signals: [] }, c).pct, 0);
+  eq(ES.positionSize({ stats: { volAnnPct: 8 } }, sc, { key: 'priority', signals: [] }, c).pct, 8, 'plafond');
+});
+
+t('Actionnariat et révisions des analystes : signaux croisés et critères en observation', () => {
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const o = ES.ownership({ insidersPct: 0.62, floatShares: 3e7, sharesOut: 1e8 });
+  eq(Math.round(o.insidersPct), 62); eq(Math.round(o.floatPct), 30); eq(o.controlled, true); eq(o.lowFloat, true);
+  eq(ES.ownership({ insidersPct: 'x' }).controlled, undefined, 'donnée invalide ignorée'); eq(ES.ownership(null).lowFloat, undefined);
+  const sc = { buys: [{ ceo: true }], buyEur: 2e5, sellEur: 0, cluster: null };
+  const sig = ES.crossSignals({ fund: { insidersPct: 0.62 }, revision30d: 2.4 }, sc, c);
+  ok(sig.some((g) => g.k === 'control' && g.tone === 'warn'), 'contrôle majoritaire signalé'); ok(sig.some((g) => g.k === 'revUp' && /2,4 %/.test(g.text)));
+  ok(ES.crossSignals({ revision30d: -3 }, sc, c).some((g) => g.k === 'revDown' && g.tone === 'warn'));
+  ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'revisionUp') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'controlled'));
 });
 
 t('Leader / challenger, étoiles, données mal formées tolérées', () => {

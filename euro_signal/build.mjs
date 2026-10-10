@@ -410,10 +410,15 @@ export function build(opts = {}) {
           smallMid: cap ? cap < 2e9 : undefined,
           bigVsCap: cap ? known2.filter((b) => (b.personKey || b.person) === (t.personKey || t.person)).reduce((a, b) => a + (ES.toEur(b.amount, b.currency) || 0), 0) / cap >= 0.0005 : undefined,
           peerCheap: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].peerDisc != null ? state.obsAtBuy[t.id].peerDisc >= cfg.valuation.cheapPct : undefined,
+          // Révisions des analystes : relevées le soir de l'achat (pas d'historique gratuit), les cas s'accumulent au fil des mois
+          revisionUp: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].rev30 != null ? state.obsAtBuy[t.id].rev30 >= 1 : undefined,
+          revisionDown: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].rev30 != null ? state.obsAtBuy[t.id].rev30 <= -1 : undefined,
+          // Actionnariat : données du moment (l'actionnariat change lentement)
+          controlled: ES.ownership(inst[isin].fund).controlled, lowFloat: ES.ownership(inst[isin].fund).lowFloat,
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
           fscoreHigh: (() => { const a = finList[isin] ? accAt(isin, d) : null; return a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined; })(),
           ...(() => { const pf = profileOf(t), m = moodAt(d); return { opportunistic: !pf || pf.routine === 'inconnu' ? undefined : pf.routine === 'inhabituel', trackGood: pf && pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n >= 2 / 3 : undefined, personalRecord: pf && pf.record != null ? pf.record : undefined, marketFear: m ? m.key === 'fear' : undefined }; })() } });
-      if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null };
+      if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null, rev30: Number.isFinite(+inst[isin].revision30d) && inst[isin].revision30d !== null ? +inst[isin].revision30d : null };
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
       const known = known2;
       if (ES.clusterInfo(known, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin, date: d, group: 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }
@@ -429,7 +434,21 @@ export function build(opts = {}) {
   const series = {};
   Object.keys(pItems).forEach((isin) => { series[isin] = { rows: pItems[isin].rows, splits: pItems[isin].splits || [] }; });
   const oos = cfg.backtest.oosStart || ES.addMonths(today, -6);
-  const backtest = { results: ES.eventStudy(events, series, prices.bench ? { rows: prices.bench.rows, splits: [] } : null, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, oosStart: oos }), bench: prices.bench ? prices.bench.ticker : null, oosStart: oos, cost: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, events: events.length };
+  // Rendement médian des autres sociétés liquides du même secteur sur la même période : sépare le talent du dirigeant de l'effet secteur
+  const secMembers = {}, dateIdx = {};
+  Object.keys(inst).forEach((isin) => { const sc = inst[isin].sector; if (!sc || !adjAll[isin] || inst[isin].benchmark) return; (secMembers[sc] = secMembers[sc] || []).push(isin); });
+  const idxOf = (isin) => { if (!dateIdx[isin]) { const m = {}; adjAll[isin].forEach((r, k) => { m[r[0]] = k; }); dateIdx[isin] = m; } return dateIdx[isin]; };
+  const secRetCache = {};
+  const sectorRet = (isin, d0, d1) => {
+    const sc = inst[isin] && inst[isin].sector, key = isin + '|' + d0 + '|' + d1;
+    if (!sc || !secMembers[sc]) return null;
+    if (!(key in secRetCache)) {
+      const v = secMembers[sc].filter((o) => o !== isin).map((o) => { const a = adjAll[o], I = idxOf(o); if (I[d0] == null || I[d1] == null) return null; const x0 = a[I[d0]], x1 = a[I[d1]]; const e = x0[1] != null ? x0[1] : x0[4]; return e > 0 ? x1[4] / e - 1 : null; }).filter((x) => x != null && isFinite(x) && Math.abs(x) < 3).sort((x, y) => x - y);
+      secRetCache[key] = v.length >= 5 ? v[Math.floor(v.length / 2)] : null;
+    }
+    return secRetCache[key];
+  };
+  const backtest = { results: ES.eventStudy(events, series, prices.bench ? { rows: prices.bench.rows, splits: [] } : null, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, oosStart: oos, bench2: prices.market && prices.market.ticker !== (prices.bench && prices.bench.ticker) ? { rows: prices.market.rows, splits: [] } : null, sectorRet }), bench: prices.bench ? prices.bench.ticker : null, bench2: prices.market ? prices.market.ticker : null, oosStart: oos, cost: cfg.backtest.costRoundTripPct, horizons: cfg.backtest.horizons, events: events.length };
 
   /* 6a. Auto-apprentissage mensuel (appliqué à partir du passage suivant) */
   // Sans cours frais (panne Yahoo), on ne consomme pas le recalibrage du mois : il sera retenté le soir suivant.
@@ -559,7 +578,7 @@ export function build(opts = {}) {
   selection.items.forEach((x) => {
     x.note = ES.note(x.score, cfg); x.hist = ES.historicRank(x.note, histNotes);
     const c = candBy[x.isin];
-    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe, mood: moodAt(today) }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ k: g.k, icon: g.icon, text: g.text, tone: g.tone })) }; }
+    if (c) { const a = ES.advice(c.inst, c.score, cfg, { histKey: x.hist.key, today, universe: c.universe, mood: moodAt(today) }); x.advice = { key: a.key, icon: a.icon, label: a.label, why: a.why, signals: a.signals.map((g) => ({ k: g.k, icon: g.icon, text: g.text, tone: g.tone })) }; try { const z = ES.positionSize(c.inst, c.score, a, cfg); x.size = { pct: z.pct, stopPct: z.stopPct, staged: z.staged }; } catch (e) { /* taille non calculable */ } }
   });
   selection.verdict = ES.weekVerdict(selection.items, weekBest);
   selection.reference = { weeks: replay.length, withPicks: weekBest.length, from: replay.length ? replay[0].date : null, histNotes, weekBest };
@@ -567,14 +586,14 @@ export function build(opts = {}) {
   // Une société retenue plusieurs lundis de suite ne compte qu'une fois (à sa première semaine).
   try {
     const H = cfg.learning.horizon, cost = cfg.backtest.costRoundTripPct / 100, N = selCfg.size || 5;
-    const outsOf = (pick) => {
-      const outs = [], lastSeen = {};
+    const outsOf = (pick, h) => {
+      const hh = h || H, outs = [], lastSeen = {};
       replay.forEach((w, k) => pick(w).forEach((x) => {
         const cont = lastSeen[x.isin] === k - 1; lastSeen[x.isin] = k;
         if (cont) return;
-        const a = adjAll[x.isin], r = fwdRet(a, w.date, H);
+        const a = adjAll[x.isin], r = fwdRet(a, w.date, hh);
         if (r == null) return;
-        outs.push({ isin: x.isin, date: w.date, note: x.note, ret: r - cost, excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, w.date, H, cost) : null });
+        outs.push({ isin: x.isin, date: w.date, note: x.note, ret: r - cost, excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, w.date, hh, cost) : null });
       }));
       return outs;
     };
@@ -586,7 +605,9 @@ export function build(opts = {}) {
       f7: variant((x) => x.fs != null && x.fs >= G), dgF7: variant((x) => x.dg && x.fs != null && x.fs >= G) };
     const band = (lo, hi) => ES.outcomeStats(outs.filter((o) => o.note >= lo && o.note < hi));
     selection.replayStats = { horizon: H, all: ES.outcomeStats(outs), top: band(ES.note(cfg.alerts.minScore, cfg), 101), strong: band(ES.note(cfg.selection.minScore, cfg), ES.note(cfg.alerts.minScore, cfg)),
-      from: outs.length ? outs.map((o) => o.date).sort()[0] : null, to: outs.length ? outs.map((o) => o.date).sort().pop() : null, variants };
+      from: outs.length ? outs.map((o) => o.date).sort()[0] : null, to: outs.length ? outs.map((o) => o.date).sort().pop() : null, variants,
+      // Même mesure à 6 mois (120 séances) : l'avantage des achats de dirigeants se mesure surtout entre 6 et 12 mois
+      h120: { all: ES.outcomeStats(outsOf((w) => w.picks, 120)), current: ES.outcomeStats(outsOf((w) => (w.cands || []).slice(0, N), 120)), dg: ES.outcomeStats(outsOf((w) => (w.cands || []).filter((x) => x.dg).slice(0, N), 120)) } };
   } catch (e) { console.warn('  Fiabilité rejouée indisponible : ' + e.message); }
   // F-score seul (stratégie de Piotroski, sans achat de dirigeant) sur les sociétés liquides suivies : chaque exercice,
   // signal 120 jours après la clôture (comptes publiés), résultat 60 séances plus tard, comparé au CAC 40, frais déduits
@@ -603,12 +624,14 @@ export function build(opts = {}) {
         const d = ES.addDays(row.date, 120), r = fwdRet(a, d, H);
         if (r == null || d < a[0][0]) return;
         const ins = (sigAll[isin] || []).some((x) => x <= d && x >= ES.addDays(d, -180)); // achat de dirigeant dans les 6 mois précédant le signal
-        pts.push({ isin, date: d, f9: h.f9, ins, ret: r - cost, excess: bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, H, cost) : null });
+        const r6 = fwdRet(a, d, 120);
+        pts.push({ isin, date: d, f9: h.f9, ins, ret: r - cost, excess: bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, H, cost) : null, ret120: r6 == null ? null : r6 - cost, excess120: r6 != null && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, 120, cost) : null });
       });
     });
-    const st = (f) => ES.outcomeStats(pts.filter(f));
+    const st = (f, k) => ES.outcomeStats(pts.filter(f).map((p) => k ? Object.assign({}, p, { ret: p.ret120, excess: p.excess120 }) : p));
     selection.piotroski = { horizon: H, n: pts.length, low: st((p) => p.f9 <= 3), mid: st((p) => p.f9 >= 4 && p.f9 <= 6), high: st((p) => p.f9 >= 7), top: st((p) => p.f9 >= 8),
-      highIns: st((p) => p.f9 >= 7 && p.ins), highNoIns: st((p) => p.f9 >= 7 && !p.ins), from: pts.length ? pts.map((p) => p.date).sort()[0] : null };
+      highIns: st((p) => p.f9 >= 7 && p.ins), highNoIns: st((p) => p.f9 >= 7 && !p.ins), from: pts.length ? pts.map((p) => p.date).sort()[0] : null,
+      h120: { low: st((p) => p.f9 <= 3, 1), mid: st((p) => p.f9 >= 4 && p.f9 <= 6, 1), high: st((p) => p.f9 >= 7, 1), top: st((p) => p.f9 >= 8, 1) } };
   } catch (e) { console.warn('  Test du F-score seul indisponible : ' + e.message); }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle

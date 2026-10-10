@@ -57,7 +57,9 @@ FUND_KEYS = {"totalDebt": "totalDebt", "totalCash": "totalCash", "ebitda": "ebit
              # multiples de valorisation : comparaison aux sociétés du même secteur (décote par rapport aux pairs)
              "forwardPE": "forwardPE", "trailingPE": "trailingPE", "evToEbitda": "enterpriseToEbitda", "priceToBook": "priceToBook",
              # taille : position concurrentielle (leader / challenger) parmi les sociétés suivies
-             "revenue": "totalRevenue"}
+             "revenue": "totalRevenue",
+             # actionnariat : part détenue par les dirigeants et leurs proches, flottant (repérer les sociétés contrôlées)
+             "insidersPct": "heldPercentInsiders", "floatShares": "floatShares", "sharesOut": "sharesOutstanding"}
 
 
 def fundamentals(t):

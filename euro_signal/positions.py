@@ -144,6 +144,58 @@ def evaluate(pos, rows, stats, txs, today):
     return ev, {"last": last, "perf": perf, "peak": peak}
 
 
+SECTORS_FR = {"Basic Materials": "Matériaux de base", "Communication Services": "Médias et télécoms", "Consumer Cyclical": "Consommation cyclique",
+              "Consumer Defensive": "Consommation courante", "Energy": "Énergie", "Financial Services": "Finance", "Healthcare": "Santé", "Industrials": "Industrie",
+              "Real Estate": "Immobilier", "Technology": "Technologie", "Utilities": "Services aux collectivités"}
+
+
+def correlation(a, b, n=120):
+    """Corrélation des rendements quotidiens sur les n dernières séances communes (None si trop peu de données)."""
+    ca = {r[0]: r[4] for r in a if r and r[4]}
+    cb = {r[0]: r[4] for r in b if r and r[4]}
+    days = sorted(set(ca) & set(cb))[-(n + 1):]
+    if len(days) < 40:
+        return None
+    ra = [ca[days[k]] / ca[days[k - 1]] - 1 for k in range(1, len(days))]
+    rb = [cb[days[k]] / cb[days[k - 1]] - 1 for k in range(1, len(days))]
+    ma, mb = sum(ra) / len(ra), sum(rb) / len(rb)
+    cov = sum((x - ma) * (y - mb) for x, y in zip(ra, rb))
+    va, vb = sum((x - ma) ** 2 for x in ra), sum((y - mb) ** 2 for y in rb)
+    return cov / (va * vb) ** 0.5 if va > 0 and vb > 0 else None
+
+
+def diversification(positions, dash, prices):
+    """Concentration du portefeuille suivi : secteurs trop représentés, titres qui évoluent ensemble. Texte ou None."""
+    n = len(positions)
+    if n < 2:
+        return None
+    inst = dash.get("inst") or {}
+    by = {}
+    for p in positions:
+        sec = SECTORS_FR.get((inst.get(p["isin"]) or {}).get("sector") or "", "Secteur inconnu")
+        by.setdefault(sec, []).append((inst.get(p["isin"]) or {}).get("name") or p["isin"])
+    heavy = [(s, l) for s, l in by.items() if s != "Secteur inconnu" and len(l) >= 2 and (n >= 3 and len(l) / n >= 0.5 or len(l) >= 3)]
+    pairs = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = prices.get(positions[i]["isin"]), prices.get(positions[j]["isin"])
+            c = correlation(a.get("rows") or [], b.get("rows") or []) if a and b else None
+            if c is not None and c >= 0.75:
+                pairs.append(((inst.get(positions[i]["isin"]) or {}).get("name") or positions[i]["isin"], (inst.get(positions[j]["isin"]) or {}).get("name") or positions[j]["isin"], c))
+    if not heavy and not pairs:
+        return None
+    lines = ["Vos %d positions suivies se répartissent ainsi :" % n] + ["  - %s : %d (%s)" % (s, len(l), ", ".join(l)) for s, l in sorted(by.items(), key=lambda x: -len(x[1]))]
+    if heavy:
+        lines.append("")
+        lines += ["Concentration : %d positions sur %d en %s. Un même choc (taux, matières premières, réglementation) toucherait toutes ces lignes à la fois." % (len(l), n, s) for s, l in heavy]
+    if pairs:
+        lines.append("")
+        lines += ["%s et %s évoluent presque ensemble (corrélation %s sur 6 mois) : elles comptent presque comme une seule position." % (a, b, ("%.2f" % c).replace(".", ",")) for a, b, c in pairs[:5]]
+    lines += ["", "Repères : pas plus de 25 à 30 % du portefeuille dans un même secteur, et 8 à 15 lignes peu corrélées pour diluer le risque propre à chaque société.",
+              "Ce message n'est envoyé qu'en cas de concentration, au plus une fois par semaine. Ce n'est pas un ordre : à vous de juger."]
+    return "\n".join(lines)
+
+
 def main():
     user = os.environ.get("GMAIL_USER", "").strip()
     pwd = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "").strip()
@@ -191,6 +243,16 @@ def main():
                 name, label, ("%.2f" % pos["price"]).replace(".", ","), pos["date"], ("%.2f" % info["last"]).replace(".", ","), pc(info["perf"]),
                 (" : " + dash_url + "#" + isin) if dash_url else "")
             to_send.append(("[Euro Signal] Revente — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
+    # Diversification : une fois par semaine au plus, seulement si une concentration apparaît
+    try:
+        div = diversification(positions, dash, prices)
+    except Exception:
+        div = None
+    if div:
+        wk = date.today().isocalendar()
+        ref = "diversif:%d-W%02d" % (wk[0], wk[1])
+        if ref not in refs:
+            to_send.append(("[Euro Signal] Diversification de vos positions (réf. %s)" % ref, div))
     sent = 0
     if to_send:
         try:
