@@ -390,7 +390,7 @@ FI_COLS = {
     "amendment": ["amendment", "korrigering"],
     "program": ["linked to share option programme", "ar kopplad till aktieprogram", "är kopplad till aktieprogram", "linked to share programme"],
     "nature": ["nature of transaction", "karaktar", "karaktär"],
-    "instrument": ["instrument type", "instrumenttyp"],
+    "instrument": ["instrument type", "intrument type", "instrumenttyp"],
     "isin": ["isin"],
     "txDate": ["transaction date", "transaktionsdatum"],
     "quantity": ["volume", "volym"],
@@ -408,17 +408,34 @@ def fi_collect(st):
     d = {}
     try:
         since = (date.today() - timedelta(days=WINDOW_DAYS)).isoformat()
-        frm = max(since, (src.get("lastSuccess") and (date.fromisoformat(src["lastSuccess"]) - timedelta(days=10)).isoformat()) or since)
-        r = requests.get(FI_URL.format(frm=frm, to=date.today().isoformat()), headers=UA, timeout=120)
-        d["status"], d["contentType"], d["bytes"] = r.status_code, r.headers.get("content-type"), len(r.content)
-        if r.status_code != 200 or not r.content:
-            raise RuntimeError(f"HTTP {r.status_code}")
-        txt, enc = decode(r.content)
-        d["encoding"], d["head"] = enc, txt[:600]
-        first = txt.split("\n")[0]
-        delim = max([";", ",", "\t", "|"], key=lambda c: first.count(c))
-        rows = list(csv.reader(io.StringIO(txt), delimiter=delim))
-        headers = [h.strip().lstrip("\ufeff") for h in rows[0]] if rows else []
+        frm = since if not src.get("backfilled") else max(since, (src.get("lastSuccess") and (date.fromisoformat(src["lastSuccess"]) - timedelta(days=10)).isoformat()) or since)
+        # L'export est plafonné à 1 000 lignes : lecture par tranches de dates, redécoupées si une tranche atteint le plafond
+        def fetch(a, b):
+            r = requests.get(FI_URL.format(frm=a.isoformat(), to=b.isoformat()), headers=UA, timeout=120)
+            if r.status_code != 200 or not r.content:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            txt, enc = decode(r.content)
+            first = txt.split("\n")[0]
+            delim = max([";", ",", "\t", "|"], key=lambda c: first.count(c))
+            rr = list(csv.reader(io.StringIO(txt), delimiter=delim))
+            d.setdefault("chunks", []).append([a.isoformat(), b.isoformat(), max(0, len(rr) - 1)])
+            d["encoding"], d["head"], d["delimiter"] = enc, txt[:600], delim
+            if len(rr) - 1 >= 990 and (b - a).days >= 1:  # plafond atteint : on coupe la tranche en deux
+                mid = a + (b - a) // 2
+                h1, r1 = fetch(a, mid)
+                h2, r2 = fetch(mid + timedelta(days=1), b)
+                return h1 or h2, r1 + r2
+            return (rr[0] if rr else []), rr[1:]
+        headers, body, cur, end = [], [], date.fromisoformat(frm), date.today()
+        while cur <= end:
+            stop = min(end, cur + timedelta(days=6))
+            h, rws = fetch(cur, stop)
+            headers = headers or h
+            body += rws
+            cur = stop + timedelta(days=1)
+            time.sleep(0.5)
+        rows = [headers] + body
+        headers = [h.strip().lstrip("\ufeff") for h in headers]
         nh = [norm(h) for h in headers]
         colmap = {}
         for field, syns in FI_COLS.items():
@@ -427,7 +444,7 @@ def fi_collect(st):
                 if k in nh and nh.index(k) not in colmap.values():
                     colmap[field] = nh.index(k)
                     break
-        d.update({"delimiter": delim, "headers": headers, "columnMap": {k: headers[v] for k, v in colmap.items()}, "rowCount": max(0, len(rows) - 1), "sampleRows": rows[1:3]})
+        d.update({"headers": headers, "columnMap": {k: headers[v] for k, v in colmap.items()}, "rowCount": max(0, len(rows) - 1), "sampleRows": rows[1:3]})
         kept = 0
         for row in rows[1:]:
             get = lambda f: (row[colmap[f]].strip() if f in colmap and colmap[f] < len(row) else None)
@@ -455,6 +472,7 @@ def fi_collect(st):
                     "note": None if complete else "export sans ISIN, nature, date ou prix reconnu : format à adapter (voir data/diagnostics/fi.json)"})
         if complete:
             src["lastSuccess"] = date.today().isoformat()
+            src["backfilled"] = True  # fenêtre complète relue une fois ; ensuite, relecture des 10 derniers jours seulement
         print(f"FI (Suède) : {d['rowCount']} lignes depuis le {frm}, {kept} retenues, colonnes reconnues : {sorted(colmap)}")
     except Exception as e:
         src.update({"status": "echec", "note": "export inaccessible : " + str(e)[:120]})

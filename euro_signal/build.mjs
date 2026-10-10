@@ -216,6 +216,8 @@ export function build(opts = {}) {
     if (i.fund && i.fund.sector) i.sector = i.fund.sector;
     // Foncières cotées (SIIC, SOCIMI, SIR, REIT) : régime fiscal exonéré, exclues du PEA (loi de finances 2011 pour les SIIC)
     if (i.fund && /^REIT\b/i.test(String(i.fund.industry || ''))) { i.peaStatus = 'non_eligible'; i.peaSource = 'foncière cotée (SIIC, SOCIMI, REIT) : exclue du PEA'; i.peaDate = today; }
+    // PEA : siège dans l'Union européenne ou l'Espace économique européen exigé ; Royaume-Uni, Suisse, îles anglo-normandes… exclus
+    if (/^(GB|CH|JE|GG|IM|GI|FO|MC)/.test(isin)) { i.peaStatus = 'non_eligible'; i.peaSource = 'siège hors Union européenne et Espace économique européen (code ISIN ' + isin.slice(0, 2) + ')'; i.peaDate = today; }
     i.nextEarnings = er && er.nextEarnings && er.nextEarnings > today ? er.nextEarnings : (state.nextEarnings || {})[isin] > today ? state.nextEarnings[isin] : null;
     if (i.nextEarnings) (state.nextEarnings = state.nextEarnings || {})[isin] = i.nextEarnings;
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
