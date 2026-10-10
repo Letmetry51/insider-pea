@@ -1223,7 +1223,18 @@
       if (hv.length >= 2) { var d = hv[hv.length - 1].f9 - hv[0].f9; out.fscoreTrend = { from: hv[0].year, to: hv[hv.length - 1].year, delta: d, key: d >= 2 ? 'up' : d <= -2 ? 'down' : 'flat' }; }
     }
     // Altman Z'' (1995, version pour sociétés non manufacturières et hors États-Unis, sans cours de Bourse) : risque de défaillance
-    if (!fin_) out.altman = ES.altmanZ(last);
+    if (!fin_) out.altman = /real estate|reit|utilit|immobili|foncier/i.test(sec) ? { na: true, reason: 'non pertinent pour les foncières et les services aux collectivités (bilans structurellement très endettés)' } : ES.altmanZ(last);
+    // Les réserves publiées par les sociétés européennes (IFRS) sont souvent incomplètes dans les données gratuites : la « détresse » n'est retenue
+    // que si un signe concret la confirme (perte, fonds propres négatifs, intérêts mal couverts, trésorerie consommée chaque année)
+    if (out.altman && !out.altman.na && out.altman.zone === 'distress') {
+      var conf = [];
+      if (last.netIncome != null && last.netIncome < 0) conf.push('exercice en perte');
+      if (last.equity != null && last.equity <= 0) conf.push('fonds propres négatifs');
+      if (out.interestCover != null && out.interestCover < 1.5) conf.push('intérêts mal couverts');
+      if (out.fcfKnownYears >= 2 && out.fcfPositiveYears === 0) conf.push('trésorerie consommée chaque année');
+      out.altman.confirm = conf;
+      if (!conf.length) { out.altman.zone = 'grey'; out.altman.note = 'score faible, mais ni perte, ni intérêts mal couverts, ni trésorerie consommée : zone grise'; }
+    }
     // Beneish M-score (1999, 8 ratios) : probabilité de comptes « arrangés » (manipulation des résultats)
     if (!fin_ && prev) out.beneish = ES.beneishM(last, prev);
     // Verdict en une phrase

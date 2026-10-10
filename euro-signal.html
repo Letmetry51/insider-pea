@@ -1594,7 +1594,18 @@ details.pos summary{font-size:1rem}
       if (hv.length >= 2) { var d = hv[hv.length - 1].f9 - hv[0].f9; out.fscoreTrend = { from: hv[0].year, to: hv[hv.length - 1].year, delta: d, key: d >= 2 ? 'up' : d <= -2 ? 'down' : 'flat' }; }
     }
     // Altman Z'' (1995, version pour sociétés non manufacturières et hors États-Unis, sans cours de Bourse) : risque de défaillance
-    if (!fin_) out.altman = ES.altmanZ(last);
+    if (!fin_) out.altman = /real estate|reit|utilit|immobili|foncier/i.test(sec) ? { na: true, reason: 'non pertinent pour les foncières et les services aux collectivités (bilans structurellement très endettés)' } : ES.altmanZ(last);
+    // Les réserves publiées par les sociétés européennes (IFRS) sont souvent incomplètes dans les données gratuites : la « détresse » n'est retenue
+    // que si un signe concret la confirme (perte, fonds propres négatifs, intérêts mal couverts, trésorerie consommée chaque année)
+    if (out.altman && !out.altman.na && out.altman.zone === 'distress') {
+      var conf = [];
+      if (last.netIncome != null && last.netIncome < 0) conf.push('exercice en perte');
+      if (last.equity != null && last.equity <= 0) conf.push('fonds propres négatifs');
+      if (out.interestCover != null && out.interestCover < 1.5) conf.push('intérêts mal couverts');
+      if (out.fcfKnownYears >= 2 && out.fcfPositiveYears === 0) conf.push('trésorerie consommée chaque année');
+      out.altman.confirm = conf;
+      if (!conf.length) { out.altman.zone = 'grey'; out.altman.note = 'score faible, mais ni perte, ni intérêts mal couverts, ni trésorerie consommée : zone grise'; }
+    }
     // Beneish M-score (1999, 8 ratios) : probabilité de comptes « arrangés » (manipulation des résultats)
     if (!fin_ && prev) out.beneish = ES.beneishM(last, prev);
     // Verdict en une phrase
@@ -3009,7 +3020,7 @@ details.pos summary{font-size:1rem}
     var az = a.altman, bm = a.beneish, n = function (v) { return fmtN(v, 2); };
     var ZL = { safe: ['good', 'Zone sûre'], grey: ['mid', 'Zone grise'], distress: ['bad', 'Zone de détresse'] };
     var h = '<h4 class="mt">Contrôles anti-piège</h4><div class="fsgroups">';
-    h += '<div class="fsg"><h5>🧯 Risque de défaillance (Altman Z\'\')</h5>' + (az && !az.na ? '<p><span class="fsc fs-' + ZL[az.zone][0] + '">' + n(az.z) + '</span> <b>' + ZL[az.zone][1] + '</b> <span class="muted">(exercice ' + esc(az.year) + ')</span></p>' : '<p class="muted">' + esc(az && az.reason ? az.reason.charAt(0).toUpperCase() + az.reason.slice(1) : 'Non calculable') + ' : postes en cours de collecte, complétés au fil des soirs.</p>') +
+    h += '<div class="fsg"><h5>🧯 Risque de défaillance (Altman Z\'\')</h5>' + (az && !az.na ? '<p><span class="fsc fs-' + ZL[az.zone][0] + '">' + n(az.z) + '</span> <b>' + ZL[az.zone][1] + '</b> <span class="muted">(exercice ' + esc(az.year) + ')</span></p>' + (az.confirm && az.confirm.length ? '<p>Confirmé par : ' + esc(az.confirm.join(', ')) + '.</p>' : '') + (az.note ? '<p class="muted">' + esc(az.note.charAt(0).toUpperCase() + az.note.slice(1)) + '.</p>' : '') : '<p class="muted">' + esc(az && az.reason ? az.reason.charAt(0).toUpperCase() + az.reason.slice(1) : 'Non calculable') + (az && /manquants/.test(az.reason || '') ? ' : postes en cours de collecte, complétés au fil des soirs' : '') + '.</p>') +
       '<p class="foot">Combine fonds de roulement, réserves accumulées, rentabilité et solidité des fonds propres (Altman, version 1995 adaptée aux sociétés non industrielles et hors États-Unis). Au-dessus de 2,6 : risque faible ; de 1,1 à 2,6 : zone grise ; sous 1,1 : profil proche des sociétés qui ont fait défaut dans les deux ans.</p></div>';
     h += '<div class="fsg"><h5>🔍 Qualité des comptes (Beneish M)</h5>' + (bm && !bm.na ? '<p><span class="fsc fs-' + (bm.flag ? 'bad' : 'good') + '">' + n(bm.m) + '</span> <b>' + (bm.flag ? 'Au-dessus du seuil d\'alerte' : 'Sous le seuil d\'alerte') + '</b> <span class="muted">(exercice ' + esc(bm.year) + ')</span></p>' + (bm.flags && bm.flags.length ? '<p>Points relevés : ' + esc(bm.flags.join(' ; ')) + '.</p>' : '') : '<p class="muted">' + esc(bm && bm.reason ? bm.reason.charAt(0).toUpperCase() + bm.reason.slice(1) : 'Non calculable') + '.</p>') +
       '<p class="foot">Huit ratios (créances, marge brute, qualité des actifs, croissance, amortissements, frais, endettement, part du bénéfice non encaissée) comparés à l\'exercice précédent (Beneish, 1999). Au-dessus de −1,78 : profil semblable aux sociétés qui ont embelli leurs comptes. Ce n\'est pas une preuve de fraude, mais une raison de lire le rapport annuel de près.</p></div></div>';
@@ -3574,13 +3585,13 @@ details.pos summary{font-size:1rem}
     h += '<p class="foot">Ce que la méthode aurait donné, appliquée à la lettre depuis le ' + esc(ES.frDate(R.from)) + ' : achat de chaque société sélectionnée le lundi, à l\'ouverture du lendemain, avec la taille suggérée (1 % de risque, seuil de protection adapté à la volatilité, 8 % au plus par ligne) ; vente au seuil de protection, après un recul de 20 % depuis le plus haut, à la vente du DG ou du DAF ou au bout de 6 mois ; frais déduits ; la part non investie reste en liquidités. Point de départ : 100.</p>';
     h += '<div class="pfstats">' + [['Règle actuelle (DG/DAF)', R], ['Tout dirigeant', A]].filter(function (x) { return x[1]; }).map(function (x) {
       var r = x[1];
-      return '<div class="pfs"><span class="lbl">' + esc(x[0]) + '</span><span class="val">' + pc(r.ret) + '</span><span class="sub">STOXX 600 : ' + pc(r.bench) + ' · pire baisse ' + pc(r.maxDD) + ' (indice ' + pct(r.benchMaxDD) + ') · ' + r.trades + ' vente' + (r.trades > 1 ? 's' : '') + (r.winPct != null ? ', ' + r.winPct + ' % gagnantes' : '') + ' · investi en moyenne à ' + Math.round(r.exposure) + ' %</span></div>';
+      return '<div class="pfs"><span class="lbl">' + esc(x[0]) + '</span><span class="val">' + pc(r.ret) + '</span><span class="sub">STOXX 600 : ' + pc(r.bench) + ' · pire baisse ' + pc(r.maxDD) + ' (indice ' + pct(r.benchMaxDD) + ') · ' + r.trades + ' vente' + (r.trades > 1 ? 's' : '') + (r.winPct != null ? ', ' + r.winPct + ' % gagnantes' : '') + ' · investi en moyenne à ' + Math.round(r.exposure) + ' %' + (r.bench != null && r.exposure < 90 ? ' (à exposition égale, le STOXX 600 aurait rapporté environ ' + pct(r.bench * r.exposure / 100) + ')' : '') + '</span></div>';
     }).join('') + '</div>';
     // Courbes indexées à 100 : un seul axe, deux portefeuilles et l'indice en référence (pointillés)
     var C = R.curve, a2 = {}; (A && A.curve || []).forEach(function (p) { a2[p[0]] = p[1]; });
     var pts = C.map(function (p) { return { d: p[0], r: p[1], a: a2[p[0]] != null ? a2[p[0]] : null, b: p[2] }; });
     S.pfPts = pts;
-    var narrow = window.innerWidth < 560, W = narrow ? 380 : 720, H = 230, L = 40, Rm = narrow ? 70 : 110, T = 12, B = 24;
+    var narrow = window.innerWidth < 560, W = narrow ? 380 : 720, H = 230, L = 40, Rm = narrow ? 34 : 110, T = 12, B = 24;
     var vals = []; pts.forEach(function (p) { [p.r, p.a, p.b].forEach(function (v) { if (v != null) vals.push(v); }); });
     var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
     var xs = function (k) { return L + (W - L - Rm) * (pts.length === 1 ? 0.5 : k / (pts.length - 1)); }, ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
@@ -3590,7 +3601,7 @@ details.pos summary{font-size:1rem}
     [lo + pad, 100, hi - pad].forEach(function (v) { svg += '<line x1="' + L + '" x2="' + (W - Rm) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" class="grid"' + (v === 100 ? ' style="stroke-dasharray:2 3"' : '') + '/><text x="' + (L - 6) + '" y="' + (ys(v) + 4).toFixed(1) + '" text-anchor="end" class="ax">' + fmtN(v, 0) + '</text>'; });
     svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(pts[0].d) + '</text><text x="' + (W - Rm) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">' + shortDate(pts[pts.length - 1].d) + '</text>';
     svg += '<path d="' + path('b') + '" class="pf-b"/>' + (A ? '<path d="' + path('a') + '" class="pf-a"/>' : '') + '<path d="' + path('r') + '" class="pf-r"/>';
-    [['r', 'Règle actuelle', 'pf-r'], ['a', 'Tout dirigeant', 'pf-a'], ['b', 'STOXX 600', 'pf-b']].forEach(function (s0) { var e = lastOf(s0[0]); if (!e || (s0[0] === 'a' && !A)) return; svg += '<circle cx="' + xs(e.k).toFixed(1) + '" cy="' + ys(e.v).toFixed(1) + '" r="4" class="' + s0[2] + '-dot"/><text x="' + (xs(e.k) + 8).toFixed(1) + '" y="' + (ys(e.v) + 4).toFixed(1) + '" class="pf-lbl">' + s0[1] + ' ' + fmtN(e.v, 0) + '</text>'; });
+    [['r', 'Règle actuelle', 'pf-r'], ['a', 'Tout dirigeant', 'pf-a'], ['b', 'STOXX 600', 'pf-b']].forEach(function (s0) { var e = lastOf(s0[0]); if (!e || (s0[0] === 'a' && !A)) return; svg += '<circle cx="' + xs(e.k).toFixed(1) + '" cy="' + ys(e.v).toFixed(1) + '" r="4" class="' + s0[2] + '-dot"/><text x="' + (xs(e.k) + 8).toFixed(1) + '" y="' + (ys(e.v) + 4).toFixed(1) + '" class="pf-lbl">' + (narrow ? '' : s0[1] + ' ') + fmtN(e.v, 0) + '</text>'; });
     svg += '<line class="pf-x" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" style="display:none"/><rect class="pf-hit" x="' + L + '" y="0" width="' + (W - L - Rm) + '" height="' + H + '" fill="transparent" data-w="' + W + '" data-l="' + L + '" data-r="' + Rm + '"/></svg>';
     h += '<div class="chartwrap pfwrap">' + svg + '<div class="pftip" hidden></div></div><p class="legend2"><span><i class="lg pf-r-k"></i>Règle actuelle (DG/DAF)</span>' + (A ? '<span><i class="lg pf-a-k"></i>Tout dirigeant</span>' : '') + '<span><i class="lg pf-b-k"></i>STOXX Europe 600 (référence)</span></p>';
     var rows = (R.open || []).map(function (t) { return '<tr><td class="c-name" data-l="Société">' + esc(t.name || t.isin) + '</td><td data-l="Achat">' + shortDate(t.from) + '</td><td data-l="Vente"><span class="chip neutral">en cours</span></td><td class="num" data-l="Taille">' + fmtN(t.size, 1) + ' %</td><td class="num" data-l="Résultat">' + pc(t.ret * 100) + '</td><td data-l="Motif">—</td></tr>'; })

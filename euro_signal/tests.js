@@ -816,9 +816,11 @@ t('Contrôles anti-piège : Altman Z\'\' et Beneish M', () => {
   const bm = ES.beneishM(c, p); eq(bm.m, -1.46); eq(bm.flag, true); ok(/créances/.test(bm.flags.join()));
   const clean = ES.beneishM(Object.assign({}, c, { receivables: 165, cfo: 150, currentAssets: 600 }), p); eq(clean.flag, false, clean.m);
   ok(ES.beneishM({ date: '2025-12-31' }, p).na);
-  const y = (d, ex) => Object.assign({ date: d, revenue: 1000e6, grossProfit: 400e6, operatingIncome: 100e6, netIncome: 60e6, totalAssets: 2000e6, currentAssets: 300e6, currentLiabilities: 400e6, totalDebt: 900e6, longTermDebt: 800e6, cash: 50e6, equity: 100e6, shares: 100, cfo: 120e6, capex: -60e6, ebitda: 200e6, ebit: 100e6, retainedEarnings: -500e6, totalLiabilities: 1900e6, receivables: 100e6, ppe: 900e6, depreciation: 80e6, sga: 150e6 }, ex || {});
+  const y = (d, ex) => Object.assign({ date: d, revenue: 1000e6, grossProfit: 400e6, operatingIncome: 100e6, netIncome: -40e6, totalAssets: 2000e6, currentAssets: 300e6, currentLiabilities: 400e6, totalDebt: 900e6, longTermDebt: 800e6, cash: 50e6, equity: 100e6, shares: 100, cfo: 120e6, capex: -60e6, ebitda: 200e6, ebit: 100e6, retainedEarnings: -500e6, totalLiabilities: 1900e6, receivables: 100e6, ppe: 900e6, depreciation: 80e6, sga: 150e6 }, ex || {});
   const a = ES.accountsAnalysis({ years: [y('2023-12-31'), y('2024-12-31')] }, {});
-  eq(a.altman.zone, 'distress'); const pl = ES.accountsPlain(a);
+  eq(a.altman.zone, 'distress'); ok(/perte/.test(a.altman.confirm.join()), 'détresse confirmée par la perte'); const pl = ES.accountsPlain(a);
+  const g = ES.accountsAnalysis({ years: [y('2023-12-31', { netIncome: 60e6 }), y('2024-12-31', { netIncome: 60e6 })] }, {}); eq(g.altman.zone, 'grey', 'score faible sans signe concret : zone grise');
+  ok(ES.accountsAnalysis({ years: [y('2023-12-31'), y('2024-12-31')] }, { sector: 'Real Estate' }).altman.na, 'foncières exclues');
   ok(/zone de détresse/.test(pl.text) && /Risque de défaillance/.test(pl.advice) && pl.tone === 'bad', pl.text + ' | ' + pl.advice);
   ok(ES.crossSignals({ accounts: a }, { buys: [{}], buyEur: 0, sellEur: 0 }, ES.mergeConfig(ES.DEFAULT_CONFIG, {})).some((g) => g.k === 'altman' && g.tone === 'bad'));
 });
