@@ -69,6 +69,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "VGP.BR"
  },
+ "BE0974258874": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "NV Bekaert SA",
+  "resolvedAt": "2026-10-10",
+  "ticker": "BEKB.BR"
+ },
  "BE0974278104": {
   "exchange": "Brussels Stock Exchange",
   "method": "recherche Yahoo par ISIN",
@@ -145,6 +152,13 @@
   "name": "IDNTT SA",
   "resolvedAt": "2026-10-07",
   "ticker": "IDNTT.MI"
+ },
+ "CH1398992755": {
+  "exchange": "London",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Multitude AG",
+  "resolvedAt": "2026-10-10",
+  "ticker": "0R4W.L"
  },
  "CI0000053161": {
   "exchange": "Paris",
@@ -284,6 +298,13 @@
   "method": "recherche Yahoo par ISIN",
   "name": "DLB-Anlageservice AG",
   "ticker": "DLB.SG"
+ },
+ "DE0005545503": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "1&1 AG",
+  "resolvedAt": "2026-10-10",
+  "ticker": "1U1.DE"
  },
  "DE0005552004": {
   "exchange": "XETRA",
@@ -716,12 +737,26 @@
   "resolvedAt": "2026-10-08",
   "ticker": "HFG.DE"
  },
+ "DE000A161N30": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Grenke AG",
+  "resolvedAt": "2026-10-10",
+  "ticker": "GLJ.DE"
+ },
  "DE000A168205": {
   "exchange": "XETRA",
   "method": "recherche Yahoo par ISIN",
   "name": "Shareholder Value Beteiligungen AG",
   "resolvedAt": "2026-10-07",
   "ticker": "SVE.DE"
+ },
+ "DE000A1DAHH0": {
+  "exchange": "XETRA",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Brenntag SE",
+  "resolvedAt": "2026-10-10",
+  "ticker": "BNR.DE"
  },
  "DE000A1E89S5": {
   "ticker": null,
@@ -870,6 +905,14 @@
   "name": "Novogenia AG",
   "resolvedAt": "2026-10-08",
   "ticker": "7V0.DE"
+ },
+ "DE000A3DKE67": {
+  "exchange": "Dusseldorf Stock Exchange",
+  "homeTried": "9MO.DE",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Commertunity AG",
+  "resolvedAt": "2026-10-10",
+  "ticker": "9MO.DU"
  },
  "DE000A3E5C24": {
   "exchange": null,
@@ -3199,6 +3242,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "NEXI.MI"
  },
+ "IT0005379604": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Confinvest Oro S.p.A.",
+  "resolvedAt": "2026-10-10",
+  "ticker": "CFV.MI"
+ },
  "IT0005394413": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
@@ -3346,12 +3396,26 @@
   "resolvedAt": "2026-10-07",
   "ticker": "LTMC.MI"
  },
+ "IT0005543332": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Ecomembrane S.p.A.",
+  "resolvedAt": "2026-10-10",
+  "ticker": "ECMB.MI"
+ },
  "IT0005543480": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
   "name": "Dexelance S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "DEX.MI"
+ },
+ "IT0005549255": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "I.M.D. International Medical Devices S.p.A.",
+  "resolvedAt": "2026-10-10",
+  "ticker": "IMD.MI"
  },
  "IT0005549354": {
   "exchange": "Milan",

@@ -1,5 +1,5 @@
 {
- "at": "2026-10-09T07:11:36.067716+00:00",
+ "at": "2026-10-10T09:22:23.693879+00:00",
  "markets": {
   "DE": {
    "from": "2026-09-29",
@@ -338,7 +338,7 @@
     }
    ],
    "pages": 1,
-   "rows": 20,
+   "rows": 43,
    "complete": true,
    "error": null
   },
@@ -1012,29 +1012,29 @@
     }
    ],
    "pages": 1,
-   "rows": 37,
+   "rows": 55,
    "complete": true,
    "error": null
   },
   "NL": {
-   "from": "2026-10-05",
+   "from": "2026-10-06",
    "samples": [
     {
      "object": "insider_transaction",
      "schema_version": "2026-04-01",
-     "id": "txn_11333982",
+     "id": "txn_11334921",
      "links": {
-      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11333982/",
-      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/",
-      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/transactions/"
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11334921/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/"
      },
      "source": {
       "country": "NL",
-      "filing_reference": "201061-1",
-      "declaration_reference": "201061",
+      "filing_reference": "2026093016D3566C-F0E9-4B5D-A76B-4F5EA2D62E6B",
+      "declaration_reference": "2026093016D3566C-F0E9-4B5D-A76B-4F5EA2D62E6B",
       "submission_type": null,
-      "filed_at": "2026-10-05T21:30:36.097869",
-      "notification_date": "2026-10-05",
+      "filed_at": "2026-10-06T06:05:55.674238",
+      "notification_date": "2026-10-06",
       "notification_type": "INITIAL",
       "is_amendment": false,
       "amends_filing_reference": null,
@@ -1042,32 +1042,32 @@
       "status": "CURRENT"
      },
      "issuer": {
-      "id": "iss_48755",
-      "name": "Ctp NV",
-      "slug": "ctp-nv",
-      "ticker": "CTPNV",
-      "exchange": "AEX",
-      "exchange_mic": "XAMS",
+      "id": "iss_47625",
+      "name": "DSM-Firmenich",
+      "slug": "dsm-firmenich",
+      "ticker": null,
+      "exchange": null,
+      "exchange_mic": null,
       "country": "NL",
-      "isin": null,
+      "isin": "CH121647879",
       "cik": null,
-      "lei": "3157000YTVO4TN65UM14",
-      "permid": 5076163128,
+      "lei": "\n506700G44V67MPM4BI12\n",
+      "permid": 5083153148,
       "links": {
-       "self": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/",
-       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/transactions/",
-       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/ctp-nv/",
-       "signals": "https://www.insiderscreener.com/api/v1/research/signals/ctp-nv/"
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
       }
      },
      "reporting_person": {
-      "id": "per_163171",
-      "name": "Richard Wilkinson",
+      "id": "per_162937",
+      "name": "Erica Mann",
       "name_locale": null,
-      "display_name": "Richard Wilkinson",
-      "effective_name": "RJ WILKINSON",
+      "display_name": "Erica Mann",
+      "effective_name": "MANN E",
       "cik": null,
-      "pdmr_name": "\nR.J.  Wilkinson\n",
+      "pdmr_name": "\nMann E.\n",
       "pdmr_name_locale": null,
       "cap_name": null,
       "closely_affiliated_name": null,
@@ -1077,64 +1077,64 @@
        "is_major_owner": null,
        "is_director_or_officer_of_major_owner": null,
        "is_director_or_officer_of_subsidiary": null,
-       "is_closely_affiliated": false
+       "is_closely_affiliated": null
       },
       "position": {
-       "raw": null,
+       "raw": "\nmember  Board of Directors\n",
        "locale": null,
-       "display": null,
-       "normalized": "Director or Supervisory Board Member"
+       "display": "member  Board of Directors",
+       "normalized": "Director"
       },
       "entity_match": {
-       "identified_person_id": "per_163171",
+       "identified_person_id": "per_162937",
        "match_status": "MATCHED"
       }
      },
      "security": {
-      "id": "sec_47784",
-      "ticker": "CTPNV",
-      "isin": null,
+      "id": "sec_46487",
+      "ticker": "",
+      "isin": "CH121647879",
       "trading_place": "NL",
       "issuer": {
-       "id": "iss_48755",
-       "name": "Ctp NV",
-       "slug": "ctp-nv",
-       "ticker": "CTPNV",
-       "exchange": "AEX",
-       "exchange_mic": "XAMS",
+       "id": "iss_47625",
+       "name": "DSM-Firmenich",
+       "slug": "dsm-firmenich",
+       "ticker": null,
+       "exchange": null,
+       "exchange_mic": null,
        "country": "NL",
-       "isin": null,
+       "isin": "CH121647879",
        "cik": null,
-       "lei": "3157000YTVO4TN65UM14",
-       "permid": 5076163128,
+       "lei": "\n506700G44V67MPM4BI12\n",
+       "permid": 5083153148,
        "links": {
-        "self": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/",
-        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/transactions/",
-        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/ctp-nv/",
-        "signals": "https://www.insiderscreener.com/api/v1/research/signals/ctp-nv/"
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
        }
       }
      },
      "transaction": {
-      "execution_date": "2026-10-02",
+      "execution_date": "2026-09-30",
       "activation_date": null,
       "classification": {
-       "normalized_operation": "BUY",
+       "normalized_operation": "SELL",
        "nature_raw": null
       },
       "price": {
-       "amount": "12.600000",
+       "amount": "98.190000",
        "currency": "EUR"
       },
       "quantity": {
-       "amount": "1000.0000"
+       "amount": "297.0000"
       },
       "gross_value": {
-       "amount": "12600.00",
+       "amount": "29162.43",
        "currency": "EUR"
       },
       "gross_value_usd": {
-       "amount": "14172.61"
+       "amount": "33090.24"
       },
       "holdings_before": {
        "quantity": null,
@@ -1148,12 +1148,12 @@
        "quantity": null
       },
       "market_context": {
-       "at_market_price": true
+       "at_market_price": null
       }
      },
      "analytics": {
       "momentum": null,
-      "buy_signal_id": 33487,
+      "buy_signal_id": null,
       "returns_after_trade": {
        "d30": null,
        "d90": null,
@@ -1174,19 +1174,19 @@
     {
      "object": "insider_transaction",
      "schema_version": "2026-04-01",
-     "id": "txn_11333983",
+     "id": "txn_11334922",
      "links": {
-      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11333983/",
-      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/",
-      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/transactions/"
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11334922/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/"
      },
      "source": {
       "country": "NL",
-      "filing_reference": "201062-1",
-      "declaration_reference": "201062",
+      "filing_reference": "202609303A53BBB3-7F5B-481E-ACFC-7E7F5B128880",
+      "declaration_reference": "202609303A53BBB3-7F5B-481E-ACFC-7E7F5B128880",
       "submission_type": null,
-      "filed_at": "2026-10-05T21:30:37.836932",
-      "notification_date": "2026-10-05",
+      "filed_at": "2026-10-06T06:05:59.518210",
+      "notification_date": "2026-10-06",
       "notification_type": "INITIAL",
       "is_amendment": false,
       "amends_filing_reference": null,
@@ -1194,32 +1194,32 @@
       "status": "CURRENT"
      },
      "issuer": {
-      "id": "iss_48755",
-      "name": "Ctp NV",
-      "slug": "ctp-nv",
-      "ticker": "CTPNV",
-      "exchange": "AEX",
-      "exchange_mic": "XAMS",
+      "id": "iss_47625",
+      "name": "DSM-Firmenich",
+      "slug": "dsm-firmenich",
+      "ticker": null,
+      "exchange": null,
+      "exchange_mic": null,
       "country": "NL",
-      "isin": null,
+      "isin": "CH121647879",
       "cik": null,
-      "lei": "3157000YTVO4TN65UM14",
-      "permid": 5076163128,
+      "lei": "\n506700G44V67MPM4BI12\n",
+      "permid": 5083153148,
       "links": {
-       "self": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/",
-       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/transactions/",
-       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/ctp-nv/",
-       "signals": "https://www.insiderscreener.com/api/v1/research/signals/ctp-nv/"
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
       }
      },
      "reporting_person": {
-      "id": "per_163172",
-      "name": "Remon Vos",
+      "id": "per_162944",
+      "name": "Corien Wortmann-Kool",
       "name_locale": null,
-      "display_name": "Remon Vos",
-      "effective_name": "RL VOS",
+      "display_name": "Corien Wortmann-Kool",
+      "effective_name": "WORTMANN - KOOL CM",
       "cik": null,
-      "pdmr_name": "\nR.L.  Vos\n",
+      "pdmr_name": "\nWortmann - Kool C.M.\n",
       "pdmr_name_locale": null,
       "cap_name": null,
       "closely_affiliated_name": null,
@@ -1229,64 +1229,64 @@
        "is_major_owner": null,
        "is_director_or_officer_of_major_owner": null,
        "is_director_or_officer_of_subsidiary": null,
-       "is_closely_affiliated": false
+       "is_closely_affiliated": null
       },
       "position": {
-       "raw": null,
+       "raw": "\nmember  Board of Directors\n",
        "locale": null,
-       "display": null,
-       "normalized": "Director or Supervisory Board Member"
+       "display": "member  Board of Directors",
+       "normalized": "Director"
       },
       "entity_match": {
-       "identified_person_id": "per_163172",
+       "identified_person_id": "per_162944",
        "match_status": "MATCHED"
       }
      },
      "security": {
-      "id": "sec_47784",
-      "ticker": "CTPNV",
-      "isin": null,
+      "id": "sec_46487",
+      "ticker": "",
+      "isin": "CH121647879",
       "trading_place": "NL",
       "issuer": {
-       "id": "iss_48755",
-       "name": "Ctp NV",
-       "slug": "ctp-nv",
-       "ticker": "CTPNV",
-       "exchange": "AEX",
-       "exchange_mic": "XAMS",
+       "id": "iss_47625",
+       "name": "DSM-Firmenich",
+       "slug": "dsm-firmenich",
+       "ticker": null,
+       "exchange": null,
+       "exchange_mic": null,
        "country": "NL",
-       "isin": null,
+       "isin": "CH121647879",
        "cik": null,
-       "lei": "3157000YTVO4TN65UM14",
-       "permid": 5076163128,
+       "lei": "\n506700G44V67MPM4BI12\n",
+       "permid": 5083153148,
        "links": {
-        "self": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/",
-        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/ctp-nv/transactions/",
-        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/ctp-nv/",
-        "signals": "https://www.insiderscreener.com/api/v1/research/signals/ctp-nv/"
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
        }
       }
      },
      "transaction": {
-      "execution_date": "2026-10-02",
+      "execution_date": "2026-09-30",
       "activation_date": null,
       "classification": {
-       "normalized_operation": "BUY",
+       "normalized_operation": "SELL",
        "nature_raw": null
       },
       "price": {
-       "amount": "12.500000",
+       "amount": "98.190000",
        "currency": "EUR"
       },
       "quantity": {
-       "amount": "15069.0000"
+       "amount": "494.0000"
       },
       "gross_value": {
-       "amount": "188362.50",
+       "amount": "48505.86",
        "currency": "EUR"
       },
       "gross_value_usd": {
-       "amount": "211872.02"
+       "amount": "55038.99"
       },
       "holdings_before": {
        "quantity": null,
@@ -1300,12 +1300,12 @@
        "quantity": null
       },
       "market_context": {
-       "at_market_price": true
+       "at_market_price": null
       }
      },
      "analytics": {
       "momentum": null,
-      "buy_signal_id": 33487,
+      "buy_signal_id": null,
       "returns_after_trade": {
        "d30": null,
        "d90": null,
@@ -1325,7 +1325,7 @@
     }
    ],
    "pages": 1,
-   "rows": 21,
+   "rows": 19,
    "complete": true,
    "error": null,
    "backupFor": "AFM"
@@ -1333,7 +1333,7 @@
  },
  "credits": {
   "thisRun": 20,
-  "thisMonth": 590,
+  "thisMonth": 610,
   "monthlyBudget": 900
  }
 }
