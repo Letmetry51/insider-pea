@@ -1,106 +1,49 @@
 {
- "status": 200,
- "contentType": "text/csv",
- "bytes": 562898,
- "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n10/10/2026 13:43:38;Proport invest ab;984500F33AB40805EE63;Ing-Marie Agneta Thunvik;Ing-Marie Agneta Thunvik;Chairman of the Board of Directors;;;;Yes;;Acquisition;Share;Proport invest AB;SE0027767724;09/10/2026 00:00:00;11600.0;Quantity;2.01;SEK;SPOTLIGHT STOCK MARKET;Cur",
- "delimiter": ";",
- "headers": [
-  "Publication date",
-  "Issuer",
-  "LEI-code",
-  "Notifier",
-  "Person discharging managerial responsibilities",
-  "Position",
-  "Closely associated",
-  "Amendment",
-  "Details of amendment",
-  "Initial notification",
-  "Linked to share option programme",
-  "Nature of transaction",
-  "Intrument type",
-  "Instrument name",
-  "ISIN",
-  "Transaction date",
-  "Volume",
-  "Unit",
-  "Price",
-  "Currency",
-  "Trading venue",
-  "Status",
-  ""
- ],
- "columnMap": {
-  "published": "Publication date",
-  "issuer": "Issuer",
-  "notifier": "Notifier",
-  "pdmr": "Person discharging managerial responsibilities",
-  "role": "Position",
-  "associated": "Closely associated",
-  "amendment": "Amendment",
-  "program": "Linked to share option programme",
-  "nature": "Nature of transaction",
-  "isin": "ISIN",
-  "txDate": "Transaction date",
-  "quantity": "Volume",
-  "unit": "Unit",
-  "price": "Price",
-  "currency": "Currency",
-  "place": "Trading venue",
-  "status": "Status"
- },
- "rowCount": 1000,
- "sampleRows": [
+ "chunks": [
   [
-   "10/10/2026 13:43:38",
-   "Proport invest ab",
-   "984500F33AB40805EE63",
-   "Ing-Marie Agneta Thunvik",
-   "Ing-Marie Agneta Thunvik",
-   "Chairman of the Board of Directors",
-   "",
-   "",
-   "",
-   "Yes",
-   "",
-   "Acquisition",
-   "Share",
-   "Proport invest AB",
-   "SE0027767724",
-   "09/10/2026 00:00:00",
-   "11600.0",
-   "Quantity",
-   "2.01",
-   "SEK",
-   "SPOTLIGHT STOCK MARKET",
-   "Current",
-   ""
+   "2026-06-12",
+   "2026-06-18",
+   662
   ],
   [
-   "10/10/2026 13:43:38",
-   "Proport invest ab",
-   "984500F33AB40805EE63",
-   "Ing-Marie Agneta Thunvik",
-   "Ing-Marie Agneta Thunvik",
-   "Chairman of the Board of Directors",
-   "",
-   "",
-   "",
-   "Yes",
-   "",
-   "Acquisition",
-   "Share",
-   "Proport invest ab",
-   "SE0027767724",
-   "08/10/2026 00:00:00",
-   "250.0",
-   "Quantity",
-   "2.19",
-   "SEK",
-   "SPOTLIGHT STOCK MARKET",
-   "Current",
-   ""
+   "2026-06-19",
+   "2026-06-25",
+   246
+  ],
+  [
+   "2026-06-26",
+   "2026-07-02",
+   222
+  ],
+  [
+   "2026-07-03",
+   "2026-07-09",
+   236
+  ],
+  [
+   "2026-07-10",
+   "2026-07-16",
+   270
+  ],
+  [
+   "2026-07-17",
+   "2026-07-23",
+   351
+  ],
+  [
+   "2026-07-24",
+   "2026-07-30",
+   272
+  ],
+  [
+   "2026-07-31",
+   "2026-08-06",
+   119
   ]
  ],
- "at": "2026-10-10T21:25:41.284538+00:00"
+ "encoding": "utf-16",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n06/08/2026 22:02:42;Mangold AB;549300F7ULEE3V59UW34;Per- Åhlgren;Per Åhlgren;Chairman of the Board of Directors;Yes;;;Yes;;Acquisition;Share;Mangold AB;SE0001449380;04/08/2026 00:00:00;2.0;Quantity;1690.0;SEK;NASDAQ STOCKHOLM AB;Current;\r\n06/08/2026 22:02:42;Mangold AB;549",
+ "delimiter": ";",
+ "error": "ConnectionError(ProtocolError('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))",
+ "at": "2026-10-10T22:05:49.338656+00:00"
 }

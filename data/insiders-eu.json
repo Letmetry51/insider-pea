@@ -88306,10 +88306,10 @@
    "kind": "déclarations",
    "via": "fi.se (export CSV officiel, registre Insynshandel)",
    "lastAttempt": "2026-10-10",
-   "status": "ok",
+   "status": "echec",
    "rows": 1000,
    "kept": 994,
-   "note": null,
+   "note": "export inaccessible : ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
    "lastSuccess": "2026-10-10"
   }
  },
@@ -88383,7 +88383,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-2"
   ]
  },
- "generated_at": "2026-10-10T21:25:41.286292+00:00",
+ "generated_at": "2026-10-10T22:05:49.340682+00:00",
  "cursors": {
   "DE": "2026-10-09",
   "ES": "2026-10-08",
