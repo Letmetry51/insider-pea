@@ -408,12 +408,27 @@ def fi_collect(st):
     d = {}
     try:
         since = (date.today() - timedelta(days=WINDOW_DAYS)).isoformat()
-        frm = since if not src.get("backfilled") else max(since, (src.get("lastSuccess") and (date.fromisoformat(src["lastSuccess"]) - timedelta(days=10)).isoformat()) or since)
+        if not src.get("backfilled"):
+            frm = max(since, src.get("resumeFrom") or since)  # première lecture complète, reprise là où elle s'est arrêtée
+        else:
+            frm = max(since, (src.get("lastSuccess") and (date.fromisoformat(src["lastSuccess"]) - timedelta(days=10)).isoformat()) or since)
         # L'export est plafonné à 1 000 lignes : lecture par tranches de dates, redécoupées si une tranche atteint le plafond
+        def get_once(url):
+            last = None
+            for wait in (0, 8, 25):  # le serveur coupe parfois la connexion : deux nouvelles tentatives espacées
+                if wait:
+                    time.sleep(wait)
+                try:
+                    r = requests.get(url, headers=UA, timeout=120)
+                    if r.status_code == 200 and r.content:
+                        return r
+                    last = RuntimeError(f"HTTP {r.status_code}")
+                except requests.RequestException as e:
+                    last = e
+            raise last
+
         def fetch(a, b):
-            r = requests.get(FI_URL.format(frm=a.isoformat(), to=b.isoformat()), headers=UA, timeout=120)
-            if r.status_code != 200 or not r.content:
-                raise RuntimeError(f"HTTP {r.status_code}")
+            r = get_once(FI_URL.format(frm=a.isoformat(), to=b.isoformat()))
             txt, enc = decode(r.content)
             first = txt.split("\n")[0]
             delim = max([";", ",", "\t", "|"], key=lambda c: first.count(c))
@@ -426,14 +441,22 @@ def fi_collect(st):
                 h2, r2 = fetch(mid + timedelta(days=1), b)
                 return h1 or h2, r1 + r2
             return (rr[0] if rr else []), rr[1:]
-        headers, body, cur, end = [], [], date.fromisoformat(frm), date.today()
+        headers, body, cur, end, cut = [], [], date.fromisoformat(frm), date.today(), None
         while cur <= end:
             stop = min(end, cur + timedelta(days=6))
-            h, rws = fetch(cur, stop)
+            try:
+                h, rws = fetch(cur, stop)
+            except Exception as e:  # tranche inaccessible : on garde ce qui a été lu, la suite sera relue le soir suivant
+                cut = f"lecture interrompue au {cur.isoformat()} ({type(e).__name__})"
+                src["resumeFrom"] = cur.isoformat()
+                d["error"] = repr(e)[:300]
+                break
             headers = headers or h
             body += rws
             cur = stop + timedelta(days=1)
-            time.sleep(0.5)
+            time.sleep(2)
+        if not headers:
+            raise RuntimeError(cut or "export vide")
         rows = [headers] + body
         headers = [h.strip().lstrip("\ufeff") for h in headers]
         nh = [norm(h) for h in headers]
@@ -467,12 +490,13 @@ def fi_collect(st):
                    "amount": None, "place": get("place"), "numberLocale": "auto", "linkedTo": get("pdmr") if assoc else None, "collectedAt": date.today().isoformat()}
             st["records"][f"FI:{rec['id']}"] = rec
             kept += 1
-        complete = all(f in colmap for f in ("isin", "nature", "txDate", "price"))
+        complete = all(f in colmap for f in ("isin", "nature", "txDate", "price")) and not cut
         src.update({"status": "ok" if complete else "partiel", "rows": d["rowCount"], "kept": kept,
-                    "note": None if complete else "export sans ISIN, nature, date ou prix reconnu : format à adapter (voir data/diagnostics/fi.json)"})
+                    "note": None if complete else (cut + " : complété le soir suivant" if cut else "export sans ISIN, nature, date ou prix reconnu : format à adapter (voir data/diagnostics/fi.json)")})
         if complete:
             src["lastSuccess"] = date.today().isoformat()
             src["backfilled"] = True  # fenêtre complète relue une fois ; ensuite, relecture des 10 derniers jours seulement
+            src.pop("resumeFrom", None)
         print(f"FI (Suède) : {d['rowCount']} lignes depuis le {frm}, {kept} retenues, colonnes reconnues : {sorted(colmap)}")
     except Exception as e:
         src.update({"status": "echec", "note": "export inaccessible : " + str(e)[:120]})
