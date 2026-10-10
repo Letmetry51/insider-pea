@@ -2336,7 +2336,7 @@ details.pos summary{font-size:1rem}
     add(cov.label, cov.ok ? 20 : 0, 20, cov.ok);
     var tw = ctx.score ? ctx.score.txInWindow : [];
     if (tw.length) {
-      var complete = tw.filter(function (t) { return t.price != null && (t.qty != null || t.amount != null) && t.sourceUrl && t.pubDate; }).length;
+      var complete = tw.filter(function (t) { return t.price != null && (t.qty != null || t.amount != null) && (t.sourceUrl || t.hasSource) && t.pubDate; }).length;
       add('Déclarations complètes (prix, taille, date de publication, lien) : ' + complete + '/' + tw.length, Math.round(15 * complete / tw.length), 15, complete === tw.length);
     } else add('Aucune déclaration dans la fenêtre (rien à contrôler)', 15, 15, true);
     var pea = ctx.inst.peaStatus;

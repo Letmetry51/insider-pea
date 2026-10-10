@@ -717,7 +717,10 @@ export function build(opts = {}) {
   const winFrom = ES.addDays(ES.windowStart(today, cfg.insiders.windowMonths), -cfg.insiders.clusterWindowDays);
   const mainTx = {}, mainRefs = {};
   Object.keys(dashTx).forEach((isin) => {
-    const l = dashTx[isin].filter((t) => ES.availDate(t) >= winFrom);
+    // Fichier principal allégé : opérations utiles au classement seulement (achats, ventes, cas ambigus), champs nécessaires au calcul ;
+    // le détail complet (attributions, options, liens vers les sources…) est lu à l'ouverture d'une fiche
+    const KEEP = ['id', 'isin', 'issuer', 'registry', 'person', 'personKey', 'role', 'ceo', 'cfo', 'board', 'associated', 'linkedTo', 'type', 'status', 'txDate', 'pubDate', 'qty', 'price', 'currency', 'amount', 'planned', 'version'];
+    const l = dashTx[isin].filter((t) => ES.availDate(t) >= winFrom && (t.type === 'achat' || t.type === 'vente' || t.type === 'autre')).map((t) => { const o = {}; KEEP.forEach((k) => { if (t[k] != null && t[k] !== false) o[k] = t[k]; }); if (t.sourceUrl) o.hasSource = 1; return o; });
     if (!l.length) return;
     mainTx[isin] = l;
     if (dashRefs[isin]) { mainRefs[isin] = {}; l.forEach((t) => { if (dashRefs[isin][t.id]) mainRefs[isin][t.id] = dashRefs[isin][t.id]; }); }
