@@ -1420,6 +1420,8 @@
     if (tone === 'bad') { f *= 0.5; why.push('comptes fragiles'); }
     if (+fd.marketCap > 0 && +fd.marketCap < 5e8) { f *= 0.75; why.push('petite capitalisation (liquidité réduite)'); }
     if (sc.marketDown) { f *= 0.75; why.push('marché européen baissier'); }
+    var ow = ES.ownership(fd);
+    if (ow.floatPct != null && ow.floatPct < 40) { f *= ow.floatPct < 20 ? 0.5 : 0.75; why.push('flottant ' + (ow.floatPct < 20 ? 'très ' : '') + 'faible (' + Math.round(ow.floatPct) + ' % du capital) : peu d\'actions échangées, cours très dépendant de l\'actionnaire de contrôle'); }
     var pct = Math.max(0.5, Math.round(Math.min(Z.maxPct, base * f) * 2) / 2);
     return { pct: pct, stopPct: stop, base: Math.round(Math.min(Z.maxPct, base) * 2) / 2, reasons: why, staged: !!sc.fallingKnife, riskPct: Z.riskPct, vol: Number.isFinite(vol) ? vol : null };
   };

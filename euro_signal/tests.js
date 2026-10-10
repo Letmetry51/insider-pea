@@ -790,6 +790,8 @@ t('Taille de position : risque de 1 % du capital, seuil adapté à la volatilit�
   eq(q.stopPct, 30); ok(q.pct >= 0.5 && q.pct < 1, String(q.pct)); eq(q.reasons.length, 4);
   eq(ES.positionSize({ stats: {} }, sc, { key: 'avoid', signals: [] }, c).pct, 0);
   eq(ES.positionSize({ stats: { volAnnPct: 8 } }, sc, { key: 'priority', signals: [] }, c).pct, 8, 'plafond');
+  const fl = ES.positionSize({ stats: { volAnnPct: 22 }, fund: { floatShares: 1e7, sharesOut: 1e8 } }, sc, { key: 'priority', signals: [] }, c);
+  eq(fl.pct, 4.5, 'flottant de 10 % : taille divisée par deux (1 % / 11 % × 0,5)'); ok(/flottant très faible/.test(fl.reasons.join(' ')));
 });
 
 t('Actionnariat et révisions des analystes : signaux croisés et critères en observation', () => {
