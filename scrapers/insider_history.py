@@ -134,7 +134,7 @@ FR_LABELS = [
     ("unitVolume", r"(?<!AGREGEES\s)VOLUME\s*:"),
     ("aggregated", r"INFORMATIONS AGREGEES"),
     ("aggPrice", r"\bPRIX\s*:"),
-    ("options", r"TRANSACTION LIEE A L.EXERCICE DE PROGRAMME DE STOCK[- ]OPTIONS\s*:"),
+    ("options", r"TRANSACTION LIEE A L.EXERCICE DE PROGRAMMES?[^:]{0,220}:"),
     ("received", r"DATE DE RECEPTION DE LA NOTIFICATION\s*:"),
     ("comment", r"COMMENTAIRES?\s*:"),
 ]
@@ -184,11 +184,19 @@ def fr_parse_pdf_text(text, meta):
             seen_block = True
         elif k == "issuer" and seen_block and not issuer:
             issuer = v
-    person, role = who, None
-    if "," in who:
+    person, role, linked = who, None, None
+    # « X SAS personne morale liée à Y, Président » : la fonction est celle du dirigeant Y (le moteur détecte « liée à »)
+    m = re.match(r"^(.*?)[\s,]+personne\s+(?:morale\s+|physique\s+)?(?:etroitement\s+|étroitement\s+)?li[ée]e\s+(?:à|a)\s+(.*)$", who, re.I)
+    if m:
+        person, rest = m.group(1).strip(" ,"), m.group(2).strip()
+        linked, _, r0 = rest.partition(",")
+        linked, role = linked.strip(), "personne liée à " + linked.strip() + (", " + r0.strip() if r0.strip() else "")
+    elif "," in who:
         person, role = who.split(",", 1)
         person, role = person.strip(), role.strip()
-    # « X, personne morale liée à Y, Président » : la fonction est celle du dirigeant Y (le moteur détecte « liée à »)
+    # ISIN aussi en tête du document (« FR0011636083 - DD166950 ») : certaines déclarations n'ont pas la ligne « code d'identification »
+    hm = re.search(r"\b([A-Z]{2}[A-Z0-9]{9}\d)\s*-\s*DD\d+", text[:400])
+    head_isin = hm.group(1) if hm else None
     txs, cur = [], None
     in_agg = False
     for k, v in toks:
@@ -218,7 +226,7 @@ def fr_parse_pdf_text(text, meta):
         nins = norm(ins)
         if "action" in nins and not re.search(r"droit|bon |bons|obligation|option|warrant|certificat|convertible", nins):
             ins = "Action"
-        isin = (re.search(r"[A-Z]{2}[A-Z0-9]{9}\d", (t.get("isin") or "").upper().replace(" ", "")) or [None])[0]
+        isin = (re.search(r"[A-Z]{2}[A-Z0-9]{9}\d", (t.get("isin") or "").upper().replace(" ", "")) or [None])[0] or head_isin
         nature = (t.get("nature") or "").strip()
         if norm(t.get("options") or "").startswith("oui"):
             nature += " (stock options)"
@@ -230,7 +238,7 @@ def fr_parse_pdf_text(text, meta):
             "published": meta.get("published"), "issuer": issuer or meta.get("issuer"), "person": person or None, "role": role,
             "isin": isin, "instrument": ins or None, "nature": nature or None, "txDate": tx, "currency": fr_currency(price_s),
             "quantity": first_number(vol_s), "price": first_number(price_s), "url": meta.get("url"), "numberLocale": "auto",
-            "linkedTo": None,
+            "linkedTo": linked,
         })
     return recs
 
@@ -253,7 +261,9 @@ def bdif_list(d0, d1):
             soc = next((s.get("raisonSociale") for s in (x.get("societes") or []) if s.get("role") == "SocieteConcernee"), None) or \
                 next((s.get("raisonSociale") for s in (x.get("societes") or [])), None)
             if docs and x.get("numero"):
-                out.append({"numero": x["numero"], "published": str(x.get("datePublication") or x.get("dateInformation") or "")[:10],
+                # date d'information (celle du document) : la date de publication est parfois celle d'une remise en ligne ultérieure
+                dates = sorted(str(v)[:10] for v in (x.get("dateInformation"), x.get("datePublication")) if v)
+                out.append({"numero": x["numero"], "published": dates[0] if dates else None,
                             "issuer": soc, "url": BDIF_DOC + docs[0]["path"]})
         total = body.get("total") or 0
         frm += len(res)

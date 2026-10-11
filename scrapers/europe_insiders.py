@@ -419,8 +419,8 @@ def fi_parse(headers, body, since):
         tx, pub = iso_date(get("txDate")), iso_date(get("published"))
         if not tx or (pub or tx) < since:
             continue
-        if norm(get("status")) in ("revoked", "makulerad", "cancelled"):
-            continue
+        if norm(get("status")) in ("revoked", "makulerad", "cancelled", "revised", "reviderad"):
+            continue  # « Revised » : remplacée par une version corrigée, présente elle aussi dans l'export
         yes = lambda v: norm(v) in ("yes", "ja", "true", "x")
         assoc = yes(get("associated"))
         person = (get("notifier") if assoc else get("pdmr")) or get("pdmr") or get("notifier")
