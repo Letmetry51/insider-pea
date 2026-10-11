@@ -27,9 +27,9 @@ TICKERS = DATA / "tickers.json"
 OUT = DATA / "prices.json"
 BENCH = "^FCHI"  # CAC 40, indice de référence de l'étude d'événements
 MARKET = "^STOXX"  # STOXX Europe 600 : force relative et tendance du marché européen
-EU_SUFFIXES = (".PA", ".AS", ".BR", ".MI", ".MC", ".DE", ".LS", ".IR", ".VI", ".HE")
+EU_SUFFIXES = (".PA", ".AS", ".BR", ".MI", ".MC", ".DE", ".LS", ".IR", ".VI", ".HE", ".ST", ".OL", ".CO")
 EU_ALL = EU_SUFFIXES + (".F", ".HM", ".SG", ".DU", ".MU", ".BE", ".HA")  # bourses régionales allemandes en dernier recours
-HOME = {"FR": ".PA", "DE": ".DE", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "PT": ".LS", "IE": ".IR", "AT": ".VI", "FI": ".HE", "LU": ".PA"}
+HOME = {"FR": ".PA", "DE": ".DE", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "PT": ".LS", "IE": ".IR", "AT": ".VI", "FI": ".HE", "LU": ".PA", "SE": ".ST", "NO": ".OL", "DK": ".CO"}
 UA = {"User-Agent": "Mozilla/5.0 (euro-signal personal)"}
 # Corrections vérifiées (revue du 2026-10-08) : priorité absolue sur la recherche Yahoo
 OVERRIDES = {
@@ -85,6 +85,16 @@ def resolve(isin, cache, manual, today):
     c = cache.get(isin)
     if manual.get(isin) and c and not c.get("ticker"):
         return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"}
+    home = HOME.get(isin[:2])
+    if c and c.get("ticker") and home in (".ST", ".OL", ".CO") and not str(c["ticker"]).endswith(home) and not c.get("nordicHome"):
+        # sociétés nordiques d'abord trouvées sur une bourse régionale allemande (en euros, peu liquide) : nouvelle recherche, une fois
+        found = search_yahoo(isin)
+        if found and found["ticker"].endswith(home):
+            c = dict(found, method="recherche Yahoo par ISIN (cotation d'origine)", resolvedAt=today.isoformat())
+        c["nordicHome"] = today.isoformat()
+        cache[isin] = c
+        time.sleep(0.3)
+        return c
     if c and c.get("ticker") and not (not str(c["ticker"]).endswith(EU_SUFFIXES) and not c.get("checkedHome")):
         return c
     if c and c.get("ticker"):  # cotation hors grandes places européennes : une nouvelle recherche, une seule fois

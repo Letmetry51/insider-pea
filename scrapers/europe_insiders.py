@@ -402,6 +402,40 @@ FI_COLS = {
 }
 
 
+def fi_parse(headers, body, since):
+    """Lignes de l'export FI -> enregistrements au format commun (partagé avec le collecteur d'historique)."""
+    headers = [h.strip().lstrip("\ufeff") for h in headers]
+    nh = [norm(h) for h in headers]
+    colmap = {}
+    for field, syns in FI_COLS.items():
+        for sname in syns:
+            k = norm(sname)
+            if k in nh and nh.index(k) not in colmap.values():
+                colmap[field] = nh.index(k)
+                break
+    recs = []
+    for row in body:
+        get = lambda f: (row[colmap[f]].strip() if f in colmap and colmap[f] < len(row) else None)
+        tx, pub = iso_date(get("txDate")), iso_date(get("published"))
+        if not tx or (pub or tx) < since:
+            continue
+        if norm(get("status")) in ("revoked", "makulerad", "cancelled"):
+            continue
+        yes = lambda v: norm(v) in ("yes", "ja", "true", "x")
+        assoc = yes(get("associated"))
+        person = (get("notifier") if assoc else get("pdmr")) or get("pdmr") or get("notifier")
+        role = (get("role") or "") + (" (closely associated person, linked to " + (get("pdmr") or "?") + ")" if assoc else "")
+        nature = (get("nature") or "") + (" (share option programme)" if yes(get("program")) else "")
+        unit = norm(get("unit"))
+        qty = get("quantity") if unit in ("", "quantity", "antal", "st", "styck", "number") else None  # volumes en montant nominal (obligations) ignorés
+        rid = f"{tx}-{norm(get('issuer'))[:30]}-{norm(person)[:30]}-{get('isin') or ''}-{get('price') or ''}-{get('quantity') or ''}-{pub or ''}"
+        recs.append({"registry": "FI", "country": "SE", "id": re.sub(r"[^A-Za-z0-9_.:-]", "_", rid)[:150], "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn",
+                     "via": "fi.se", "published": pub or tx, "issuer": get("issuer"), "person": person, "role": role.strip() or None, "isin": get("isin"),
+                     "instrument": get("instrument") or "Share", "nature": nature, "txDate": tx, "currency": get("currency"), "quantity": qty, "price": get("price"),
+                     "amount": None, "place": get("place"), "numberLocale": "auto", "linkedTo": get("pdmr") if assoc else None, "collectedAt": date.today().isoformat()})
+    return headers, colmap, recs
+
+
 def fi_collect(st):
     src = st["sources"].get("FI", {})
     src.update({"name": "FI", "countries": ["SE"], "kind": "déclarations", "via": "fi.se (export CSV officiel, registre Insynshandel)", "lastAttempt": date.today().isoformat()})
@@ -458,36 +492,10 @@ def fi_collect(st):
         if not headers:
             raise RuntimeError(cut or "export vide")
         rows = [headers] + body
-        headers = [h.strip().lstrip("\ufeff") for h in headers]
-        nh = [norm(h) for h in headers]
-        colmap = {}
-        for field, syns in FI_COLS.items():
-            for sname in syns:
-                k = norm(sname)
-                if k in nh and nh.index(k) not in colmap.values():
-                    colmap[field] = nh.index(k)
-                    break
+        headers, colmap, recs = fi_parse(headers, body, since)
         d.update({"headers": headers, "columnMap": {k: headers[v] for k, v in colmap.items()}, "rowCount": max(0, len(rows) - 1), "sampleRows": rows[1:3]})
         kept = 0
-        for row in rows[1:]:
-            get = lambda f: (row[colmap[f]].strip() if f in colmap and colmap[f] < len(row) else None)
-            tx, pub = iso_date(get("txDate")), iso_date(get("published"))
-            if not tx or (pub or tx) < since:
-                continue
-            if norm(get("status")) in ("revoked", "makulerad", "cancelled"):
-                continue
-            yes = lambda v: norm(v) in ("yes", "ja", "true", "x")
-            assoc = yes(get("associated"))
-            person = (get("notifier") if assoc else get("pdmr")) or get("pdmr") or get("notifier")
-            role = (get("role") or "") + (" (closely associated person, linked to " + (get("pdmr") or "?") + ")" if assoc else "")
-            nature = (get("nature") or "") + (" (share option programme)" if yes(get("program")) else "")
-            unit = norm(get("unit"))
-            qty = get("quantity") if unit in ("", "quantity", "antal", "st", "styck", "number") else None  # volumes en montant nominal (obligations) ignorés
-            rid = f"{tx}-{norm(get('issuer'))[:30]}-{norm(person)[:30]}-{get('isin') or ''}-{get('price') or ''}-{get('quantity') or ''}-{pub or ''}"
-            rec = {"registry": "FI", "country": "SE", "id": re.sub(r"[^A-Za-z0-9_.:-]", "_", rid)[:150], "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn",
-                   "via": "fi.se", "published": pub or tx, "issuer": get("issuer"), "person": person, "role": role.strip() or None, "isin": get("isin"),
-                   "instrument": get("instrument") or "Share", "nature": nature, "txDate": tx, "currency": get("currency"), "quantity": qty, "price": get("price"),
-                   "amount": None, "place": get("place"), "numberLocale": "auto", "linkedTo": get("pdmr") if assoc else None, "collectedAt": date.today().isoformat()}
+        for rec in recs:
             st["records"][f"FI:{rec['id']}"] = rec
             kept += 1
         complete = all(f in colmap for f in ("isin", "nature", "txDate", "price")) and not cut
