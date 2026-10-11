@@ -956,6 +956,26 @@ t('Psychologie : achat habituel ou inhabituel, palmarès, achat record, humeur d
   ok(/peur du marché/.test(a.why.join(' ')) || a.key !== 'priority', a.why.join(' ; '));
 });
 
+t('Historique long : classement de Cohen, Malloy et Pomorski à la date de l\'achat, étude par profil', () => {
+  const tr = [{ date: '2023-03-14' }, { date: '2024-03-02' }, { date: '2025-03-20' }, { date: '2025-09-01' }];
+  eq(ES.cohenClass(tr, '2026-03-10', '2021-02-11'), 'routinier', 'mars 2023, 2024 et 2025');
+  eq(ES.cohenClass([{ date: '2023-03-14' }, { date: '2024-06-02' }, { date: '2025-11-20' }], '2026-03-10', '2021-02-11'), 'opportuniste', 'un ordre chaque année, jamais le même mois');
+  eq(ES.cohenClass([{ date: '2023-03-14' }, { date: '2025-11-20' }], '2026-03-10', '2021-02-11'), 'non classé', 'aucun ordre en 2024');
+  eq(ES.cohenClass(tr, '2026-03-10', '2024-03-16'), 'inconnu', 'historique trop court pour 2023');
+  eq(ES.cohenClass([{ date: '2026-04-01' }, { date: '2023-03-14' }, { date: '2024-03-02' }, { date: '2025-03-20' }], '2026-03-10', '2021-02-11'), 'routinier', 'un ordre postérieur ne compte pas');
+  // couverture par registre : un dirigeant allemand (archive depuis 2026) n'est jamais « inhabituel » faute d'historique
+  eq(ES.buyerProfile([], { date: '2026-09-05', eur: 1e5 }, '2026-04-28').routine, 'inconnu');
+  eq(ES.buyerProfile([], { date: '2026-09-05', eur: 1e5 }, '2016-07-01', []).cohen, 'non classé');
+  const ev = [];
+  for (let k = 0; k < 30; k++) ev.push({ x60: 0.03, x120: 0.05, f: { dg: true, cohen: 'opportuniste', routine: 'inhabituel', trackGood: true, country: 'FR' } });
+  for (let k = 0; k < 30; k++) ev.push({ x60: -0.02, x120: k < 10 ? 0.01 : -0.04, f: { dg: false, cohen: 'routinier', routine: 'habituel', trackPoor: true, country: 'SE' } });
+  ev.push({ x60: null, x120: null, f: { dg: true } });
+  const st = ES.historyStudy(ev, { costRoundTripPct: 1, horizons: [60, 120] }), g = (k) => st.find((r) => r.key === k);
+  eq(g('all').h60.n, 60, 'résultat inconnu écarté'); eq(g('dg').h60.n, 30); eq(g('dg').h60.mean, 2, 'frais de 1 % déduits');
+  eq(g('cohenRoutine').h120.beatPct, 0, 'après frais, +1 % ne bat plus l\'indice'); eq(g('dgOpp').h120.n, 30); eq(g('se').h60.n, 30);
+  ok(g('dg').h60.ci[0] > 80 && g('cohenOpp').h60.beatPct === 100); eq(g('trackPoor').h60.mean, -3);
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

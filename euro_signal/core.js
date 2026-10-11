@@ -835,12 +835,14 @@
   ES.significantBuys = function (buys, cfg) {
     var min = cfg.insiders.minBuyerEur || 0, w = cfg.insiders.clusterWindowDays;
     if (!min) return { kept: buys, small: [] };
-    var kept = [], small = [];
+    var kept = [], small = [], byKey = {};
+    // regroupement par acheteur d'abord : l'historique long (plusieurs milliers d'achats par société) reste rapide
+    buys.forEach(function (b) { var k = ES.buyerKey(b) || b.personKey; (byKey[k] = byKey[k] || []).push(b); });
     buys.forEach(function (t) {
       var e = ES.toEur(t.amount, t.currency);
       if (e == null) { kept.push(t); return; } // montant inconnu ou hors euro : non filtrable, conservé
       var k = ES.buyerKey(t) || t.personKey, from = ES.addDays(t.txDate, -(w - 1)), pub = ES.availDate(t), tot = 0;
-      buys.forEach(function (b) { if ((ES.buyerKey(b) || b.personKey) === k && b.txDate >= from && b.txDate <= t.txDate && ES.availDate(b) <= pub) tot += ES.toEur(b.amount, b.currency) || 0; });
+      byKey[k].forEach(function (b) { if (b.txDate >= from && b.txDate <= t.txDate && ES.availDate(b) <= pub) tot += ES.toEur(b.amount, b.currency) || 0; });
       (tot >= min ? kept : small).push(t);
     });
     return { kept: kept, small: small };
@@ -1398,7 +1400,27 @@
    * - conviction : montant record par rapport à ses propres achats passés.
    * hist : [{ date, eur, ret, excess }] achats significatifs passés de la même personne ; t : { date, eur } ; archiveFrom : début de l'archive.
    */
-  ES.buyerProfile = function (hist, t, archiveFrom) {
+  /**
+   * Classement de Cohen, Malloy et Pomorski (2012), à la date d (aucune donnée postérieure) :
+   * dirigeant « routinier » s'il a passé un ordre (achat ou vente) le même mois calendaire dans chacune des 3 années
+   * précédentes ; « opportuniste » s'il a passé au moins un ordre chaque année, sans mois commun ; sinon « non classé »
+   * (trop peu d'ordres pour juger). « inconnu » si l'historique ne couvre pas les 3 années.
+   * trades : [{ date }] ordres volontaires passés de la personne ; covFrom : début de l'historique de son registre.
+   */
+  ES.cohenClass = function (trades, d, covFrom) {
+    var y = +String(d).slice(0, 4), months = [];
+    for (var k = 1; k <= 3; k++) {
+      var yy = String(y - k);
+      if (!covFrom || covFrom > yy + '-02-01') return 'inconnu';
+      var m = {};
+      (trades || []).forEach(function (h) { if (h && h.date && h.date.slice(0, 4) === yy && h.date < d) m[h.date.slice(5, 7)] = 1; });
+      if (!Object.keys(m).length) return 'non classé';
+      months.push(m);
+    }
+    var common = Object.keys(months[0]).some(function (mo) { return months[1][mo] && months[2][mo]; });
+    return common ? 'routinier' : 'opportuniste';
+  };
+  ES.buyerProfile = function (hist, t, archiveFrom, trades) {
     var d = t.date, before = (hist || []).filter(function (h) { return h && h.date < d && ES.daysBetween(h.date, d) > 20; });
     var month = d.slice(5, 7), y = +d.slice(0, 4), years = 0, seen = 0;
     for (var k = 1; k <= 3; k++) {
@@ -1416,7 +1438,45 @@
       avgExcess: done.reduce(function (a, h) { return a + h.excess; }, 0) / done.length * 100 } : null;
     var amounts = before.map(function (h) { return h.eur; }).filter(function (v) { return v > 0; });
     var record = amounts.length >= 2 && t.eur > 0 ? t.eur >= 2 * Math.max.apply(null, amounts) : null;
-    return { routine: routine, monthsActive: monthsActive, sameMonthYears: years, yearsSeen: seen, track: track, record: record, pastBuys: before.length, firstBuy: !before.length && !!archiveFrom && ES.daysBetween(archiveFrom, d) >= 365 };
+    var out = { routine: routine, monthsActive: monthsActive, sameMonthYears: years, yearsSeen: seen, track: track, record: record, pastBuys: before.length, firstBuy: !before.length && !!archiveFrom && ES.daysBetween(archiveFrom, d) >= 365 };
+    if (trades) out.cohen = ES.cohenClass(trades, d, archiveFrom);
+    return out;
+  };
+  /**
+   * Étude sur l'historique long : résultat des achats de dirigeants selon leur profil au moment de l'achat.
+   * events : [{ x60, x120 (écart au STOXX 600, en fraction), f: { dg, cohen, routine, trackGood, trackPoor, record, country } }]
+   * Renvoie, par groupe et par horizon : nombre, écart moyen et médian (frais déduits), part des achats qui battent l'indice et sa marge.
+   */
+  ES.HISTORY_GROUPS = [
+    ['all', 'Tous les achats de dirigeants', function () { return true; }],
+    ['dg', 'Achats du DG ou du DAF', function (f) { return f.dg; }],
+    ['other', 'Achats des autres dirigeants', function (f) { return !f.dg; }],
+    ['cohenOpp', 'Opportunistes (méthode de Harvard)', function (f) { return f.cohen === 'opportuniste'; }],
+    ['cohenRoutine', 'Routiniers (méthode de Harvard)', function (f) { return f.cohen === 'routinier'; }],
+    ['cohenNone', 'Trop peu d\'ordres pour classer (méthode de Harvard)', function (f) { return f.cohen === 'non classé'; }],
+    ['looseOpp', 'Achat inhabituel (règle simplifiée d\'Euro Signal)', function (f) { return f.routine === 'inhabituel'; }],
+    ['looseRoutine', 'Achat habituel (règle simplifiée d\'Euro Signal)', function (f) { return f.routine === 'habituel'; }],
+    ['trackGood', 'Main heureuse : achats passés gagnants au moins 2 fois sur 3', function (f) { return f.trackGood === true; }],
+    ['trackPoor', 'Main malheureuse : achats passés gagnants moins d\'1 fois sur 2', function (f) { return f.trackPoor === true; }],
+    ['record', 'Achat record pour ce dirigeant', function (f) { return f.record === true; }],
+    ['dgOpp', 'DG/DAF et achat inhabituel', function (f) { return f.dg && f.routine === 'inhabituel'; }],
+    ['dgTrack', 'DG/DAF et main heureuse', function (f) { return f.dg && f.trackGood === true; }],
+    ['fr', 'France (AMF)', function (f) { return f.country === 'FR'; }],
+    ['se', 'Suède (Finansinspektionen)', function (f) { return f.country === 'SE'; }]
+  ];
+  ES.historyStudy = function (events, opts) {
+    opts = opts || {};
+    var cost = (opts.costRoundTripPct || 0) / 100, hs = opts.horizons || [60, 120];
+    return ES.HISTORY_GROUPS.map(function (g) {
+      var ev = (events || []).filter(function (e) { return g[2](e.f || {}); });
+      var row = { key: g[0], label: g[1] };
+      hs.forEach(function (h) {
+        var xs = ev.map(function (e) { return e['x' + h]; }).filter(function (v) { return v != null && isFinite(v); }).map(function (v) { return (v - cost) * 100; }).sort(function (a, b) { return a - b; });
+        var n = xs.length, beat = xs.filter(function (v) { return v > 0; }).length;
+        row['h' + h] = n ? { n: n, mean: +mean(xs).toFixed(2), median: +(n % 2 ? xs[(n - 1) / 2] : (xs[n / 2 - 1] + xs[n / 2]) / 2).toFixed(2), beatPct: Math.round(beat / n * 100), ci: ES.wilson(beat / n * 100, n) } : { n: 0 };
+      });
+      return row;
+    });
   };
   /**
    * Humeur du marché (aspect psychologique) à une date : volatilité sur 20 séances comparée à l'année écoulée et recul
@@ -1687,7 +1747,7 @@
     ['shorted', 'Achat pendant que des fonds parient à la baisse (≥ 0,5 % du capital)'],
     ['fscoreHigh', 'Comptes solides : F-score de Piotroski ≥ 7 (comptes publiés à la date de l\'achat)'],
     ['opportunistic', 'Achat inhabituel pour ce dirigeant (pas au même mois les années précédentes)'],
-    ['trackGood', 'Dirigeant dont les achats passés ont battu le CAC 40 au moins 2 fois sur 3'],
+    ['trackGood', 'Dirigeant dont les achats passés ont battu le marché au moins 2 fois sur 3 (STOXX 600, à défaut CAC 40)'],
     ['personalRecord', 'Achat record pour ce dirigeant (au moins 2 fois son plus gros achat passé)'],
     ['marketFear', 'Achat pendant la peur du marché européen (volatilité dans les 20 % les plus hautes de l\'année ou recul de 10 %)'],
     ['revisionUp', 'Prévisions de bénéfice des analystes relevées d\'au moins 1 % sur 30 jours (relevé au moment de l\'achat)'],

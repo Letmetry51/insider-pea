@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import zlib from 'node:zlib';
 
 const require = createRequire(import.meta.url);
 const ES = require('./core.js');
@@ -15,6 +16,7 @@ const ROOT = path.resolve(HERE, '..');
 const DATA = path.join(ROOT, 'data');
 const F = {
   latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), shorts: path.join(DATA, 'shorts.json'), financials: path.join(DATA, 'financials.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
+  history: path.join(DATA, 'history'), insiders: path.join(DATA, 'euro-signal-insiders.json'),
   out: path.join(DATA, 'euro-signal.json'), detail: path.join(DATA, 'euro-signal-detail.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
@@ -54,6 +56,36 @@ function mainRegistry(list) {
   list.forEach((t) => { if (t.type !== 'instrument') n[t.registry] = (n[t.registry] || 0) + 1; });
   return Object.keys(n).sort((a, b) => n[b] - n[a])[0] || 'AMF';
 }
+
+/** Historique long des dirigeants (collecteur séparé, data/history) : déclarations normalisées, début par registre, résultats des achats. */
+function readGz(file, fallback) { try { return JSON.parse(zlib.gunzipSync(fs.readFileSync(file)).toString('utf8')); } catch (e) { return fallback; } }
+function loadHistory(today, live) {
+  const out = { tx: {}, cov: {}, outcomes: readGz(path.join(F.history, 'outcomes.json.gz'), {}), n: {}, from: {}, cut: {} };
+  // début de l'archive du tableau de bord par registre : l'historique ne sert qu'avant (aucun doublon)
+  Object.values(live).forEach((l) => (l || []).forEach((t) => { const d = ES.availDate(t); if (d && (!out.cut[t.registry] || d < out.cut[t.registry])) out.cut[t.registry] = d; }));
+  [['AMF', 'amf.json.gz'], ['FI', 'fi.json.gz']].forEach(([reg, file]) => {
+    const recs = readGz(path.join(F.history, file), []);
+    let n = 0;
+    recs.forEach((r) => {
+      const res = ES.fromCollectorRecord(r, { today });
+      if (!res.ok || res.rec.type === 'instrument') return;
+      const t = res.rec, d = ES.availDate(t);
+      if (out.cut[reg] && d >= out.cut[reg]) return;
+      if (!ES.isEuropeanIsin(t.isin)) return;
+      (out.tx[t.isin] = out.tx[t.isin] || []).push(t); n++;
+      if (d && (!out.from[reg] || d < out.from[reg])) out.from[reg] = d;
+    });
+    out.n[reg] = n;
+  });
+  // couverture : première date de publication relevée pour chaque registre (historique long, sinon archive du tableau de bord).
+  // Une déclaration tardive portant sur une vieille opération ne fait pas remonter la couverture.
+  Object.keys(out.cut).forEach((reg) => { out.cov[reg] = out.cut[reg]; });
+  Object.keys(out.from).forEach((reg) => { if (!out.cov[reg] || out.from[reg] < out.cov[reg]) out.cov[reg] = out.from[reg]; });
+  return out;
+}
+/** Écart au STOXX 600 (fraction) d'un achat publié le jour d, à 20, 60 ou 120 séances (collecteur d'historique). */
+const H_IDX = { 20: 1, 60: 2, 120: 3 };
+function histOutcome(o, h) { if (!o) return null; const r = o[H_IDX[h]], b = o[H_IDX[h] + 3]; return r != null && b != null ? { ret: r, excess: r - b } : null; }
 
 export function build(opts = {}) {
   const today = opts.today || parisToday();
@@ -332,17 +364,38 @@ export function build(opts = {}) {
   const bAdj0 = prices.bench ? ES.adjustedSeries(ES.normalizeSeries(prices.bench.rows), []) : null;
   const bIdx0 = {}; if (bAdj0) bAdj0.forEach((r, k) => { bIdx0[r[0]] = k; });
   const archiveFrom = Object.values(tx).flat().map((t) => t.txDate).filter(Boolean).sort()[0] || null;
-  const buyerHist = {};
+  // Historique long (France depuis 2021, Suède depuis 2016) ajouté à l'archive : profil habituel / inhabituel, palmarès, fiche dirigeant
+  const hist = loadHistory(today, tx);
+  const allTx = {};
+  new Set(Object.keys(hist.tx).concat(Object.keys(tx))).forEach((isin) => { allTx[isin] = (hist.tx[isin] || []).concat(tx[isin] || []); });
+  const covOf = (t) => hist.cov[t.registry] || archiveFrom;
+  const buyerHist = {}, buyerTrades = {}, sigBuys = {};
   const fwdRet = (a, d, h) => { if (!a) return null; let i = 0; while (i < a.length && a[i][0] <= d) i++; if (i + h >= a.length) return null; const e = a[i][1] != null ? a[i][1] : a[i][4]; return a[i + h][4] / e - 1; };
-  Object.keys(inst).forEach((isin) => {
-    const R0 = refs[isin] || {};
-    ES.significantBuys(ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket)), cfg).kept.forEach((t) => {
+  const hz = cfg.learning.horizon;
+  Object.keys(allTx).forEach((isin) => {
+    const R0 = refs[isin] || {}, act = ES.activeTx(allTx[isin]);
+    sigBuys[isin] = ES.significantBuys(act.filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket)), cfg).kept;
+    sigBuys[isin].forEach((t) => {
       const key = ES.buyerKey(t) || t.personKey; if (!key) return;
-      const d = ES.availDate(t), a = adjAll[isin];
-      (buyerHist[key] = buyerHist[key] || []).push({ isin, id: t.id, date: d, eur: ES.toEur(t.amount, t.currency) || 0, ret: fwdRet(a, d, cfg.learning.horizon), excess: a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, cfg.learning.horizon, 0) : null });
+      const d = ES.availDate(t), a = adjAll[isin], o = hist.outcomes[isin + '|' + d], ho = histOutcome(o, H_IDX[hz] ? hz : 60);
+      // résultat : collecteur d'historique (STOXX 600, en euros) sinon cours du soir (CAC 40)
+      (buyerHist[key] = buyerHist[key] || []).push({ isin, id: t.id, date: d, eur: ES.toEur(t.amount, t.currency) || 0,
+        ret: ho ? ho.ret : fwdRet(a, d, hz), excess: ho ? ho.excess : a && bAdj0 ? ES.forwardExcess(a, bAdj0, bIdx0, d, hz, 0) : null });
     });
+    // ordres volontaires (achats et ventes) : base du classement de Cohen, Malloy et Pomorski
+    act.forEach((t) => { if ((t.type === 'achat' || t.type === 'vente') && !ES.excludedEntity(t, cfg)) { const key = ES.buyerKey(t) || t.personKey; if (key) (buyerTrades[key] = buyerTrades[key] || []).push({ date: t.txDate }); } });
   });
-  const profileOf = (t) => { const key = ES.buyerKey(t) || t.personKey; if (!key) return null; return ES.buyerProfile(buyerHist[key], { date: ES.availDate(t), eur: ES.toEur(t.amount, t.currency) || 0 }, archiveFrom); };
+  const profileOf = (t) => { const key = ES.buyerKey(t) || t.personKey; if (!key) return null; return ES.buyerProfile(buyerHist[key], { date: ES.availDate(t), eur: ES.toEur(t.amount, t.currency) || 0 }, covOf(t), buyerTrades[key]); };
+  // Étude sur l'historique long : chaque achat jugé avec ce qu'on savait ce jour-là, résultat à 3 et 6 mois contre le STOXX 600
+  const histEvents = [], seenEv = {};
+  Object.keys(sigBuys).forEach((isin) => sigBuys[isin].forEach((t) => {
+    const key = ES.buyerKey(t) || t.personKey, d = ES.availDate(t); if (!key || !d) return;
+    const k = isin + '|' + key + '|' + d; if (seenEv[k]) return; seenEv[k] = 1;
+    const o = hist.outcomes[isin + '|' + d], a60 = histOutcome(o, 60), a120 = histOutcome(o, 120); if (!a60 && !a120) return;
+    const pf = profileOf(t) || {}, tr = pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n : null;
+    histEvents.push({ x60: a60 ? a60.excess : null, x120: a120 ? a120.excess : null,
+      f: { dg: !!(t.ceo || t.cfo), cohen: pf.cohen, routine: pf.routine, trackGood: tr != null ? tr >= 2 / 3 : undefined, trackPoor: tr != null ? tr < 0.5 : undefined, record: pf.record === true, country: t.registryCountry || null } });
+  }));
   // Humeur du marché (psychologie) : aujourd'hui et à chaque date d'achat
   // Profils des acheteurs de la fenêtre actuelle (affichés dans la fiche, utilisés par l'avis croisé)
   cands.forEach((c) => {
@@ -745,6 +798,33 @@ export function build(opts = {}) {
     fx: ES.FX, mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, frozenUntil: learning.frozenUntil || null, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
   };
+  // Fiche dirigeant (lue à la demande) : tout l'historique connu des personnes qui ont acheté depuis un an, avec le résultat de chaque achat
+  const recentFrom = ES.addDays(today, -365), persons = {}, issuers = {};
+  Object.keys(tx).forEach((isin) => (tx[isin] || []).forEach((t) => { if (t.type === 'achat' && ES.availDate(t) >= recentFrom) { const k = ES.buyerKey(t) || t.personKey; if (k) persons[k] = persons[k] || { rows: [], name: null, role: null, dg: false, reg: {} }; } }));
+  Object.keys(allTx).forEach((isin) => ES.activeTx(allTx[isin]).forEach((t) => {
+    if (t.type !== 'achat' && t.type !== 'vente') return;
+    const k = ES.buyerKey(t) || t.personKey, p = k && persons[k]; if (!p) return;
+    const d = ES.availDate(t), o = t.type === 'achat' ? hist.outcomes[isin + '|' + d] : null, a60 = histOutcome(o, 60), a120 = histOutcome(o, 120);
+    const eur = ES.toEur(t.amount, t.currency);
+    p.rows.push([d, t.txDate, isin, t.type === 'achat' ? 'A' : 'V', t.qty, t.price, t.currency, eur != null ? Math.round(eur) : null,
+      a60 ? +(a60.excess * 100).toFixed(1) : null, a120 ? +(a120.excess * 100).toFixed(1) : null, t.registry, t.associated ? (t.person || 1) : 0, ES.excludedEntity(t, cfg) ? 1 : 0]);
+    if (!t.associated && (!p.name || d >= p.lastDirect)) { p.name = t.person; p.role = t.role; p.lastDirect = d; }
+    if (!p.name && t.linkedTo) p.name = t.linkedTo;
+    p.dg = p.dg || !!(t.ceo || t.cfo); p.reg[t.registry] = 1;
+    issuers[isin] = t.issuer || issuers[isin] || null;
+  }));
+  Object.keys(persons).forEach((k) => {
+    const p = persons[k]; p.rows.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    if (p.rows.length > 400) { p.trimmed = p.rows.length; p.rows = p.rows.slice(-400); } // acheteurs en série : 400 dernières opérations
+    const regs = Object.keys(p.reg), cov = regs.map((r) => hist.cov[r]).filter(Boolean).sort()[0] || archiveFrom;
+    const pf = ES.buyerProfile(buyerHist[k], { date: today, eur: 0 }, cov, buyerTrades[k]);
+    p.profile = { cohen: pf.cohen, routine: pf.routine, track: pf.track, pastBuys: pf.pastBuys };
+    p.cov = cov; p.reg = regs; delete p.lastDirect;
+  });
+  const insidersOut = { format: 'euro-signal-insiders', generatedAt: new Date().toISOString(), today, cov: hist.cov,
+    cols: ['date', 'txDate', 'isin', 'type', 'qty', 'price', 'currency', 'eur', 'x60', 'x120', 'registry', 'via', 'excluded'], issuers, persons };
+  payload.history = { cov: hist.cov, n: hist.n, cut: hist.cut, outcomes: Object.keys(hist.outcomes).length, events: histEvents.length, persons: Object.keys(persons).length,
+    study: ES.historyStudy(histEvents, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: [60, 120] }), insidersFile: 'data/euro-signal-insiders.json' };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);
 
@@ -753,6 +833,7 @@ export function build(opts = {}) {
     writeJSON(F.outbox, outbox, true);
     writeJSON(F.learning, { month: learning.month, version: learning.version, weights: learning.weights, log: learning.log, stats: learning.stats, updatedAt: new Date().toISOString() }, true);
     writeJSON(F.out, payload, false, true);
+    writeJSON(F.insiders, insidersOut, false, true);
     writeJSON(F.detail, detail, false, true);
     const mb = fs.statSync(F.detail).size / 1e6;
     if (mb > 60) { // garde-fou : GitHub refuse les fichiers de plus de 100 Mo, ce qui empêcherait aussi d'enregistrer le journal
@@ -760,7 +841,8 @@ export function build(opts = {}) {
       writeJSON(F.detail, detail, false, true);
       console.warn('  ATTENTION : fichier détail allégé (' + mb.toFixed(0) + ' Mo sans allègement)');
     }
-    console.log('  Tableau de bord : ' + (fs.statSync(F.out).size / 1e6).toFixed(1) + ' Mo (classement) + ' + (fs.statSync(F.detail).size / 1e6).toFixed(1) + ' Mo (fiches)');
+    console.log('  Tableau de bord : ' + (fs.statSync(F.out).size / 1e6).toFixed(1) + ' Mo (classement) + ' + (fs.statSync(F.detail).size / 1e6).toFixed(1) + ' Mo (fiches) + ' + (fs.statSync(F.insiders).size / 1e6).toFixed(1) + ' Mo (dirigeants)');
+    console.log('  Historique long : ' + Object.keys(hist.n).map((r) => r + ' ' + hist.n[r] + ' déclarations depuis le ' + (hist.from[r] || '?')).join(', ') + ' ; ' + histEvents.length + ' achats avec résultat');
   }
   return { payload, outbox, state, rejects, mergeStats, computed };
 }
