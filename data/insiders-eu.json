@@ -173062,8 +173062,8 @@
    "via": "fi.se (export CSV officiel, registre Insynshandel)",
    "lastAttempt": "2026-10-10",
    "status": "ok",
-   "rows": 4847,
-   "kept": 4810,
+   "rows": 361,
+   "kept": 361,
    "note": null,
    "lastSuccess": "2026-10-10",
    "backfilled": true
@@ -173139,7 +173139,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-2"
   ]
  },
- "generated_at": "2026-10-10T22:37:27.995618+00:00",
+ "generated_at": "2026-10-10T23:34:27.259174+00:00",
  "cursors": {
   "DE": "2026-10-09",
   "ES": "2026-10-08",

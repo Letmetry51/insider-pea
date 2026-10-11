@@ -1,94 +1,14 @@
 {
  "chunks": [
   [
-   "2026-06-12",
-   "2026-06-18",
-   662
-  ],
-  [
-   "2026-06-19",
-   "2026-06-25",
-   246
-  ],
-  [
-   "2026-06-26",
-   "2026-07-02",
-   222
-  ],
-  [
-   "2026-07-03",
-   "2026-07-09",
-   236
-  ],
-  [
-   "2026-07-10",
-   "2026-07-16",
-   270
-  ],
-  [
-   "2026-07-17",
-   "2026-07-23",
-   351
-  ],
-  [
-   "2026-07-24",
-   "2026-07-30",
-   272
-  ],
-  [
-   "2026-07-31",
-   "2026-08-06",
-   119
-  ],
-  [
-   "2026-08-07",
-   "2026-08-13",
-   129
-  ],
-  [
-   "2026-08-14",
-   "2026-08-20",
-   219
-  ],
-  [
-   "2026-08-21",
-   "2026-08-27",
+   "2026-09-30",
+   "2026-10-06",
    267
   ],
   [
-   "2026-08-28",
-   "2026-09-03",
-   404
-  ],
-  [
-   "2026-09-04",
-   "2026-09-10",
-   248
-  ],
-  [
-   "2026-09-11",
-   "2026-09-17",
-   366
-  ],
-  [
-   "2026-09-18",
-   "2026-09-24",
-   252
-  ],
-  [
-   "2026-09-25",
-   "2026-10-01",
-   334
-  ],
-  [
-   "2026-10-02",
-   "2026-10-08",
-   225
-  ],
-  [
-   "2026-10-09",
+   "2026-10-07",
    "2026-10-10",
-   25
+   94
   ]
  ],
  "encoding": "utf-16",
@@ -139,58 +59,58 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 4847,
+ "rowCount": 361,
  "sampleRows": [
   [
-   "18/06/2026 21:13:47",
-   "Sinch AB (publ)",
-   "549300UXY7QM6IDCGI12",
-   "Brett Scorza",
-   "Brett Scorza",
+   "06/10/2026 22:50:17",
+   "H & M Hennes & Mauritz AB",
+   "529900O5RR7R39FRDM42",
+   "Mehmet Arisoy",
+   "Mehmet Arisoy",
    "Other member of the company's administrative, management or supervisory body",
    "",
    "",
    "",
    "Yes",
-   "Yes",
-   "Allotment",
-   "Option",
-   "Sinch LTI 2026 Series 1",
    "",
-   "17/06/2026 00:00:00",
-   "75000.0",
+   "Acquisition",
+   "Share",
+   "Hennes & Mauritz AB, H & M ser. B",
+   "SE0000106270",
+   "30/09/2026 00:00:00",
+   "400.0",
    "Quantity",
-   "0.0",
-   "SEK",
-   "Outside a trading venue",
+   "14.15",
+   "EUR",
+   "BOERSE STUTTGART",
    "Current",
    ""
   ],
   [
-   "18/06/2026 20:32:10",
-   "Freemelt Holding AB",
-   "549300H8OR0SJ7WUDC61",
-   "Mikael Wahlsten",
-   "Mikael Wahlsten",
-   "Member of the Board of Directors",
+   "06/10/2026 22:50:17",
+   "H & M Hennes & Mauritz AB",
+   "529900O5RR7R39FRDM42",
+   "Mehmet Arisoy",
+   "Mehmet Arisoy",
+   "Other member of the company's administrative, management or supervisory body",
    "",
    "",
    "",
    "Yes",
    "",
-   "Exercise decrease",
-   "Warrant",
-   "Freemelt Holding AB TO 1",
-   "SE0023849203",
-   "16/06/2026 00:00:00",
-   "27000.0",
+   "Acquisition",
+   "Share",
+   "Hennes & Mauritz AB, H & M ser. B",
+   "SE0000106270",
+   "01/10/2026 00:00:00",
+   "3800.0",
    "Quantity",
-   "0.90",
-   "SEK",
-   "Outside a trading venue",
+   "14.04",
+   "EUR",
+   "BOERSE STUTTGART",
    "Current",
    ""
   ]
  ],
- "at": "2026-10-10T22:37:27.992665+00:00"
+ "at": "2026-10-10T23:34:27.255822+00:00"
 }

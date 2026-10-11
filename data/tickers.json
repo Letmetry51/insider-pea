@@ -154,17 +154,17 @@
   "ticker": "CA2548481043.SG"
  },
  "CA3814951008": {
+  "checkedHome": "2026-10-10",
   "exchange": "CDNX",
   "method": "recherche Yahoo par ISIN",
   "name": "Goldsky Resources Corp.",
-  "resolvedAt": "2026-10-10",
   "ticker": "GSKR.V"
  },
  "CA46016U1084": {
+  "checkedHome": "2026-10-10",
   "exchange": "Toronto",
   "method": "recherche Yahoo par ISIN",
   "name": "International Petroleum Corporation",
-  "resolvedAt": "2026-10-10",
   "ticker": "IPCO.TO"
  },
  "CA52171T1003": {
@@ -189,24 +189,24 @@
   "ticker": "CA5503711080.SG"
  },
  "CA5503721063": {
+  "checkedHome": "2026-10-10",
   "exchange": "Toronto",
   "method": "recherche Yahoo par ISIN",
   "name": "Lundin Mining Corporation",
-  "resolvedAt": "2026-10-10",
   "ticker": "LUN.TO"
  },
  "CH0012221716": {
+  "checkedHome": "2026-10-10",
   "exchange": "Swiss",
   "method": "recherche Yahoo par ISIN",
   "name": "ABB Ltd",
-  "resolvedAt": "2026-10-10",
   "ticker": "ABBN.SW"
  },
  "CH0242214887": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fenix Outdoor International AG",
-  "resolvedAt": "2026-10-10",
   "ticker": "FOI-B.ST"
  },
  "CH0322161768": {
@@ -2873,10 +2873,10 @@
   "ticker": "CCEP.AS"
  },
  "GB00BK80TJ35": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Physitrack PLC",
-  "resolvedAt": "2026-10-10",
   "ticker": "PTRK.ST"
  },
  "GB00BM9XQ619": {
@@ -3875,52 +3875,52 @@
   "ticker": "HM-B.ST"
  },
  "SE0000106320": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "Investment AB Latour (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "18LB.F"
  },
  "SE0000107203": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Industrivärden (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "INDU-C.ST"
  },
  "SE0000108227": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AB SKF (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SKF-B.ST"
  },
  "SE0000108656": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Telefonaktiebolaget LM Ericsson (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ERIC-B.ST"
  },
  "SE0000108847": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "L E Lundbergföretagen AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LUND-B.ST"
  },
  "SE0000109811": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nolato AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NOLA-B.ST"
  },
  "SE0000112252": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Rottneros AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "RROS.ST"
  },
  "SE0000112385": {
@@ -3946,24 +3946,24 @@
   "ticker": "TREL-B.ST"
  },
  "SE0000115446": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Volvo (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VOLV-B.ST"
  },
  "SE0000117970": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "NCC AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NCGB.F"
  },
  "SE0000120669": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "SSAB AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SSAB-B.ST"
  },
  "SE0000123671": {
@@ -3974,10 +3974,10 @@
   "ticker": "REJL-B.ST"
  },
  "SE0000135485": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "RaySearch Laboratories AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0000135485.SG"
  },
  "SE0000141137": {
@@ -3988,17 +3988,17 @@
   "ticker": "PRCO-B.ST"
  },
  "SE0000148884": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Skandinaviska Enskilda Banken AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SEB-A.ST"
  },
  "SE0000163594": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Securitas AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SECU-B.ST"
  },
  "SE0000163628": {
@@ -4009,10 +4009,10 @@
   "ticker": "EKTA-B.ST"
  },
  "SE0000170110": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "Avanza Bank Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "1JJA.F"
  },
  "SE0000170375": {
@@ -4023,24 +4023,24 @@
   "ticker": "HUFV-A.ST"
  },
  "SE0000188518": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Catella AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CAT-B.ST"
  },
  "SE0000191827": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Atrium Ljungberg AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ATRLJ-B.ST"
  },
  "SE0000195810": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Bure Equity AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BURE.ST"
  },
  "SE0000201253": {
@@ -4052,10 +4052,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0000236515": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Heba Fastighets AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HEBA-B.ST"
  },
  "SE0000273294": {
@@ -4070,66 +4070,66 @@
   "ticker": "HAV-B.ST"
  },
  "SE0000312068": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NFO Drives AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NFO.ST"
  },
  "SE0000331266": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Duroc AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DURC-B.ST"
  },
  "SE0000356008": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Prevas AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "PREV-B.ST"
  },
  "SE0000375115": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Mycronic AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MYCR.ST"
  },
  "SE0000386138": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Lammhults Design Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LAMM-B.ST"
  },
  "SE0000391716": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Traction",
-  "resolvedAt": "2026-10-10",
   "ticker": "TRAC-B.ST"
  },
  "SE0000393860": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "ProfilGruppen AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PROF-B.ST"
  },
  "SE0000396061": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Bong AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BONG.ST"
  },
  "SE0000407991": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Svedbergs Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SVED-B.ST"
  },
  "SE0000408189": {
@@ -4137,10 +4137,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0000418923": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "CTT Systems AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CTT.ST"
  },
  "SE0000421273": {
@@ -4151,38 +4151,38 @@
   "ticker": "KNOW.ST"
  },
  "SE0000472268": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Addnode Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ANOD-B.ST"
  },
  "SE0000483943": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Hultstrom Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SPACEN-B.ST"
  },
  "SE0000514630": {
+  "checkedHome": "2026-10-10",
   "exchange": "London",
   "method": "recherche Yahoo par ISIN",
   "name": "Vitec Software Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "0RDI.L"
  },
  "SE0000526626": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Micro Systemation AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MSAB-B.ST"
  },
  "SE0000565228": {
+  "checkedHome": "2026-10-10",
   "exchange": "Munich",
   "method": "recherche Yahoo par ISIN",
   "name": "Midsona AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "9KF.MU"
  },
  "SE0000567539": {
@@ -4200,10 +4200,10 @@
   "ticker": "CLAS-B.ST"
  },
  "SE0000616716": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Duni AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DUNI.ST"
  },
  "SE0000619371": {
@@ -4211,59 +4211,59 @@
   "triedAt": "2026-10-10"
  },
  "SE0000653230": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Studsvik AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SVIK.ST"
  },
  "SE0000667891": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Sandvik AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SAND.ST"
  },
  "SE0000667925": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Telia Company AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TELIA.ST"
  },
  "SE0000671745": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Avensia AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0000671745.SG"
  },
  "SE0000683484": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "CellaVision AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CEVI.ST"
  },
  "SE0000695876": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Alfa Laval AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALFA.ST"
  },
  "SE0000772956": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AQ Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AQ.ST"
  },
  "SE0000806994": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "JM AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "JM.ST"
  },
  "SE0000808370": {
@@ -4282,38 +4282,38 @@
   "ticker": "ORRON.ST"
  },
  "SE0000862997": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Billerud AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BILL.ST"
  },
  "SE0000872095": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Swedish Orphan Biovitrum AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SOBI.ST"
  },
  "SE0000936478": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Intrum AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "INTRUM.ST"
  },
  "SE0000949331": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nobia AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NOBI.ST"
  },
  "SE0001161654": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NOTE AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NOTE.ST"
  },
  "SE0001175746": {
@@ -4321,10 +4321,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0001200015": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "INVISIO Communications AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0001200015.SG"
  },
  "SE0001338039": {
@@ -4336,24 +4336,24 @@
   "triedAt": "2026-10-10"
  },
  "SE0001426131": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "HomeMaid AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HOME-B.ST"
  },
  "SE0001449380": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Mangold Fondkommission AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "MANG.ST"
  },
  "SE0001493776": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "AAK AB (publ.)",
-  "resolvedAt": "2026-10-10",
   "ticker": "6AA0.F"
  },
  "SE0001572520": {
@@ -4364,24 +4364,24 @@
   "ticker": "ELON.ST"
  },
  "SE0001662230": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Husqvarna AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HUSQ-B.ST"
  },
  "SE0001790791": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Generic Sweden AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "GENI.ST"
  },
  "SE0001823303": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Precise Biometrics AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PREC.ST"
  },
  "SE0001824004": {
@@ -4406,31 +4406,31 @@
   "ticker": "NNH.ST"
  },
  "SE0001852419": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Lindab International AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LIAB.ST"
  },
  "SE0001965369": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NAXS AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NAXS.ST"
  },
  "SE0002016352": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "C-Rad AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CRAD-B.ST"
  },
  "SE0002067421": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Sustainion Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SUSG.ST"
  },
  "SE0002110064": {
@@ -4448,17 +4448,17 @@
   "ticker": "HNSA.ST"
  },
  "SE0002190926": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "KDventures AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "KDV-B.ST"
  },
  "SE0002402701": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Ework Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EWRK.ST"
  },
  "SE0002478776": {
@@ -4469,10 +4469,10 @@
   "ticker": "SE0002478776.SG"
  },
  "SE0002480442": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Zinzino AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ZZ-B.ST"
  },
  "SE0002485979": {
@@ -4483,10 +4483,10 @@
   "ticker": "GENO.ST"
  },
  "SE0002834507": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Micropos Medical AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MPOS.ST"
  },
  "SE0003210590": {
@@ -4494,10 +4494,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0003491562": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Episurf Medical AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0003491562.SG"
  },
  "SE0003613090": {
@@ -4508,45 +4508,45 @@
   "ticker": "MOB.ST"
  },
  "SE0003656834": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "iZafe Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "IZAFE-B.ST"
  },
  "SE0003756758": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Sdiptech AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SDIP-B.ST"
  },
  "SE0003815604": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Egetis Therapeutics AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EGTX.ST"
  },
  "SE0003849223": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Bulten AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BULTEN.ST"
  },
  "SE0003917798": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Sivers Semiconductors AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SIVE.ST"
  },
  "SE0003943620": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Enzymatica AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0003943620.SG"
  },
  "SE0004270445": {
@@ -4561,17 +4561,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0004635878": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Sagax (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SAGA-A.ST"
  },
  "SE0004840718": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Xvivo Perfusion AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0004840718.SG"
  },
  "SE0004898799": {
@@ -4589,31 +4589,31 @@
   "ticker": "PLAZ-B.ST"
  },
  "SE0005003654": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Mendus AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "IMMU.ST"
  },
  "SE0005100757": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Kentima Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "KENH.ST"
  },
  "SE0005127818": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Sagax (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EFE.F"
  },
  "SE0005162880": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Diamyd Medical AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DMYD-B.ST"
  },
  "SE0005190220": {
@@ -4631,10 +4631,10 @@
   "ticker": "TEL2-B.ST"
  },
  "SE0005308541": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "SaltX Technology Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SALT-B.ST"
  },
  "SE0005392537": {
@@ -4645,24 +4645,24 @@
   "ticker": "SOLT.ST"
  },
  "SE0005497732": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "EQL Pharma AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EQL.ST"
  },
  "SE0005506185": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nicoccino Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NICO.ST"
  },
  "SE0005624756": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Doxa AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DOXA.ST"
  },
  "SE0005704087": {
@@ -4677,10 +4677,10 @@
   "ticker": "ENVI-B.ST"
  },
  "SE0005731833": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "BrainCool AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BRAIN.ST"
  },
  "SE0005794617": {
@@ -4709,17 +4709,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0005878741": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Bactiguard Holding AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0005878741.SG"
  },
  "SE0005992831": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Starbreeze AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "STAR-B.ST"
  },
  "SE0005993102": {
@@ -4734,17 +4734,17 @@
   "ticker": "SCST.ST"
  },
  "SE0005999836": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Afry AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "AFRY.ST"
  },
  "SE0006028577": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Wonderful Times Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "WTG.ST"
  },
  "SE0006143129": {
@@ -4755,17 +4755,17 @@
   "ticker": "BERNER-B.ST"
  },
  "SE0006219473": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Advenica AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ADVE.ST"
  },
  "SE0006220018": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Inwido AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "INWI.ST"
  },
  "SE0006260865": {
@@ -4776,59 +4776,59 @@
   "ticker": "SNX.ST"
  },
  "SE0006261046": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Humble Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HUMBLE.ST"
  },
  "SE0006288015": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Gränges AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "GRNG.ST"
  },
  "SE0006342333": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NP3 Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NP3.ST"
  },
  "SE0006343950": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Freja eID Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FREJA.ST"
  },
  "SE0006421871": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Image Systems AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "IS.ST"
  },
  "SE0006422390": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Thule Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "THULE.ST"
  },
  "SE0006425815": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "PowerCell Sweden AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PCELL.ST"
  },
  "SE0006509949": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Eltel AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ELTEL.ST"
  },
  "SE0006510491": {
@@ -4836,10 +4836,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0006625471": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Dustin Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DUST.ST"
  },
  "SE0006758587": {
@@ -4850,10 +4850,10 @@
   "ticker": "TRANS.ST"
  },
  "SE0006887063": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Hoist Finance AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HOFI.ST"
  },
  "SE0006887451": {
@@ -4864,24 +4864,24 @@
   "ticker": "CLBIO.ST"
  },
  "SE0006965158": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Redsense Medical AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "REDS.ST"
  },
  "SE0006993770": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Axfood AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0006993770.SG"
  },
  "SE0006994448": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "TargetEveryOne AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0006994448.SG"
  },
  "SE0007074166": {
@@ -4900,31 +4900,31 @@
   "triedAt": "2026-10-10"
  },
  "SE0007100359": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Pandox AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PNDX-B.ST"
  },
  "SE0007100532": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Navigo Invest AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NAVIGO-STAM.ST"
  },
  "SE0007100581": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "ASSA ABLOY AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ASSA-B.ST"
  },
  "SE0007100599": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Svenska Handelsbanken AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SHB-A.ST"
  },
  "SE0007158118": {
@@ -4935,24 +4935,24 @@
   "ticker": "SPEC.ST"
  },
  "SE0007158910": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Alimak Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALIG.ST"
  },
  "SE0007158928": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Starbreeze AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "STAR-A.ST"
  },
  "SE0007278726": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "QBNK Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "QBNK.ST"
  },
  "SE0007387246": {
@@ -4970,6 +4970,7 @@
   "ticker": "SE0007413455.SG"
  },
  "SE0007439443": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Storytel AB (publ)",
@@ -4977,10 +4978,10 @@
   "ticker": "STORY-B.ST"
  },
  "SE0007439633": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Vimab Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VIMAB.ST"
  },
  "SE0007577895": {
@@ -4991,17 +4992,17 @@
   "ticker": "SE0007577895.SG"
  },
  "SE0007614722": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "K33 AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0007614722.SG"
  },
  "SE0007640156": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Scandic Hotels Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0007640156.SG"
  },
  "SE0007666110": {
@@ -5019,10 +5020,10 @@
   "ticker": "POLYG.ST"
  },
  "SE0007692850": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Camurus AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0007692850.SG"
  },
  "SE0007756903": {
@@ -5033,17 +5034,17 @@
   "ticker": "XINT.ST"
  },
  "SE0007871363": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Vitec Software Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VIT-B.ST"
  },
  "SE0007897079": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AcadeMedia AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ACAD.ST"
  },
  "SE0007897384": {
@@ -5051,10 +5052,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0008014476": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Plejd AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PLEJD.ST"
  },
  "SE0008040653": {
@@ -5065,59 +5066,59 @@
   "ticker": "HUM.ST"
  },
  "SE0008216303": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Clean Motion AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CLEMO.ST"
  },
  "SE0008241491": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "SynAct Pharma AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SYNACT.ST"
  },
  "SE0008241558": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Cereno Scientific AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CRNO-B.ST"
  },
  "SE0008294953": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Paradox Interactive AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PDX.ST"
  },
  "SE0008321608": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Investment AB Öresund (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ORES.ST"
  },
  "SE0008321921": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "BE Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BEGR.ST"
  },
  "SE0008347652": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Brinova Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BRIN-B.ST"
  },
  "SE0008347660": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "B3 Consulting Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "B3.ST"
  },
  "SE0008348304": {
@@ -5132,17 +5133,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0008588354": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Agtira AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "AGTIRA-B.ST"
  },
  "SE0008613731": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Biovica International AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0008613731.SG"
  },
  "SE0008732218": {
@@ -5153,24 +5154,24 @@
   "ticker": "ALCA.ST"
  },
  "SE0009143662": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Volati AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VOLO.ST"
  },
  "SE0009161052": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Sagax (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EFE1.F"
  },
  "SE0009189442": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Finepart Sweden AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FINE.ST"
  },
  "SE0009190572": {
@@ -5178,31 +5179,31 @@
   "triedAt": "2026-10-10"
  },
  "SE0009190788": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Umida Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "UMIDA-B.ST"
  },
  "SE0009216278": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "MIPS AB O.N.",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0009216278.SG"
  },
  "SE0009242324": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "ByggPartner Gruppen AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BYGGP.ST"
  },
  "SE0009242555": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Aino Health AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AINO.ST"
  },
  "SE0009242654": {
@@ -5213,24 +5214,24 @@
   "ticker": "SE0009242654.SG"
  },
  "SE0009268154": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AAC Clyde Space AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AAC.ST"
  },
  "SE0009269467": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Actic Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ATIC.ST"
  },
  "SE0009346299": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Aerowash AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AERW-B.ST"
  },
  "SE0009382989": {
@@ -5238,10 +5239,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0009414303": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Axolot Solutions Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AXOLOT.ST"
  },
  "SE0009496482": {
@@ -5249,24 +5250,24 @@
   "triedAt": "2026-10-10"
  },
  "SE0009548597": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "EatGood Sweden AB (Publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EATG.ST"
  },
  "SE0009554454": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Samhallsbyggnadsbolaget I Norde",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0009554454.SG"
  },
  "SE0009580517": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Sonetel AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SONE.ST"
  },
  "SE0009580756": {
@@ -5281,6 +5282,7 @@
   "ticker": "ISOFOL.ST"
  },
  "SE0009607252": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Intervacc AB (publ)",
@@ -5288,17 +5290,17 @@
   "ticker": "IVACC.ST"
  },
  "SE0009663826": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Ambea AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AMBEA.ST"
  },
  "SE0009697220": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Enea AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ENEA.ST"
  },
  "SE0009778848": {
@@ -5316,17 +5318,17 @@
   "ticker": "BLINC-B.ST"
  },
  "SE0009806284": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Paxman AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PAX.ST"
  },
  "SE0009806607": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Munters Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0009806607.SG"
  },
  "SE0009807266": {
@@ -5337,17 +5339,17 @@
   "ticker": "INTEG-B.ST"
  },
  "SE0009832595": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "InCoax Networks AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "INCOAX.ST"
  },
  "SE0009858152": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Bonesupport Holding AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0009858152.SG"
  },
  "SE0009888738": {
@@ -5362,24 +5364,24 @@
   "triedAt": "2026-10-10"
  },
  "SE0009922156": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Essity AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ESSITY-A.ST"
  },
  "SE0009922164": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Essity AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ESSITY-B.ST"
  },
  "SE0009922305": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Alligo AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALLIGO-B.ST"
  },
  "SE0009973548": {
@@ -5401,52 +5403,52 @@
   "triedAt": "2026-10-10"
  },
  "SE0009997018": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "HMS Networks AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HMS.ST"
  },
  "SE0010048884": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fagerhult Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "FAG.ST"
  },
  "SE0010100958": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Investment AB Latour (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LATO-B.ST"
  },
  "SE0010102095": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "BiBBInstruments AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "BIBB.ST"
  },
  "SE0010270793": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Goodbye Kansas Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "GBK.ST"
  },
  "SE0010296269": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fram Skandinavien AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FRAM-B.ST"
  },
  "SE0010323998": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Balco Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "BALCO.ST"
  },
  "SE0010414482": {
@@ -5465,24 +5467,24 @@
   "triedAt": "2026-10-10"
  },
  "SE0010415281": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "INQ Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "INQ.ST"
  },
  "SE0010441139": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Railcare Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "RAIL.ST"
  },
  "SE0010468116": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Arjo AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ARJO-B.ST"
  },
  "SE0010468918": {
@@ -5500,13 +5502,14 @@
   "ticker": "TSEC.ST"
  },
  "SE0010494708": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Botnia Gold AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BOTX.ST"
  },
  "SE0010520106": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Enad Global 7 AB",
@@ -5514,31 +5517,31 @@
   "ticker": "SE0010520106.SG"
  },
  "SE0010520254": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "K2A Knaust & Andersson Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "K2A-B.ST"
  },
  "SE0010546242": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Acconeer AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ACCON.ST"
  },
  "SE0010546622": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "DevPort AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DEVP-B.ST"
  },
  "SE0010547786": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Besqab AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BESQAB.ST"
  },
  "SE0010573113": {
@@ -5549,10 +5552,10 @@
   "ticker": "ACE.ST"
  },
  "SE0010600106": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Infrea AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "INFREA.ST"
  },
  "SE0010663161": {
@@ -5563,10 +5566,10 @@
   "ticker": "VPAB-B.ST"
  },
  "SE0010714279": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Corem Property Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CORE-A.ST"
  },
  "SE0010714287": {
@@ -5577,10 +5580,10 @@
   "ticker": "CORE-B.ST"
  },
  "SE0010714311": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Corem Property Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CORE-PREF.ST"
  },
  "SE0010766105": {
@@ -5588,17 +5591,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0010769182": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "mySafety Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SAFETY-B.ST"
  },
  "SE0010820514": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NP3 Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NP3-PREF.ST"
  },
  "SE0010820613": {
@@ -5627,17 +5630,17 @@
   "ticker": "KLARA-B.ST"
  },
  "SE0010948588": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "BHG Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0010948588.SG"
  },
  "SE0010985028": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Green Landscaping Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "GREEN.ST"
  },
  "SE0011090018": {
@@ -5645,24 +5648,24 @@
   "triedAt": "2026-10-10"
  },
  "SE0011166974": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fabege AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FABG.ST"
  },
  "SE0011167170": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Freemelt Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FREEM.ST"
  },
  "SE0011167535": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Gomero Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "GOMERO.ST"
  },
  "SE0011178201": {
@@ -5673,38 +5676,38 @@
   "ticker": "RPLAN.ST"
  },
  "SE0011178458": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Dicot Pharma AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "DICOT.ST"
  },
  "SE0011281757": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Midsummer AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MIDS.ST"
  },
  "SE0011337708": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AAK AB (publ.)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AAK.ST"
  },
  "SE0011415249": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Hoodin AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "HOODIN.ST"
  },
  "SE0011426428": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Nyfosa AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0011426428.SG"
  },
  "SE0011451921": {
@@ -5720,10 +5723,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0011644376": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "BIMobject AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "BIM.ST"
  },
  "SE0011724889": {
@@ -5735,10 +5738,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0011923341": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "CAG Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CAG.ST"
  },
  "SE0012065589": {
@@ -5749,10 +5752,10 @@
   "ticker": "CX.ST"
  },
  "SE0012116390": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Nordic Entertainment Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0012116390.SG"
  },
  "SE0012141687": {
@@ -5763,59 +5766,59 @@
   "ticker": "SKIS-B.ST"
  },
  "SE0012229920": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Ferroamp AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FERRO.ST"
  },
  "SE0012257970": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Stockwik AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "STWK.ST"
  },
  "SE0012308088": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Teqnion AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TEQ.ST"
  },
  "SE0012313302": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nordic LEVEL Group AB (publ.)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LEVEL.ST"
  },
  "SE0012324226": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Viaplay Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VPLAY-A.ST"
  },
  "SE0012454072": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Avanza Bank Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AZA.ST"
  },
  "SE0012481133": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Vertiseit AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VERT-B.ST"
  },
  "SE0012481570": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Eurobattery Minerals AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0012481570.SG"
  },
  "SE0012569663": {
@@ -5830,13 +5833,14 @@
   "ticker": "MOFAST.ST"
  },
  "SE0012673267": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Evolution AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EVO.ST"
  },
  "SE0012673291": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Mentice AB (publ)",
@@ -5844,24 +5848,24 @@
   "ticker": "MNTC.ST"
  },
  "SE0012675361": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "IRLAB Therapeutics AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "IRLAB-A.ST"
  },
  "SE0012740074": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Zoomability Int AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ZOOM.ST"
  },
  "SE0012853455": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "EQT AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0012853455.SG"
  },
  "SE0012904803": {
@@ -5887,10 +5891,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0013382355": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "K-Fast Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "KFAST-B.ST"
  },
  "SE0013382546": {
@@ -5905,24 +5909,24 @@
   "ticker": "MONI.ST"
  },
  "SE0013512506": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "FastPartner AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FPAR-A.ST"
  },
  "SE0013512514": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "FastPartner AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FPAR-D.ST"
  },
  "SE0013647385": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "BICO Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0013647385.SG"
  },
  "SE0013719077": {
@@ -5933,10 +5937,10 @@
   "ticker": "QLIRO.ST"
  },
  "SE0013888831": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Embellence Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EMBELL.ST"
  },
  "SE0014035762": {
@@ -5968,52 +5972,52 @@
   "ticker": "KLIMAT.ST"
  },
  "SE0014401378": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AddLife AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALIF-B.ST"
  },
  "SE0014428447": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "ES Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ESGR-B.ST"
  },
  "SE0014453874": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Wästbygg Gruppen AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "WBGR-B.ST"
  },
  "SE0014504817": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Loomis AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0014504817.SG"
  },
  "SE0014608915": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fortinova Fastigheter AB (Publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FNOVA-B.ST"
  },
  "SE0014684569": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Prostatype Genomics AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PROGEN.ST"
  },
  "SE0014704763": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Spotlight Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SPGR.ST"
  },
  "SE0014781795": {
@@ -6024,80 +6028,80 @@
   "ticker": "SE0014781795.SG"
  },
  "SE0014990966": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Lagercrantz Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LAGR-B.ST"
  },
  "SE0015191911": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "CDON AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "CDON.ST"
  },
  "SE0015192067": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Nordnet AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015192067.SG"
  },
  "SE0015192075": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Luxbright AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LXB.ST"
  },
  "SE0015193529": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "CirChem AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015193529.SG"
  },
  "SE0015193800": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NFO Drives AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NFO.ST"
  },
  "SE0015195771": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fasadgruppen Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FG.ST"
  },
  "SE0015221684": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Annehem Fastigheter AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "ANNE-B.ST"
  },
  "SE0015245097": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Abera Bioscience AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "ABERA.ST"
  },
  "SE0015245535": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nelly Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NELLY.ST"
  },
  "SE0015346135": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Stillfront Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015346135.SG"
  },
  "SE0015346895": {
@@ -6112,10 +6116,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0015407390": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nimbus Group AB (Publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BOAT.ST"
  },
  "SE0015483276": {
@@ -6130,17 +6134,17 @@
   "ticker": "ONCOZ.ST"
  },
  "SE0015504519": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Tellusgruppen AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TELLUS.ST"
  },
  "SE0015556873": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Cheffelo AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CHEF.ST"
  },
  "SE0015657697": {
@@ -6151,38 +6155,38 @@
   "ticker": "STUDBO.ST"
  },
  "SE0015657788": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Yubico AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "YUBICO.ST"
  },
  "SE0015657853": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Desenio Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DSNO.ST"
  },
  "SE0015657895": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Krona Public Real Estate AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "KRONA.ST"
  },
  "SE0015658364": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Pierce Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PIERCE.ST"
  },
  "SE0015658380": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Dlaboratory Sweden AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DLAB.ST"
  },
  "SE0015659834": {
@@ -6200,10 +6204,10 @@
   "ticker": "BUY.ST"
  },
  "SE0015671995": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Hemnet Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HEM.ST"
  },
  "SE0015797873": {
@@ -6214,24 +6218,24 @@
   "ticker": "EMB.ST"
  },
  "SE0015809967": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Odinwell AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ODIN.ST"
  },
  "SE0015810817": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Arla Plast AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "ARPL.ST"
  },
  "SE0015811377": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "edyoutec AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "EDYOU.ST"
  },
  "SE0015811955": {
@@ -6239,10 +6243,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0015811963": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Investor AB (B)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015811963.SG"
  },
  "SE0015812128": {
@@ -6260,10 +6264,10 @@
   "ticker": "SE0015812417.SG"
  },
  "SE0015812516": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Wyld Networks AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "WYLD.ST"
  },
  "SE0015948591": {
@@ -6271,31 +6275,31 @@
   "triedAt": "2026-10-10"
  },
  "SE0015949201": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Lifco AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015949201.SG"
  },
  "SE0015949433": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Linc AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "LINC.ST"
  },
  "SE0015949748": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Beijer Ref AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BEIJ-B.ST"
  },
  "SE0015949771": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Uswe Sports AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "USWE.ST"
  },
  "SE0015950308": {
@@ -6313,17 +6317,17 @@
   "ticker": "ACAST.ST"
  },
  "SE0015961594": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Corem Property Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CORE-D.ST"
  },
  "SE0015961909": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Hexagon AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015961909.SG"
  },
  "SE0015961982": {
@@ -6341,17 +6345,17 @@
   "ticker": "SE0015962097.SG"
  },
  "SE0015962477": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Nolato AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0015962477.SG"
  },
  "SE0015962485": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "RVRC Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "RVRC.ST"
  },
  "SE0015988100": {
@@ -6362,31 +6366,31 @@
   "ticker": "MBBAB.ST"
  },
  "SE0015988167": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Swedencare AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SECARE.ST"
  },
  "SE0015988274": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Pila Pharma AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PILA.ST"
  },
  "SE0016074249": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "MilDef Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MILDEF.ST"
  },
  "SE0016075246": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Wall to Wall Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "WTW-A.ST"
  },
  "SE0016075253": {
@@ -6405,10 +6409,10 @@
   "ticker": "KFAST-B.ST"
  },
  "SE0016101844": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Sinch AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "SE0016101844.SG"
  },
  "SE0016101935": {
@@ -6419,10 +6423,10 @@
   "ticker": "LARK.ST"
  },
  "SE0016276851": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Arlandastad Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AGROUP.ST"
  },
  "SE0016278139": {
@@ -6440,10 +6444,10 @@
   "ticker": "BBROOM.ST"
  },
  "SE0016288641": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "FSport AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FSPORT.ST"
  },
  "SE0016588867": {
@@ -6454,17 +6458,17 @@
   "ticker": "DVYSR.ST"
  },
  "SE0016589063": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Sound Dimension AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SOUND.ST"
  },
  "SE0016589188": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AB Electrolux (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ELUX-B.ST"
  },
  "SE0016609499": {
@@ -6475,10 +6479,10 @@
   "ticker": "SE0016609499.SG"
  },
  "SE0016609846": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Flat Capital AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FLAT-B.ST"
  },
  "SE0016785778": {
@@ -6486,10 +6490,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0016785794": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fastighetsbolaget Emilshus AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EMIL-PREF.ST"
  },
  "SE0016786040": {
@@ -6500,24 +6504,24 @@
   "ticker": "W5.ST"
  },
  "SE0016787071": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Truecaller AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TRUE-B.ST"
  },
  "SE0016797591": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Kjell Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "KJELL.ST"
  },
  "SE0016797732": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Storskogen Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "STOR-B.ST"
  },
  "SE0016797765": {
@@ -6546,24 +6550,24 @@
   "ticker": "NETEL.ST"
  },
  "SE0016798763": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "CTEK AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CTEK.ST"
  },
  "SE0016799068": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "BeammWave AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BEAMMW-B.ST"
  },
  "SE0016829709": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Synsam AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SYNSAM.ST"
  },
  "SE0016830038": {
@@ -6588,10 +6592,10 @@
   "ticker": "SHT-B.ST"
  },
  "SE0016844468": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Compodium International AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "COMPDM.ST"
  },
  "SE0016844831": {
@@ -6599,17 +6603,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0016845655": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Alpcot Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALPCOT-B.ST"
  },
  "SE0017072259": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Intea Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "INTEA-B.ST"
  },
  "SE0017082514": {
@@ -6620,17 +6624,17 @@
   "ticker": "CASE.ST"
  },
  "SE0017083207": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Logistea AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LOGI-B.ST"
  },
  "SE0017083272": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nivika Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NIVI-B.ST"
  },
  "SE0017083835": {
@@ -6641,6 +6645,7 @@
   "ticker": "CHARGE.ST"
  },
  "SE0017084361": {
+  "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
   "method": "recherche Yahoo par ISIN",
   "name": "Viva Wine Group AB",
@@ -6648,17 +6653,17 @@
   "ticker": "KY1.F"
  },
  "SE0017105620": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Dynavox Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DYVOX.ST"
  },
  "SE0017131337": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Logistea AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LOGI-B.ST"
  },
  "SE0017131824": {
@@ -6673,10 +6678,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0017133838": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Online Brands Nordic AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "OBAB.ST"
  },
  "SE0017134125": {
@@ -6688,10 +6693,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0017160773": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "NCAB Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NCAB.ST"
  },
  "SE0017161441": {
@@ -6713,17 +6718,17 @@
   "ticker": "VUXEN.ST"
  },
  "SE0017486103": {
+  "checkedHome": "2026-10-10",
   "exchange": "Oslo",
   "method": "recherche Yahoo par ISIN",
   "name": "INIFY Laboratories AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "INIFY.OL"
  },
  "SE0017486889": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Atlas Copco AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ATCO-A.ST"
  },
  "SE0017487424": {
@@ -6734,17 +6739,17 @@
   "ticker": "BAWAT.ST"
  },
  "SE0017562523": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Momentum Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MMGR-B.ST"
  },
  "SE0017564461": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Oneflow AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ONEF.ST"
  },
  "SE0017564800": {
@@ -6755,31 +6760,31 @@
   "ticker": "CALVIK.ST"
  },
  "SE0017615644": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Alleima AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALLEI.ST"
  },
  "SE0017615784": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Skolon AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SKOLON.ST"
  },
  "SE0017616006": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "C100 AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "C100.ST"
  },
  "SE0017766843": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "OEM International AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "OEM-B.ST"
  },
  "SE0017768658": {
@@ -6798,10 +6803,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0017831795": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Norion Bank AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NORION.ST"
  },
  "SE0017832173": {
@@ -6812,10 +6817,10 @@
   "ticker": "KARNEL-B.ST"
  },
  "SE0017885767": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Addnode Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ANOD-B.ST"
  },
  "SE0017911233": {
@@ -6833,10 +6838,10 @@
   "ticker": "TRAN-B.ST"
  },
  "SE0018012494": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Modern Times Group MTG AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "MTG-B.ST"
  },
  "SE0018012569": {
@@ -6847,66 +6852,66 @@
   "ticker": "ALZ-BTU.ST"
  },
  "SE0018012635": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Wihlborgs Fastigheter AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "WIHL.ST"
  },
  "SE0018013658": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fastighets AB Trianon (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TRIAN-B.ST"
  },
  "SE0018013849": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Precise Biometrics AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PREC.ST"
  },
  "SE0018013922": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Fable Media Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "FABLE.ST"
  },
  "SE0018014110": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Meds Apotek AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "MEDS.ST"
  },
  "SE0018014243": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Grangex AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "GRANGX.ST"
  },
  "SE0018040677": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Hexatronic Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HTRO.ST"
  },
  "SE0018042046": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Flowscape Technology AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "FLOWS.ST"
  },
  "SE0018534497": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Tingsvalvet Fastighets AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TINGS-B.ST"
  },
  "SE0018538068": {
@@ -6917,10 +6922,10 @@
   "ticker": "VER.ST"
  },
  "SE0019072158": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "LumenRadio AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "LUMEN.ST"
  },
  "SE0019175274": {
@@ -6943,27 +6948,28 @@
   "triedAt": "2026-10-10"
  },
  "SE0020179158": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Goodbye Kansas Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "GBK.ST"
  },
  "SE0020181014": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Medivir AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MVIR.ST"
  },
  "SE0020203271": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "White Pearl Technology Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "WPTG-B.ST"
  },
  "SE0020353928": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Moberg Pharma AB (publ)",
@@ -6989,10 +6995,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0020699296": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "OODA AI AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "OODA.ST"
  },
  "SE0020846392": {
@@ -7011,24 +7017,24 @@
   "triedAt": "2026-10-10"
  },
  "SE0021020716": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AAC Clyde Space AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AAC.ST"
  },
  "SE0021148160": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Gruvaktiebolaget Viscaria",
-  "resolvedAt": "2026-10-10",
   "ticker": "VISC.ST"
  },
  "SE0021181559": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Disruptive Pharma AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "DPHA.ST"
  },
  "SE0021309937": {
@@ -7039,10 +7045,10 @@
   "ticker": "VIDH.ST"
  },
  "SE0021628898": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Volvo Car AB (publ.)",
-  "resolvedAt": "2026-10-10",
   "ticker": "VOLCAR-B.ST"
  },
  "SE0021921269": {
@@ -7053,10 +7059,10 @@
   "ticker": "SAAB-B.ST"
  },
  "SE0021921822": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Kinda Brave Entertainment Group Ab (Publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BRAVE.ST"
  },
  "SE0021922747": {
@@ -7064,31 +7070,31 @@
   "triedAt": "2026-10-10"
  },
  "SE0022050183": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Eastnine AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "EAST.ST"
  },
  "SE0022060521": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Kinnevik AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "KINV-B.ST"
  },
  "SE0022062055": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Prisma Properties AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PRISMA.ST"
  },
  "SE0022062196": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "AQ Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AQ.ST"
  },
  "SE0022087680": {
@@ -7096,10 +7102,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0022088217": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nordrest Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NREST.ST"
  },
  "SE0022239133": {
@@ -7107,17 +7113,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0022239950": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Mendus AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "IMMU.ST"
  },
  "SE0022242434": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Nyab AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "NYAB.ST"
  },
  "SE0022243812": {
@@ -7132,24 +7138,24 @@
   "ticker": "LGOLD-B.ST"
  },
  "SE0022600219": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Ramlösa shipping AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "RAMSH.ST"
  },
  "SE0022757860": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Brock Milton Capital AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "BMC.ST"
  },
  "SE0023134895": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Envar Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ENVAR.ST"
  },
  "SE0023135298": {
@@ -7167,24 +7173,24 @@
   "ticker": "EXPRS2.ST"
  },
  "SE0023261532": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Prostatype Genomics AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "PROGEN.ST"
  },
  "SE0023261599": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Carasent AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "CARA.ST"
  },
  "SE0023261623": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "mResell Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "MRSELL.ST"
  },
  "SE0023287065": {
@@ -7192,10 +7198,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0023313762": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Apotea AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "APOTEA.ST"
  },
  "SE0023440557": {
@@ -7206,10 +7212,10 @@
   "ticker": "AERO.ST"
  },
  "SE0023467451": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Mantex AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MANTEX.ST"
  },
  "SE0023468194": {
@@ -7221,10 +7227,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0023615638": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Asmodee Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ASMDEE-B.ST"
  },
  "SE0023615885": {
@@ -7246,10 +7252,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0023950795": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Röko AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ROKO-B.ST"
  },
  "SE0024171458": {
@@ -7260,10 +7266,10 @@
   "ticker": "ASKER.ST"
  },
  "SE0024172779": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Arctic Minerals AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ARCT.ST"
  },
  "SE0024173728": {
@@ -7274,17 +7280,17 @@
   "ticker": "PADEL.ST"
  },
  "SE0024320832": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Atrium Ljungberg AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ATRLJ-B.ST"
  },
  "SE0025010671": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Bufab AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "BUFAB.ST"
  },
  "SE0025010887": {
@@ -7295,17 +7301,17 @@
   "ticker": "CCC.ST"
  },
  "SE0025011554": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Enity Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ENITY.ST"
  },
  "SE0025138357": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Hacksaw AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "HACK.ST"
  },
  "SE0025158629": {
@@ -7342,17 +7348,17 @@
   "ticker": "LOGIST-B.ST"
  },
  "SE0025399199": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Opsy Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "OPSYH.ST"
  },
  "SE0025666969": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Avarda Bank AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AVARDA.ST"
  },
  "SE0026141665": {
@@ -7378,10 +7384,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0026599557": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Coffee Stain Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "COFFEE-B.ST"
  },
  "SE0026820540": {
@@ -7389,10 +7395,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0026853335": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "WS WeSports Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "WSG.ST"
  },
  "SE0026875833": {
@@ -7400,10 +7406,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0027099060": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Apr Technologies Ab",
-  "resolvedAt": "2026-10-10",
   "ticker": "APRTEC.ST"
  },
  "SE0027597691": {
@@ -7441,17 +7447,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0028329540": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Salix Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "SALIX.ST"
  },
  "SE0028354936": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Kjell Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "KJELL.ST"
  },
  "SE0028778076": {
@@ -7466,10 +7472,10 @@
   "ticker": "PUBLI.ST"
  },
  "SE0028799429": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Ellos Holding AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ELLOS.ST"
  },
  "SE0028825026": {
@@ -7481,17 +7487,17 @@
   "triedAt": "2026-10-10"
  },
  "SE0028825042": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Stockholm Nordtech Group AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "NTECH.ST"
  },
  "SE0028925701": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Vivesto AB",
-  "resolvedAt": "2026-10-10",
   "ticker": "VIVE.ST"
  },
  "SE0028925727": {
@@ -7531,10 +7537,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0029278985": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Tången Industrikapital AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "TANGEN-B.ST"
  },
  "SE0029279066": {
@@ -7553,10 +7559,10 @@
   "ticker": "SVEVIK.ST"
  },
  "SE0029300995": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Eniro Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "ENRO.ST"
  },
  "SE0029301035": {
@@ -7591,10 +7597,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0029530138": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "MoveByBike Europe AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "MBBAB.ST"
  },
  "SE0029605690": {
@@ -7624,10 +7630,10 @@
   "triedAt": "2026-10-10"
  },
  "SE0029951458": {
+  "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
   "method": "recherche Yahoo par ISIN",
   "name": "Axvik Group AB (publ)",
-  "resolvedAt": "2026-10-10",
   "ticker": "AXVIK.ST"
  },
  "SE0029976612": {
@@ -7753,10 +7759,10 @@
   "ticker": "ADTN"
  },
  "US0528001094": {
+  "checkedHome": "2026-10-10",
   "exchange": "NYSE",
   "method": "recherche Yahoo par ISIN",
   "name": "Autoliv, Inc.",
-  "resolvedAt": "2026-10-10",
   "ticker": "ALV"
  },
  "US21037T1097": {
