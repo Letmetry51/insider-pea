@@ -1474,6 +1474,9 @@
         var xs = ev.map(function (e) { return e['x' + h]; }).filter(function (v) { return v != null && isFinite(v); }).map(function (v) { return (v - cost) * 100; }).sort(function (a, b) { return a - b; });
         var n = xs.length, beat = xs.filter(function (v) { return v > 0; }).length;
         row['h' + h] = n ? { n: n, mean: +mean(xs).toFixed(2), median: +(n % 2 ? xs[(n - 1) / 2] : (xs[n / 2 - 1] + xs[n / 2]) / 2).toFixed(2), beatPct: Math.round(beat / n * 100), ci: ES.wilson(beat / n * 100, n) } : { n: 0 };
+        // même mesure contre l'indice national, en devise nationale (sans l'effet de change ni l'écart entre pays)
+        var ls = ev.map(function (e) { return e['l' + h]; }).filter(function (v) { return v != null && isFinite(v); }).map(function (v) { return (v - cost) * 100; });
+        if (ls.length) { var lb = ls.filter(function (v) { return v > 0; }).length; row['h' + h].local = { n: ls.length, mean: +mean(ls).toFixed(2), beatPct: Math.round(lb / ls.length * 100), ci: ES.wilson(lb / ls.length * 100, ls.length) }; }
       });
       return row;
     });

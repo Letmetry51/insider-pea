@@ -85,7 +85,12 @@ function loadHistory(today, live) {
 }
 /** Écart au STOXX 600 (fraction) d'un achat publié le jour d, à 20, 60 ou 120 séances (collecteur d'historique). */
 const H_IDX = { 20: 1, 60: 2, 120: 3 };
-function histOutcome(o, h) { if (!o) return null; const r = o[H_IDX[h]], b = o[H_IDX[h] + 3]; return r != null && b != null ? { ret: r, excess: r - b } : null; }
+function histOutcome(o, h) {
+  if (!o) return null;
+  if (Array.isArray(o)) { const r = o[H_IDX[h]], b = o[H_IDX[h] + 3]; return r != null && b != null ? { ret: r, excess: r - b, local: null } : null; } // ancien format
+  const k = H_IDX[h] - 1, r = o.r && o.r[k], b = o.b && o.b[k], lr = o.lr && o.lr[k], lb = o.lb && o.lb[k];
+  return r != null && b != null ? { ret: r, excess: r - b, local: lr != null && lb != null ? lr - lb : null } : null;
+}
 
 export function build(opts = {}) {
   const today = opts.today || parisToday();
@@ -393,7 +398,7 @@ export function build(opts = {}) {
     const k = isin + '|' + key + '|' + d; if (seenEv[k]) return; seenEv[k] = 1;
     const o = hist.outcomes[isin + '|' + d], a60 = histOutcome(o, 60), a120 = histOutcome(o, 120); if (!a60 && !a120) return;
     const pf = profileOf(t) || {}, tr = pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n : null;
-    histEvents.push({ x60: a60 ? a60.excess : null, x120: a120 ? a120.excess : null,
+    histEvents.push({ x60: a60 ? a60.excess : null, x120: a120 ? a120.excess : null, l60: a60 ? a60.local : null, l120: a120 ? a120.local : null,
       f: { dg: !!(t.ceo || t.cfo), cohen: pf.cohen, routine: pf.routine, trackGood: tr != null ? tr >= 2 / 3 : undefined, trackPoor: tr != null ? tr < 0.5 : undefined, record: pf.record === true, country: t.registryCountry || null } });
   }));
   // Humeur du marché (psychologie) : aujourd'hui et à chaque date d'achat

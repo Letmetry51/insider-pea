@@ -967,13 +967,14 @@ t('Historique long : classement de Cohen, Malloy et Pomorski à la date de l\'ac
   eq(ES.buyerProfile([], { date: '2026-09-05', eur: 1e5 }, '2026-04-28').routine, 'inconnu');
   eq(ES.buyerProfile([], { date: '2026-09-05', eur: 1e5 }, '2016-07-01', []).cohen, 'non classé');
   const ev = [];
-  for (let k = 0; k < 30; k++) ev.push({ x60: 0.03, x120: 0.05, f: { dg: true, cohen: 'opportuniste', routine: 'inhabituel', trackGood: true, country: 'FR' } });
+  for (let k = 0; k < 30; k++) ev.push({ x60: 0.03, x120: 0.05, l120: k < 15 ? 0.04 : -0.02, f: { dg: true, cohen: 'opportuniste', routine: 'inhabituel', trackGood: true, country: 'FR' } });
   for (let k = 0; k < 30; k++) ev.push({ x60: -0.02, x120: k < 10 ? 0.01 : -0.04, f: { dg: false, cohen: 'routinier', routine: 'habituel', trackPoor: true, country: 'SE' } });
   ev.push({ x60: null, x120: null, f: { dg: true } });
   const st = ES.historyStudy(ev, { costRoundTripPct: 1, horizons: [60, 120] }), g = (k) => st.find((r) => r.key === k);
   eq(g('all').h60.n, 60, 'résultat inconnu écarté'); eq(g('dg').h60.n, 30); eq(g('dg').h60.mean, 2, 'frais de 1 % déduits');
   eq(g('cohenRoutine').h120.beatPct, 0, 'après frais, +1 % ne bat plus l\'indice'); eq(g('dgOpp').h120.n, 30); eq(g('se').h60.n, 30);
   ok(g('dg').h60.ci[0] > 80 && g('cohenOpp').h60.beatPct === 100); eq(g('trackPoor').h60.mean, -3);
+  eq(g('dg').h120.local.n, 30, 'indice national'); eq(g('dg').h120.local.beatPct, 50); eq(g('dg').h120.local.mean, 0, '(+4 − 2) / 2 − 1 % de frais'); eq(g('se').h120.local, undefined);
 });
 
 console.log(results.join('\n'));

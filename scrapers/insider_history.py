@@ -18,7 +18,8 @@ seulement (pas des dividendes), comme l'indice : comparaison prix contre prix.
 Fichiers (compressés, lus par euro_signal/build.mjs) :
   data/history/amf.json.gz       déclarations France (format commun des collecteurs)
   data/history/fi.json.gz        déclarations Suède (actions uniquement)
-  data/history/outcomes.json.gz  « ISIN|date de publication » -> [entrée, r20, r60, r120, b20, b60, b120, sortie120]
+  data/history/outcomes.json.gz  « ISIN|date de publication » -> {e: entrée, r / b: rendement en euros et STOXX 600,
+                                 lr / lb: rendement en devise nationale et indice national, à 20, 60, 120 séances ; x: sortie à 120}
   data/history/tickers.json      correspondance ISIN -> ticker Yahoo propre à l'historique
   data/history/state.json        curseurs de reprise et compteurs (aucune donnée personnelle de l'utilisateur)
 """
@@ -455,40 +456,57 @@ def asof(series, d):
     return series[lo][1]
 
 
-def outcome(closes, pub, bench, fxs):
+LOCAL = {"SE": ("SEK", ("^OMXSPI", "^OMX")), "FR": ("EUR", ("^FCHI",))}  # marché national : devise et indice (repli)
+
+
+def outcome(closes, pub, bench, fxs, local=None):
+    """Résultat d'un achat publié le jour pub : entrée à la première clôture qui suit la publication.
+    r : rendement en euros, b : STOXX 600 ; lr / lb : rendement en devise nationale et indice national (même dates)."""
     i = next((k for k, (d, _) in enumerate(closes) if d > pub), None)
     if i is None:
         return None
     e_d, e_p = closes[i]
-    fx0 = fxs(e_d)
-    b0 = asof(bench, e_d)
+    fx0, b0 = fxs(e_d), asof(bench, e_d)
     if fx0 is None or not b0:
         return None
-    res = [e_d]
-    rets, brs, exit120 = [], [], None
+    o = {"e": e_d, "r": [], "b": [], "lr": [], "lb": [], "x": None}
+    lfx, lidx = (local or (None, None))
+    l0 = asof(lidx, e_d) if lidx else None
+    lf0 = lfx(e_d) if lfx else None
     for h in HORIZONS:
         j = i + h
+        r = b = lr = lb = None
         if j < len(closes):
             d, p = closes[j]
             fx1, b1 = fxs(d), asof(bench, d)
-            r = (p / fx1) / (e_p / fx0) - 1 if fx1 else None
-            if r is not None and abs(r) > 4:  # cours aberrant (regroupement non ajusté…) : écarté
-                r = None
-            rets.append(None if r is None else round(r, 4))
-            brs.append(round(b1 / b0 - 1, 4) if b1 else None)
+            if fx1:
+                r = (p / fx1) / (e_p / fx0) - 1
+                if abs(r) > 4:  # cours aberrant (regroupement non ajusté…) : écarté
+                    r = None
+            b = b1 / b0 - 1 if b1 else None
+            if r is not None and l0:
+                l1, lf1 = asof(lidx, d), (lfx(d) if lfx else None)
+                if l1 and (lfx is None or (lf0 and lf1)):
+                    lr = (1 + r) * ((lf1 / lf0) if lfx else 1.0) - 1  # même achat, mesuré en devise nationale
+                    lb = l1 / l0 - 1
             if h == 120:
-                exit120 = d
-        else:
-            rets.append(None)
-            brs.append(None)
-    return res + rets + brs + [exit120]
+                o["x"] = d
+        o["r"].append(None if r is None else round(r, 4))
+        o["b"].append(None if b is None else round(b, 4))
+        o["lr"].append(None if lr is None else round(lr, 4))
+        o["lb"].append(None if lb is None else round(lb, 4))
+    return o
+
+
+def complete(o):
+    return isinstance(o, dict) and o.get("r") and o["r"][2] is not None and o.get("lb") is not None
 
 
 def compute_outcomes(hist_recs, clock, st):
     import yfinance as yf  # noqa: F401
     from prices import search_yahoo
     s = st.setdefault("outcomes", {})
-    outs = load_json(OUTCOMES, {})
+    outs = {k: v for k, v in load_json(OUTCOMES, {}).items() if isinstance(v, dict)}  # ancien format : recalculé
     tick = load_json(HTICKERS, {})
     live = load_json(DATA / "tickers.json", {})
     keys = buy_keys(hist_recs)
@@ -496,28 +514,38 @@ def compute_outcomes(hist_recs, clock, st):
     todo = {}
     for isin, pub in keys:
         o = outs.get(f"{isin}|{pub}")
-        if o and o[3] is not None:
-            continue  # résultat à 120 séances déjà connu
-        if o and o[-1] == today:
-            continue
+        if complete(o) or (o and o.get("t") == today):
+            continue  # résultat à 6 mois connu, ou déjà tenté aujourd'hui
         todo.setdefault(isin, []).append(pub)
     print(f"Résultats : {len(keys)} achats, {sum(len(v) for v in todo.values())} à calculer sur {len(todo)} titres")
     if not todo:
         s.update({"buys": len(keys), "known": sum(1 for k in keys if f'{k[0]}|{k[1]}' in outs), "lastRun": today})
         return
-    start_all = min(min(v) for v in todo.values())
-    bench, _ = yahoo_closes(BENCH, (date.fromisoformat(start_all) - timedelta(days=10)).isoformat())
+    start_all = (date.fromisoformat(min(min(v) for v in todo.values())) - timedelta(days=10)).isoformat()
+    bench, _ = yahoo_closes(BENCH, start_all)
     if not bench:
         print("STOXX 600 indisponible : résultats reportés")
         return
     fxser = {}
     for c in FX_CODES:
         try:
-            ser, _ = yahoo_closes(f"EUR{c}=X", (date.fromisoformat(start_all) - timedelta(days=10)).isoformat())
+            ser, _ = yahoo_closes(f"EUR{c}=X", start_all)
             if ser:
                 fxser[c] = ser
         except Exception:
             pass
+    nat = {}
+    for cc, (cur, syms) in LOCAL.items():
+        for sym in syms:
+            try:
+                ser, _ = yahoo_closes(sym, start_all)
+            except Exception:
+                ser = None
+            if ser and len(ser) > 200:
+                lfx = None if cur == "EUR" else (lambda d, ser=fxser.get(cur): asof(ser, d) if ser else None)
+                nat[cc] = (lfx, ser, sym)
+                break
+    print("Indices nationaux :", {k: v[2] for k, v in nat.items()})
     done_t, nores = 0, 0
     for isin in sorted(todo, key=lambda k: -len(todo[k])):
         if clock.left() < 60:
@@ -557,15 +585,19 @@ def compute_outcomes(hist_recs, clock, st):
         else:
             nores += 1
             continue
+        loc = nat.get(isin[:2])
         for pub in pubs:
-            o = outcome(closes, pub, bench, fxs)
+            o = outcome(closes, pub, bench, fxs, (loc[0], loc[1]) if loc else None)
             if o:
-                outs[f"{isin}|{pub}"] = o + [today] if o[3] is None else o
+                if o["r"][2] is None:
+                    o["t"] = today
+                outs[f"{isin}|{pub}"] = o
         done_t += 1
         time.sleep(0.15)
     save_json(OUTCOMES, outs)
     save_json(HTICKERS, tick)
-    s.update({"buys": len(keys), "known": sum(1 for k in keys if f'{k[0]}|{k[1]}' in outs), "noPrice": nores, "lastRun": today})
+    s.update({"buys": len(keys), "known": sum(1 for k in keys if f'{k[0]}|{k[1]}' in outs), "noPrice": nores, "lastRun": today,
+              "local": {k: v[2] for k, v in nat.items()}})
     print(f"Résultats : {done_t} titres traités, {nores} sans cours, {s['known']} achats avec résultat")
 
 
