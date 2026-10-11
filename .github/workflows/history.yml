@@ -55,7 +55,8 @@ jobs:
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions Bot"
-          git add data/history/ data/diagnostics/history-probe.txt 2>/dev/null || git add data/history/
+          mkdir -p data/history data/diagnostics && touch data/diagnostics/history-probe.txt
+          git add data/history data/diagnostics/history-probe.txt
           if git diff --staged --quiet; then
             echo "Pas de changement"
           else
