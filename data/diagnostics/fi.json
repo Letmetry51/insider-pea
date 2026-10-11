@@ -7,12 +7,12 @@
   ],
   [
    "2026-10-07",
-   "2026-10-10",
-   94
+   "2026-10-11",
+   96
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n10/10/2026 13:43:38;Proport invest ab;984500F33AB40805EE63;Ing-Marie Agneta Thunvik;Ing-Marie Agneta Thunvik;Chairman of the Board of Directors;;;;Yes;;Acquisition;Share;Proport invest AB;SE0027767724;09/10/2026 00:00:00;11600.0;Quantity;2.01;SEK;SPOTLIGHT STOCK MARKET;Cur",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n11/10/2026 01:38:08;Beammwave AB;9845008AD575B0BD7B65;Markus Antero Törmänen;Markus Antero Törmänen;Member of the Board of Directors;;;;Yes;;Exchange increase;Share;BeammWave AB ser. B;SE0016799068;08/10/2026 00:00:00;567000.0;Quantity;0.0;SEK;Outside a trading venue;Curre",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 361,
+ "rowCount": 363,
  "sampleRows": [
   [
    "06/10/2026 22:50:17",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-10T23:34:27.255822+00:00"
+ "at": "2026-10-11T22:14:46.965037+00:00"
 }
