@@ -132,6 +132,7 @@ FR_LABELS = [
     ("place", r"LIEU DE LA TRANSACTION\s*:"),
     ("unitPrice", r"PRIX UNITAIRE\s*:"),
     ("unitVolume", r"(?<!AGREGEES\s)VOLUME\s*:"),
+    ("detailOps", r"INFORMATION DETAILLEE PAR OPERATION"),
     ("aggregated", r"INFORMATIONS AGREGEES"),
     ("aggPrice", r"\bPRIX\s*:"),
     ("options", r"TRANSACTION LIEE A L.EXERCICE DE PROGRAMMES?[^:]{0,220}:"),
@@ -606,7 +607,8 @@ def main():
         save_json(FILES["FI"], sorted(recs["FI"], key=lambda r: (r.get("published") or "", r["id"])))
         save_json(STATE, st)
     if "AMF" not in skip:
-        sub = Clock(min(a.minutes * 0.45, clock.left() / 60))
+        # temps restant, en gardant un quart pour les résultats (ou tout, si la Suède est à jour et les résultats sautés)
+        sub = Clock(clock.left() / 60 * (1.0 if "OUT" in skip else 0.75))
         recs["AMF"] = collect_fr(st, sub, recs["AMF"])
         save_json(FILES["AMF"], sorted(recs["AMF"], key=lambda r: (r.get("published") or "", r["id"])))
         save_json(STATE, st)
