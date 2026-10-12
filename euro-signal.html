@@ -1787,17 +1787,20 @@ details.pos summary{font-size:1rem}
     if (!fc || (!fc.eps && !fc.rev && !fc.target)) return { na: true, reason: 'aucune prévision d\'analyste publiée pour ce titre (fréquent pour les petites valeurs)' };
     var E = fc.eps || {}, R = fc.rev || {}, e0 = E['0y'] || {}, e1 = E['+1y'] || {}, r0 = R['0y'] || {}, r1 = R['+1y'] || {}, T = fc.target || null;
     var fin = function (v) { return typeof v === 'number' && isFinite(v) ? v : null; };
-    var gr = function (a, b) { a = fin(a); b = fin(b); return a != null && b != null && b > 0 ? (a / b - 1) * 100 : null; }; // croissance calculée seulement sur une base positive
-    var n = Math.max(fin(e0.n) || 0, fin(e1.n) || 0, fin(r0.n) || 0);
+    var gr = function (a, b) { a = fin(a); b = fin(b); var g = a != null && b != null && b > 0 ? (a / b - 1) * 100 : null; return g != null && isFinite(g) && Math.abs(g) <= 1000 ? g : null; }; // base positive, valeur plausible
+    var cnt = function (v) { v = fin(v); return v != null && v > 0 && v < 200 ? Math.round(v) : 0; };
+    var n = Math.max(cnt(e0.n), cnt(e1.n), cnt(r0.n));
     var o = { n: n, epsG0: gr(e0.avg, e0.yearAgo), epsG1: gr(e1.avg, e0.avg), revG0: gr(r0.avg, r0.yearAgo), revG1: gr(r1.avg, r0.avg),
       eps0: fin(e0.avg), eps1: fin(e1.avg), epsPrev: fin(e0.yearAgo), rev0: fin(r0.avg), rev1: fin(r1.avg), revPrev: fin(r0.yearAgo) };
-    var fy = fc.fyEnd ? +String(fc.fyEnd).slice(0, 4) : null; o.fy0 = fy; o.fy1 = fy ? fy + 1 : null;
+    var fy = /^\d{4}/.test(String(fc.fyEnd || '')) ? +String(fc.fyEnd).slice(0, 4) : null; o.fy0 = fy; o.fy1 = fy ? fy + 1 : null;
     o.turnaround = o.epsPrev != null && o.epsPrev <= 0 && o.eps0 != null && o.eps0 > 0;
     o.lossNext = o.eps1 != null && o.eps1 < 0;
     var tr1 = fc.trend && (fc.trend['+1y'] || fc.trend['0y']), rv = function (cur, old) { cur = fin(cur); old = fin(old); return cur != null && old != null && old !== 0 ? (cur / old - 1) * 100 * (old < 0 ? -1 : 1) : null; };
-    o.rev30 = tr1 ? rv(tr1.cur, tr1.d30) : null; o.rev90 = tr1 ? rv(tr1.cur, tr1.d90) : null;
-    o.disp1 = fin(e1.high) != null && fin(e1.low) != null && o.eps1 ? (e1.high - e1.low) / Math.abs(o.eps1) * 100 : null;
-    if (T && fin(T.mean) && fin(T.current) && T.current > 0) { o.upside = (T.mean / T.current - 1) * 100; o.nTarget = fin(T.n); o.targetLow = fin(T.low); o.targetHigh = fin(T.high); o.targetCur = T.currency || null; }
+    var bnd = function (v) { return v != null && isFinite(v) && Math.abs(v) <= 500 ? v : null; };
+    o.rev30 = tr1 ? bnd(rv(tr1.cur, tr1.d30)) : null; o.rev90 = tr1 ? bnd(rv(tr1.cur, tr1.d90)) : null;
+    o.disp1 = fin(e1.high) != null && fin(e1.low) != null && e1.high >= e1.low && o.eps1 ? (e1.high - e1.low) / Math.abs(o.eps1) * 100 : null;
+    if (o.disp1 != null && !(o.disp1 <= 1000)) o.disp1 = null;
+    if (T && fin(T.mean) > 0 && fin(T.current) > 0) { var up = (T.mean / T.current - 1) * 100; if (up > -90 && up < 500) { o.upside = up; o.nTarget = cnt(T.n) || null; o.targetLow = fin(T.low) > 0 ? T.low : null; o.targetHigh = fin(T.high) > 0 ? T.high : null; o.targetCur = typeof T.currency === 'string' ? T.currency : null; } }
     var fpe = fund && fin(fund.forwardPE);
     o.peg = fpe && fpe > 0 && o.epsG1 != null && o.epsG1 > 0 ? fpe / o.epsG1 : null;
     var pc = function (v) { return (v > 0 ? '+' : '') + (Math.round(v * 10) / 10).toString().replace('.', ',') + ' %'; };
@@ -2780,6 +2783,7 @@ details.pos summary{font-size:1rem}
   var NON_VOLUNTARY = /\b(free (allocation|shares?|grant)|gratuit|gratis|gratuito|grant(ed)?|awards?|vesting|vested|attribu(tion|zione)|assegnazione|toekenning|zuteilung|sell[- ]to[- ]cover|incentive plan|piano di incentivazione|plan de incentivos|stock option|exercise of options?)\b/i;
   ES.unescapeHtml = function (v) { return typeof v === 'string' && v.indexOf('&') > -1 ? v.replace(/&amp;(amp;)*/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : v; };
   ES.fromCollectorRecord = function (r, opts) {
+    if (!r || typeof r !== 'object') return { ok: false, rec: null, errors: ['enregistrement illisible'], warnings: [] };
     // Certaines sources publient du texte HTML échappé (« &amp; ») : décodé avant tout traitement
     if (r && typeof r === 'object') r = Object.keys(r).reduce(function (o, k) { o[k] = ES.unescapeHtml(r[k]); return o; }, {});
     var errors = [], warnings = [], today = opts.today, loc = r.numberLocale || 'auto';
@@ -3935,12 +3939,12 @@ details.pos summary{font-size:1rem}
   /* ----- Fiche dirigeant : tout l'historique connu d'une personne (fichier lu à la demande) ----- */
   function loadInsiders() {
     var f = S.snapshot && S.snapshot.history && S.snapshot.history.insidersFile;
-    if (S.ins || S.insLoading || !f || !/^data\/[\w.-]+\.json$/.test(f)) { if (!f) S.insError = 'fichier absent'; return; }
+    if (S.ins || S.insLoading || S.insError || !f || !/^data\/[\w.-]+\.json$/.test(f)) { if (!f) S.insError = 'fichier absent'; return; } // un échec n'est pas réessayé en boucle
     S.insLoading = true;
     fetch(f, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       if (d.format !== 'euro-signal-insiders') throw new Error('format inattendu');
       S.ins = defang(d); S.insLoading = false; if (S.view === 'dirigeant') render();
-    }).catch(function (e) { S.insLoading = false; S.insError = (e && e.message) || 'inconnue'; if (S.view === 'dirigeant') render(); });
+    }).catch(function (e) { S.insLoading = false; var m = (e && e.message) || ''; S.insError = /^HTTP|format/.test(m) ? m : 'fichier illisible, réessayez après la mise à jour du soir'; if (S.view === 'dirigeant') render(); });
   }
   var REG_FR = { AMF: 'France (AMF)', FI: 'Suède (FI)', BaFin: 'Allemagne (BaFin)', CNMV: 'Espagne (CNMV)', CONSOB: 'Italie (Consob)', FSMA: 'Belgique (FSMA)', AFM: 'Pays-Bas (AFM)' };
   var COHEN = { 'routinier': ['🔁 Routinier', 'warn', 'un ordre le même mois calendaire chacune des 3 dernières années : ses opérations suivent surtout un calendrier (rémunération, habitude), elles annoncent peu de choses'],
@@ -3951,22 +3955,27 @@ details.pos summary{font-size:1rem}
     var back = S.personBack === 'fiche' && S.sel && S.inst[S.sel] ? '<button class="link" data-a="open" data-i="' + esc(S.sel) + '">← ' + esc(S.inst[S.sel].name || S.sel) + '</button>' : '<button class="link" data-a="view" data-v="inities">← Achats des dirigeants</button>';
     var h = '<div class="crumbs">' + back + '</div>';
     if (!S.ins) { loadInsiders(); return h + '<p class="muted pad">' + (S.insError ? 'Historique des dirigeants indisponible (' + esc(S.insError) + ').' : 'Chargement de l\'historique…') + '</p>'; }
-    var p = S.ins.persons[S.personKey];
+    var p = S.ins.persons && S.ins.persons[S.personKey];
+    if (p && !Array.isArray(p.rows)) p = null;
     if (!p) return h + '<section class="card"><p>Pas de fiche pour ce déclarant : seules les personnes qui ont acheté depuis un an en ont une.</p></section>';
-    var ix = {}; S.ins.cols.forEach(function (c, n) { ix[c] = n; });
-    var rows = p.rows.slice().reverse(), names = S.ins.issuers || {};
+    var ix = {}; (Array.isArray(S.ins.cols) ? S.ins.cols : []).forEach(function (c, n) { ix[c] = n; });
+    var nb = function (v) { return typeof v === 'number' && isFinite(v) ? v : null; }, D = /^\d{4}-\d{2}-\d{2}$/;
+    // lignes contrôlées une à une : date, type et nombres valides, sinon écartées ou affichées « n.d. »
+    var rows = p.rows.filter(function (r) { return Array.isArray(r) && D.test(r[ix.date]) && (r[ix.type] === 'A' || r[ix.type] === 'V'); }).map(function (r) {
+      var o = r.slice(); ['qty', 'price', 'eur', 'x60', 'x120'].forEach(function (k) { if (ix[k] != null) o[ix[k]] = nb(o[ix[k]]); }); if (o[ix.price] != null && o[ix.price] <= 0) o[ix.price] = null; return o; }).reverse();
+    var names = S.ins.issuers && typeof S.ins.issuers === 'object' ? S.ins.issuers : {};
     var buys = rows.filter(function (r) { return r[ix.type] === 'A' && !r[ix.excluded]; }), sells = rows.filter(function (r) { return r[ix.type] === 'V'; }), soc = {};
     rows.forEach(function (r) { soc[r[ix.isin]] = 1; });
     var judge = function (col) { var j = buys.filter(function (r) { return r[ix[col]] != null; }); if (!j.length) return null; var b = j.filter(function (r) { return r[ix[col]] > 0; }).length, m = j.reduce(function (a, r) { return a + r[ix[col]]; }, 0) / j.length; return { n: j.length, beat: b, mean: m }; };
-    var j60 = judge('x60'), j120 = judge('x120'), pf = p.profile || {}, co = COHEN[pf.cohen] || null;
-    var regs = (p.reg || []).map(function (r) { return REG_FR[r] || r; }).join(', ');
-    h += '<header class="fhead"><div><h2>' + esc(shortName(p.name || S.personKey)) + '</h2><p class="fsub">' + esc(frRole(p.role) || 'fonction non publiée') + (regs ? ' · ' + esc(regs) : '') + '</p></div><div class="fchips">' + (p.dg ? '<span class="chip good">DG ou DAF</span>' : '') + (co ? '<span class="chip ' + co[1] + '">' + co[0] + '</span>' : '') + '</div></header>';
+    var j60 = judge('x60'), j120 = judge('x120'), pf = p.profile && typeof p.profile === 'object' ? p.profile : {}, co = COHEN[pf.cohen] || null;
+    var regs = (Array.isArray(p.reg) ? p.reg : []).map(function (r) { return REG_FR[r] || r; }).join(', ');
+    h += '<header class="fhead"><div><h2>' + esc(shortName(typeof p.name === 'string' ? p.name : S.personKey)) + '</h2><p class="fsub">' + esc((typeof p.role === 'string' && frRole(p.role)) || 'fonction non publiée') + (regs ? ' · ' + esc(regs) : '') + '</p></div><div class="fchips">' + (p.dg ? '<span class="chip good">DG ou DAF</span>' : '') + (co ? '<span class="chip ' + co[1] + '">' + co[0] + '</span>' : '') + '</div></header>';
     var jtxt = function (j) { return j ? j.beat + ' sur ' + j.n : 'n.d.'; }, jsub = function (j, lbl) { return j ? 'ont battu le STOXX 600 à ' + lbl + ' · ' + pct(j.mean) + ' en moyenne' : 'pas encore de recul suffisant'; };
     h += '<section class="summary">' +
       '<div class="stat"><span class="lbl">Achats</span><span class="val">' + buys.length + '</span><span class="sub">' + Object.keys(soc).length + ' société' + (Object.keys(soc).length > 1 ? 's' : '') + ' · ' + sells.length + ' vente' + (sells.length > 1 ? 's' : '') + '</span></div>' +
       '<div class="stat ' + (j60 && j60.n >= 3 ? (j60.beat / j60.n >= 2 / 3 ? 'good' : j60.beat / j60.n < 0.5 ? 'bad' : '') : '') + '"><span class="lbl">Achats gagnants à 3 mois</span><span class="val">' + jtxt(j60) + '</span><span class="sub">' + jsub(j60, '3 mois') + '</span></div>' +
       '<div class="stat"><span class="lbl">Achats gagnants à 6 mois</span><span class="val">' + jtxt(j120) + '</span><span class="sub">' + jsub(j120, '6 mois') + '</span></div>' +
-      '<div class="stat"><span class="lbl">Historique connu depuis</span><span class="val">' + esc(ES.frDate(p.cov) || 'n.d.') + '</span><span class="sub">date de début du registre de son pays</span></div></section>';
+      '<div class="stat"><span class="lbl">Historique connu depuis</span><span class="val">' + esc((D.test(p.cov || '') && ES.frDate(p.cov)) || 'n.d.') + '</span><span class="sub">date de début du registre de son pays</span></div></section>';
     var notes = [];
     if (co) notes.push('<b>' + co[0] + '</b> (méthode de Harvard, Cohen, Malloy et Pomorski) : ' + esc(co[2]) + '.');
     if (pf.routine === 'habituel') notes.push('Règle simplifiée d\'Euro Signal : <b>acheteur habituel</b> (achats réguliers ou à la même période), un nouvel achat de sa part compte peu.');
@@ -3976,9 +3985,9 @@ details.pos summary{font-size:1rem}
     var shown = S.personAll ? rows : rows.slice(0, 150), cell = function (v) { return v == null ? '<span class="muted">—</span>' : '<span class="' + (v >= 0 ? 'pos' : 'neg') + '">' + pct(v) + '</span>'; };
     h += '<section class="card"><h3>Toutes ses opérations <span class="muted">· ' + rows.length + '</span></h3><div class="tablewrap"><table class="grid cards"><thead><tr><th>Publication</th><th>Société</th><th>Opération</th><th class="num">Quantité</th><th class="num">Prix</th><th class="num">Montant</th><th class="num">vs STOXX 600 à 3 mois</th><th class="num">à 6 mois</th></tr></thead><tbody>' +
       shown.map(function (r) {
-        var isin = r[ix.isin], nm = names[isin] || isin, inUni = !!S.inst[isin], via = r[ix.via];
+        var isin = String(r[ix.isin] || ''), nm = typeof names[isin] === 'string' ? names[isin] : isin || 'n.d.', inUni = !!S.inst[isin], via = typeof r[ix.via] === 'string' ? r[ix.via] : null;
         return '<tr><td data-l="Publication">' + esc(shortDate(r[ix.date])) + '</td><td class="c-name" data-l="Société">' + (inUni ? '<button class="link" data-a="open" data-i="' + esc(isin) + '">' + esc(nm) + '</button>' : esc(nm)) + '</td>' +
-          '<td data-l="Opération"><span class="chip ' + (r[ix.type] === 'A' ? 'good' : 'bad') + '">' + (r[ix.type] === 'A' ? 'Achat' : 'Vente') + '</span>' + (via && via !== 1 ? ' <small class="muted">via ' + esc(shortName(via)) + '</small>' : '') + (r[ix.excluded] ? ' <small class="muted">(société, non comptée)</small>' : '') + '</td>' +
+          '<td data-l="Opération"><span class="chip ' + (r[ix.type] === 'A' ? 'good' : 'bad') + '">' + (r[ix.type] === 'A' ? 'Achat' : 'Vente') + '</span>' + (via ? ' <small class="muted">via ' + esc(shortName(via)) + '</small>' : '') + (r[ix.excluded] ? ' <small class="muted">(société, non comptée)</small>' : '') + '</td>' +
           '<td class="num" data-l="Quantité">' + fmtInt(r[ix.qty]) + '</td><td class="num" data-l="Prix">' + (r[ix.price] != null ? fmtN(r[ix.price], r[ix.price] < 1 ? 4 : 2) + ' ' + esc(r[ix.currency] || '') : 'n.d.') + '</td>' +
           '<td class="num" data-l="Montant">' + (r[ix.eur] != null ? (r[ix.eur] >= 1000 ? ES.fmtEur(r[ix.eur]) : fmtInt(r[ix.eur]) + ' €') : 'n.d.') + '</td><td class="num" data-l="vs STOXX 3 mois">' + (r[ix.type] === 'A' ? cell(r[ix.x60]) : '') + '</td><td class="num" data-l="vs STOXX 6 mois">' + (r[ix.type] === 'A' ? cell(r[ix.x120]) : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>' + (shown.length < rows.length ? '<p class="row mt"><button class="ghost" data-a="personAll">Afficher les ' + rows.length + ' opérations</button></p>' : '') +
@@ -4072,7 +4081,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'proofH') { S.proofH = +el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); }
     else if (a === 'proof') { S.view = 'aide'; render(); var pr = document.getElementById('preuves'); if (pr) pr.scrollIntoView(); }
     else if (a === 'open') { S.sel = i; S.view = 'fiche'; try { history.replaceState(null, '', '#' + i); } catch (e) { } render(); window.scrollTo(0, 0); }
-    else if (a === 'person') { S.personKey = el.dataset.k; S.personBack = S.view === 'dirigeant' ? S.personBack : S.view; S.view = 'dirigeant'; S.personAll = false; loadInsiders(); render(); window.scrollTo(0, 0); }
+    else if (a === 'person') { if (!S.ins) S.insError = null; S.personKey = el.dataset.k; S.personBack = S.view === 'dirigeant' ? S.personBack : S.view; S.view = 'dirigeant'; S.personAll = false; loadInsiders(); render(); window.scrollTo(0, 0); }
     else if (a === 'personAll') { S.personAll = true; var yp = window.scrollY; render(); window.scrollTo(0, yp); }
     else if (a === 'more') { S.limit += 200; render(); }
     else if (a === 'quick') { S.filters.quick = el.dataset.v; S.limit = 200; render(); }

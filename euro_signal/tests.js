@@ -989,6 +989,9 @@ t('Prévisionnels des analystes : croissance attendue, révisions, objectif de c
   const lv = ES.forecastView(loss, {}); eq(lv.tone, 'bad'); ok(lv.lossNext && lv.epsG1 == null, 'pas de croissance calculée sur une base négative');
   eq(ES.forecastView({ eps: { '0y': { avg: 1, n: 1, yearAgo: 0.5 } } }, {}).tone, 'thin');
   ok(ES.forecastView(null).na); ok(ES.forecastView({ asOf: '2026-10-12' }).na);
+  // données aberrantes : jamais de « Infinity », d'objectif négatif ou de nombre d'analystes négatif dans le texte
+  const junk = [{ eps: { '0y': { avg: 1e308, n: 3, yearAgo: 1e-308 } }, target: { mean: 5, current: 0 } }, { target: { mean: -3, current: 2, n: -1 } }, { eps: { '0y': { avg: 2, n: 4, yearAgo: 1 }, '+1y': { avg: 2.5, n: 4, low: 5, high: 1 } }, target: { mean: 1e9, current: 1 } }, { fyEnd: 'abcd', eps: { '0y': { avg: 2, n: 9, yearAgo: 1 } } }];
+  junk.forEach((j) => { const v = ES.forecastView(j, { forwardPE: 'x' }); ok(!/Infinity|NaN|undefined|-\d+ analystes|^-/.test(v.text || '') && !/abcd/.test(v.text || ''), v.text); ok(v.disp1 == null && (v.upside == null || v.upside < 500)); });
   const turn = ES.forecastView({ eps: { '0y': { avg: 0.3, n: 4, yearAgo: -0.2 }, '+1y': { avg: 0.5, n: 4 } } }, {}); eq(turn.tone, 'good'); ok(turn.turnaround);
   const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const sig = ES.crossSignals({ forecast: fc, fund: {} }, { buys: [{}], buyEur: 0, sellEur: 0 }, c); ok(sig.some((g) => g.k === 'forecast' && g.tone === 'good'), 'symbole 🔮');

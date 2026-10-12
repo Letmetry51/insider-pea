@@ -66,8 +66,9 @@ function loadHistory(today, live) {
   [['AMF', 'amf.json.gz'], ['FI', 'fi.json.gz']].forEach(([reg, file]) => {
     const recs = readGz(path.join(F.history, file), []);
     let n = 0;
-    recs.forEach((r) => {
-      const res = ES.fromCollectorRecord(r, { today });
+    (Array.isArray(recs) ? recs : []).forEach((r) => {
+      if (!r || typeof r !== 'object' || Array.isArray(r)) return; // ligne illisible : ignorée, jamais bloquante
+      let res; try { res = ES.fromCollectorRecord(r, { today }); } catch (e) { return; }
       if (!res.ok || res.rec.type === 'instrument') return;
       const t = res.rec, d = ES.availDate(t);
       if (out.cut[reg] && d >= out.cut[reg]) return;
@@ -85,8 +86,13 @@ function loadHistory(today, live) {
 }
 /** Écart au STOXX 600 (fraction) d'un achat publié le jour d, à 20, 60 ou 120 séances (collecteur d'historique). */
 const H_IDX = { 20: 1, 60: 2, 120: 3 };
+const okRet = (v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 10; // rendement plausible (fraction)
 function histOutcome(o, h) {
-  if (!o) return null;
+  const r0 = histOutcomeRaw(o, h);
+  return r0 && okRet(r0.ret) && okRet(r0.excess) ? Object.assign(r0, { local: okRet(r0.local) ? r0.local : null }) : null;
+}
+function histOutcomeRaw(o, h) {
+  if (!o || typeof o !== 'object' || !H_IDX[h]) return null;
   if (Array.isArray(o)) { const r = o[H_IDX[h]], b = o[H_IDX[h] + 3]; return r != null && b != null ? { ret: r, excess: r - b, local: null } : null; } // ancien format
   const k = H_IDX[h] - 1, r = o.r && o.r[k], b = o.b && o.b[k], lr = o.lr && o.lr[k], lb = o.lb && o.lb[k];
   return r != null && b != null ? { ret: r, excess: r - b, local: lr != null && lb != null ? lr - lb : null } : null;
@@ -375,7 +381,9 @@ export function build(opts = {}) {
   const bIdx0 = {}; if (bAdj0) bAdj0.forEach((r, k) => { bIdx0[r[0]] = k; });
   const archiveFrom = Object.values(tx).flat().map((t) => t.txDate).filter(Boolean).sort()[0] || null;
   // Historique long (France depuis 2021, Suède depuis 2016) ajouté à l'archive : profil habituel / inhabituel, palmarès, fiche dirigeant
-  const hist = loadHistory(today, tx);
+  let hist;
+  try { hist = loadHistory(today, tx); } catch (e) { console.warn('  Historique long illisible : ' + e.message); hist = { tx: {}, cov: {}, outcomes: {}, n: {}, from: {}, cut: {} }; }
+  if (!isObj(hist.outcomes)) hist.outcomes = {};
   const allTx = {};
   new Set(Object.keys(hist.tx).concat(Object.keys(tx))).forEach((isin) => { allTx[isin] = (hist.tx[isin] || []).concat(tx[isin] || []); });
   const covOf = (t) => hist.cov[t.registry] || archiveFrom;
@@ -384,7 +392,8 @@ export function build(opts = {}) {
   const hz = cfg.learning.horizon;
   Object.keys(allTx).forEach((isin) => {
     const R0 = refs[isin] || {}, act = ES.activeTx(allTx[isin]);
-    sigBuys[isin] = ES.significantBuys(act.filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket)), cfg).kept;
+    const lag = (t) => (t.pubDate && t.txDate ? ES.daysBetween(t.txDate, t.pubDate) : 0) > cfg.insiders.maxFilingLagDays; // déclaration tardive : écartée comme dans la note
+    sigBuys[isin] = ES.significantBuys(act.filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket) && !lag(t)), cfg).kept;
     sigBuys[isin].forEach((t) => {
       const key = ES.buyerKey(t) || t.personKey; if (!key) return;
       const d = ES.availDate(t), a = adjAll[isin], o = hist.outcomes[isin + '|' + d], ho = histOutcome(o, H_IDX[hz] ? hz : 60);
@@ -630,6 +639,7 @@ export function build(opts = {}) {
         if (mS) st.marketAbove200 = mS.sma200 ? mS.lastCloseAdj > mS.sma200 : null;
         const iD = Object.assign({}, i, { stats: st });
         if (ES.universeStatus(iD, cfg).status !== 'retenu' || ES.financialHealth(i.fund).status === 'fragile') return;
+        if (selCfg.peaOnly !== false && i.peaStatus === 'non_eligible') return; // mêmes filtres que la sélection réelle (revue du 2026-10-12)
         const txD = tx[isin].filter((t) => ES.availDate(t) <= D0), rf = {};
         txD.forEach((t) => { if (t.type === 'achat' || t.type === 'vente') rf[t.id] = ES.priceRefs(t, rows, splits, D0, p.currency || null); });
         const sc = ES.score({ inst: iD, tx: txD, events: evOut[isin] || { buybacks: [], results: [] }, refs: rf, cfg, today: D0 });
@@ -637,9 +647,10 @@ export function build(opts = {}) {
         if (!sc.buys.some((t) => ES.availDate(t) >= from)) return;
         if (sc.sellEur > sc.buyEur && sc.sellEur > 0) return;
         const acD = finList[isin] ? accAt(isin, D0) : null; // comptes publiés à cette date seulement
-        notes.push({ isin, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => (t.ceo || t.cfo) && ES.availDate(t) >= from), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers), fs: acD && acD.fscore && !acD.fscore.na ? acD.fscore.f9 : null });
+        if (acD && acD.fscore && !acD.fscore.na && acD.fscore.f9 <= 1) return; // comptes en forte dégradation : écartés comme dans la sélection réelle
+        notes.push({ isin, total: sc.total, disc: sc.discount ? sc.discount.pct : 0, note: ES.note(sc.total, cfg), dg: sc.buys.some((t) => (t.ceo || t.cfo) && ES.availDate(t) >= from), cl: !!(sc.cluster && sc.cluster.count >= cfg.insiders.clusterMinBuyers), fs: acD && acD.fscore && !acD.fscore.na ? acD.fscore.f9 : null });
       });
-      notes.sort((a, b) => b.note - a.note);
+      notes.sort((a, b) => b.total - a.total || b.disc - a.disc); // même ordre que la sélection réelle : note, puis décote
       replay.push({ week: ES.isoWeek(D0), date: D0, picks: notes.filter((x) => !selCfg.requireCeoCfo || x.dg).slice(0, selCfg.size || 5), cands: notes });
     });
   } catch (e) { console.warn('  Repère historique indisponible : ' + e.message); replay.length = 0; }
@@ -840,6 +851,31 @@ export function build(opts = {}) {
   });
   const insidersOut = { format: 'euro-signal-insiders', generatedAt: new Date().toISOString(), today, cov: hist.cov,
     cols: ['date', 'txDate', 'isin', 'type', 'qty', 'price', 'currency', 'eur', 'x60', 'x120', 'registry', 'via', 'excluded'], issuers, persons };
+  // Contrôle de cohérence de la chaîne de décision (ordre des filtres, priorité, tailles), publié dans le fichier du soir
+  const audit = [];
+  try {
+    const S = cfg.selection, items = selection.items, byIsin = {}; cands.forEach((c) => { byIsin[c.isin] = c; });
+    const passing = cands.filter((c) => !ES.selectionBlockers(c, cfg, today).length).sort((a, b) => b.score.total - a.score.total || ((b.score.discount || {}).pct || 0) - ((a.score.discount || {}).pct || 0));
+    const want = passing.slice(0, S.size || 5).map((c) => c.isin).join(','), got = items.map((x) => x.isin).join(',');
+    if (want !== got) audit.push('sélection différente du classement attendu : ' + got + ' au lieu de ' + want);
+    items.forEach((x, k) => {
+      const c = byIsin[x.isin];
+      if (!c) { audit.push(x.name + ' : candidat introuvable'); return; }
+      const bl = ES.selectionBlockers(c, cfg, today); if (bl.length) audit.push(x.name + ' : retenu malgré « ' + bl[0] + ' »');
+      if (k && items[k - 1].score < x.score) audit.push(x.name + ' : ordre de la sélection non décroissant');
+      if (x.advice && x.advice.key === 'avoid') audit.push(x.name + ' : retenu avec l\'avis « Éviter »');
+      if (S.requireCeoCfo && !x.ceo) audit.push(x.name + ' : retenu sans achat du DG ou du DAF');
+      if (c.inst.peaStatus === 'non_eligible' && S.peaOnly !== false) audit.push(x.name + ' : hors PEA');
+      if (!x.size || !(x.size.pct > 0) || x.size.pct > cfg.sizing.maxPct) audit.push(x.name + ' : taille de position absente ou hors bornes (' + (x.size ? x.size.pct : 'n.d.') + ')');
+      if (x.size && (x.size.stopPct < cfg.sizing.stopMinPct || x.size.stopPct > cfg.sizing.stopMaxPct)) audit.push(x.name + ' : seuil de protection hors bornes');
+    });
+    // Les avis « Éviter » doivent toujours correspondre à un motif bloquant de la sélection (jamais l'inverse : un blocage n'implique pas « Éviter »)
+    cands.forEach((c) => { if (!c.score || !c.score.buys.length) return; const a = ES.advice(c.inst, c.score, cfg, { today, universe: c.universe }); if (a.key === 'avoid' && !ES.selectionBlockers(c, cfg, today).length) audit.push((c.inst.name || c.isin) + ' : avis « Éviter » sans motif bloquant'); });
+    const rp = replay.length ? replay[replay.length - 1] : null;
+    if (rp && rp.picks.some((x) => inst[x.isin] && inst[x.isin].peaStatus === 'non_eligible' && S.peaOnly !== false)) audit.push('rejeu : société hors PEA retenue le ' + rp.date);
+  } catch (e) { audit.push('contrôle impossible : ' + e.message); }
+  payload.run.audit = { at: today, checked: cands.length, issues: audit.slice(0, 50) };
+  console.log('  Contrôle de la chaîne de décision : ' + (audit.length ? audit.length + ' anomalie(s) — ' + audit.slice(0, 3).join(' ; ') : 'aucune anomalie'));
   payload.history = { cov: hist.cov, n: hist.n, cut: hist.cut, outcomes: Object.keys(hist.outcomes).length, events: histEvents.length, persons: Object.keys(persons).length,
     study: ES.historyStudy(histEvents, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: [60, 120] }), insidersFile: 'data/euro-signal-insiders.json' };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });

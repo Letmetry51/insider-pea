@@ -1408,17 +1408,20 @@
     if (!fc || (!fc.eps && !fc.rev && !fc.target)) return { na: true, reason: 'aucune prévision d\'analyste publiée pour ce titre (fréquent pour les petites valeurs)' };
     var E = fc.eps || {}, R = fc.rev || {}, e0 = E['0y'] || {}, e1 = E['+1y'] || {}, r0 = R['0y'] || {}, r1 = R['+1y'] || {}, T = fc.target || null;
     var fin = function (v) { return typeof v === 'number' && isFinite(v) ? v : null; };
-    var gr = function (a, b) { a = fin(a); b = fin(b); return a != null && b != null && b > 0 ? (a / b - 1) * 100 : null; }; // croissance calculée seulement sur une base positive
-    var n = Math.max(fin(e0.n) || 0, fin(e1.n) || 0, fin(r0.n) || 0);
+    var gr = function (a, b) { a = fin(a); b = fin(b); var g = a != null && b != null && b > 0 ? (a / b - 1) * 100 : null; return g != null && isFinite(g) && Math.abs(g) <= 1000 ? g : null; }; // base positive, valeur plausible
+    var cnt = function (v) { v = fin(v); return v != null && v > 0 && v < 200 ? Math.round(v) : 0; };
+    var n = Math.max(cnt(e0.n), cnt(e1.n), cnt(r0.n));
     var o = { n: n, epsG0: gr(e0.avg, e0.yearAgo), epsG1: gr(e1.avg, e0.avg), revG0: gr(r0.avg, r0.yearAgo), revG1: gr(r1.avg, r0.avg),
       eps0: fin(e0.avg), eps1: fin(e1.avg), epsPrev: fin(e0.yearAgo), rev0: fin(r0.avg), rev1: fin(r1.avg), revPrev: fin(r0.yearAgo) };
-    var fy = fc.fyEnd ? +String(fc.fyEnd).slice(0, 4) : null; o.fy0 = fy; o.fy1 = fy ? fy + 1 : null;
+    var fy = /^\d{4}/.test(String(fc.fyEnd || '')) ? +String(fc.fyEnd).slice(0, 4) : null; o.fy0 = fy; o.fy1 = fy ? fy + 1 : null;
     o.turnaround = o.epsPrev != null && o.epsPrev <= 0 && o.eps0 != null && o.eps0 > 0;
     o.lossNext = o.eps1 != null && o.eps1 < 0;
     var tr1 = fc.trend && (fc.trend['+1y'] || fc.trend['0y']), rv = function (cur, old) { cur = fin(cur); old = fin(old); return cur != null && old != null && old !== 0 ? (cur / old - 1) * 100 * (old < 0 ? -1 : 1) : null; };
-    o.rev30 = tr1 ? rv(tr1.cur, tr1.d30) : null; o.rev90 = tr1 ? rv(tr1.cur, tr1.d90) : null;
-    o.disp1 = fin(e1.high) != null && fin(e1.low) != null && o.eps1 ? (e1.high - e1.low) / Math.abs(o.eps1) * 100 : null;
-    if (T && fin(T.mean) && fin(T.current) && T.current > 0) { o.upside = (T.mean / T.current - 1) * 100; o.nTarget = fin(T.n); o.targetLow = fin(T.low); o.targetHigh = fin(T.high); o.targetCur = T.currency || null; }
+    var bnd = function (v) { return v != null && isFinite(v) && Math.abs(v) <= 500 ? v : null; };
+    o.rev30 = tr1 ? bnd(rv(tr1.cur, tr1.d30)) : null; o.rev90 = tr1 ? bnd(rv(tr1.cur, tr1.d90)) : null;
+    o.disp1 = fin(e1.high) != null && fin(e1.low) != null && e1.high >= e1.low && o.eps1 ? (e1.high - e1.low) / Math.abs(o.eps1) * 100 : null;
+    if (o.disp1 != null && !(o.disp1 <= 1000)) o.disp1 = null;
+    if (T && fin(T.mean) > 0 && fin(T.current) > 0) { var up = (T.mean / T.current - 1) * 100; if (up > -90 && up < 500) { o.upside = up; o.nTarget = cnt(T.n) || null; o.targetLow = fin(T.low) > 0 ? T.low : null; o.targetHigh = fin(T.high) > 0 ? T.high : null; o.targetCur = typeof T.currency === 'string' ? T.currency : null; } }
     var fpe = fund && fin(fund.forwardPE);
     o.peg = fpe && fpe > 0 && o.epsG1 != null && o.epsG1 > 0 ? fpe / o.epsG1 : null;
     var pc = function (v) { return (v > 0 ? '+' : '') + (Math.round(v * 10) / 10).toString().replace('.', ',') + ' %'; };
@@ -2401,6 +2404,7 @@
   var NON_VOLUNTARY = /\b(free (allocation|shares?|grant)|gratuit|gratis|gratuito|grant(ed)?|awards?|vesting|vested|attribu(tion|zione)|assegnazione|toekenning|zuteilung|sell[- ]to[- ]cover|incentive plan|piano di incentivazione|plan de incentivos|stock option|exercise of options?)\b/i;
   ES.unescapeHtml = function (v) { return typeof v === 'string' && v.indexOf('&') > -1 ? v.replace(/&amp;(amp;)*/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : v; };
   ES.fromCollectorRecord = function (r, opts) {
+    if (!r || typeof r !== 'object') return { ok: false, rec: null, errors: ['enregistrement illisible'], warnings: [] };
     // Certaines sources publient du texte HTML échappé (« &amp; ») : décodé avant tout traitement
     if (r && typeof r === 'object') r = Object.keys(r).reduce(function (o, k) { o[k] = ES.unescapeHtml(r[k]); return o; }, {});
     var errors = [], warnings = [], today = opts.today, loc = r.numberLocale || 'auto';
