@@ -8,11 +8,11 @@
   [
    "2026-10-09",
    "2026-10-12",
-   91
+   95
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n12/10/2026 19:20:20;Krona Public Real Estate AB;549300MWRB00KNKEUY58;Krona BidCo AB;Tomas Georgiadis;Member of the Board of Directors;Yes;;;Yes;;Acquisition;Share;Krona Public Real Estate;SE0015657895;09/10/2026 00:00:00;252440.0;Quantity;44.0;SEK;SPOTLIGHT STOCK MARKET;Cu",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n12/10/2026 21:03:48;Prisjakt AB (publ);64884611QSN9AD2WC970;Aida Jammal Holding AB;Aida Jammal;Member of the Board of Directors;Yes;;;Yes;;Subscription;Share;Aktie;SE0028026757;07/10/2026 00:00:00;113286.0;Quantity;31.0;SEK;Outside a trading venue;Current;\r\n12/10/2026 21:0",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 316,
+ "rowCount": 320,
  "sampleRows": [
   [
    "08/10/2026 23:04:28",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-12T18:27:34.941474+00:00"
+ "at": "2026-10-12T19:50:33.617648+00:00"
 }
