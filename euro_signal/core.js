@@ -1242,6 +1242,9 @@
     }
     // Beneish M-score (1999, 8 ratios) : probabilité de comptes « arrangés » (manipulation des résultats)
     if (!fin_ && prev) out.beneish = ES.beneishM(last, prev);
+    // Évolution des deux contrôles sur les exercices disponibles (score brut de chaque exercice)
+    if (out.altman && !out.altman.na) out.altmanHistory = Y.map(function (y) { var z = ES.altmanZ(y); return z && !z.na ? { year: z.year, z: z.z, zone: z.zone } : null; }).filter(Boolean);
+    if (!fin_ && prev) out.beneishHistory = Y.slice(1).map(function (y, k) { var b = ES.beneishM(y, Y[k]); return b && !b.na ? { year: b.year, m: b.m, flag: b.flag } : null; }).filter(Boolean);
     // Verdict en une phrase
     var f = out.fscore && !out.fscore.na ? out.fscore.f9 : null, good = [], bad = [];
     if (out.revenueCagr != null) (out.revenueCagr >= 3 ? good : out.revenueCagr <= -3 ? bad : []).push('chiffre d\'affaires ' + (out.revenueCagr >= 0 ? '+' : '') + out.revenueCagr.toFixed(1).replace('.', ',') + ' % par an');
@@ -1435,7 +1438,7 @@
     if (o.peg != null) t.push('PEG ' + (Math.round(o.peg * 10) / 10).toString().replace('.', ','));
     if (o.upside != null) t.push('objectif de cours moyen ' + pc(o.upside) + ' au-dessus du cours' + (o.nTarget ? ' (' + o.nTarget + ' analystes)' : ''));
     o.text = (n ? 'Consensus de ' + n + ' analyste' + (n > 1 ? 's' : '') + ' : ' : '') + t.join(' ; ') + '.';
-    var ex = o.tone === 'good' ? 'Les analystes attendent une hausse nette des bénéfices et ne revoient pas leurs chiffres à la baisse : le scénario de la société est jugé crédible.'
+    var ex = o.tone === 'good' ? 'Les analystes attendent une hausse nette des bénéfices' + (o.rev90 != null && o.rev90 <= -1 ? ', même s\'ils ont légèrement réduit leurs chiffres ces trois derniers mois' : ' et ne revoient pas leurs chiffres à la baisse') + ' : le scénario de la société est jugé crédible.'
       : o.tone === 'bad' ? (o.lossNext ? 'Les analystes attendent encore des pertes : l\'achat du dirigeant parie sur un redressement que le marché ne voit pas encore.' : o.rev90 != null && o.rev90 <= -10 ? 'Les analystes ont nettement réduit leurs prévisions ces trois derniers mois : quand les estimations baissent, le cours a tendance à suivre.' : 'Les analystes attendent un recul des bénéfices : il faut une raison précise de penser qu\'ils se trompent.')
       : o.tone === 'thin' ? 'Une ou deux estimations seulement : le consensus est trop maigre pour peser dans la décision.'
       : 'Prévisions sans élan particulier : ni accélération nette, ni révisions à la baisse.';

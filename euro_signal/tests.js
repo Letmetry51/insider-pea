@@ -995,6 +995,14 @@ t('Prévisionnels des analystes : croissance attendue, révisions, objectif de c
   ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'fcGrowth') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'fcBad'), 'mesurés en observation, hors note');
 });
 
+t('Contrôles anti-piège : évolution d\'Altman et de Beneish sur les exercices disponibles', () => {
+  const mk = (y, k) => ({ date: y + '-12-31', revenue: 1000 * k, grossProfit: 400 * k, operatingIncome: 100 * k, ebit: 100 * k, netIncome: 60 * k, cfo: 90 * k, totalAssets: 2000, currentAssets: 900, currentLiabilities: 500,
+    retainedEarnings: 300 * k, equity: 900, totalLiabilities: 1100, receivables: 200 * k, ppe: 700, depreciation: 50, sga: 150 * k, longTermDebt: 400, sharesOut: 100, fcf: 40 });
+  const a = ES.accountsAnalysis({ years: [mk(2022, 1), mk(2023, 1.05), mk(2024, 1.1)] }, {});
+  eq(a.altmanHistory.length, 3); eq(a.altmanHistory[2].year, '2024'); ok(a.altmanHistory[2].z > a.altmanHistory[0].z, 'réserves en hausse');
+  eq(a.beneishHistory.length, 2); ok(a.beneishHistory.every((b) => typeof b.m === 'number'));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

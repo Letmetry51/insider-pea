@@ -340,6 +340,12 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .qs-good{background:var(--good-soft);border-color:transparent}.qs-bad{background:var(--bad-soft);border-color:transparent}.qs-mid{background:var(--warn-soft);border-color:transparent}.qs-info{background:var(--sunk)}.qs-na{color:var(--muted);border-style:dashed}
 .ci{display:block;font-size:.72rem;color:var(--muted);font-weight:400}
 .dgc{display:block;margin-top:4px;font-size:.78rem;font-weight:600}.dg-ok{color:var(--good)}.dg-old{color:var(--warn)}.dg-no{color:var(--muted)}
+.scl{margin:10px 0 4px;max-width:340px}.scl-bar{position:relative;height:10px;border-radius:5px;background:var(--line)}.scl-bar i{position:absolute;top:0;bottom:0}.scl-bar i:first-child{border-radius:5px 0 0 5px}.scl-bar i:last-of-type{border-radius:0 5px 5px 0}
+.scl-bar .z-good{background:var(--good)}.scl-bar .z-mid{background:var(--warn)}.scl-bar .z-bad{background:var(--bad)}
+.scl-dot{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--surface);border:3px solid var(--ink);box-shadow:0 0 0 2px var(--surface)}
+.scl-ticks{position:relative;height:16px;font-size:.72rem;color:var(--muted)}.scl-ticks span{position:absolute;transform:translateX(-50%);top:2px}
+.sctr{width:100%;max-width:340px;height:auto;display:block;margin:8px 0 0;overflow:visible}.sctr-th{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1;opacity:.6}.sctr-ln{fill:none;stroke:var(--muted);stroke-width:1.5}
+.sctr-pt{stroke:var(--surface);stroke-width:2}.sctr-pt.z-good{fill:var(--good)}.sctr-pt.z-mid{fill:var(--warn)}.sctr-pt.z-bad{fill:var(--bad)}.sctr-v{font-size:11px;font-weight:700;fill:var(--ink)}.sctr-ax{font-size:10px;fill:var(--muted)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
 .cmpline{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--neutral-soft);font-size:.9rem}
@@ -1615,6 +1621,9 @@ details.pos summary{font-size:1rem}
     }
     // Beneish M-score (1999, 8 ratios) : probabilité de comptes « arrangés » (manipulation des résultats)
     if (!fin_ && prev) out.beneish = ES.beneishM(last, prev);
+    // Évolution des deux contrôles sur les exercices disponibles (score brut de chaque exercice)
+    if (out.altman && !out.altman.na) out.altmanHistory = Y.map(function (y) { var z = ES.altmanZ(y); return z && !z.na ? { year: z.year, z: z.z, zone: z.zone } : null; }).filter(Boolean);
+    if (!fin_ && prev) out.beneishHistory = Y.slice(1).map(function (y, k) { var b = ES.beneishM(y, Y[k]); return b && !b.na ? { year: b.year, m: b.m, flag: b.flag } : null; }).filter(Boolean);
     // Verdict en une phrase
     var f = out.fscore && !out.fscore.na ? out.fscore.f9 : null, good = [], bad = [];
     if (out.revenueCagr != null) (out.revenueCagr >= 3 ? good : out.revenueCagr <= -3 ? bad : []).push('chiffre d\'affaires ' + (out.revenueCagr >= 0 ? '+' : '') + out.revenueCagr.toFixed(1).replace('.', ',') + ' % par an');
@@ -1808,7 +1817,7 @@ details.pos summary{font-size:1rem}
     if (o.peg != null) t.push('PEG ' + (Math.round(o.peg * 10) / 10).toString().replace('.', ','));
     if (o.upside != null) t.push('objectif de cours moyen ' + pc(o.upside) + ' au-dessus du cours' + (o.nTarget ? ' (' + o.nTarget + ' analystes)' : ''));
     o.text = (n ? 'Consensus de ' + n + ' analyste' + (n > 1 ? 's' : '') + ' : ' : '') + t.join(' ; ') + '.';
-    var ex = o.tone === 'good' ? 'Les analystes attendent une hausse nette des bénéfices et ne revoient pas leurs chiffres à la baisse : le scénario de la société est jugé crédible.'
+    var ex = o.tone === 'good' ? 'Les analystes attendent une hausse nette des bénéfices' + (o.rev90 != null && o.rev90 <= -1 ? ', même s\'ils ont légèrement réduit leurs chiffres ces trois derniers mois' : ' et ne revoient pas leurs chiffres à la baisse') + ' : le scénario de la société est jugé crédible.'
       : o.tone === 'bad' ? (o.lossNext ? 'Les analystes attendent encore des pertes : l\'achat du dirigeant parie sur un redressement que le marché ne voit pas encore.' : o.rev90 != null && o.rev90 <= -10 ? 'Les analystes ont nettement réduit leurs prévisions ces trois derniers mois : quand les estimations baissent, le cours a tendance à suivre.' : 'Les analystes attendent un recul des bénéfices : il faut une raison précise de penser qu\'ils se trompent.')
       : o.tone === 'thin' ? 'Une ou deux estimations seulement : le consensus est trop maigre pour peser dans la décision.'
       : 'Prévisions sans élan particulier : ni accélération nette, ni révisions à la baisse.';
@@ -3191,13 +3200,36 @@ details.pos summary{font-size:1rem}
     }).join('') + '</div>';
   }
   /** Deux contrôles anti-piège : risque de défaillance (Altman) et comptes possiblement embellis (Beneish). */
+  /** Règle graduée : zones colorées et un point à la place du score (min, max, seuils, sens : bas = mauvais ou bas = bon). */
+  function scaleLine(v, min, max, zones, ticks, label) {
+    var x = function (t) { return Math.max(0, Math.min(100, (t - min) / (max - min) * 100)); }, pos = x(v);
+    var h = '<div class="scl" role="img" aria-label="' + esc(label) + '"><div class="scl-bar">' + zones.map(function (z) { return '<i class="z-' + z[2] + '" style="left:' + x(z[0]) + '%;width:' + (x(z[1]) - x(z[0])) + '%"></i>'; }).join('') +
+      '<b class="scl-dot" style="left:' + pos + '%"></b></div><div class="scl-ticks">' + ticks.map(function (t) { return '<span style="left:' + x(t) + '%">' + fmtN(t, t % 1 ? 2 : 0) + '</span>'; }).join('') + '</div></div>';
+    return h;
+  }
+  /** Évolution d'un score par exercice : courbe, seuils en pointillés, points colorés selon la zone, valeur de chaque année. */
+  function scoreTrend(H, key, min, max, lines, zoneOf, name, upIsGood) {
+    if (!H || H.length < 2) return '<p class="foot">Évolution : un seul exercice calculable pour l\'instant.</p>';
+    var W = 320, Hh = 120, L = 30, Rr = 12, T = 18, B = 22, n = H.length;
+    var lo = Math.min(min, Math.min.apply(null, H.map(function (h) { return h[key]; }))), hi = Math.max(max, Math.max.apply(null, H.map(function (h) { return h[key]; })));
+    var X = function (k) { return L + (W - L - Rr) * (n === 1 ? 0.5 : k / (n - 1)); }, Y = function (v) { return T + (Hh - T - B) * (1 - (v - lo) / (hi - lo)); };
+    var svg = '<svg class="sctr" viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="' + esc(name + ' par exercice : ' + H.map(function (h) { return h.year + ' ' + fmtN(h[key], 2); }).join(', ')) + '">';
+    lines.forEach(function (ln) { var y = Y(ln[0]); svg += '<line x1="' + L + '" x2="' + (W - Rr) + '" y1="' + y + '" y2="' + y + '" class="sctr-th"/><text x="' + (L - 4) + '" y="' + (y + 3) + '" class="sctr-ax" text-anchor="end">' + fmtN(ln[0], ln[0] % 1 ? 2 : 0) + '</text>'; });
+    svg += '<polyline class="sctr-ln" points="' + H.map(function (h, k) { return X(k) + ',' + Y(h[key]); }).join(' ') + '"/>';
+    H.forEach(function (h, k) { var cx = X(k), cy = Y(h[key]); svg += '<circle cx="' + cx + '" cy="' + cy + '" r="5" class="sctr-pt z-' + zoneOf(h) + '"/><text x="' + cx + '" y="' + (cy - 9) + '" class="sctr-v" text-anchor="middle">' + fmtN(h[key], 2) + '</text><text x="' + cx + '" y="' + (Hh - 6) + '" class="sctr-ax" text-anchor="middle">' + esc(h.year) + '</text>'; });
+    var d = H[n - 1][key] - H[0][key];
+    var better = Math.abs(d) < 0.1 ? null : (d > 0) === !!upIsGood;
+    return svg + '</svg>' + '<p class="foot">De ' + esc(H[0].year) + ' à ' + esc(H[n - 1].year) + ' : ' + (d >= 0 ? '+' : '−') + fmtN(Math.abs(d), 2) + (better == null ? ', stable' : better ? ', <b class="pos">en amélioration</b>' : ', <b class="neg">en dégradation</b>') + '.</p>';
+  }
   function riskScores(a) {
     var az = a.altman, bm = a.beneish, n = function (v) { return fmtN(v, 2); };
     var ZL = { safe: ['good', 'Zone sûre'], grey: ['mid', 'Zone grise'], distress: ['bad', 'Zone de détresse'] };
     var h = '<h4 class="mt">Contrôles anti-piège</h4><div class="fsgroups">';
     h += '<div class="fsg"><h5>🧯 Risque de défaillance (Altman Z\'\')</h5>' + (az && !az.na ? '<p><span class="fsc fs-' + ZL[az.zone][0] + '">' + n(az.z) + '</span> <b>' + ZL[az.zone][1] + '</b> <span class="muted">(exercice ' + esc(az.year) + ')</span></p>' + (az.confirm && az.confirm.length ? '<p>Confirmé par : ' + esc(az.confirm.join(', ')) + '.</p>' : '') + (az.note ? '<p class="muted">' + esc(az.note.charAt(0).toUpperCase() + az.note.slice(1)) + '.</p>' : '') : '<p class="muted">' + esc(az && az.reason ? az.reason.charAt(0).toUpperCase() + az.reason.slice(1) : 'Non calculable') + (az && /manquants/.test(az.reason || '') ? ' : postes en cours de collecte, complétés au fil des soirs' : '') + '.</p>') +
+      (az && !az.na ? scaleLine(az.z, -1, 6, [[-1, 1.1, 'bad'], [1.1, 2.6, 'mid'], [2.6, 6, 'good']], [1.1, 2.6], 'Altman ' + fmtN(az.z, 2) + ' sur une échelle de -1 à 6') + scoreTrend(a.altmanHistory, 'z', 0, 3, [[1.1], [2.6]], function (h) { return h.zone === 'safe' ? 'good' : h.zone === 'grey' ? 'mid' : 'bad'; }, 'Altman Z', true) : '') +
       '<p class="foot">Combine fonds de roulement, réserves accumulées, rentabilité et solidité des fonds propres (Altman, version 1995 adaptée aux sociétés non industrielles et hors États-Unis). Au-dessus de 2,6 : risque faible ; de 1,1 à 2,6 : zone grise ; sous 1,1 : profil proche des sociétés qui ont fait défaut dans les deux ans.</p></div>';
     h += '<div class="fsg"><h5>🔍 Qualité des comptes (Beneish M)</h5>' + (bm && !bm.na ? '<p><span class="fsc fs-' + (bm.flag ? 'bad' : 'good') + '">' + n(bm.m) + '</span> <b>' + (bm.flag ? 'Au-dessus du seuil d\'alerte' : 'Sous le seuil d\'alerte') + '</b> <span class="muted">(exercice ' + esc(bm.year) + ')</span></p>' + (bm.flags && bm.flags.length ? '<p>Points relevés : ' + esc(bm.flags.join(' ; ')) + '.</p>' : '') : '<p class="muted">' + esc(bm && bm.reason ? bm.reason.charAt(0).toUpperCase() + bm.reason.slice(1) : 'Non calculable') + '.</p>') +
+      (bm && !bm.na ? scaleLine(bm.m, -4, 0, [[-4, -1.78, 'good'], [-1.78, 0, 'bad']], [-1.78], 'Beneish ' + fmtN(bm.m, 2) + ' sur une échelle de -4 à 0') + scoreTrend(a.beneishHistory, 'm', -3, -1.5, [[-1.78]], function (h) { return h.flag ? 'bad' : 'good'; }, 'Beneish M', false) : '') +
       '<p class="foot">Huit ratios (créances, marge brute, qualité des actifs, croissance, amortissements, frais, endettement, part du bénéfice non encaissée) comparés à l\'exercice précédent (Beneish, 1999). Au-dessus de −1,78 : profil semblable aux sociétés qui ont embelli leurs comptes. Ce n\'est pas une preuve de fraude, mais une raison de lire le rapport annuel de près.</p></div></div>';
     return h;
   }
@@ -3224,8 +3256,8 @@ details.pos summary{font-size:1rem}
     h += '<p class="accv acc-' + (v.tone === 'thin' ? 'na' : v.tone) + '">' + TI[v.tone] + ' <b>' + LB[v.tone] + '</b> — ' + esc(v.text) + '</p>';
     var pc = function (g) { return g == null ? '<span class="muted">n.d.</span>' : '<span class="' + (g >= 0 ? 'pos' : 'neg') + '">' + pct(g) + '</span>'; };
     var num = function (n, d) { return n == null ? 'n.d.' : Math.abs(n) >= 1e6 ? big(n) : fmtN(n, d == null ? 2 : d); };
-    var y0 = v.fy0 ? String(v.fy0) : 'En cours', y1 = v.fy1 ? String(v.fy1) : 'Suivant', yp = v.fy0 ? String(v.fy0 - 1) + ' (publié)' : 'Dernier publié';
-    h += '<div class="tablewrap"><table class="grid acct"><thead><tr><th>Exercice</th><th class="num">' + esc(yp) + '</th><th class="num">' + esc(y0) + ' (estimé)</th><th class="num">' + esc(y1) + ' (estimé)</th></tr></thead><tbody>' +
+    var y0 = v.fy0 ? String(v.fy0) + 'e' : 'En cours', y1 = v.fy1 ? String(v.fy1) + 'e' : 'Suivant', yp = v.fy0 ? String(v.fy0 - 1) : 'Publié';
+    h += '<div class="tablewrap"><table class="grid acct"><thead><tr><th>Exercice</th><th class="num">' + esc(yp) + '</th><th class="num">' + esc(y0) + '</th><th class="num">' + esc(y1) + '</th></tr></thead><tbody>' +
       '<tr><th>Bénéfice par action</th><td class="num">' + num(v.epsPrev) + '</td><td class="num">' + num(v.eps0) + '<small>' + pc(v.epsG0) + '</small></td><td class="num">' + num(v.eps1) + '<small>' + pc(v.epsG1) + '</small></td></tr>' +
       '<tr><th>Chiffre d\'affaires</th><td class="num">' + num(v.revPrev) + '</td><td class="num">' + num(v.rev0) + '<small>' + pc(v.revG0) + '</small></td><td class="num">' + num(v.rev1) + '<small>' + pc(v.revG1) + '</small></td></tr>' +
       '</tbody></table></div>';
@@ -3236,7 +3268,7 @@ details.pos summary{font-size:1rem}
     if (v.upside != null) more.push('Objectif de cours moyen : ' + pct(v.upside) + ' par rapport au cours' + (v.targetLow != null && v.targetHigh != null ? ' (fourchette ' + fmtN(v.targetLow) + ' à ' + fmtN(v.targetHigh) + ' ' + esc(v.targetCur || '') + ')' : '') + (v.nTarget ? ', ' + v.nTarget + ' analystes' : '') + '.');
     if (more.length) h += '<ul class="plain small">' + more.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>';
     h += '<div class="kidline kid-' + (v.tone === 'thin' ? 'na' : v.tone) + '"><p class="kidx">' + esc(v.explain).replace(/^En clair :/, '<b>En clair :</b>') + '</p></div>';
-    h += '<p class="foot">Source : consensus Yahoo Finance du jour (montants dans la devise des comptes). Mesuré en observation à chaque achat de dirigeant (prévisions figées ce soir-là), sans poids dans la note avant la revue de janvier.</p>';
+    h += '<p class="foot">« e » : estimé. Source : consensus Yahoo Finance du jour (montants dans la devise des comptes). Mesuré en observation à chaque achat de dirigeant (prévisions figées ce soir-là), sans poids dans la note avant la revue de janvier.</p>';
     return h;
   }
   function accountsSection(i) {
