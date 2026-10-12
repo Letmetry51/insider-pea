@@ -5573,6 +5573,13 @@
   "name": "DevPort AB (publ)",
   "ticker": "DEVP-B.ST"
  },
+ "SE0010546911": {
+  "exchange": "Stockholm",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Done.ai Group AB",
+  "resolvedAt": "2026-10-12",
+  "ticker": "DONE.ST"
+ },
  "SE0010547786": {
   "checkedHome": "2026-10-10",
   "exchange": "Stockholm",
@@ -7773,6 +7780,14 @@
  "SE0030336335": {
   "ticker": null,
   "triedAt": "2026-10-10"
+ },
+ "SE0030361556": {
+  "ticker": null,
+  "triedAt": "2026-10-12"
+ },
+ "SE0030361564": {
+  "ticker": null,
+  "triedAt": "2026-10-12"
  },
  "SE0030361606": {
   "checkedHome": "2026-10-10",
