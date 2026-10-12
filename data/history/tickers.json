@@ -47,6 +47,18 @@
   "at": "2026-10-11",
   "ticker": "SYENS.BR"
  },
+ "BF0451141101": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "BF7034981360": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "BF7035055200": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "CA00829Q1019": {
   "at": "2026-10-11",
   "ticker": null
@@ -178,6 +190,12 @@
  "DE0005120802": {
   "at": "2026-10-11",
   "ticker": "R1B.DE"
+ },
+ "DE0005216907": {
+  "at": "2026-10-12",
+  "exchange": "Frankfurt",
+  "name": "Tradegate AG Wertpapierhandelsbank",
+  "ticker": "T2G.F"
  },
  "DE0005313704": {
   "at": "2026-10-11",
@@ -649,6 +667,12 @@
   "at": "2026-10-11",
   "ticker": "LDA.MC"
  },
+ "ES0105704003": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Virtualware 2007 S.A.",
+  "ticker": "ALVIR.PA"
+ },
  "ES0105848008": {
   "at": "2026-10-11",
   "ticker": "COXG.MC"
@@ -803,6 +827,14 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0000005320": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0000006457": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0000031122": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -824,6 +856,10 @@
   "exchange": "Paris",
   "name": "Vicat S.A.",
   "ticker": "VCT.PA"
+ },
+ "FR0000031864": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0000031973": {
   "at": "2026-10-11",
@@ -863,6 +899,12 @@
   "name": "Lexibook - Linguistic Electronic System Société anonyme",
   "ticker": "ALLEX.PA"
  },
+ "FR0000033888": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Gévelot SA",
+  "ticker": "ALGEV.PA"
+ },
  "FR0000034548": {
   "at": "2026-10-11",
   "ticker": null
@@ -878,6 +920,12 @@
   "exchange": "Paris",
   "name": "Bastide Le Confort Médical SA",
   "ticker": "BLC.PA"
+ },
+ "FR0000035784": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Transition Evergreen SA",
+  "ticker": "EGR.PA"
  },
  "FR0000035818": {
   "at": "2026-10-11",
@@ -896,6 +944,18 @@
   "exchange": "Paris",
   "name": "Passat Société Anonyme",
   "ticker": "ALPAS.PA"
+ },
+ "FR0000038531": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "HF Company SA",
+  "ticker": "ALHF.PA"
+ },
+ "FR0000038606": {
+  "at": "2026-10-12",
+  "exchange": "XPAR",
+  "name": "Manitou BF SA",
+  "ticker": "MTU.PA"
  },
  "FR0000039109": {
   "at": "2026-10-11",
@@ -931,6 +991,10 @@
   "at": "2026-10-11",
   "ticker": "ACA.PA"
  },
+ "FR0000050049": {
+  "at": "2026-10-12",
+  "ticker": "VIL.PA"
+ },
  "FR0000050353": {
   "at": "2026-10-11",
   "ticker": "FII.PA"
@@ -951,17 +1015,37 @@
   "name": "IDI",
   "ticker": "IDIP.PA"
  },
+ "FR0000051567": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0000051732": {
   "at": "2026-10-11",
   "ticker": "ATO.PA"
+ },
+ "FR0000051807": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Teleperformance SE",
+  "ticker": "TEP.PA"
  },
  "FR0000052292": {
   "at": "2026-10-11",
   "ticker": "RMS.PA"
  },
+ "FR0000052516": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0000052870": {
   "at": "2026-10-11",
   "ticker": null
+ },
+ "FR0000053027": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Akwel SA",
+  "ticker": "AKW.PA"
  },
  "FR0000053043": {
   "at": "2026-10-11",
@@ -979,6 +1063,12 @@
   "name": "Compagnie des Alpes SA",
   "ticker": "CDA.PA"
  },
+ "FR0000053381": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Derichebourg SA",
+  "ticker": "DBG.PA"
+ },
  "FR0000053506": {
   "at": "2026-10-11",
   "ticker": "ALCGM.PA"
@@ -993,9 +1083,19 @@
   "name": "High Co. SA",
   "ticker": "HCO.PA"
  },
+ "FR0000054322": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Cibox Inter@ctive",
+  "ticker": "ALCBX.PA"
+ },
  "FR0000054470": {
   "at": "2026-10-11",
   "ticker": "UBI.PA"
+ },
+ "FR0000054678": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0000054900": {
   "at": "2026-10-11",
@@ -1023,6 +1123,12 @@
   "at": "2026-10-11",
   "ticker": "FINM.PA"
  },
+ "FR0000060873": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Marie Brizard Wine & Spirits SA",
+  "ticker": "MBWS.PA"
+ },
  "FR0000061111": {
   "at": "2026-10-11",
   "ticker": null
@@ -1037,6 +1143,12 @@
   "at": "2026-10-11",
   "ticker": "BUR.PA"
  },
+ "FR0000061459": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "La Perla Fashion Holding N.V.",
+  "ticker": "ALPER.PA"
+ },
  "FR0000062234": {
   "at": "2026-10-11",
   "ticker": "ODET.PA"
@@ -1050,6 +1162,10 @@
   "exchange": "Paris",
   "name": "Exail Technologies",
   "ticker": "EXA.PA"
+ },
+ "FR0000063737": {
+  "at": "2026-10-12",
+  "ticker": "AUB.PA"
  },
  "FR0000063935": {
   "at": "2026-10-11",
@@ -1079,6 +1195,12 @@
   "name": "Courtois S.A.",
   "ticker": "COUR.PA"
  },
+ "FR0000065484": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Lectra SA",
+  "ticker": "LSS.PA"
+ },
  "FR0000065864": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -1090,6 +1212,12 @@
   "exchange": "Paris",
   "name": "Poujoulat SA",
   "ticker": "ALPJT.PA"
+ },
+ "FR0000066540": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Herige",
+  "ticker": "ALHRG.PA"
  },
  "FR0000066672": {
   "at": "2026-10-11",
@@ -1115,6 +1243,16 @@
   "name": "Egide S.A.",
   "ticker": "ALGID.PA"
  },
+ "FR0000072597": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "IT Link SA",
+  "ticker": "ALITL.PA"
+ },
+ "FR0000072993": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0000073041": {
   "at": "2026-10-11",
   "ticker": "VAC.PA"
@@ -1137,6 +1275,10 @@
   "name": "BigBen Interactive",
   "ticker": "BIG.PA"
  },
+ "FR0000074122": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0000074148": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -1147,9 +1289,17 @@
   "at": "2026-10-11",
   "ticker": "PRC.PA"
  },
+ "FR0000075392": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0000075442": {
   "at": "2026-10-11",
   "ticker": "ALLDL.PA"
+ },
+ "FR0000075673": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0000075954": {
   "at": "2026-10-11",
@@ -1166,6 +1316,12 @@
  "FR0000076887": {
   "at": "2026-10-11",
   "ticker": null
+ },
+ "FR0000077919": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "JCDecaux SE",
+  "ticker": "DEC.PA"
  },
  "FR0000079147": {
   "at": "2026-10-11",
@@ -1279,6 +1435,16 @@
   "name": "Wendel",
   "ticker": "MF.PA"
  },
+ "FR0000121220": {
+  "at": "2026-10-12",
+  "ticker": "SW.PA"
+ },
+ "FR0000121295": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Compagnie Lebon",
+  "ticker": "ALBON.PA"
+ },
  "FR0000121329": {
   "at": "2026-10-11",
   "ticker": "HO.PA"
@@ -1322,6 +1488,12 @@
  "FR0000124141": {
   "at": "2026-10-11",
   "ticker": "VIE.PA"
+ },
+ "FR0000124414": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Gascogne SA",
+  "ticker": "ALBI.PA"
  },
  "FR0000124570": {
   "at": "2026-10-11",
@@ -1377,6 +1549,12 @@
   "name": "Dassault Systèmes SE",
   "ticker": "DSY.PA"
  },
+ "FR0000130692": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Belgrano",
+  "ticker": "CRI.PA"
+ },
  "FR0000130809": {
   "at": "2026-10-11",
   "ticker": "GLE.PA"
@@ -1409,6 +1587,10 @@
   "at": "2026-10-11",
   "ticker": "ALDAR.PA"
  },
+ "FR0001348279": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0004007813": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -1429,9 +1611,19 @@
   "at": "2026-10-11",
   "ticker": "ITP.PA"
  },
+ "FR0004026151": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0004027068": {
   "at": "2026-10-11",
   "ticker": "ALLAN.PA"
+ },
+ "FR0004029411": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Keyrus S.A.",
+  "ticker": "ALKEY.PA"
  },
  "FR0004029478": {
   "at": "2026-10-11",
@@ -1442,6 +1634,12 @@
   "exchange": "Paris",
   "name": "Encres Dubuit",
   "ticker": "ALDUB.PA"
+ },
+ "FR0004034072": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Xilam Animation",
+  "ticker": "ALXIL.PA"
  },
  "FR0004034320": {
   "at": "2026-10-11",
@@ -1472,6 +1670,12 @@
  "FR0004053510": {
   "at": "2026-10-11",
   "ticker": "ALGEN.PA"
+ },
+ "FR0004056851": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Valneva SE",
+  "ticker": "VLA.PA"
  },
  "FR0004058949": {
   "at": "2026-10-11",
@@ -1504,6 +1708,18 @@
  "FR0004154060": {
   "at": "2026-10-11",
   "ticker": "ALNTG.PA"
+ },
+ "FR0004155000": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "GROUPE SFPI SA",
+  "ticker": "SFPI.PA"
+ },
+ "FR0004155687": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Mastrad Société Anonyme",
+  "ticker": "ALMAS.PA"
  },
  "FR0004163111": {
   "at": "2026-10-11",
@@ -1549,6 +1765,10 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0004202706": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0004527638": {
   "at": "2026-10-11",
   "ticker": "EXE.PA"
@@ -1563,11 +1783,25 @@
   "name": "Transgene SA",
   "ticker": "TNG.PA"
  },
+ "FR0005691656": {
+  "at": "2026-10-12",
+  "ticker": "TRI.PA"
+ },
+ "FR0005691856": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0005843125": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Hydro-Exploitations Societe Anonyme",
   "ticker": "MLHYE.PA"
+ },
+ "FR0005854700": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "i2S SA",
+  "ticker": "ALI2S.PA"
  },
  "FR0006174348": {
   "at": "2026-10-11",
@@ -1607,6 +1841,18 @@
   "at": "2026-10-11",
   "ticker": "ALTHE.PA"
  },
+ "FR0010151589": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Centrale d'Achat Française pour l'Outre-Mer Société Anonyme",
+  "ticker": "ALCAF.PA"
+ },
+ "FR0010157115": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Euroland Corporate Société anonyme",
+  "ticker": "ALERO.PA"
+ },
  "FR0010169920": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -1633,6 +1879,10 @@
   "name": "Engie SA",
   "ticker": "ENGI.PA"
  },
+ "FR0010211037": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0010214064": {
   "at": "2026-10-11",
   "ticker": "GPE.PA"
@@ -1655,6 +1905,12 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0010259150": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Ipsen S.A.",
+  "ticker": "IPN.PA"
+ },
  "FR0010263202": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -1664,6 +1920,12 @@
  "FR0010278762": {
   "at": "2026-10-11",
   "ticker": null
+ },
+ "FR0010282822": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Vusion S.A.",
+  "ticker": "VU.PA"
  },
  "FR0010285965": {
   "at": "2026-10-11",
@@ -1701,19 +1963,47 @@
   "name": "UPERGY Société Anonyme",
   "ticker": "ALUPG.PA"
  },
+ "FR0010340141": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Aeroports de Paris SA",
+  "ticker": "ADP.PA"
+ },
  "FR0010341032": {
   "at": "2026-10-11",
   "ticker": "INEA.PA"
  },
+ "FR0010383877": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0010386334": {
   "at": "2026-10-11",
   "ticker": "CLARI.PA"
+ },
+ "FR0010395681": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0010411983": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "SCOR SE",
+  "ticker": "SCR.PA"
+ },
+ "FR0010417345": {
+  "at": "2026-10-12",
+  "ticker": "DBV.PA"
  },
  "FR0010424697": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Ethero",
   "ticker": "ALENT.PA"
+ },
+ "FR0010425595": {
+  "at": "2026-10-12",
+  "ticker": "ALCLS.PA"
  },
  "FR0010428771": {
   "at": "2026-10-11",
@@ -1747,6 +2037,14 @@
   "name": "EuropaCorp",
   "ticker": "ALECP.PA"
  },
+ "FR0010499111": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0010523167": {
+  "at": "2026-10-12",
+  "ticker": "ALROC.PA"
+ },
  "FR0010526814": {
   "at": "2026-10-11",
   "ticker": null
@@ -1777,9 +2075,33 @@
   "at": "2026-10-11",
   "ticker": "COFA.PA"
  },
+ "FR0010688440": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0010702281": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0010766667": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Vente-Unique.com SA",
+  "ticker": "ALVU.PA"
+ },
+ "FR0010776687": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0010785790": {
   "at": "2026-10-11",
   "ticker": "ALPAT.PA"
+ },
+ "FR0010812230": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Sirius Media",
+  "ticker": "ALSRS.PA"
  },
  "FR0010820274": {
   "at": "2026-10-11",
@@ -1792,6 +2114,12 @@
   "exchange": "Paris",
   "name": "Carmila S.A.",
   "ticker": "CARM.PA"
+ },
+ "FR0010882886": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Eduform'action Société Anonyme",
+  "ticker": "ALEFA.PA"
  },
  "FR0010889386": {
   "at": "2026-10-11",
@@ -1808,6 +2136,12 @@
   "exchange": "Paris",
   "name": "Edenred SE",
   "ticker": "EDEN.PA"
+ },
+ "FR0010929125": {
+  "at": "2026-10-12",
+  "exchange": "XPAR",
+  "name": "ID Logistics Group SA",
+  "ticker": "IDL.PA"
  },
  "FR0011005933": {
   "at": "2026-10-11",
@@ -1834,6 +2168,12 @@
  "FR0011040500": {
   "at": "2026-10-11",
   "ticker": "74SW.PA"
+ },
+ "FR0011041011": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Bluelinea Société Anonyme",
+  "ticker": "ALBLU.PA"
  },
  "FR0011049824": {
   "at": "2026-10-11",
@@ -1871,8 +2211,24 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0011271600": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Fermentalg SA",
+  "ticker": "ALGAE.PA"
+ },
  "FR0011289040": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "FR0011466069": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "EKINOPS S.A.",
+  "ticker": "EKI.PA"
+ },
+ "FR0011471135": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "FR0011476928": {
@@ -1889,9 +2245,33 @@
   "at": "2026-10-11",
   "ticker": "ALVGO.PA"
  },
+ "FR0011636083": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Neolife SA",
+  "ticker": "ALNLF.PA"
+ },
+ "FR0011648716": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Carbios SAS",
+  "ticker": "ALCRB.PA"
+ },
+ "FR0011665280": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Figeac Aero Société Anonyme",
+  "ticker": "FGA.PA"
+ },
  "FR0011675362": {
   "at": "2026-10-11",
   "ticker": null
+ },
+ "FR0011716265": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Crossject Société Anonyme",
+  "ticker": "ALCJ.PA"
  },
  "FR0011726835": {
   "at": "2026-10-11",
@@ -1899,11 +2279,27 @@
   "name": "Gaztransport & Technigaz SA",
   "ticker": "GTT.PA"
  },
+ "FR0011742329": {
+  "at": "2026-10-12",
+  "exchange": "OTC Markets",
+  "name": "McPhy Energy S.A.",
+  "ticker": "MPHYF"
+ },
+ "FR0011766229": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0011776889": {
   "at": "2026-10-11",
   "exchange": "Stuttgart",
   "name": "Umalis Group",
   "ticker": "FR0011776889.SG"
+ },
+ "FR0011814938": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Boostheat SA",
+  "ticker": "ALBOO.PA"
  },
  "FR0011858190": {
   "at": "2026-10-11",
@@ -1916,6 +2312,10 @@
   "exchange": "Paris",
   "name": "UV Germi SA",
   "ticker": "ALUVI.PA"
+ },
+ "FR0011915339": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0011950641": {
   "at": "2026-10-11",
@@ -1940,6 +2340,12 @@
  "FR0011992700": {
   "at": "2026-10-11",
   "ticker": "ATEME.PA"
+ },
+ "FR0011995588": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Voltalia SA",
+  "ticker": "VLTSA.PA"
  },
  "FR0012127173": {
   "at": "2026-10-11",
@@ -1999,8 +2405,16 @@
   "name": "SPIE SA",
   "ticker": "SPIE.PA"
  },
+ "FR0012788065": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0012789949": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "FR0012816825": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "FR0012882389": {
@@ -2015,6 +2429,12 @@
   "name": "Solocal Group S.A.",
   "ticker": "LOCAL.PA"
  },
+ "FR0012968485": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Ashler et Manson SA",
+  "ticker": "MLAEM.PA"
+ },
  "FR0013006558": {
   "at": "2026-10-11",
   "exchange": "Paris",
@@ -2027,11 +2447,39 @@
   "name": "La Française de l'Energie S.A.",
   "ticker": "FDE.PA"
  },
+ "FR0013053535": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Miliboo Société anonyme",
+  "ticker": "ALMLB.PA"
+ },
+ "FR0013079092": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "We.Connect SA",
+  "ticker": "ALWEC.PA"
+ },
+ "FR0013088606": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Drone Volt SA",
+  "ticker": "ALDRV.PA"
+ },
+ "FR0013143872": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Witbe S.A.",
+  "ticker": "ALWIT.PA"
+ },
  "FR0013153541": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Maisons du Monde S.A.",
   "ticker": "MDM.PA"
+ },
+ "FR0013154002": {
+  "at": "2026-10-12",
+  "ticker": "DIM.PA"
  },
  "FR0013155975": {
   "at": "2026-10-11",
@@ -2042,6 +2490,10 @@
  "FR0013176526": {
   "at": "2026-10-11",
   "ticker": "FR.PA"
+ },
+ "FR0013181864": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0013183985": {
   "at": "2026-10-11",
@@ -2063,6 +2515,20 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0013204336": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0013214145": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "SMCP S.A.",
+  "ticker": "SMCP.PA"
+ },
+ "FR0013227113": {
+  "at": "2026-10-12",
+  "ticker": "SOI.PA"
+ },
  "FR0013230612": {
   "at": "2026-10-11",
   "ticker": "TKO.PA"
@@ -2077,11 +2543,21 @@
   "name": "Inventiva S.A.",
   "ticker": "IVA.PA"
  },
+ "FR0013240934": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Eurobio Scientific Société anonyme",
+  "ticker": "ALERS.PA"
+ },
  "FR0013252186": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Plastiques du Val de Loire",
   "ticker": "ALPVL.PA"
+ },
+ "FR0013256401": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0013258399": {
   "at": "2026-10-11",
@@ -2099,11 +2575,21 @@
   "at": "2026-10-11",
   "ticker": "BIM.PA"
  },
+ "FR0013296746": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Advicenne S.A.",
+  "ticker": "ALDVI.PA"
+ },
  "FR0013318052": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Ordissimo SA",
   "ticker": "ALORD.PA"
+ },
+ "FR0013318813": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR0013326246": {
   "at": "2026-10-11",
@@ -2129,15 +2615,41 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0013345493": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "BIO-UV Group S.A.",
+  "ticker": "ALTUV.PA"
+ },
+ "FR0013346814": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0013356755": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Emova Group SA",
   "ticker": "ALEMV.PA"
  },
+ "FR0013357621": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Wavestone SA",
+  "ticker": "WAVE.PA"
+ },
+ "FR0013368438": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0013374667": {
   "at": "2026-10-11",
   "ticker": "ALKKO.PA"
+ },
+ "FR0013379484": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Solutions 30 SE",
+  "ticker": "S30.PA"
  },
  "FR0013398997": {
   "at": "2026-10-11",
@@ -2151,13 +2663,57 @@
   "name": "SA Energisme",
   "ticker": "ALNRG.PA"
  },
+ "FR0013404944": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0013406881": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "CMG Cleantech S.A.",
+  "ticker": "MLCMG.PA"
+ },
+ "FR0013419876": {
+  "at": "2026-10-12",
+  "ticker": "ALVAP.PA"
+ },
+ "FR0013426004": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Claranova SE",
+  "ticker": "ALCLA.PA"
+ },
+ "FR0013429404": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Groupe Tera SA",
+  "ticker": "ALGTR.PA"
+ },
  "FR0013447729": {
   "at": "2026-10-11",
   "ticker": "VRLA.PA"
  },
+ "FR0013451333": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "FDJ United",
+  "ticker": "FDJU.PA"
+ },
  "FR0013452281": {
   "at": "2026-10-11",
   "ticker": "ALAGP.PA"
+ },
+ "FR0013455482": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Atland SAS",
+  "ticker": "ATLD.PA"
+ },
+ "FR0013470168": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Implanet S.A.",
+  "ticker": "ALIMP.PA"
  },
  "FR0013473410": {
   "at": "2026-10-11",
@@ -2187,8 +2743,26 @@
   "at": "2026-10-11",
   "ticker": "VK.PA"
  },
+ "FR0013507290": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "FR0013525565": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "FR0013530102": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0013534617": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "écomiam SA",
+  "ticker": "ALECO.PA"
+ },
+ "FR0013926746": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "FR00140007I9": {
@@ -2217,12 +2791,28 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0014003711": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Obiz S.A.",
+  "ticker": "ALBIZ.PA"
+ },
+ "FR0014003AC4": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "ARVERNE WARRANT",
+  "ticker": "ARVBS.PA"
+ },
  "FR0014003AQ4": {
   "at": "2026-10-11",
   "ticker": "EXPL.PA"
  },
  "FR0014003FE9": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "FR0014003I41": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "FR0014003RM7": {
@@ -2233,9 +2823,21 @@
   "at": "2026-10-11",
   "ticker": "DSY.PA"
  },
+ "FR0014003U94": {
+  "at": "2026-10-12",
+  "ticker": "ARAMI.PA"
+ },
  "FR0014003UJ7": {
   "at": "2026-10-11",
   "ticker": null
+ },
+ "FR0014003V77": {
+  "at": "2026-10-12",
+  "ticker": "ALAIR.PA"
+ },
+ "FR0014004362": {
+  "at": "2026-10-12",
+  "ticker": "ALESE.PA"
  },
  "FR00140043Y1": {
   "at": "2026-10-11",
@@ -2243,11 +2845,31 @@
   "name": "Spartoo SAS",
   "ticker": "ALSPT.PA"
  },
+ "FR0014004974": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Enogia SAS",
+  "ticker": "ALENO.PA"
+ },
  "FR0014004QR6": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Calibre",
   "ticker": "ALIBR.PA"
+ },
+ "FR0014004X25": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR00140059B5": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Audacia SA",
+  "ticker": "ALAUD.PA"
+ },
+ "FR0014005AC9": {
+  "at": "2026-10-12",
+  "ticker": "ALAFY.PA"
  },
  "FR0014005AL0": {
   "at": "2026-10-11",
@@ -2267,11 +2889,35 @@
   "name": "OVH Groupe S.A.",
   "ticker": "OVH.PA"
  },
+ "FR0014005I80": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "S.M.A.I.O S.A.",
+  "ticker": "ALSMA.PA"
+ },
  "FR0014005SB3": {
   "at": "2026-10-11",
   "exchange": "Paris",
   "name": "Forsee Power S.A.",
   "ticker": "ALFOR.PA"
+ },
+ "FR0014005ZM5": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Grolleau Société Anonyme",
+  "ticker": "ALGRO.PA"
+ },
+ "FR00140062B9": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Toosla Société Anonyme",
+  "ticker": "ALTOO.PA"
+ },
+ "FR00140066X4": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Metavisio",
+  "ticker": "ALTHO.PA"
  },
  "FR0014006KI3": {
   "at": "2026-10-11",
@@ -2281,13 +2927,167 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "FR0014007LQ2": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Hunyvers SA",
+  "ticker": "ALHUN.PA"
+ },
+ "FR0014007LW0": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Crypto Blockchain Industries",
+  "ticker": "ALCBI.PA"
+ },
+ "FR0014007T10": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Vaziva Société anonyme",
+  "ticker": "ALVAZ.PA"
+ },
+ "FR0014007XT1": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0014007ZB4": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Aelis Farma SA",
+  "ticker": "AELIS.PA"
+ },
+ "FR00140085W6": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR0014008VX5": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Euroapi S.A.",
+  "ticker": "EAPI.PA"
+ },
  "FR0014008WS3": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "FR001400A3Q3": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Icape Holding S.A.",
+  "ticker": "ALICA.PA"
+ },
+ "FR001400AHX6": {
+  "at": "2026-10-12",
+  "ticker": "ABLD.PA"
+ },
+ "FR001400AYG6": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Deezer S.A.",
+  "ticker": "DEEZR.PA"
+ },
+ "FR001400BJ77": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Acheter-Louer.Fr SA",
+  "ticker": "ALALO.PA"
+ },
+ "FR001400BMH7": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400BWV7": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400CDB7": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400CFI7": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Avenir Telecom S.A.",
+  "ticker": "AVT.PA"
+ },
+ "FR001400CM63": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Oncodesign Precision Medicine Société anonyme",
+  "ticker": "ALOPM.PA"
+ },
+ "FR001400COI9": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400DEM0": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400DIY6": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400E0A9": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400FL38": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400FOO0": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400GA06": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400GKP3": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400HRP6": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "FR001400JWR8": {
   "at": "2026-10-11",
   "ticker": "ARVEN.PA"
+ },
+ "FR001400KO61": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "Archos S.A.",
+  "ticker": "ALJXR.PA"
+ },
+ "FR001400KT41": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400LBS6": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400LN79": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400OUH3": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400Q9B4": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400QRL6": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "FR001400QSF6": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "FR001400SUB7": {
   "at": "2026-10-11",
@@ -2308,6 +3108,10 @@
  "FR0014015ND9": {
   "at": "2026-10-11",
   "ticker": "ALIEV.PA"
+ },
+ "FWH9UR17YSK0": {
+  "at": "2026-10-12",
+  "ticker": null
  },
  "GB0009895292": {
   "at": "2026-10-11",
@@ -2353,6 +3157,12 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "GB00BNKGZC51": {
+  "at": "2026-10-12",
+  "exchange": "Paris",
+  "name": "AMA Corporation Plc",
+  "ticker": "ALAMA.PA"
+ },
  "GB00BQ1LGQ19": {
   "at": "2026-10-11",
   "exchange": "London",
@@ -2379,6 +3189,30 @@
  },
  "ISINFR000005": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "ISINFR001029": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "ISINFR001077": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "ISINFR001198": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "ISINFR001243": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "ISINFR001261": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "ISINFR001331": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "ISINFR001333": {
@@ -2631,6 +3465,10 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "JQWQKVVI8MG1": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "MC0000031187": {
   "at": "2026-10-11",
   "ticker": "BAIN.PA"
@@ -2715,8 +3553,16 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "NVGN05Z0FMN5": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
  "QS0009061084": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "QS0009068550": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "QS0009101567": {
@@ -2737,6 +3583,26 @@
  },
  "QS0009129451": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "QS0009130996": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "QS0009132398": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "QS0009132463": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "QS0009133693": {
+  "at": "2026-10-12",
+  "ticker": null
+ },
+ "QS0009134543": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "SE0000101032": {
@@ -13689,11 +14555,21 @@
   "at": "2026-10-11",
   "ticker": null
  },
+ "US00370M1036": {
+  "at": "2026-10-12",
+  "exchange": "Stuttgart",
+  "name": "ABIVAX Société Anonyme",
+  "ticker": "2X10.SG"
+ },
  "US1491231015": {
   "at": "2026-10-11",
   "exchange": "NYSE",
   "name": "Caterpillar Inc.",
   "ticker": "CAT"
+ },
+ "US2220702037": {
+  "at": "2026-10-12",
+  "ticker": "COTY"
  },
  "US2948216088": {
   "at": "2026-10-11",
@@ -13734,6 +14610,12 @@
   "exchange": "OTC Markets",
   "name": "AB SKF (publ)",
   "ticker": "SKFRY"
+ },
+ "US80105N1054": {
+  "at": "2026-10-12",
+  "exchange": "NASDAQ",
+  "name": "Sanofi",
+  "ticker": "SNY"
  },
  "US8305612058": {
   "at": "2026-10-11",
@@ -13781,6 +14663,10 @@
  },
  "XS2242188261": {
   "at": "2026-10-11",
+  "ticker": null
+ },
+ "XS2360381730": {
+  "at": "2026-10-12",
   "ticker": null
  },
  "XX0005962362": {
