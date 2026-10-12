@@ -157,14 +157,14 @@
  },
  "FI": {
   "cursor": "2026-10-09",
-  "lastRun": "2026-10-11",
-  "records": 123904,
+  "lastRun": "2026-10-12",
+  "records": 123906,
   "upToDate": true
  },
- "generated_at": "2026-10-12T02:32:34.635854+00:00",
+ "generated_at": "2026-10-12T09:45:38.369025+00:00",
  "outcomes": {
   "buys": 51881,
-  "known": 37449,
+  "known": 37465,
   "lastRun": "2026-10-12",
   "local": {
    "FR": "^FCHI",
