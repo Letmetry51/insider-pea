@@ -4,7 +4,8 @@ Euro Signal — événements des sociétés via Yahoo Finance (exécuté par Git
 Pour chaque titre dont le ticker est connu (data/tickers.json) :
   - publications de résultats : BPA publié et consensus (estimation figée à la publication) ;
   - communiqués de l'émetteur (onglet « press releases ») : titre, date, diffuseur, lien ;
-  - tendance du BPA annuel estimé (actuel / il y a 30 jours) : révisions des analystes.
+  - tendance du BPA annuel estimé (actuel / il y a 30 jours) : révisions des analystes ;
+  - prévisionnels : BPA et chiffre d'affaires attendus (exercice en cours et suivant), objectif de cours moyen.
 L'interprétation (rachat, perspectives, surprise) est faite par le moteur Euro Signal (core.js), testé.
 Écrit data/events.json (régénéré à chaque exécution ; l'historique est conservé par build.mjs).
 """
@@ -62,12 +63,64 @@ FUND_KEYS = {"totalDebt": "totalDebt", "totalCash": "totalCash", "ebitda": "ebit
              "insidersPct": "heldPercentInsiders", "floatShares": "floatShares", "sharesOut": "sharesOutstanding"}
 
 
-def fundamentals(t):
-    """Dernières données financières publiées (Yahoo). Non historisées : jamais utilisées pour la validation."""
-    try:
-        inf = t.info or {}
-    except Exception:
+def _estimates(df, year_ago):
+    """Consensus annuel (exercice en cours « 0y » et suivant « +1y ») : moyenne, fourchette, nombre d'analystes, base N-1, croissance."""
+    if df is None or getattr(df, "empty", True):
         return None
+    out = {}
+    for per in ("0y", "+1y"):
+        if per in df.index:
+            r = df.loc[per]
+            row = {"avg": num(r.get("avg")), "low": num(r.get("low")), "high": num(r.get("high")), "n": num(r.get("numberOfAnalysts")),
+                   "yearAgo": num(r.get(year_ago)), "growth": num(r.get("growth"))}
+            if any(v is not None for v in row.values()):
+                out[per] = row
+    return out or None
+
+
+def forecasts(t, inf):
+    """Prévisionnels des analystes (Yahoo) : bénéfice par action et chiffre d'affaires attendus, révisions sur 90 jours, objectif de cours.
+    Données du jour seulement (Yahoo ne fournit pas l'historique des prévisions) : Euro Signal les fige à la date de chaque achat."""
+    fc = {}
+    try:
+        fc["eps"] = _estimates(t.earnings_estimate, "yearAgoEps")
+    except Exception:
+        pass
+    try:
+        fc["rev"] = _estimates(t.revenue_estimate, "yearAgoRevenue")
+    except Exception:
+        pass
+    try:
+        tr = t.eps_trend
+        if tr is not None and not tr.empty:
+            fc["trend"] = {per: {k: num(tr.loc[per].get(src)) for k, src in (("cur", "current"), ("d7", "7daysAgo"), ("d30", "30daysAgo"), ("d90", "90daysAgo"))}
+                           for per in ("0y", "+1y") if per in tr.index}
+    except Exception:
+        pass
+    inf = inf or {}
+    tgt = {"mean": num(inf.get("targetMeanPrice")), "median": num(inf.get("targetMedianPrice")), "low": num(inf.get("targetLowPrice")),
+           "high": num(inf.get("targetHighPrice")), "n": num(inf.get("numberOfAnalystOpinions")), "current": num(inf.get("currentPrice")),
+           "currency": inf.get("currency")}
+    if tgt["mean"] and tgt["current"]:
+        fc["target"] = tgt
+    if num(inf.get("recommendationMean")) is not None:
+        fc["reco"] = {"mean": num(inf.get("recommendationMean")), "key": inf.get("recommendationKey")}
+    fy = inf.get("nextFiscalYearEnd")
+    if isinstance(fy, (int, float)):
+        fc["fyEnd"] = datetime.fromtimestamp(fy, timezone.utc).date().isoformat()
+    fc = {k: v for k, v in fc.items() if v}
+    if fc:
+        fc["asOf"] = datetime.now(timezone.utc).date().isoformat()
+    return fc or None
+
+
+def fundamentals(t, inf=None):
+    """Dernières données financières publiées (Yahoo). Non historisées : jamais utilisées pour la validation."""
+    if inf is None:
+        try:
+            inf = t.info or {}
+        except Exception:
+            return None
     out = {k: num(inf.get(src)) for k, src in FUND_KEYS.items()}
     if all(v is None for v in out.values()):
         return None
@@ -95,7 +148,7 @@ def main():
     print(f"Événements Yahoo : {len(pairs)} titres")
     for n, (isin, ticker) in enumerate(pairs, 1):
         t = yf.Ticker(ticker)
-        rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None}
+        rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None, "forecast": None}
         try:
             ed = t.get_earnings_dates(limit=12)
             if ed is not None and not ed.empty:
@@ -116,7 +169,15 @@ def main():
                 rec["epsTrend"] = {"current": num(tr.loc["0y"].get("current")), "d30": num(tr.loc["0y"].get("30daysAgo"))}
         except Exception:
             pass
-        rec["fund"] = fundamentals(t)
+        try:
+            inf = t.info or {}
+        except Exception:
+            inf = {}
+        rec["fund"] = fundamentals(t, inf) if inf else None
+        try:
+            rec["forecast"] = forecasts(t, inf)
+        except Exception:
+            rec["forecast"] = None
         items[isin] = rec
         time.sleep(0.4)
         if n % 20 == 0:
@@ -125,6 +186,7 @@ def main():
     withE = sum(1 for v in items.values() if v["earnings"])
     withP = sum(1 for v in items.values() if v["press"])
     withF = sum(1 for v in items.values() if v.get("fund"))
+    print(f"Prévisionnels d'analystes : {sum(1 for v in items.values() if (v.get('forecast') or {}).get('eps'))} titres ; objectifs de cours : {sum(1 for v in items.values() if (v.get('forecast') or {}).get('target'))}")
     print(f"Données financières : {withF} titres ; prochaines publications connues : {sum(1 for v in items.values() if v.get('nextEarnings'))}")
     print(f"Événements écrits : {len(items)} titres, {withE} avec résultats, {withP} avec communiqués, {errors} erreur(s)")
     return 0

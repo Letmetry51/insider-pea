@@ -977,6 +977,24 @@ t('Historique long : classement de Cohen, Malloy et Pomorski à la date de l\'ac
   eq(g('dg').h120.local.n, 30, 'indice national'); eq(g('dg').h120.local.beatPct, 50); eq(g('dg').h120.local.mean, 0, '(+4 − 2) / 2 − 1 % de frais'); eq(g('se').h120.local, undefined);
 });
 
+t('Prévisionnels des analystes : croissance attendue, révisions, objectif de cours, consensus trop maigre', () => {
+  const fc = { eps: { '0y': { avg: 2.2, low: 2, high: 2.4, n: 8, yearAgo: 2 }, '+1y': { avg: 2.64, low: 2.3, high: 2.9, n: 7 } }, rev: { '0y': { avg: 1100, n: 8, yearAgo: 1000 }, '+1y': { avg: 1210, n: 7 } },
+    trend: { '+1y': { cur: 2.64, d30: 2.6, d90: 2.5 } }, target: { mean: 30, current: 24, n: 6, currency: 'EUR' }, fyEnd: '2026-12-31' };
+  const v = ES.forecastView(fc, { forwardPE: 12 });
+  eq(v.tone, 'good'); eq(Math.round(v.epsG0), 10); eq(Math.round(v.epsG1), 20); eq(Math.round(v.revG1), 10); eq(Math.round(v.upside), 25); eq(v.fy1, 2027);
+  ok(v.peg > 0.5 && v.peg < 0.7, 'PEG 12 / 20'); ok(/8 analystes/.test(v.text) && /relevées/.test(v.text), v.text); ok(/trop optimistes/.test(v.explain));
+  const cut = JSON.parse(JSON.stringify(fc)); cut.trend['+1y'].d90 = 3.2;
+  eq(ES.forecastView(cut, {}).tone, 'bad', 'estimations abaissées de 17 % en 90 jours');
+  const loss = { eps: { '0y': { avg: -0.4, n: 5, yearAgo: -0.9 }, '+1y': { avg: -0.1, n: 5 } } };
+  const lv = ES.forecastView(loss, {}); eq(lv.tone, 'bad'); ok(lv.lossNext && lv.epsG1 == null, 'pas de croissance calculée sur une base négative');
+  eq(ES.forecastView({ eps: { '0y': { avg: 1, n: 1, yearAgo: 0.5 } } }, {}).tone, 'thin');
+  ok(ES.forecastView(null).na); ok(ES.forecastView({ asOf: '2026-10-12' }).na);
+  const turn = ES.forecastView({ eps: { '0y': { avg: 0.3, n: 4, yearAgo: -0.2 }, '+1y': { avg: 0.5, n: 4 } } }, {}); eq(turn.tone, 'good'); ok(turn.turnaround);
+  const c = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const sig = ES.crossSignals({ forecast: fc, fund: {} }, { buys: [{}], buyEur: 0, sellEur: 0 }, c); ok(sig.some((g) => g.k === 'forecast' && g.tone === 'good'), 'symbole 🔮');
+  ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'fcGrowth') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'fcBad'), 'mesurés en observation, hors note');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

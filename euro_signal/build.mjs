@@ -250,6 +250,11 @@ export function build(opts = {}) {
     state.fund = state.fund || {};
     if (er && er.fund) state.fund[isin] = er.fund; // conservées si la collecte du soir échoue
     i.fund = state.fund[isin] || null;
+    // Prévisionnels des analystes (consensus du jour) : conservés si la collecte du soir échoue, abandonnés après 30 jours
+    state.forecast = state.forecast || {};
+    if (er && er.forecast) state.forecast[isin] = er.forecast;
+    if (state.forecast[isin] && ES.daysBetween(state.forecast[isin].asOf || today, today) > 30) delete state.forecast[isin];
+    i.forecast = state.forecast[isin] || null;
     if (i.fund && i.fund.sector) i.sector = i.fund.sector;
     // Foncières cotées (SIIC, SOCIMI, SIR, REIT) : régime fiscal exonéré, exclues du PEA (loi de finances 2011 pour les SIIC)
     if (i.fund && /^REIT\b/i.test(String(i.fund.industry || ''))) { i.peaStatus = 'non_eligible'; i.peaSource = 'foncière cotée (SIIC, SOCIMI, REIT) : exclue du PEA'; i.peaDate = today; }
@@ -478,13 +483,20 @@ export function build(opts = {}) {
           // Révisions des analystes : relevées le soir de l'achat (pas d'historique gratuit), les cas s'accumulent au fil des mois
           revisionUp: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].rev30 != null ? state.obsAtBuy[t.id].rev30 >= 1 : undefined,
           revisionDown: state.obsAtBuy[t.id] && state.obsAtBuy[t.id].rev30 != null ? state.obsAtBuy[t.id].rev30 <= -1 : undefined,
+          ...(() => { const f = state.obsAtBuy[t.id] && state.obsAtBuy[t.id].fc; if (!f) return {};
+            return { fcGrowth: f.n >= 3 ? f.tone === 'good' && f.epsG1 != null && f.epsG1 >= 10 : undefined, fcBad: f.n >= 3 ? f.tone === 'bad' : undefined, fcUpside: f.upside != null ? f.upside >= 20 : undefined }; })(),
           // Actionnariat : données du moment (l'actionnariat change lentement)
           controlled: ES.ownership(inst[isin].fund).controlled, lowFloat: ES.ownership(inst[isin].fund).lowFloat,
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
           ...(() => { const a = finList[isin] ? accAt(isin, d) : null; return { fscoreHigh: a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined,
             altmanDistress: a && a.altman && !a.altman.na ? a.altman.zone === 'distress' : undefined, beneishFlag: a && a.beneish && !a.beneish.na ? a.beneish.flag : undefined }; })(),
           ...(() => { const pf = profileOf(t), m = moodAt(d); return { opportunistic: !pf || pf.routine === 'inconnu' ? undefined : pf.routine === 'inhabituel', trackGood: pf && pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n >= 2 / 3 : undefined, personalRecord: pf && pf.record != null ? pf.record : undefined, marketFear: m ? m.key === 'fear' : undefined }; })() } });
-      if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null, rev30: Number.isFinite(+inst[isin].revision30d) && inst[isin].revision30d !== null ? +inst[isin].revision30d : null };
+      if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) {
+        const fv = inst[isin].forecast ? ES.forecastView(inst[isin].forecast, inst[isin].fund) : null;
+        state.obsAtBuy[t.id] = { at: today, peerDisc: inst[isin].peer ? inst[isin].peer.discountPct : null, rev30: Number.isFinite(+inst[isin].revision30d) && inst[isin].revision30d !== null ? +inst[isin].revision30d : null,
+          // prévisionnels figés le soir de l'achat (Yahoo n'en garde pas l'historique)
+          fc: fv && !fv.na ? { tone: fv.tone, n: fv.n, epsG1: fv.epsG1 != null ? +fv.epsG1.toFixed(1) : null, rev90: fv.rev90 != null ? +fv.rev90.toFixed(1) : null, upside: fv.upside != null ? +fv.upside.toFixed(1) : null } : null };
+      }
       if (t.ceo || t.cfo) push('Achat DG ou DAF', d);
       const known = known2;
       if (ES.clusterInfo(known, cfg.insiders.clusterWindowDays).count >= cfg.insiders.clusterMinBuyers && (!lastCluster || ES.daysBetween(lastCluster, d) > 30)) { events.push({ isin, date: d, group: 'Cluster ≥ ' + cfg.insiders.clusterMinBuyers + ' dirigeants' }); lastCluster = d; }

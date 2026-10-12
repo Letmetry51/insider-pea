@@ -920,6 +920,9 @@
     var rv = +inst.revision30d;
     if (Number.isFinite(rv) && rv >= 1) push('revUp', '🔭', 'analystes : prévisions de bénéfice relevées de ' + (Math.round(rv * 10) / 10).toString().replace('.', ',') + ' % en 30 jours', 'good');
     else if (Number.isFinite(rv) && rv <= -1) push('revDown', '🔭', 'analystes : prévisions de bénéfice abaissées de ' + (Math.round(-rv * 10) / 10).toString().replace('.', ',') + ' % en 30 jours', 'warn');
+    var fv = inst.forecast ? ES.forecastView(inst.forecast, inst.fund) : null;
+    if (fv && !fv.na && fv.tone === 'good') push('forecast', '🔮', 'analystes : bénéfices attendus en hausse' + (fv.epsG1 != null ? ' (' + (fv.epsG1 > 0 ? '+' : '') + Math.round(fv.epsG1) + ' % l\'an prochain)' : ''), 'good');
+    else if (fv && !fv.na && fv.tone === 'bad') push('forecast', '🔮', fv.lossNext ? 'analystes : pertes encore attendues' : fv.rev90 != null && fv.rev90 <= -10 ? 'analystes : prévisions abaissées de ' + Math.round(-fv.rev90) + ' % en 90 jours' : 'analystes : recul des bénéfices attendu', 'warn');
     var ow = ES.ownership(inst.fund);
     if (ow.controlled && sc.buys.length) push('control', '🏛️', 'société contrôlée (' + Math.round(ow.insidersPct) + ' % détenus par les dirigeants et proches) : un achat peut viser le contrôle plus que refléter une information', ow.insidersPct >= 50 ? 'warn' : 'info');
     var h = ES.financialHealth(inst.fund);
@@ -1393,6 +1396,55 @@
     return { tone: tone, label: LBL[tone], text: text, explain: ex.trim(), advice: adv.join(' ') };
   };
   /**
+   * Prévisionnels des analystes (consensus Yahoo du jour) : croissance attendue du bénéfice par action et du chiffre d'affaires,
+   * révisions sur 30 et 90 jours, dispersion des estimations, objectif de cours. Lecture d'investisseur : les consensus sont en moyenne
+   * trop optimistes (surtout à plus d'un an et sur les petites valeurs) ; ce qui informe le plus est le sens des révisions.
+   * Rend { na } ou { tone: good | mixed | bad | thin, n, fy0, fy1, epsG0, epsG1, revG0, revG1, rev30, rev90, disp1, upside, nTarget, peg, turnaround, lossNext, text, explain }.
+   */
+  ES.forecastView = function (fc, fund) {
+    if (!fc || (!fc.eps && !fc.rev && !fc.target)) return { na: true, reason: 'aucune prévision d\'analyste publiée pour ce titre (fréquent pour les petites valeurs)' };
+    var E = fc.eps || {}, R = fc.rev || {}, e0 = E['0y'] || {}, e1 = E['+1y'] || {}, r0 = R['0y'] || {}, r1 = R['+1y'] || {}, T = fc.target || null;
+    var fin = function (v) { return typeof v === 'number' && isFinite(v) ? v : null; };
+    var gr = function (a, b) { a = fin(a); b = fin(b); return a != null && b != null && b > 0 ? (a / b - 1) * 100 : null; }; // croissance calculée seulement sur une base positive
+    var n = Math.max(fin(e0.n) || 0, fin(e1.n) || 0, fin(r0.n) || 0);
+    var o = { n: n, epsG0: gr(e0.avg, e0.yearAgo), epsG1: gr(e1.avg, e0.avg), revG0: gr(r0.avg, r0.yearAgo), revG1: gr(r1.avg, r0.avg),
+      eps0: fin(e0.avg), eps1: fin(e1.avg), epsPrev: fin(e0.yearAgo), rev0: fin(r0.avg), rev1: fin(r1.avg), revPrev: fin(r0.yearAgo) };
+    var fy = fc.fyEnd ? +String(fc.fyEnd).slice(0, 4) : null; o.fy0 = fy; o.fy1 = fy ? fy + 1 : null;
+    o.turnaround = o.epsPrev != null && o.epsPrev <= 0 && o.eps0 != null && o.eps0 > 0;
+    o.lossNext = o.eps1 != null && o.eps1 < 0;
+    var tr1 = fc.trend && (fc.trend['+1y'] || fc.trend['0y']), rv = function (cur, old) { cur = fin(cur); old = fin(old); return cur != null && old != null && old !== 0 ? (cur / old - 1) * 100 * (old < 0 ? -1 : 1) : null; };
+    o.rev30 = tr1 ? rv(tr1.cur, tr1.d30) : null; o.rev90 = tr1 ? rv(tr1.cur, tr1.d90) : null;
+    o.disp1 = fin(e1.high) != null && fin(e1.low) != null && o.eps1 ? (e1.high - e1.low) / Math.abs(o.eps1) * 100 : null;
+    if (T && fin(T.mean) && fin(T.current) && T.current > 0) { o.upside = (T.mean / T.current - 1) * 100; o.nTarget = fin(T.n); o.targetLow = fin(T.low); o.targetHigh = fin(T.high); o.targetCur = T.currency || null; }
+    var fpe = fund && fin(fund.forwardPE);
+    o.peg = fpe && fpe > 0 && o.epsG1 != null && o.epsG1 > 0 ? fpe / o.epsG1 : null;
+    var pc = function (v) { return (v > 0 ? '+' : '') + (Math.round(v * 10) / 10).toString().replace('.', ',') + ' %'; };
+    var lbl = function (y, d) { return y ? String(y) : d; };
+    if (n === 0 && o.upside == null) return { na: true, reason: 'aucune prévision d\'analyste publiée pour ce titre' };
+    // Ton : la croissance attendue compte, mais le sens des révisions récentes compte davantage
+    var good = (o.epsG1 != null && o.epsG1 >= 10 || o.turnaround) && !o.lossNext && !(o.rev90 != null && o.rev90 <= -5) && !(o.revG1 != null && o.revG1 < 0);
+    var bad = o.lossNext || (o.epsG1 != null && o.epsG1 < -5) || (o.rev90 != null && o.rev90 <= -10) || (o.epsG0 != null && o.epsG0 < -20 && !(o.epsG1 != null && o.epsG1 > 20));
+    o.tone = n > 0 && n < 3 ? 'thin' : bad ? 'bad' : good ? 'good' : 'mixed';
+    var t = [];
+    if (o.epsG0 != null) t.push('BPA attendu ' + pc(o.epsG0) + ' sur l\'exercice ' + lbl(o.fy0, 'en cours'));
+    else if (o.turnaround) t.push('retour aux bénéfices attendu sur l\'exercice ' + lbl(o.fy0, 'en cours'));
+    if (o.epsG1 != null) t.push(pc(o.epsG1) + ' sur ' + lbl(o.fy1, 'l\'exercice suivant'));
+    else if (o.lossNext) t.push('pertes encore attendues en ' + lbl(o.fy1, 'l\'exercice suivant'));
+    if (o.revG1 != null || o.revG0 != null) t.push('chiffre d\'affaires ' + (o.revG0 != null ? pc(o.revG0) : 'n.d.') + ' puis ' + (o.revG1 != null ? pc(o.revG1) : 'n.d.'));
+    if (o.rev90 != null) t.push('estimations ' + (o.rev90 >= 1 ? 'relevées' : o.rev90 <= -1 ? 'abaissées' : 'stables') + ' sur 90 jours (' + pc(o.rev90) + ')');
+    if (o.peg != null) t.push('PEG ' + (Math.round(o.peg * 10) / 10).toString().replace('.', ','));
+    if (o.upside != null) t.push('objectif de cours moyen ' + pc(o.upside) + ' au-dessus du cours' + (o.nTarget ? ' (' + o.nTarget + ' analystes)' : ''));
+    o.text = (n ? 'Consensus de ' + n + ' analyste' + (n > 1 ? 's' : '') + ' : ' : '') + t.join(' ; ') + '.';
+    var ex = o.tone === 'good' ? 'Les analystes attendent une hausse nette des bénéfices et ne revoient pas leurs chiffres à la baisse : le scénario de la société est jugé crédible.'
+      : o.tone === 'bad' ? (o.lossNext ? 'Les analystes attendent encore des pertes : l\'achat du dirigeant parie sur un redressement que le marché ne voit pas encore.' : o.rev90 != null && o.rev90 <= -10 ? 'Les analystes ont nettement réduit leurs prévisions ces trois derniers mois : quand les estimations baissent, le cours a tendance à suivre.' : 'Les analystes attendent un recul des bénéfices : il faut une raison précise de penser qu\'ils se trompent.')
+      : o.tone === 'thin' ? 'Une ou deux estimations seulement : le consensus est trop maigre pour peser dans la décision.'
+      : 'Prévisions sans élan particulier : ni accélération nette, ni révisions à la baisse.';
+    if (o.disp1 != null && o.disp1 >= 50) ex += ' Les estimations divergent fortement (écart de ' + Math.round(o.disp1) + ' % entre la plus haute et la plus basse) : forte incertitude.';
+    if (o.upside != null && o.upside >= 40) ex += ' Un objectif de cours aussi éloigné est souvent revu à la baisse : à prendre avec recul.';
+    o.explain = 'En clair : ' + ex + ' Rappel : les prévisions des analystes sont en moyenne trop optimistes, surtout à plus d\'un an.';
+    return o;
+  };
+  /**
    * Profil d'un acheteur au moment d'un achat (aucune donnée postérieure) :
    * - habituel ou inhabituel (Cohen, Malloy et Pomorski, 2012 : les achats « de routine », au même mois chaque année,
    *   n'annoncent rien ; les achats inhabituels sont ceux qui ont battu le marché) ;
@@ -1712,10 +1764,10 @@
     if (!a || typeof a !== 'object') return { pros: pros, cons: cons, morePros: 0, moreCons: 0 };
     a = Object.assign({ why: [] }, a, { why: Array.isArray(a.why) ? a.why : [] });
     var sig = Array.isArray(a.signals) ? a.signals : [], has = {}, cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
-    var ICON = { '🧯': 'altman', '🔍': 'beneish', '🔭': 'revUp', '🏛️': 'control', '⚡': 'duel', '⚠️': 'short', '🔻': 'knife', '💸': 'rich', '🔁': 'routine', '🩺': 'fragile', '🚫': 'pea', '🔴': 'sellers', '📊': 'fscore', '👥': 'cluster', '👔': 'ceo', '🏷️': 'disc', '🧭': 'opportunistic', '💪': 'record', '😱': 'panic', '💶': 'cheap', '💰': 'big', '🏆': 'pos', '🏅': 'track', '📈': 'trend' };
+    var ICON = { '🔮': 'forecast', '🧯': 'altman', '🔍': 'beneish', '🔭': 'revUp', '🏛️': 'control', '⚡': 'duel', '⚠️': 'short', '🔻': 'knife', '💸': 'rich', '🔁': 'routine', '🩺': 'fragile', '🚫': 'pea', '🔴': 'sellers', '📊': 'fscore', '👥': 'cluster', '👔': 'ceo', '🏷️': 'disc', '🧭': 'opportunistic', '💪': 'record', '😱': 'panic', '💶': 'cheap', '💰': 'big', '🏆': 'pos', '🏅': 'track', '📈': 'trend' };
     sig = sig.map(function (g) { return g.k ? g : Object.assign({ k: ICON[g.icon] || '' }, g); });
     sig.forEach(function (g) { has[g.k] = 1; });
-    var PRI = ['cluster', 'ceo', 'disc', 'opportunistic', 'record', 'revUp', 'panic', 'cheap', 'fscore', 'big', 'pos', 'track', 'trend'];
+    var PRI = ['cluster', 'ceo', 'disc', 'opportunistic', 'record', 'revUp', 'panic', 'cheap', 'fscore', 'forecast', 'big', 'pos', 'track', 'trend'];
     sig.filter(function (g) { return g.tone === 'good'; }).sort(function (x, y) { return PRI.indexOf(x.k) - PRI.indexOf(y.k); }).forEach(function (g) { pros.push(g.icon + ' ' + cap(g.text)); });
     var covered = /repli|valorisation|découvert|habituels|F-score|comptes fragiles/, ico = function (t) { return /résultats/.test(t) ? '📅 ' : /baissier/.test(t) ? '📉 ' : /euphorique/.test(t) ? '🤩 ' : /ordinaire|modeste|aucun achat/.test(t) ? '⚪ ' : ''; };
     var bad = sig.filter(function (g) { return g.tone === 'bad' && !(a.key === 'avoid' && /^(fragile|pea|sellers|fscore)$/.test(g.k)); }).map(function (g) { return g.icon + ' ' + cap(g.text); });
@@ -1758,7 +1810,10 @@
     ['controlled', 'Société contrôlée : dirigeants et proches détiennent au moins 30 % du capital'],
     ['altmanDistress', 'Bilan en zone de détresse selon Altman (Z\'\' < 1,1, comptes publiés à la date de l\'achat)'],
     ['beneishFlag', 'Profil de comptes « arrangés » selon Beneish (M > −1,78, comptes publiés à la date de l\'achat)'],
-    ['lowFloat', 'Flottant inférieur à 40 % du capital (peu d\'actions échangées en Bourse)']
+    ['lowFloat', 'Flottant inférieur à 40 % du capital (peu d\'actions échangées en Bourse)'],
+    ['fcGrowth', 'Analystes : bénéfice par action attendu en hausse d\'au moins 10 % sur l\'exercice suivant, sans révision à la baisse (relevé à l\'achat, 3 analystes ou plus)'],
+    ['fcBad', 'Analystes : pertes ou recul des bénéfices attendus, ou prévisions abaissées d\'au moins 10 % en 90 jours (relevé à l\'achat)'],
+    ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)']
   ];
   /** Actionnariat : part détenue par les dirigeants et leurs proches (0 à 1) et flottant, d'après Yahoo. */
   ES.ownership = function (fund) {
