@@ -1540,6 +1540,47 @@
     });
   };
   /**
+   * Supports et résistances (analyse technique simple, sur un an de cours ajustés [date, ouv., haut, bas, clôture]) :
+   * points hauts et bas du cours (sommets et creux encadrés de 5 séances de chaque côté), regroupés quand ils sont à moins
+   * d'un écart typique d'une séance (ATR) ou de 1,5 %. Un niveau compte d'autant plus qu'il a été touché souvent et récemment.
+   * Renvoie { last, atr, supports: [...], resistances: [...] } (deux niveaux au plus de chaque côté, du plus proche au plus lointain),
+   * chaque niveau : { price, touches, last (date du dernier contact), distPct (écart au cours, en %), kind: pivot | high52 | low52 }.
+   */
+  ES.supportResistance = function (rows, opts) {
+    opts = opts || {};
+    var R = (rows || []).filter(function (r) { return r && r[4] > 0; }).slice(-(opts.sessions || 250)), n = R.length, k = opts.span || 5;
+    if (n < 60) return null;
+    var hi = function (r) { return r[2] > 0 ? r[2] : r[4]; }, lo = function (r) { return r[3] > 0 ? r[3] : r[4]; };
+    var last = R[n - 1][4], tr = [];
+    for (var i = Math.max(1, n - 14); i < n; i++) tr.push(Math.max(hi(R[i]) - lo(R[i]), Math.abs(hi(R[i]) - R[i - 1][4]), Math.abs(lo(R[i]) - R[i - 1][4])));
+    var atr = mean(tr) || last * 0.02, tol = Math.max(atr * 1.2, last * 0.015);
+    var piv = [];
+    for (var j = k; j < n - k; j++) {
+      var h = hi(R[j]), l = lo(R[j]), isH = true, isL = true;
+      for (var m = j - k; m <= j + k; m++) { if (m === j) continue; if (hi(R[m]) > h) isH = false; if (lo(R[m]) < l) isL = false; }
+      if (isH) piv.push({ p: h, d: R[j][0], k: j });
+      if (isL) piv.push({ p: l, d: R[j][0], k: j });
+    }
+    piv.sort(function (a, b) { return a.p - b.p; });
+    var lv = [];
+    piv.forEach(function (x) {
+      var g = lv[lv.length - 1];
+      if (g && x.p - g.sum / g.n <= tol) { g.sum += x.p; g.n++; if (x.d > g.last) { g.last = x.d; g.k = x.k; } }
+      else lv.push({ sum: x.p, n: 1, last: x.d, k: x.k });
+    });
+    var levels = lv.map(function (g) { return { price: g.sum / g.n, touches: g.n, last: g.last, recent: n - 1 - g.k <= 60, kind: 'pivot' }; })
+      .filter(function (g) { return g.touches >= 2 || g.recent; });
+    var H52 = Math.max.apply(null, R.map(hi)), L52 = Math.min.apply(null, R.map(lo)), near = function (p) { return levels.some(function (g) { return Math.abs(g.price - p) <= tol; }); };
+    if (H52 > last * 1.005 && !near(H52)) levels.push({ price: H52, touches: 1, last: null, kind: 'high52' });
+    if (L52 < last * 0.995 && !near(L52)) levels.push({ price: L52, touches: 1, last: null, kind: 'low52' });
+    var out = function (side) {
+      return levels.filter(function (g) { return side < 0 ? g.price < last - tol / 3 : g.price > last + tol / 3; })
+        .sort(function (a, b) { return Math.abs(a.price - last) - Math.abs(b.price - last); }).slice(0, 2)
+        .map(function (g) { return { price: +g.price.toPrecision(5), touches: g.touches, last: g.last, kind: g.kind, distPct: +((g.price / last - 1) * 100).toFixed(1) }; });
+    };
+    return { last: last, atr: +atr.toPrecision(4), supports: out(-1), resistances: out(1) };
+  };
+  /**
    * Humeur du marché (aspect psychologique) à une date : volatilité sur 20 séances comparée à l'année écoulée et recul
    * depuis le plus haut 52 semaines de l'indice européen. rows : séries ajustées [[date, o, h, l, c, v]].
    */

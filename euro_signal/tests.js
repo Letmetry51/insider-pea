@@ -1023,6 +1023,21 @@ t('Contrôles anti-piège : évolution d\'Altman et de Beneish sur les exercices
   eq(a.beneishHistory.length, 2); ok(a.beneishHistory.every((b) => typeof b.m === 'number'));
 });
 
+t('Supports et résistances : creux et sommets répétés, plus haut et plus bas d\'un an en complément', () => {
+  const rows = []; let d = '2025-10-01';
+  for (let k = 0; k < 240; k++) { const c = 100 + 10 * Math.sin(k / 8); rows.push([d, c, c + 0.8, c - 0.8, c, 1]); d = ES.addDays(d, 1); }
+  for (let k = 0; k < 12; k++) { const c = 101 + k * 0.1; rows.push([d, c, c + 0.5, c - 0.5, c, 1]); d = ES.addDays(d, 1); }
+  const sr = ES.supportResistance(rows);
+  ok(sr && sr.supports.length && sr.resistances.length, 'des deux côtés');
+  ok(Math.abs(sr.supports[0].price - 89.2) < 1.5 && sr.supports[0].touches >= 3, 'support vers 89 : ' + JSON.stringify(sr.supports[0]));
+  ok(Math.abs(sr.resistances[0].price - 110.8) < 1.5 && sr.resistances[0].distPct > 5, 'résistance vers 111 : ' + JSON.stringify(sr.resistances[0]));
+  ok(sr.supports.every((x) => x.price < sr.last) && sr.resistances.every((x) => x.price > sr.last));
+  eq(ES.supportResistance(rows.slice(0, 30)), null, 'historique trop court');
+  const up = []; d = '2025-10-01'; for (let k = 0; k < 200; k++) { const c = 50 + k * 0.3; up.push([d, c, c + 0.2, c - 0.2, c, 1]); d = ES.addDays(d, 1); }
+  const su = ES.supportResistance(up); ok(su && su.resistances.length === 0 && su.supports.length >= 1, 'au plus haut : aucune résistance au-dessus');
+  ok(ES.supportResistance([[null], null, 5].concat(rows)) !== null, 'lignes illisibles ignorées');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

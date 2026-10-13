@@ -377,6 +377,8 @@ export function build(opts = {}) {
   const adjAll = {}, sigAll = {};
   Object.keys(inst).forEach((isin) => {
     if (pItems[isin]) adjAll[isin] = ES.adjustedSeries(ES.normalizeSeries(pItems[isin].rows), pItems[isin].splits || []);
+    // Supports et résistances sur un an (affichés dans les fiches et la sélection ; information, hors note)
+    if (adjAll[isin]) { try { const sr = ES.supportResistance(adjAll[isin]); if (sr) inst[isin].levels = sr; } catch (e) { /* niveaux non calculables */ } }
     const R0 = refs[isin] || {};
     sigAll[isin] = ES.countedBuys(tx[isin], R0, cfg).map((t) => ES.availDate(t));
   });
