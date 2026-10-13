@@ -346,7 +346,7 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .scl-ticks{position:relative;height:16px;font-size:.72rem;color:var(--muted)}.scl-ticks span{position:absolute;transform:translateX(-50%);top:2px}
 .sctr{width:100%;max-width:340px;height:auto;display:block;margin:8px 0 0;overflow:visible}.sctr-th{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1;opacity:.6}.sctr-ln{fill:none;stroke:var(--muted);stroke-width:1.5}
 .sctr-pt{stroke:var(--surface);stroke-width:2}.sctr-pt.z-good{fill:var(--good)}.sctr-pt.z-mid{fill:var(--warn)}.sctr-pt.z-bad{fill:var(--bad)}.sctr-v{font-size:11px;font-weight:700;fill:var(--ink)}.sctr-ax{font-size:10px;fill:var(--muted)}
-.chart .lv-sup{stroke:var(--good);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-res{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-t{font-weight:700}.chart .lv-ts{fill:var(--good)}.chart .lv-tr{fill:var(--bad)}
+.chart .lv-sup{stroke:var(--good);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-res{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-t{font-weight:700;font-size:9px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}.chart .lv-ts{fill:var(--good)}.chart .lv-tr{fill:var(--bad)}
 .lg-sup,.lg-res{display:inline-block;width:16px;height:0;border-top:2px dashed var(--good);vertical-align:middle;margin-right:4px}.lg-res{border-top-color:var(--bad)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
@@ -3716,8 +3716,9 @@ details.pos summary{font-size:1rem}
     // supports (vert) et résistances (rouge) : pointillés sur toute la largeur, valeur à droite
     // étiquettes à gauche (zone la plus ancienne, moins chargée), écartées d'au moins 11 px pour rester lisibles
     var lab = lvl.map(function (v) { return { v: v, y: ys(v.p) }; }).sort(function (a, b) { return a.y - b.y; });
-    lab.forEach(function (o, k) { o.ty = o.y - 3; if (k && o.ty - lab[k - 1].ty < 11) o.ty = lab[k - 1].ty + 11; });
-    lab.forEach(function (o) { var v = o.v, y = o.y.toFixed(1); svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" class="' + (v.s ? 'lv-sup' : 'lv-res') + '"><title>' + (v.s ? 'Support' : 'Résistance') + ' ' + fmtN(v.p) + ' (' + pct(v.x.distPct) + ', ' + lvTouch(v.x) + ')</title></line><text x="' + (L + 4) + '" y="' + o.ty.toFixed(1) + '" class="ax lv-t ' + (v.s ? 'lv-ts' : 'lv-tr') + '">' + (v.s ? 'Support ' : 'Résistance ') + fmtN(v.p, v.p < 10 ? 2 : 1) + ' (' + pct(v.x.distPct) + ')</text>'; });
+    lab.forEach(function (o, k) { o.ty = o.y - 3; if (k && o.ty - lab[k - 1].ty < 10) o.ty = lab[k - 1].ty + 10; });
+    var lvLab = ''; // étiquettes dessinées en dernier, au-dessus de la courbe et des marques
+    lab.forEach(function (o) { var v = o.v, y = o.y.toFixed(1); svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" class="' + (v.s ? 'lv-sup' : 'lv-res') + '"><title>' + (v.s ? 'Support' : 'Résistance') + ' ' + fmtN(v.p) + ' (' + pct(v.x.distPct) + ', ' + lvTouch(v.x) + ')</title></line>'; lvLab += '<text x="' + (L + 4) + '" y="' + o.ty.toFixed(1) + '" class="ax lv-t ' + (v.s ? 'lv-ts' : 'lv-tr') + '">' + (v.s ? 'Support ' : 'Résistance ') + fmtN(v.p, v.p < 10 ? 2 : 1) + ' (' + pct(v.x.distPct) + ')</text>'; });
     svg += '<path d="' + path + '" class="line"/>';
     svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(adj[0][0]) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">' + shortDate(adj[n - 1][0]) + '</text>';
     marks.forEach(function (m) {
@@ -3725,7 +3726,7 @@ details.pos summary{font-size:1rem}
       var cx = xs(k), cy = ys(m.p);
       svg += m.buy ? '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5" class="mk-buy"><title>Achat ' + esc(m.who || '') + ' le ' + m.d + ' à ' + fmtN(m.p) + '</title></circle>' : '<path d="M' + (cx - 5).toFixed(1) + ' ' + (cy - 4).toFixed(1) + ' L' + (cx + 5).toFixed(1) + ' ' + (cy - 4).toFixed(1) + ' L' + cx.toFixed(1) + ' ' + (cy + 5).toFixed(1) + ' Z" class="mk-sell"><title>Vente ' + esc(m.who || '') + ' le ' + m.d + '</title></path>';
     });
-    svg += '<circle cx="' + xs(n - 1).toFixed(1) + '" cy="' + ys(adj[n - 1][4]).toFixed(1) + '" r="3.5" class="last"/></svg>';
+    svg += '<circle cx="' + xs(n - 1).toFixed(1) + '" cy="' + ys(adj[n - 1][4]).toFixed(1) + '" r="3.5" class="last"/>' + lvLab + '</svg>';
     var s = S.inst[isin].stats || {};
     return '<div class="chartwrap">' + svg + '</div><p class="legend2"><span><i class="lg-buy"></i>achat d\'initié (prix payé)</span><span><i class="lg-sell"></i>vente</span>' + (lvl.length ? '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>' : '') + '<span class="muted">Clôtures ajustées des splits · source ' + esc(p.source || 'n.d.') + ' · historique depuis ' + (s.firstDate || 'n.d.') + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>';
   }
