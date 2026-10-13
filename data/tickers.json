@@ -4724,6 +4724,13 @@
   "name": "BrainCool AB (publ)",
   "ticker": "BRAIN.ST"
  },
+ "SE0005768124": {
+  "exchange": "Stockholm",
+  "method": "recherche Yahoo par ISIN",
+  "name": "ScandiDos AB (publ)",
+  "resolvedAt": "2026-10-13",
+  "ticker": "SDOS.ST"
+ },
  "SE0005794617": {
   "checkedHome": "2026-10-10",
   "exchange": "Stockholm",

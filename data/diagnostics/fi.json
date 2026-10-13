@@ -8,11 +8,11 @@
   [
    "2026-10-10",
    "2026-10-13",
-   77
+   86
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n13/10/2026 10:30:55;Tempest Security AB;549300Q5OJJLZN6Z9D25;Andrew Spry;Andrew Spry;Chief Executive Officer (CEO)/Managing Directory;;;;Yes;;Disposal;Share;Tempest Security AB;SE0010469221;26/06/2026 00:00:00;2105.0;Quantity;10.8;SEK;FIRST NORTH SWEDEN;Current;\r\n13/10/202",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n13/10/2026 22:47:55;HEXICON AB;9845007784687FEF7569;Henrik Baltscheffsky;Henrik Baltscheffsky;Other member of the company's administrative, management or supervisory body;;;;Yes;;Acquisition;Share;Hexicon AB;SE0004898799;13/10/2026 00:00:00;400000.0;Quantity;0.115;SEK;FIRS",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 274,
+ "rowCount": 283,
  "sampleRows": [
   [
    "09/10/2026 19:28:34",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-13T10:35:50.484015+00:00"
+ "at": "2026-10-13T22:19:01.371188+00:00"
 }
