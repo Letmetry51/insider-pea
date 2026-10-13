@@ -1,14 +1,14 @@
 {
  "chunks": [
   [
-   "2026-10-02",
-   "2026-10-08",
-   225
+   "2026-10-03",
+   "2026-10-09",
+   197
   ],
   [
-   "2026-10-09",
+   "2026-10-10",
    "2026-10-13",
-   96
+   73
   ]
  ],
  "encoding": "utf-16",
@@ -59,35 +59,35 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 321,
+ "rowCount": 270,
  "sampleRows": [
   [
-   "08/10/2026 23:04:28",
-   "Alzinova AB",
-   "549300K3IMVT20EK2S13",
-   "Erik Kullgren",
-   "Erik Kullgren",
-   "Chief Financial Officer (CFO)",
-   "",
+   "09/10/2026 19:28:34",
+   "Logistri Fastighets AB (Publ)",
+   "549300DGTCVHL640S069",
+   "Solid Equity Aktiebolag",
+   "Henrik Viktorsson",
+   "Chairman of the Board of Directors",
+   "Yes",
    "",
    "",
    "Yes",
    "",
-   "Subscription",
-   "BTU",
-   "Alzinova AB BTU",
-   "SE0030587168",
-   "07/10/2026 00:00:00",
-   "184000.0",
+   "Acquisition",
+   "Share",
+   "logistri fastighets A",
+   "SE0025197619",
+   "08/10/2026 00:00:00",
+   "23077.0",
    "Quantity",
-   "1.26",
+   "14.6",
    "SEK",
-   "FIRST NORTH SWEDEN",
+   "SPOTLIGHT STOCK MARKET",
    "Current",
    ""
   ],
   [
-   "08/10/2026 21:30:08",
+   "09/10/2026 19:21:05",
    "Gentoo Media Inc.",
    "529900T8BM49AURSDO55",
    "Mateusz Juroszek",
@@ -102,15 +102,15 @@
    "Share",
    "Gentoo Media Inc.",
    "US36467X2062",
-   "08/10/2026 00:00:00",
-   "138202.0",
+   "09/10/2026 00:00:00",
+   "98278.0",
    "Quantity",
-   "5.158568",
+   "5.12007",
    "SEK",
    "NASDAQ STOCKHOLM AB",
    "Current",
    ""
   ]
  ],
- "at": "2026-10-13T00:12:21.156847+00:00"
+ "at": "2026-10-13T04:35:21.093407+00:00"
 }

@@ -1,9 +1,9 @@
 {
  "status": 200,
  "contentType": null,
- "bytes": 669581,
+ "bytes": 670144,
  "encoding": "cp1252",
- "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-08 00:00:00\";\"CEG N.V.\";\"Bayoglu U.\";\"Bayoglu\"\r\n\"2026-10-06 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Berlusconi P.S.\";\"Berlusconi\"\r\n\"2026-10-06 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Giordani M.A.E.\";\"Giordani\"\r\n\"2026-10-06 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Nieri G.\";\"Nieri\"\r\n\"2026-10-06 00:00:00\";\"SWI Capital Holding Limited\";\"George M-H.\";\"George\"\r\n\"2026-10-05 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Giordani M.A.E.\";\"Giordani\"\r\n\"2026-10-05 00:00:00\";\"MFE-MEDIAFOREUROPE N.V.\";\"Berlusconi P.S.\";\"Berlusconi\"\r\n\"2026-10-05 ",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-08 00:00:00\";\"CEG N.V.\";\"Bayoglu U.\";\"Bayoglu\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"D'Souza R.\";\"D'Souza\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Roux J.G.C.\";\"Roux\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Chery, Roger J-M.\";\"Chery\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Ouazzane, El R.\";\"Ouazzane\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Cassis M.L.\";\"Cassis\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Gualandris F.\";\"Gualandris\"\r\n\"2026-10-07 00:00:00\";\"ST",
  "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
  "delimiter": ";",
  "headers": [
@@ -20,22 +20,22 @@
    "Bayoglu"
   ],
   [
-   "2026-10-06 00:00:00",
-   "MFE-MEDIAFOREUROPE N.V.",
-   "Berlusconi P.S.",
-   "Berlusconi"
+   "2026-10-07 00:00:00",
+   "STMicroelectronics N.V.",
+   "D'Souza R.",
+   "D'Souza"
   ],
   [
-   "2026-10-06 00:00:00",
-   "MFE-MEDIAFOREUROPE N.V.",
-   "Giordani M.A.E.",
-   "Giordani"
+   "2026-10-07 00:00:00",
+   "STMicroelectronics N.V.",
+   "Roux J.G.C.",
+   "Roux"
   ]
  ],
- "rowCount": 9495,
+ "rowCount": 9503,
  "columnMap": {
   "issuer": "Issuing institution"
  },
- "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>2026100888927E45-A7B4-4AE8-A738-8D39B258EE1C</meldingid><transactiedatum>10/8/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>CEG N.V.</uitgevendeinstelling><meldingsplichtige>Bayoglu U.</meldingsplichtige><meldingsplichtigeachternaam>Bayoglu</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO and Managing Board Member at  Nexent Bank N.V.</functie><lei>724500XMW8FY9YNPRJ73</lei><vermelding>CEG N.V. - Bayoglu U. - </vermelding></vermelding><vermelding><meldingid>20261006647A6ECA-B29A-41D9-89F7-8925A17EEDF1</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Berlusconi P.S.</meldingsplichtige><meldingsplichtigeachternaam>Berlusconi</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Berlusconi P.S. - </vermelding></vermelding><vermelding><meldingid>202610066A769961-954F-426F-8D1A-2E21492A53C7</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Giordani M.A.E.</meldingsplichtige><meldingsplichtigeachternaam>Giordani</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Giordani M.A.E. - </vermelding></vermelding><vermelding><meldingid>20261006C9FB1074-CDA3-4136-AD5A-312AD9EC899D</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Nieri G.</meldingsplichtige><meldingsplichtigeachternaam>Nieri</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-MEDIAFOREUROPE N.V. - Nieri G. - </vermelding></vermelding><vermelding><meldingid>20261006EDA45A1F-CA00-4C2A-937F-8FCFD3591CC6</meldingid><transactiedatum>10/6/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>SWI Capital Holding Limited</uitgevendeinstelling><meldingsplichtige>George M-H.</meldingsplichtige><meldingsplichtigeachternaam>George</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CEO</functie><lei>391200TF46LFEOGZR692</lei><vermelding>SWI Capital Holding Limited - George M-H. - </vermelding></vermelding><vermelding><meldingid>202610058AFFEE56-D9E9-4647-890F-D194F11E267F</meldingid><transactiedatum>10/5/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MFE-MEDIAFOREUROPE N.V.</uitgevendeinstelling><meldingsplichtige>Giordani M.A.E.</meldingsplichtige><meldingsplichtigeachternaam>Giordani</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Executive Director</functie><lei>213800DIFN7NR7B97A50</lei><vermelding>MFE-M",
- "at": "2026-10-13T00:09:02.203327+00:00"
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>2026100888927E45-A7B4-4AE8-A738-8D39B258EE1C</meldingid><transactiedatum>10/8/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>CEG N.V.</uitgevendeinstelling><meldingsplichtige>Bayoglu U.</meldingsplichtige><meldingsplichtigeachternaam>Bayoglu</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO and Managing Board Member at  Nexent Bank N.V.</functie><lei>724500XMW8FY9YNPRJ73</lei><vermelding>CEG N.V. - Bayoglu U. - </vermelding></vermelding><vermelding><meldingid>20261007025546AC-5DA9-4EFB-A764-482CD95AB156</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>D'Souza R.</meldingsplichtige><meldingsplichtigeachternaam>D'Souza</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - D'Souza R. - </vermelding></vermelding><vermelding><meldingid>2026100713441E6C-3DA1-4A28-BE5A-ACC204300502</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Roux J.G.C.</meldingsplichtige><meldingsplichtigeachternaam>Roux</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Roux J.G.C. - </vermelding></vermelding><vermelding><meldingid>20261007249E45A3-213F-4D62-AA1C-779BD5D86475</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Chery, Roger J-M.</meldingsplichtige><meldingsplichtigeachternaam>Chery</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Director</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Chery, Roger J-M. - </vermelding></vermelding><vermelding><meldingid>20261007376BFA4C-8E5E-4122-BD46-C9A2F944DF98</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Ouazzane, El R.</meldingsplichtige><meldingsplichtigeachternaam>Ouazzane</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Ouazzane, El R. - </vermelding></vermelding><vermelding><meldingid>20261007497A796F-654A-4CE0-9404-1C9E1A25A69A</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Cassis M.L.</meldingsplichtige><meldingsplichtigeachternaam>Cassis</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42",
+ "at": "2026-10-13T04:34:41.370286+00:00"
 }
