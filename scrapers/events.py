@@ -151,12 +151,16 @@ def main():
     except Exception:
         prev_fc = {}
     today_d = datetime.now(timezone.utc).date()
-    def fc_due(isin):
+    def fc_age(isin):
         try:
-            return (today_d - datetime.fromisoformat(str(prev_fc.get(isin))[:10]).date()).days >= 6
+            return (today_d - datetime.fromisoformat(str(prev_fc.get(isin))[:10]).date()).days
         except Exception:
-            return True
-    print(f"Événements Yahoo : {len(pairs)} titres")
+            return 999  # jamais relevé
+    # les plus anciens d'abord, au plus un cinquième des titres par soir (relevés étalés sur la semaine), les nouveaux toujours
+    due = sorted((i for i, _ in pairs if fc_age(i) >= 6), key=lambda i: -fc_age(i))
+    fc_todo = set(i for i in due if fc_age(i) == 999) | set(due[:max(150, len(pairs) // 5)])
+    fc_due = lambda isin: isin in fc_todo
+    print(f"Événements Yahoo : {len(pairs)} titres ; prévisionnels à relire ce soir : {len(fc_todo)}")
     for n, (isin, ticker) in enumerate(pairs, 1):
         t = yf.Ticker(ticker)
         rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None, "forecast": None}
