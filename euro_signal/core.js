@@ -636,7 +636,7 @@
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     rules: { frozenUntil: '', reviewMinCases: 50, review: { date: '', fixedOn: '', minCases: 50, maxUnderperfPts: 3, waitCostPct: 1 } },
-    learning: { mode: 'auto', minCases: 60, minT: 2, maxStep: 1, horizon: 60 },
+    learning: { mode: 'auto', minCases: 60, minT: 2.7, maxStep: 1, horizon: 60, minNew: 20 },
     backtest: { costRoundTripPct: 0.5, horizons: [20, 60, 120], oosStart: '' }
   };
   ES.mergeConfig = function (base, over) {
@@ -1829,17 +1829,20 @@
     o.lowFloat = o.floatPct != null ? o.floatPct < 40 : undefined;
     return o;
   };
+  /** Écart de moyennes entre deux groupes, en nombre d'erreurs types (test de Welch) ; null si moins de 2 cas d'un côté. */
+  ES.welchT = function (a, b) {
+    if (!a || !b || a.length < 2 || b.length < 2) return null;
+    var ma = mean(a), mb = mean(b), v = function (x, m) { return x.reduce(function (s, y) { return s + (y - m) * (y - m); }, 0) / (x.length - 1); };
+    var se = Math.sqrt(v(a, ma) / a.length + v(b, mb) / b.length);
+    return se > 0 ? (ma - mb) / se : null;
+  };
   ES.observeStats = function (samples, cfg) {
     var L = cfg.learning, ok = (samples || []).filter(function (s) { return s.excess != null && isFinite(s.excess); });
     return ES.OBSERVE_FEATURES.map(function (f) {
       var w = ok.filter(function (s) { return s.f[f[0]] === true; }).map(function (s) { return s.excess * 100; });
       var wo = ok.filter(function (s) { return s.f[f[0]] === false; }).map(function (s) { return s.excess * 100; });
-      var st = { feature: f[0], label: f[1], nWith: w.length, nWithout: wo.length, meanWith: w.length ? mean(w) : null, meanWithout: wo.length ? mean(wo) : null, t: null };
-      if (w.length >= 2 && wo.length >= 2) {
-        var v = function (a, m) { return a.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / (a.length - 1); };
-        var se = Math.sqrt(v(w, st.meanWith) / w.length + v(wo, st.meanWithout) / wo.length);
-        st.t = se > 0 ? +((st.meanWith - st.meanWithout) / se).toFixed(2) : null;
-      }
+      var t = ES.welchT(w, wo);
+      var st = { feature: f[0], label: f[1], nWith: w.length, nWithout: wo.length, meanWith: w.length ? mean(w) : null, meanWithout: wo.length ? mean(wo) : null, t: t == null ? null : +t.toFixed(2) };
       st.action = w.length < L.minCases || wo.length < L.minCases ? 'en observation (' + w.length + ' / ' + L.minCases + ' cas)'
         : st.t != null && st.t >= L.minT ? 'apporte un avantage net : candidat à l\'entrée dans le score (revue de janvier)'
         : st.t != null && st.t <= -L.minT ? 'pénalisant sur nos données' : 'pas d\'écart net pour l\'instant';
@@ -1869,6 +1872,11 @@
     if (rk.pct >= 80) return { key: 'strong', icon: '🟢', text: 'Semaine exceptionnelle : le signal le plus fort de la semaine dépasse celui de ' + rk.pct + ' % des ' + wb.length + ' semaines précédentes. Une semaine qui mérite un examen attentif des dossiers ; la force du signal n\'est pas une promesse de gain.' };
     if (rk.pct >= 40) return { key: 'normal', icon: '🟡', text: 'Semaine dans la moyenne (' + rk.pct + 'e centile sur ' + wb.length + ' semaines)' + (rare ? ' ; ' + rare + ' dossier' + (rare > 1 ? 's' : '') + ' remarquable' + (rare > 1 ? 's' : '') : '') + '. Acheter n\'a rien d\'urgent : une meilleure occasion peut venir.' };
     return { key: 'weak', icon: '⚪', text: 'Semaine faible (' + rk.pct + 'e centile sur ' + wb.length + ' semaines) : mieux vaut attendre les prochaines sélections.' };
+  };
+  /** Achats retenus par la méthode, partout la même règle : volontaires, au prix du marché, déclarés à temps, significatifs. */
+  ES.countedBuys = function (list, refs, cfg) {
+    var late = function (t) { return t.pubDate && t.txDate ? ES.daysBetween(t.txDate, t.pubDate) > cfg.insiders.maxFilingLagDays : false; };
+    return ES.significantBuys(ES.activeTx(list).filter(function (t) { return ES.isVoluntaryBuy(t, cfg) && !(refs && refs[t.id] && refs[t.id].belowMarket) && !late(t); }), cfg).kept;
   };
   ES.isVoluntaryBuy = function (t, cfg) {
     return t.type === 'achat' && !(cfg.insiders.excludePlanned && t.planned === true) && !ES.excludedEntity(t, cfg);
@@ -2199,30 +2207,46 @@
     ['ceo', 'insiders', 'ceoCfo', 'Achat du DG ou du DAF'], ['cluster', 'insiders', 'cluster', 'Cluster de dirigeants'],
     ['trend', 'market', 'trend', 'Tendance de fond haussière (MM50 > MM200)'], ['relStrong', 'market', 'relStrength', 'Plus fort que le marché sur 6 mois']
   ];
-  ES.calibrate = function (samples, cfg, prev, today) {
-    var L = cfg.learning, month = today.slice(0, 7), base = ES.DEFAULT_CONFIG.weights;
-    var out = { month: month, weights: JSON.parse(JSON.stringify((prev && prev.weights) || {})), log: ((prev && prev.log) || []).slice(-60), stats: [], changed: [] , version: (prev && prev.version) || 0 };
-    if (prev && prev.month === month) { out.stats = prev.stats || []; out.changed = []; out.skipped = 'déjà calibré ce mois-ci'; return out; }
-    var ok = samples.filter(function (s) { return s.excess != null && isFinite(s.excess); });
+  /**
+   * Auto-apprentissage mensuel, volontairement prudent (beaucoup de bruit, peu de cas) : une composante ne bouge que d'un pas,
+   * dans les bornes 0 à 2 fois son poids d'origine, et seulement si l'écart mesuré est
+   *  1. net : au moins minCases cas de chaque côté et |t| ≥ minT (2,7 : seuil corrigé pour 7 composantes testées chaque mois) ;
+   *  2. stable : même sens sur la première et la seconde moitié de la période (un écart dû à un seul épisode de marché est écarté) ;
+   *  3. nouveau : au moins minNew cas publiés depuis le dernier ajustement de la composante (jamais deux pas sur la même preuve) ;
+   *  4. cohérent avec l'historique long quand il permet de le vérifier (opts.priors : sens établi sur des milliers d'achats).
+   */
+  ES.calibrate = function (samples, cfg, prev, today, opts) {
+    opts = opts || {};
+    var L = cfg.learning, month = today.slice(0, 7), base = ES.DEFAULT_CONFIG.weights, minNew = L.minNew != null ? L.minNew : 20;
+    var out = { month: month, weights: JSON.parse(JSON.stringify((prev && prev.weights) || {})), log: ((prev && prev.log) || []).slice(-60), stats: [], changed: [], version: (prev && prev.version) || 0 };
+    if (prev && prev.month === month) { out.stats = prev.stats || []; out.skipped = 'déjà calibré ce mois-ci'; return out; }
+    var ok = (samples || []).filter(function (s) { return s && s.f && s.excess != null && isFinite(s.excess); });
+    var lastChange = {}; out.log.forEach(function (e) { if (e && e.feature) lastChange[e.feature] = e.month; });
+    var dated = ok.filter(function (s) { return typeof s.date === 'string'; }).map(function (s) { return s.date; }).sort(), mid = dated.length === ok.length && dated.length ? dated[Math.floor(dated.length / 2)] : null;
+    var split = function (list, fk, side) { return list.filter(function (s) { return s.f[fk] === side; }).map(function (s) { return s.excess * 100; }); };
     ES.LEARN_FEATURES.forEach(function (f) {
-      var w = ok.filter(function (s) { return s.f[f[0]] === true; }).map(function (s) { return s.excess * 100; });
-      var wo = ok.filter(function (s) { return s.f[f[0]] === false; }).map(function (s) { return s.excess * 100; });
-      var st = { feature: f[0], label: f[3], nWith: w.length, nWithout: wo.length, meanWith: w.length ? mean(w) : null, meanWithout: wo.length ? mean(wo) : null, t: null, action: 'aucune' };
-      if (w.length >= 2 && wo.length >= 2) {
-        var v = function (a, m) { return a.reduce(function (x, y) { return x + (y - m) * (y - m); }, 0) / (a.length - 1); };
-        var se = Math.sqrt(v(w, st.meanWith) / w.length + v(wo, st.meanWithout) / wo.length);
-        st.t = se > 0 ? (st.meanWith - st.meanWithout) / se : null;
-      }
+      var w = split(ok, f[0], true), wo = split(ok, f[0], false), t = ES.welchT(w, wo);
+      var st = { feature: f[0], label: f[3], nWith: w.length, nWithout: wo.length, meanWith: w.length ? mean(w) : null, meanWithout: wo.length ? mean(wo) : null, t: t, action: 'aucune' };
       var cur = out.weights[f[1]] && out.weights[f[1]][f[2]] != null ? out.weights[f[1]][f[2]] : cfg.weights[f[1]][f[2]];
-      var orig = base[f[1]][f[2]], next = cur;
+      var orig = base[f[1]][f[2]], next = cur, dir = t == null ? 0 : t >= L.minT ? 1 : t <= -L.minT ? -1 : 0;
       if (w.length < L.minCases || wo.length < L.minCases) st.action = 'pas assez de cas (' + w.length + ' / ' + L.minCases + ' requis)';
-      else if (st.t != null && st.t >= L.minT) next = Math.min(cur + L.maxStep, 2 * orig);
-      else if (st.t != null && st.t <= -L.minT) next = Math.max(cur - L.maxStep, 0);
-      else st.action = 'écart non significatif';
+      else if (!dir) st.action = 'écart non significatif';
+      else {
+        // stabilité : l'effet doit aller dans le même sens sur chaque moitié de la période
+        var halves = mid ? [ok.filter(function (s) { return s.date < mid; }), ok.filter(function (s) { return s.date >= mid; })] : null;
+        var eff = halves ? halves.map(function (h) { var a = split(h, f[0], true), b = split(h, f[0], false); return a.length >= 5 && b.length >= 5 ? mean(a) - mean(b) : null; }) : null;
+        var fresh = lastChange[f[0]] ? ok.filter(function (s) { return typeof s.date === 'string' && s.date.slice(0, 7) > lastChange[f[0]]; }).length : Infinity;
+        var prior = opts.priors && opts.priors[f[0]];
+        if (eff && (eff[0] == null || eff[1] == null || eff[0] * dir <= 0 || eff[1] * dir <= 0)) st.action = 'écart instable dans le temps (pas dans le même sens sur les deux moitiés de la période)';
+        else if (fresh < minNew) st.action = 'pas assez de nouveaux cas depuis le dernier ajustement (' + fresh + ' / ' + minNew + ')';
+        else if (prior && prior.sign && prior.sign !== dir) st.action = 'contredit l\'historique long (' + prior.text + ')';
+        else next = dir > 0 ? Math.min(cur + L.maxStep, 2 * orig) : Math.max(cur - L.maxStep, 0);
+        if (next === cur && st.action === 'aucune') st.action = dir > 0 ? 'déjà au plafond (2 fois le poids d\'origine)' : 'déjà à zéro';
+      }
       if (next !== cur) {
         st.action = (next > cur ? 'hausse ' : 'baisse ') + cur + ' → ' + next;
         (out.weights[f[1]] = out.weights[f[1]] || {})[f[2]] = next;
-        var e = { month: month, feature: f[0], label: f[3], from: cur, to: next, nWith: w.length, effect: +(st.meanWith - st.meanWithout).toFixed(2), t: +st.t.toFixed(2) };
+        var e = { month: month, feature: f[0], label: f[3], from: cur, to: next, nWith: w.length, effect: +(st.meanWith - st.meanWithout).toFixed(2), t: +t.toFixed(2) };
         out.log.push(e); out.changed.push(e);
       }
       out.stats.push(st);

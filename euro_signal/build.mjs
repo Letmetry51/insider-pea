@@ -374,7 +374,7 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     if (pItems[isin]) adjAll[isin] = ES.adjustedSeries(ES.normalizeSeries(pItems[isin].rows), pItems[isin].splits || []);
     const R0 = refs[isin] || {};
-    sigAll[isin] = ES.significantBuys(ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket)), cfg).kept.map((t) => ES.availDate(t));
+    sigAll[isin] = ES.countedBuys(tx[isin], R0, cfg).map((t) => ES.availDate(t));
   });
   // Profil des acheteurs : historique de chaque dirigeant (toutes sociétés), résultat 60 séances après chaque achat
   const bAdj0 = prices.bench ? ES.adjustedSeries(ES.normalizeSeries(prices.bench.rows), []) : null;
@@ -392,8 +392,7 @@ export function build(opts = {}) {
   const hz = cfg.learning.horizon;
   Object.keys(allTx).forEach((isin) => {
     const R0 = refs[isin] || {}, act = ES.activeTx(allTx[isin]);
-    const lag = (t) => (t.pubDate && t.txDate ? ES.daysBetween(t.txDate, t.pubDate) : 0) > cfg.insiders.maxFilingLagDays; // déclaration tardive : écartée comme dans la note
-    sigBuys[isin] = ES.significantBuys(act.filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R0[t.id] && R0[t.id].belowMarket) && !lag(t)), cfg).kept;
+    sigBuys[isin] = ES.countedBuys(allTx[isin], R0, cfg); // même règle que la note
     sigBuys[isin].forEach((t) => {
       const key = ES.buyerKey(t) || t.personKey; if (!key) return;
       const d = ES.availDate(t), a = adjAll[isin], o = hist.outcomes[isin + '|' + d], ho = histOutcome(o, H_IDX[hz] ? hz : 60);
@@ -455,7 +454,7 @@ export function build(opts = {}) {
   Object.keys(inst).forEach((isin) => {
     if (!pItems[isin]) return;
     const R = refs[isin] || {};
-    const buys = ES.significantBuys(ES.activeTx(tx[isin]).filter((t) => ES.isVoluntaryBuy(t, cfg) && !(R[t.id] && R[t.id].belowMarket) && ES.daysBetween(t.txDate, ES.availDate(t)) <= cfg.insiders.maxFilingLagDays), cfg).kept.sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
+    const buys = ES.countedBuys(tx[isin], R, cfg).sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
     // moyennes 50 / 200 connues à la date de publication (aucune donnée postérieure)
     const adj = ES.adjustedSeries(ES.normalizeSeries(pItems[isin].rows), pItems[isin].splits || []);
     const cum = [0]; adj.forEach((r) => cum.push(cum[cum.length - 1] + r[4]));
@@ -540,7 +539,12 @@ export function build(opts = {}) {
   /* 6a. Auto-apprentissage mensuel (appliqué à partir du passage suivant) */
   // Sans cours frais (panne Yahoo), on ne consomme pas le recalibrage du mois : il sera retenté le soir suivant.
   const canLearn = pFresh && samples.some((x) => x.excess != null);
-  const learning = canLearn ? ES.calibrate(samples, ES.mergeConfig(cfg, {}), learnPrev, today)
+  // Garde-fou : l'historique long (France et Suède, plusieurs milliers d'achats) fixe le sens admis quand il l'établit nettement
+  const histStudy = ES.historyStudy(histEvents, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: [60, 120] });
+  const priors = {};
+  { const g = (k) => (histStudy.find((r) => r.key === k) || {}).h60, a = g('dg'), b = g('other');
+    if (a && b && a.n >= 100 && b.n >= 100 && a.ci && b.ci && (a.ci[0] > b.ci[1] || b.ci[0] > a.ci[1])) priors.ceo = { sign: a.mean > b.mean ? 1 : -1, text: 'achats DG/DAF ' + (a.mean > b.mean ? 'meilleurs' : 'moins bons') + ' que les autres sur ' + a.n + ' cas' }; }
+  const learning = canLearn ? ES.calibrate(samples, ES.mergeConfig(cfg, {}), learnPrev, today, { priors })
     : Object.assign({ month: null, version: 0, weights: {}, log: [], stats: [] }, learnPrev || {}, { changed: [] });
   learning.mode = cfg.learning.mode; learning.samples = samples.length; learning.withOutcome = samples.filter((x) => x.excess != null).length; learning.baseVersion = baseVersion;
   // Règles figées jusqu'à la revue (protection contre le sur-ajustement sur peu de cas) : les mesures continuent, le barème ne bouge pas
@@ -877,7 +881,7 @@ export function build(opts = {}) {
   payload.run.audit = { at: today, checked: cands.length, issues: audit.slice(0, 50) };
   console.log('  Contrôle de la chaîne de décision : ' + (audit.length ? audit.length + ' anomalie(s) — ' + audit.slice(0, 3).join(' ; ') : 'aucune anomalie'));
   payload.history = { cov: hist.cov, n: hist.n, cut: hist.cut, outcomes: Object.keys(hist.outcomes).length, events: histEvents.length, persons: Object.keys(persons).length,
-    study: ES.historyStudy(histEvents, { costRoundTripPct: cfg.backtest.costRoundTripPct, horizons: [60, 120] }), insidersFile: 'data/euro-signal-insiders.json' };
+    study: histStudy, insidersFile: 'data/euro-signal-insiders.json' };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });
   state.runs = [{ at: new Date().toISOString(), today, rows: rows.length, rejects: rejects.length, added: mergeStats.added, instruments: Object.keys(inst).length, outbox: outbox.length }].concat(state.runs || []).slice(0, 60);
 

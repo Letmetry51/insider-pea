@@ -573,9 +573,26 @@ t('Auto-apprentissage : ajustement borné, significatif, une fois par mois', () 
   eq(r.version, 1); eq(r.changed.length, 1);
   const again = ES.calibrate(samples, ES.mergeConfig(c2, { weights: r.weights }), r, '2026-11-20');
   eq(again.changed.length, 0, 'pas deux fois dans le mois');
-  let w = r;
-  for (let m = 1; m <= 9; m++) w = ES.calibrate(samples, ES.mergeConfig(c2, { weights: w.weights }), w, '2027-0' + m + '-02');
+  const same = ES.calibrate(samples, ES.mergeConfig(c2, { weights: r.weights }), r, '2026-12-02');
+  eq(same.changed.length, 0, 'jamais deux pas sur la même preuve'); ok(/nouveaux cas/.test(same.stats.find((x) => x.feature === 'panic').action));
+  // chaque mois, de nouveaux cas datés confirment l'écart : un pas par mois, jusqu'au plafond
+  let w = r, all = samples.slice();
+  for (let m = 1; m <= 9; m++) {
+    for (let i = 0; i < 30; i++) all.push({ date: '2027-0' + m + '-01', excess: i % 2 ? 0.07 : 0.0, f: { panic: i % 2 === 1, ceo: false } });
+    w = ES.calibrate(all, ES.mergeConfig(c2, { weights: w.weights }), w, '2027-0' + (m + 1 > 9 ? 9 : m) + '-' + (m + 1 > 9 ? '28' : '02'));
+  }
   eq(w.weights.insiders.panicBuy, 2 * c2.weights.insiders.panicBuy, 'plafond : 2 fois le poids d\'origine');
+  // écart dû à un seul épisode (seconde moitié de la période seulement) : refusé
+  const ep = [];
+  for (let i = 0; i < 160; i++) ep.push({ date: '2025-' + String(1 + (i % 6)).padStart(2, '0') + '-10', excess: i % 4 === 0 ? -0.001 : 0.001, f: { panic: i % 2 === 0, ceo: false } });
+  for (let i = 0; i < 160; i++) ep.push({ date: '2026-' + String(1 + (i % 6)).padStart(2, '0') + '-10', excess: i % 2 === 0 ? 0.09 + (i % 5) * 0.001 : -0.01, f: { panic: i % 2 === 0, ceo: false } });
+  const st1 = ES.calibrate(ep, c2, null, '2026-11-02').stats.find((x) => x.feature === 'panic');
+  ok(/instable/.test(st1.action), st1.action);
+  // contredit par l'historique long : refusé
+  const pr = ES.calibrate(samples.map((x) => ({ excess: x.excess, f: { ceo: x.f.panic } })), c2, null, '2026-11-02', { priors: { ceo: { sign: -1, text: 'test' } } });
+  ok(/historique long/.test(pr.stats.find((x) => x.feature === 'ceo').action) && !pr.changed.length);
+  eq(ES.DEFAULT_CONFIG.learning.minT, 2.7, 'seuil corrigé pour 7 composantes testées');
+  ok(Math.abs(ES.welchT([1, 2, 3, 4], [1, 2, 3, 4])) < 1e-9 && ES.welchT([1], [2, 3]) === null);
   const few = ES.calibrate(samples.slice(0, 50).concat(samples.slice(200, 250)), c2, null, '2026-11-02');
   eq(few.changed.length, 0, 'pas assez de cas');
 });

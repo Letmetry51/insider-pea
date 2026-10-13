@@ -43,9 +43,10 @@
  "learning": {
   "mode": "auto",
   "minCases": 60,
-  "minT": 2,
+  "minT": 2.7,
   "maxStep": 1,
-  "horizon": 60
+  "horizon": 60,
+  "minNew": 20
  },
  "exits": {
   "enabled": true,
