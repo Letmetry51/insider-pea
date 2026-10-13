@@ -27,7 +27,8 @@ concurrency:
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    # chaque étape de collecte a son propre délai : le job n'atteint jamais sa limite, l'enregistrement final s'exécute toujours
+    timeout-minutes: 150
 
     steps:
       - name: Checkout du repo
@@ -50,33 +51,40 @@ jobs:
           pip install -r requirements.txt
 
       - name: 1. Déclarations AMF (insider-pea)
+        timeout-minutes: 15
         run: python run.py
         # Si la collecte échoue, Euro Signal le détecte et bloque les alertes au lieu de conclure « aucune transaction »
         continue-on-error: true
 
       - name: 2. Déclarations Belgique (FSMA) et Pays-Bas (AFM)
+        timeout-minutes: 25
         run: python scrapers/europe_insiders.py
         continue-on-error: true
 
       - name: 2b. Allemagne, Espagne, Italie + secours Belgique / Pays-Bas (Insider Screener API)
+        timeout-minutes: 10
         env:
           INSIDERSCREENER_API_KEY: ${{ secrets.INSIDERSCREENER_API_KEY }}
         run: python scrapers/insiderscreener.py
         continue-on-error: true
 
       - name: 2c. Positions vendeuses des fonds (AMF, Bundesanzeiger, CNMV, Consob, AFM, FSMA)
+        timeout-minutes: 10
         run: python scrapers/shorts.py
         continue-on-error: true
 
       - name: 3. Cours Yahoo Finance
+        timeout-minutes: 25
         run: python scrapers/prices.py
         continue-on-error: true
 
       - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
+        timeout-minutes: 35
         run: python scrapers/events.py
         continue-on-error: true
 
       - name: 4b. Comptes annuels (4 exercices, Yahoo Finance)
+        timeout-minutes: 20
         run: python scrapers/financials.py
         continue-on-error: true
 
@@ -84,12 +92,14 @@ jobs:
         run: node euro_signal/tests.js
 
       - name: 5b. Calcul Euro Signal
+        timeout-minutes: 10
         env:
           ES_RESEND_SELECTION: ${{ github.event.inputs.resend_selection }}
           ES_MAIL_READY: ${{ secrets.GMAIL_APP_PASSWORD != '' && 'oui' || 'non' }}
         run: node euro_signal/build.mjs
 
       - name: 6. Alertes email (Gmail)
+        timeout-minutes: 10
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -98,6 +108,7 @@ jobs:
         run: python euro_signal/send_alerts.py
 
       - name: "6b. Vos positions - alertes de revente (lues dans votre Gmail, jamais écrites dans le dépôt)"
+        timeout-minutes: 5
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}

@@ -514,8 +514,14 @@ def compute_outcomes(hist_recs, clock, st):
     todo = {}
     for isin, pub in keys:
         o = outs.get(f"{isin}|{pub}")
-        if complete(o) or (o and o.get("t") == today):
-            continue  # résultat à 6 mois connu, ou déjà tenté aujourd'hui
+        if complete(o):
+            continue  # résultat à 6 mois connu
+        try:
+            recent_try = bool(o and o.get("t")) and (date.today() - date.fromisoformat(str(o["t"])[:10])).days < 7
+        except ValueError:
+            recent_try = False
+        if recent_try:
+            continue  # incomplet, retenté au plus une fois par semaine (les séances manquantes arrivent au fil des jours)
         todo.setdefault(isin, []).append(pub)
     print(f"Résultats : {len(keys)} achats, {sum(len(v) for v in todo.values())} à calculer sur {len(todo)} titres")
     if not todo:

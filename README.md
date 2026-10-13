@@ -48,14 +48,15 @@ insider-pea/
 │   └── workflows/
 │       └── update-data.yml      ← Le planificateur automatique
 ├── scrapers/
-│   ├── __init__.py
-│   ├── france_amf.py             ← Scraper AMF/lestransactions.fr
-│   ├── yahoo_finance.py          ← Enrichissement Yahoo
-│   └── scoring.py                ← Calcul du score
-├── data/
-│   └── .gitkeep                  ← Sera rempli automatiquement
-├── index.html                    ← Le dashboard
-├── run.py                        ← Script principal
+│   ├── france_amf.py             ← Déclarations AMF (France)
+│   ├── europe_insiders.py        ← FSMA (Belgique), AFM (Pays-Bas), Finansinspektionen (Suède)
+│   ├── insiderscreener.py        ← Allemagne, Espagne, Italie (API Insider Screener)
+│   ├── insider_history.py        ← Historique long France et Suède (workflow history.yml)
+│   ├── shorts.py, prices.py, events.py, financials.py ← ventes à découvert, cours, résultats, comptes
+├── euro_signal/                  ← Moteur (core.js, testé par tests.js) et calcul du soir (build.mjs)
+├── data/                         ← Rempli automatiquement chaque soir
+├── euro-signal.html              ← Le tableau de bord (index.html y renvoie)
+├── run.py                        ← Collecte AMF (étape 1 du workflow)
 ├── requirements.txt              ← Dépendances Python
 └── README.md                     ← Ce fichier
 ```
