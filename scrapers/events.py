@@ -145,6 +145,17 @@ def main():
         pairs = [(i, prices[i]["ticker"]) for i in prices] or pairs  # mêmes tickers que les cours
     except Exception:
         pass
+    # Prévisionnels : relus au plus une fois par semaine par titre (Euro Signal conserve le dernier relevé 30 jours)
+    try:
+        prev_fc = {k: (v or {}).get("asOf") for k, v in json.loads((DATA / "euro-signal-state.json").read_text(encoding="utf-8")).get("forecast", {}).items()}
+    except Exception:
+        prev_fc = {}
+    today_d = datetime.now(timezone.utc).date()
+    def fc_due(isin):
+        try:
+            return (today_d - datetime.fromisoformat(str(prev_fc.get(isin))[:10]).date()).days >= 6
+        except Exception:
+            return True
     print(f"Événements Yahoo : {len(pairs)} titres")
     for n, (isin, ticker) in enumerate(pairs, 1):
         t = yf.Ticker(ticker)
@@ -174,10 +185,11 @@ def main():
         except Exception:
             inf = {}
         rec["fund"] = fundamentals(t, inf) if inf else None
-        try:
-            rec["forecast"] = forecasts(t, inf)
-        except Exception:
-            rec["forecast"] = None
+        if fc_due(isin):
+            try:
+                rec["forecast"] = forecasts(t, inf)
+            except Exception:
+                rec["forecast"] = None
         items[isin] = rec
         time.sleep(0.4)
         if n % 20 == 0:
