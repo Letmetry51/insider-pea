@@ -100,7 +100,11 @@ function histOutcomeRaw(o, h) {
 
 export function build(opts = {}) {
   const today = opts.today || parisToday();
-  let cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, readRequired(F.config, {}, 'euro_signal/config.json'));
+  const cfgRaw = readRequired(F.config, {}, 'euro_signal/config.json');
+  // config.json porte les règles en vigueur (DG/DAF, sociétés exclues, gel jusqu'à la revue) : absent ou tronqué, on le signale
+  const cfgMissing = ['selection', 'rules', 'insiders', 'learning'].filter((k) => !cfgRaw || typeof cfgRaw[k] !== 'object');
+  if (cfgMissing.length) console.warn('  ATTENTION : euro_signal/config.json incomplet (' + cfgMissing.join(', ') + ') : valeurs par défaut du moteur utilisées');
+  let cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, cfgRaw);
   // Auto-apprentissage : poids appris les mois précédents (fichier public, journalisé), appliqués si le mode est « auto »
   const learnPrev = readJSON(F.learning, null);
   const baseVersion = cfg.scoringVersion;
@@ -878,6 +882,7 @@ export function build(opts = {}) {
     const rp = replay.length ? replay[replay.length - 1] : null;
     if (rp && rp.picks.some((x) => inst[x.isin] && inst[x.isin].peaStatus === 'non_eligible' && S.peaOnly !== false)) audit.push('rejeu : société hors PEA retenue le ' + rp.date);
   } catch (e) { audit.push('contrôle impossible : ' + e.message); }
+  if (cfgMissing.length) audit.unshift('configuration incomplète (' + cfgMissing.join(', ') + ') : règles par défaut du moteur appliquées');
   payload.run.audit = { at: today, checked: cands.length, issues: audit.slice(0, 50) };
   console.log('  Contrôle de la chaîne de décision : ' + (audit.length ? audit.length + ' anomalie(s) — ' + audit.slice(0, 3).join(' ; ') : 'aucune anomalie'));
   payload.history = { cov: hist.cov, n: hist.n, cut: hist.cut, outcomes: Object.keys(hist.outcomes).length, events: histEvents.length, persons: Object.keys(persons).length,
