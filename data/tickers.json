@@ -76,6 +76,13 @@
   "resolvedAt": "2026-10-10",
   "ticker": "BEKB.BR"
  },
+ "BE0974259880": {
+  "exchange": "Brussels Stock Exchange",
+  "method": "recherche Yahoo par ISIN",
+  "name": "D'Ieteren Group SA",
+  "resolvedAt": "2026-10-13",
+  "ticker": "DIE.BR"
+ },
  "BE0974278104": {
   "exchange": "Brussels Stock Exchange",
   "method": "recherche Yahoo par ISIN",
@@ -3089,6 +3096,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "IF.MI"
  },
+ "IT0003411417": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Italian Exhibition Group S.p.A.",
+  "resolvedAt": "2026-10-13",
+  "ticker": "IEG.MI"
+ },
  "IT0003492391": {
   "exchange": "Milan",
   "method": "recherche Yahoo par ISIN",
@@ -3267,6 +3281,13 @@
   "name": "Comer Industries S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "COM.MI"
+ },
+ "IT0005252736": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "First Capital S.p.A.",
+  "resolvedAt": "2026-10-13",
+  "ticker": "FIC.MI"
  },
  "IT0005262149": {
   "exchange": "Milan",

@@ -1,5 +1,5 @@
 {
- "at": "2026-10-12T02:44:02.127680+00:00",
+ "at": "2026-10-13T00:12:21.492366+00:00",
  "markets": {
   "DE": {
    "from": "2026-10-06",
@@ -1012,7 +1012,7 @@
     }
    ],
    "pages": 1,
-   "rows": 40,
+   "rows": 61,
    "complete": true,
    "error": null
   },
@@ -1333,7 +1333,7 @@
  },
  "credits": {
   "thisRun": 20,
-  "thisMonth": 650,
+  "thisMonth": 670,
   "monthlyBudget": 900
  }
 }

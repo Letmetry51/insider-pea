@@ -7,12 +7,12 @@
   ],
   [
    "2026-10-09",
-   "2026-10-12",
-   95
+   "2026-10-13",
+   96
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n12/10/2026 21:03:48;Prisjakt AB (publ);64884611QSN9AD2WC970;Aida Jammal Holding AB;Aida Jammal;Member of the Board of Directors;Yes;;;Yes;;Subscription;Share;Aktie;SE0028026757;07/10/2026 00:00:00;113286.0;Quantity;31.0;SEK;Outside a trading venue;Current;\r\n12/10/2026 21:0",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n12/10/2026 22:19:35;Gentoo Media Inc.;529900T8BM49AURSDO55;Mateusz Juroszek;Mateusz Juroszek;Member of the Board of Directors;;;;Yes;;Acquisition;Share;Gentoo Media Inc.;US36467X2062;12/10/2026 00:00:00;131715.0;Quantity;5.1726;SEK;NASDAQ STOCKHOLM AB;Current;\r\n12/10/2026 ",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 320,
+ "rowCount": 321,
  "sampleRows": [
   [
    "08/10/2026 23:04:28",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-12T19:50:33.617648+00:00"
+ "at": "2026-10-13T00:12:21.156847+00:00"
 }
