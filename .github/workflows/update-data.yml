@@ -98,6 +98,11 @@ jobs:
           ES_MAIL_READY: ${{ secrets.GMAIL_APP_PASSWORD != '' && 'oui' || 'non' }}
         run: node euro_signal/build.mjs
 
+      - name: 5c. Archive permanente des résultats et rachats (jamais effacée)
+        timeout-minutes: 5
+        run: python scrapers/event_archive.py
+        continue-on-error: true
+
       - name: 6. Alertes email (Gmail)
         timeout-minutes: 10
         env:
