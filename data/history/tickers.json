@@ -1877,6 +1877,12 @@
   "name": "MINT Société anonyme",
   "ticker": "ALMIN.PA"
  },
+ "FR0004174233": {
+  "at": "2026-10-14",
+  "exchange": "Paris",
+  "name": "Bilendi SA",
+  "ticker": "ALBLD.PA"
+ },
  "FR0004175099": {
   "at": "2026-10-11",
   "ticker": null
