@@ -44,6 +44,7 @@ jobs:
         run: |
           pip install pytrends || true
           python scrapers/sectors.py --weekly
+          python scrapers/seasonality.py --monthly || true
         continue-on-error: true
       - name: Collecte de l'historique et résultats des achats
         env:
@@ -64,6 +65,7 @@ jobs:
           mkdir -p data/history data/diagnostics && touch data/diagnostics/history-probe.txt
           git add data/history data/diagnostics/history-probe.txt
           if [ -d data/sectors ]; then git add data/sectors; fi
+          if [ -f data/seasonality.json ]; then git add data/seasonality.json; fi
           if git diff --staged --quiet; then
             echo "Pas de changement"
           else

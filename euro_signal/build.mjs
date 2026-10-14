@@ -17,7 +17,7 @@ const DATA = path.join(ROOT, 'data');
 const F = {
   latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), shorts: path.join(DATA, 'shorts.json'), financials: path.join(DATA, 'financials.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
   history: path.join(DATA, 'history'), insiders: path.join(DATA, 'euro-signal-insiders.json'),
-  out: path.join(DATA, 'euro-signal.json'), detail: path.join(DATA, 'euro-signal-detail.json'), long: path.join(DATA, 'euro-signal-long.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
+  out: path.join(DATA, 'euro-signal.json'), sectors: path.join(DATA, 'sectors.json'), journal: path.join(DATA, 'history', 'journal.json.gz'), detail: path.join(DATA, 'euro-signal-detail.json'), long: path.join(DATA, 'euro-signal-long.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
 // NaN / Infinity écrits par Python : remplacés seulement en position de valeur (jamais dans un texte)
@@ -921,6 +921,55 @@ export function build(opts = {}) {
   if (cfgMissing.length) audit.unshift('configuration incomplète (' + cfgMissing.join(', ') + ') : règles par défaut du moteur appliquées');
   payload.run.audit = { at: today, checked: cands.length, issues: audit.slice(0, 50) };
   console.log('  Contrôle de la chaîne de décision : ' + (audit.length ? audit.length + ' anomalie(s) — ' + audit.slice(0, 3).join(' ; ') : 'aucune anomalie'));
+  /* Convergence, journal de bord et étude historique du plan d'entrée */
+  try {
+    const secRaw = readJSON(F.sectors, null), gByKey = {};
+    ((secRaw && secRaw.groups) || []).forEach((g) => { gByKey[g.key] = g; });
+    const nG = Object.keys(gByKey).length, from30 = ES.addDays(today, -(((cfg.selection || {}).recentDays) || 30));
+    Object.keys(inst).forEach((isin) => {
+      const x = inst[isin], f = x.fund || {};
+      const g = nG ? gByKey[f.industry] || gByKey['Autres : ' + (f.sector || x.sector)] : null;
+      if (g) x.sectorTrend = { key: g.key, rank: g.rank, of: nG, trending: !!g.trending, emerging: !!g.emerging };
+      const buys = ES.countedBuys(tx[isin], refs[isin] || {}, cfg);
+      const cv = ES.convergence({ dgRecent: buys.some((t) => (t.ceo || t.cfo) && ES.availDate(t) >= from30), sectorTrend: x.sectorTrend || null,
+        revision30d: Number.isFinite(+x.revision30d) && x.revision30d !== null ? +x.revision30d : null, plan: x.plan || null });
+      x.convergence = { n: cv.n, known: cv.known }; // détail recalculé par le tableau de bord (fichier léger)
+    });
+  } catch (e) { console.warn('  Convergence non calculée : ' + e.message); }
+  // Étude historique : plan recalculé chaque semaine sur 2 ans de cours (sans regard vers le futur), comparé à l'indice européen
+  let planStudy = null;
+  try {
+    if (mAdj0) { const t0 = Date.now(); planStudy = ES.planStudy(adjAll, mAdj0, { step: 5, horizons: [20, 60], costPct: cfg.backtest.costRoundTripPct }); planStudy.ms = Date.now() - t0; }
+  } catch (e) { console.warn('  Étude du plan d\'entrée impossible : ' + e.message); }
+  // Journal de bord : relevé du soir (verdict, figure, convergence) et résultats 20 et 60 séances plus tard
+  let journal = null;
+  try {
+    const J = readGz(F.journal, { entries: [] });
+    // un relevé par semaine (le premier soir de la semaine) : historique léger, résultats comparables
+    const wk = (d) => { const t = new Date(d + 'T12:00:00Z'), day = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - day); return t.toISOString().slice(0, 10); };
+    const entries = (J.entries || []).filter((e) => e && e.d && e.d >= ES.addMonths(today, -26));
+    const weekDone = entries.some((e) => wk(e.d) === wk(today));
+    if (!weekDone) Object.keys(inst).forEach((isin) => { const x = inst[isin]; if (x.plan && adjAll[isin] && adjAll[isin].length) entries.push({ d: today, i: isin, p: +adjAll[isin][adjAll[isin].length - 1][4].toPrecision(6), v: x.plan.verdict, f: ES.figureKey(x.plan.wedge) || 'none', c: x.convergence ? x.convergence.n : null, k: x.convergence ? x.convergence.known : null }); });
+    J.entries = entries; J.since = J.since || today;
+    const mIdx = {}; if (mAdj0) mAdj0.forEach((r, k) => { mIdx[r[0]] = k; });
+    const res = { since: J.since, days: new Set(entries.map((e) => e.d)).size, entries: entries.length, byConv: {} };
+    [20, 60].forEach((h) => {
+      const acc = {};
+      entries.forEach((e) => {
+        const a = adjAll[e.i]; if (!a || !mAdj0) return;
+        let k = -1; for (let q = a.length - 1; q >= 0; q--) if (a[q][0] <= e.d) { k = q; break; }
+        const mk = mIdx[a[k] && a[k][0]]; if (k < 0 || mk == null || k + h >= a.length || mk + h >= mAdj0.length) return;
+        const x = Math.max(-0.6, Math.min(1.5, a[k + h][4] / a[k][4] - 1)) - (mAdj0[mk + h][4] / mAdj0[mk][4] - 1);
+        const g = e.c == null ? 'n.d.' : e.c >= 3 ? '3 et plus' : String(e.c);
+        (acc[g] = acc[g] || []).push(x);
+      });
+      Object.keys(acc).forEach((g) => { const v = acc[g]; (res.byConv[g] = res.byConv[g] || {})['h' + h] = { n: v.length, mean: +(v.reduce((s2, y) => s2 + y, 0) / v.length * 100).toFixed(2), beatPct: Math.round(v.filter((y) => y > 0).length / v.length * 100) }; });
+    });
+    journal = res;
+    if (!opts.dryRun) { fs.mkdirSync(path.dirname(F.journal), { recursive: true }); fs.writeFileSync(F.journal, zlib.gzipSync(JSON.stringify(J))); }
+  } catch (e) { console.warn('  Journal de bord indisponible : ' + e.message); }
+  payload.planStudy = planStudy; payload.journal = journal;
+  if (planStudy) console.log('  Plan d\'entrée reconstitué : ' + planStudy.obs + ' relevés du ' + planStudy.from + ' au ' + planStudy.to + ' (' + (planStudy.ms / 1000).toFixed(0) + ' s)');
   payload.history = { cov: hist.cov, n: hist.n, cut: hist.cut, outcomes: Object.keys(hist.outcomes).length, events: histEvents.length, persons: Object.keys(persons).length,
     study: histStudy, insidersFile: 'data/euro-signal-insiders.json' };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });

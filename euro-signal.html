@@ -374,7 +374,8 @@ svg .mk-old{stroke:var(--surface);stroke-width:1.5}svg .mk-ok{fill:var(--good)}s
 .grplist{list-style:none;margin:8px 0 0;padding:0}.grplist li.grp{border-bottom:1px solid var(--line);padding:8px 0}.grplist li p{margin:2px 0}
 .rk{display:inline-block;min-width:1.8em;font:600 .8rem var(--mono);color:var(--muted)}.mv{font:600 .78rem var(--mono)}.mv.pos,.pos{color:var(--good)}.mv.neg,.neg{color:var(--bad)}
 .grp-h{margin:0 0 4px}.fig{display:inline-block;font-size:.72rem;font-weight:600;margin-top:2px;white-space:nowrap}.fig.good{color:var(--good)}.fig.bad{color:var(--bad)}.fig.neutral{color:var(--muted)}table.st td{white-space:nowrap}table.st th:first-child{white-space:normal}
-.plan .why li{font-size:.86rem}.plan .whyh{margin:10px 0 0;text-transform:uppercase;letter-spacing:.04em;font-weight:600}.plan .small,.small{font-size:.8rem}.plan b.pos{color:var(--good)}.plan b.neg{color:var(--bad)}
+.plan .why li{font-size:.86rem}.convbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;margin:8px 0}.convbox ul{list-style:none;padding:0;margin:4px 0 0;font-size:.86rem}.convbox li.ok::before{content:"✓ ";color:var(--good);font-weight:700}.convbox li.ko::before{content:"✗ ";color:var(--bad)}.convbox li.na{color:var(--muted)}.convbox li.na::before{content:"– "}
+.fig.conv{color:var(--accent)}.fig.conv.c3,.fig.conv.c4{background:var(--accent-soft);padding:0 6px;border-radius:10px}.watch{margin:10px 0}.watch summary{cursor:pointer;font-weight:600;font-size:.9rem}.watch .row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.watch input{flex:1 1 180px}.plan .whyh{margin:10px 0 0;text-transform:uppercase;letter-spacing:.04em;font-weight:600}.plan .small,.small{font-size:.8rem}.plan b.pos{color:var(--good)}.plan b.neg{color:var(--bad)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
 .cmpline{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--neutral-soft);font-size:.9rem}
@@ -2084,6 +2085,75 @@ details.pos summary{font-size:1rem}
     if (w.key) return w.key;
     return w.type === 'channel' ? 'channel-' + (w.slopeUpPct > 0.02 ? 'up' : w.slopeUpPct < -0.02 ? 'down' : 'flat') : w.type;
   };
+  /**
+   * Convergence : 5 signaux indépendants croisés pour une société. Chaque élément vaut true, false ou null (inconnu).
+   *  dg        achat du DG ou du DAF dans les `recentDays` derniers jours ;
+   *  sector    secteur en tendance ou émergent (classement des secteurs, univers complet) ;
+   *  revisions prévisions de bénéfice des analystes relevées d'au moins 1 % sur 30 jours ;
+   *  plan      plan d'entrée « achat possible » ;
+   *  figure    figure de tendance haussière (canal haussier, biseau descendant).
+   */
+  ES.convergence = function (o) {
+    o = o || {};
+    var st = o.sectorTrend, rv = o.revision30d, p = o.plan, fk = p ? ES.figureKey(p.wedge) : null;
+    var items = [
+      { key: 'dg', label: 'Achat du DG ou du DAF récent', ok: o.dgRecent == null ? null : !!o.dgRecent },
+      { key: 'sector', label: st ? 'Secteur ' + (st.trending ? 'en tendance' : st.emerging ? 'émergent' : 'hors tendance') + ' (' + st.rank + 'e sur ' + st.of + ')' : 'Secteur : classement indisponible', ok: st ? !!(st.trending || st.emerging) : null },
+      { key: 'revisions', label: rv == null || !isFinite(rv) ? 'Révisions des analystes : n.d.' : 'Analystes : prévisions ' + (rv >= 0 ? 'relevées' : 'abaissées') + ' de ' + Math.abs(+rv).toFixed(1).replace('.', ',') + ' % en 30 jours', ok: rv == null || !isFinite(rv) ? null : rv >= 1 },
+      { key: 'plan', label: p ? 'Plan d\'entrée : ' + (p.label || p.verdict) : 'Plan d\'entrée : n.d.', ok: p ? p.verdict === 'buyNow' : null },
+      { key: 'figure', label: fk && ES.FIGURES[fk] ? 'Figure : ' + ES.FIGURES[fk][1].toLowerCase() : 'Figure : n.d.', ok: fk ? ES.FIGURES[fk][2] === 'good' : null }
+    ];
+    var n = items.filter(function (x) { return x.ok === true; }).length, known = items.filter(function (x) { return x.ok !== null; }).length;
+    return { n: n, known: known, of: items.length, items: items };
+  };
+  /**
+   * Étude historique du plan d'entrée (reconstitution, aucune donnée postérieure à chaque date) :
+   * series : { isin: lignes ajustées [[d,o,h,l,c,v]] }, bench : lignes ajustées de l'indice ; toutes les `step` séances,
+   * plan recalculé avec les cours connus ce jour-là, puis écart à l'indice à `horizons` séances.
+   * Regroupe par verdict du plan et par figure : n, écart moyen, part qui bat l'indice, t (moyennes par date, corrigé du recouvrement).
+   */
+  ES.planStudy = function (series, bench, opts) {
+    opts = opts || {};
+    var step = opts.step || 5, H = opts.horizons || [20, 60], minHist = opts.minHist || 140, cost = (opts.costPct || 0) / 100;
+    var bIdx = {}; (bench || []).forEach(function (r, k) { bIdx[r[0]] = k; });
+    var obs = [];
+    Object.keys(series || {}).forEach(function (isin) {
+      var a = series[isin]; if (!a || a.length < minHist + H[0]) return;
+      for (var k = minHist; k < a.length - H[0]; k += step) {
+        var d = a[k][0], bk = bIdx[d]; if (bk == null) continue;
+        var pl; try { pl = ES.entryPlan(a.slice(Math.max(0, k - 259), k + 1)); } catch (e) { pl = null; }
+        if (!pl) continue;
+        var o = { d: d, v: pl.verdict, f: ES.figureKey(pl.wedge) || 'none' };
+        H.forEach(function (h) {
+          // rendement borné à −60 % / +150 % : une erreur de cours (regroupement non ajusté…) ne fait pas le résultat
+          if (k + h < a.length && bk + h < bench.length && bench[bk + h][0] === a[k + h][0]) o['x' + h] = Math.max(-0.6, Math.min(1.5, a[k + h][4] / a[k][4] - 1)) - cost - (bench[bk + h][4] / bench[bk][4] - 1);
+        });
+        obs.push(o);
+      }
+    });
+    var group = function (keyFn) {
+      var out = {};
+      H.forEach(function (h) {
+        var byDate = {}, all = {};
+        obs.forEach(function (o) {
+          var x = o['x' + h]; if (x == null || !isFinite(x)) return;
+          (all[o.d] = all[o.d] || []).push(x);
+          var g = keyFn(o); ((byDate[g] = byDate[g] || {})[o.d] = byDate[g][o.d] || []).push(x);
+        });
+        Object.keys(byDate).forEach(function (g) {
+          var diffs = [], xs = [], beat = 0;
+          Object.keys(byDate[g]).forEach(function (d) { var v = byDate[g][d]; v.forEach(function (x) { xs.push(x); if (x > 0) beat++; }); diffs.push(mean(v) - mean(all[d])); });
+          var md = mean(diffs), sd = diffs.length > 1 ? Math.sqrt(diffs.reduce(function (s, x) { return s + (x - md) * (x - md); }, 0) / (diffs.length - 1)) : null;
+          var t = sd ? md / (sd / Math.sqrt(diffs.length)) / Math.sqrt(Math.max(1, h / step)) : null; // recouvrement des fenêtres : t réduit
+          var srt = xs.slice().sort(function (p1, p2) { return p1 - p2; }), med = srt.length % 2 ? srt[(srt.length - 1) / 2] : (srt[srt.length / 2 - 1] + srt[srt.length / 2]) / 2;
+          (out[g] = out[g] || {})['h' + h] = { n: xs.length, dates: diffs.length, mean: +(mean(xs) * 100).toFixed(2), median: +(med * 100).toFixed(2), vsAll: +(md * 100).toFixed(2), beatPct: Math.round(beat / xs.length * 100), t: t == null ? null : +t.toFixed(2) };
+        });
+      });
+      return out;
+    };
+    var ds = obs.map(function (o) { return o.d; }).sort();
+    return { from: ds[0] || null, to: ds[ds.length - 1] || null, obs: obs.length, step: step, horizons: H, byVerdict: group(function (o) { return o.v; }), byFigure: group(function (o) { return o.f; }) };
+  };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
     var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
@@ -3690,6 +3760,12 @@ details.pos summary{font-size:1rem}
   }
   function figOf(i) { var p = planFor(i); return p ? ES.figureKey(p.wedge) : null; }
   function planVerdict(i) { var p = planFor(i); return p ? p.verdict : null; }
+  function convOf(i) {
+    var x = S.inst[i]; if (!x) return null;
+    var g = dgInfo(i);
+    return ES.convergence({ dgRecent: g ? !!g.recent : false, sectorTrend: x.sectorTrend || null, revision30d: Number.isFinite(+x.revision30d) && x.revision30d !== null ? +x.revision30d : null, plan: planFor(i) });
+  }
+  function convChip(i) { var c = convOf(i); if (!c || c.n < 2) return ''; return ' <span class="fig conv c' + Math.min(c.n, 4) + '" title="' + esc(c.items.filter(function (x) { return x.ok; }).map(function (x) { return x.label; }).join(' · ')) + '">🎯 ' + c.n + '/' + c.of + '</span>'; }
   function figChip(i) { var k = figOf(i); if (!k || k === 'none') return ''; var F = ES.FIGURES[k]; return ' <span class="fig ' + F[2] + '" title="Figure des 3 derniers mois">' + F[0] + ' ' + F[1] + '</span>'; }
   function vClassement() {
     var f = S.filters, keys = Object.keys(S.inst).filter(function (i) { return !S.inst[i].benchmark; });
@@ -3703,6 +3779,7 @@ details.pos summary{font-size:1rem}
       buys: ['Avec achats de dirigeants', function (c) { return c.score.buys.length > 0; }],
       deep: ['Décote ≥ ' + W.discountBigPct + ' %', function (c) { return c.score.discount && c.score.discount.pct >= W.discountBigPct; }],
       dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (c, i) { var g = dgInfo(i); return !!(g && g.recent); }],
+      conv3: ['Convergence ≥ 3 sur 5', function (c, i) { var v = convOf(i); return !!(v && v.n >= 3); }],
       fs8: ['F-score 8 ou 9', function (c, i) { var a = S.inst[i] && S.inst[i].accounts; return !!(a && a.fscore && !a.fscore.na && a.fscore.f9 >= 8); }],
       all: ['Tous les titres', function () { return true; }]
     };
@@ -3777,7 +3854,7 @@ details.pos summary{font-size:1rem}
     list.slice(0, S.limit).forEach(function (i) {
       var x = S.inst[i], c = S.computed[i], d = c.score.discount, r = d && (S.refs[i] || {})[d.id];
       var who = d ? 'payé ' + fmtN(d.paid) + ' le ' + shortDate(d.date) + ' · ' + esc(shortName(d.person)) + (d.ceo ? ' (DG/DAF)' : '') : (c.score.buys.length ? c.score.buys.length + ' achat(s), cours indisponibles' : 'aucun achat récent');
-      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + figChip(i) + '</td>' +
+      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + figChip(i) + convChip(i) + '</td>' +
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
         '<td data-l="Prix payé ○ / cours ■">' + rangeBar(r && r.today && r.today.paidPos52 != null ? r.today.paidPos52 : d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
@@ -3929,6 +4006,16 @@ details.pos summary{font-size:1rem}
       '<div class="row mt"><button data-a="posBuy" data-i="' + i + '">Préparer l\'email « Je l\'ai acheté »</button><button class="ghost" data-a="posSell" data-i="' + i + '">Je l\'ai vendu : arrêter le suivi</button></div>' +
       '<p class="foot">L\'email s\'ouvre dans votre messagerie : il suffit de l\'envoyer (renvoyez-en un pour changer l\'objectif).</p></details></section>';
     return h;
+  }
+  function watchMail(i, on) {
+    var x = S.inst[i], e = document.getElementById('watch-email'), to = e ? String(e.value || '').trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { notify('Indiquez votre adresse Gmail (celle configurée dans Euro Signal).', 'warn'); return; }
+    lsSet('email', to);
+    var subject = '[Euro Signal] ' + (on ? 'Surveiller ' : 'Ne plus surveiller ') + i;
+    var body = 'Société : ' + (x && x.name || i) + '\nISIN : ' + i + '\nDate : ' + S.today + '\n\n(' + (on ? 'Euro Signal vous préviendra quand le plan d\'entrée se déclenche.' : 'Fin de la surveillance du plan d\'entrée.') + ' Email lu automatiquement chaque soir. Ne pas modifier l\'objet.)';
+    var url = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    if (window.__esMailHook) { window.__esMailHook(url); return; }
+    window.location.href = url;
   }
   function posMail(i, kind) {
     var x = S.inst[i], v = function (id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
@@ -4121,7 +4208,19 @@ details.pos summary{font-size:1rem}
     var ob = obsKey && S.snapshot && S.snapshot.learning && (S.snapshot.learning.observe || []).filter(function (o) { return o.feature === obsKey; })[0];
     var hz = (S.cfg.learning && S.cfg.learning.horizon) || 60;
     var obs = ob && ob.nWith ? '<p class="small">📏 Sur nos données, achats de dirigeants faits ' + (obsKey === 'breakout' ? 'juste après une cassure' : 'près d\'un support') + ' : ' + pct(ob.meanWith) + ' par rapport à l\'indice ' + hz + ' séances plus tard, contre ' + pct(ob.meanWithout) + ' pour les autres (' + ob.nWith + ' cas' + (/^en observation/.test(ob.action || '') ? ', mesure en cours' : ', ' + esc(ob.action)) + ').</p>' : '';
-    return '<div class="plan ' + V[0] + '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' + V[1] + ' <b>' + esc(plan.label) + '</b></p>' +
+    var inEs = !!S.inst[isin], cv = inEs ? convOf(isin) : null;
+    var convH = cv ? '<div class="convbox"><b>🎯 Convergence : ' + cv.n + ' signa' + (cv.n > 1 ? 'ux' : 'l') + ' sur ' + cv.of + '</b><ul>' + cv.items.map(function (x) { return '<li class="' + (x.ok === true ? 'ok' : x.ok === false ? 'ko' : 'na') + '">' + esc(x.label) + '</li>'; }).join('') + '</ul></div>' : '';
+    var PS = S.snapshot && S.snapshot.planStudy, histH = '';
+    if (PS && PS.byVerdict) {
+      var hv = PS.byVerdict[plan.verdict] && PS.byVerdict[plan.verdict].h60, fk = ES.figureKey(plan.wedge), hf = fk && PS.byFigure[fk] && PS.byFigure[fk].h60;
+      var hl = function (lbl, r) { return r && r.n >= 30 ? '<li>' + lbl + ' : ' + pct(r.mean) + ' en moyenne face à l\'indice 60 séances plus tard (médiane ' + pct(r.median) + ', ' + r.beatPct + ' % battent l\'indice, ' + r.n + ' cas) ; ' + (r.vsAll >= 0 ? '+' : '') + String(r.vsAll).replace('.', ',') + ' point' + (Math.abs(r.vsAll) >= 2 ? 's' : '') + ' par rapport à l\'ensemble des sociétés' + (r.t != null && Math.abs(r.t) >= 2 ? ' (écart net)' : ' (écart non significatif)') + '.</li>' : ''; };
+      var lines = hl('Plans « ' + esc(plan.label) + ' »', hv) + (fk && fk !== 'none' ? hl('Figures « ' + esc(ES.FIGURES[fk][1].toLowerCase()) + ' »', hf) : '');
+      if (lines) histH = '<p class="small whyh">Par le passé (plan recalculé chaque semaine du ' + shortDate(PS.from) + ' au ' + shortDate(PS.to) + ', frais inclus)</p><ul class="why">' + lines + '</ul>';
+    }
+    var em = lsGet('email', '');
+    var watchH = inEs ? '<details class="watch"><summary>🔔 Me prévenir pour ce plan</summary><p class="small">Un email vous prévient quand le cours entre dans la zone d\'achat, casse sa résistance ou la droite haute du biseau, ou passe sous le stop. Comme pour vos positions, rien n\'est publié : le bouton prépare un email à vous-même.</p>' +
+      '<div class="row"><input id="watch-email" type="email" autocomplete="email" value="' + esc(em) + '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button data-a="watchOn" data-i="' + esc(isin) + '">Surveiller</button><button class="ghost" data-a="watchOff" data-i="' + esc(isin) + '">Ne plus surveiller</button></div></details>' : '';
+    return '<div class="plan ' + V[0] + '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' + V[1] + ' <b>' + esc(plan.label) + '</b></p>' + convH +
       planChart(isin, adj, plan) + (function () { var o = plan.osc || (function () { try { return ES.oscillators(adj); } catch (e) { return null; } })(); if (!o) return '';
       return '<p class="small wdg">📶 RSI 14 jours : <b>' + fmtN(o.rsi, 0) + '</b> (' + o.zone + ') · MACD ' + (o.above ? 'au-dessus' : 'en dessous') + ' de sa ligne de signal' +
         (o.cross ? ' (croisement ' + (o.cross === 'up' ? 'haussier' : 'baissier') + (o.crossAgo ? ' il y a ' + o.crossAgo + ' séance' + (o.crossAgo > 1 ? 's' : '') : ' aujourd\'hui') + ')' : '') + '. <span class="muted">Repères de timing, mesurés en observation.</span></p>'; })() + (function () { var w = plan.wedge || (function () { try { return ES.wedge(adj); } catch (e) { return null; } })(); if (!w || w.type === 'none') return '';
@@ -4129,7 +4228,7 @@ details.pos summary{font-size:1rem}
       return '<p class="small wdg">📐 <b>' + esc(w.label) + '</b> : ' + esc(w.reading) + '. Droite haute ≈ <b>' + f2(w.upperNow) + '</b>, droite basse ≈ <b>' + f2(w.lowerNow) + '</b> aujourd\'hui' +
         (w.apexIn ? ' ; les droites se rejoignent dans environ ' + w.apexIn + ' séances, la sortie se fait en général avant.' : '.') + '</p>'; })() + '<ul class="sc">' + line(pr, true) + (plan.alt ? line(plan.alt, false) : '') + '</ul>' +
       (plan.why && plan.why.length ? '<p class="small muted whyh">Pourquoi</p><ul class="why">' + plan.why.map(function (w) { return '<li>' + esc(w.charAt(0).toUpperCase() + w.slice(1)) + '</li>'; }).join('') + '</ul>' : '') + obs +
-      '<p class="muted small">Analyse technique classique (supports, résistances, moyennes mobiles), pas encore validée sur l\'historique Euro Signal : son effet est mesuré au fil des achats. Le cône montre l\'amplitude probable des variations d\'ici 3 mois si la volatilité récente se maintient (' + (plan.volYearPct != null ? plan.volYearPct + ' % par an' : 'n.d.') + '), sans prévoir la direction. Ce n\'est pas un conseil en investissement.</p></div>';
+      histH + watchH + '<p class="muted small">Analyse technique classique (supports, résistances, moyennes mobiles), pas encore validée sur l\'historique Euro Signal : son effet est mesuré au fil des achats. Le cône montre l\'amplitude probable des variations d\'ici 3 mois si la volatilité récente se maintient (' + (plan.volYearPct != null ? plan.volYearPct + ' % par an' : 'n.d.') + '), sans prévoir la direction. Ce n\'est pas un conseil en investissement.</p></div>';
   }
 
   function txSection(i, sc) {
@@ -4655,6 +4754,53 @@ details.pos summary{font-size:1rem}
         '<p class="foot">👔 DG ou DAF · 👥 plusieurs dirigeants · 🏷️ forte décote · 😱 achat dans la panique · 🧭 achat inhabituel · 🔁 achat habituel · 🏅 palmarès du dirigeant · 💪 achat record · 📊 F-score · 🛡️ bilan (Altman, Beneish) · 🔮 prévisions des analystes · 📐 support et résistance · 💶 / 💸 moins chère / plus chère que ses pairs · 🏛️ société contrôlée · <b class="neg">⚠️ ventes à découvert</b> · ⚡ duel avec les vendeurs à découvert · 🔻 cours en repli · 📈 tendance haussière · 🩺 fragile · 🚫 hors PEA · 📅 résultats. Les étoiles mesurent la force du signal ; l\'avis tient compte des risques.</p>');
     return h + '</section>';
   }
+  function vJournal() {
+    var PS = S.snapshot && S.snapshot.planStudy, J = S.snapshot && S.snapshot.journal, h = '';
+    var VL = { buyNow: '✅ Achat possible', waitSupport: '⏳ Attendre un rebond', waitBreakout: '⏳ Attendre une cassure', avoid: '⛔ Ne pas acheter' };
+    var tbl = function (obj, label) {
+      return '<table class="cmp st"><thead><tr><th>' + label + '</th><th>Cas</th><th>20 séances</th><th>60 séances</th><th>vs ensemble</th><th>t</th></tr></thead><tbody>' + Object.keys(obj).sort(function (a, b) { return ((obj[b].h60 || {}).vsAll || -99) - ((obj[a].h60 || {}).vsAll || -99); }).map(function (k) {
+        var a = obj[k].h20 || {}, b = obj[k].h60 || {};
+        return '<tr><th>' + esc(label === 'Figure' ? (ES.FIGURES[k] ? ES.FIGURES[k][0] + ' ' + ES.FIGURES[k][1] : k) : (VL[k] || k)) + '</th><td>' + (b.n || a.n || 0) + '</td><td>' + (a.mean != null ? pct(a.mean) : 'n.d.') + '</td><td>' + (b.mean != null ? pct(b.mean) : 'n.d.') + '</td><td class="' + ((b.vsAll || 0) >= 0 ? 'pos' : 'neg') + '">' + (b.vsAll != null ? pct(b.vsAll) : 'n.d.') + '</td><td>' + (b.t != null ? fmtN(b.t, 1) : '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    };
+    if (PS && PS.byVerdict) {
+      h += '<p class="small">Le plan d\'entrée et la figure sont recalculés chaque semaine du ' + shortDate(PS.from) + ' au ' + shortDate(PS.to) + ' avec les seuls cours connus ce jour-là (' + PS.obs + ' relevés), puis comparés à l\'indice européen 20 et 60 séances plus tard, frais inclus. « vs ensemble » : écart avec la moyenne de toutes les sociétés aux mêmes dates ; t corrigé du recouvrement des périodes (|t| ≥ 2 : écart net).</p>' +
+        tbl(PS.byVerdict, 'Plan') + tbl(PS.byFigure, 'Figure');
+    } else h += '<p class="muted small">Étude disponible après la mise à jour du soir.</p>';
+    if (J) {
+      var ks = Object.keys(J.byConv || {});
+      h += '<h4>Convergence (relevé chaque semaine depuis le ' + shortDate(J.since) + ')</h4>' + (ks.length ? '<table class="cmp st"><thead><tr><th>Signaux</th><th>Cas</th><th>20 séances</th><th>60 séances</th></tr></thead><tbody>' + ks.sort().reverse().map(function (k) { var a = J.byConv[k].h20 || {}, b = J.byConv[k].h60 || {}; return '<tr><th>' + esc(k) + ' sur 5</th><td>' + (a.n || 0) + '</td><td>' + (a.mean != null ? pct(a.mean) + ' · ' + a.beatPct + ' %' : 'en cours') + '</td><td>' + (b.mean != null ? pct(b.mean) + ' · ' + b.beatPct + ' %' : 'en cours') + '</td></tr>'; }).join('') + '</tbody></table>'
+        : '<p class="small muted">' + J.entries + ' relevés enregistrés ; premiers résultats 20 séances (un mois) après le premier relevé.</p>');
+    }
+    return h;
+  }
+  /* Saisonnalité sur 30 ans d'indices (data/seasonality.json, recalculé chaque mois) */
+  function loadSeason() {
+    if (S.seaLoading || S.seaLoaded) return;
+    S.seaLoading = true;
+    fetch('data/seasonality.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      if (!d || d.format !== 'euro-signal-seasonality') throw new Error('format');
+      S.sea = defang(d); S.seaLoaded = true; S.seaLoading = false; if (S.view === 'aide') render();
+    }).catch(function () { S.seaLoaded = true; S.seaLoading = false; S.sea = null; if (S.view === 'aide') render(); });
+  }
+  function vSeason() {
+    if (!S.seaLoaded) { loadSeason(); return '<p class="muted small">Chargement…</p>'; }
+    var d = S.sea; if (!d || !d.indices || !d.indices.length) return '<p class="muted small">Étude disponible après le prochain calcul de nuit.</p>';
+    var R = d.rule || {}, f2 = function (v) { return v == null ? 'n.d.' : String(v.toFixed(2)).replace('.', ','); }, cl = function (v) { return v == null ? '' : v >= 0 ? 'pos' : 'neg'; };
+    var h = '<p class="small">Règle testée, fixée à l\'avance : investi à <b>' + Math.round((R.septOct || 0.4) * 100) + ' %</b> en septembre-octobre, <b>' + Math.round((R.novJan || 1) * 100) + ' %</b> de novembre à janvier, <b>' + Math.round((R.other || 0.8) * 100) + ' %</b> le reste de l\'année, frais inclus. ' +
+      'Comparaison juste : face à une exposition <b>constante</b> de même moyenne (une règle moins investie a forcément moins de risque), et face aux 11 autres positions possibles du même profil dans le calendrier.</p>' +
+      '<div class="convbox small">' + esc(d.verdict || '') + '</div>';
+    h += '<table class="cmp st"><thead><tr><th>Indice</th><th>Sept.-oct. / autres mois</th><th>Sharpe règle / constante</th><th>Écart par an (t)</th></tr></thead><tbody>' +
+      d.indices.map(function (x) { var a = x.last30; if (!a) return ''; var so = a.septOct || {}, rv = a.ruleVsConstant || {};
+        return '<tr><th>' + esc(x.name) + '<small>' + esc(a.from.slice(0, 4)) + '-' + esc(a.to.slice(0, 4)) + '</small></th><td><span class="' + cl(so.mean) + '">' + pc100(so.mean) + '</span> / <span class="' + cl(so.rest) + '">' + pc100(so.rest) + '</span><small>t ' + f2(so.t) + '</small></td>' +
+          '<td><b>' + f2(a.rule && a.rule.sharpe) + '</b> / ' + f2(a.constant && a.constant.sharpe) + (a.placebo && a.placebo.rank != null ? '<small>rang ' + a.placebo.rank + ' / ' + a.placebo.of + '</small>' : '') + '</td><td><span class="' + cl(rv.meanPerYear) + '">' + pc100(rv.meanPerYear) + '</span><small>t ' + f2(rv.t) + '</small></td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="small muted">Sharpe : rendement annuel divisé par la volatilité. « Écart par an » : gain de la règle sur l\'exposition constante ; |t| < 2 = pas net. « Rang » : place du vrai calendrier parmi les 12 décalages possibles du même profil.</p>';
+    var M = d.indices[0].last30 && d.indices[0].last30.byMonth;
+    if (M) h += '<p class="small whyh">Rendement moyen par mois (30 ans ; en gras si |t| ≥ 2,9, seuil corrigé pour 12 mois testés)</p><table class="cmp st"><thead><tr><th>Mois</th>' + d.indices.map(function (x) { return '<th>' + esc(x.name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      M.map(function (m, k) { return '<tr><th>' + esc(m.label) + '</th>' + d.indices.map(function (x) { var c = x.last30 && x.last30.byMonth[k]; if (!c) return '<td>n.d.</td>'; var v = pc100(c.mean); return '<td class="' + cl(c.mean) + '">' + (Math.abs(c.t || 0) >= 2.9 ? '<b>' + v + '</b>' : v) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+    h += '<p class="small muted">Indices ' + d.indices.map(function (x) { return esc(x.name) + ' : ' + esc(x.note); }).join(' ; ') + '. La partie non investie ne rapporte rien. Recalculé chaque mois ; dernier calcul le ' + shortDate(String(d.generatedAt || '').slice(0, 10)) + '.</p>';
+    return h;
+  }
   function vAide() {
     var c = S.cfg, h = '<h2 class="vt">Comment ça marche</h2>' + proofCard();
     h += '<section class="card"><h3>Chaque soir, en 4 étapes</h3><ol class="steps">' +
@@ -4666,6 +4812,8 @@ details.pos summary{font-size:1rem}
     var nD = 0, det = function (title, body) { return '<details class="card fold" data-k="aide' + (nD++) + '"><summary>' + title + '</summary>' + body + '</details>'; };
     h += det('Barème actuel (version ' + esc(c.scoringVersion) + ')', baremeTable());
     h += det('État des données', vSources());
+    h += det('📓 Journal de bord du plan d\'entrée et de la convergence', vJournal());
+    h += det('🍂 Saisonnalité : faut-il moins investir en septembre-octobre ?', vSeason());
     h += det('Résultats passés et auto-apprentissage', vValidation());
     h += det('Titres suivis', vUnivers());
     return h;
@@ -4712,6 +4860,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'figLoad') { loadDetail(); var yl = window.scrollY; render(); window.scrollTo(0, yl); }
     else if (a === 'fClear') { S.filters.figures = []; S.filters.plans = []; S.limit = 50; var yc = window.scrollY; render(); window.scrollTo(0, yc); }
     else if (a === 'posBuy' || a === 'posSell') posMail(i, a === 'posBuy' ? 'buy' : 'sell');
+    else if (a === 'watchOn' || a === 'watchOff') watchMail(i, a === 'watchOn');
     else if (a === 'uni') { S.uniFilter = el.dataset.v; render(); }
   });
   document.addEventListener('toggle', function (ev) { var d = ev.target; if (d && d.tagName === 'DETAILS' && d.dataset && d.dataset.k) { S.openDet = S.openDet || {}; S.openDet[d.dataset.k] = d.open; } }, true);

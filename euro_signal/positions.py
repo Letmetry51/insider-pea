@@ -5,7 +5,10 @@ Confidentialité : le dépôt et le tableau de bord sont publics. Vos positions 
 Elles vivent uniquement dans votre Gmail :
   - « Je l'ai acheté » (fiche du tableau de bord) prépare un email à vous-même, objet « [Euro Signal] Position <ISIN> »,
     avec le prix payé, la date, l'objectif de hausse et le seuil de protection ;
-  - « Je l'ai vendu » prépare un email « [Euro Signal] Vente <ISIN> » qui clôt le suivi.
+  - « Je l'ai vendu » prépare un email « [Euro Signal] Vente <ISIN> » qui clôt le suivi ;
+  - « Surveiller » (plan d'entrée d'une fiche) prépare « [Euro Signal] Surveiller <ISIN> » ; « Ne plus surveiller » l'arrête.
+    Alerte quand le cours entre dans la zone d'achat, casse sa résistance ou la droite haute d'un biseau descendant,
+    ou passe sous le stop du plan (une seule fois par niveau).
 Chaque soir, ce script relit ces emails dans le dossier « Envoyés » (seuls les messages envoyés depuis votre compte
 comptent), compare au dernier cours et vous écrit, une seule fois par événement :
   - objectif de hausse atteint ;
@@ -67,7 +70,8 @@ def parse_position(subject, body, sent_at):
     m = ISIN_RE.search(subject or "")
     if not m:
         return None
-    kind = "vente" if re.search(r"\]\s*Vente\b", subject, re.I) else "position" if re.search(r"\]\s*Position\b", subject, re.I) else None
+    kind = ("arret" if re.search(r"\]\s*Ne plus surveiller\b", subject, re.I) else "surveiller" if re.search(r"\]\s*Surveiller\b", subject, re.I)
+            else "vente" if re.search(r"\]\s*Vente\b", subject, re.I) else "position" if re.search(r"\]\s*Position\b", subject, re.I) else None)
     if not kind:
         return None
     kv = {}
@@ -101,7 +105,7 @@ def read_positions(imap):
     folder = sent_folder(imap)
     imap.select(folder, readonly=True)
     typ, data = imap.search(None, '(SUBJECT "[Euro Signal]")')
-    latest, refs = {}, set()
+    latest, watch, refs = {}, {}, set()
     for mid in (data[0].split() if data and data[0] else []):
         typ, msgdata = imap.fetch(mid, "(RFC822)")
         if not msgdata or not msgdata[0]:
@@ -115,9 +119,34 @@ def read_positions(imap):
         except Exception:
             sent_at = datetime.now(timezone.utc).isoformat()
         p = parse_position(subject, text_of(msg), sent_at)
-        if p and (p["isin"] not in latest or p["sentAt"] > latest[p["isin"]]["sentAt"]):
-            latest[p["isin"]] = p
-    return [p for p in latest.values() if p["kind"] == "position" and p["price"]], refs
+        if not p:
+            continue
+        box = watch if p["kind"] in ("surveiller", "arret") else latest  # surveillance et positions sont indépendantes
+        if p["isin"] not in box or p["sentAt"] > box[p["isin"]]["sentAt"]:
+            box[p["isin"]] = p
+    positions = [p for p in latest.values() if p["kind"] == "position" and p["price"]]
+    return positions, refs, [p for p in watch.values() if p["kind"] == "surveiller"]
+
+
+def watch_events(plan, last):
+    """Déclenchements du plan d'entrée au dernier cours. Clé = niveau arrondi : une seule alerte par niveau."""
+    if not plan or not last:
+        return []
+    pr, ev = plan.get("primary") or {}, []
+    k = pr.get("key")
+    f = lambda v: ("%.2f" % v).replace(".", ",")
+    if k in ("support", "retest") and pr.get("zoneLo") and pr.get("zoneHi") and pr["zoneLo"] <= last <= pr["zoneHi"]:
+        ev.append(("zone%d" % round(pr["zoneLo"] * 100), "entre dans sa zone d'achat (%s à %s), à confirmer par une clôture de rebond" % (f(pr["zoneLo"]), f(pr["zoneHi"]))))
+    if k == "breakout" and pr.get("trigger") and last > pr["trigger"]:
+        ev.append(("cassure%d" % round(pr["trigger"] * 100), "clôture au-dessus du déclencheur %s : cassure de la résistance" % f(pr["trigger"])))
+    w = plan.get("wedge") or {}
+    if w.get("type") == "falling" and w.get("upperNow") and last > w["upperNow"]:
+        ev.append(("biseau%d" % round(w["upperNow"] * 100), "sortie par le haut du biseau descendant (droite haute vers %s)" % f(w["upperNow"])))
+    if plan.get("verdict") == "buyNow":
+        ev.append(("achat%d" % round((pr.get("entry") or last) * 100), "plan d'entrée : %s" % (plan.get("label") or "achat possible").lower()))
+    if pr.get("stop") and last < pr["stop"]:
+        ev.append(("stop%d" % round(pr["stop"] * 100), "sous le stop du plan (%s) : le scénario est invalidé" % f(pr["stop"])))
+    return ev
 
 
 def evaluate(pos, rows, stats, txs, today):
@@ -219,7 +248,7 @@ def main():
     try:
         imap = imaplib.IMAP4_SSL("imap.gmail.com", 993, ssl_context=ssl.create_default_context())
         imap.login(user, pwd)
-        positions, refs = read_positions(imap)
+        positions, refs, watches = read_positions(imap)
         imap.logout()
     except Exception as e:
         print("Positions : lecture Gmail impossible (" + type(e).__name__ + ")")
@@ -243,6 +272,25 @@ def main():
                 name, label, ("%.2f" % pos["price"]).replace(".", ","), pos["date"], ("%.2f" % info["last"]).replace(".", ","), pc(info["perf"]),
                 (" : " + dash_url + "#" + isin) if dash_url else "")
             to_send.append(("[Euro Signal] Revente — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
+    # Plans d'entrée surveillés
+    for w in watches:
+        isin = w["isin"]
+        p = prices.get(isin)
+        inst = (dash.get("inst") or {}).get(isin) or {}
+        rows = [r for r in (p or {}).get("rows") or [] if r and r[4]]
+        if not rows or not inst.get("plan"):
+            continue
+        last = rows[-1][4]  # dernier cours brut = dernier cours ajusté (aucun ajustement après la dernière séance)
+        name = inst.get("name") or w.get("name") or isin
+        for key, label in watch_events(inst["plan"], last):
+            ref = "plan:%s:%s" % (isin, key)
+            if ref in refs:
+                continue
+            body = ("%s %s.\n\nDernier cours : %s. Plan du soir : %s.\n%s\n"
+                    "Ce n'est pas un ordre : vérifiez la fiche avant d'agir.\nPour arrêter : bouton « Ne plus surveiller » dans la fiche%s.") % (
+                name, label, ("%.2f" % last).replace(".", ","), inst["plan"].get("label") or "", "Convergence : %s signaux sur 5." % (inst.get("convergence") or {}).get("n", "?"),
+                (" : " + dash_url + "#" + isin) if dash_url else "")
+            to_send.append(("[Euro Signal] Plan — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # Diversification : une fois par semaine au plus, seulement si une concentration apparaît
     try:
         div = diversification(positions, dash, prices)
