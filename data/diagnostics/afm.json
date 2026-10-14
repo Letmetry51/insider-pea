@@ -1,7 +1,7 @@
 {
  "status": 200,
  "contentType": null,
- "bytes": 670144,
+ "bytes": 672608,
  "encoding": "cp1252",
  "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-08 00:00:00\";\"CEG N.V.\";\"Bayoglu U.\";\"Bayoglu\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"D'Souza R.\";\"D'Souza\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Roux J.G.C.\";\"Roux\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Chery, Roger J-M.\";\"Chery\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Ouazzane, El R.\";\"Ouazzane\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Cassis M.L.\";\"Cassis\"\r\n\"2026-10-07 00:00:00\";\"STMicroelectronics N.V.\";\"Gualandris F.\";\"Gualandris\"\r\n\"2026-10-07 00:00:00\";\"ST",
  "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
@@ -32,10 +32,10 @@
    "Roux"
   ]
  ],
- "rowCount": 9503,
+ "rowCount": 9547,
  "columnMap": {
   "issuer": "Issuing institution"
  },
  "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>2026100888927E45-A7B4-4AE8-A738-8D39B258EE1C</meldingid><transactiedatum>10/8/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>CEG N.V.</uitgevendeinstelling><meldingsplichtige>Bayoglu U.</meldingsplichtige><meldingsplichtigeachternaam>Bayoglu</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO and Managing Board Member at  Nexent Bank N.V.</functie><lei>724500XMW8FY9YNPRJ73</lei><vermelding>CEG N.V. - Bayoglu U. - </vermelding></vermelding><vermelding><meldingid>20261007025546AC-5DA9-4EFB-A764-482CD95AB156</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>D'Souza R.</meldingsplichtige><meldingsplichtigeachternaam>D'Souza</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - D'Souza R. - </vermelding></vermelding><vermelding><meldingid>2026100713441E6C-3DA1-4A28-BE5A-ACC204300502</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Roux J.G.C.</meldingsplichtige><meldingsplichtigeachternaam>Roux</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Roux J.G.C. - </vermelding></vermelding><vermelding><meldingid>20261007249E45A3-213F-4D62-AA1C-779BD5D86475</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Chery, Roger J-M.</meldingsplichtige><meldingsplichtigeachternaam>Chery</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Director</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Chery, Roger J-M. - </vermelding></vermelding><vermelding><meldingid>20261007376BFA4C-8E5E-4122-BD46-C9A2F944DF98</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Ouazzane, El R.</meldingsplichtige><meldingsplichtigeachternaam>Ouazzane</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Ouazzane, El R. - </vermelding></vermelding><vermelding><meldingid>20261007497A796F-654A-4CE0-9404-1C9E1A25A69A</meldingid><transactiedatum>10/7/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Cassis M.L.</meldingsplichtige><meldingsplichtigeachternaam>Cassis</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Member Executive Committee</functie><lei>213800Z8NOHIKRI42",
- "at": "2026-10-13T22:17:48.699086+00:00"
+ "at": "2026-10-14T21:17:52.681075+00:00"
 }

@@ -456,7 +456,7 @@
  },
  "DE0006013006": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE0006047004": {
   "exchange": "XETRA",
@@ -560,7 +560,7 @@
  },
  "DE0006926504": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE0007030009": {
   "exchange": "XETRA",
@@ -722,7 +722,7 @@
  },
  "DE000A0HMWM7": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000A0JDBC7": {
   "exchange": "XETRA",
@@ -837,7 +837,7 @@
  },
  "DE000A1E89S5": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000A1EWWW0": {
   "exchange": "XETRA",
@@ -915,7 +915,7 @@
  },
  "DE000A2BPP88": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000A2E4K43": {
   "exchange": "XETRA",
@@ -1023,7 +1023,7 @@
  },
  "DE000A3MQR65": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000A40AEG0": {
   "exchange": null,
@@ -1072,7 +1072,7 @@
  },
  "DE000A41YFL5": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000A420ZL4": {
   "exchange": "XETRA",
@@ -1105,7 +1105,7 @@
  },
  "DE000A4BGGT2": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000AUM0V10": {
   "exchange": "XETRA",
@@ -1123,7 +1123,7 @@
  },
  "DE000BGAG981": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000ENAG999": {
   "exchange": "XETRA",
@@ -1183,7 +1183,7 @@
  },
  "DE000SHA0159": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000SYM9999": {
   "exchange": "XETRA",
@@ -1194,7 +1194,7 @@
  },
  "DE000TUAG000": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "DE000ZAL1111": {
   "exchange": "XETRA",
@@ -1239,8 +1239,11 @@
   "ticker": "GRE.MC"
  },
  "ES0105122024": {
-  "ticker": null,
-  "triedAt": "2026-10-07"
+  "exchange": "Madrid Stock Exchange CATS",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Metrovacesa S.A.",
+  "resolvedAt": "2026-10-14",
+  "ticker": "MVC.MC"
  },
  "ES0105130001": {
   "exchange": "Madrid Stock Exchange CATS",
@@ -1251,7 +1254,7 @@
  },
  "ES0105148144": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "ES0105223004": {
   "exchange": "Madrid Stock Exchange CATS",
@@ -1395,7 +1398,7 @@
  },
  "ES0126775032": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "ES0130625512": {
   "exchange": "Madrid Stock Exchange CATS",
@@ -1511,7 +1514,7 @@
  },
  "ES0171996095": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "ES0173093024": {
   "exchange": "Madrid Stock Exchange CATS",
@@ -1557,7 +1560,7 @@
  },
  "ES0182484214": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "ES0182870214": {
   "exchange": "Madrid Stock Exchange CATS",
@@ -1582,11 +1585,11 @@
  },
  "ESO130960018": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "ESO144540Y14": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "EZDBWKRF1BQ5": {
   "ticker": null,
@@ -1608,8 +1611,11 @@
   "ticker": "FSDV.PA"
  },
  "FR0000032526": {
-  "ticker": null,
-  "triedAt": "2026-10-07"
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Guerbet SA",
+  "resolvedAt": "2026-10-14",
+  "ticker": "GBT.PA"
  },
  "FR0000033003": {
   "exchange": "Paris",
@@ -1641,7 +1647,7 @@
  },
  "FR0000036816": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0000037475": {
   "exchange": "Paris",
@@ -1820,7 +1826,7 @@
  },
  "FR0000062545": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0000063737": {
   "exchange": "Paris",
@@ -1880,7 +1886,7 @@
  },
  "FR0000068024": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0000071797": {
   "exchange": "Paris",
@@ -1916,6 +1922,13 @@
   "name": "Artmarket.com",
   "resolvedAt": "2026-10-07",
   "ticker": "PRC.PA"
+ },
+ "FR0000075343": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Laboratoires Euromedis Société anonyme",
+  "resolvedAt": "2026-10-14",
+  "ticker": "ALEMG.PA"
  },
  "FR0000075442": {
   "exchange": "Paris",
@@ -2213,7 +2226,7 @@
  },
  "FR0004188670": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0004527638": {
   "exchange": "Paris",
@@ -2294,7 +2307,7 @@
  },
  "FR0010313486": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0010331421": {
   "exchange": "Paris",
@@ -2445,7 +2458,7 @@
  },
  "FR0011271800": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0011476928": {
   "exchange": "Paris",
@@ -2547,7 +2560,7 @@
  },
  "FR0013258399": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0013258662": {
   "exchange": "Paris",
@@ -2704,8 +2717,11 @@
   "ticker": "ANTIN.PA"
  },
  "FR0014007LW0": {
-  "ticker": null,
-  "triedAt": "2026-10-07"
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Crypto Blockchain Industries",
+  "resolvedAt": "2026-10-14",
+  "ticker": "ALCBI.PA"
  },
  "FR0014009YQ1": {
   "exchange": "Paris",
@@ -2723,11 +2739,11 @@
  },
  "FR001400BMH7": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR001400EG77": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR001400J770": {
   "exchange": "Paris",
@@ -2809,7 +2825,7 @@
  },
  "FR0014014J13": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0014015ND9": {
   "exchange": "Paris",
@@ -2827,7 +2843,7 @@
  },
  "FR00140180M6": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR00140182K6": {
   "exchange": "Paris",
@@ -2838,11 +2854,11 @@
  },
  "FR0014018EW2": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "FR0014OOU4P9": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "GB0009895292": {
   "checkedHome": "2026-10-10",
@@ -3252,7 +3268,7 @@
  },
  "IT0005188385": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "IT0005203424": {
   "exchange": "Milan",
@@ -3351,6 +3367,13 @@
   "name": "PLC S.p.A.",
   "resolvedAt": "2026-10-07",
   "ticker": "PLC.MI"
+ },
+ "IT0005344996": {
+  "exchange": "Milan",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Circle S.p.A.",
+  "resolvedAt": "2026-10-14",
+  "ticker": "CIRC.MI"
  },
  "IT0005359101": {
   "exchange": "Milan",
@@ -3585,7 +3608,7 @@
  },
  "IT0005599862": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "IT0005599938": {
   "exchange": "Milan",
@@ -3624,7 +3647,7 @@
  },
  "IT0005703761": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "IT0005707341": {
   "exchange": "Milan",
@@ -3635,7 +3658,7 @@
  },
  "IT0005707747": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "IT0005710469": {
   "checkedHome": "2026-10-08",
@@ -3723,7 +3746,7 @@
  },
  "NL0000288876": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "NL0000302636": {
   "exchange": "Amsterdam",
@@ -3783,7 +3806,7 @@
  },
  "NL0012751226": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "NL0012969182": {
   "exchange": "Amsterdam",
@@ -7902,7 +7925,7 @@
  },
  "XS2799786848": {
   "ticker": null,
-  "triedAt": "2026-10-07"
+  "triedAt": "2026-10-14"
  },
  "XS3079581479": {
   "checkedHome": "2026-10-08",
