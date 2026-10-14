@@ -110,6 +110,10 @@ jobs:
         run: python scrapers/event_archive.py
         continue-on-error: true
 
+      - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)
+        continue-on-error: true
+        run: node euro_signal/check_outputs.mjs
+
       - name: 6. Alertes email (Gmail)
         timeout-minutes: 10
         env:

@@ -4074,13 +4074,19 @@ details.pos summary{font-size:1rem}
     var splits = (S.ev[isin] && S.ev[isin].splits) || [];
     var adj = ES.adjustedSeries(ES.normalizeSeries(p.rows), splits).slice(-260);
     var five = S.range === '5y', note = '';
-    var seg = '<div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' + (five ? '' : 'on') + '" aria-pressed="' + !five + '">1 an</button><button data-a="range" data-v="5y" class="' + (five ? 'on' : '') + '" aria-pressed="' + five + '">5 ans</button></div>';
+    var segOf = function (f5) { return '<div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' + (f5 ? '' : 'on') + '" aria-pressed="' + !f5 + '">1 an</button><button data-a="range" data-v="5y" class="' + (f5 ? 'on' : '') + '" aria-pressed="' + f5 + '">5 ans</button></div>'; };
     var L5 = null;
     if (five) {
-      if (!S.longLoaded) { loadLong(); if (!S.longLoaded) return seg + '<p class="muted">Chargement de l\'historique sur 5 ans…</p>'; }
+      if (!S.longLoaded) { loadLong(); if (!S.longLoaded) return segOf(true) + '<p class="muted">Chargement de l\'historique sur 5 ans…</p>'; }
       L5 = S.long && S.long[isin];
-      if (!L5 || !Array.isArray(L5.w) || L5.w.length < 20) { five = false; note = S.longError === 'local' ? 'Vue 5 ans disponible sur le tableau de bord en ligne.' : S.longError ? 'Historique 5 ans indisponible pour le moment : vue 1 an.' : 'Pas d\'historique sur 5 ans pour ce titre (cotation récente ou cours introuvables) : vue 1 an.'; }
+      if (!L5 || !Array.isArray(L5.w) || L5.w.length < 20) {
+        five = false;
+        note = S.longError === 'local' ? '⚠️ Vue 5 ans pas encore disponible : les 5 ans de cours arrivent avec le prochain calcul du soir. Le graphique ci-dessous reste sur 1 an.'
+          : S.longError ? '⚠️ Historique 5 ans illisible pour le moment : le graphique ci-dessous reste sur 1 an.'
+          : '⚠️ Pas d\'historique sur 5 ans pour ce titre (cotation récente ou cours introuvables) : le graphique ci-dessous reste sur 1 an.';
+      }
     }
+    var seg = segOf(five);
     var plan = planOf(isin, adj);
     // série affichée : journalière (1 an) ou hebdomadaire (5 ans), raccordée au dernier cours journalier
     var ser = adj, step = 1;
@@ -4138,7 +4144,7 @@ details.pos summary{font-size:1rem}
       : '<span><i class="lg-buy"></i>achat d\'initié (prix payé)</span><span><i class="lg-sell"></i>vente</span>';
     if (lvl.length) lg += '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>';
     var head = five && old.length ? '<p class="oldsum">' + old.length + ' achat' + (old.length > 1 ? 's' : '') + ' de dirigeants sur 5 ans' + (oldK.length ? ' ; ' + oldW + ' sur ' + oldK.length + ' ' + (oldW > 1 ? 'ont' : 'a') + ' battu l\'indice 6 mois après' : '') + '.</p>' : '';
-    return seg + (note ? '<p class="muted small">' + note + '</p>' : '') + head + '<div class="chartwrap">' + svg + '</div><p class="legend2">' + lg + '<span class="muted">' + (five ? 'Une clôture par semaine, ajustée des splits et dividendes' : 'Clôtures ajustées des splits') + ' · source ' + esc(p.source || 'n.d.') + ' · historique depuis ' + (five ? shortDate(ser[0][0]) : (s.firstDate || 'n.d.')) + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>' + planCard(isin, plan, adj);
+    return seg + (note ? '<p class="small"><b>' + note + '</b></p>' : '') + head + '<div class="chartwrap">' + svg + '</div><p class="legend2">' + lg + '<span class="muted">' + (five ? 'Une clôture par semaine, ajustée des splits et dividendes' : 'Clôtures ajustées des splits') + ' · source ' + esc(p.source || 'n.d.') + ' · historique depuis ' + (five ? shortDate(ser[0][0]) : (s.firstDate || 'n.d.')) + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>' + planCard(isin, plan, adj);
   }
   /** Panneau du plan d'entrée : 3 derniers mois de cours et 3 mois à venir (cône de volatilité, zone d'achat ou déclencheur, stop, objectif). */
   function planChart(isin, adj, plan) {
