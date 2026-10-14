@@ -1078,6 +1078,22 @@ t('Plan d\'entrée : rebond sur support, cassure de résistance, chute sans supp
   ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'nearSupport') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'breakout'), 'mesurés en observation');
 });
 
+t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, canal', () => {
+  const mk = (f, n) => { const o = []; let d = '2025-01-01'; for (let k = 0; k < n; k++) { const c = f(k); o.push([d, c, c * 1.004, c * 0.996, c, 1]); d = ES.addDays(d, 1); } return o; };
+  const fall = ES.wedge(mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63));
+  ok(fall && fall.type === 'falling' && fall.upperNow > fall.lowerNow && fall.apexIn > 0, 'biseau descendant : ' + JSON.stringify(fall && [fall.type, fall.upperNow, fall.lowerNow, fall.apexIn]));
+  const rise = ES.wedge(mk((k) => 100 + 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63));
+  ok(rise && rise.type === 'rising', 'biseau ascendant : ' + (rise && rise.type));
+  const ch = ES.wedge(mk((k) => 100 + 0.2 * k + 5 * Math.sin(k / 3), 63));
+  ok(ch && ch.type === 'channel' && ch.apexIn === null, 'canal : ' + (ch && ch.type));
+  // aucune clôture au-dessus de la droite haute ni sous la droite basse (droites appuyées sur les extrêmes)
+  const rows = mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63);
+  ok(rows.every((r, k) => r[4] <= fall.upper.a + fall.upper.b * k + 1e-6 && r[4] >= fall.lower.a + fall.lower.b * k - 1e-6), 'cours entre les deux droites');
+  eq(ES.wedge(rows.slice(0, 10)), null, 'historique trop court');
+  const p = ES.entryPlan(mk((k) => 100 + 10 * Math.sin(k / 8), 250));
+  ok(p && 'wedge' in p, 'le plan d\'entrée porte le biseau');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);
