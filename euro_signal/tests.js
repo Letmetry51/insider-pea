@@ -1038,6 +1038,46 @@ t('Supports et résistances : creux et sommets répétés, plus haut et plus bas
   ok(ES.supportResistance([[null], null, 5].concat(rows)) !== null, 'lignes illisibles ignorées');
 });
 
+t('Plan d\'entrée : rebond sur support, cassure de résistance, chute sans support, plus haut, cône sans direction', () => {
+  const mkRows = (f, n, start) => { const out = []; let d = start || '2025-01-01'; for (let k = 0; k < n; k++) { const c = f(k); out.push([d, c, c * 1.006, c * 0.994, c, 1]); d = ES.addDays(d, 1); } return out; };
+  // fourchette 90-110, fin au contact du support puis léger rebond
+  const range = mkRows((k) => 100 + 10 * Math.sin(k / 8), 245).concat(mkRows((k) => 90.2 + k * 0.45, 5, '2025-09-03'));
+  const p = ES.entryPlan(range);
+  ok(p && p.position === 'support', 'près du support : ' + (p && p.position));
+  const s = p.primary.key === 'support' ? p.primary : p.alt;
+  ok(s && s.stop < s.level && s.level <= s.entry && s.entry < s.target, 'stop < support ≤ entrée < objectif : ' + JSON.stringify(s));
+  ok(s.rr > 1 && s.sizePct > 0 && s.sizePct <= 25, 'gain/risque et taille : ' + JSON.stringify(s));
+  ok([p.primary, p.alt].every((x) => !x || x.prob == null || (x.prob >= 0 && x.prob <= 100)), 'probabilités en %');
+  ok(['buyNow', 'waitSupport', 'waitBreakout'].indexOf(p.verdict) > -1 && p.label && p.why.length, 'verdict lisible');
+  ok(p.verdict !== 'buyNow' || p.primary.rr >= 1.5, 'jamais « achat possible » avec un gain / risque inférieur à 1,5');
+  ok(!/\d\.\d/.test(p.why.join(' ')), 'nombres à la française dans les explications');
+  // cône : centré sur le dernier cours (aucune direction prévue), s'élargit avec le temps, 90 % plus large que 68 %
+  ok(p.cone[0][1] === p.cone[0][4] && p.cone.every((c, k) => !k || (c[1] < p.cone[k - 1][1] && c[4] > p.cone[k - 1][4])), 'cône qui s\'élargit');
+  ok(p.cone.every((c) => c[1] <= c[2] && c[3] <= c[4] && Math.abs(Math.log(c[3] / p.last) + Math.log(c[2] / p.last)) < 1e-3), 'cône symétrique en rendement');
+  ok(Math.abs(ES.normCdf(0) - 0.5) < 1e-7 && Math.abs(ES.normCdf(1.96) - 0.975) < 1e-4 && Math.abs(ES.normCdf(-1.96) - 0.025) < 1e-4, 'loi normale');
+  // chute continue : aucun support sous le cours → ne pas acheter, attendre la cassure
+  const fall = ES.entryPlan(mkRows((k) => 200 * Math.exp(-k / 150) * (1 + 0.03 * Math.sin(k / 6)), 260));
+  ok(fall && fall.position === 'falling' && fall.verdict === 'avoid' && fall.trend === 'down', 'couteau qui tombe : ' + JSON.stringify(fall && [fall.position, fall.verdict, fall.trend]));
+  // hausse régulière : au plus haut, objectif = 2 fois le risque
+  const up = ES.entryPlan(mkRows((k) => 50 + k * 0.3 + 1.5 * Math.sin(k / 5), 250).concat(mkRows((k) => 127 + k * 0.8, 10, '2025-09-08')));
+  ok(up && up.position === 'highs' && up.verdict === 'buyNow' && up.trend === 'up', 'au plus haut en tendance haussière : ' + JSON.stringify(up && [up.position, up.verdict]));
+  ok(Math.abs((up.primary.target - up.primary.entry) - 2 * (up.primary.entry - up.primary.stop)) < up.primary.entry * 1e-3, 'objectif 2R');
+  // cassure : fourchette puis sortie franche par le haut il y a quelques séances → retour sur la résistance cassée
+  const bo = mkRows((k) => 100 + 6 * Math.sin(k / 7), 240).concat(mkRows((k) => 107 + k * 0.25, 12, '2025-08-29'));
+  const rb = ES.recentBreakout(bo, 20), pb = ES.entryPlan(bo);
+  ok(rb && rb.level > 104 && rb.level < 108 && rb.sessions < 20, 'cassure détectée : ' + JSON.stringify(rb));
+  ok(pb.position === 'retest' && pb.primary.key === 'retest' && pb.primary.stop < rb.level, 'retour sur la résistance cassée : ' + JSON.stringify(pb.primary));
+  // tendance baissière près d'un support : la cassure est privilégiée, le rebond reste l'alternative
+  const dn = mkRows((k) => 150 - k * 0.2 + 5 * Math.sin(k / 6), 255).concat(mkRows((k) => 96 + k * 0.3, 5, '2025-09-13'));
+  const pd = ES.entryPlan(dn);
+  ok(pd.trend === 'down' && (pd.position === 'falling' || pd.primary.key === 'breakout'), 'tendance baissière : ' + JSON.stringify([pd.trend, pd.position, pd.primary && pd.primary.key]));
+  eq(ES.entryPlan(range.slice(0, 50)), null, 'historique trop court');
+  // critères en observation : aucune donnée postérieure à la date de l'achat
+  const d = range[200][0];
+  eq(JSON.stringify(ES.setupAt(range, d)), JSON.stringify(ES.setupAt(range.slice(0, 201), d)), 'setupAt sans regard vers le futur');
+  ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'nearSupport') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'breakout'), 'mesurés en observation');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);
