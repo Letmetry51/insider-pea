@@ -1,34 +1,37 @@
 """
-Euro Signal — Secteurs en tendance, thèmes (IA, électrification, défense…), leader et challenger.
+Euro Signal — Secteurs en tendance, thèmes (IA, cybersécurité, défense…), leader et challenger.
 
 Univers FIXE et complet (indépendant des déclarations de dirigeants) : actions des bourses de l'Union européenne
-et de l'EEE (éligibles au PEA) d'au moins MIN_CAP_EUR de capitalisation, trouvées avec le filtre d'actions de Yahoo.
-Les paniers américains (Nvidia, géants du cloud…) servent seulement de baromètres : non éligibles au PEA, jamais proposés.
+et de l'EEE (éligibles au PEA) d'au moins MIN_CAP_EUR de capitalisation, une cotation par société (siège UE / EEE).
+Les paniers américains (Nvidia, CrowdStrike…) servent seulement de baromètres : non éligibles au PEA, jamais proposés.
 
-Méthode (fixée à l'avance, aucun paramètre optimisé sur le passé) :
-  1. Secteur en tendance : médianes, sur les sociétés du groupe, de la force relative 6 mois (hors dernier mois) et
-     3 mois face au STOXX 600, de la part au-dessus de la moyenne 40 semaines et de la part à moins de 5 % du plus haut
-     52 semaines ; note = moyenne des rangs. « En tendance » : 20 % meilleurs groupes, force 6 mois positive, au moins
-     la moitié des sociétés au-dessus de leur moyenne 40 semaines.  (Moskowitz et Grinblatt, 1999 : momentum sectoriel.)
-  2. Anticipation : baromètre américain de chaque thème (clients) en avance sur les fournisseurs européens
-     (Cohen et Frazzini, 2008 : liens économiques et rendements prévisibles).
-  3. Leader : plus grosse capitalisation du groupe. Challenger : parmi les numéros 2 à 4, le plus fort sur 6 mois.
+Signaux par groupe (industrie Yahoo, ou « autres » du secteur si moins de 4 sociétés), tous connus à la date t :
+  composite  médiane de la force relative 6 mois (hors dernier mois) et 3 mois face au STOXX 600, part au-dessus de la
+             moyenne 40 semaines, part à moins de 5 % du plus haut 52 semaines ; moyenne des rangs (Moskowitz et Grinblatt, 1999)
+  mom12      force relative 12 mois hors dernier mois (momentum classique, Jegadeesh et Titman, 1993)
+  high52     proximité médiane du plus haut 52 semaines (George et Hwang, 2004)
+  emerging   remontée du classement composite en 8 semaines
+  volume     accumulation : volume des semaines de hausse / volume des semaines de baisse sur 13 semaines
+  surprise   part des sociétés dont les derniers résultats (13 semaines) ont battu le consensus (historique Yahoo ≈ 3 ans)
+  revisions  part des prévisions de bénéfice relevées moins abaissées sur 30 jours (instantané, historique constitué chaque semaine)
+Leader : plus grosse capitalisation du groupe. Challenger : parmi les numéros 2 à 4, le plus fort sur 6 mois.
 
 Usage :
-  python scrapers/sectors.py --universe     univers (filtre Yahoo + fiches), data/sectors/universe.json (1 fois par semaine)
-  python scrapers/sectors.py --prices       cours hebdomadaires 8 ans en euros, data/sectors/weekly.csv.gz
-  python scrapers/sectors.py --backtest     test historique → data/sectors/backtest.json et rapport texte
-  python scrapers/sectors.py --dashboard    classement du jour → data/sectors.json (lu par le tableau de bord)
-  python scrapers/sectors.py --synthetic …  mêmes calculs sur des données simulées (vérification sans réseau)
+  --universe [--universe-if-older N]  univers (filtre Yahoo, fiches mises en cache 30 jours, en parallèle)
+  --estimates                         révisions des analystes et surprises de résultats (une fois par semaine)
+  --prices                            cours et volumes hebdomadaires 8 ans en euros
+  --backtest                          test historique et stress test → data/sectors/backtest.json
+  --trends                            test Google Trends (expérimental, souvent bloqué par Google)
+  --dashboard                         classement du jour → data/sectors.json (lu par le tableau de bord)
+  --synthetic                         données simulées (vérification sans réseau)
 """
 import argparse
-import gzip
-import io
 import json
 import math
 import sys
 import time
-from datetime import date, datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -38,7 +41,11 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 SEC = DATA / "sectors"
 UNIVERSE = SEC / "universe.json"
+INFO_CACHE = SEC / "info_cache.json"
+ESTIMATES = SEC / "estimates.json"
+REV_HIST = SEC / "revisions_history.json"
 WEEKLY = SEC / "weekly.csv.gz"
+WEEKLY_VOL = SEC / "weekly_volume.csv.gz"
 BACKTEST = SEC / "backtest.json"
 OUT = DATA / "sectors.json"
 
@@ -46,38 +53,47 @@ MIN_CAP_EUR = 500e6
 BENCH = "^STOXX"          # STOXX Europe 600 (euros)
 US_BENCH = "^GSPC"        # S&P 500
 COST = 0.003              # frais par aller simple (courtage + écart achat-vente), appliqués au taux de rotation
+PLACEBO_N = 500           # tirages au hasard du placebo
+INFO_MAX_AGE = 30         # jours avant de relire la fiche Yahoo d'une cotation
+THREADS = 4
 FX_PAIRS = {"SEK": "EURSEK=X", "DKK": "EURDKK=X", "NOK": "EURNOK=X", "PLN": "EURPLN=X", "USD": "EURUSD=X"}
 REGIONS = {"fr": ["PAR"], "de": ["GER"], "nl": ["AMS"], "it": ["MIL"], "es": ["MCE"], "be": ["BRU"], "pt": ["LIS"],
            "fi": ["HEL"], "ie": ["ISE"], "at": ["VIE"], "se": ["STO"], "dk": ["CPH"], "no": ["OSL"]}
 COUNTRY = {"PAR": "FR", "GER": "DE", "AMS": "NL", "MIL": "IT", "MCE": "ES", "BRU": "BE", "LIS": "PT", "HEL": "FI",
            "ISE": "IE", "VIE": "AT", "STO": "SE", "CPH": "DK", "OSL": "NO"}
-
-# Thèmes : chaîne de valeur européenne (éligible PEA) et baromètre américain (clients ou pionniers du thème)
-THEMES = [
-    {"key": "ia-puces", "name": "IA : puces et équipements",
-     "us": ["NVDA", "AVGO", "AMD", "TSM", "MU"],
-     "eu": ["ASML.AS", "ASM.AS", "BESI.AS", "AIXA.DE", "IFX.DE", "STMPA.PA", "SOI.PA", "TPRO.MI", "WAF.DE", "NOD.OL"]},
-    {"key": "ia-energie", "name": "IA : électricité et data centers",
-     "us": ["VRT", "ETN", "PWR", "MSFT", "AMZN", "GOOGL", "META"],
-     "eu": ["SU.PA", "LR.PA", "PRY.MI", "NEX.PA", "ENR.DE", "SIE.DE", "SPIE.PA", "MTRS.ST", "NKT.CO", "ABB.ST"]},
-    {"key": "ia-logiciel", "name": "IA : logiciels et services",
-     "us": ["MSFT", "GOOGL", "META", "ORCL", "NOW"],
-     "eu": ["SAP.DE", "DSY.PA", "CAP.PA", "NEM.DE", "TMV.DE", "SOP.PA", "REY.MI"]},
-    {"key": "defense", "name": "Défense",
-     "us": ["LMT", "RTX", "NOC", "GD"],
-     "eu": ["RHM.DE", "HO.PA", "SAF.PA", "LDO.MI", "AM.PA", "HAG.DE", "R3NK.DE", "KOG.OL", "SAAB-B.ST", "EXA.PA"]},
-    {"key": "obesite", "name": "Obésité (GLP-1)",
-     "us": ["LLY"],
-     "eu": ["NOVO-B.CO", "ZEAL.CO"]},
-]
+SUFFIX = {"PA": "FR", "DE": "DE", "AS": "NL", "MI": "IT", "MC": "ES", "BR": "BE", "LS": "PT", "HE": "FI", "IR": "IE",
+          "VI": "AT", "ST": "SE", "CO": "DK", "OL": "NO"}
 EU_EEA = set(COUNTRY.values()) | {"LU", "GR", "PL", "CZ", "HU", "RO", "IS", "LI", "CY", "MT", "EE", "LV", "LT", "SI", "SK", "HR", "BG"}
-# pays du siège (fiche Yahoo) → code ; seuls les sièges de l'UE et de l'EEE rendent une action éligible au PEA
 HQ = {"France": "FR", "Germany": "DE", "Netherlands": "NL", "Italy": "IT", "Spain": "ES", "Belgium": "BE", "Portugal": "PT",
       "Finland": "FI", "Ireland": "IE", "Austria": "AT", "Sweden": "SE", "Denmark": "DK", "Norway": "NO", "Luxembourg": "LU",
       "Greece": "GR", "Poland": "PL", "Czech Republic": "CZ", "Czechia": "CZ", "Hungary": "HU", "Romania": "RO", "Iceland": "IS",
       "Liechtenstein": "LI", "Cyprus": "CY", "Malta": "MT", "Estonia": "EE", "Latvia": "LV", "Lithuania": "LT", "Slovenia": "SI",
       "Slovakia": "SK", "Croatia": "HR", "Bulgaria": "BG"}
-LEGAL = ("n.v.", "nv", "s.a.", "sa", "se", "ag", "spa", "s.p.a.", "plc", "ab", "asa", "a/s", "oyj", "publ", "(publ)", "kgaa", "& co.", "co.", "inc.", "ltd", "group", "holding", "holdings")
+LEGAL = {"n.v.", "nv", "s.a.", "sa", "se", "ag", "spa", "s.p.a.", "plc", "ab", "asa", "a/s", "oyj", "publ", "(publ)", "kgaa",
+         "&", "co.", "inc.", "ltd", "group", "holding", "holdings", "aktiengesellschaft"}
+
+# Thèmes : chaîne de valeur européenne (éligible PEA) et baromètre américain (clients ou pionniers du thème)
+THEMES = [
+    {"key": "ia-puces", "name": "IA : puces et équipements", "trends": "Nvidia",
+     "us": ["NVDA", "AVGO", "AMD", "TSM", "MU"],
+     "eu": ["ASML.AS", "ASM.AS", "BESI.AS", "AIXA.DE", "IFX.DE", "STMPA.PA", "SOI.PA", "TPRO.MI", "WAF.DE", "NOD.OL"]},
+    {"key": "ia-energie", "name": "IA : électricité et data centers", "trends": "data center",
+     "us": ["VRT", "ETN", "PWR", "MSFT", "AMZN", "GOOGL", "META"],
+     "eu": ["SU.PA", "LR.PA", "PRY.MI", "NEX.PA", "ENR.DE", "SIE.DE", "SPIE.PA", "MTRS.ST", "NKT.CO", "ABB.ST"]},
+    {"key": "ia-logiciel", "name": "IA : logiciels et services", "trends": "ChatGPT",
+     "us": ["MSFT", "GOOGL", "META", "ORCL", "NOW"],
+     "eu": ["SAP.DE", "DSY.PA", "CAP.PA", "NEM.DE", "TMV.DE", "SOP.PA", "REY.MI"]},
+    {"key": "cyber", "name": "Cybersécurité", "trends": "cybersecurity",
+     "us": ["CRWD", "PANW", "FTNT", "ZS", "NET", "CHKP"],
+     "eu": ["HO.PA", "YSN.DE", "WITH.HE", "FSECURE.HE", "YUBICO.ST", "ALLIX.PA", "CLAV.ST", "NXI.PA", "AIR.PA", "HAG.DE"]},
+    {"key": "defense", "name": "Défense", "trends": "defense stocks",
+     "us": ["LMT", "RTX", "NOC", "GD"],
+     "eu": ["RHM.DE", "HO.PA", "SAF.PA", "LDO.MI", "AM.PA", "HAG.DE", "R3NK.DE", "KOG.OL", "SAAB-B.ST", "EXA.PA"]},
+    {"key": "obesite", "name": "Obésité (GLP-1)", "trends": "Ozempic",
+     "us": ["LLY"],
+     "eu": ["NOVO-B.CO", "ZEAL.CO"]},
+]
+SIGNALS = ["composite", "mom12", "high52", "emerging", "volume", "surprise"]
 
 
 def log(*a):
@@ -92,13 +108,37 @@ def clean(o):
         return [clean(v) for v in o]
     if isinstance(o, (np.floating, float)):
         return None if not math.isfinite(float(o)) else round(float(o), 6)
-    if isinstance(o, (np.integer,)):
+    if isinstance(o, np.integer):
         return int(o)
-    if isinstance(o, (np.bool_,)):
+    if isinstance(o, np.bool_):
         return bool(o)
     if isinstance(o, (pd.Timestamp, date)):
         return str(o)[:10]
     return o
+
+
+def read_json(path, default):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def write_json(path, obj, indent=None):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    tmp = Path(str(path) + ".tmp")
+    tmp.write_text(json.dumps(clean(obj), ensure_ascii=False, allow_nan=False, indent=indent), encoding="utf-8")
+    tmp.replace(path)
+
+
+def with_retry(fn, tries=3, wait=4):
+    for k in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if k == tries - 1:
+                raise
+            time.sleep(wait * (k + 1) if "429" in str(e) or "Too Many" in str(e) else 1)
 
 
 # --------------------------------------------------------------------------- univers
@@ -107,12 +147,11 @@ def screen_universe():
     from yfinance import EquityQuery as Q
     seen = {}
     for region, exchs in REGIONS.items():
-        ex = Q("or", [Q("eq", ["exchange", e]) for e in exchs]) if len(exchs) > 1 else Q("eq", ["exchange", exchs[0]])
-        q = Q("and", [Q("eq", ["region", region]), ex, Q("gt", ["intradaymarketcap", 2e8])])
+        q = Q("and", [Q("eq", ["region", region]), Q("eq", ["exchange", exchs[0]]), Q("gt", ["intradaymarketcap", 2e8])])
         off, total = 0, None
         while total is None or off < total:
             try:
-                r = yf.screen(q, offset=off, size=250, sortField="intradaymarketcap", sortAsc=False)
+                r = with_retry(lambda: yf.screen(q, offset=off, size=250, sortField="intradaymarketcap", sortAsc=False))
             except Exception as e:
                 log(f"  filtre {region} : erreur {str(e)[:100]}")
                 break
@@ -126,98 +165,178 @@ def screen_universe():
             off += 250
             if not quotes:
                 break
-            time.sleep(0.5)
-        log(f"  {region} : {sum(1 for v in seen.values() if v['country'] == COUNTRY.get(exchs[0]))} titres")
+            time.sleep(0.4)
+    log(f"  filtre Yahoo : {len(seen)} cotations")
     return seen
 
 
-def enrich(items, fx_now):
-    """Fiche Yahoo de chaque titre : secteur, industrie, capitalisation, croissance, marges, ISIN si disponible."""
+def fetch_info(s):
     import yfinance as yf
-    out = {}
-    for n, (s, it) in enumerate(sorted(items.items()), 1):
-        try:
-            inf = yf.Ticker(s).info or {}
-        except Exception:
-            inf = {}
-        cur = inf.get("currency") or it.get("currency") or "EUR"
-        unit = 100.0 if cur in ("GBp", "GBX") else 1.0
-        rate = 1.0 if cur.upper() == "EUR" else fx_now.get(cur.upper())
-        cap = inf.get("marketCap")
-        cap_eur = cap / unit / rate if cap and rate else None
-        if cap_eur is not None and cap_eur < MIN_CAP_EUR:
-            continue
-        def f(k):
-            v = inf.get(k)
-            return None if v is None or (isinstance(v, float) and math.isnan(v)) else v
-        px = f("currentPrice") or f("regularMarketPrice") or f("previousClose")
-        vol = f("averageVolume") or f("averageDailyVolume10Day")
-        out[s] = dict(it, name=f("longName") or it.get("name"), hq=HQ.get(f("country")), hqName=f("country"),
-                      turnoverEur=(px * vol / unit / rate) if px and vol and rate else None, sector=f("sector"), industry=f("industry"), capEur=cap_eur,
-                      currency=cur, revGrowth=f("revenueGrowth"), opMargin=f("operatingMargins"), grossMargin=f("grossMargins"),
-                      revenue=f("totalRevenue"), fwdPE=f("forwardPE"), isin=f("isin"))
-        if n % 50 == 0:
-            log(f"  fiches : {n}/{len(items)}")
-        time.sleep(0.25)
-    return out
+    try:
+        inf = with_retry(lambda: yf.Ticker(s).info or {})
+    except Exception:
+        return s, None
+    keep = ("longName", "shortName", "sector", "industry", "country", "marketCap", "currency", "revenueGrowth", "operatingMargins",
+            "grossMargins", "totalRevenue", "forwardPE", "isin", "currentPrice", "regularMarketPrice", "previousClose",
+            "averageVolume", "averageDailyVolume10Day", "numberOfAnalystOpinions", "recommendationMean", "targetMeanPrice",
+            "heldPercentInstitutions", "heldPercentInsiders", "shortPercentOfFloat")
+    out = {k: inf.get(k) for k in keep if inf.get(k) is not None and not (isinstance(inf.get(k), float) and math.isnan(inf.get(k)))}
+    out["fetched"] = date.today().isoformat()
+    return s, out
 
 
 def name_key(n):
-    w = [x for x in str(n or "").lower().replace(",", " ").split() if x not in LEGAL]
-    return " ".join(w)[:40]
+    return " ".join(x for x in str(n or "").lower().replace(",", " ").split() if x not in LEGAL)[:40]
 
 
-def dedupe(uni):
-    """Une seule cotation par société : siège dans l'UE ou l'EEE (les cotations secondaires de sociétés américaines,
-    suisses ou britanniques à Vienne ou Francfort sont écartées), puis la place où il s'échange le plus de capitaux."""
+def make_item(s, base, inf, fx_now):
+    cur = inf.get("currency") or base.get("currency") or "EUR"
+    unit = 100.0 if cur in ("GBp", "GBX") else 1.0
+    rate = 1.0 if cur.upper() == "EUR" else fx_now.get(cur.upper())
+    cap = inf.get("marketCap")
+    px = inf.get("currentPrice") or inf.get("regularMarketPrice") or inf.get("previousClose")
+    vol = inf.get("averageVolume") or inf.get("averageDailyVolume10Day")
+    country = base.get("country") or SUFFIX.get(s.rsplit(".", 1)[-1] if "." in s else "")
+    hq = HQ.get(inf.get("country"))
+    return {"symbol": s, "name": inf.get("longName") or inf.get("shortName") or base.get("name"), "exchange": base.get("exchange"),
+            "country": country, "hq": hq, "currency": cur, "sector": inf.get("sector"), "industry": inf.get("industry"),
+            "capEur": cap / unit / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
+            "revGrowth": inf.get("revenueGrowth"), "opMargin": inf.get("operatingMargins"), "grossMargin": inf.get("grossMargins"),
+            "revenue": inf.get("totalRevenue"), "fwdPE": inf.get("forwardPE"), "isin": inf.get("isin"),
+            "analysts": inf.get("numberOfAnalystOpinions"), "reco": inf.get("recommendationMean"),
+            "upside": (inf["targetMeanPrice"] / px - 1) if inf.get("targetMeanPrice") and px else None,
+            "instPct": inf.get("heldPercentInstitutions"), "insiderPct": inf.get("heldPercentInsiders"),
+            "pea": (hq in EU_EEA) if hq else (country in EU_EEA)}
+
+
+def dedupe(items):
+    """Une seule cotation par société : siège dans l'UE ou l'EEE, puis la place où il s'échange le plus de capitaux."""
     best = {}
-    for s, it in uni.items():
-        if it.get("hq") not in EU_EEA:
+    for s, it in items.items():
+        if it.get("hq") not in EU_EEA or not it.get("capEur") or it["capEur"] < MIN_CAP_EUR:
             continue
         k = name_key(it.get("name")) or s
-        home = 1 if COUNTRY.get(it.get("exchange")) == it.get("hq") else 0
-        rank = (it.get("turnoverEur") or 0, home)
+        rank = (it.get("turnoverEur") or 0, 1 if COUNTRY.get(it.get("exchange")) == it.get("hq") else 0)
         if k not in best or rank > best[k][0]:
             best[k] = (rank, s)
-    keep = {s for _, s in best.values()}
-    log(f"  cotations : {len(uni)} → {len(keep)} sociétés (siège UE / EEE, une cotation par société)")
-    return {s: uni[s] for s in keep}
+    return {s: items[s] for _, s in best.values()}
+
+
+def fx_now():
+    import yfinance as yf
+    out = {}
+    for cur, pair in FX_PAIRS.items():
+        try:
+            out[cur] = float(yf.Ticker(pair).history(period="5d")["Close"].dropna().iloc[-1])
+        except Exception:
+            pass
+    return out
 
 
 def build_universe():
-    import yfinance as yf
-    fx_now = {}
-    for cur, pair in FX_PAIRS.items():
-        try:
-            h = yf.Ticker(pair).history(period="5d")
-            fx_now[cur] = float(h["Close"].dropna().iloc[-1])
-        except Exception:
-            pass
+    t0 = time.time()
+    fx = fx_now()
     raw = screen_universe()
-    # thèmes : leurs valeurs européennes font toujours partie de l'univers (même si le filtre les a manquées)
     for th in THEMES:
         for s in th["eu"]:
-            raw.setdefault(s, {"symbol": s, "name": None, "exchange": None, "country": None, "currency": None})
-    uni = dedupe(enrich(raw, fx_now))
-    for s, it in uni.items():
-        if not it.get("country"):
-            suf = s.rsplit(".", 1)[-1] if "." in s else ""
-            it["country"] = {"PA": "FR", "DE": "DE", "AS": "NL", "MI": "IT", "MC": "ES", "BR": "BE", "LS": "PT", "HE": "FI",
-                             "IR": "IE", "VI": "AT", "ST": "SE", "CO": "DK", "OL": "NO"}.get(suf)
-        it["pea"] = it.get("hq") in EU_EEA if it.get("hq") else it.get("country") in EU_EEA
-    SEC.mkdir(parents=True, exist_ok=True)
-    UNIVERSE.write_text(json.dumps({"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR,
-                                    "fx": fx_now, "items": uni}, ensure_ascii=False, indent=0), encoding="utf-8")
-    log(f"Univers : {len(uni)} sociétés d'au moins {MIN_CAP_EUR / 1e6:.0f} M€ ({sum(1 for v in uni.values() if v['pea'])} éligibles PEA)")
+            raw.setdefault(s, {"symbol": s})
+    cache = read_json(INFO_CACHE, {})
+    limit = (date.today() - timedelta(days=INFO_MAX_AGE)).isoformat()
+    todo = [s for s in raw if not cache.get(s) or cache[s].get("fetched", "") < limit]
+    log(f"  fiches Yahoo : {len(raw) - len(todo)} en cache, {len(todo)} à lire ({THREADS} en parallèle)")
+    with ThreadPoolExecutor(THREADS) as ex:
+        for n, (s, inf) in enumerate(ex.map(fetch_info, todo), 1):
+            if inf:
+                cache[s] = inf
+            if n % 250 == 0:
+                log(f"    {n}/{len(todo)}")
+    cache = {s: v for s, v in cache.items() if s in raw}  # cotations disparues du filtre : oubliées
+    write_json(INFO_CACHE, cache)
+    items = {s: make_item(s, raw[s], cache[s], fx) for s in raw if cache.get(s)}
+    uni = dedupe(items)
+    write_json(UNIVERSE, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR, "fx": fx, "items": uni})
+    log(f"Univers : {len(raw)} cotations → {len(uni)} sociétés éligibles PEA d'au moins {MIN_CAP_EUR / 1e6:.0f} M€ ({time.time() - t0:.0f} s)")
+
+
+def universe_age():
+    try:
+        return (datetime.now(timezone.utc) - datetime.fromisoformat(read_json(UNIVERSE, {})["generatedAt"])).days
+    except Exception:
+        return 10 ** 6
+
+
+# --------------------------------------------------------------------------- révisions et surprises (une fois par semaine)
+def fetch_estimates(s):
+    import yfinance as yf
+    t = yf.Ticker(s)
+    out = {"fetched": date.today().isoformat()}
+    try:
+        er = with_retry(lambda: t.eps_revisions, tries=2)
+        if er is not None and not er.empty and "0y" in er.index:
+            r = er.loc["0y"]
+            out["rev"] = {k: (None if pd.isna(r.get(c)) else int(r.get(c))) for k, c in
+                          (("up7", "upLast7days"), ("up30", "upLast30days"), ("down7", "downLast7Days"), ("down30", "downLast30days"))}
+    except Exception:
+        pass
+    try:
+        ed = with_retry(lambda: t.get_earnings_dates(limit=16), tries=2)
+        if ed is not None and not ed.empty and "Surprise(%)" in ed.columns:
+            out["surprises"] = sorted([[i.strftime("%Y-%m-%d"), float(v)] for i, v in ed["Surprise(%)"].items() if pd.notna(v)])
+    except Exception:
+        pass
+    return s, out
+
+
+def refresh_estimates():
+    uni = read_json(UNIVERSE, {}).get("items", {})
+    if not uni:
+        log("Révisions : univers absent")
+        return
+    t0 = time.time()
+    old = read_json(ESTIMATES, {})
+    est = {}
+    with ThreadPoolExecutor(THREADS) as ex:
+        for s, e in ex.map(fetch_estimates, sorted(uni)):
+            prev = (old.get(s) or {}).get("surprises") or []
+            merged = {d: v for d, v in prev}
+            merged.update({d: v for d, v in (e.get("surprises") or [])})  # historique des surprises conservé au-delà de 16 trimestres
+            e["surprises"] = sorted([[d, v] for d, v in merged.items()])
+            est[s] = e
+    write_json(ESTIMATES, est)
+    # instantané hebdomadaire de la largeur des révisions par groupe : constitue l'historique qui permettra de valider ce signal
+    groups = groups_of(uni)
+    snap = revision_breadth(est, groups)
+    hist = read_json(REV_HIST, {})
+    hist[date.today().isoformat()] = snap
+    write_json(REV_HIST, dict(sorted(hist.items())[-260:]))
+    n_rev = sum(1 for v in est.values() if v.get("rev"))
+    n_sur = sum(1 for v in est.values() if v.get("surprises"))
+    log(f"Révisions : {n_rev} sociétés avec révisions, {n_sur} avec surprises de résultats ({time.time() - t0:.0f} s)")
+
+
+def revision_breadth(est, groups):
+    """Par groupe : (sociétés aux prévisions relevées − abaissées sur 30 jours) / sociétés suivies par des analystes."""
+    agg = {}
+    for s, g in groups.items():
+        r = (est.get(s) or {}).get("rev")
+        if not r or r.get("up30") is None or r.get("down30") is None:
+            continue
+        up, dn = r["up30"] or 0, r["down30"] or 0
+        a = agg.setdefault(g, [0, 0, 0])
+        a[0] += 1
+        a[1] += up > dn
+        a[2] += dn > up
+    return {g: {"n": a[0], "breadth": (a[1] - a[2]) / a[0]} for g, a in agg.items() if a[0] >= 3}
 
 
 # --------------------------------------------------------------------------- cours
 def download_weekly(tickers, years=8):
     import yfinance as yf
-    frames = []
+    closes, vols = [], []
     tick = sorted(set(tickers))
     for i in range(0, len(tick), 80):
         batch = tick[i:i + 80]
+        df = None
         for attempt in range(3):
             try:
                 df = yf.download(batch, period=f"{years}y", interval="1wk", auto_adjust=True, progress=False, threads=True, group_by="column")
@@ -225,40 +344,55 @@ def download_weekly(tickers, years=8):
             except Exception as e:
                 log(f"  lot {i}: erreur {str(e)[:80]}, nouvel essai")
                 time.sleep(5)
-                df = None
         if df is None or df.empty:
             continue
-        c = df["Close"] if isinstance(df.columns, pd.MultiIndex) else df[["Close"]].rename(columns={"Close": batch[0]})
-        frames.append(c)
+        if isinstance(df.columns, pd.MultiIndex):
+            closes.append(df["Close"])
+            if "Volume" in df.columns.get_level_values(0):
+                vols.append(df["Volume"])
+        else:
+            closes.append(df[["Close"]].rename(columns={"Close": batch[0]}))
+            if "Volume" in df.columns:
+                vols.append(df[["Volume"]].rename(columns={"Volume": batch[0]}))
         time.sleep(1)
-    W = pd.concat(frames, axis=1) if frames else pd.DataFrame()
-    W = W.loc[:, ~W.columns.duplicated()]
-    W.index = pd.to_datetime(W.index).tz_localize(None).normalize()
+    def tidy(frames):
+        if not frames:
+            return pd.DataFrame()
+        X = pd.concat(frames, axis=1)
+        X = X.loc[:, ~X.columns.duplicated()]
+        X.index = pd.to_datetime(X.index).tz_localize(None).normalize()
+        return X.sort_index()
+    W, V = tidy(closes), tidy(vols)
     # une ligne par semaine (vendredi), quelle que soit la date de la barre renvoyée par chaque place
-    return W.sort_index().resample("W-FRI").last()
+    return W.resample("W-FRI").last(), (V.resample("W-FRI").sum(min_count=1) if not V.empty else V)
 
 
 def to_eur(W, uni):
-    """Cours en euros (dividendes réinvestis via auto_adjust) ; devises hors euro converties à la semaine."""
     out = W.copy()
     for cur, pair in FX_PAIRS.items():
         if pair not in W.columns:
             continue
         fx = W[pair].ffill()
-        for s, it in uni.items():
-            if s in out.columns and str(it.get("currency") or "").upper() == cur:
-                out[s] = W[s] / fx
+        cols = [s for s, it in uni.items() if s in out.columns and str(it.get("currency") or "").upper() == cur]
+        if cols:
+            out[cols] = W[cols].div(fx, axis=0)
     return out
 
 
 def fetch_prices():
-    uni = json.loads(UNIVERSE.read_text(encoding="utf-8"))["items"]
+    uni = read_json(UNIVERSE, {}).get("items", {})
+    if not uni:
+        raise SystemExit("Univers absent : lancer --universe")
     us = sorted({s for th in THEMES for s in th["us"]})
-    W = download_weekly(list(uni) + us + [BENCH, US_BENCH] + list(FX_PAIRS.values()))
+    t0 = time.time()
+    W, V = download_weekly(list(uni) + us + [BENCH, US_BENCH] + list(FX_PAIRS.values()))
     W = to_eur(W, uni)
     miss = [s for s in list(uni) + us + [BENCH] if s not in W.columns or W[s].notna().sum() < 30]
     W.to_csv(WEEKLY, compression="gzip", float_format="%.5g")
-    log(f"Cours hebdomadaires : {W.shape[1]} séries, {W.shape[0]} semaines ({W.index[0].date()} → {W.index[-1].date()}) ; manquants : {len(miss)} {miss[:15]}")
+    if not V.empty:
+        V.to_csv(WEEKLY_VOL, compression="gzip", float_format="%.4g")
+    log(f"Cours hebdomadaires : {W.shape[1]} séries, {W.shape[0]} semaines ({W.index[0].date()} → {W.index[-1].date()}), "
+        f"{time.time() - t0:.0f} s ; manquants : {len(miss)} {miss[:20]}")
 
 
 def clean_prices(W):
@@ -266,93 +400,125 @@ def clean_prices(W):
     W = W.where(W > 0)
     r = W / W.ffill().shift(1)
     nxt = W.shift(-1) / W
-    spike = ((r > 3) & (nxt < 1 / 2.5)) | ((r < 1 / 3) & (nxt > 2.5))
-    W = W.mask(spike)
+    W = W.mask(((r > 3) & (nxt < 1 / 2.5)) | ((r < 1 / 3) & (nxt > 2.5)))
     r = W / W.ffill().shift(1)
     bad = ((r > 3) | (r < 1 / 3)).sum()
-    drop = [c for c in W.columns if bad[c] > 2 and c not in (BENCH, US_BENCH)]
-    return W.drop(columns=drop)
+    return W.drop(columns=[c for c in W.columns if bad[c] > 2 and c not in (BENCH, US_BENCH)])
 
 
 def load_weekly():
     W = pd.read_csv(WEEKLY, index_col=0, parse_dates=True, compression="gzip").sort_index()
     if len(W) > 10 and pd.Series(W.index.dayofweek).nunique() > 1:
         W = W.resample("W-FRI").last()
-    return clean_prices(W)
+    W = clean_prices(W)
+    V = None
+    if WEEKLY_VOL.exists():
+        V = pd.read_csv(WEEKLY_VOL, index_col=0, parse_dates=True, compression="gzip").sort_index()
+        if len(V) > 10 and pd.Series(V.index.dayofweek).nunique() > 1:
+            V = V.resample("W-FRI").sum(min_count=1)
+        V = V.reindex(W.index)
+    return W, V
 
 
-# --------------------------------------------------------------------------- moteur (identique pour le test et le tableau de bord)
+# --------------------------------------------------------------------------- moteur vectorisé (identique pour le test et le tableau de bord)
 def groups_of(uni, min_members=4):
     """Groupe = industrie Yahoo si au moins min_members sociétés de l'univers, sinon « autres » du secteur."""
-    ind = {}
-    for s, it in uni.items():
+    count = {}
+    for it in uni.values():
         if it.get("industry"):
-            ind.setdefault(it["industry"], []).append(s)
+            count[it["industry"]] = count.get(it["industry"], 0) + 1
     g = {}
     for s, it in uni.items():
-        if not it.get("sector"):
-            continue
-        i = it.get("industry")
-        g[s] = i if i and len(ind.get(i, [])) >= min_members else "Autres : " + it["sector"]
+        if it.get("sector"):
+            i = it.get("industry")
+            g[s] = i if i and count.get(i, 0) >= min_members else "Autres : " + it["sector"]
     return g
 
 
-def stock_metrics(W, bench, t):
-    """Mesures par titre à la semaine d'indice t (aucune donnée postérieure)."""
-    if t < 52:
-        return None
-    w, b = W.iloc[: t + 1], bench.iloc[: t + 1]
-    ret = lambda a, k, lag=0: a.iloc[-1 - lag] / a.iloc[-1 - k] - 1
-    rs6 = ret(w, 26, 4) - ret(b, 26, 4)
-    rs3 = ret(w, 13) - ret(b, 13)
-    ma40 = w.iloc[-40:].mean()
-    hi52 = w.iloc[-52:].max()
-    last = w.iloc[-1]
-    ok = w.iloc[-52:].notna().sum() >= 45
-    return pd.DataFrame({"rs6": rs6, "rs3": rs3, "above": (last > ma40).astype(float), "nearHigh": (last >= 0.95 * hi52).astype(float),
-                         "last": last}).where(ok, np.nan)
+def panels(W, bench, V=None, est=None):
+    """Mesures par titre et par semaine (aucune donnée postérieure à la semaine) : tableaux semaines × titres."""
+    Wf = W.ffill(limit=2)
+    b = bench.ffill()
+    rel = lambda k, lag=0: Wf.shift(lag) / Wf.shift(k) - 1 - (b.shift(lag) / b.shift(k) - 1).values[:, None]
+    valid = Wf.notna().rolling(52, min_periods=1).sum() >= 45
+    P = {"rs6": rel(26, 4), "rs3": rel(13), "mom12": rel(52, 4),
+         "above": (Wf > Wf.rolling(40, min_periods=36).mean()).astype(float),
+         "hi52": Wf / Wf.rolling(52, min_periods=45).max()}
+    P["nearHigh"] = (P["hi52"] >= 0.95).astype(float)
+    if V is not None:
+        up = (Wf.pct_change(fill_method=None) > 0)
+        Vv = V.reindex(columns=W.columns)
+        upv = Vv.where(up, 0).rolling(13, min_periods=10).sum()
+        dnv = Vv.where(~up & Wf.pct_change(fill_method=None).notna(), 0).rolling(13, min_periods=10).sum()
+        P["volume"] = np.log((upv + 1) / (dnv + 1)).where(Vv.notna().rolling(13).sum() >= 10)
+    if est:
+        S = pd.DataFrame(np.nan, index=W.index, columns=W.columns)
+        for s, e in est.items():
+            if s not in S.columns or not e.get("surprises"):
+                continue
+            ser = pd.Series({pd.Timestamp(d): (1.0 if v > 0 else -1.0 if v < 0 else 0.0) for d, v in e["surprises"]}).sort_index()
+            ser = ser[~ser.index.duplicated(keep="last")]
+            # dernière surprise connue à la semaine t, valable 13 semaines (un trimestre)
+            idx = ser.index.searchsorted(W.index, side="right") - 1
+            vals = np.where(idx >= 0, ser.values[np.clip(idx, 0, None)], np.nan)
+            age = np.where(idx >= 0, (W.index - ser.index[np.clip(idx, 0, None)]).days, 1e9)
+            S[s] = np.where(age <= 91, vals, np.nan)
+        P["surprise"] = S
+    return {k: v.where(valid) for k, v in P.items()}
 
 
-def group_table(W, bench, groups, t, top_frac=0.2):
-    m = stock_metrics(W, bench, t)
-    if m is None:
+def group_signals(P, groups):
+    """Mesures par groupe et par semaine (médianes), note composite et classement ; tableaux semaines × groupes."""
+    cols = [s for s in groups if s in P["rs6"].columns]
+    gmap = pd.Series({s: groups[s] for s in cols})
+    med = lambda X: X[cols].T.groupby(gmap).median().T
+    G = {k: med(P[k]) for k in ("rs6", "rs3", "mom12", "hi52")}
+    G["breadth"] = P["above"][cols].T.groupby(gmap).mean().T
+    G["highs"] = P["nearHigh"][cols].T.groupby(gmap).mean().T
+    G["n"] = P["rs6"][cols].notna().T.groupby(gmap).sum().T
+    ok = G["n"] >= 3
+    for k in list(G):
+        if k != "n":
+            G[k] = G[k].where(ok)
+    G["composite"] = sum(G[c].rank(axis=1, pct=True) for c in ("rs6", "rs3", "breadth", "highs")) / 4
+    G["rank"] = G["composite"].rank(axis=1, ascending=False, method="first")
+    G["emerging"] = (G["rank"].shift(8) - G["rank"]).where(G["rs3"] > 0)  # places gagnées en 8 semaines, si le groupe monte
+    G["high52"] = G["hi52"]
+    if "volume" in P:
+        G["volume"] = med(P["volume"])
+    if "surprise" in P:
+        G["surprise"] = P["surprise"][cols].T.groupby(gmap).mean().T.where(P["surprise"][cols].notna().T.groupby(gmap).sum().T >= 3)
+    k = (G["composite"].notna().sum(axis=1) * 0.2).round().clip(lower=1)
+    G["trending"] = (G["rank"].le(k, axis=0)) & (G["rs6"] > 0) & (G["breadth"] >= 0.5)
+    return G
+
+
+def leader_challenger(P, groups, group, cap_now, W, t):
+    """Leader : plus grosse capitalisation (estimée à la semaine t d'après le cours) ; challenger : n° 2 à 4, le plus fort sur 6 mois."""
+    mem = [s for s, g in groups.items() if g == group and s in W.columns and pd.notna(P["rs6"].iloc[t].get(s))]
+    if not mem:
         return None, None
-    m = m.loc[[s for s in groups if s in m.index]].dropna(subset=["rs6", "rs3"])
-    m["group"] = [groups[s] for s in m.index]
-    g = m.groupby("group").agg(n=("rs6", "size"), rs6=("rs6", "median"), rs3=("rs3", "median"), breadth=("above", "mean"), highs=("nearHigh", "mean"))
-    g = g[g.n >= 3]
-    if g.empty:
-        return g, m
-    g["score"] = sum(g[c].rank(pct=True) for c in ("rs6", "rs3", "breadth", "highs")) / 4
-    g["rank"] = g.score.rank(ascending=False, method="first").astype(int)
-    k = max(1, int(round(len(g) * top_frac)))
-    g["trending"] = (g["rank"] <= k) & (g.rs6 > 0) & (g.breadth >= 0.5)
-    return g.sort_values("rank"), m
-
-
-def leader_challenger(m, group, cap_now, W, t):
-    """Leader : plus grosse capitalisation (estimée à la date t d'après le cours) ; challenger : n° 2 à 4, le plus fort sur 6 mois."""
-    mem = m[m.group == group]
-    if mem.empty:
-        return None, None
-    last_now = W.iloc[-1]
-    size = {s: (cap_now.get(s) or 0) * (W.iloc[t][s] / last_now[s]) if last_now.get(s) and not np.isnan(last_now[s]) else 0 for s in mem.index}
+    last = W.ffill().iloc[-1]
+    size = {s: (cap_now.get(s) or 0) * (W.iloc[t][s] / last[s]) if pd.notna(last.get(s)) and last[s] > 0 and pd.notna(W.iloc[t][s]) else 0 for s in mem}
     order = sorted(size, key=lambda s: -size[s])
     leader = order[0] if size[order[0]] > 0 else None
     pool = [s for s in order[1:4] if size[s] > 0]
-    challenger = max(pool, key=lambda s: mem.loc[s, "rs6"]) if pool else None
+    challenger = max(pool, key=lambda s: P["rs6"].iloc[t][s]) if pool else None
     return leader, challenger
 
 
-# --------------------------------------------------------------------------- test historique
-def perf(r, periods_per_year=13):
+# --------------------------------------------------------------------------- test historique et stress test
+PER_YEAR = 52
+
+
+def perf(r, step):
     r = pd.Series(r).dropna()
     if len(r) < 6:
         return {}
+    ppy = PER_YEAR / step
     nav = (1 + r).cumprod()
-    yrs = len(r) / periods_per_year
-    return {"cagr": nav.iloc[-1] ** (1 / yrs) - 1, "vol": r.std() * math.sqrt(periods_per_year),
-            "sharpe": r.mean() / r.std() * math.sqrt(periods_per_year) if r.std() > 0 else None,
+    return {"cagr": nav.iloc[-1] ** (ppy / len(r)) - 1, "vol": r.std() * math.sqrt(ppy),
+            "sharpe": r.mean() / r.std() * math.sqrt(ppy) if r.std() > 0 else None,
             "maxdd": float((nav / nav.cummax() - 1).min()), "n": len(r)}
 
 
@@ -364,48 +530,176 @@ def excess_stats(r, b):
     return {"meanPerPeriod": x.mean(), "t": x.mean() / se if se > 0 else None, "beatPct": float((x > 0).mean()), "n": len(x)}
 
 
-def backtest(W, uni, step=4, top=3):
-    bench = W[BENCH].ffill()
+class Fwd:
+    """Rendements à venir par groupe, calculés une fois par durée de détention (somme et nombre de sociétés cotées)."""
+    def __init__(self, Wf, groups):
+        self.Wf, self.cols = Wf, [s for s in groups if s in Wf.columns]
+        self.gm = pd.Series({s: groups[s] for s in self.cols})
+        self.cache = {}
+
+    def get(self, step):
+        if step not in self.cache:
+            F = (self.Wf[self.cols].shift(-step) / self.Wf[self.cols] - 1).clip(-0.6, 1.5)  # borné : une erreur de cours restante ne fait pas le résultat
+            ok = F.notna()
+            self.cache[step] = (F.fillna(0).T.groupby(self.gm).sum().T, ok.T.groupby(self.gm).sum().T, F.mean(axis=1))
+        return self.cache[step]
+
+
+def simulate(Wf, G, groups, signal, top, step, cost=COST, start=56, P=None, cap_now=None, picks=False, fwd=None, rng=None, keep=None):
+    """Tous les `step` semaines : les `top` groupes de meilleur signal (ou tirés au hasard si rng), sociétés à poids égaux,
+    frais sur la rotation ; keep : un groupe détenu n'est vendu que s'il sort des `keep` premiers (moins de rotation). Renvoie les rendements par période : portefeuille, univers à poids égaux, STOXX 600,
+    et leaders / challengers si picks."""
+    fwd = fwd or Fwd(Wf, groups)
+    Sg, Cg, EW = fwd.get(step)
+    S = G[signal] if signal else None
+    bench = Wf[BENCH].ffill() if BENCH in Wf.columns else None
+    rows, prev, prevp = [], set(), {"lead": set(), "chal": set()}
+    for t in range(start, len(Wf) - step, step):
+        if rng is not None:
+            avail = G["composite"].iloc[t].dropna().index
+            if len(avail) < top:
+                continue
+            topg = list(rng.choice(avail, top, replace=False))
+        else:
+            sig = S.iloc[t].dropna()
+            if sig.empty:
+                continue
+            ranking = list(sig.sort_values(ascending=False).index)
+            if keep:
+                held = [g for g in ranking[:keep] if g in prev]
+                topg = (held + [g for g in ranking if g not in held])[:max(top, len(held))][:top] if len(held) <= top else held[:top]
+            else:
+                topg = ranking[:top]
+        cnt = Cg.iloc[t].reindex(topg).fillna(0)
+        n = cnt.sum()
+        if n <= 0:
+            continue
+        r = Sg.iloc[t].reindex(topg).fillna(0).sum() / n
+        turn = 1 - cnt[[g for g in topg if g in prev]].sum() / n
+        prev = set(topg)
+        row = {"date": Wf.index[t], "top": float(r - 2 * cost * turn), "universeEW": float(EW.iloc[t]),
+               "stoxx": float(bench.iloc[t + step] / bench.iloc[t] - 1) if bench is not None else np.nan}
+        if picks:
+            f = (Wf.iloc[t + step] / Wf.iloc[t] - 1).clip(-0.6, 1.5)
+            lc = [leader_challenger(P, groups, g, cap_now, Wf, t) for g in topg]
+            for key, names in (("lead", [a for a, _ in lc if a]), ("chal", [b for _, b in lc if b])):
+                names = [x for x in names if pd.notna(f.get(x))]
+                if not names:
+                    row["leaders" if key == "lead" else "challengers"] = 0.0
+                    continue
+                tn = 1 - len(set(names) & prevp[key]) / len(names)
+                prevp[key] = set(names)
+                row["leaders" if key == "lead" else "challengers"] = float(f[names].mean() - 2 * cost * tn)
+        rows.append(row)
+    return pd.DataFrame(rows).set_index("date") if rows else pd.DataFrame()
+
+
+def deflated_sharpe(x, trial_srs):
+    """Probabilité que le Sharpe (par période) de x soit réel, compte tenu du nombre d'essais (Bailey et López de Prado, 2014)."""
+    from statistics import NormalDist
+    nd, g = NormalDist(), 0.5772156649
+    x = pd.Series(x).dropna()
+    sr, T = x.mean() / x.std(), len(x)
+    sk, ku = x.skew(), x.kurt() + 3
+    N = len(trial_srs)
+    sr0 = math.sqrt(np.var(trial_srs, ddof=1)) * ((1 - g) * nd.inv_cdf(1 - 1 / N) + g * nd.inv_cdf(1 - 1 / (N * math.e))) if N > 1 else 0
+    z = (sr - sr0) * math.sqrt(T - 1) / math.sqrt(max(1e-12, 1 - sk * sr + (ku - 1) / 4 * sr ** 2))
+    return nd.cdf(z), sr0
+
+
+def block_bootstrap(x, n=4000, block=6, seed=7):
+    x = pd.Series(x).dropna().values
+    if len(x) < 2 * block:
+        return None
+    rng = np.random.default_rng(seed)
+    k = int(math.ceil(len(x) / block))
+    means = [np.concatenate([x[s:s + block] for s in rng.integers(0, len(x) - block, k)])[:len(x)].mean() for _ in range(n)]
+    return {"p5": float(np.percentile(means, 5)), "p50": float(np.percentile(means, 50)), "p95": float(np.percentile(means, 95)),
+            "pNeg": float(np.mean(np.array(means) <= 0))}
+
+
+def placebo(Wf, G, groups, top, step, fwd, n=500, seed=11, cost=0.0):
+    """Groupes tirés au hasard à chaque période : distribution de l'écart à l'univers obtenue par chance (sans frais)."""
+    rng = np.random.default_rng(seed)
+    return np.array([(lambda R: (R["top"] - R["universeEW"]).mean())(simulate(Wf, G, groups, None, top, step, cost=cost, fwd=fwd, rng=rng)) for _ in range(n)])
+
+
+def crisis(R, a, b):
+    x = R.loc[(R.index >= a) & (R.index <= b)]
+    if x.empty:
+        return None
+    c = lambda s: float((1 + x[s]).prod() - 1)
+    return {"from": a, "to": b, "top": c("top"), "universeEW": c("universeEW"), "stoxx": c("stoxx"), "periods": len(x)}
+
+
+def backtest(W, V, uni, est):
+    t0 = time.time()
     groups = groups_of(uni)
     cap_now = {s: it.get("capEur") for s, it in uni.items()}
-    stocks = [s for s in groups if s in W.columns]
-    Ws = W[stocks].ffill(limit=2)
-    # rendement sur la période, borné à −60 % / +150 % (une erreur de cours restante ne fait pas le résultat)
-    fwd = lambda cols, t: (Ws.iloc[min(t + step, len(Ws) - 1)][cols] / Ws.iloc[t][cols] - 1).clip(-0.6, 1.5).fillna(0) if cols else pd.Series(dtype=float)
-    rows, prev = [], {"top": set(), "lead": set(), "chal": set()}
-    hist = []
-    for t in range(56, len(Ws) - step, step):
-        g, m = group_table(Ws, bench, groups, t)
-        if g is None or g.empty:
-            continue
-        topg = list(g.index[:top])
-        hist.append({"date": str(Ws.index[t].date()), "top": topg, "trending": list(g.index[g.trending])})
-        members = [s for s in m.index if m.loc[s, "group"] in topg]
-        lc = [leader_challenger(m, gg, cap_now, Ws, t) for gg in topg]
-        leads = [a for a, _ in lc if a]
-        chals = [b for _, b in lc if b]
-        allm = list(m.index)
-        def ret(cols, key):
-            r = fwd(cols, t).mean() if cols else 0.0
-            new = set(cols)
-            turn = 1 - len(new & prev[key]) / max(1, len(new)) if key else 0
-            if key:
-                prev[key] = new
-            return r - 2 * COST * turn
-        b_ret = bench.iloc[t + step] / bench.iloc[t] - 1
-        rows.append({"date": Ws.index[t], "top": ret(members, "top"), "leaders": ret(leads, "lead"), "challengers": ret(chals, "chal"),
-                     "universeEW": fwd(allm, t).mean(), "stoxx": b_ret})
-    R = pd.DataFrame(rows).set_index("date")
-    res = {"periods": len(R), "from": str(R.index[0].date()), "to": str(R.index[-1].date()), "stepWeeks": step, "topGroups": top, "cost": COST}
-    res["perf"] = {k: perf(R[k]) for k in R.columns}
-    res["vsStoxx"] = {k: excess_stats(R[k], R["stoxx"]) for k in ("top", "leaders", "challengers", "universeEW")}
-    res["vsUniverse"] = {k: excess_stats(R[k], R["universeEW"]) for k in ("top", "leaders", "challengers")}
-    res["challengerVsLeader"] = excess_stats(R["challengers"], R["leaders"])
+    Wf = W.ffill(limit=2)
+    P = panels(W, W[BENCH], V, est)
+    G = group_signals(P, groups)
+    fwd = Fwd(Wf, groups)
+    log(f"  mesures calculées ({time.time() - t0:.0f} s)")
+    # 1. stratégie de référence (composite, 3 groupes, 4 semaines), leaders et challengers
+    R = simulate(Wf, G, groups, "composite", 3, 4, P=P, cap_now=cap_now, picks=True, fwd=fwd)
+    if R.empty or len(R) < 12:
+        return None, R, G, P
+    res = {"periods": len(R), "from": R.index[0], "to": R.index[-1], "stepWeeks": 4, "topGroups": 3, "cost": COST,
+           "perf": {k: perf(R[k], 4) for k in R.columns}, "vsUniverse": {k: excess_stats(R[k], R["universeEW"]) for k in ("top", "leaders", "challengers")},
+           "vsStoxx": {k: excess_stats(R[k], R["stoxx"]) for k in ("top", "leaders", "challengers", "universeEW")},
+           "challengerVsLeader": excess_stats(R["challengers"], R["leaders"])}
     mid = R.index[len(R) // 2]
     res["halves"] = {k: [excess_stats(R.loc[:mid, k], R.loc[:mid, "universeEW"]), excess_stats(R.loc[mid:, k], R.loc[mid:, "universeEW"])] for k in ("top", "leaders", "challengers")}
-    res["halvesSplit"] = str(mid.date())
-    res["history"] = hist[-30:]
-    return res, R
+    res["halvesSplit"] = mid
+    # 2. stress test : toutes les variantes essayées sont déclarées (6 signaux × 2 tailles × 2 durées = 24 essais)
+    grid, xs = [], {}
+    for sig in SIGNALS:
+        if sig not in G or G[sig].notna().sum().sum() == 0:
+            continue
+        for top in (3, 6):
+            for step in (4, 13):
+                Rg = simulate(Wf, G, groups, sig, top, step, fwd=fwd)
+                if Rg.empty:
+                    continue
+                x = Rg["top"] - Rg["universeEW"]
+                key = f"{sig}|{top}|{step}"
+                xs[key] = (x, step)
+                st = excess_stats(Rg["top"], Rg["universeEW"])
+                grid.append({"signal": sig, "top": top, "step": step, "from": Rg.index[0], "periods": len(Rg),
+                             "cagr": perf(Rg["top"], step).get("cagr"), "cagrEW": perf(Rg["universeEW"], step).get("cagr"),
+                             "excessPerYear": x.mean() * PER_YEAR / step, "t": st.get("t"), "beatPct": st.get("beatPct"),
+                             "maxdd": perf(Rg["top"], step).get("maxdd")})
+    # règle de conservation fixée à l'avance (entrer dans les 3 premiers, sortir au-delà du 8e) : 2 essais de plus, déclarés
+    for sig in ("composite", "mom12"):
+        Rg = simulate(Wf, G, groups, sig, 3, 4, fwd=fwd, keep=8)
+        if Rg.empty:
+            continue
+        x = Rg["top"] - Rg["universeEW"]
+        xs[f"{sig}+conservation|3|4"] = (x, 4)
+        st = excess_stats(Rg["top"], Rg["universeEW"])
+        grid.append({"signal": sig + "+conservation", "top": 3, "step": 4, "from": Rg.index[0], "periods": len(Rg),
+                     "cagr": perf(Rg["top"], 4).get("cagr"), "cagrEW": perf(Rg["universeEW"], 4).get("cagr"),
+                     "excessPerYear": x.mean() * PER_YEAR / 4, "t": st.get("t"), "beatPct": st.get("beatPct"), "maxdd": perf(Rg["top"], 4).get("maxdd")})
+    best = max(grid, key=lambda g: g["t"] if g["t"] is not None else -9)
+    bx, bstep = xs[f"{best['signal']}|{best['top']}|{best['step']}"]
+    dsr, sr0 = deflated_sharpe(bx, [x.mean() / x.std() for x, _ in xs.values() if x.std() > 0])
+    stress = {"trials": len(grid), "grid": grid, "best": best, "deflatedSharpe": dsr, "sharpeByChance": sr0 * math.sqrt(PER_YEAR / bstep),
+              "bootstrapComposite": block_bootstrap(R["top"] - R["universeEW"])}
+    # frais doublés sur la référence
+    R2 = simulate(Wf, G, groups, "composite", 3, 4, cost=2 * COST, fwd=fwd)
+    stress["doubleCost"] = excess_stats(R2["top"], R2["universeEW"])
+    # krachs
+    stress["crises"] = [c for c in (crisis(R, "2020-02-01", "2020-05-01"), crisis(R, "2022-01-01", "2022-10-15")) if c]
+    # placebo : groupes au hasard
+    pl = placebo(Wf, G, groups, 3, 4, fwd, n=PLACEBO_N)
+    R0 = simulate(Wf, G, groups, "composite", 3, 4, cost=0.0, fwd=fwd)
+    actual = float((R0["top"] - R0["universeEW"]).mean())  # brut de frais, comme les tirages
+    stress["placebo"] = {"n": len(pl), "actual": actual, "p5": float(np.percentile(pl, 5)), "p95": float(np.percentile(pl, 95)),
+                         "pctBelow": float((pl < actual).mean())}
+    res["stress"] = stress
+    log(f"  stress test : {len(grid)} essais ({time.time() - t0:.0f} s)")
+    return res, R, G, P
 
 
 def basket(W, cols):
@@ -423,161 +717,223 @@ def lead_lag(W, step=4):
     for th in THEMES:
         us, usc = basket(W, th["us"])
         eu, euc = basket(W, th["eu"])
-        if us is None or eu is None:
+        if us is None or eu is None or len(euc) < 2:
             continue
         idx = list(range(0, len(W) - step, step))
         usx = pd.Series([us.iloc[i + step] / us.iloc[i] - spx.iloc[i + step] / spx.iloc[i] for i in idx], index=W.index[idx])
         eux = pd.Series([eu.iloc[i + step] / eu.iloc[i] - stx.iloc[i + step] / stx.iloc[i] for i in idx], index=W.index[idx])
         corr = {f"t+{k}": float(usx.corr(eux.shift(-k))) for k in range(0, 4)}
-        # règle : tenir la chaîne européenne quand le baromètre américain bat son marché sur 13 semaines, sinon le STOXX 600
-        rule, always = [], []
+        rule, always, stxr = [], [], []
         for i in idx:
             if i < 13:
                 continue
             sig = us.iloc[i] / us.iloc[i - 13] - spx.iloc[i] / spx.iloc[i - 13] > 0
-            e = eu.iloc[i + step] / eu.iloc[i] - 1
-            s = stx.iloc[i + step] / stx.iloc[i] - 1
+            e, s = eu.iloc[i + step] / eu.iloc[i] - 1, stx.iloc[i + step] / stx.iloc[i] - 1
             rule.append(e if sig else s)
             always.append(e)
-        stxr = [stx.iloc[i + step] / stx.iloc[i] - 1 for i in idx if i >= 13]
+            stxr.append(s)
         out.append({"theme": th["key"], "name": th["name"], "us": usc, "eu": euc, "corr": corr,
-                    "rule": perf(rule), "alwaysEU": perf(always), "stoxx": perf(stxr), "ruleVsAlways": excess_stats(rule, always)})
+                    "rule": perf(rule, step), "alwaysEU": perf(always, step), "stoxx": perf(stxr, step), "ruleVsAlways": excess_stats(rule, always)})
     return out
 
 
-def ai_case(W, uni):
+def ai_case(W, G, P, uni):
     """Cas de l'IA : dates de détection après le lancement de ChatGPT (30/11/2022) et rendements ensuite."""
-    bench = W[BENCH].ffill()
     groups = groups_of(uni)
     cap_now = {s: it.get("capEur") for s, it in uni.items()}
-    Ws = W[[s for s in groups if s in W.columns]].ffill(limit=2)
-    start = Ws.index.searchsorted(pd.Timestamp("2022-11-30"))
+    Wf = W.ffill(limit=2)
+    bench = W[BENCH].ffill()
+    start = Wf.index.searchsorted(pd.Timestamp("2022-11-30"))
     spx = W[US_BENCH].ffill()
     us, _ = basket(W, THEMES[0]["us"])
     us_date = None
-    for t in range(start, len(W)):
-        if t >= 13 and all(us.iloc[k] / us.iloc[k - 13] - spx.iloc[k] / spx.iloc[k - 13] > 0 for k in range(t - 3, t + 1)):
+    for t in range(max(start, 16), len(W)):
+        if all(us.iloc[k] / us.iloc[k - 13] - spx.iloc[k] / spx.iloc[k - 13] > 0 for k in range(t - 3, t + 1)):
             us_date = W.index[t]
             break
     targets = {}
     for key in ("ASML.AS", "SU.PA", "IFX.DE", "PRY.MI"):
         if key in groups:
             targets.setdefault(groups[key], key)
-    out = {"chatgpt": "2022-11-30", "usBarometerConfirmed": str(us_date.date()) if us_date is not None else None, "groups": []}
+    out = {"chatgpt": "2022-11-30", "usBarometerConfirmed": us_date, "groups": []}
     for grp, ex in targets.items():
-        first = None
-        for t in range(start, len(Ws)):
-            g, m = group_table(Ws, bench, groups, t)
-            if g is not None and grp in g.index and bool(g.loc[grp, "trending"]):
-                first = t
-                break
-        rec = {"group": grp, "example": ex, "firstTrending": str(Ws.index[first].date()) if first is not None else None}
+        tr = G["trending"][grp] if grp in G["trending"].columns else None
+        hits = [t for t in range(start, len(Wf)) if tr is not None and bool(tr.iloc[t])]
+        first = hits[0] if hits else None
+        rec = {"group": grp, "example": ex, "firstTrending": Wf.index[first] if first is not None else None}
         if first is not None:
-            g, m = group_table(Ws, bench, groups, first)
-            lead, chal = leader_challenger(m, grp, cap_now, Ws, first)
-            end = min(first + 52, len(Ws) - 1)
-            r = lambda s, a, b: float(Ws.iloc[b][s] / Ws.iloc[a][s] - 1) if s else None
+            lead, chal = leader_challenger(P, groups, grp, cap_now, Wf, first)
+            end = min(first + 52, len(Wf) - 1)
+            r = lambda s, a, b: float(Wf.iloc[b][s] / Wf.iloc[a][s] - 1) if s and pd.notna(Wf.iloc[a][s]) and pd.notna(Wf.iloc[b][s]) else None
             rec.update({"leader": lead, "challenger": chal, "weeksAfterChatGPT": first - start,
                         "leader12m": r(lead, first, end), "challenger12m": r(chal, first, end), "stoxx12m": float(bench.iloc[end] / bench.iloc[first] - 1),
-                        "leaderToNow": r(lead, first, len(Ws) - 1), "challengerToNow": r(chal, first, len(Ws) - 1),
-                        "stoxxToNow": float(bench.iloc[-1] / bench.iloc[first] - 1),
-                        "leaderFromChatGPT": r(lead, start, len(Ws) - 1)})
+                        "leaderToNow": r(lead, first, len(Wf) - 1), "challengerToNow": r(chal, first, len(Wf) - 1),
+                        "stoxxToNow": float(bench.iloc[-1] / bench.iloc[first] - 1), "leaderFromChatGPT": r(lead, start, len(Wf) - 1)})
         out["groups"].append(rec)
     return out
 
 
 def run_backtest():
-    uni = json.loads(UNIVERSE.read_text(encoding="utf-8"))["items"]
-    W = load_weekly()
-    res, R = backtest(W, uni)
+    uni = read_json(UNIVERSE, {}).get("items", {})
+    est = read_json(ESTIMATES, {})
+    W, V = load_weekly()
+    res, R, G, P = backtest(W, V, uni, est)
+    if res is None:
+        log("Test historique : historique trop court, rien n'est écrit")
+        return
     res["leadLag"] = lead_lag(W)
-    res["aiCase"] = ai_case(W, uni)
+    res["aiCase"] = ai_case(W, G, P, uni)
+    old = read_json(BACKTEST, {})
+    if old.get("trends"):
+        res["trends"] = old["trends"]  # test Google Trends : conservé (lancé à part)
     res["generatedAt"] = datetime.now(timezone.utc).isoformat()
     res["universe"] = {"n": len(uni), "minCapEur": MIN_CAP_EUR,
                        "bias": "univers d'aujourd'hui appliqué au passé : les sociétés disparues ou devenues petites manquent (biais du survivant) ; "
                                "comparer à l'univers à poids égaux, qui a le même biais, plutôt qu'au STOXX 600"}
-    BACKTEST.write_text(json.dumps(clean(res), indent=1, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+    write_json(BACKTEST, res, indent=1)
     print(report(res))
+
+
+# --------------------------------------------------------------------------- Google Trends (expérimental)
+def trends_test():
+    """Recherches Google (monde, 5 ans, hebdomadaire) : la hausse de l'intérêt annonce-t-elle la chaîne européenne du thème ?"""
+    try:
+        from pytrends.request import TrendReq
+    except Exception:
+        log("Google Trends : pytrends non installé")
+        return
+    W, _ = load_weekly()
+    stx = W[BENCH].ffill()
+    py = TrendReq(hl="en-US", tz=0, timeout=(10, 30), retries=2, backoff_factor=2)
+    out = []
+    for th in THEMES:
+        kw = th.get("trends")
+        rec = {"theme": th["key"], "keyword": kw}
+        try:
+            py.build_payload([kw], timeframe="today 5-y", geo="")
+            df = py.interest_over_time()
+            s = df[kw].astype(float)
+            s.index = pd.to_datetime(s.index).to_period("W-FRI").to_timestamp("W-FRI")
+            s = s.groupby(level=0).last().reindex(W.index).ffill(limit=1)
+            eu, euc = basket(W, th["eu"])
+            step = 4
+            idx = [i for i in range(4, len(W) - step, step) if pd.notna(s.iloc[i]) and pd.notna(s.iloc[i - 4])]
+            chg = pd.Series([math.log((s.iloc[i] + 1) / (s.iloc[i - 4] + 1)) for i in idx], index=W.index[idx])
+            ex = pd.Series([eu.iloc[i + step] / eu.iloc[i] - stx.iloc[i + step] / stx.iloc[i] for i in idx], index=W.index[idx])
+            exb = pd.Series([eu.iloc[i] / eu.iloc[i - step] - stx.iloc[i] / stx.iloc[i - step] for i in idx], index=W.index[idx])
+            rec.update({"n": len(idx), "corrNext": float(chg.corr(ex)), "corrSame": float(chg.corr(exb)), "last": float(s.dropna().iloc[-1]),
+                        "change3m": float(s.dropna().iloc[-1] / max(1.0, s.dropna().iloc[-14]) - 1) if s.notna().sum() > 14 else None})
+        except Exception as e:
+            rec["error"] = str(e)[:120]
+        out.append(rec)
+        time.sleep(8)
+    res = read_json(BACKTEST, {})
+    res["trends"] = {"at": date.today().isoformat(), "themes": out}
+    write_json(BACKTEST, res, indent=1)
+    for r in out:
+        log(f"  Google Trends {r['keyword']:16s} " + (f"corrélation avec le mois suivant {r['corrNext']:+.2f}, même mois {r['corrSame']:+.2f} ({r['n']} périodes)" if "corrNext" in r else "indisponible : " + r.get("error", "")))
 
 
 def report(res):
     p = lambda v: "   n/d" if v is None or (isinstance(v, float) and math.isnan(v)) else f"{v * 100:+6.1f} %"
-    L = ["=" * 76, "SECTEURS EN TENDANCE — TEST HISTORIQUE", "=" * 76,
-         f"{res['periods']} périodes de {res['stepWeeks']} semaines, {res['from']} → {res['to']}, {res['topGroups']} meilleurs groupes, frais {res['cost'] * 100:.1f} % par aller simple",
-         f"Univers : {res['universe']['n']} sociétés ; " + res["universe"]["bias"], "", "Performance annualisée :"]
+    f2 = lambda v: "n/d" if v is None else f"{v:.2f}"
+    L = ["=" * 78, "SECTEURS EN TENDANCE — TEST HISTORIQUE ET STRESS TEST", "=" * 78,
+         f"{res['periods']} périodes de {res['stepWeeks']} semaines, {str(res['from'])[:10]} → {str(res['to'])[:10]}, {res['topGroups']} meilleurs groupes, frais {res['cost'] * 100:.1f} % par aller simple",
+         f"Univers : {res['universe']['n']} sociétés ; " + res["universe"]["bias"], "", "Performance annualisée (référence : note composite) :"]
     for k, v in res["perf"].items():
         if v:
-            L.append(f"  {k:12s} CAGR {p(v['cagr'])}  vol {p(v['vol'])}  Sharpe {v['sharpe']:.2f}  pire baisse {p(v['maxdd'])}")
-    L.append("\nÉcart par période de 4 semaines face à l'univers à poids égaux (même biais) :")
+            L.append(f"  {k:12s} CAGR {p(v['cagr'])}  vol {p(v['vol'])}  Sharpe {f2(v['sharpe'])}  pire baisse {p(v['maxdd'])}")
+    L.append("\nÉcart par période face à l'univers à poids égaux :")
     for k, v in res["vsUniverse"].items():
         if v:
-            L.append(f"  {k:12s} {p(v['meanPerPeriod'])} par période, t = {v['t']:.2f}, bat l'univers {v['beatPct'] * 100:.0f} % du temps")
+            L.append(f"  {k:12s} {p(v['meanPerPeriod'])}, t = {f2(v['t'])}, bat l'univers {v['beatPct'] * 100:.0f} % du temps")
     v = res["challengerVsLeader"]
     if v:
-        L.append(f"  challenger − leader : {p(v['meanPerPeriod'])} par période, t = {v['t']:.2f}")
-    L.append(f"\nStabilité (avant / après le {res['halvesSplit']}) :")
-    for k, hv in res["halves"].items():
-        L.append(f"  {k:12s} " + " | ".join(f"{p(h.get('meanPerPeriod'))} (t = {h['t']:.2f})" if h and h.get('t') is not None else "n/d" for h in hv))
+        L.append(f"  challenger − leader : {p(v['meanPerPeriod'])}, t = {f2(v['t'])}")
+    S = res["stress"]
+    L.append(f"\nSTRESS TEST — {S['trials']} essais déclarés (signal × nombre de groupes × durée de détention) :")
+    L.append(f"  {'signal':22s} {'grp':>3s} {'sem':>3s} {'depuis':>10s} {'CAGR':>8s} {'univers':>8s} {'écart/an':>9s} {'t':>6s} {'pire baisse':>11s}")
+    for g in sorted(S["grid"], key=lambda g: -(g["t"] or -9)):
+        L.append(f"  {g['signal']:22s} {g['top']:>3d} {g['step']:>3d} {str(g['from'])[:10]:>10s} {p(g['cagr'])} {p(g['cagrEW'])} {p(g['excessPerYear']):>9s} {f2(g['t']):>6s} {p(g['maxdd']):>11s}")
+    b = S["best"]
+    L.append(f"  Meilleur essai : {b['signal']}, {b['top']} groupes, {b['step']} semaines (t = {f2(b['t'])}) ; Deflated Sharpe = {S['deflatedSharpe']:.2f} (exigé ≥ 0,95) ; "
+             f"Sharpe obtenu par chance avec {S['trials']} essais ≈ {S['sharpeByChance']:.2f}")
+    bb = S.get("bootstrapComposite")
+    if bb:
+        L.append(f"  Bootstrap (composite) : écart moyen par période entre {p(bb['p5'])} et {p(bb['p95'])} dans 90 % des cas ; probabilité ≤ 0 : {bb['pNeg'] * 100:.0f} %")
+    pl = S["placebo"]
+    L.append(f"  Placebo (groupes au hasard, {pl['n']} tirages, sans frais) : écart entre {p(pl['p5'])} et {p(pl['p95'])} ; la note composite ({p(pl['actual'])} brut) fait mieux que {pl['pctBelow'] * 100:.0f} % des tirages")
+    dc = S.get("doubleCost")
+    if dc:
+        L.append(f"  Frais doublés : {p(dc['meanPerPeriod'])} par période, t = {f2(dc['t'])}")
+    for c in S["crises"]:
+        L.append(f"  Krach {c['from']} → {c['to']} : 3 meilleurs secteurs {p(c['top'])}, univers {p(c['universeEW'])}, STOXX 600 {p(c['stoxx'])}")
     L.append("\nBaromètre américain → chaîne européenne :")
     for x in res["leadLag"]:
         c = x["corr"]
         L.append(f"  {x['name']:34s} corrélation t+0 {c['t+0']:+.2f} · t+1 {c['t+1']:+.2f} · t+2 {c['t+2']:+.2f} · t+3 {c['t+3']:+.2f}")
         if x["rule"] and x["alwaysEU"]:
-            L.append(f"  {'':34s} règle (tenir si le baromètre US monte) CAGR {p(x['rule']['cagr'])}, pire baisse {p(x['rule']['maxdd'])} | toujours investi {p(x['alwaysEU']['cagr'])}, {p(x['alwaysEU']['maxdd'])} | STOXX {p(x['stoxx'].get('cagr'))}")
+            L.append(f"  {'':34s} règle CAGR {p(x['rule']['cagr'])}, pire baisse {p(x['rule']['maxdd'])} | toujours investi {p(x['alwaysEU']['cagr'])}, {p(x['alwaysEU']['maxdd'])}")
     a = res["aiCase"]
-    L.append(f"\nCas de l'IA (ChatGPT le {a['chatgpt']}) : baromètre américain confirmé le {a['usBarometerConfirmed']}")
+    L.append(f"\nCas de l'IA (ChatGPT le {a['chatgpt']}) : baromètre américain confirmé le {str(a['usBarometerConfirmed'])[:10]}")
     for g in a["groups"]:
-        if g.get("firstTrending"):
-            L.append(f"  {g['group']:38s} en tendance le {g['firstTrending']} ({g['weeksAfterChatGPT']} sem. après) · leader {g['leader']} {p(g['leader12m'])} sur 12 mois, challenger {g['challenger']} {p(g['challenger12m'])}, STOXX {p(g['stoxx12m'])}")
-            L.append(f"  {'':38s} depuis la détection jusqu'à aujourd'hui : leader {p(g['leaderToNow'])}, challenger {p(g['challengerToNow'])}, STOXX {p(g['stoxxToNow'])} (leader acheté le jour de ChatGPT : {p(g['leaderFromChatGPT'])})")
-        else:
-            L.append(f"  {g['group']:38s} jamais en tendance depuis")
+        if g.get("firstTrending") is not None:
+            L.append(f"  {g['group']:38s} en tendance le {str(g['firstTrending'])[:10]} · leader {g['leader']} {p(g['leader12m'])} sur 12 mois, challenger {g['challenger']} {p(g['challenger12m'])}, STOXX {p(g['stoxx12m'])}")
     return "\n".join(L)
 
 
 # --------------------------------------------------------------------------- tableau de bord (classement du jour)
 def daily_rows(tickers):
     import yfinance as yf
-    out = {}
-    for s in tickers:
+    def one(s):
         try:
-            h = yf.Ticker(s).history(period="1y", interval="1d", auto_adjust=False)
-            out[s] = [[i.strftime("%Y-%m-%d"), *(round(float(v), 4) if v == v else None for v in (r["Open"], r["High"], r["Low"], r["Close"])), int(r["Volume"]) if r["Volume"] == r["Volume"] else None]
-                      for i, r in h.iterrows() if r["Close"] == r["Close"] and r["Close"] > 0]
+            h = with_retry(lambda: yf.Ticker(s).history(period="1y", interval="1d", auto_adjust=False), tries=2)
+            return s, [[i.strftime("%Y-%m-%d"), *(round(float(v), 4) if v == v else None for v in (r["Open"], r["High"], r["Low"], r["Close"])),
+                        int(r["Volume"]) if r["Volume"] == r["Volume"] else None] for i, r in h.iterrows() if r["Close"] == r["Close"] and r["Close"] > 0]
         except Exception:
-            pass
-        time.sleep(0.2)
-    return out
+            return s, None
+    with ThreadPoolExecutor(THREADS) as ex:
+        return {s: rows for s, rows in ex.map(one, tickers) if rows}
 
 
 def dashboard(fetch_daily=True):
-    uni = json.loads(UNIVERSE.read_text(encoding="utf-8"))["items"]
-    W = load_weekly()
-    bench = W[BENCH].ffill()
+    uni = read_json(UNIVERSE, {}).get("items", {})
+    est = read_json(ESTIMATES, {})
+    W, V = load_weekly()
     groups = groups_of(uni)
-    Ws = W[[s for s in groups if s in W.columns]].ffill(limit=2)
     cap_now = {s: it.get("capEur") for s, it in uni.items()}
-    t = len(Ws) - 1
-    g, m = group_table(Ws, bench, groups, t)
-    g8, _ = group_table(Ws, bench, groups, t - 8)
+    P = panels(W, W[BENCH], V, est)
+    G = group_signals(P, groups)
+    Wf = W.ffill(limit=2)
+    t = len(W) - 1
+    rb = revision_breadth(est, groups) if est else {}
     def stock(s):
         if not s:
             return None
-        it = uni.get(s, {})
+        it, e = uni.get(s, {}), est.get(s) or {}
+        r = e.get("rev") or {}
+        sur = (e.get("surprises") or [])[-1:] or [None]
         return {"symbol": s, "name": it.get("name"), "country": it.get("country"), "pea": it.get("pea"), "isin": it.get("isin"),
                 "capEur": it.get("capEur"), "revGrowth": it.get("revGrowth"), "opMargin": it.get("opMargin"), "fwdPE": it.get("fwdPE"),
-                "rs6": float(m.loc[s, "rs6"]) if s in m.index else None, "rs3": float(m.loc[s, "rs3"]) if s in m.index else None}
+                "analysts": it.get("analysts"), "upside": it.get("upside"), "instPct": it.get("instPct"),
+                "revUp30": r.get("up30"), "revDown30": r.get("down30"), "lastSurprise": sur[0],
+                "rs6": P["rs6"].iloc[t].get(s), "rs3": P["rs3"].iloc[t].get(s), "volume": P["volume"].iloc[t].get(s) if "volume" in P else None}
+    row = lambda k, g: G[k].iloc[t].get(g) if k in G else None
     out_groups = []
-    for grp, r in g.iterrows():
-        lead, chal = leader_challenger(m, grp, cap_now, Ws, t)
-        mem = m[m.group == grp].sort_values("rs6", ascending=False)
-        prev = int(g8.loc[grp, "rank"]) if g8 is not None and grp in g8.index else None
-        sector = next((uni[s].get("sector") for s in mem.index if uni.get(s)), None)
-        out_groups.append({"key": grp, "sector": sector, "n": int(r.n), "rs6": float(r.rs6), "rs3": float(r.rs3), "breadth": float(r.breadth),
-                           "highs": float(r.highs), "score": float(r.score), "rank": int(r["rank"]), "rank8w": prev, "trending": bool(r.trending),
-                           "emerging": bool(prev is not None and prev - int(r["rank"]) >= max(5, len(g) // 6) and r.rs3 > 0),
-                           "leader": stock(lead), "challenger": stock(chal), "top": [stock(s) for s in mem.index[:5]]})
-    spx = W[US_BENCH].ffill()
+    for grp in G["rank"].iloc[t].dropna().sort_values().index:
+        lead, chal = leader_challenger(P, groups, grp, cap_now, Wf, t)
+        mem = sorted([s for s, g in groups.items() if g == grp and pd.notna(P["rs6"].iloc[t].get(s))], key=lambda s: -P["rs6"].iloc[t][s])
+        prev = G["rank"].iloc[t - 8].get(grp) if t >= 8 else None
+        sector = next((uni[s].get("sector") for s in mem if uni.get(s)), None)
+        rank = int(row("rank", grp))
+        out_groups.append({"key": grp, "sector": sector, "n": int(row("n", grp)), "rs6": row("rs6", grp), "rs3": row("rs3", grp), "mom12": row("mom12", grp),
+                           "breadth": row("breadth", grp), "highs": row("highs", grp), "score": row("composite", grp), "rank": rank,
+                           "rank8w": int(prev) if prev is not None and pd.notna(prev) else None, "trending": bool(row("trending", grp)),
+                           "emerging": bool(prev is not None and pd.notna(prev) and prev - rank >= max(5, len(G["rank"].columns) // 6) and (row("rs3", grp) or 0) > 0),
+                           "volume": row("volume", grp), "surprise": row("surprise", grp),
+                           "revisions": (rb.get(grp) or {}).get("breadth"), "revisionsN": (rb.get(grp) or {}).get("n"),
+                           "leader": stock(lead), "challenger": stock(chal), "top": [stock(s) for s in mem[:5]]})
+    spx, bench = W[US_BENCH].ffill(), W[BENCH].ffill()
     themes = []
     for th in THEMES:
         us, usc = basket(W, th["us"])
@@ -585,50 +941,60 @@ def dashboard(fetch_daily=True):
         if us is None or eu is None:
             continue
         rsx = lambda a, b, k: float(a.iloc[-1] / a.iloc[-1 - k] - b.iloc[-1] / b.iloc[-1 - k])
-        mem = [s for s in euc if s in m.index]
+        mem = [s for s in euc if s in uni and pd.notna(P["rs6"].iloc[t].get(s))]
         size = sorted(mem, key=lambda s: -(cap_now.get(s) or 0))
         lead = size[0] if size else None
-        chal = max(size[1:4], key=lambda s: m.loc[s, "rs6"]) if len(size) > 1 else None
-        themes.append({"key": th["key"], "name": th["name"], "us": usc, "eu": euc,
+        chal = max(size[1:4], key=lambda s: P["rs6"].iloc[t][s]) if len(size) > 1 else None
+        revs = [(est.get(s) or {}).get("rev") for s in mem]
+        revs = [r for r in revs if r and r.get("up30") is not None and r.get("down30") is not None]
+        themes.append({"key": th["key"], "name": th["name"], "us": usc, "eu": euc, "missing": [s for s in th["eu"] if s not in euc],
                        "usRs13": rsx(us, spx, 13), "usRs26": rsx(us, spx, 26), "euRs13": rsx(eu, bench, 13), "euRs26": rsx(eu, bench, 26),
-                       "leader": stock(lead), "challenger": stock(chal), "members": [stock(s) for s in sorted(mem, key=lambda s: -m.loc[s, "rs6"])]})
+                       "revisions": (sum(r["up30"] > r["down30"] for r in revs) - sum(r["down30"] > r["up30"] for r in revs)) / len(revs) if len(revs) >= 3 else None,
+                       "leader": stock(lead), "challenger": stock(chal), "members": [stock(s) for s in sorted(mem, key=lambda s: -P["rs6"].iloc[t][s])]})
     picks = set()
     for x in out_groups[:8] + themes:
         for k in ("leader", "challenger"):
             if x.get(k):
                 picks.add(x[k]["symbol"])
-    bt = json.loads(BACKTEST.read_text(encoding="utf-8")) if BACKTEST.exists() else None
-    payload = {"format": "euro-signal-sectors", "generatedAt": datetime.now(timezone.utc).isoformat(), "asOf": str(min(Ws.index[-1].date(), date.today())),  # semaine en cours : étiquetée au vendredi, affichée à la date du jour
-               "universe": {"n": len(uni), "minCapEur": MIN_CAP_EUR}, "groups": out_groups, "themes": themes,
-               "daily": daily_rows(sorted(picks)) if fetch_daily else {},
-               "backtest": {k: bt.get(k) for k in ("from", "to", "periods", "vsUniverse", "vsStoxx", "challengerVsLeader", "halves", "halvesSplit", "aiCase", "perf", "leadLag", "generatedAt")} if bt else None}
-    OUT.write_text(json.dumps(clean(payload), ensure_ascii=False, allow_nan=False), encoding="utf-8")
+    bt = read_json(BACKTEST, None)
+    keys = ("from", "to", "periods", "vsUniverse", "vsStoxx", "challengerVsLeader", "halves", "halvesSplit", "aiCase", "perf", "leadLag", "stress", "trends", "generatedAt")
+    payload = {"format": "euro-signal-sectors", "generatedAt": datetime.now(timezone.utc).isoformat(),
+               "asOf": str(min(W.index[-1].date(), date.today())),  # semaine en cours : étiquetée au vendredi, affichée à la date du jour
+               "universe": {"n": len(uni), "minCapEur": MIN_CAP_EUR}, "estimatesAt": max((v.get("fetched", "") for v in est.values()), default=None),
+               "groups": out_groups, "themes": themes, "daily": daily_rows(sorted(picks)) if fetch_daily else {},
+               "backtest": {k: bt.get(k) for k in keys} if bt else None}
+    write_json(OUT, payload)
     log(f"Secteurs : {len(out_groups)} groupes, {sum(x['trending'] for x in out_groups)} en tendance, {len(themes)} thèmes, {len(picks)} leaders / challengers")
 
 
 # --------------------------------------------------------------------------- données simulées (vérification hors ligne)
-def synthetic():
-    rng = np.random.default_rng(3)
-    dates = pd.date_range("2018-10-05", "2026-10-09", freq="W-FRI")
+def synthetic(seed=3, start="2018-10-05", end="2026-10-09"):
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range(start, end, freq="W-FRI")
     T = len(dates)
     inds = [("Semiconductor Equipment & Materials", "Technology"), ("Semiconductors", "Technology"), ("Electrical Equipment & Parts", "Industrials"),
             ("Banks - Regional", "Financial Services"), ("Utilities - Regulated Electric", "Utilities"), ("Aerospace & Defense", "Industrials"),
-            ("Drug Manufacturers - General", "Healthcare"), ("Auto Manufacturers", "Consumer Cyclical")]
+            ("Drug Manufacturers - General", "Healthcare"), ("Auto Manufacturers", "Consumer Cyclical"), ("Software - Infrastructure", "Technology")]
     mkt = rng.normal(0.0015, 0.022, T)
-    uni, cols = {}, {}
+    uni, cols, vols, est = {}, {}, {}, {}
     names = {"Semiconductor Equipment & Materials": ["ASML.AS", "ASM.AS", "BESI.AS", "AIXA.DE", "SOI.PA"], "Electrical Equipment & Parts": ["SU.PA", "LR.PA", "PRY.MI", "NEX.PA", "ENR.DE"],
-             "Semiconductors": ["IFX.DE", "STMPA.PA", "TPRO.MI", "WAF.DE", "NOD.OL"], "Aerospace & Defense": ["RHM.DE", "HO.PA", "SAF.PA", "LDO.MI", "HAG.DE"]}
+             "Semiconductors": ["IFX.DE", "STMPA.PA", "TPRO.MI", "WAF.DE", "NOD.OL"], "Aerospace & Defense": ["RHM.DE", "HO.PA", "SAF.PA", "LDO.MI", "HAG.DE"],
+             "Software - Infrastructure": ["YSN.DE", "WITH.HE", "FSECURE.HE", "YUBICO.ST", "ALLIX.PA"]}
     for k, (ind, sec) in enumerate(inds):
         boom = np.zeros(T)
         if ind in ("Semiconductor Equipment & Materials", "Electrical Equipment & Parts", "Semiconductors"):
             boom[(dates > "2023-02-01") & (dates < "2024-08-01")] = 0.008
         if ind == "Aerospace & Defense":
             boom[(dates > "2022-03-01")] = 0.006
-        tick = names.get(ind, [f"X{k}{j}.PA" for j in range(6)])
-        for j, s in enumerate(tick):
+        for j, s in enumerate(names.get(ind, [f"X{k}{j}.PA" for j in range(6)])):
             r = mkt * rng.uniform(0.7, 1.4) + boom * (1.3 if j == 1 else 1.0) + rng.normal(0, 0.03, T)
             cols[s] = 50 * np.exp(np.cumsum(r))
-            uni[s] = {"symbol": s, "name": s, "country": "FR", "sector": sec, "industry": ind, "capEur": float(10 ** rng.uniform(9, 11.5)) * (3 if j == 0 else 1), "pea": True, "currency": "EUR"}
+            vols[s] = rng.uniform(1e5, 1e6) * np.exp(rng.normal(0, 0.3, T)) * (1 + 3 * (r > 0) * (boom > 0))
+            uni[s] = {"symbol": s, "name": s, "country": "FR", "hq": "FR", "sector": sec, "industry": ind,
+                      "capEur": float(10 ** rng.uniform(9, 11.5)) * (3 if j == 0 else 1), "pea": True, "currency": "EUR"}
+            qd = [d for d in dates[::13]][-12:]
+            est[s] = {"rev": {"up30": int(rng.integers(0, 5)), "down30": int(rng.integers(0, 5))},
+                      "surprises": [[str(d.date()), float(rng.normal(2 if ind in names else 0, 5))] for d in qd], "fetched": "2026-10-09"}
     us_boom = np.zeros(T)
     us_boom[(dates > "2022-12-15") & (dates < "2024-07-01")] = 0.012
     for s in sorted({x for th in THEMES for x in th["us"]}):
@@ -637,32 +1003,46 @@ def synthetic():
     cols[US_BENCH] = 3000 * np.exp(np.cumsum(mkt * 1.1))
     SEC.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(cols, index=dates).to_csv(WEEKLY, compression="gzip", float_format="%.5g")
-    UNIVERSE.write_text(json.dumps({"generatedAt": "synthétique", "items": uni}), encoding="utf-8")
+    pd.DataFrame(vols, index=dates).to_csv(WEEKLY_VOL, compression="gzip", float_format="%.4g")
+    write_json(UNIVERSE, {"generatedAt": datetime.now(timezone.utc).isoformat(), "items": uni})
+    write_json(ESTIMATES, est)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--universe", action="store_true")
     ap.add_argument("--universe-if-older", type=int, default=None, help="reconstruit l'univers s'il a plus de N jours")
+    ap.add_argument("--estimates", action="store_true")
     ap.add_argument("--prices", action="store_true")
     ap.add_argument("--backtest", action="store_true")
+    ap.add_argument("--trends", action="store_true")
     ap.add_argument("--dashboard", action="store_true")
     ap.add_argument("--no-daily", action="store_true")
     ap.add_argument("--synthetic", action="store_true")
+    ap.add_argument("--weekly", action="store_true", help="une fois par semaine : univers, révisions, cours, test historique, Google Trends")
     a = ap.parse_args()
+    if a.weekly:
+        if universe_age() < 7:
+            log(f"Secteurs : univers de {universe_age()} jour(s), mise à jour hebdomadaire non due")
+            return 0
+        a.universe = a.estimates = a.prices = a.backtest = a.trends = True
     if a.synthetic:
         synthetic()
-    def universe_age():
-        try:
-            return (datetime.now(timezone.utc) - datetime.fromisoformat(json.loads(UNIVERSE.read_text(encoding="utf-8"))["generatedAt"])).days
-        except Exception:
-            return 10 ** 6
+    rebuilt = False
     if a.universe or (a.universe_if_older is not None and universe_age() >= a.universe_if_older):
         build_universe()
+        rebuilt = True
+    if a.estimates or rebuilt:
+        refresh_estimates()
     if a.prices:
         fetch_prices()
     if a.backtest:
         run_backtest()
+    if a.trends:
+        try:
+            trends_test()
+        except Exception as e:  # expérimental : ne bloque jamais le reste
+            log(f"Google Trends : {str(e)[:120]}")
     if a.dashboard:
         dashboard(fetch_daily=not a.no_daily and not a.synthetic)
     return 0

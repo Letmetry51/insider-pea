@@ -1,7 +1,7 @@
 name: Secteurs - test historique
 
-# Test historique de la rotation sectorielle (leader / challenger, baromètres américains, cas de l'IA).
-# Ne modifie pas le dépôt : les résultats sont joints à l'exécution (onglet Actions → l'exécution → Artifacts).
+# Test complet à la demande : vérification du module, univers, révisions, cours, test historique et stress test,
+# Google Trends, classement du jour. Ne modifie pas le tableau de bord.
 on:
   workflow_dispatch:
 
@@ -22,25 +22,10 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install --upgrade yfinance pandas numpy
-      - name: Univers (filtre Yahoo + fiches)
-        timeout-minutes: 40
-        run: python scrapers/sectors.py --universe
-      - name: Cours hebdomadaires 8 ans
-        timeout-minutes: 20
-        run: python scrapers/sectors.py --prices
-      - name: Test historique
-        timeout-minutes: 20
-        run: python scrapers/sectors.py --backtest | tee data/sectors/rapport.txt
-      - name: Classement du jour
-        timeout-minutes: 15
-        run: python scrapers/sectors.py --dashboard
-      - name: Résultats
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: secteurs
-          path: |
-            data/sectors/
-            data/sectors.json
-          retention-days: 14
+          pip install --upgrade yfinance pandas numpy pytrends
+      - name: Vérification du module (données simulées, sans réseau)
+        run: python scrapers/test_sectors.py
+      - name: Univers, révisions, cours, test historique, Google Trends, classement
+        timeout-minutes: 60
+        run: |
+          python scrapers/sectors.py --universe --prices --backtest --trends --dashboard | tee data/sectors/rapport.txt

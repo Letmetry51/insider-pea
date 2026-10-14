@@ -14,3 +14,4 @@ data/events.json
 
 # Secteurs : cours hebdomadaires retéléchargés chaque soir (non conservés)
 data/sectors/weekly.csv.gz
+data/sectors/weekly_volume.csv.gz
