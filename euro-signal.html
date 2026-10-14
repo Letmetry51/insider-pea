@@ -371,7 +371,7 @@ svg .mk-old{stroke:var(--surface);stroke-width:1.5}svg .mk-ok{fill:var(--good)}s
 .row-btn{display:flex;flex-wrap:wrap;gap:4px 14px}.seclist{margin:6px 0;padding-left:18px;font-size:.86rem}.seclist li{margin:3px 0}
 .grplist{list-style:none;margin:8px 0 0;padding:0}.grplist li.grp{border-bottom:1px solid var(--line);padding:8px 0}.grplist li p{margin:2px 0}
 .rk{display:inline-block;min-width:1.8em;font:600 .8rem var(--mono);color:var(--muted)}.mv{font:600 .78rem var(--mono)}.mv.pos,.pos{color:var(--good)}.mv.neg,.neg{color:var(--bad)}
-.grp-h{margin:0 0 4px}table.st td{white-space:nowrap}table.st th:first-child{white-space:normal}
+.grp-h{margin:0 0 4px}.fig{display:inline-block;font-size:.72rem;font-weight:600;margin-top:2px;white-space:nowrap}.fig.good{color:var(--good)}.fig.bad{color:var(--bad)}.fig.neutral{color:var(--muted)}table.st td{white-space:nowrap}table.st th:first-child{white-space:normal}
 .plan .why li{font-size:.86rem}.plan .whyh{margin:10px 0 0;text-transform:uppercase;letter-spacing:.04em;font-weight:600}.plan .small,.small{font-size:.8rem}.plan b.pos{color:var(--good)}.plan b.neg{color:var(--bad)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
@@ -2034,7 +2034,9 @@ details.pos summary{font-size:1rem}
       triangle: 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
       channel: 'le cours oscille entre les deux droites : acheter près de la droite basse, alléger près de la haute',
       none: 'pas de figure nette' }[type];
-    return { type: type, label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
+    var mid = (su + sl) / 2;
+    return { type: type, key: type === 'channel' ? 'channel-' + (su > 0.02 ? 'up' : su < -0.02 ? 'down' : 'flat') : type, dir: mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat',
+      label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
   };
@@ -2068,6 +2070,17 @@ details.pos summary{font-size:1rem}
     var lo = 0, hi = (adj || []).length - 1, k = -1;
     while (lo <= hi) { var m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
     return k < 59 ? null : ES.oscillators(adj.slice(Math.max(0, k - 299), k + 1));
+  };
+  /** Figures de tendance (biseau, triangle, canal) : clé de filtre → [symbole, libellé, ton (good : haussier, bad : baissier)]. */
+  ES.FIGURES = {
+    'channel-up': ['↗', 'Canal haussier', 'good'], 'falling': ['▽', 'Biseau descendant', 'good'], 'triangle': ['◇', 'Triangle symétrique', 'neutral'],
+    'channel-flat': ['→', 'Canal horizontal', 'neutral'], 'rising': ['△', 'Biseau ascendant', 'bad'], 'channel-down': ['↘', 'Canal baissier', 'bad'], 'none': ['·', 'Pas de figure nette', 'neutral']
+  };
+  /** Clé de figure d'un biseau calculé par ES.wedge (ancien format sans « key » accepté). */
+  ES.figureKey = function (w) {
+    if (!w || !w.type) return null;
+    if (w.key) return w.key;
+    return w.type === 'channel' ? 'channel-' + (w.slopeUpPct > 0.02 ? 'up' : w.slopeUpPct < -0.02 ? 'down' : 'flat') : w.type;
   };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
@@ -3658,6 +3671,11 @@ details.pos summary{font-size:1rem}
         return '<li class="rowlink" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0"><b>' + flag(x.country) + esc(x.name) + '</b>' + (x.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + '<span class="selnote"><span class="stars s' + st.n + '">' + starInner(st) + '</span> <b>' + ES.note(x.score, S.cfg) + '</b><span class="muted">/100</span> ' + advBadge(adv) + '</span><small>' + esc(w.join(' · ')) + '</small>' + quickScores(x.isin, x) + '</li>';
       }).join('') + '</ol><p class="foot">À étudier, pas un ordre d\'achat.</p></section>';
   }
+  /** Figure de tendance et verdict du plan d'entrée d'une société (calculés chaque soir avec le plan). */
+  var PLANS = [['buyNow', '✅ Achat possible'], ['waitSupport', '⏳ Attendre un rebond sur support'], ['waitBreakout', '⏳ Attendre une cassure'], ['avoid', '⛔ Ne pas acheter']];
+  function figOf(i) { var p = S.inst[i] && S.inst[i].plan; return p ? ES.figureKey(p.wedge) : null; }
+  function planVerdict(i) { var p = S.inst[i] && S.inst[i].plan; return p ? p.verdict : null; }
+  function figChip(i) { var k = figOf(i); if (!k || k === 'none') return ''; var F = ES.FIGURES[k]; return ' <span class="fig ' + F[2] + '" title="Figure des 3 derniers mois">' + F[0] + ' ' + F[1] + '</span>'; }
   function vClassement() {
     var f = S.filters, keys = Object.keys(S.inst).filter(function (i) { return !S.inst[i].benchmark; });
     if (!keys.length) return emptyState();
@@ -3680,6 +3698,8 @@ details.pos summary{font-size:1rem}
       if (f.country && x.country !== f.country) return false;
       if (f.sector && secOf(x) !== f.sector) return false;
       if (f.advice && (!c.score.buys.length || adviceOf(i).key !== f.advice)) return false;
+      if (f.figure && figOf(i) !== f.figure) return false;
+      if (f.plan && planVerdict(i) !== f.plan) return false;
       return qf(c, i);
     });
     var dv = function (i) { var d = S.computed[i].score.discount; return d ? d.pct : -999; };
@@ -3711,6 +3731,13 @@ details.pos summary{font-size:1rem}
         keys.forEach(function (i) { var c = S.computed[i]; if (c.score.buys.length && qf(c, i)) { var k = adviceOf(i).key; cnt[k] = (cnt[k] || 0) + 1; } });
         return '<select id="f-advice" data-f="advice" aria-label="Avis"><option value="">Tous les avis</option>' + AV.map(function (o) { return '<option value="' + o[0] + '"' + (f.advice === o[0] ? ' selected' : '') + '>' + o[1] + ' (' + (cnt[o[0]] || 0) + ')</option>'; }).join('') + '</select>';
       })() +
+      (function () {
+        var cf = {}, cp = {}, any = false;
+        keys.forEach(function (i) { if (!qf(S.computed[i], i)) return; var k = figOf(i), v = planVerdict(i); if (k) { cf[k] = (cf[k] || 0) + 1; any = true; } if (v) cp[v] = (cp[v] || 0) + 1; });
+        var dis = any ? '' : ' disabled title="Disponible après la mise à jour du soir"';
+        return '<select id="f-figure" data-f="figure" aria-label="Figure de tendance"' + dis + '><option value="">Toutes les tendances</option>' + Object.keys(ES.FIGURES).map(function (k) { var F = ES.FIGURES[k]; return '<option value="' + k + '"' + (f.figure === k ? ' selected' : '') + '>' + F[0] + ' ' + F[1] + ' (' + (cf[k] || 0) + ')</option>'; }).join('') + '</select>' +
+          '<select id="f-plan" data-f="plan" aria-label="Plan d\'entrée"' + dis + '><option value="">Tous les plans d\'entrée</option>' + PLANS.map(function (o) { return '<option value="' + o[0] + '"' + (f.plan === o[0] ? ' selected' : '') + '>' + o[1] + ' (' + (cp[o[0]] || 0) + ')</option>'; }).join('') + '</select>';
+      })() +
       '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['discount', 'Trier par décote'], ['score', 'Trier par note'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'discount') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
     h += '<details class="help"><summary>Comment lire ce tableau ?</summary><ul class="plain">' +
       '<li><b>Décote</b> : de combien le prix payé par le dirigeant était sous le plus haut des 52 semaines. <span class="disc deep">−40 % et plus</span> <span class="disc mid">−25 à −40 %</span> <span class="disc low">moins de −25 %</span></li>' +
@@ -3723,7 +3750,7 @@ details.pos summary{font-size:1rem}
     list.slice(0, S.limit).forEach(function (i) {
       var x = S.inst[i], c = S.computed[i], d = c.score.discount, r = d && (S.refs[i] || {})[d.id];
       var who = d ? 'payé ' + fmtN(d.paid) + ' le ' + shortDate(d.date) + ' · ' + esc(shortName(d.person)) + (d.ceo ? ' (DG/DAF)' : '') : (c.score.buys.length ? c.score.buys.length + ' achat(s), cours indisponibles' : 'aucun achat récent');
-      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small></td>' +
+      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + figChip(i) + '</td>' +
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
         '<td data-l="Prix payé ○ / cours ■">' + rangeBar(r && r.today && r.today.paidPos52 != null ? r.today.paidPos52 : d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +

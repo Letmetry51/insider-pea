@@ -1628,7 +1628,9 @@
       triangle: 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
       channel: 'le cours oscille entre les deux droites : acheter près de la droite basse, alléger près de la haute',
       none: 'pas de figure nette' }[type];
-    return { type: type, label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
+    var mid = (su + sl) / 2;
+    return { type: type, key: type === 'channel' ? 'channel-' + (su > 0.02 ? 'up' : su < -0.02 ? 'down' : 'flat') : type, dir: mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat',
+      label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
   };
@@ -1662,6 +1664,17 @@
     var lo = 0, hi = (adj || []).length - 1, k = -1;
     while (lo <= hi) { var m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
     return k < 59 ? null : ES.oscillators(adj.slice(Math.max(0, k - 299), k + 1));
+  };
+  /** Figures de tendance (biseau, triangle, canal) : clé de filtre → [symbole, libellé, ton (good : haussier, bad : baissier)]. */
+  ES.FIGURES = {
+    'channel-up': ['↗', 'Canal haussier', 'good'], 'falling': ['▽', 'Biseau descendant', 'good'], 'triangle': ['◇', 'Triangle symétrique', 'neutral'],
+    'channel-flat': ['→', 'Canal horizontal', 'neutral'], 'rising': ['△', 'Biseau ascendant', 'bad'], 'channel-down': ['↘', 'Canal baissier', 'bad'], 'none': ['·', 'Pas de figure nette', 'neutral']
+  };
+  /** Clé de figure d'un biseau calculé par ES.wedge (ancien format sans « key » accepté). */
+  ES.figureKey = function (w) {
+    if (!w || !w.type) return null;
+    if (w.key) return w.key;
+    return w.type === 'channel' ? 'channel-' + (w.slopeUpPct > 0.02 ? 'up' : w.slopeUpPct < -0.02 ? 'down' : 'flat') : w.type;
   };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {

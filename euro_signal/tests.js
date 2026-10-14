@@ -1092,6 +1092,9 @@ t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, ca
   eq(ES.wedge(rows.slice(0, 10)), null, 'historique trop court');
   const p = ES.entryPlan(mk((k) => 100 + 10 * Math.sin(k / 8), 250));
   ok(p && 'wedge' in p, 'le plan d\'entrée porte le biseau');
+  eq(fall.key, 'falling'); eq(ch.key, 'channel-up'); eq(ES.figureKey(ch), 'channel-up');
+  eq(ES.figureKey({ type: 'channel', slopeUpPct: -0.1 }), 'channel-down', 'ancien format sans clé');
+  ok(Object.keys(ES.FIGURES).indexOf(rise.key) > -1 && ES.FIGURES[rise.key][2] === 'bad', 'figure baissière');
 });
 
 t('RSI (Wilder) et MACD : survente, surachat, croisement, sans regard vers le futur', () => {
