@@ -983,7 +983,7 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             rec["d"] = [sig(v) for v in D[sym].tolist()]
         items[sym] = rec
     out = {"format": "euro-signal-sector-companies", "generatedAt": datetime.now(timezone.utc).isoformat(), "groups": len(out_groups),
-           "wDates": [d.strftime("%Y-%m-%d") for d in Wl.index], "dDates": [d.strftime("%Y-%m-%d") for d in D.index], "items": items}
+           "wDates": [min(d.date(), date.today()).isoformat() for d in Wl.index], "dDates": [d.strftime("%Y-%m-%d") for d in D.index], "items": items}
     write_json(OUT_CO, out)
     log(f"Fiches sociétés : {len(items)} ({sum(1 for v in items.values() if 'd' in v)} avec un an de cours journaliers), {OUT_CO.stat().st_size // 1024} Ko")
 

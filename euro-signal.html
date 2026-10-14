@@ -4400,6 +4400,7 @@ details.pos summary{font-size:1rem}
     var D = S.secCo.dDates || [], Wd = S.secCo.wDates || [];
     var dser = (x.d || []).map(function (v, k) { return [D[k], v]; }).filter(function (r) { return r[0] && r[1] > 0; });
     var wser = (x.w || []).map(function (v, k) { return [Wd[k], v]; }).filter(function (r) { return r[0] && r[1] > 0; });
+    if (dser.length && wser.length && wser[wser.length - 1][0] > dser[dser.length - 1][0]) wser[wser.length - 1][0] = dser[dser.length - 1][0];
     var five = S.range === '5y' && wser.length >= 20, note = '';
     if (S.range === '5y' && !five) note = '⚠️ Pas d\'historique sur 5 ans pour ce titre : vue 1 an.';
     if (!five && dser.length < 20 && wser.length >= 20) { five = true; note = '⚠️ Cours journaliers indisponibles : vue 5 ans (une clôture par semaine).'; }
