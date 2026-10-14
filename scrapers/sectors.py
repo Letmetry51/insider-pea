@@ -79,13 +79,13 @@ THEMES = [
      "eu": ["ASML.AS", "ASM.AS", "BESI.AS", "AIXA.DE", "IFX.DE", "STMPA.PA", "SOI.PA", "TPRO.MI", "WAF.DE", "NOD.OL"]},
     {"key": "ia-energie", "name": "IA : électricité et data centers", "trends": "data center",
      "us": ["VRT", "ETN", "PWR", "MSFT", "AMZN", "GOOGL", "META"],
-     "eu": ["SU.PA", "LR.PA", "PRY.MI", "NEX.PA", "ENR.DE", "SIE.DE", "SPIE.PA", "MTRS.ST", "NKT.CO", "ABB.ST"]},
+     "eu": ["SU.PA", "LR.PA", "PRY.MI", "NEX.PA", "ENR.DE", "SIE.DE", "SPIE.PA", "MTRS.ST", "NKT.CO"]},
     {"key": "ia-logiciel", "name": "IA : logiciels et services", "trends": "ChatGPT",
      "us": ["MSFT", "GOOGL", "META", "ORCL", "NOW"],
      "eu": ["SAP.DE", "DSY.PA", "CAP.PA", "NEM.DE", "TMV.DE", "SOP.PA", "REY.MI"]},
     {"key": "cyber", "name": "Cybersécurité", "trends": "cybersecurity",
      "us": ["CRWD", "PANW", "FTNT", "ZS", "NET", "CHKP"],
-     "eu": ["HO.PA", "YSN.DE", "WITH.HE", "FSECURE.HE", "YUBICO.ST", "ALLIX.PA", "CLAV.ST", "NXI.PA", "AIR.PA", "HAG.DE"]},
+     "eu": ["HO.PA", "YSN.DE", "YUBICO.ST", "FSECURE.HE", "ALLIX.PA", "CLAV.ST", "HAG.DE"]},
     {"key": "defense", "name": "Défense", "trends": "defense stocks",
      "us": ["LMT", "RTX", "NOC", "GD"],
      "eu": ["RHM.DE", "HO.PA", "SAF.PA", "LDO.MI", "AM.PA", "HAG.DE", "R3NK.DE", "KOG.OL", "SAAB-B.ST", "EXA.PA"]},
@@ -254,7 +254,22 @@ def build_universe():
     write_json(INFO_CACHE, cache)
     items = {s: make_item(s, raw[s], cache[s], fx) for s in raw if cache.get(s)}
     uni = dedupe(items)
-    write_json(UNIVERSE, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR, "fx": fx, "items": uni})
+    # thèmes : une valeur citée sous une autre cotation que celle retenue (STMPA.PA → STMMI.MI) est rattachée par son nom ;
+    # une valeur trop petite pour l'univers (moins de 500 M€) reste suivie dans son thème si son siège est dans l'UE / l'EEE
+    by_name = {name_key(it.get("name")): s for s, it in uni.items()}
+    alias, extra = {}, {}
+    for th in THEMES:
+        for s in th["eu"]:
+            if s in uni:
+                continue
+            it = items.get(s)
+            k = name_key(it.get("name")) if it else None
+            if it and it.get("hq") in EU_EEA and not (k in by_name and it.get("capEur")):
+                extra[s] = it  # cotation citée gardée telle quelle (petite valeur, ou capitalisation absente de sa fiche)
+            elif k and k in by_name:
+                alias[s] = by_name[k]
+    write_json(UNIVERSE, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR, "fx": fx, "items": uni,
+                          "themeAlias": alias, "themeExtra": extra})
     log(f"Univers : {len(raw)} cotations → {len(uni)} sociétés éligibles PEA d'au moins {MIN_CAP_EUR / 1e6:.0f} M€ ({time.time() - t0:.0f} s)")
 
 
@@ -380,13 +395,15 @@ def to_eur(W, uni):
 
 
 def fetch_prices():
-    uni = read_json(UNIVERSE, {}).get("items", {})
+    U = read_json(UNIVERSE, {})
+    uni = U.get("items", {})
     if not uni:
         raise SystemExit("Univers absent : lancer --universe")
+    allu = dict(uni, **(U.get("themeExtra") or {}))
     us = sorted({s for th in THEMES for s in th["us"]})
     t0 = time.time()
-    W, V = download_weekly(list(uni) + us + [BENCH, US_BENCH] + list(FX_PAIRS.values()))
-    W = to_eur(W, uni)
+    W, V = download_weekly(list(allu) + us + [BENCH, US_BENCH] + list(FX_PAIRS.values()))
+    W = to_eur(W, allu)
     miss = [s for s in list(uni) + us + [BENCH] if s not in W.columns or W[s].notna().sum() < 30]
     W.to_csv(WEEKLY, compression="gzip", float_format="%.5g")
     if not V.empty:
@@ -710,13 +727,14 @@ def basket(W, cols):
     return (1 + r.mean(axis=1, skipna=True).fillna(0)).cumprod(), cols
 
 
-def lead_lag(W, step=4):
+def lead_lag(W, step=4, alias=None):
     """Le baromètre américain d'un thème annonce-t-il la chaîne européenne ? Corrélations décalées et règle simple."""
+    alias = alias or {}
     out = []
     spx, stx = W[US_BENCH].ffill(), W[BENCH].ffill()
     for th in THEMES:
         us, usc = basket(W, th["us"])
-        eu, euc = basket(W, th["eu"])
+        eu, euc = basket(W, [alias.get(s, s) for s in th["eu"]])
         if us is None or eu is None or len(euc) < 2:
             continue
         idx = list(range(0, len(W) - step, step))
@@ -781,7 +799,7 @@ def run_backtest():
     if res is None:
         log("Test historique : historique trop court, rien n'est écrit")
         return
-    res["leadLag"] = lead_lag(W)
+    res["leadLag"] = lead_lag(W, alias=read_json(UNIVERSE, {}).get("themeAlias"))
     res["aiCase"] = ai_case(W, G, P, uni)
     old = read_json(BACKTEST, {})
     if old.get("trends"):
@@ -823,7 +841,7 @@ def trends_test():
             s = df[kw].astype(float)
             s.index = pd.to_datetime(s.index).to_period("W-FRI").to_timestamp("W-FRI")
             s = s.groupby(level=0).last().reindex(W.index).ffill(limit=1)
-            eu, euc = basket(W, th["eu"])
+            eu, euc = basket(W, [(read_json(UNIVERSE, {}).get("themeAlias") or {}).get(x, x) for x in th["eu"]])
             step = 4
             idx = [i for i in range(4, len(W) - step, step) if pd.notna(s.iloc[i]) and pd.notna(s.iloc[i - 4])]
             chg = pd.Series([math.log((s.iloc[i] + 1) / (s.iloc[i - 4] + 1)) for i in idx], index=W.index[idx])
@@ -905,7 +923,9 @@ def daily_rows(tickers):
 
 
 def dashboard(fetch_daily=True):
-    uni = read_json(UNIVERSE, {}).get("items", {})
+    U = read_json(UNIVERSE, {})
+    uni = U.get("items", {})
+    alias, extra = U.get("themeAlias") or {}, U.get("themeExtra") or {}
     est = read_json(ESTIMATES, {})
     W, V = load_weekly()
     groups = groups_of(uni)
@@ -918,9 +938,10 @@ def dashboard(fetch_daily=True):
     def stock(s):
         if not s:
             return None
-        it, e = uni.get(s, {}), est.get(s) or {}
+        it, e = uni.get(s) or extra.get(s) or {}, est.get(s) or {}
         r = e.get("rev") or {}
-        sur = (e.get("surprises") or [])[-1:] or [None]
+        recent = (date.today() - timedelta(days=200)).isoformat()
+        sur = [x for x in (e.get("surprises") or []) if x[0] >= recent][-1:] or [None]
         return {"symbol": s, "name": it.get("name"), "country": it.get("country"), "pea": it.get("pea"), "isin": it.get("isin"),
                 "capEur": it.get("capEur"), "revGrowth": it.get("revGrowth"), "opMargin": it.get("opMargin"), "fwdPE": it.get("fwdPE"),
                 "analysts": it.get("analysts"), "upside": it.get("upside"), "instPct": it.get("instPct"),
@@ -944,18 +965,19 @@ def dashboard(fetch_daily=True):
     spx, bench = W[US_BENCH].ffill(), W[BENCH].ffill()
     themes = []
     for th in THEMES:
+        eu_t = list(dict.fromkeys(alias.get(s, s) for s in th["eu"]))
         us, usc = basket(W, th["us"])
-        eu, euc = basket(W, th["eu"])
+        eu, euc = basket(W, eu_t)
         if us is None or eu is None:
             continue
         rsx = lambda a, b, k: float(a.iloc[-1] / a.iloc[-1 - k] - b.iloc[-1] / b.iloc[-1 - k])
-        mem = [s for s in euc if s in uni and pd.notna(P["rs6"].iloc[t].get(s))]
+        mem = [s for s in euc if (s in uni or s in extra) and pd.notna(P["rs6"].iloc[t].get(s))]
         size = sorted(mem, key=lambda s: -(cap_now.get(s) or 0))
         lead = size[0] if size else None
         chal = max(size[1:4], key=lambda s: P["rs6"].iloc[t][s]) if len(size) > 1 else None
         revs = [(est.get(s) or {}).get("rev") for s in mem]
         revs = [r for r in revs if r and r.get("up30") is not None and r.get("down30") is not None]
-        themes.append({"key": th["key"], "name": th["name"], "us": usc, "eu": euc, "missing": [s for s in th["eu"] if s not in euc],
+        themes.append({"key": th["key"], "name": th["name"], "us": usc, "eu": euc, "missing": [s for s in eu_t if s not in euc],
                        "usRs13": rsx(us, spx, 13), "usRs26": rsx(us, spx, 26), "euRs13": rsx(eu, bench, 13), "euRs26": rsx(eu, bench, 26),
                        "revisions": (sum(r["up30"] > r["down30"] for r in revs) - sum(r["down30"] > r["up30"] for r in revs)) / len(revs) if len(revs) >= 3 else None,
                        "leader": stock(lead), "challenger": stock(chal), "members": [stock(s) for s in sorted(mem, key=lambda s: -P["rs6"].iloc[t][s])]})

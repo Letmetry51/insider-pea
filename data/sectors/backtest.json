@@ -928,32 +928,56 @@
    {
     "theme": "ia-puces",
     "keyword": "Nvidia",
-    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+    "n": 63,
+    "corrNext": 0.010484,
+    "corrSame": 0.039225,
+    "last": 25.0,
+    "change3m": -0.358974
    },
    {
     "theme": "ia-energie",
     "keyword": "data center",
-    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+    "n": 63,
+    "corrNext": -0.081669,
+    "corrSame": 0.190218,
+    "last": 27.0,
+    "change3m": -0.619718
    },
    {
     "theme": "ia-logiciel",
     "keyword": "ChatGPT",
-    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+    "n": 63,
+    "corrNext": -0.00407,
+    "corrSame": 0.071823,
+    "last": 88.0,
+    "change3m": 0.239437
    },
    {
     "theme": "cyber",
     "keyword": "cybersecurity",
-    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+    "n": 63,
+    "corrNext": 0.05075,
+    "corrSame": 0.085006,
+    "last": 26.0,
+    "change3m": -0.509434
    },
    {
     "theme": "defense",
     "keyword": "defense stocks",
-    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+    "n": 63,
+    "corrNext": 0.30754,
+    "corrSame": 0.142747,
+    "last": 1.0,
+    "change3m": -0.944444
    },
    {
     "theme": "obesite",
     "keyword": "Ozempic",
-    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+    "n": 63,
+    "corrNext": 0.100737,
+    "corrSame": -0.008969,
+    "last": 42.0,
+    "change3m": -0.3
    }
   ]
  }
