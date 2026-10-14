@@ -1580,6 +1580,58 @@
     };
     return { last: last, atr: +atr.toPrecision(4), supports: out(-1), resistances: out(1) };
   };
+  /**
+   * Biseau (ou triangle, canal) sur les `sessions` dernières séances : droite haute appuyée sur les sommets, droite basse sur
+   * les creux (sommets et creux encadrés de `span` séances). Pente commune ajustée par moindres carrés sur chaque série de
+   * points, puis droite décalée pour toucher le point extrême (aucun sommet au-dessus de la droite haute, aucun creux sous la basse).
+   * Prix d'une droite à la séance k (0 = première séance de la fenêtre) : a + b × k.
+   * type : falling (biseau descendant, haussier s'il casse par le haut), rising (biseau ascendant, baissier s'il casse par le bas),
+   *        triangle (symétrique), channel (canal, droites presque parallèles), none.
+   */
+  ES.wedge = function (adj, opts) {
+    opts = opts || {};
+    var N = opts.sessions || 63, span = opts.span || 3;
+    var R = (adj || []).filter(function (r) { return r && r[4] > 0; }).slice(-N), n = R.length;
+    if (n < 30) return null;
+    var hi = function (r) { return r[2] > 0 ? r[2] : r[4]; }, lo = function (r) { return r[3] > 0 ? r[3] : r[4]; };
+    var H = [], Lw = [];
+    for (var j = span; j < n - 1; j++) {
+      var isH = true, isL = true;
+      for (var m = Math.max(0, j - span); m <= Math.min(n - 1, j + span); m++) { if (m === j) continue; if (hi(R[m]) > hi(R[j])) isH = false; if (lo(R[m]) < lo(R[j])) isL = false; }
+      if (isH) H.push([j, hi(R[j])]);
+      if (isL) Lw.push([j, lo(R[j])]);
+    }
+    if (H.length < 2 || Lw.length < 2) return null;
+    var fit = function (pts, upper) {
+      var mx = mean(pts.map(function (p) { return p[0]; })), my = mean(pts.map(function (p) { return p[1]; }));
+      var sxy = 0, sxx = 0; pts.forEach(function (p) { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) * (p[0] - mx); });
+      var b = sxx > 0 ? sxy / sxx : 0, a = my - b * mx;
+      // décalage : la droite haute passe par le sommet le plus haut par rapport à la pente, la basse par le creux le plus bas
+      var off = pts.reduce(function (o, p) { var d = p[1] - (a + b * p[0]); return upper ? Math.max(o, d) : Math.min(o, d); }, upper ? -Infinity : Infinity);
+      return { a: a + off, b: b, touches: pts.filter(function (p) { return Math.abs(p[1] - (a + off + b * p[0])) <= Math.abs(a + b * p[0]) * 0.015; }).length };
+    };
+    var U = fit(H, true), D = fit(Lw, false), last = R[n - 1][4];
+    var at = function (l, k) { return l.a + l.b * k; };
+    var w0 = at(U, 0) - at(D, 0), w1 = at(U, n - 1) - at(D, n - 1);
+    var su = U.b / last * 100, sl = D.b / last * 100; // pentes en % du cours par séance
+    var conv = w1 > 0 && w0 > 0 && w1 < w0 * 0.75 && U.b < D.b;
+    var apex = U.b < D.b ? (at(U, n - 1) - at(D, n - 1)) / (D.b - U.b) : null; // séances avant la jonction des droites
+    var type = 'none';
+    if (w1 <= 0) type = 'none';
+    else if (conv && su < -0.02 && sl < -0.005) type = 'falling';
+    else if (conv && su > 0.005 && sl > 0.02) type = 'rising';
+    else if (conv && su < 0 && sl > 0) type = 'triangle';
+    else if (Math.abs(w1 - w0) <= w0 * 0.25) type = 'channel';
+    var label = { falling: 'Biseau descendant', rising: 'Biseau ascendant', triangle: 'Triangle symétrique', channel: su > 0.02 ? 'Canal haussier' : su < -0.02 ? 'Canal baissier' : 'Canal horizontal', none: 'Droites de tendance' }[type];
+    var reading = { falling: 'souvent suivi d\'une cassure par le haut : signal d\'achat si le cours clôture au-dessus de la droite haute',
+      rising: 'souvent suivi d\'une cassure par le bas : prudence, sortie si le cours clôture sous la droite basse',
+      triangle: 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
+      channel: 'le cours oscille entre les deux droites : acheter près de la droite basse, alléger près de la haute',
+      none: 'pas de figure nette' }[type];
+    return { type: type, label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
+      upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
+      slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
+  };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
     var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
@@ -1706,6 +1758,7 @@
     var cone = [];
     for (var k = 0; k <= H; k += 5) { var s = sd * Math.sqrt(k); cone.push([k, rnd(last * Math.exp(-1.645 * s)), rnd(last * Math.exp(-s)), rnd(last * Math.exp(s)), rnd(last * Math.exp(1.645 * s))]); }
     return { last: last, atr: lv.atr, trend: trend, position: pos, verdict: verdict, label: label, why: why, primary: primary, alt: alt, horizon: H,
+      wedge: (function () { try { return ES.wedge(R); } catch (e) { return null; } })(),
       sd: +sd.toPrecision(4), volYearPct: +(sd * Math.sqrt(252) * 100).toFixed(0), move1sdPct: +((Math.exp(sd * sqT) - 1) * 100).toFixed(1), cone: cone, riskPct: riskPct };
   };
   /**
