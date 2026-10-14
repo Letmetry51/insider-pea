@@ -1,0 +1,49 @@
+name: Secteurs - test historique
+
+# Test historique de la rotation sectorielle (leader / challenger, baromètres américains, cas de l'IA).
+# Ne modifie pas le dépôt : les résultats sont joints à l'exécution (onglet Actions → l'exécution → Artifacts).
+on:
+  workflow_dispatch:
+  push:
+    branches: [secteurs]
+    paths: ['scrapers/sectors.py', '.github/workflows/sectors-test.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Dépendances
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install --upgrade yfinance pandas numpy
+      - name: Univers (filtre Yahoo + fiches)
+        timeout-minutes: 40
+        run: python scrapers/sectors.py --universe
+      - name: Cours hebdomadaires 8 ans
+        timeout-minutes: 20
+        run: python scrapers/sectors.py --prices
+      - name: Test historique
+        timeout-minutes: 20
+        run: python scrapers/sectors.py --backtest | tee data/sectors/rapport.txt
+      - name: Classement du jour
+        timeout-minutes: 15
+        run: python scrapers/sectors.py --dashboard
+      - name: Résultats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secteurs
+          path: |
+            data/sectors/
+            data/sectors.json
+          retention-days: 14

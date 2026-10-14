@@ -11,3 +11,6 @@ data/prices.json
 data/euro-signal-outbox.json
 data/events.json
 *.tmp
+
+# Secteurs : cours hebdomadaires retéléchargés chaque soir (non conservés)
+data/sectors/weekly.csv.gz
