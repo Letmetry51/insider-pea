@@ -456,7 +456,12 @@ def asof(series, d):
     return series[lo][1]
 
 
-LOCAL = {"SE": ("SEK", ("^OMXSPI", "^OMX")), "FR": ("EUR", ("^FCHI",))}  # marché national : devise et indice (repli)
+# Marché national : devise et indices essayés dans l'ordre (le premier qui répond est retenu, CAC 40 en dernier recours).
+# France : petites et moyennes valeurs d'abord, car les achats de dirigeants portent surtout sur des small caps ;
+# les comparer au CAC 40 mélange le signal et l'écart de performance entre petites et grandes valeurs.
+LOCAL = {"SE": ("SEK", ("^OMXSPI", "^OMX")), "FR": ("EUR", ("^CACMS", "^CACS", "^SBF120", "^FCHI"))}
+LOCAL_VERSION = 2       # à incrémenter quand un indice national change
+LOCAL_CHANGED = {"FR"}  # pays dont les résultats déjà calculés sont recalculés avec le nouvel indice
 
 
 def outcome(closes, pub, bench, fxs, local=None):
@@ -498,8 +503,18 @@ def outcome(closes, pub, bench, fxs, local=None):
     return o
 
 
-def complete(o):
-    return isinstance(o, dict) and o.get("r") and o["r"][2] is not None and o.get("lb") is not None
+def complete(o, isin=""):
+    ok = isinstance(o, dict) and o.get("r") and o["r"][2] is not None and o.get("lb") is not None
+    # pays dont l'indice national a changé : résultat à recalculer tant qu'il porte l'ancien indice
+    return bool(ok) and (isin[:2] not in LOCAL_CHANGED or o.get("lv") == LOCAL_VERSION)
+
+
+def mark_retry(outs, isin, pubs, today):
+    """Cours introuvable (souvent une société radiée) : l'ancien résultat est gardé, nouvel essai dans une semaine."""
+    for pub in pubs:
+        o = outs.get(f"{isin}|{pub}")
+        if isinstance(o, dict):
+            o["t"] = today
 
 
 def compute_outcomes(hist_recs, clock, st):
@@ -514,8 +529,8 @@ def compute_outcomes(hist_recs, clock, st):
     todo = {}
     for isin, pub in keys:
         o = outs.get(f"{isin}|{pub}")
-        if complete(o):
-            continue  # résultat à 6 mois connu
+        if complete(o, isin):
+            continue  # résultat à 6 mois connu, avec l'indice national en vigueur
         try:
             recent_try = bool(o and o.get("t")) and (date.today() - date.fromisoformat(str(o["t"])[:10])).days < 7
         except ValueError:
@@ -578,6 +593,7 @@ def compute_outcomes(hist_recs, clock, st):
             closes, cur = None, None
         if not closes:
             nores += 1
+            mark_retry(outs, isin, pubs, today)
             continue
         unit = 1.0
         if cur in ("GBp", "GBX"):
@@ -590,6 +606,7 @@ def compute_outcomes(hist_recs, clock, st):
             fxs = lambda d, ser=ser, unit=unit: (lambda v: v * unit if v else None)(asof(ser, d))
         else:
             nores += 1
+            mark_retry(outs, isin, pubs, today)
             continue
         loc = nat.get(isin[:2])
         for pub in pubs:
@@ -597,6 +614,7 @@ def compute_outcomes(hist_recs, clock, st):
             if o:
                 if o["r"][2] is None:
                     o["t"] = today
+                o["lv"], o["li"] = LOCAL_VERSION, (loc[2] if loc else None)  # indice national utilisé (traçabilité)
                 outs[f"{isin}|{pub}"] = o
         done_t += 1
         time.sleep(0.15)
