@@ -4764,9 +4764,9 @@ details.pos summary{font-size:1rem}
     var PS = S.snapshot && S.snapshot.planStudy, J = S.snapshot && S.snapshot.journal, h = '';
     var VL = { buyNow: '✅ Achat possible', waitSupport: '⏳ Attendre un rebond', waitBreakout: '⏳ Attendre une cassure', avoid: '⛔ Ne pas acheter' };
     var tbl = function (obj, label) {
-      return '<table class="cmp st"><thead><tr><th>' + label + '</th><th>Cas</th><th>20 séances</th><th>60 séances</th><th>vs ensemble</th><th>t</th></tr></thead><tbody>' + Object.keys(obj).sort(function (a, b) { return ((obj[b].h60 || {}).vsAll || -99) - ((obj[a].h60 || {}).vsAll || -99); }).map(function (k) {
+      return '<table class="cmp st"><thead><tr><th>' + label + '</th><th>Cas</th><th>20 séances</th><th>60 séances</th><th>vs ensemble (t)</th></tr></thead><tbody>' + Object.keys(obj).sort(function (a, b) { return ((obj[b].h60 || {}).vsAll || -99) - ((obj[a].h60 || {}).vsAll || -99); }).map(function (k) {
         var a = obj[k].h20 || {}, b = obj[k].h60 || {};
-        return '<tr><th>' + esc(label === 'Figure' ? (ES.FIGURES[k] ? ES.FIGURES[k][0] + ' ' + ES.FIGURES[k][1] : k) : (VL[k] || k)) + '</th><td>' + (b.n || a.n || 0) + '</td><td>' + (a.mean != null ? pct(a.mean) : 'n.d.') + '</td><td>' + (b.mean != null ? pct(b.mean) : 'n.d.') + '</td><td class="' + ((b.vsAll || 0) >= 0 ? 'pos' : 'neg') + '">' + (b.vsAll != null ? pct(b.vsAll) : 'n.d.') + '</td><td>' + (b.t != null ? fmtN(b.t, 1) : '') + '</td></tr>';
+        return '<tr><th>' + esc(label === 'Figure' ? (ES.FIGURES[k] ? ES.FIGURES[k][0] + ' ' + ES.FIGURES[k][1] : k) : (VL[k] || k)) + '</th><td>' + (b.n || a.n || 0) + '</td><td>' + (a.mean != null ? pct(a.mean) : 'n.d.') + '</td><td>' + (b.mean != null ? pct(b.mean) : 'n.d.') + '</td><td><span class="' + ((b.vsAll || 0) >= 0 ? 'pos' : 'neg') + '">' + (b.vsAll != null ? pct(b.vsAll) : 'n.d.') + '</span>' + (b.t != null ? '<small>t ' + fmtN(b.t, 1) + '</small>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
     };
     if (PS && PS.byVerdict) {
