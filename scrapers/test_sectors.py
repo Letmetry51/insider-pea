@@ -26,7 +26,7 @@ results = []
 def case(name):
     def deco(fn):
         tmp = Path(tempfile.mkdtemp())
-        for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT"):
+        for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT", "OUT_CO"):
             old = getattr(S, k)
             setattr(S, k, tmp / ("sectors" if k == "SEC" else old.name))
         S.SEC.mkdir(parents=True, exist_ok=True)
@@ -55,6 +55,9 @@ def check_outputs(require_backtest=True):
         for k in ("rs6", "rs3"):
             v = g.get(k)
             assert v is None or abs(v) < 5, f"{k} absurde pour {g['key']} : {v}"
+    co = json.loads(S.OUT_CO.read_text(encoding="utf-8"))
+    assert co["items"] and all(len(v.get("w") or []) in (0, len(co["wDates"])) for v in co["items"].values()), "fiches sociétés : cours non alignés"
+    assert any(v.get("roles") for v in co["items"].values()), "fiches sociétés : aucun leader ni challenger"
     ranks = [g["rank"] for g in d["groups"]]
     assert sorted(ranks) == list(range(1, len(ranks) + 1)), "rangs non consécutifs"
     return d

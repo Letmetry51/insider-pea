@@ -48,6 +48,7 @@ WEEKLY = SEC / "weekly.csv.gz"
 WEEKLY_VOL = SEC / "weekly_volume.csv.gz"
 BACKTEST = SEC / "backtest.json"
 OUT = DATA / "sectors.json"
+OUT_CO = DATA / "sectors-companies.json"  # fiche de chaque société de l'univers (lue à la demande par le tableau de bord)
 
 MIN_CAP_EUR = 500e6
 BENCH = "^STOXX"          # STOXX Europe 600 (euros)
@@ -909,6 +910,84 @@ def report(res):
 
 
 # --------------------------------------------------------------------------- tableau de bord (classement du jour)
+def daily_closes(tickers):
+    """Clôtures journalières sur un an, en devise locale, ajustées (lots de 80 titres) : DataFrame dates × titres."""
+    import yfinance as yf
+    frames = []
+    tick = sorted(set(tickers))
+    for i in range(0, len(tick), 80):
+        batch = tick[i:i + 80]
+        for attempt in range(3):
+            try:
+                df = yf.download(batch, period="1y", interval="1d", auto_adjust=True, progress=False, threads=True, group_by="column")
+                break
+            except Exception as e:
+                log(f"  cours journaliers, lot {i} : erreur {str(e)[:80]}, nouvel essai")
+                df = None
+                time.sleep(5)
+        if df is None or df.empty:
+            continue
+        frames.append(df["Close"] if isinstance(df.columns, pd.MultiIndex) else df[["Close"]].rename(columns={"Close": batch[0]}))
+        time.sleep(1)
+    if not frames:
+        return pd.DataFrame()
+    X = pd.concat(frames, axis=1, sort=True)
+    X = X.loc[:, ~X.columns.duplicated()]
+    X.index = pd.to_datetime(X.index).tz_localize(None).normalize()
+    X = X[~X.index.duplicated(keep="last")].sort_index()
+    return X.where(X > 0)
+
+
+def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True):
+    """Fiche de chaque société de l'univers : chiffres clés, secteur et rang, rôle de leader ou challenger,
+    5 ans de clôtures hebdomadaires et un an de clôtures journalières (devise locale), dates communes stockées une fois."""
+    rank = {g["key"]: g for g in out_groups}
+    roles = {}
+    for g in out_groups:
+        for k in ("leader", "challenger"):
+            if g.get(k):
+                roles.setdefault(g[k]["symbol"], []).append([k, "g", g["key"]])
+    for th in themes:
+        for k in ("leader", "challenger"):
+            if th.get(k):
+                roles.setdefault(th[k]["symbol"], []).append([k, "t", th["key"]])
+        for m in th.get("members") or []:
+            roles.setdefault(m["symbol"], []).append(["member", "t", th["key"]])
+    syms = sorted(set(uni) | set(extra))
+    # hebdomadaire 5 ans, remis en devise locale (le moteur travaille en euros)
+    Wl = W.iloc[-262:].copy()
+    for cur, pair in FX_PAIRS.items():
+        if pair in Wl.columns:
+            cols = [c for c in syms if c in Wl.columns and str((uni.get(c) or extra.get(c) or {}).get("currency") or "").upper() == cur]
+            if cols:
+                Wl[cols] = Wl[cols].mul(Wl[pair].ffill(), axis=0)
+    D = pd.DataFrame()
+    if fetch_daily:
+        t0 = time.time()
+        D = daily_closes(syms)
+        log(f"Cours journaliers des fiches : {D.shape[1]} titres, {D.shape[0]} séances, {time.time() - t0:.0f} s")
+    sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
+    items = {}
+    for sym in syms:
+        base = stock(sym) or {}
+        it = uni.get(sym) or extra.get(sym) or {}
+        g = groups.get(sym)
+        gi = rank.get(g) or {}
+        rec = dict(base, sector=it.get("sector"), industry=it.get("industry"), exchange=it.get("exchange"), currency=it.get("currency"),
+                   grossMargin=it.get("grossMargin"), revenue=it.get("revenue"), reco=it.get("reco"), insiderPct=it.get("insiderPct"),
+                   turnoverEur=it.get("turnoverEur"), group=g, groupRank=gi.get("rank"), groupTrending=gi.get("trending"), groupEmerging=gi.get("emerging"),
+                   roles=roles.get(sym) or [])
+        if sym in Wl.columns:
+            rec["w"] = [sig(v) for v in Wl[sym].tolist()]
+        if sym in D.columns and D[sym].notna().sum() >= 20:
+            rec["d"] = [sig(v) for v in D[sym].tolist()]
+        items[sym] = rec
+    out = {"format": "euro-signal-sector-companies", "generatedAt": datetime.now(timezone.utc).isoformat(), "groups": len(out_groups),
+           "wDates": [d.strftime("%Y-%m-%d") for d in Wl.index], "dDates": [d.strftime("%Y-%m-%d") for d in D.index], "items": items}
+    write_json(OUT_CO, out)
+    log(f"Fiches sociétés : {len(items)} ({sum(1 for v in items.values() if 'd' in v)} avec un an de cours journaliers), {OUT_CO.stat().st_size // 1024} Ko")
+
+
 def daily_rows(tickers):
     import yfinance as yf
     def one(s):
@@ -994,6 +1073,10 @@ def dashboard(fetch_daily=True):
                "groups": out_groups, "themes": themes, "daily": daily_rows(sorted(picks)) if fetch_daily else {},
                "backtest": {k: bt.get(k) for k in keys} if bt else None}
     write_json(OUT, payload)
+    try:
+        companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily)
+    except Exception as e:  # la fiche des sociétés ne doit jamais empêcher le classement du jour
+        log(f"Fiches sociétés non écrites : {str(e)[:200]}")
     log(f"Secteurs : {len(out_groups)} groupes, {sum(x['trending'] for x in out_groups)} en tendance, {len(themes)} thèmes, {len(picks)} leaders / challengers")
 
 
