@@ -3675,8 +3675,21 @@ details.pos summary{font-size:1rem}
   }
   /** Figure de tendance et verdict du plan d'entrée d'une société (calculés chaque soir avec le plan). */
   var PLANS = [['buyNow', '✅ Achat possible'], ['waitSupport', '⏳ Attendre un rebond sur support'], ['waitBreakout', '⏳ Attendre une cassure'], ['avoid', '⛔ Ne pas acheter']];
-  function figOf(i) { var p = S.inst[i] && S.inst[i].plan; return p ? ES.figureKey(p.wedge) : null; }
-  function planVerdict(i) { var p = S.inst[i] && S.inst[i].plan; return p ? p.verdict : null; }
+  /** Plan d'entrée d'une société : calculé le soir ; à défaut, recalculé ici à partir des cours (fichier détaillé chargé). */
+  function planFor(i) {
+    var x = S.inst[i]; if (!x) return null;
+    if (x.plan && x.plan.verdict) return x.plan;
+    S.planCache = S.planCache || {};
+    if (i in S.planCache) return S.planCache[i];
+    var p = S.detailLoaded && S.prices[i], out = null;
+    if (p && p.rows && p.rows.length >= 120) {
+      try { out = ES.entryPlan(ES.adjustedSeries(ES.normalizeSeries(p.rows), (S.ev[i] && S.ev[i].splits) || []).slice(-260), { levels: x.levels || undefined }); } catch (e) { out = null; }
+    }
+    if (S.detailLoaded) S.planCache[i] = out;
+    return out;
+  }
+  function figOf(i) { var p = planFor(i); return p ? ES.figureKey(p.wedge) : null; }
+  function planVerdict(i) { var p = planFor(i); return p ? p.verdict : null; }
   function figChip(i) { var k = figOf(i); if (!k || k === 'none') return ''; var F = ES.FIGURES[k]; return ' <span class="fig ' + F[2] + '" title="Figure des 3 derniers mois">' + F[0] + ' ' + F[1] + '</span>'; }
   function vClassement() {
     var f = S.filters, keys = Object.keys(S.inst).filter(function (i) { return !S.inst[i].benchmark; });
@@ -3739,7 +3752,12 @@ details.pos summary{font-size:1rem}
     h += (function () {
       var cf = {}, cp = {}, any = false;
       keys.forEach(function (i) { if (!qf(S.computed[i], i)) return; var k = figOf(i), v = planVerdict(i); if (k) { cf[k] = (cf[k] || 0) + 1; any = true; } if (v) cp[v] = (cp[v] || 0) + 1; });
-      if (!any) return '<p class="muted small">Filtres par tendance et par plan d\'entrée : disponibles après la mise à jour du soir.</p>';
+      if (!any) {
+        if (S.mode === 'remote' && !S.detailLoaded) return '<details class="card fold ffold" data-k="ffilters" open><summary>Tendance et plan d\'entrée</summary><p class="small">' +
+          (S.detailLoading ? 'Calcul des tendances à partir des cours… (quelques secondes)' : 'Les tendances (canal haussier, canal baissier, biseau…) et les plans d\'entrée seront calculés automatiquement dès ce soir. Pour les obtenir tout de suite, je les calcule à partir des cours :') + '</p>' +
+          (S.detailLoading ? '' : '<button class="primary" data-a="figLoad">Calculer les tendances maintenant</button>') + '</details>';
+        return '<p class="muted small">Tendances indisponibles : cours non chargés pour ces sociétés.</p>';
+      }
       var chip = function (act, k, txt, n, on, tone) { return '<button class="fchip ' + (tone || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="' + act + '" data-v="' + k + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + txt + ' <span class="count">' + (n || 0) + '</span></button>'; };
       var nf = (f.figures || []).length + (f.plans || []).length;
       return '<details class="card fold ffold" data-k="ffilters"' + (nf ? ' open' : '') + '><summary>Tendance et plan d\'entrée' + (nf ? ' <span class="chip good">' + nf + ' filtre' + (nf > 1 ? 's' : '') + '</span>' : '') + '</summary>' +
@@ -4691,6 +4709,7 @@ details.pos summary{font-size:1rem}
       if (ix > -1) arr.splice(ix, 1); else arr.push(w);
       S.filters[key] = arr; S.limit = 50; var yf = window.scrollY; render(); window.scrollTo(0, yf);
     }
+    else if (a === 'figLoad') { loadDetail(); var yl = window.scrollY; render(); window.scrollTo(0, yl); }
     else if (a === 'fClear') { S.filters.figures = []; S.filters.plans = []; S.limit = 50; var yc = window.scrollY; render(); window.scrollTo(0, yc); }
     else if (a === 'posBuy' || a === 'posSell') posMail(i, a === 'posBuy' ? 'buy' : 'sell');
     else if (a === 'uni') { S.uniFilter = el.dataset.v; render(); }
