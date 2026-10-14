@@ -7,31 +7,17 @@
  "cost": 0.003,
  "perf": {
   "top": {
-   "cagr": 0.149507,
-   "vol": 0.23326,
-   "sharpe": 0.714202,
-   "maxdd": -0.278784,
-   "n": 90
-  },
-  "leaders": {
-   "cagr": 0.064735,
-   "vol": 0.268588,
-   "sharpe": 0.366059,
-   "maxdd": -0.494696,
-   "n": 90
-  },
-  "challengers": {
-   "cagr": 0.094541,
-   "vol": 0.266955,
-   "sharpe": 0.474022,
-   "maxdd": -0.394091,
+   "cagr": 0.162853,
+   "vol": 0.226247,
+   "sharpe": 0.781902,
+   "maxdd": -0.270319,
    "n": 90
   },
   "universeEW": {
-   "cagr": 0.13835,
-   "vol": 0.186811,
-   "sharpe": 0.79151,
-   "maxdd": -0.29324,
+   "cagr": 0.137222,
+   "vol": 0.185999,
+   "sharpe": 0.788829,
+   "maxdd": -0.292747,
    "n": 90
   },
   "stoxx": {
@@ -40,934 +26,514 @@
    "sharpe": 0.490804,
    "maxdd": -0.256807,
    "n": 90
-  }
- },
- "vsStoxx": {
-  "top": {
-   "meanPerPeriod": 0.00694,
-   "t": 1.229016,
-   "beatPct": 0.522222,
-   "n": 90
   },
   "leaders": {
-   "meanPerPeriod": 0.001688,
-   "t": 0.235985,
-   "beatPct": 0.444444,
+   "cagr": 0.068118,
+   "vol": 0.248424,
+   "sharpe": 0.38975,
+   "maxdd": -0.421906,
    "n": 90
   },
   "challengers": {
-   "meanPerPeriod": 0.003859,
-   "t": 0.603747,
-   "beatPct": 0.555556,
-   "n": 90
-  },
-  "universeEW": {
-   "meanPerPeriod": 0.005499,
-   "t": 2.909863,
-   "beatPct": 0.622222,
+   "cagr": 0.157074,
+   "vol": 0.283724,
+   "sharpe": 0.65852,
+   "maxdd": -0.327673,
    "n": 90
   }
  },
  "vsUniverse": {
   "top": {
-   "meanPerPeriod": 0.001441,
-   "t": 0.277328,
-   "beatPct": 0.455556,
+   "meanPerPeriod": 0.002322,
+   "t": 0.46711,
+   "beatPct": 0.488889,
    "n": 90
   },
   "leaders": {
-   "meanPerPeriod": -0.003811,
-   "t": -0.539773,
-   "beatPct": 0.433333,
+   "meanPerPeriod": -0.003838,
+   "t": -0.58691,
+   "beatPct": 0.466667,
    "n": 90
   },
   "challengers": {
-   "meanPerPeriod": -0.00164,
-   "t": -0.26651,
-   "beatPct": 0.477778,
+   "meanPerPeriod": 0.003086,
+   "t": 0.50978,
+   "beatPct": 0.533333,
+   "n": 90
+  }
+ },
+ "vsStoxx": {
+  "top": {
+   "meanPerPeriod": 0.007733,
+   "t": 1.425387,
+   "beatPct": 0.5,
+   "n": 90
+  },
+  "leaders": {
+   "meanPerPeriod": 0.001573,
+   "t": 0.241797,
+   "beatPct": 0.455556,
+   "n": 90
+  },
+  "challengers": {
+   "meanPerPeriod": 0.008497,
+   "t": 1.292931,
+   "beatPct": 0.566667,
+   "n": 90
+  },
+  "universeEW": {
+   "meanPerPeriod": 0.005411,
+   "t": 2.893856,
+   "beatPct": 0.633333,
    "n": 90
   }
  },
  "challengerVsLeader": {
-  "meanPerPeriod": 0.002171,
-  "t": 0.385318,
-  "beatPct": 0.466667,
+  "meanPerPeriod": 0.006924,
+  "t": 1.014771,
+  "beatPct": 0.6,
   "n": 90
  },
  "halves": {
   "top": [
    {
-    "meanPerPeriod": 0.005254,
-    "t": 0.66896,
+    "meanPerPeriod": 0.003892,
+    "t": 0.530903,
     "beatPct": 0.565217,
     "n": 46
    },
    {
-    "meanPerPeriod": -0.002406,
-    "t": -0.362544,
-    "beatPct": 0.355556,
+    "meanPerPeriod": 0.000398,
+    "t": 0.060166,
+    "beatPct": 0.4,
     "n": 45
    }
   ],
   "leaders": [
    {
-    "meanPerPeriod": -0.003309,
-    "t": -0.303419,
-    "beatPct": 0.456522,
+    "meanPerPeriod": -0.007969,
+    "t": -0.825403,
+    "beatPct": 0.5,
     "n": 46
    },
    {
-    "meanPerPeriod": -0.00454,
-    "t": -0.516225,
-    "beatPct": 0.4,
+    "meanPerPeriod": 0.000424,
+    "t": 0.049094,
+    "beatPct": 0.422222,
     "n": 45
    }
   ],
   "challengers": [
    {
-    "meanPerPeriod": -0.004271,
-    "t": -0.438736,
-    "beatPct": 0.434783,
+    "meanPerPeriod": 0.006936,
+    "t": 0.744071,
+    "beatPct": 0.521739,
     "n": 46
    },
    {
-    "meanPerPeriod": 0.000515,
-    "t": 0.070005,
-    "beatPct": 0.511111,
+    "meanPerPeriod": 0.000245,
+    "t": 0.032172,
+    "beatPct": 0.555556,
     "n": 45
    }
   ]
  },
  "halvesSplit": "2023-04-21",
- "history": [
-  {
-   "date": "2024-06-14",
-   "top": [
-    "Insurance - Property & Casualty",
-    "Building Materials",
-    "Specialty Retail"
-   ],
-   "trending": [
-    "Insurance - Property & Casualty",
-    "Building Materials",
-    "Specialty Retail",
-    "Capital Markets",
-    "Industrial Distribution",
-    "Railroads",
-    "Building Products & Equipment",
-    "Autres : Financial Services",
-    "Engineering & Construction",
-    "Banks - Regional",
-    "Banks - Diversified",
-    "Drug Manufacturers - Specialty & Generic",
-    "Publishing",
-    "Advertising Agencies",
-    "Medical Care Facilities",
-    "Packaged Foods",
-    "Real Estate - Diversified",
-    "Insurance - Diversified"
-   ]
+ "stress": {
+  "trials": 26,
+  "grid": [
+   {
+    "signal": "composite",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.162853,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.030182,
+    "t": 0.46711,
+    "beatPct": 0.488889,
+    "maxdd": -0.270319
+   },
+   {
+    "signal": "composite",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.140823,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.003126,
+    "t": 0.049727,
+    "beatPct": 0.444444,
+    "maxdd": -0.244109
+   },
+   {
+    "signal": "composite",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.185238,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.047506,
+    "t": 0.827285,
+    "beatPct": 0.5,
+    "maxdd": -0.260218
+   },
+   {
+    "signal": "composite",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.131686,
+    "cagrEW": 0.139516,
+    "excessPerYear": -0.007651,
+    "t": -0.209086,
+    "beatPct": 0.555556,
+    "maxdd": -0.188406
+   },
+   {
+    "signal": "mom12",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.219535,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.0861,
+    "t": 1.185256,
+    "beatPct": 0.566667,
+    "maxdd": -0.279584
+   },
+   {
+    "signal": "mom12",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.148181,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.007919,
+    "t": 0.124528,
+    "beatPct": 0.62963,
+    "maxdd": -0.073346
+   },
+   {
+    "signal": "mom12",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.241144,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.097814,
+    "t": 1.72428,
+    "beatPct": 0.622222,
+    "maxdd": -0.249322
+   },
+   {
+    "signal": "mom12",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.174469,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.030841,
+    "t": 0.645981,
+    "beatPct": 0.518519,
+    "maxdd": -0.103321
+   },
+   {
+    "signal": "high52",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.008155,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.114425,
+    "t": -1.670637,
+    "beatPct": 0.433333,
+    "maxdd": -0.339753
+   },
+   {
+    "signal": "high52",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.191298,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.052725,
+    "t": 0.764063,
+    "beatPct": 0.518519,
+    "maxdd": -0.166727
+   },
+   {
+    "signal": "high52",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.101001,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.034519,
+    "t": -0.684628,
+    "beatPct": 0.5,
+    "maxdd": -0.274102
+   },
+   {
+    "signal": "high52",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.135937,
+    "cagrEW": 0.139516,
+    "excessPerYear": -0.004564,
+    "t": -0.103251,
+    "beatPct": 0.37037,
+    "maxdd": -0.158388
+   },
+   {
+    "signal": "emerging",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.009195,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.112347,
+    "t": -2.370211,
+    "beatPct": 0.444444,
+    "maxdd": -0.392102
+   },
+   {
+    "signal": "emerging",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.059307,
+    "cagrEW": 0.139516,
+    "excessPerYear": -0.063762,
+    "t": -0.949934,
+    "beatPct": 0.407407,
+    "maxdd": -0.26699
+   },
+   {
+    "signal": "emerging",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.126761,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.005594,
+    "t": -0.137528,
+    "beatPct": 0.466667,
+    "maxdd": -0.282433
+   },
+   {
+    "signal": "emerging",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.147795,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.007985,
+    "t": 0.221391,
+    "beatPct": 0.555556,
+    "maxdd": -0.129944
+   },
+   {
+    "signal": "volume",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.024057,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.09637,
+    "t": -1.472825,
+    "beatPct": 0.422222,
+    "maxdd": -0.267047
+   },
+   {
+    "signal": "volume",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.183761,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.050902,
+    "t": 0.847272,
+    "beatPct": 0.555556,
+    "maxdd": -0.215741
+   },
+   {
+    "signal": "volume",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.110437,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.020495,
+    "t": -0.501239,
+    "beatPct": 0.422222,
+    "maxdd": -0.272277
+   },
+   {
+    "signal": "volume",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.176897,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.041313,
+    "t": 0.849794,
+    "beatPct": 0.555556,
+    "maxdd": -0.157427
+   },
+   {
+    "signal": "surprise",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.143297,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.011277,
+    "t": 0.323313,
+    "beatPct": 0.488889,
+    "maxdd": -0.327829
+   },
+   {
+    "signal": "surprise",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.196743,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.059359,
+    "t": 1.198568,
+    "beatPct": 0.592593,
+    "maxdd": -0.239722
+   },
+   {
+    "signal": "surprise",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.129808,
+    "cagrEW": 0.137222,
+    "excessPerYear": -0.001002,
+    "t": -0.039678,
+    "beatPct": 0.422222,
+    "maxdd": -0.34768
+   },
+   {
+    "signal": "surprise",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-08",
+    "periods": 27,
+    "cagr": 0.180424,
+    "cagrEW": 0.139516,
+    "excessPerYear": 0.040425,
+    "t": 1.420549,
+    "beatPct": 0.555556,
+    "maxdd": -0.236029
+   },
+   {
+    "signal": "composite+conservation",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.182683,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.044615,
+    "t": 0.746531,
+    "beatPct": 0.522222,
+    "maxdd": -0.271912
+   },
+   {
+    "signal": "mom12+conservation",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-08",
+    "periods": 90,
+    "cagr": 0.182253,
+    "cagrEW": 0.137222,
+    "excessPerYear": 0.04945,
+    "t": 0.706657,
+    "beatPct": 0.533333,
+    "maxdd": -0.275679
+   }
+  ],
+  "best": {
+   "signal": "mom12",
+   "top": 6,
+   "step": 4,
+   "from": "2019-11-08",
+   "periods": 90,
+   "cagr": 0.241144,
+   "cagrEW": 0.137222,
+   "excessPerYear": 0.097814,
+   "t": 1.72428,
+   "beatPct": 0.622222,
+   "maxdd": -0.249322
   },
-  {
-   "date": "2024-07-12",
-   "top": [
-    "Internet Content & Information",
-    "Insurance - Property & Casualty",
-    "Advertising Agencies"
-   ],
-   "trending": [
-    "Internet Content & Information",
-    "Insurance - Property & Casualty",
-    "Advertising Agencies",
-    "Industrial Distribution",
-    "Railroads",
-    "Capital Markets",
-    "Autres : Financial Services",
-    "Building Materials",
-    "Engineering & Construction",
-    "Insurance - Diversified",
-    "Semiconductor Equipment & Materials",
-    "Banks - Diversified",
-    "Banks - Regional",
-    "Building Products & Equipment",
-    "Communication Equipment",
-    "Tools & Accessories",
-    "Drug Manufacturers - Specialty & Generic"
-   ]
+  "deflatedSharpe": 0.224824,
+  "sharpeByChance": 0.948255,
+  "bootstrapComposite": {
+   "p5": -0.00459,
+   "p50": 0.002673,
+   "p95": 0.010942,
+   "pNeg": 0.27675
   },
-  {
-   "date": "2024-08-09",
-   "top": [
-    "Engineering & Construction",
-    "REIT - Retail",
-    "Publishing"
-   ],
-   "trending": [
-    "Engineering & Construction",
-    "REIT - Retail",
-    "Publishing",
-    "Railroads",
-    "Communication Equipment",
-    "Real Estate - Diversified",
-    "Insurance - Property & Casualty",
-    "Real Estate Services",
-    "Integrated Freight & Logistics",
-    "Autres : Real Estate",
-    "Autres : Financial Services",
-    "Aerospace & Defense",
-    "Insurance - Diversified",
-    "Capital Markets",
-    "Telecom Services",
-    "Internet Content & Information",
-    "Real Estate - Development",
-    "Utilities - Diversified"
-   ]
+  "doubleCost": {
+   "meanPerPeriod": -0.001381,
+   "t": -0.277415,
+   "beatPct": 0.433333,
+   "n": 90
   },
-  {
-   "date": "2024-09-06",
-   "top": [
-    "Autres : Real Estate",
-    "Internet Content & Information",
-    "REIT - Retail"
-   ],
-   "trending": [
-    "Autres : Real Estate",
-    "Internet Content & Information",
-    "REIT - Retail",
-    "Utilities - Regulated Electric",
-    "Real Estate Services",
-    "Utilities - Diversified",
-    "Insurance - Property & Casualty",
-    "Telecom Services",
-    "Real Estate - Diversified",
-    "Autres : Financial Services",
-    "Grocery Stores",
-    "Insurance - Diversified",
-    "Publishing",
-    "Utilities - Regulated Gas",
-    "Real Estate - Development",
-    "Integrated Freight & Logistics",
-    "Packaged Foods",
-    "Drug Manufacturers - General",
-    "Engineering & Construction"
-   ]
-  },
-  {
-   "date": "2024-10-04",
-   "top": [
-    "Capital Markets",
-    "Security & Protection Services",
-    "Internet Content & Information"
-   ],
-   "trending": [
-    "Capital Markets",
-    "Security & Protection Services",
-    "Internet Content & Information",
-    "REIT - Retail",
-    "Utilities - Regulated Gas",
-    "Real Estate - Diversified",
-    "Real Estate Services",
-    "Autres : Financial Services",
-    "Autres : Real Estate",
-    "Real Estate - Development",
-    "Grocery Stores",
-    "Utilities - Diversified",
-    "Utilities - Regulated Electric",
-    "Insurance - Reinsurance",
-    "Diagnostics & Research",
-    "Railroads",
-    "Telecom Services",
-    "Insurance - Diversified",
-    "Drug Manufacturers - General"
-   ]
-  },
-  {
-   "date": "2024-11-01",
-   "top": [
-    "Insurance - Property & Casualty",
-    "Leisure",
-    "Internet Retail"
-   ],
-   "trending": [
-    "Insurance - Property & Casualty",
-    "Leisure",
-    "Internet Retail",
-    "Internet Content & Information",
-    "Autres : Financial Services",
-    "Insurance - Diversified",
-    "Gambling",
-    "Security & Protection Services",
-    "Capital Markets",
-    "Real Estate - Development",
-    "Utilities - Regulated Electric",
-    "Insurance - Reinsurance",
-    "Utilities - Regulated Gas",
-    "Banks - Regional",
-    "REIT - Retail",
-    "Publishing",
-    "Building Materials",
-    "Telecom Services"
-   ]
-  },
-  {
-   "date": "2024-11-29",
-   "top": [
-    "Insurance - Property & Casualty",
-    "Security & Protection Services",
-    "Autres : Financial Services"
-   ],
-   "trending": [
-    "Insurance - Property & Casualty",
-    "Security & Protection Services",
-    "Autres : Financial Services",
-    "Internet Content & Information",
-    "Farm Products",
-    "Capital Markets",
-    "Gambling",
-    "Building Materials",
-    "Utilities - Regulated Electric",
-    "Leisure",
-    "Insurance - Diversified",
-    "Internet Retail",
-    "Insurance - Reinsurance",
-    "Utilities - Regulated Gas",
-    "Airports & Air Services",
-    "Packaged Foods",
-    "Banks - Regional",
-    "Tools & Accessories"
-   ]
-  },
-  {
-   "date": "2024-12-27",
-   "top": [
-    "Insurance - Property & Casualty",
-    "Gambling",
-    "Building Materials"
-   ],
-   "trending": [
-    "Insurance - Property & Casualty",
-    "Gambling",
-    "Building Materials",
-    "Capital Markets",
-    "Autres : Financial Services",
-    "Aerospace & Defense",
-    "Airports & Air Services",
-    "Banks - Regional",
-    "Medical Care Facilities",
-    "Internet Content & Information",
-    "Farm Products",
-    "Insurance - Diversified",
-    "Security & Protection Services",
-    "Leisure",
-    "Autres : Consumer Defensive",
-    "Lodging",
-    "Packaged Foods",
-    "Insurance - Reinsurance"
-   ]
-  },
-  {
-   "date": "2025-01-24",
-   "top": [
-    "Insurance - Property & Casualty",
-    "Capital Markets",
-    "Building Materials"
-   ],
-   "trending": [
-    "Insurance - Property & Casualty",
-    "Capital Markets",
-    "Building Materials",
-    "Internet Content & Information",
-    "Banks - Regional",
-    "Autres : Financial Services",
-    "Insurance - Reinsurance",
-    "Lodging",
-    "Aerospace & Defense",
-    "Gambling",
-    "Medical Care Facilities",
-    "Airports & Air Services",
-    "Farm Products",
-    "Insurance - Diversified",
-    "Oil & Gas Equipment & Services",
-    "Security & Protection Services",
-    "Engineering & Construction",
-    "Autres : Consumer Defensive"
-   ]
-  },
-  {
-   "date": "2025-02-21",
-   "top": [
-    "Banks - Diversified",
-    "Capital Markets",
-    "Aerospace & Defense"
-   ],
-   "trending": [
-    "Banks - Diversified",
-    "Capital Markets",
-    "Aerospace & Defense",
-    "Banks - Regional",
-    "Autres : Consumer Defensive",
-    "Insurance - Property & Casualty",
-    "Security & Protection Services",
-    "Internet Content & Information",
-    "Building Materials",
-    "Autres : Financial Services",
-    "Apparel Manufacturing",
-    "Engineering & Construction",
-    "Software - Application",
-    "Luxury Goods",
-    "Oil & Gas E&P",
-    "Steel",
-    "Insurance - Diversified",
-    "Insurance - Reinsurance"
-   ]
-  },
-  {
-   "date": "2025-03-21",
-   "top": [
-    "Building Materials",
-    "Steel",
-    "Aerospace & Defense"
-   ],
-   "trending": [
-    "Building Materials",
-    "Steel",
-    "Aerospace & Defense",
-    "Banks - Diversified",
-    "Autres : Financial Services",
-    "Capital Markets",
-    "Insurance - Property & Casualty",
-    "Banks - Regional",
-    "Insurance - Diversified",
-    "Autres : Consumer Defensive",
-    "Engineering & Construction",
-    "Medical Care Facilities",
-    "Communication Equipment",
-    "Security & Protection Services",
-    "Oil & Gas E&P",
-    "Farm & Heavy Construction Machinery"
-   ]
-  },
-  {
-   "date": "2025-04-18",
-   "top": [
-    "Autres : Consumer Defensive",
-    "Aerospace & Defense",
-    "Autres : Financial Services"
-   ],
-   "trending": [
-    "Autres : Consumer Defensive",
-    "Aerospace & Defense",
-    "Autres : Financial Services",
-    "Capital Markets",
-    "Insurance - Property & Casualty",
-    "Building Materials",
-    "Insurance - Reinsurance",
-    "Broadcasting",
-    "Insurance - Diversified",
-    "Medical Care Facilities",
-    "Railroads",
-    "Security & Protection Services",
-    "Telecom Services",
-    "Banks - Regional",
-    "Engineering & Construction"
-   ]
-  },
-  {
-   "date": "2025-05-16",
-   "top": [
-    "Autres : Financial Services",
-    "Insurance - Property & Casualty",
-    "Aerospace & Defense"
-   ],
-   "trending": [
-    "Autres : Financial Services",
-    "Insurance - Property & Casualty",
-    "Aerospace & Defense",
-    "Capital Markets",
-    "Banks - Diversified",
-    "Insurance - Diversified",
-    "Autres : Consumer Defensive",
-    "Utilities - Regulated Electric",
-    "Insurance - Reinsurance",
-    "Broadcasting",
-    "Utilities - Diversified",
-    "Banks - Regional",
-    "Telecom Services",
-    "Engineering & Construction",
-    "Utilities - Regulated Gas",
-    "Building Materials",
-    "Medical Care Facilities",
-    "Railroads",
-    "REIT - Retail"
-   ]
-  },
-  {
-   "date": "2025-06-13",
-   "top": [
-    "Insurance - Property & Casualty",
-    "Utilities - Diversified",
-    "Capital Markets"
-   ],
-   "trending": [
-    "Insurance - Property & Casualty",
-    "Utilities - Diversified",
-    "Capital Markets",
-    "Autres : Consumer Defensive",
-    "Agricultural Inputs",
-    "Autres : Financial Services",
-    "Insurance - Diversified",
-    "Autres : Real Estate",
-    "Banks - Regional",
-    "Utilities - Regulated Electric",
-    "Telecom Services",
-    "Utilities - Regulated Gas",
-    "Banks - Diversified",
-    "REIT - Retail",
-    "Railroads",
-    "Engineering & Construction",
-    "Internet Content & Information",
-    "Credit Services",
-    "Beverages - Brewers"
-   ]
-  },
-  {
-   "date": "2025-07-11",
-   "top": [
-    "Autres : Energy",
-    "Banks - Diversified",
-    "Insurance - Property & Casualty"
-   ],
-   "trending": [
-    "Autres : Energy",
-    "Banks - Diversified",
-    "Insurance - Property & Casualty",
-    "Agricultural Inputs",
-    "Airlines",
-    "Building Materials",
-    "Capital Markets",
-    "Banks - Regional",
-    "Farm & Heavy Construction Machinery",
-    "Insurance - Diversified",
-    "Aerospace & Defense",
-    "Utilities - Diversified",
-    "Steel",
-    "Specialty Industrial Machinery",
-    "Electronic Components",
-    "Autres : Technology",
-    "Engineering & Construction"
-   ]
-  },
-  {
-   "date": "2025-08-08",
-   "top": [
-    "Electronic Components",
-    "Banks - Diversified",
-    "Airlines"
-   ],
-   "trending": [
-    "Electronic Components",
-    "Banks - Diversified",
-    "Airlines",
-    "Railroads",
-    "Insurance - Property & Casualty",
-    "Insurance - Diversified",
-    "Electrical Equipment & Parts",
-    "REIT - Retail",
-    "Banks - Regional",
-    "Autres : Technology",
-    "Lodging",
-    "Farm & Heavy Construction Machinery",
-    "Broadcasting",
-    "Engineering & Construction",
-    "Capital Markets",
-    "Marine Shipping",
-    "Utilities - Renewable",
-    "Auto Parts",
-    "Tools & Accessories"
-   ]
-  },
-  {
-   "date": "2025-09-05",
-   "top": [
-    "Banks - Diversified",
-    "Marine Shipping",
-    "Autres : Energy"
-   ],
-   "trending": [
-    "Banks - Diversified",
-    "Marine Shipping",
-    "Autres : Energy",
-    "Capital Markets",
-    "Insurance - Property & Casualty",
-    "REIT - Retail",
-    "Autres : Consumer Defensive",
-    "Broadcasting",
-    "Electrical Equipment & Parts",
-    "Insurance - Diversified",
-    "Computer Hardware",
-    "Biotechnology",
-    "Banks - Regional",
-    "Airports & Air Services",
-    "Telecom Services",
-    "Electronic Components",
-    "Lodging",
-    "Farm & Heavy Construction Machinery",
-    "Utilities - Regulated Gas"
-   ]
-  },
-  {
-   "date": "2025-10-03",
-   "top": [
-    "Banks - Diversified",
-    "Biotechnology",
-    "Electrical Equipment & Parts"
-   ],
-   "trending": [
-    "Banks - Diversified",
-    "Biotechnology",
-    "Electrical Equipment & Parts",
-    "Aerospace & Defense",
-    "Autres : Energy",
-    "Insurance - Property & Casualty",
-    "Banks - Regional",
-    "Computer Hardware",
-    "Auto Parts",
-    "Capital Markets",
-    "Marine Shipping",
-    "Autres : Technology",
-    "Insurance - Diversified",
-    "Engineering & Construction",
-    "Electronic Components",
-    "Airports & Air Services",
-    "Internet Retail",
-    "Utilities - Renewable"
-   ]
-  },
-  {
-   "date": "2025-10-31",
-   "top": [
-    "Other Industrial Metals & Mining",
-    "Banks - Diversified",
-    "Autres : Energy"
-   ],
-   "trending": [
-    "Other Industrial Metals & Mining",
-    "Banks - Diversified",
-    "Autres : Energy",
-    "Electrical Equipment & Parts",
-    "Oil & Gas Integrated",
-    "Electronic Components",
-    "Banks - Regional",
-    "Autres : Technology",
-    "Biotechnology",
-    "Auto Parts",
-    "Autres : Consumer Defensive",
-    "Utilities - Renewable",
-    "Marine Shipping",
-    "Building Materials",
-    "Capital Markets",
-    "Farm Products"
-   ]
-  },
-  {
-   "date": "2025-11-28",
-   "top": [
-    "Building Materials",
-    "Oil & Gas Integrated",
-    "Banks - Diversified"
-   ],
-   "trending": [
-    "Building Materials",
-    "Oil & Gas Integrated",
-    "Banks - Diversified",
-    "Steel",
-    "Utilities - Diversified",
-    "Banks - Regional",
-    "Communication Equipment",
-    "Autres : Energy",
-    "Electronic Components",
-    "Auto Parts",
-    "Biotechnology",
-    "Marine Shipping",
-    "Electrical Equipment & Parts",
-    "Airlines",
-    "Utilities - Regulated Electric",
-    "Semiconductor Equipment & Materials"
-   ]
-  },
-  {
-   "date": "2025-12-26",
-   "top": [
-    "Autres : Energy",
-    "Steel",
-    "Banks - Regional"
-   ],
-   "trending": [
-    "Autres : Energy",
-    "Steel",
-    "Banks - Regional",
-    "Building Materials",
-    "Airlines",
-    "Banks - Diversified",
-    "Insurance - Property & Casualty",
-    "Insurance - Diversified",
-    "Apparel Manufacturing",
-    "Utilities - Diversified",
-    "Farm Products",
-    "Drug Manufacturers - Specialty & Generic",
-    "Auto Parts",
-    "Electronic Components",
-    "Utilities - Regulated Electric",
-    "Biotechnology",
-    "Communication Equipment"
-   ]
-  },
-  {
-   "date": "2026-01-23",
-   "top": [
-    "Steel",
-    "Autres : Energy",
-    "Other Industrial Metals & Mining"
-   ],
-   "trending": [
-    "Steel",
-    "Autres : Energy",
-    "Other Industrial Metals & Mining",
-    "Banks - Regional",
-    "Drug Manufacturers - Specialty & Generic",
-    "Banks - Diversified",
-    "Building Materials",
-    "Auto Parts",
-    "Marine Shipping",
-    "Metal Fabrication",
-    "Semiconductor Equipment & Materials",
-    "Oil & Gas Integrated",
-    "Autres : Consumer Defensive",
-    "Communication Equipment",
-    "Engineering & Construction",
-    "Electronic Components"
-   ]
-  },
-  {
-   "date": "2026-02-20",
-   "top": [
-    "Steel",
-    "Autres : Energy",
-    "Semiconductor Equipment & Materials"
-   ],
-   "trending": [
-    "Steel",
-    "Autres : Energy",
-    "Semiconductor Equipment & Materials",
-    "Oil & Gas Equipment & Services",
-    "Beverages - Brewers",
-    "Oil & Gas E&P",
-    "Marine Shipping",
-    "Drug Manufacturers - Specialty & Generic",
-    "Engineering & Construction",
-    "Metal Fabrication",
-    "Auto Parts",
-    "Utilities - Diversified",
-    "Oil & Gas Integrated",
-    "Communication Equipment",
-    "Autres : Basic Materials"
-   ]
-  },
-  {
-   "date": "2026-03-20",
-   "top": [
-    "Autres : Energy",
-    "Oil & Gas Equipment & Services",
-    "Oil & Gas E&P"
-   ],
-   "trending": [
-    "Autres : Energy",
-    "Oil & Gas Equipment & Services",
-    "Oil & Gas E&P",
-    "Oil & Gas Integrated",
-    "Semiconductor Equipment & Materials",
-    "Utilities - Regulated Gas",
-    "Marine Shipping",
-    "Communication Equipment",
-    "Utilities - Diversified",
-    "Electronic Components",
-    "Utilities - Regulated Electric",
-    "Autres : Financial Services",
-    "Grocery Stores",
-    "Steel",
-    "Drug Manufacturers - Specialty & Generic",
-    "Semiconductors"
-   ]
-  },
-  {
-   "date": "2026-04-17",
-   "top": [
-    "Semiconductor Equipment & Materials",
-    "Steel",
-    "Communication Equipment"
-   ],
-   "trending": [
-    "Semiconductor Equipment & Materials",
-    "Steel",
-    "Communication Equipment",
-    "Oil & Gas Equipment & Services",
-    "Electronic Components",
-    "Marine Shipping",
-    "Semiconductors",
-    "REIT - Retail",
-    "Security & Protection Services",
-    "Oil & Gas Midstream",
-    "Autres : Financial Services",
-    "Grocery Stores",
-    "Banks - Diversified",
-    "Autres : Technology",
-    "Insurance - Property & Casualty",
-    "Utilities - Regulated Electric",
-    "Autres : Energy",
-    "Engineering & Construction",
-    "Utilities - Regulated Gas"
-   ]
-  },
-  {
-   "date": "2026-05-15",
-   "top": [
-    "Semiconductors",
-    "Oil & Gas E&P",
-    "Electrical Equipment & Parts"
-   ],
-   "trending": [
-    "Semiconductors",
-    "Oil & Gas E&P",
-    "Electrical Equipment & Parts",
-    "Electronic Components",
-    "Oil & Gas Equipment & Services",
-    "Semiconductor Equipment & Materials",
-    "Steel",
-    "Autres : Basic Materials",
-    "Oil & Gas Midstream",
-    "Autres : Energy",
-    "Communication Equipment",
-    "Autres : Technology",
-    "Marine Shipping",
-    "Waste Management",
-    "Oil & Gas Integrated",
-    "Insurance - Property & Casualty",
-    "Metal Fabrication",
-    "Capital Markets",
-    "REIT - Retail"
-   ]
-  },
-  {
-   "date": "2026-06-12",
-   "top": [
-    "Semiconductors",
-    "Steel",
-    "Oil & Gas Equipment & Services"
-   ],
-   "trending": [
-    "Semiconductors",
-    "Steel",
-    "Oil & Gas Equipment & Services",
-    "Semiconductor Equipment & Materials",
-    "Oil & Gas E&P",
-    "Oil & Gas Midstream",
-    "Banks - Regional",
-    "Capital Markets",
-    "REIT - Retail",
-    "Marine Shipping",
-    "Electronic Components",
-    "Utilities - Regulated Gas",
-    "Waste Management",
-    "Autres : Energy",
-    "Advertising Agencies",
-    "Insurance - Property & Casualty",
-    "Autres : Basic Materials",
-    "Communication Equipment"
-   ]
-  },
-  {
-   "date": "2026-07-10",
-   "top": [
-    "Oil & Gas Midstream",
-    "Banks - Diversified",
-    "Banks - Regional"
-   ],
-   "trending": [
-    "Oil & Gas Midstream",
-    "Banks - Diversified",
-    "Banks - Regional",
-    "Insurance - Diversified",
-    "Utilities - Regulated Electric",
-    "Steel",
-    "Credit Services",
-    "Insurance - Property & Casualty",
-    "REIT - Retail",
-    "Capital Markets",
-    "Semiconductors",
-    "Autres : Financial Services",
-    "Waste Management",
-    "Marine Shipping",
-    "Oil & Gas Equipment & Services",
-    "Semiconductor Equipment & Materials",
-    "Specialty Business Services"
-   ]
-  },
-  {
-   "date": "2026-08-07",
-   "top": [
-    "Advertising Agencies",
-    "Insurance - Diversified",
-    "Banks - Diversified"
-   ],
-   "trending": [
-    "Advertising Agencies",
-    "Insurance - Diversified",
-    "Banks - Diversified",
-    "Autres : Financial Services",
-    "Banks - Regional",
-    "Credit Services",
-    "Insurance - Property & Casualty",
-    "Utilities - Regulated Electric",
-    "Computer Hardware",
-    "Autres : Industrials",
-    "Insurance - Reinsurance",
-    "Specialty Chemicals",
-    "REIT - Retail",
-    "Publishing",
-    "Autres : Energy",
-    "Steel"
-   ]
-  },
-  {
-   "date": "2026-09-04",
-   "top": [
-    "Banks - Diversified",
-    "Insurance - Diversified",
-    "Advertising Agencies"
-   ],
-   "trending": [
-    "Banks - Diversified",
-    "Insurance - Diversified",
-    "Advertising Agencies",
-    "Banks - Regional",
-    "Autres : Financial Services",
-    "Insurance - Reinsurance",
-    "Insurance - Property & Casualty",
-    "Credit Services",
-    "Capital Markets",
-    "Oil & Gas Integrated",
-    "Autres : Energy",
-    "Marine Shipping",
-    "Specialty Chemicals",
-    "Household & Personal Products",
-    "Oil & Gas Midstream",
-    "Oil & Gas E&P",
-    "Steel",
-    "Computer Hardware",
-    "Diagnostics & Research"
-   ]
+  "crises": [
+   {
+    "from": "2020-02-01",
+    "to": "2020-05-01",
+    "top": 0.085134,
+    "universeEW": -0.095416,
+    "stoxx": -0.09445,
+    "periods": 3
+   },
+   {
+    "from": "2022-01-01",
+    "to": "2022-10-15",
+    "top": 0.053886,
+    "universeEW": -0.107551,
+    "stoxx": -0.104328,
+    "periods": 10
+   }
+  ],
+  "placebo": {
+   "n": 500,
+   "actual": 0.006024,
+   "p5": -0.005289,
+   "p95": 0.004547,
+   "pctBelow": 0.976
   }
- ],
+ },
  "leadLag": [
   {
    "theme": "ia-puces",
@@ -991,15 +557,15 @@
     "NOD.OL"
    ],
    "corr": {
-    "t+0": 0.597026,
-    "t+1": -0.020701,
-    "t+2": -0.126916,
+    "t+0": 0.597027,
+    "t+1": -0.020702,
+    "t+2": -0.126917,
     "t+3": -0.088157
    },
    "rule": {
     "cagr": 0.317805,
     "vol": 0.346882,
-    "sharpe": 0.968408,
+    "sharpe": 0.968407,
     "maxdd": -0.319863,
     "n": 100
    },
@@ -1019,7 +585,7 @@
    },
    "ruleVsAlways": {
     "meanPerPeriod": -0.001934,
-    "t": -0.538014,
+    "t": -0.538018,
     "beatPct": 0.15,
     "n": 100
    }
@@ -1044,27 +610,26 @@
     "ENR.DE",
     "SIE.DE",
     "SPIE.PA",
-    "MTRS.ST",
-    "NKT.CO"
+    "MTRS.ST"
    ],
    "corr": {
-    "t+0": 0.514436,
-    "t+1": -0.00938,
-    "t+2": -0.060928,
-    "t+3": 0.042446
+    "t+0": 0.56517,
+    "t+1": -0.038921,
+    "t+2": -0.047381,
+    "t+3": 0.04795
    },
    "rule": {
-    "cagr": 0.245068,
-    "vol": 0.233143,
-    "sharpe": 1.06602,
-    "maxdd": -0.314284,
+    "cagr": 0.229815,
+    "vol": 0.234093,
+    "sharpe": 1.00891,
+    "maxdd": -0.321338,
     "n": 100
    },
    "alwaysEU": {
-    "cagr": 0.291222,
-    "vol": 0.26096,
-    "sharpe": 1.119531,
-    "maxdd": -0.314284,
+    "cagr": 0.277377,
+    "vol": 0.26446,
+    "sharpe": 1.066109,
+    "maxdd": -0.321338,
     "n": 100
    },
    "stoxx": {
@@ -1075,9 +640,9 @@
     "n": 100
    },
    "ruleVsAlways": {
-    "meanPerPeriod": -0.003355,
-    "t": -1.395523,
-    "beatPct": 0.13,
+    "meanPerPeriod": -0.00352,
+    "t": -1.401943,
+    "beatPct": 0.12,
     "n": 100
    }
   },
@@ -1096,28 +661,27 @@
     "DSY.PA",
     "CAP.PA",
     "NEM.DE",
-    "TMV.DE",
     "SOP.PA",
     "REY.MI"
    ],
    "corr": {
-    "t+0": 0.484884,
-    "t+1": -0.014985,
-    "t+2": 0.117031,
-    "t+3": 0.051565
+    "t+0": 0.517221,
+    "t+1": -0.007635,
+    "t+2": 0.138365,
+    "t+3": 0.05435
    },
    "rule": {
-    "cagr": 0.13238,
-    "vol": 0.219969,
-    "sharpe": 0.675931,
-    "maxdd": -0.279286,
+    "cagr": 0.169425,
+    "vol": 0.225554,
+    "sharpe": 0.808882,
+    "maxdd": -0.259513,
     "n": 100
    },
    "alwaysEU": {
-    "cagr": 0.075816,
-    "vol": 0.251273,
-    "sharpe": 0.416531,
-    "maxdd": -0.462171,
+    "cagr": 0.100988,
+    "vol": 0.261057,
+    "sharpe": 0.500148,
+    "maxdd": -0.427005,
     "n": 100
    },
    "stoxx": {
@@ -1128,9 +692,61 @@
     "n": 100
    },
    "ruleVsAlways": {
-    "meanPerPeriod": 0.003386,
-    "t": 1.057074,
-    "beatPct": 0.18,
+    "meanPerPeriod": 0.003991,
+    "t": 1.175968,
+    "beatPct": 0.17,
+    "n": 100
+   }
+  },
+  {
+   "theme": "cyber",
+   "name": "Cybersécurité",
+   "us": [
+    "CRWD",
+    "PANW",
+    "FTNT",
+    "ZS",
+    "NET",
+    "CHKP"
+   ],
+   "eu": [
+    "HO.PA",
+    "YSN.DE",
+    "YUBICO.ST",
+    "AIR.PA",
+    "HAG.DE"
+   ],
+   "corr": {
+    "t+0": 0.272536,
+    "t+1": 0.197872,
+    "t+2": -0.041311,
+    "t+3": 0.053441
+   },
+   "rule": {
+    "cagr": 0.148801,
+    "vol": 0.251599,
+    "sharpe": 0.675544,
+    "maxdd": -0.343855,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.201495,
+    "vol": 0.284233,
+    "sharpe": 0.785996,
+    "maxdd": -0.317042,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075874,
+    "vol": 0.152199,
+    "sharpe": 0.558798,
+    "maxdd": -0.256807,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.004111,
+    "t": -1.036925,
+    "beatPct": 0.16,
     "n": 100
    }
   },
@@ -1156,22 +772,22 @@
     "EXA.PA"
    ],
    "corr": {
-    "t+0": 0.46622,
+    "t+0": 0.466218,
     "t+1": 0.045147,
-    "t+2": -0.023132,
+    "t+2": -0.023131,
     "t+3": -0.07084
    },
    "rule": {
-    "cagr": 0.125368,
+    "cagr": 0.125369,
     "vol": 0.244952,
-    "sharpe": 0.598232,
+    "sharpe": 0.598234,
     "maxdd": -0.291325,
     "n": 100
    },
    "alwaysEU": {
     "cagr": 0.315901,
     "vol": 0.326587,
-    "sharpe": 1.002719,
+    "sharpe": 1.00272,
     "maxdd": -0.354248,
     "n": 100
    },
@@ -1184,7 +800,7 @@
    },
    "ruleVsAlways": {
     "meanPerPeriod": -0.013918,
-    "t": -2.600882,
+    "t": -2.60088,
     "beatPct": 0.21,
     "n": 100
    }
@@ -1200,10 +816,10 @@
     "ZEAL.CO"
    ],
    "corr": {
-    "t+0": 0.385953,
-    "t+1": 0.015406,
-    "t+2": -0.054441,
-    "t+3": 0.028251
+    "t+0": 0.385951,
+    "t+1": 0.015422,
+    "t+2": -0.054457,
+    "t+3": 0.028259
    },
    "rule": {
     "cagr": 0.159139,
@@ -1248,10 +864,10 @@
     "leader12m": 0.136469,
     "challenger12m": 1.204967,
     "stoxx12m": 0.075445,
-    "leaderToNow": 1.775909,
-    "challengerToNow": 2.03222,
-    "stoxxToNow": 0.450823,
-    "leaderFromChatGPT": 1.788482
+    "leaderToNow": 1.753722,
+    "challengerToNow": 1.994956,
+    "stoxxToNow": 0.455651,
+    "leaderFromChatGPT": 1.766195
    },
    {
     "group": "Specialty Industrial Machinery",
@@ -1263,25 +879,25 @@
     "leader12m": 0.252798,
     "challenger12m": 0.20148,
     "stoxx12m": 0.075445,
-    "leaderToNow": 1.298317,
-    "challengerToNow": 0.627925,
-    "stoxxToNow": 0.450823,
-    "leaderFromChatGPT": 1.276797
+    "leaderToNow": 1.294171,
+    "challengerToNow": 0.62001,
+    "stoxxToNow": 0.455651,
+    "leaderFromChatGPT": 1.27269
    },
    {
     "group": "Semiconductors",
     "example": "IFX.DE",
-    "firstTrending": "2023-03-17",
+    "firstTrending": "2023-03-24",
     "leader": "IFX.DE",
     "challenger": "STMMI.MI",
-    "weeksAfterChatGPT": 15,
-    "leader12m": -0.064373,
-    "challenger12m": -0.083507,
-    "stoxx12m": 0.156976,
-    "leaderToNow": 0.716211,
-    "challengerToNow": 0.019813,
-    "stoxxToNow": 0.4602,
-    "leaderFromChatGPT": 0.859413
+    "weeksAfterChatGPT": 16,
+    "leader12m": -0.076312,
+    "challenger12m": -0.114808,
+    "stoxx12m": 0.157983,
+    "leaderToNow": 0.715214,
+    "challengerToNow": 0.016943,
+    "stoxxToNow": 0.45241,
+    "leaderFromChatGPT": 0.841323
    },
    {
     "group": "Electrical Equipment & Parts",
@@ -1293,17 +909,52 @@
     "leader12m": 0.147596,
     "challenger12m": 0.101105,
     "stoxx12m": 0.051682,
-    "leaderToNow": 0.890985,
-    "challengerToNow": 2.809464,
-    "stoxxToNow": 0.437208,
-    "leaderFromChatGPT": 0.890985
+    "leaderToNow": 0.881472,
+    "challengerToNow": 2.743567,
+    "stoxxToNow": 0.441991,
+    "leaderFromChatGPT": 0.881472
    }
   ]
  },
- "generatedAt": "2026-10-14T07:43:49.950729+00:00",
+ "generatedAt": "2026-10-14T10:08:35.729737+00:00",
  "universe": {
-  "n": 1045,
+  "n": 965,
   "minCapEur": 500000000.0,
   "bias": "univers d'aujourd'hui appliqué au passé : les sociétés disparues ou devenues petites manquent (biais du survivant) ; comparer à l'univers à poids égaux, qui a le même biais, plutôt qu'au STOXX 600"
+ },
+ "trends": {
+  "at": "2026-10-14",
+  "themes": [
+   {
+    "theme": "ia-puces",
+    "keyword": "Nvidia",
+    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+   },
+   {
+    "theme": "ia-energie",
+    "keyword": "data center",
+    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+   },
+   {
+    "theme": "ia-logiciel",
+    "keyword": "ChatGPT",
+    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+   },
+   {
+    "theme": "cyber",
+    "keyword": "cybersecurity",
+    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+   },
+   {
+    "theme": "defense",
+    "keyword": "defense stocks",
+    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+   },
+   {
+    "theme": "obesite",
+    "keyword": "Ozempic",
+    "error": "Retry.__init__() got an unexpected keyword argument 'method_whitelist'"
+   }
+  ]
  }
 }

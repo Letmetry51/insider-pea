@@ -804,14 +804,22 @@ def trends_test():
         return
     W, _ = load_weekly()
     stx = W[BENCH].ffill()
-    py = TrendReq(hl="en-US", tz=0, timeout=(10, 30), retries=2, backoff_factor=2)
+    py = TrendReq(hl="en-US", tz=0, timeout=(10, 30))  # sans « retries » : incompatible avec urllib3 2 ; nouvel essai géré ici
     out = []
     for th in THEMES:
         kw = th.get("trends")
         rec = {"theme": th["key"], "keyword": kw}
         try:
-            py.build_payload([kw], timeframe="today 5-y", geo="")
-            df = py.interest_over_time()
+            df = None
+            for attempt in range(3):
+                try:
+                    py.build_payload([kw], timeframe="today 5-y", geo="")
+                    df = py.interest_over_time()
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
+                    time.sleep(30 * (attempt + 1))
             s = df[kw].astype(float)
             s.index = pd.to_datetime(s.index).to_period("W-FRI").to_timestamp("W-FRI")
             s = s.groupby(level=0).last().reindex(W.index).ffill(limit=1)
