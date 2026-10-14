@@ -1094,6 +1094,19 @@ t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, ca
   ok(p && 'wedge' in p, 'le plan d\'entrée porte le biseau');
 });
 
+t('RSI (Wilder) et MACD : survente, surachat, croisement, sans regard vers le futur', () => {
+  const mk = (f, n) => { const o = []; let d = '2025-01-01'; for (let k = 0; k < n; k++) { const c = f(k); o.push([d, c, c, c, c, 1]); d = ES.addDays(d, 1); } return o; };
+  const down = ES.oscillators(mk((k) => 100 - 0.01 * k * k, 80)), up = ES.oscillators(mk((k) => 100 + 0.01 * k * k, 80));
+  ok(down.rsi < 30 && down.zone === 'survente' && !down.above, 'baisse continue : ' + JSON.stringify(down));
+  ok(up.rsi > 70 && up.zone === 'surachat' && up.above, 'hausse continue : ' + JSON.stringify(up));
+  const v = ES.oscillators(mk((k) => (k < 70 ? 100 - 0.01 * k * k : 51 * Math.pow(1.04, k - 70)), 76));
+  ok(v.cross === 'up' && v.crossAgo != null && v.crossAgo <= 5, 'retournement : croisement haussier récent ' + JSON.stringify(v));
+  const rows = mk((k) => 100 + 10 * Math.sin(k / 9), 200);
+  eq(JSON.stringify(ES.oscillatorsAt(rows, rows[150][0])), JSON.stringify(ES.oscillatorsAt(rows.slice(0, 151), rows[150][0])), 'à une date : sans données futures');
+  eq(ES.oscillators(rows.slice(0, 20)), null, 'historique trop court');
+  ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'rsiLow') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'macdBull'), 'mesurés en observation');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

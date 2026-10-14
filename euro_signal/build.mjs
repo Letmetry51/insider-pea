@@ -510,6 +510,7 @@ export function build(opts = {}) {
             altmanDistress: a && a.altman && !a.altman.na ? a.altman.zone === 'distress' : undefined, beneishFlag: a && a.beneish && !a.beneish.na ? a.beneish.flag : undefined }; })(),
           // Situation technique à la date de publication (support proche, cassure récente) : cours connus ce jour-là seulement
           ...(() => { const st = ES.setupAt(adj, d); return st ? { nearSupport: st.nearSupport, breakout: st.breakout } : {}; })(),
+          ...(() => { const o = ES.oscillatorsAt(adj, d); return o ? { rsiLow: o.rsi < 30, macdBull: o.above } : {}; })(),
           ...(() => { const pf = profileOf(t), m = moodAt(d); return { opportunistic: !pf || pf.routine === 'inconnu' ? undefined : pf.routine === 'inhabituel', trackGood: pf && pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n >= 2 / 3 : undefined, personalRecord: pf && pf.record != null ? pf.record : undefined, marketFear: m ? m.key === 'fear' : undefined }; })() } });
       if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) {
         const fv = inst[isin].forecast ? ES.forecastView(inst[isin].forecast, inst[isin].fund) : null;

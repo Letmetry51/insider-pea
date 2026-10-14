@@ -1,0 +1,31 @@
+name: Secteurs - test historique
+
+# Test complet à la demande : vérification du module, univers, révisions, cours, test historique et stress test,
+# Google Trends, classement du jour. Ne modifie pas le tableau de bord.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Dépendances
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install --upgrade yfinance pandas numpy pytrends
+      - name: Vérification du module (données simulées, sans réseau)
+        run: python scrapers/test_sectors.py
+      - name: Univers, révisions, cours, test historique, Google Trends, classement
+        timeout-minutes: 60
+        run: |
+          python scrapers/sectors.py --universe --prices --backtest --trends --dashboard | tee data/sectors/rapport.txt

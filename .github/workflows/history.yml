@@ -39,6 +39,12 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt pypdf
+      - name: Secteurs, une fois par semaine (univers, révisions des analystes, test historique, Google Trends)
+        timeout-minutes: 40
+        run: |
+          pip install pytrends || true
+          python scrapers/sectors.py --weekly
+        continue-on-error: true
       - name: Collecte de l'historique et résultats des achats
         env:
           MODE: ${{ github.event.inputs.mode || 'run' }}
@@ -57,6 +63,7 @@ jobs:
           git config --local user.name "GitHub Actions Bot"
           mkdir -p data/history data/diagnostics && touch data/diagnostics/history-probe.txt
           git add data/history data/diagnostics/history-probe.txt
+          if [ -d data/sectors ]; then git add data/sectors; fi
           if git diff --staged --quiet; then
             echo "Pas de changement"
           else

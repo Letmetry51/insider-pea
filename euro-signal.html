@@ -365,6 +365,13 @@ svg .mk-old{stroke:var(--surface);stroke-width:1.5}svg .mk-ok{fill:var(--good)}s
 .plan.good{border-left-color:var(--good)}.plan.warn{border-left-color:var(--warn)}.plan.bad{border-left-color:var(--bad)}
 .plan h4{margin:0 0 4px;font:600 1rem var(--display)}.plan .verdict{margin:0 0 8px;font-size:.98rem}
 .plan ul{margin:6px 0;padding-left:18px}.plan li{margin:4px 0;line-height:1.45}.plan .sc li.main{font-size:.95rem}.plan .sc li:not(.main){color:var(--muted);font-size:.86rem}
+.sech{margin:22px 0 4px;font:600 1.05rem var(--display)}
+.theme.good{border-left:4px solid var(--good)}.theme.warn{border-left:4px solid var(--warn)}.theme .verdict{margin:2px 0 8px}
+.secst{border-top:1px dashed var(--line);padding:10px 0 4px;margin-top:8px}.secst-h{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.secst p{margin:4px 0}
+.row-btn{display:flex;flex-wrap:wrap;gap:4px 14px}.seclist{margin:6px 0;padding-left:18px;font-size:.86rem}.seclist li{margin:3px 0}
+.grplist{list-style:none;margin:8px 0 0;padding:0}.grplist li.grp{border-bottom:1px solid var(--line);padding:8px 0}.grplist li p{margin:2px 0}
+.rk{display:inline-block;min-width:1.8em;font:600 .8rem var(--mono);color:var(--muted)}.mv{font:600 .78rem var(--mono)}.mv.pos,.pos{color:var(--good)}.mv.neg,.neg{color:var(--bad)}
+.grp-h{margin:0 0 4px}table.st td{white-space:nowrap}table.st th:first-child{white-space:normal}
 .plan .why li{font-size:.86rem}.plan .whyh{margin:10px 0 0;text-transform:uppercase;letter-spacing:.04em;font-weight:600}.plan .small,.small{font-size:.8rem}.plan b.pos{color:var(--good)}.plan b.neg{color:var(--bad)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
@@ -2031,6 +2038,37 @@ details.pos summary{font-size:1rem}
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
   };
+  /**
+   * Oscillateurs classiques sur les clôtures (aucune donnée postérieure à la dernière ligne) :
+   * RSI 14 jours lissé de Wilder ; MACD = moyenne exponentielle 12 − 26 jours, ligne de signal = moyenne exponentielle 9 jours du MACD.
+   * cross : 'up' ou 'down' si le MACD a croisé sa ligne de signal dans les 5 dernières séances (crossAgo : séances écoulées).
+   */
+  ES.oscillators = function (adj) {
+    var c = (adj || []).filter(function (r) { return r && r[4] > 0; }).map(function (r) { return r[4]; }), n = c.length;
+    if (n < 40) return null;
+    var g = 0, l = 0, k;
+    for (k = 1; k <= 14; k++) { var d0 = c[k] - c[k - 1]; if (d0 > 0) g += d0; else l -= d0; }
+    g /= 14; l /= 14;
+    for (k = 15; k < n; k++) { var d1 = c[k] - c[k - 1]; g = (g * 13 + Math.max(d1, 0)) / 14; l = (l * 13 + Math.max(-d1, 0)) / 14; }
+    var rsiW = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+    var ema = function (arr, p) { var a = 2 / (p + 1), out = [arr[0]]; for (var i = 1; i < arr.length; i++) out.push(a * arr[i] + (1 - a) * out[i - 1]); return out; };
+    var e12 = ema(c, 12), e26 = ema(c, 26), m = c.map(function (_, i) { return e12[i] - e26[i]; }), sg = ema(m, 9);
+    var cross = null, ago = null;
+    for (k = n - 1; k >= Math.max(1, n - 5); k--) {
+      var a1 = m[k] - sg[k], a0 = m[k - 1] - sg[k - 1];
+      if (a1 > 0 && a0 <= 0) { cross = 'up'; ago = n - 1 - k; break; }
+      if (a1 < 0 && a0 >= 0) { cross = 'down'; ago = n - 1 - k; break; }
+    }
+    var last = c[n - 1];
+    return { rsi: +rsiW.toFixed(1), macd: +(m[n - 1] / last * 100).toFixed(3), signal: +(sg[n - 1] / last * 100).toFixed(3), above: m[n - 1] > sg[n - 1], cross: cross, crossAgo: ago,
+      zone: rsiW < 30 ? 'survente' : rsiW > 70 ? 'surachat' : 'neutre' };
+  };
+  /** Oscillateurs à une date (cours connus ce jour-là seulement). */
+  ES.oscillatorsAt = function (adj, d) {
+    var lo = 0, hi = (adj || []).length - 1, k = -1;
+    while (lo <= hi) { var m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
+    return k < 59 ? null : ES.oscillators(adj.slice(Math.max(0, k - 299), k + 1));
+  };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
     var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
@@ -2158,6 +2196,7 @@ details.pos summary{font-size:1rem}
     for (var k = 0; k <= H; k += 5) { var s = sd * Math.sqrt(k); cone.push([k, rnd(last * Math.exp(-1.645 * s)), rnd(last * Math.exp(-s)), rnd(last * Math.exp(s)), rnd(last * Math.exp(1.645 * s))]); }
     return { last: last, atr: lv.atr, trend: trend, position: pos, verdict: verdict, label: label, why: why, primary: primary, alt: alt, horizon: H,
       wedge: (function () { try { return ES.wedge(R); } catch (e) { return null; } })(),
+      osc: ES.oscillators(R),
       sd: +sd.toPrecision(4), volYearPct: +(sd * Math.sqrt(252) * 100).toFixed(0), move1sdPct: +((Math.exp(sd * sqT) - 1) * 100).toFixed(1), cone: cone, riskPct: riskPct };
   };
   /**
@@ -2442,7 +2481,9 @@ details.pos summary{font-size:1rem}
     ['fcBad', 'Analystes : pertes ou recul des bénéfices attendus, ou prévisions abaissées d\'au moins 10 % en 90 jours (relevé à l\'achat)'],
     ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)'],
     ['nearSupport', 'Achat à moins de 3 % au-dessus d\'un support (un an de cours connus à la date de l\'achat)'],
-    ['breakout', 'Achat dans les 20 séances suivant la cassure d\'une résistance (cours connus à la date de l\'achat)']
+    ['breakout', 'Achat dans les 20 séances suivant la cassure d\'une résistance (cours connus à la date de l\'achat)'],
+    ['rsiLow', 'Achat avec un RSI 14 jours sous 30 (survente, lissage de Wilder, à la date de l\'achat)'],
+    ['macdBull', 'Achat avec le MACD au-dessus de sa ligne de signal (élan haussier, à la date de l\'achat)']
   ];
   /** Actionnariat : part détenue par les dirigeants et leurs proches (0 à 1) et flottant, d'après Yahoo. */
   ES.ownership = function (fund) {
@@ -3301,7 +3342,7 @@ details.pos summary{font-size:1rem}
   function busy(msg) { S.busy = msg; var el = $('#busy'); if (el) { el.hidden = false; el.querySelector('span').textContent = msg; } }
   function idle() { S.busy = null; var el = $('#busy'); if (el) el.hidden = true; }
 
-  var VIEWS = [['classement', 'Opportunités', 'Opportunités'], ['inities', 'Achats des dirigeants', 'Achats'], ['alertes', 'Alertes et suivi', 'Alertes'], ['aide', 'Comment ça marche', 'Aide']];
+  var VIEWS = [['classement', 'Opportunités', 'Opportunités'], ['secteurs', 'Secteurs et thèmes', 'Secteurs'], ['inities', 'Achats des dirigeants', 'Achats'], ['alertes', 'Alertes et suivi', 'Alertes'], ['aide', 'Comment ça marche', 'Aide']];
   function render() {
     var top = $('#top'), main = $('#main');
     if (!top || !main) return;
@@ -3314,7 +3355,7 @@ details.pos summary{font-size:1rem}
     if (S.mode === 'chargement') body = '<p class="muted pad">Chargement des données du jour…</p>';
     else if (S.mode === 'erreur') body = '<div class="card bad"><h3>Données indisponibles</h3><p>Le fichier du jour n\'a pas pu être lu (' + esc(S.loadError) + '). Réessayez dans quelques minutes ; si cela persiste, regardez l\'onglet Actions du dépôt GitHub.</p></div>';
     else try {
-      body = ({ classement: vClassement, fiche: vFiche, inities: vInities, alertes: vAlertesAuto, aide: vAide, dirigeant: vDirigeant }[S.view] || vClassement)();
+      body = ({ classement: vClassement, secteurs: vSecteurs, fiche: vFiche, inities: vInities, alertes: vAlertesAuto, aide: vAide, dirigeant: vDirigeant }[S.view] || vClassement)();
     } catch (e) { body = '<div class="card bad">Erreur d\'affichage : ' + esc(e.message) + '</div>'; console.error(e); }
     main.innerHTML = body;
     main.querySelectorAll('details[data-k]').forEach(function (d) { if (S.openDet && S.openDet[d.dataset.k]) d.open = true; });
@@ -4027,7 +4068,9 @@ details.pos summary{font-size:1rem}
     var hz = (S.cfg.learning && S.cfg.learning.horizon) || 60;
     var obs = ob && ob.nWith ? '<p class="small">📏 Sur nos données, achats de dirigeants faits ' + (obsKey === 'breakout' ? 'juste après une cassure' : 'près d\'un support') + ' : ' + pct(ob.meanWith) + ' par rapport à l\'indice ' + hz + ' séances plus tard, contre ' + pct(ob.meanWithout) + ' pour les autres (' + ob.nWith + ' cas' + (/^en observation/.test(ob.action || '') ? ', mesure en cours' : ', ' + esc(ob.action)) + ').</p>' : '';
     return '<div class="plan ' + V[0] + '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' + V[1] + ' <b>' + esc(plan.label) + '</b></p>' +
-      planChart(isin, adj, plan) + (function () { var w = plan.wedge || (function () { try { return ES.wedge(adj); } catch (e) { return null; } })(); if (!w || w.type === 'none') return '';
+      planChart(isin, adj, plan) + (function () { var o = plan.osc || (function () { try { return ES.oscillators(adj); } catch (e) { return null; } })(); if (!o) return '';
+      return '<p class="small wdg">📶 RSI 14 jours : <b>' + fmtN(o.rsi, 0) + '</b> (' + o.zone + ') · MACD ' + (o.above ? 'au-dessus' : 'en dessous') + ' de sa ligne de signal' +
+        (o.cross ? ' (croisement ' + (o.cross === 'up' ? 'haussier' : 'baissier') + (o.crossAgo ? ' il y a ' + o.crossAgo + ' séance' + (o.crossAgo > 1 ? 's' : '') : ' aujourd\'hui') + ')' : '') + '. <span class="muted">Repères de timing, mesurés en observation.</span></p>'; })() + (function () { var w = plan.wedge || (function () { try { return ES.wedge(adj); } catch (e) { return null; } })(); if (!w || w.type === 'none') return '';
       var f2 = function (v) { return fmtN(v, v < 10 ? 2 : 1); };
       return '<p class="small wdg">📐 <b>' + esc(w.label) + '</b> : ' + esc(w.reading) + '. Droite haute ≈ <b>' + f2(w.upperNow) + '</b>, droite basse ≈ <b>' + f2(w.lowerNow) + '</b> aujourd\'hui' +
         (w.apexIn ? ' ; les droites se rejoignent dans environ ' + w.apexIn + ' séances, la sortie se fait en général avant.' : '.') + '</p>'; })() + '<ul class="sc">' + line(pr, true) + (plan.alt ? line(plan.alt, false) : '') + '</ul>' +
@@ -4096,6 +4139,109 @@ details.pos summary{font-size:1rem}
   }
 
   /* ----- Initiés ----- */
+  /* ============ Secteurs en tendance, thèmes, leader et challenger (data/sectors.json, calculé chaque soir) ============ */
+  function loadSectors() {
+    if (S.secLoading || S.secLoaded) return;
+    S.secLoading = true;
+    fetch('data/sectors.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      if (!d || d.format !== 'euro-signal-sectors') throw new Error('format');
+      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; if (S.view === 'secteurs') render();
+    }).catch(function (e) { S.secLoaded = true; S.secLoading = false; S.secError = (e && e.message) || 'illisible'; if (S.view === 'secteurs') render(); });
+  }
+  function secName(k) { if (!k) return '—'; var m = /^Autres : (.+)$/.exec(k); return m ? 'Autres : ' + (ES.sectorFr(m[1]) || m[1]) : ES.industryFr(k) || k; }
+  function pc100(v) { return v == null ? 'n.d.' : pct(v * 100); }
+  function capTxt(v) { return v == null ? 'n.d.' : v >= 1e9 ? fmtN(v / 1e9, v >= 1e10 ? 0 : 1) + ' Md€' : fmtN(v / 1e6, 0) + ' M€'; }
+  function secStock(x, role) {
+    if (!x) return '';
+    var inEs = x.isin && S.inst[x.isin], sym = esc(x.symbol);
+    var facts = ['capitalisation ' + capTxt(x.capEur), x.revGrowth != null ? 'chiffre d\'affaires ' + pc100(x.revGrowth) + ' sur un an' : null, x.opMargin != null ? 'marge opérationnelle ' + fmtN(x.opMargin * 100, 0) + ' %' : null,
+      x.rs6 != null ? 'force 6 mois ' + pc100(x.rs6) + ' vs STOXX 600' : null].filter(Boolean).join(' · ');
+    var fa = [x.analysts ? x.analysts + ' analystes' + (x.upside != null ? ', objectif moyen ' + pc100(x.upside) : '') : null,
+      x.revUp30 != null && x.revDown30 != null ? 'prévisions relevées ' + x.revUp30 + ' fois, abaissées ' + x.revDown30 + ' fois en 30 jours' : null,
+      x.lastSurprise ? 'derniers résultats ' + (x.lastSurprise[1] >= 0 ? 'au-dessus' : 'en dessous') + ' du consensus (' + pct(x.lastSurprise[1]) + ', ' + shortDate(x.lastSurprise[0]) + ')' : null,
+      x.instPct != null ? Math.round(x.instPct * 100) + ' % du capital détenu par des institutionnels' : null].filter(Boolean).join(' · ');
+    if (fa) facts += '<br><span class="muted">' + fa + '</span>';
+    var d = S.sec.daily && S.sec.daily[x.symbol], open = S.secOpen && S.secOpen[x.symbol];
+    var h = '<div class="secst"><div class="secst-h"><span class="chip ' + (role === 'leader' ? 'pos-leader' : 'pos-challenger') + '">' + (role === 'leader' ? '🏆 Leader' : '🚀 Challenger') + '</span> <b>' + flag(x.country) + esc(x.name || x.symbol) + '</b> <span class="muted small">' + sym + '</span>' +
+      (x.pea === false ? ' <span class="chip bad">hors PEA</span>' : '') + '</div><p class="small">' + facts + '</p>';
+    h += '<div class="row-btn">' + (d && d.length >= 120 ? '<button class="link" data-a="secPlan" data-v="' + sym + '">' + (open ? 'Masquer le plan d\'entrée' : '🧭 Plan d\'entrée') + '</button>' : '') +
+      (inEs ? ' <button class="link" data-a="open" data-i="' + esc(x.isin) + '">Fiche Euro Signal (dirigeants)</button>' : '') + '</div>';
+    if (open && d) {
+      try { var adj = ES.normalizeSeries(d), pl = ES.entryPlan(adj); h += pl ? planCard(x.symbol, pl, adj) : '<p class="muted small">Plan non calculable (historique trop court).</p>'; } catch (e) { h += '<p class="muted small">Plan non calculable.</p>'; }
+    }
+    return h + '</div>';
+  }
+  function themeLL(t) { var B = S.sec && S.sec.backtest; return B && B.leadLag ? B.leadLag.filter(function (x) { return x.theme === t.key; })[0] || null : null; }
+  function themeVerdict(t) {
+    var us = t.usRs13 > 0, eu = t.euRs13 > 0, ll = themeLL(t), lead = ll && ll.corr && ll.corr['t+1'] >= 0.2;
+    if (us && !eu) return ['warn', '🔭', lead ? 'L\'Amérique accélère, l\'Europe pas encore : fenêtre d\'anticipation' : 'L\'Amérique accélère, l\'Europe pas encore : à surveiller (par le passé, l\'Europe a suivi le même mois, pas avec retard)'];
+    if (us && eu) return ['good', '🟢', 'Thème porteur des deux côtés de l\'Atlantique'];
+    if (!us && eu) return ['neutral', '🟡', 'L\'Europe monte sans le baromètre américain : moins solide'];
+    return ['neutral', '⚪', 'Thème à l\'arrêt'];
+  }
+  function vSecteurs() {
+    if (!S.secLoaded) { loadSectors(); return '<p class="muted pad">Chargement des secteurs…</p>'; }
+    if (!S.sec) return '<div class="card"><h3>Secteurs</h3><p class="muted">' + (S.secError === 'HTTP 404' ? 'Le classement des secteurs sera disponible après la prochaine mise à jour du soir.' : 'Classement indisponible (' + esc(S.secError) + ').') + '</p></div>';
+    var X = S.sec, G = X.groups || [], h = '';
+    h += '<section class="card"><h2>Thèmes et secteurs en tendance</h2><p class="muted small">' + X.universe.n + ' sociétés européennes d\'au moins ' + fmtN(X.universe.minCapEur / 1e6, 0) + ' M€ (toutes, avec ou sans achats de dirigeants), cours au ' + shortDate(X.asOf) + '. Les sociétés américaines servent seulement de baromètre : elles ne sont pas éligibles au PEA.</p></section>';
+    // thèmes
+    h += '<h3 class="sech">🧭 Thèmes</h3>';
+    (X.themes || []).forEach(function (t) {
+      var v = themeVerdict(t);
+      h += '<section class="card theme ' + v[0] + '"><h3>' + esc(t.name) + '</h3><p class="verdict">' + v[1] + ' <b>' + v[2] + '</b></p>' +
+        '<p class="small">Baromètre américain (' + esc(t.us.join(', ')) + ') : ' + pc100(t.usRs13) + ' sur 3 mois, ' + pc100(t.usRs26) + ' sur 6 mois face au S&amp;P 500.<br>Chaîne européenne : ' + pc100(t.euRs13) + ' sur 3 mois, ' + pc100(t.euRs26) + ' sur 6 mois face au STOXX 600.' + (t.revisions != null ? '<br>Analystes sur la chaîne européenne : ' + (t.revisions >= 0 ? '+' : '') + Math.round(t.revisions * 100) + ' % de révisions nettes à la hausse en 30 jours.' : '') + '</p>' +
+        (function () { var ll = themeLL(t); if (!ll || !ll.corr) return ''; var c1 = ll.corr['t+1'], c0 = ll.corr['t+0'], R = ll.rule || {}, A = ll.alwaysEU || {};
+          return '<p class="small muted">Par le passé : ' + (c0 >= 0.3 ? 'la chaîne européenne a monté et baissé en même temps que le baromètre américain (corrélation ' + fmtN(c0, 2) + ')' : 'lien faible avec le baromètre américain') +
+            (c1 >= 0.2 ? ', avec un mois de retard exploitable (' + fmtN(c1, 2) + ').' : ', mais sans retard exploitable le mois suivant (' + fmtN(c1, 2) + ').') +
+            (R.cagr != null && A.cagr != null ? ' Ne la détenir que quand le baromètre monte : ' + pc100(R.cagr) + ' par an, pire baisse ' + pc100(R.maxdd) + ', contre ' + pc100(A.cagr) + ' et ' + pc100(A.maxdd) + ' en la gardant toujours.' : '') + '</p>'; })() +
+        secStock(t.leader, 'leader') + secStock(t.challenger, 'challenger') +
+        '<details class="fold" data-k="th-' + esc(t.key) + '"><summary>Toute la chaîne (' + (t.members || []).length + ' sociétés)</summary><ul class="seclist">' + (t.members || []).map(function (x) { return '<li>' + flag(x.country) + esc(x.name || x.symbol) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section>';
+    });
+    // secteurs
+    var trend = G.filter(function (g) { return g.trending; }), emer = G.filter(function (g) { return g.emerging && !g.trending; });
+    h += '<h3 class="sech">📈 Secteurs en tendance <span class="muted small">(' + trend.length + ')</span></h3>';
+    var grpCard = function (g, full) {
+      var mv = g.rank8w != null ? g.rank8w - g.rank : null;
+      var head = '<span class="rk">' + g.rank + '</span> <b>' + esc(secName(g.key)) + '</b> ' + (g.trending ? '<span class="chip good">En tendance</span> ' : '') + (g.emerging ? '<span class="chip warn">Émergent</span> ' : '') +
+        (mv ? '<span class="mv ' + (mv > 0 ? 'pos' : 'neg') + '">' + (mv > 0 ? '▲ ' : '▼ ') + Math.abs(mv) + '</span>' : '');
+      var adv = [g.revisions != null ? 'analystes : ' + (g.revisions >= 0 ? '+' : '') + Math.round(g.revisions * 100) + ' % de révisions nettes à la hausse' : null,
+        g.surprise != null ? 'résultats : ' + (g.surprise >= 0 ? '+' : '') + Math.round(g.surprise * 100) + ' % de surprises nettes' : null,
+        g.volume != null ? (g.volume > 0.15 ? 'volumes : achats dominants' : g.volume < -0.15 ? 'volumes : ventes dominantes' : 'volumes : équilibrés') : null].filter(Boolean).join(' · ');
+      var line = '<p class="small">' + g.n + ' sociétés · force 6 mois ' + pc100(g.rs6) + ' · 3 mois ' + pc100(g.rs3) + ' · ' + Math.round(g.breadth * 100) + ' % au-dessus de leur moyenne 40 semaines · ' + Math.round(g.highs * 100) + ' % près du plus haut annuel' + (adv ? '<br><span class="muted">' + adv + '</span>' : '') + '</p>';
+      if (!full) return '<li class="grp">' + head + line + '<p class="small">🏆 ' + esc(g.leader ? g.leader.name : '—') + (g.challenger ? ' · 🚀 ' + esc(g.challenger.name) : '') + '</p></li>';
+      return '<section class="card grpc">' + '<p class="grp-h">' + head + '</p>' + line + secStock(g.leader, 'leader') + secStock(g.challenger, 'challenger') +
+        '<details class="fold" data-k="g-' + esc(g.key) + '"><summary>Les 5 plus fortes du secteur</summary><ul class="seclist">' + (g.top || []).map(function (x) { return '<li>' + flag(x.country) + esc(x.name || x.symbol) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section>';
+    };
+    h += trend.length ? trend.slice(0, 6).map(function (g) { return grpCard(g, true); }).join('') + (trend.length > 6 ? '<section class="card"><h3>Autres secteurs en tendance</h3><ul class="grplist">' + trend.slice(6).map(function (g) { return grpCard(g, false); }).join('') + '</ul></section>' : '') : '<p class="muted">Aucun secteur ne remplit les trois conditions aujourd\'hui (parmi les 20 % meilleurs, plus fort que le marché sur 6 mois, la moitié des sociétés en hausse).</p>';
+    if (emer.length) h += '<h3 class="sech">🌱 Secteurs émergents <span class="muted small">(forte remontée en 8 semaines)</span></h3><section class="card"><ul class="grplist">' + emer.map(function (g) { return grpCard(g, false); }).join('') + '</ul></section>';
+    h += '<details class="card fold" data-k="sec-all"><summary>Classement complet des ' + G.length + ' groupes</summary><ul class="grplist">' + G.map(function (g) { return grpCard(g, false); }).join('') + '</ul></details>';
+    // preuves
+    var B = X.backtest;
+    if (B && B.vsUniverse) {
+      var row = function (lbl, v, vs) { if (!v || v.t == null) return ''; var ok = v.t >= 2, bad = v.t <= -2; return '<li><b>' + lbl + '</b> : ' + pct(v.meanPerPeriod * 100) + ' par période de 4 semaines ' + (vs || 'face à l\'ensemble des sociétés') + ' (t = ' + fmtN(v.t, 1) + ') → ' + (ok ? '<span class="pos">avantage mesuré</span>' : bad ? '<span class="neg">désavantage</span>' : 'pas d\'écart net') + '</li>'; };
+      h += '<section class="card"><h3>📏 Ce que dit le test historique</h3><p class="small muted">' + B.periods + ' périodes de 4 semaines, du ' + shortDate(B.from) + ' au ' + shortDate(B.to) + ', frais inclus. Comparaison avec l\'ensemble des sociétés à poids égaux, qui a le même biais (univers d\'aujourd\'hui appliqué au passé).</p><ul>' +
+        row('Les 3 meilleurs secteurs', B.vsUniverse.top) + row('Leurs leaders', B.vsUniverse.leaders) + row('Leurs challengers', B.vsUniverse.challengers) + row('Challenger plutôt que leader', B.challengerVsLeader, 'de plus que le leader') + '</ul>';
+      var any = ['top', 'leaders', 'challengers'].some(function (k) { return B.vsUniverse[k] && B.vsUniverse[k].t >= 2; });
+      h += '<p class="small"><b>Conclusion :</b> ' + (any ? 'le classement a apporté un avantage mesurable sur la période.' : 'acheter mécaniquement les secteurs en tête n\'a pas fait mieux que l\'ensemble des sociétés. Ce classement sert de radar pour repérer les thèmes et les sociétés à étudier, pas de règle d\'achat automatique ; la décision se prend avec le plan d\'entrée et les achats des dirigeants.') + '</p>';
+      var ST = B.stress;
+      if (ST && ST.grid) {
+        var gr = ST.grid.slice().sort(function (a, b) { return (b.t || -9) - (a.t || -9); }), SIG = { composite: 'Composite', mom12: 'Momentum 12 m', high52: 'Plus haut 52 s.', emerging: 'Émergents', volume: 'Volumes', surprise: 'Surprises', 'composite+conservation': 'Composite (rotation réduite)', 'mom12+conservation': 'Momentum (rotation réduite)' };
+        h += '<details class="fold" data-k="stress"><summary>🧪 Stress test : ' + ST.trials + ' variantes essayées</summary><p class="small muted">Les 8 meilleures variantes (sur ' + ST.trials + ') ; écart par an face à l\'ensemble des sociétés, frais inclus.</p><table class="cmp st"><thead><tr><th>Signal</th><th>Grp</th><th>Sem.</th><th>Écart/an</th><th>t</th></tr></thead><tbody>' +
+          gr.slice(0, 8).map(function (g) { return '<tr><th>' + esc(SIG[g.signal] || g.signal) + '</th><td>' + g.top + '</td><td>' + g.step + '</td><td class="' + (g.excessPerYear > 0 ? 'pos' : 'neg') + '">' + pc100(g.excessPerYear) + '</td><td>' + fmtN(g.t, 1) + '</td></tr>'; }).join('') + '</tbody></table>' +
+          '<ul class="small"><li>Meilleure variante : probabilité qu\'elle soit réelle, compte tenu des ' + ST.trials + ' essais (Deflated Sharpe) : <b>' + Math.round(ST.deflatedSharpe * 100) + ' %</b> (95 % exigés).</li>' +
+          (ST.placebo ? '<li>Avant frais, la note composite fait mieux que <b>' + Math.round(ST.placebo.pctBelow * 100) + ' %</b> des sélections de secteurs tirées au hasard : le signal existe, mais la rotation mensuelle et ses frais en absorbent l\'essentiel.</li>' : '') +
+          (ST.doubleCost ? '<li>Frais doublés : ' + pct(ST.doubleCost.meanPerPeriod * 100) + ' par période face à l\'ensemble.</li>' : '') +
+          (ST.crises || []).map(function (c) { return '<li>Krach du ' + shortDate(c.from) + ' au ' + shortDate(c.to) + ' : 3 meilleurs secteurs ' + pc100(c.top) + ', ensemble des sociétés ' + pc100(c.universeEW) + ', STOXX 600 ' + pc100(c.stoxx) + '.</li>'; }).join('') + '</ul></details>';
+      }
+      var TR = B.trends;
+      if (TR && TR.themes) h += '<details class="fold" data-k="trends"><summary>🔎 Recherches Google (test du ' + shortDate(TR.at) + ')</summary><ul class="small">' + TR.themes.map(function (r) { return '<li><b>' + esc(r.keyword) + '</b> : ' + (r.corrNext != null ? 'hausse des recherches et chaîne européenne le mois suivant : corrélation ' + fmtN(r.corrNext, 2) + ' (même mois ' + fmtN(r.corrSame, 2) + ')' : 'données indisponibles (Google limite les accès automatiques)') + '</li>'; }).join('') + '</ul></details>';
+      var A = B.aiCase;
+      if (A && A.groups) h += '<p class="small"><b>Cas de l\'IA</b> (ChatGPT le 30/11/2022) : ' + A.groups.filter(function (g) { return g.firstTrending; }).map(function (g) { return esc(secName(g.group)) + ' détecté le ' + shortDate(g.firstTrending) + ' (' + g.weeksAfterChatGPT + ' semaine' + (g.weeksAfterChatGPT > 1 ? 's' : '') + ' après), puis leader ' + pc100(g.leader12m) + ' et challenger ' + pc100(g.challenger12m) + ' sur 12 mois contre ' + pc100(g.stoxx12m) + ' pour le STOXX 600'; }).join(' ; ') + '.</p>';
+      h += '</section>';
+    }
+    h += '<p class="muted small pad">Méthode fixée à l\'avance, sans paramètre ajusté sur le passé : force relative sectorielle (Moskowitz et Grinblatt, 1999), avance des clients sur leurs fournisseurs (Cohen et Frazzini, 2008), révisions des analystes et surprises de résultats (Chan, Jegadeesh et Lakonishok, 1996). Révisions des analystes : historique constitué chaque semaine depuis le lancement, pas encore testable. Les tendances se détectent après leur démarrage, jamais avant. Ce n\'est pas un conseil en investissement.</p>';
+    return h;
+  }
   function vInities() {
     var f = S.txFilter, from = ES.windowStart(S.today, S.cfg.insiders.windowMonths), rows = [], fq = ES.norm(f.q || '');
     Object.keys(S.tx).forEach(function (isin) {
@@ -4490,6 +4636,7 @@ details.pos summary{font-size:1rem}
     if (el.tagName === 'A') return;
     ev.preventDefault();
     if (a === 'view') { S.view = el.dataset.v; S.limit = 50; if (location.hash) history.replaceState(null, '', location.pathname + location.search); render(); window.scrollTo(0, 0); }
+    else if (a === 'secPlan') { S.secOpen = S.secOpen || {}; S.secOpen[el.dataset.v] = !S.secOpen[el.dataset.v]; var ys2 = window.scrollY; render(); window.scrollTo(0, ys2); }
     else if (a === 'range') { S.range = el.dataset.v === '5y' ? '5y' : '1y'; try { localStorage.setItem('es-range', S.range); } catch (e) { } var yr = window.scrollY; render(); window.scrollTo(0, yr); }
     else if (a === 'pfCore') { S.pfCore = el.dataset.v === '1'; var yy = window.scrollY; render(); window.scrollTo(0, yy); }
     else if (a === 'proofH') { S.proofH = +el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); }

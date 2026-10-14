@@ -1632,6 +1632,37 @@
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
   };
+  /**
+   * Oscillateurs classiques sur les clôtures (aucune donnée postérieure à la dernière ligne) :
+   * RSI 14 jours lissé de Wilder ; MACD = moyenne exponentielle 12 − 26 jours, ligne de signal = moyenne exponentielle 9 jours du MACD.
+   * cross : 'up' ou 'down' si le MACD a croisé sa ligne de signal dans les 5 dernières séances (crossAgo : séances écoulées).
+   */
+  ES.oscillators = function (adj) {
+    var c = (adj || []).filter(function (r) { return r && r[4] > 0; }).map(function (r) { return r[4]; }), n = c.length;
+    if (n < 40) return null;
+    var g = 0, l = 0, k;
+    for (k = 1; k <= 14; k++) { var d0 = c[k] - c[k - 1]; if (d0 > 0) g += d0; else l -= d0; }
+    g /= 14; l /= 14;
+    for (k = 15; k < n; k++) { var d1 = c[k] - c[k - 1]; g = (g * 13 + Math.max(d1, 0)) / 14; l = (l * 13 + Math.max(-d1, 0)) / 14; }
+    var rsiW = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+    var ema = function (arr, p) { var a = 2 / (p + 1), out = [arr[0]]; for (var i = 1; i < arr.length; i++) out.push(a * arr[i] + (1 - a) * out[i - 1]); return out; };
+    var e12 = ema(c, 12), e26 = ema(c, 26), m = c.map(function (_, i) { return e12[i] - e26[i]; }), sg = ema(m, 9);
+    var cross = null, ago = null;
+    for (k = n - 1; k >= Math.max(1, n - 5); k--) {
+      var a1 = m[k] - sg[k], a0 = m[k - 1] - sg[k - 1];
+      if (a1 > 0 && a0 <= 0) { cross = 'up'; ago = n - 1 - k; break; }
+      if (a1 < 0 && a0 >= 0) { cross = 'down'; ago = n - 1 - k; break; }
+    }
+    var last = c[n - 1];
+    return { rsi: +rsiW.toFixed(1), macd: +(m[n - 1] / last * 100).toFixed(3), signal: +(sg[n - 1] / last * 100).toFixed(3), above: m[n - 1] > sg[n - 1], cross: cross, crossAgo: ago,
+      zone: rsiW < 30 ? 'survente' : rsiW > 70 ? 'surachat' : 'neutre' };
+  };
+  /** Oscillateurs à une date (cours connus ce jour-là seulement). */
+  ES.oscillatorsAt = function (adj, d) {
+    var lo = 0, hi = (adj || []).length - 1, k = -1;
+    while (lo <= hi) { var m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
+    return k < 59 ? null : ES.oscillators(adj.slice(Math.max(0, k - 299), k + 1));
+  };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
     var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
@@ -1759,6 +1790,7 @@
     for (var k = 0; k <= H; k += 5) { var s = sd * Math.sqrt(k); cone.push([k, rnd(last * Math.exp(-1.645 * s)), rnd(last * Math.exp(-s)), rnd(last * Math.exp(s)), rnd(last * Math.exp(1.645 * s))]); }
     return { last: last, atr: lv.atr, trend: trend, position: pos, verdict: verdict, label: label, why: why, primary: primary, alt: alt, horizon: H,
       wedge: (function () { try { return ES.wedge(R); } catch (e) { return null; } })(),
+      osc: ES.oscillators(R),
       sd: +sd.toPrecision(4), volYearPct: +(sd * Math.sqrt(252) * 100).toFixed(0), move1sdPct: +((Math.exp(sd * sqT) - 1) * 100).toFixed(1), cone: cone, riskPct: riskPct };
   };
   /**
@@ -2043,7 +2075,9 @@
     ['fcBad', 'Analystes : pertes ou recul des bénéfices attendus, ou prévisions abaissées d\'au moins 10 % en 90 jours (relevé à l\'achat)'],
     ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)'],
     ['nearSupport', 'Achat à moins de 3 % au-dessus d\'un support (un an de cours connus à la date de l\'achat)'],
-    ['breakout', 'Achat dans les 20 séances suivant la cassure d\'une résistance (cours connus à la date de l\'achat)']
+    ['breakout', 'Achat dans les 20 séances suivant la cassure d\'une résistance (cours connus à la date de l\'achat)'],
+    ['rsiLow', 'Achat avec un RSI 14 jours sous 30 (survente, lissage de Wilder, à la date de l\'achat)'],
+    ['macdBull', 'Achat avec le MACD au-dessus de sa ligne de signal (élan haussier, à la date de l\'achat)']
   ];
   /** Actionnariat : part détenue par les dirigeants et leurs proches (0 à 1) et flottant, d'après Yahoo. */
   ES.ownership = function (fund) {
