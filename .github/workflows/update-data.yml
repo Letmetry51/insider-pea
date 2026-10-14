@@ -86,7 +86,9 @@ jobs:
         continue-on-error: true
 
       - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
-        timeout-minutes: 35
+        timeout-minutes: 45
+        env:
+          EVENTS_MINUTES: '38'
         run: python scrapers/events.py
         continue-on-error: true
 

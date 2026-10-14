@@ -222,7 +222,7 @@ export function build(opts = {}) {
   const eDate = evRaw.generated_at ? String(evRaw.generated_at).slice(0, 10) : null;
   const eFresh = eDate && ES.daysBetween(eDate, today) <= 3 && Object.keys(evRaw.items || {}).length > 0;
   const prevE = state.src['Yahoo Finance (événements)'] || {};
-  const yev = { name: 'Yahoo Finance (événements)', kind: 'résultats, communiqués, révisions', via: 'yfinance (GitHub Actions)', status: eFresh ? 'ok' : 'echec', lastSuccess: eFresh ? eDate : prevE.lastSuccess || null, lastAttempt: today, countries: [], note: eFresh ? null : 'événements non mis à jour (familles R et E figées à la dernière collecte)' };
+  const yev = { name: 'Yahoo Finance (événements)', kind: 'résultats, communiqués, révisions', via: 'yfinance (GitHub Actions)', status: eFresh ? 'ok' : 'echec', lastSuccess: eFresh ? eDate : prevE.lastSuccess || null, lastAttempt: today, countries: [], note: eFresh ? (evRaw.partial ? 'collecte partielle faute de temps : ' + Object.keys(evRaw.items || {}).length + ' titres sur ' + (evRaw.total || '?') + ' relus ce soir, les autres gardent leurs données précédentes' : null) : 'événements non mis à jour (familles R et E figées à la dernière collecte)' };
   yev.log = [{ at: today, accepted: Object.keys(evRaw.items || {}).length, rejected: evRaw.errors || 0 }].concat(prevE.log || []).slice(0, 15);
   state.events = state.events || {};
   const revisions = {};

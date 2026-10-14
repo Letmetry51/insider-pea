@@ -4098,6 +4098,9 @@ details.pos summary{font-size:1rem}
       if (adj[adj.length - 1][0] > wl[0]) ser.push(adj[adj.length - 1]);
       step = 5;
     }
+    if (five && ES.daysBetween(ser[0][0], ser[ser.length - 1][0]) < 1600) note += (note ? ' ' : '') + 'ℹ️ Cours disponibles depuis le ' + shortDate(ser[0][0]) + ' seulement : la vue 5 ans montre tout l\'historique connu.';
+    // saut brutal de cours (regroupement d'actions non ajusté, augmentation de capital, scission) : signalé, jamais corrigé en silence
+    for (var jq = 1; jq < ser.length; jq++) { var ra = ser[jq - 1][4] > 0 ? ser[jq][4] / ser[jq - 1][4] : 1; if (ra > 3 || ra < 1 / 3) { note += (note ? ' ' : '') + '⚠️ Saut de cours ' + (ra > 1 ? '×' + fmtN(ra, 1) : '÷' + fmtN(1 / ra, 1)) + ' ' + (five ? 'la semaine du ' : 'le ') + shortDate(ser[jq][0]) + ' : vraie chute ou envolée, ou bien augmentation de capital, regroupement d\'actions ou scission que la source n\'a pas ajustés. À vérifier avant de comparer aux cours d\'avant.'; break; } }
     var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
     var W = narrow ? 380 : 640, H = narrow ? 250 : 230, L = narrow ? 48 : 62, R = 8, T = 12, B = 26;
     var n = ser.length, last = ser[n - 1][4], lo = Infinity, hi = -Infinity;
@@ -4127,6 +4130,7 @@ details.pos summary{font-size:1rem}
     // supports (vert) et résistances (rouge) : pointillés sur toute la largeur ; étiquettes à gauche, écartées d'au moins 10 px
     var lab = lvl.map(function (v) { return { v: v, y: ys(v.p) }; }).sort(function (a, b) { return a.y - b.y; });
     lab.forEach(function (o, k) { o.ty = o.y - 3; if (k && o.ty - lab[k - 1].ty < 10) o.ty = lab[k - 1].ty + 10; });
+    var lvOver = lab.length ? lab[lab.length - 1].ty - (H - B - 4) : 0; if (lvOver > 0) lab.forEach(function (o) { o.ty -= lvOver; }); // étiquettes serrées en bas : remontées au-dessus de l'axe des dates
     var lvLab = '';
     lab.forEach(function (o) { var v = o.v, y = o.y.toFixed(1); svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" class="' + (v.s ? 'lv-sup' : 'lv-res') + '"><title>' + (v.s ? 'Support' : 'Résistance') + ' ' + fmtN(v.p) + ' (' + pct(v.x.distPct) + ', ' + lvTouch(v.x) + ')</title></line>'; lvLab += '<text x="' + (L + 4) + '" y="' + o.ty.toFixed(1) + '" class="ax lv-t ' + (v.s ? 'lv-ts' : 'lv-tr') + '">' + (v.s ? 'Support ' : 'Résistance ') + fmtN(v.p, v.p < 10 ? 2 : 1) + ' (' + pct(v.x.distPct) + ')</text>'; });
     svg += '<path d="' + path + '" class="line"/>';
@@ -4144,7 +4148,7 @@ details.pos summary{font-size:1rem}
       : '<span><i class="lg-buy"></i>achat d\'initié (prix payé)</span><span><i class="lg-sell"></i>vente</span>';
     if (lvl.length) lg += '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>';
     var head = five && old.length ? '<p class="oldsum">' + old.length + ' achat' + (old.length > 1 ? 's' : '') + ' de dirigeants sur 5 ans' + (oldK.length ? ' ; ' + oldW + ' sur ' + oldK.length + ' ' + (oldW > 1 ? 'ont' : 'a') + ' battu l\'indice 6 mois après' : '') + '.</p>' : '';
-    return seg + (note ? '<p class="small"><b>' + note + '</b></p>' : '') + head + '<div class="chartwrap">' + svg + '</div><p class="legend2">' + lg + '<span class="muted">' + (five ? 'Une clôture par semaine, ajustée des splits et dividendes' : 'Clôtures ajustées des splits') + ' · source ' + esc(p.source || 'n.d.') + ' · historique depuis ' + (five ? shortDate(ser[0][0]) : (s.firstDate || 'n.d.')) + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>' + planCard(isin, plan, adj);
+    return seg + (note ? '<p class="small"><b>' + note + '</b></p>' : '') + head + '<div class="chartwrap">' + svg + '</div><p class="legend2">' + lg + '<span class="muted">' + (five ? 'Une clôture par semaine, ajustée des splits et dividendes' : 'Clôtures ajustées des splits') + ' · source ' + esc(p.source || 'n.d.') + ' · graphique depuis le ' + shortDate(ser[0][0]) + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>' + planCard(isin, plan, adj);
   }
   /** Panneau du plan d'entrée : 3 derniers mois de cours et 3 mois à venir (cône de volatilité, zone d'achat ou déclencheur, stop, objectif). */
   function planChart(isin, adj, plan) {

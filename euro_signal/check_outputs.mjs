@@ -65,7 +65,7 @@ if (detail && detail.prices && long && long.items) {
   check(badJoin <= 0.05 * withLong.length, `${badJoin} titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)`, true);
   let jumps = 0;
   withLong.forEach((i) => { const w = long.items[i].w; for (let k = 1; k < w.length; k++) if (w[k - 1][1] > 0 && (w[k][1] / w[k - 1][1] > 3 || w[k][1] / w[k - 1][1] < 1 / 3)) { jumps++; break; } });
-  check(jumps <= 0.03 * withLong.length, `${jumps} séries 5 ans avec un saut de cours de plus de ×3 en une semaine (3 % au plus)`, true);
+  check(jumps <= 0.06 * withLong.length, `${jumps} séries 5 ans avec un saut de cours de plus de ×3 en une semaine, signalé sur la fiche (6 % au plus ; souvent réel : augmentation de capital, regroupement, scission)`, true);
 }
 
 // 3. Plans d'entrée, figures, oscillateurs, convergence
