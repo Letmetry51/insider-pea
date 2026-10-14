@@ -348,6 +348,23 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .sctr-pt{stroke:var(--surface);stroke-width:2}.sctr-pt.z-good{fill:var(--good)}.sctr-pt.z-mid{fill:var(--warn)}.sctr-pt.z-bad{fill:var(--bad)}.sctr-v{font-size:11px;font-weight:700;fill:var(--ink)}.sctr-ax{font-size:10px;fill:var(--muted)}
 .chart .lv-sup{stroke:var(--good);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-res{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-t{font-weight:700;font-size:9px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}.chart .lv-ts{fill:var(--good)}.chart .lv-tr{fill:var(--bad)}
 .lg-sup,.lg-res{display:inline-block;width:16px;height:0;border-top:2px dashed var(--good);vertical-align:middle;margin-right:4px}.lg-res{border-top-color:var(--bad)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:0 0 8px}
+.seg button{background:none;border:0;border-radius:0;padding:5px 14px;font:500 .82rem var(--body);color:var(--muted);cursor:pointer;min-height:32px}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+svg .futbg{fill:var(--sunk);opacity:.55}svg .now{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
+svg .cone90{fill:var(--chart-line);opacity:.08}svg .cone68{fill:var(--chart-line);opacity:.16}
+svg .pl-zone{fill:var(--good);fill-opacity:.2;stroke:var(--good);stroke-width:1}
+svg .pl-trig{stroke:var(--accent);stroke-width:2;stroke-dasharray:6 3}svg .pl-stop{stroke:var(--bad);stroke-width:1.6;stroke-dasharray:2 2}svg .pl-tgt{stroke:var(--good);stroke-width:1.6;stroke-dasharray:1 3;stroke-linecap:round}
+svg .pl-t{font-weight:700;font-size:9px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+svg .pl-tz,svg .pl-tg{fill:var(--good)}svg .pl-tt{fill:var(--accent)}svg .pl-ts{fill:var(--bad)}
+svg .mk-old{stroke:var(--surface);stroke-width:1.5}svg .mk-ok{fill:var(--good)}svg .mk-ko{fill:var(--bad)}svg .mk-na{fill:var(--muted)}
+.lg-buy.lg-ko{background:var(--bad)}.lg-buy.lg-na{background:var(--muted)}.lg-cone{background:var(--chart-line);opacity:.3;border-radius:2px}
+.oldsum{font-size:.85rem;margin:0 0 6px}
+.plan{border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:var(--r);background:var(--sunk);padding:12px 14px;margin:14px 0 0}
+.plan.good{border-left-color:var(--good)}.plan.warn{border-left-color:var(--warn)}.plan.bad{border-left-color:var(--bad)}
+.plan h4{margin:0 0 4px;font:600 1rem var(--display)}.plan .verdict{margin:0 0 8px;font-size:.98rem}
+.plan ul{margin:6px 0;padding-left:18px}.plan li{margin:4px 0;line-height:1.45}.plan .sc li.main{font-size:.95rem}.plan .sc li:not(.main){color:var(--muted);font-size:.86rem}
+.plan .why li{font-size:.86rem}.plan .whyh{margin:10px 0 0;text-transform:uppercase;letter-spacing:.04em;font-weight:600}.plan .small,.small{font-size:.8rem}.plan b.pos{color:var(--good)}.plan b.neg{color:var(--bad)}
 .kidline{margin:10px 0 0;padding:8px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--neutral-soft);font-size:.92rem}.kidline p{margin:4px 0}.kidline .kidh{margin:0 0 4px}.kidline .kidx{font-style:italic}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
 .cmpline{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--neutral-soft);font-size:.9rem}
@@ -1961,6 +1978,134 @@ details.pos summary{font-size:1rem}
     };
     return { last: last, atr: +atr.toPrecision(4), supports: out(-1), resistances: out(1) };
   };
+  /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
+  ES.normCdf = function (z) {
+    var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
+    var p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return z >= 0 ? 1 - p : p;
+  };
+  /**
+   * Cassure récente : une résistance d'il y a `lag` séances (calculée avec les seuls cours connus alors) est passée
+   * sous le cours depuis. Renvoie { level, sessions } (niveau cassé, séances écoulées depuis la première clôture au-dessus) ou null.
+   */
+  ES.recentBreakout = function (adj, lag) {
+    lag = lag || 20;
+    var n = (adj || []).length; if (n < 120 + lag) return null;
+    var before = ES.supportResistance(adj.slice(0, n - lag)); if (!before || !before.resistances.length) return null;
+    var last = adj[n - 1][4], atr = before.atr || last * 0.02, hit = null;
+    before.resistances.forEach(function (r) { if (!hit && r.kind !== 'high52' && last > r.price + 0.25 * atr) hit = r; });
+    if (!hit) { var h52 = before.resistances.filter(function (r) { return r.kind === 'high52'; })[0]; if (h52 && last > h52.price + 0.25 * atr) hit = h52; }
+    if (!hit) return null;
+    for (var k = n - lag; k < n; k++) if (adj[k][4] > hit.price) return { level: hit.price, kind: hit.kind, sessions: n - 1 - k };
+    return null;
+  };
+  /**
+   * Situation technique à une date, avec les seuls cours connus ce jour-là (critères « en observation ») :
+   * nearSupport : cours à moins de 3 % au-dessus du support le plus proche ; breakout : résistance passée depuis moins de 20 séances.
+   */
+  ES.setupAt = function (adj, d) {
+    var lo = 0, hi = (adj || []).length - 1, k = -1;
+    while (lo <= hi) { var m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
+    if (k < 119) return null;
+    var sub = adj.slice(Math.max(0, k - 279), k + 1), lv = ES.supportResistance(sub); if (!lv) return null;
+    var s1 = lv.supports[0];
+    return { nearSupport: !!(s1 && s1.kind !== 'low52' && (lv.last - s1.price) / lv.last <= 0.03), breakout: !!ES.recentBreakout(sub, 20) };
+  };
+  /**
+   * Plan d'entrée (analyse technique classique, sans prévision de direction) à partir d'un an de cours ajustés :
+   *  - situation : près d'un support, près d'une résistance, cassure récente, milieu de fourchette, plus haut ou chute sans support ;
+   *  - deux scénarios chiffrés : rebond sur support (achat près du support après une clôture de rebond) et cassure de résistance
+   *    (achat sur clôture au-dessus) ; chacun avec entrée, stop, objectif et rapport gain / risque ;
+   *  - scénario privilégié selon la tendance de fond (MM50 / MM200) : rebonds en tendance haussière, cassures en tendance baissière ;
+   *  - probabilités de toucher chaque niveau sous `horizon` séances et cône de volatilité (68 % et 90 %), cours sans dérive :
+   *    la direction n'est pas prévue, seule l'amplitude probable des variations l'est ;
+   *  - taille de ligne pour ne risquer que `riskPct` % du portefeuille jusqu'au stop (plafond `maxWeightPct`).
+   */
+  ES.entryPlan = function (adj, opts) {
+    opts = opts || {};
+    var H = opts.horizon || 60, riskPct = opts.riskPct || 1, maxW = opts.maxWeightPct || 25;
+    var R = (adj || []).filter(function (r) { return r && r[4] > 0; }), n = R.length;
+    if (n < 120) return null;
+    var lv = opts.levels || ES.supportResistance(R); if (!lv) return null;
+    var c = R.map(function (r) { return r[4]; }), last = c[n - 1], atr = lv.atr || last * 0.02;
+    var lr = []; for (var i = Math.max(1, n - 60); i < n; i++) lr.push(Math.log(c[i] / c[i - 1]));
+    var mu = mean(lr), sd = Math.sqrt(lr.reduce(function (s, x) { return s + (x - mu) * (x - mu); }, 0) / Math.max(1, lr.length - 1));
+    sd = Math.min(Math.max(sd, 0.004), 0.12);
+    var ma50 = sma(c, 50), ma200 = sma(c, 200), ma50ago = n >= 70 ? mean(c.slice(n - 70, n - 20)) : null;
+    var trend = ma200 != null ? (last > ma200 && ma50 > ma200 ? 'up' : last < ma200 && ma50 < ma200 ? 'down' : 'mixed')
+      : ma50 != null && ma50ago != null ? (ma50 > ma50ago * 1.02 && last > ma50 ? 'up' : ma50 < ma50ago * 0.98 && last < ma50 ? 'down' : 'mixed') : 'mixed';
+    var s1 = lv.supports[0] || null, s2 = lv.supports[1] || null, r1 = lv.resistances[0] || null, r2 = lv.resistances[1] || null;
+    var near = Math.max(1.5 * atr, last * 0.03), sqT = Math.sqrt(H);
+    var pTouch = function (p) { if (!(p > 0)) return null; var z = Math.abs(Math.log(p / last)) / (sd * sqT); return Math.min(1, 2 * (1 - ES.normCdf(z))); };
+    var rnd = function (v) { return v == null ? null : +v.toPrecision(5); };
+    var fr = function (v) { return String(+(+v).toPrecision(v >= 1000 ? 5 : 4)).replace('.', ','); }; // nombre affiché à la française
+    var mk = function (o) {
+      var risk = o.entry - o.stop, gain = o.target != null ? o.target - o.entry : null;
+      o.rr = risk > 0 && gain != null ? +(gain / risk).toFixed(1) : null;
+      o.stopPct = risk > 0 ? +(-risk / o.entry * 100).toFixed(1) : null;
+      o.targetPct = gain != null ? +(gain / o.entry * 100).toFixed(1) : null;
+      o.sizePct = risk > 0 ? Math.min(maxW, Math.round(riskPct / (risk / o.entry))) : null;
+      ['entry', 'stop', 'target', 'zoneLo', 'zoneHi', 'trigger'].forEach(function (k) { if (o[k] != null) o[k] = rnd(o[k]); });
+      return o;
+    };
+    // seuils techniques : 1 ATR de marge (une séance ordinaire ne déclenche ni l'achat ni le stop)
+    var bo = ES.recentBreakout(R, 20), lowLow = Math.min.apply(null, R.slice(-5).map(function (r) { return r[3] > 0 ? r[3] : r[4]; }));
+    var sup = null, brk = null;
+    if (bo && last - bo.level <= 2.5 * atr) {
+      // ancienne résistance devenue support : achat sur retour vers le niveau cassé
+      sup = mk({ key: 'retest', title: 'Retour sur la résistance cassée', zoneLo: bo.level, zoneHi: bo.level + atr, entry: Math.min(last, bo.level + 0.5 * atr), stop: bo.level - 1.5 * atr,
+        target: r1 ? r1.price : bo.level + 2 * (last - bo.level + 1.5 * atr), level: bo.level, touched: lowLow <= bo.level + atr, bounced: lowLow <= bo.level + atr && last >= lowLow + atr });
+    } else if (s1) {
+      var supStop = s1.price - 1.2 * atr, supT = r1 ? r1.price : s1.price + 3 * (s1.price + 0.5 * atr - supStop);
+      sup = mk({ key: 'support', title: 'Rebond sur le support', zoneLo: s1.price, zoneHi: s1.price + atr, entry: s1.price + 0.5 * atr, stop: s2 && s2.price > supStop - 2 * atr && s2.price < supStop ? s2.price - 0.5 * atr : supStop,
+        target: supT, level: s1.price, touched: lowLow <= s1.price + 0.5 * atr, bounced: lowLow <= s1.price + 0.5 * atr && last >= lowLow + atr });
+    }
+    if (r1) {
+      var trig = r1.price + 0.5 * atr, bStop = Math.max(r1.price - 1.5 * atr, s1 ? s1.price - 0.5 * atr : 0);
+      brk = mk({ key: 'breakout', title: 'Cassure de la résistance', trigger: trig, entry: trig, stop: bStop,
+        target: r2 ? r2.price : r1.price + (r1.price - (s1 ? s1.price : last - 2 * atr)), level: r1.price });
+    }
+    var pS = sup ? pTouch(sup.level) : null, pR = brk ? pTouch(brk.trigger) : null;
+    if (sup) sup.prob = pS == null ? null : Math.round(pS * 100);
+    if (brk) brk.prob = pR == null ? null : Math.round(pR * 100);
+    // situation et scénario privilégié
+    var dS = sup ? (last - sup.level) / last : null, dR = r1 ? (r1.price - last) / last : null;
+    var atHigh = !r1 || (r1.kind === 'high52' && r1.price - last <= atr); // plus haut de l'année à moins d'une séance ordinaire
+    var pos = !s1 && !bo ? 'falling' : bo && sup && sup.key === 'retest' ? 'retest' : atHigh ? 'highs' : dS != null && last - sup.level <= near ? 'support' : dR != null && r1.price - last <= near ? 'resistance' : 'middle';
+    var primary = null, alt = null, verdict, label, why = [];
+    var TR = { up: 'tendance de fond haussière (MM50 au-dessus de la MM200)', down: 'tendance de fond baissière (cours et MM50 sous la MM200)', mixed: 'tendance de fond indécise' };
+    if (pos === 'falling') {
+      primary = brk; verdict = 'avoid'; label = 'Ne pas acheter maintenant : aucun support sous le cours';
+      why.push('Le cours est au plus bas de l\'année sans plancher identifié : acheter maintenant revient à rattraper un couteau qui tombe.');
+      why.push('Attendre soit un plancher (deux creux au même niveau), soit la cassure de la résistance' + (brk ? ' à ' + fr(brk.level) : '') + '.');
+    } else if (pos === 'highs') {
+      var hStop = s1 ? Math.max(s1.price - 0.5 * atr, last - 3 * atr) : last - 2.5 * atr;
+      primary = mk({ key: 'highs', title: 'Achat sur force (plus haut de l\'année)', entry: last, stop: hStop, target: last + 2 * (last - hStop), level: last });
+      primary.prob = null; alt = sup;
+      verdict = trend === 'down' ? 'waitSupport' : 'buyNow';
+      label = trend === 'down' ? 'Plus haut récent mais tendance de fond fragile : attendre un repli vers le support' : 'Achat possible : au plus haut de l\'année, pas de résistance au-dessus';
+      why.push('Aucune résistance au-dessus du cours : l\'objectif est fixé à 2 fois le risque pris.');
+    } else {
+      var preferBreak = trend === 'down' || (trend === 'mixed' && (pos === 'resistance' || (pos === 'middle' && dR < dS)));
+      if (pos === 'retest') preferBreak = false;
+      primary = preferBreak ? brk : sup; alt = preferBreak ? sup : brk;
+      if (!primary) { primary = alt; alt = null; }
+      if (primary && primary.rr != null && primary.rr < 1.2 && alt && alt.rr != null && alt.rr >= 1.5) { var sw = primary; primary = alt; alt = sw; why.push('Le scénario attendu d\'après la tendance offre trop peu de gain pour le risque : l\'autre est retenu.'); }
+      var isSup = primary && (primary.key === 'support' || primary.key === 'retest');
+      if (isSup && primary.bounced && trend !== 'down' && last <= primary.zoneHi + atr && primary.rr != null && primary.rr < 1.5) { verdict = 'waitBreakout'; label = 'Rebond en cours, mais la résistance est trop proche pour bien gagner : attendre sa cassure'; }
+      else if (isSup && primary.bounced && trend !== 'down' && last <= primary.zoneHi + atr) { verdict = 'buyNow'; label = primary.key === 'retest' ? 'Achat possible : la résistance cassée tient comme support' : 'Achat possible : rebond en cours sur le support'; }
+      else if (isSup) { verdict = 'waitSupport'; label = primary.touched ? 'Attendre la confirmation du rebond sur le support' : 'Attendre un repli vers le support, puis un rebond'; }
+      else { verdict = 'waitBreakout'; label = 'Attendre la cassure de la résistance'; }
+      if (trend === 'down' && isSup) why.push('Tendance baissière : ne jouer le rebond qu\'avec une demi-ligne et un stop strict.');
+      if (!isSup && (pos === 'support' || pos === 'retest')) why.push('Le cours est près du support, mais en tendance baissière les supports cèdent souvent : la cassure de la résistance confirme mieux un retournement.');
+    }
+    why.unshift(TR[trend] + '.');
+    if (primary && primary.rr != null && primary.rr < 1.5) why.push('Rapport gain / risque faible (' + fr(primary.rr) + ') : la place pour monter jusqu\'à l\'objectif est limitée.');
+    var cone = [];
+    for (var k = 0; k <= H; k += 5) { var s = sd * Math.sqrt(k); cone.push([k, rnd(last * Math.exp(-1.645 * s)), rnd(last * Math.exp(-s)), rnd(last * Math.exp(s)), rnd(last * Math.exp(1.645 * s))]); }
+    return { last: last, atr: lv.atr, trend: trend, position: pos, verdict: verdict, label: label, why: why, primary: primary, alt: alt, horizon: H,
+      sd: +sd.toPrecision(4), volYearPct: +(sd * Math.sqrt(252) * 100).toFixed(0), move1sdPct: +((Math.exp(sd * sqT) - 1) * 100).toFixed(1), cone: cone, riskPct: riskPct };
+  };
   /**
    * Humeur du marché (aspect psychologique) à une date : volatilité sur 20 séances comparée à l'année écoulée et recul
    * depuis le plus haut 52 semaines de l'indice européen. rows : séries ajustées [[date, o, h, l, c, v]].
@@ -2241,7 +2386,9 @@ details.pos summary{font-size:1rem}
     ['lowFloat', 'Flottant inférieur à 40 % du capital (peu d\'actions échangées en Bourse)'],
     ['fcGrowth', 'Analystes : bénéfice par action attendu en hausse d\'au moins 10 % sur l\'exercice suivant, sans révision à la baisse (relevé à l\'achat, 3 analystes ou plus)'],
     ['fcBad', 'Analystes : pertes ou recul des bénéfices attendus, ou prévisions abaissées d\'au moins 10 % en 90 jours (relevé à l\'achat)'],
-    ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)']
+    ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)'],
+    ['nearSupport', 'Achat à moins de 3 % au-dessus d\'un support (un an de cours connus à la date de l\'achat)'],
+    ['breakout', 'Achat dans les 20 séances suivant la cassure d\'une résistance (cours connus à la date de l\'achat)']
   ];
   /** Actionnariat : part détenue par les dirigeants et leurs proches (0 à 1) et flottant, d'après Yahoo. */
   ES.ownership = function (fund) {
@@ -3002,6 +3149,7 @@ details.pos summary{font-size:1rem}
     mode: 'chargement', db: null, mcp: null, dl: null,
     cfg: ES.mergeConfig(ES.DEFAULT_CONFIG, {}),
     inst: {}, tx: {}, ev: {}, src: {}, alerts: {}, prices: {}, refs: {}, computed: {},
+    range: (function () { try { return localStorage.getItem('es-range') === '5y' ? '5y' : '1y'; } catch (e) { return '1y'; } })(),
     view: 'classement', sel: null, filters: { q: '', country: '', status: '', signals: true, sort: 'discount', quick: 'buys' },
     txFilter: { type: 'achat', registry: '', country: '' }, uniFilter: 'a_examiner', limit: 50,
     today: todayIso(), busy: null, imp: null, bt: null, restore: null, confirm: null, notice: null
@@ -3035,7 +3183,7 @@ details.pos summary{font-size:1rem}
       S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, d.cfg || {});
       S.today = d.today || S.today;
       S.inst = d.inst || {}; S.tx = d.tx || {}; S.ev = d.ev || {}; S.src = d.src || {}; S.alerts = d.alerts || {};
-      S.prices = d.prices || {}; S.refs = d.refs || {}; S.detailFile = /^data\/[\w.-]+\.json$/.test(d.detailFile || '') ? d.detailFile : null; S.detailLoaded = !S.detailFile;
+      S.prices = d.prices || {}; S.refs = d.refs || {}; S.detailFile = /^data\/[\w.-]+\.json$/.test(d.detailFile || '') ? d.detailFile : null; S.longFile = /^data\/[\w.-]+\.json$/.test(d.longFile || '') ? d.longFile : null; S.detailLoaded = !S.detailFile;
       Object.keys(S.prices).forEach(function (i) { var p = S.prices[i]; if (p && p.closesOnly) p.rows = p.rows.map(function (r) { return [r[0], null, null, null, r[1], null]; }); });
       if (S.detailLoaded) Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
       S.bt = { remote: true, res: d.backtest ? d.backtest.results : [], meta: d.backtest || {} };
@@ -3668,52 +3816,156 @@ details.pos summary{font-size:1rem}
     var s1 = (LV.supports || [])[0], r1 = (LV.resistances || [])[0];
     return { s1: s1 || null, r1: r1 || null, s2: (LV.supports || [])[1] || null, r2: (LV.resistances || [])[1] || null };
   }
+  /** Historique 5 ans (une clôture par semaine et anciens achats) : chargé à la demande, quand la vue « 5 ans » est choisie. */
+  function loadLong() {
+    if (S.longLoading || S.longLoaded) return;
+    if (!S.longFile) { S.long = {}; S.longLoaded = true; S.longError = 'local'; return; }
+    S.longLoading = true;
+    fetch(S.longFile, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      d = defang(d); S.long = (d && d.items) || {}; S.longLoaded = true; S.longLoading = false; render();
+    }).catch(function () { S.long = {}; S.longLoaded = true; S.longLoading = false; S.longError = 'reseau'; render(); });
+  }
+  /** Plan d'entrée : calculé chaque soir avec les plus hauts et plus bas du jour ; à défaut, recalculé ici sur les clôtures. */
+  function planOf(isin, adj) {
+    var x = S.inst[isin] || {};
+    if (x.plan && x.plan.verdict) return x.plan;
+    try { return ES.entryPlan(adj, { levels: x.levels || undefined }); } catch (e) { return null; }
+  }
   function chart(isin) {
     var p = S.prices[isin];
     if (!p) return '<p class="muted">Chargement des cours…</p>';
     if (!p.rows || !p.rows.length) return '<p class="muted">Aucun cours importé pour ce titre.</p>';
     var splits = (S.ev[isin] && S.ev[isin].splits) || [];
     var adj = ES.adjustedSeries(ES.normalizeSeries(p.rows), splits).slice(-260);
+    var five = S.range === '5y', note = '';
+    var seg = '<div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' + (five ? '' : 'on') + '" aria-pressed="' + !five + '">1 an</button><button data-a="range" data-v="5y" class="' + (five ? 'on' : '') + '" aria-pressed="' + five + '">5 ans</button></div>';
+    var L5 = null;
+    if (five) {
+      if (!S.longLoaded) { loadLong(); if (!S.longLoaded) return seg + '<p class="muted">Chargement de l\'historique sur 5 ans…</p>'; }
+      L5 = S.long && S.long[isin];
+      if (!L5 || !Array.isArray(L5.w) || L5.w.length < 20) { five = false; note = S.longError === 'local' ? 'Vue 5 ans disponible sur le tableau de bord en ligne.' : S.longError ? 'Historique 5 ans indisponible pour le moment : vue 1 an.' : 'Pas d\'historique sur 5 ans pour ce titre (cotation récente ou cours introuvables) : vue 1 an.'; }
+    }
+    var plan = planOf(isin, adj);
+    // série affichée : journalière (1 an) ou hebdomadaire (5 ans), raccordée au dernier cours journalier
+    var ser = adj, step = 1;
+    if (five) {
+      var w = L5.w.filter(function (r) { return r && r[1] > 0; }), wl = w[w.length - 1], k0 = -1;
+      for (var q = adj.length - 1; q >= 0; q--) if (adj[q][0] <= wl[0]) { k0 = q; break; }
+      var ratio = k0 >= 0 && wl[1] > 0 ? adj[k0][4] / wl[1] : 1; if (!(ratio > 0.5 && ratio < 2)) ratio = 1;
+      ser = w.map(function (r) { return [r[0], null, null, null, r[1] * ratio, null]; });
+      if (adj[adj.length - 1][0] > wl[0]) ser.push(adj[adj.length - 1]);
+      step = 5;
+    }
     var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
-    var W = narrow ? 380 : 640, H = narrow ? 240 : 220, L = narrow ? 48 : 62, R = 8, T = 12, B = 26;
-    var lo = Infinity, hi = -Infinity;
-    adj.forEach(function (r) { lo = Math.min(lo, r[3] != null ? r[3] : r[4]); hi = Math.max(hi, r[2] != null ? r[2] : r[4]); });
+    var W = narrow ? 380 : 640, H = narrow ? 250 : 230, L = narrow ? 48 : 62, R = 8, T = 12, B = 26;
+    var n = ser.length, last = ser[n - 1][4], lo = Infinity, hi = -Infinity;
+    ser.forEach(function (r) { lo = Math.min(lo, r[3] != null ? r[3] : r[4]); hi = Math.max(hi, r[2] != null ? r[2] : r[4]); });
     var refs = S.refs[isin] || {}, marks = [];
-    (S.tx[isin] || []).forEach(function (t) {
-      var r = refs[t.id]; if (!r || !r.available || t.status === 'annulee' || t.txDate < adj[0][0]) return;
+    if (five) (L5.buys || []).forEach(function (b) { if (b && b[1] > 0 && b[0] >= ser[0][0]) { marks.push({ d: b[0], p: b[1] * (ratio || 1), buy: true, who: b[2], x: b[3], old: true, ceo: b[4] }); } });
+    else (S.tx[isin] || []).forEach(function (t) {
+      var r = refs[t.id]; if (!r || !r.available || t.status === 'annulee' || t.txDate < ser[0][0]) return;
       if (t.type !== 'achat' && t.type !== 'vente') return;
       marks.push({ d: t.txDate, p: r.paidAdj, buy: t.type === 'achat', who: t.person });
-      lo = Math.min(lo, r.paidAdj); hi = Math.max(hi, r.paidAdj);
     });
+    marks.forEach(function (m) { lo = Math.min(lo, m.p); hi = Math.max(hi, m.p); });
     var LV = S.inst[isin] && S.inst[isin].levels, lvl = LV ? (LV.supports || []).map(function (x) { return { p: x.price, s: true, x: x }; }).concat((LV.resistances || []).map(function (x) { return { p: x.price, s: false, x: x }; })) : [];
     lvl = lvl.filter(function (v) { return v.p > 0 && isFinite(v.p) && v.p >= lo * 0.75 && v.p <= hi * 1.35; });
     lvl.forEach(function (v) { lo = Math.min(lo, v.p); hi = Math.max(hi, v.p); });
     var pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
     L = Math.max(L, 12 + 7 * fmtN(hi, hi < 10 ? 2 : 1).length); // cours à 4 chiffres (1 966,3) : marge élargie pour ne pas couper l'étiquette
-    var n = adj.length, xs = function (k) { return L + (W - L - R) * (n === 1 ? 0.5 : k / (n - 1)); }, ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
-    var idx = {}; adj.forEach(function (r, k) { idx[r[0]] = k; });
-    var path = adj.map(function (r, k) { return (k ? 'L' : 'M') + xs(k).toFixed(1) + ' ' + ys(r[4]).toFixed(1); }).join(' ');
+    var xs = function (k) { return L + (W - L - R) * (n === 1 ? 0.5 : k / (n - 1)); };
+    var ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
+    var idx = {}; ser.forEach(function (r, k) { idx[r[0]] = k; });
+    var path = ser.map(function (r, k) { return (k ? 'L' : 'M') + xs(k).toFixed(1) + ' ' + ys(r[4]).toFixed(1); }).join(' ');
     var area = path + ' L' + xs(n - 1).toFixed(1) + ' ' + (H - B) + ' L' + xs(0).toFixed(1) + ' ' + (H - B) + ' Z';
     var ticks = [lo + pad, (lo + hi) / 2, hi - pad];
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img" aria-label="Cours de clôture ajustés des opérations sur titres, 260 dernières séances, avec les achats et ventes des dirigeants">';
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img" aria-label="Cours de clôture ajustés ' + (five ? 'sur 5 ans (une clôture par semaine)' : 'des 260 dernières séances') + ', achats des dirigeants, supports, résistances ">';
     ticks.forEach(function (v) { svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" class="grid"/><text x="' + (L - 6) + '" y="' + (ys(v) + 4).toFixed(1) + '" text-anchor="end" class="ax">' + fmtN(v, v < 10 ? 2 : 1) + '</text>'; });
     svg += '<path d="' + area + '" class="area"/>';
-    // supports (vert) et résistances (rouge) : pointillés sur toute la largeur, valeur à droite
-    // étiquettes à gauche (zone la plus ancienne, moins chargée), écartées d'au moins 11 px pour rester lisibles
+    // supports (vert) et résistances (rouge) : pointillés sur toute la largeur ; étiquettes à gauche, écartées d'au moins 10 px
     var lab = lvl.map(function (v) { return { v: v, y: ys(v.p) }; }).sort(function (a, b) { return a.y - b.y; });
     lab.forEach(function (o, k) { o.ty = o.y - 3; if (k && o.ty - lab[k - 1].ty < 10) o.ty = lab[k - 1].ty + 10; });
-    var lvLab = ''; // étiquettes dessinées en dernier, au-dessus de la courbe et des marques
+    var lvLab = '';
     lab.forEach(function (o) { var v = o.v, y = o.y.toFixed(1); svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" class="' + (v.s ? 'lv-sup' : 'lv-res') + '"><title>' + (v.s ? 'Support' : 'Résistance') + ' ' + fmtN(v.p) + ' (' + pct(v.x.distPct) + ', ' + lvTouch(v.x) + ')</title></line>'; lvLab += '<text x="' + (L + 4) + '" y="' + o.ty.toFixed(1) + '" class="ax lv-t ' + (v.s ? 'lv-ts' : 'lv-tr') + '">' + (v.s ? 'Support ' : 'Résistance ') + fmtN(v.p, v.p < 10 ? 2 : 1) + ' (' + pct(v.x.distPct) + ')</text>'; });
     svg += '<path d="' + path + '" class="line"/>';
-    svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(adj[0][0]) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">' + shortDate(adj[n - 1][0]) + '</text>';
+    svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(ser[0][0]) + '</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">' + shortDate(ser[n - 1][0]) + '</text>';
     marks.forEach(function (m) {
-      var k = idx[m.d]; if (k == null) { k = adj.findIndex(function (r) { return r[0] >= m.d; }); if (k < 0) return; }
+      var k = idx[m.d]; if (k == null) { k = ser.findIndex(function (r) { return r[0] >= m.d; }); if (k < 0) return; }
       var cx = xs(k), cy = ys(m.p);
-      svg += m.buy ? '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5" class="mk-buy"><title>Achat ' + esc(m.who || '') + ' le ' + m.d + ' à ' + fmtN(m.p) + '</title></circle>' : '<path d="M' + (cx - 5).toFixed(1) + ' ' + (cy - 4).toFixed(1) + ' L' + (cx + 5).toFixed(1) + ' ' + (cy - 4).toFixed(1) + ' L' + cx.toFixed(1) + ' ' + (cy + 5).toFixed(1) + ' Z" class="mk-sell"><title>Vente ' + esc(m.who || '') + ' le ' + m.d + '</title></path>';
+      if (m.old) svg += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (m.ceo ? 5 : 4) + '" class="mk-old ' + (m.x == null ? 'mk-na' : m.x > 0 ? 'mk-ok' : 'mk-ko') + '"><title>Achat ' + esc(m.who || '') + ' le ' + m.d + ' à ' + fmtN(m.p) + (m.x == null ? ' — résultat à 6 mois pas encore connu' : ' — 6 mois après : ' + pct(m.x) + ' par rapport à l\'indice') + '</title></circle>';
+      else svg += m.buy ? '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="5" class="mk-buy"><title>Achat ' + esc(m.who || '') + ' le ' + m.d + ' à ' + fmtN(m.p) + '</title></circle>' : '<path d="M' + (cx - 5).toFixed(1) + ' ' + (cy - 4).toFixed(1) + ' L' + (cx + 5).toFixed(1) + ' ' + (cy - 4).toFixed(1) + ' L' + cx.toFixed(1) + ' ' + (cy + 5).toFixed(1) + ' Z" class="mk-sell"><title>Vente ' + esc(m.who || '') + ' le ' + m.d + '</title></path>';
     });
-    svg += '<circle cx="' + xs(n - 1).toFixed(1) + '" cy="' + ys(adj[n - 1][4]).toFixed(1) + '" r="3.5" class="last"/>' + lvLab + '</svg>';
-    var s = S.inst[isin].stats || {};
-    return '<div class="chartwrap">' + svg + '</div><p class="legend2"><span><i class="lg-buy"></i>achat d\'initié (prix payé)</span><span><i class="lg-sell"></i>vente</span>' + (lvl.length ? '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>' : '') + '<span class="muted">Clôtures ajustées des splits · source ' + esc(p.source || 'n.d.') + ' · historique depuis ' + (s.firstDate || 'n.d.') + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>';
+    svg += '<circle cx="' + xs(n - 1).toFixed(1) + '" cy="' + ys(last).toFixed(1) + '" r="3.5" class="last"/>' + lvLab;
+    svg += '</svg>';
+    var s = S.inst[isin].stats || {}, old = marks.filter(function (m) { return m.old; }), oldK = old.filter(function (m) { return m.x != null; }), oldW = oldK.filter(function (m) { return m.x > 0; }).length;
+    var lg = five ? '<span><i class="lg-buy"></i>achat passé : a battu l\'indice 6 mois après</span><span><i class="lg-buy lg-ko"></i>ne l\'a pas battu</span><span><i class="lg-buy lg-na"></i>trop récent</span>'
+      : '<span><i class="lg-buy"></i>achat d\'initié (prix payé)</span><span><i class="lg-sell"></i>vente</span>';
+    if (lvl.length) lg += '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>';
+    var head = five && old.length ? '<p class="oldsum">' + old.length + ' achat' + (old.length > 1 ? 's' : '') + ' de dirigeants sur 5 ans' + (oldK.length ? ' ; ' + oldW + ' sur ' + oldK.length + ' ' + (oldW > 1 ? 'ont' : 'a') + ' battu l\'indice 6 mois après' : '') + '.</p>' : '';
+    return seg + (note ? '<p class="muted small">' + note + '</p>' : '') + head + '<div class="chartwrap">' + svg + '</div><p class="legend2">' + lg + '<span class="muted">' + (five ? 'Une clôture par semaine, ajustée des splits et dividendes' : 'Clôtures ajustées des splits') + ' · source ' + esc(p.source || 'n.d.') + ' · historique depuis ' + (five ? shortDate(ser[0][0]) : (s.firstDate || 'n.d.')) + (p.truncatedFrom ? ' (tronqué au ' + p.truncatedFrom + ')' : '') + '</span></p>' + planCard(isin, plan, adj);
+  }
+  /** Panneau du plan d'entrée : 3 derniers mois de cours et 3 mois à venir (cône de volatilité, zone d'achat ou déclencheur, stop, objectif). */
+  function planChart(isin, adj, plan) {
+    if (!plan || !plan.primary || !(plan.sd > 0) || !adj || adj.length < 30) return '';
+    var past = adj.slice(-Math.min(63, adj.length)), np = past.length, fut = plan.horizon || 60, last = past[np - 1][4], pr = plan.primary;
+    var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
+    var W = narrow ? 380 : 640, H = narrow ? 230 : 210, L = narrow ? 48 : 62, R = 8, T = 10, B = 24;
+    var cone = []; for (var c = 0; c <= fut; c += 5) { var sg = plan.sd * Math.sqrt(c); cone.push([c, last * Math.exp(-1.645 * sg), last * Math.exp(-sg), last * Math.exp(sg), last * Math.exp(1.645 * sg)]); }
+    var f = function (v) { return fmtN(v, v < 10 ? 2 : 1); }, plv = [];
+    if (pr.key === 'support' || pr.key === 'retest') plv.push({ k: 'zone', a: pr.zoneLo, b: pr.zoneHi, t: 'Zone d\'achat ' + f(pr.zoneLo) + '–' + f(pr.zoneHi), c: 'pl-tz' });
+    else if (pr.key === 'breakout') plv.push({ k: 'trig', a: pr.trigger, t: 'Achat si clôture > ' + f(pr.trigger), c: 'pl-tt' });
+    else plv.push({ k: 'zone', a: Math.min(pr.entry, last) - 0.5 * (plan.atr || 0), b: Math.max(pr.entry, last), t: 'Achat possible', c: 'pl-tz' });
+    if (pr.stop > 0) plv.push({ k: 'stop', a: pr.stop, t: 'Stop ' + f(pr.stop), c: 'pl-ts' });
+    if (pr.target > 0) plv.push({ k: 'tgt', a: pr.target, t: 'Objectif ' + f(pr.target), c: 'pl-tg' });
+    var lo = Infinity, hi = -Infinity, inc = function (v) { if (v > 0 && isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+    past.forEach(function (r) { inc(r[4]); }); inc(cone[cone.length - 1][2]); inc(cone[cone.length - 1][3]);
+    plv.forEach(function (v) { inc(v.a); if (v.b != null) inc(v.b); });
+    var pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+    L = Math.max(L, 12 + 7 * fmtN(hi, hi < 10 ? 2 : 1).length);
+    var tot = np - 1 + fut, xs = function (k) { return L + (W - L - R) * k / tot; }, xNow = xs(np - 1), ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
+    var cid = 'pc' + isin.replace(/\W/g, ''), svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart" role="img" aria-label="Plan d\'entrée : 3 derniers mois de cours et projection sur 3 mois">';
+    svg += '<defs><clipPath id="' + cid + '"><rect x="' + L + '" y="' + T + '" width="' + (W - R - L) + '" height="' + (H - T - B) + '"/></clipPath></defs>';
+    [lo + pad, (lo + hi) / 2, hi - pad].forEach(function (v) { svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" class="grid"/><text x="' + (L - 6) + '" y="' + (ys(v) + 4).toFixed(1) + '" text-anchor="end" class="ax">' + fmtN(v, v < 10 ? 2 : 1) + '</text>'; });
+    svg += '<rect x="' + xNow.toFixed(1) + '" y="' + T + '" width="' + (W - R - xNow).toFixed(1) + '" height="' + (H - T - B) + '" class="futbg"/>';
+    var band = function (a, b) { return 'M' + cone.map(function (c) { return xs(np - 1 + c[0]).toFixed(1) + ' ' + ys(c[a]).toFixed(1); }).join(' L') + ' L' + cone.slice().reverse().map(function (c) { return xs(np - 1 + c[0]).toFixed(1) + ' ' + ys(c[b]).toFixed(1); }).join(' L') + ' Z'; };
+    var cl = cone[cone.length - 1];
+    svg += '<g clip-path="url(#' + cid + ')"><path d="' + band(4, 1) + '" class="cone90"><title>9 cas sur 10 d\'ici 3 mois : entre ' + f(cl[1]) + ' et ' + f(cl[4]) + '</title></path><path d="' + band(3, 2) + '" class="cone68"><title>2 cas sur 3 d\'ici 3 mois : entre ' + f(cl[2]) + ' et ' + f(cl[3]) + '</title></path>';
+    var labs = [];
+    plv.forEach(function (v) {
+      if (v.k === 'zone') { var y1 = ys(v.b), y2 = ys(v.a); svg += '<rect x="' + L + '" y="' + Math.min(y1, y2).toFixed(1) + '" width="' + (W - R - L) + '" height="' + Math.max(3, Math.abs(y2 - y1)).toFixed(1) + '" class="pl-zone"><title>' + esc(v.t) + '</title></rect>'; labs.push({ y: Math.min(y1, y2) - 3, t: v.t, c: v.c }); }
+      else { var yy = ys(v.a).toFixed(1); svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" class="' + (v.k === 'trig' ? 'pl-trig' : v.k === 'stop' ? 'pl-stop' : 'pl-tgt') + '"><title>' + esc(v.t) + '</title></line>'; labs.push({ y: ys(v.a) - 3, t: v.t, c: v.c }); }
+    });
+    svg += '</g><line x1="' + xNow.toFixed(1) + '" x2="' + xNow.toFixed(1) + '" y1="' + T + '" y2="' + (H - B) + '" class="now"/>';
+    svg += '<path d="' + past.map(function (r, k) { return (k ? 'L' : 'M') + xs(k).toFixed(1) + ' ' + ys(r[4]).toFixed(1); }).join(' ') + '" class="line"/><circle cx="' + xNow.toFixed(1) + '" cy="' + ys(last).toFixed(1) + '" r="3.5" class="last"><title>Dernier cours ' + f(last) + '</title></circle>';
+    labs.sort(function (a, b) { return a.y - b.y; }).forEach(function (o, k, A) { if (o.y < T + 9) o.y = T + 9; if (k && o.y - A[k - 1].y < 11) o.y = A[k - 1].y + 11; });
+    labs.forEach(function (o) { svg += '<text x="' + (W - R - 3) + '" y="' + o.y.toFixed(1) + '" text-anchor="end" class="ax pl-t ' + o.c + '">' + esc(o.t) + '</text>'; });
+    svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(past[0][0]) + '</text><text x="' + xNow.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" class="ax">aujourd\'hui</text><text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">+3 mois</text></svg>';
+    return '<div class="chartwrap">' + svg + '</div><p class="legend2"><span><i class="lg-cone"></i>Cours probable dans 3 mois : entre ' + f(cl[2]) + ' et ' + f(cl[3]) + ' 2 fois sur 3 (zone foncée), entre ' + f(cl[1]) + ' et ' + f(cl[4]) + ' 9 fois sur 10</span></p>';
+  }
+  /** Carte « Plan d'entrée » : que faire maintenant, à quel prix, avec quel stop, et ce qu'en disent nos données. */
+  function planCard(isin, plan, adj) {
+    if (!plan || !plan.primary) return '';
+    var V = { buyNow: ['good', '✅'], waitSupport: ['warn', '⏳'], waitBreakout: ['warn', '⏳'], avoid: ['bad', '⛔'] }[plan.verdict] || ['neutral', '•'];
+    var f = function (v) { return fmtN(v, v < 10 ? 2 : 1); };
+    var line = function (o, main) {
+      if (!o) return '';
+      var how = o.key === 'breakout' ? 'achat sur clôture au-dessus de <b>' + f(o.trigger) + '</b> (résistance ' + f(o.level) + ' franchie)'
+        : o.key === 'highs' ? 'achat au cours actuel, vers <b>' + f(o.entry) + '</b>'
+        : 'achat entre <b>' + f(o.zoneLo) + '</b> et <b>' + f(o.zoneHi) + '</b>, après une clôture de rebond' + (o.key === 'retest' ? ' (ancienne résistance devenue support)' : '');
+      var st = o.key === 'support' || o.key === 'retest' ? (o.bounced ? ' Niveau touché ces derniers jours, rebond en cours.' : o.touched ? ' Niveau touché ces derniers jours, rebond pas encore confirmé.' : '') : '';
+      return '<li' + (main ? ' class="main"' : '') + '><b>' + esc(o.title) + '</b> : ' + how + ' · stop <b>' + f(o.stop) + '</b> (' + pct(o.stopPct) + ') · objectif <b>' + f(o.target) + '</b> (' + pct(o.targetPct) + ')' +
+        (o.rr != null ? ' · gain / risque <b class="' + (o.rr >= 2 ? 'pos' : o.rr < 1.2 ? 'neg' : '') + '">' + String(o.rr).replace('.', ',') + '</b>' : '') + '.' + st +
+        (main && o.sizePct ? ' Pour ne risquer que ' + (plan.riskPct || 1) + ' % du portefeuille jusqu\'au stop : ligne de <b>' + o.sizePct + ' %</b> au plus.' : '') +
+        (o.prob != null ? ' <span class="muted">Probabilité que le cours atteigne ' + (o.key === 'breakout' ? 'ce déclencheur' : 'ce niveau') + ' d\'ici 3 mois : ' + o.prob + ' %.</span>' : '') + '</li>';
+    };
+    var pr = plan.primary, obsKey = pr.key === 'breakout' || pr.key === 'retest' ? 'breakout' : pr.key === 'support' ? 'nearSupport' : null;
+    var ob = obsKey && S.snapshot && S.snapshot.learning && (S.snapshot.learning.observe || []).filter(function (o) { return o.feature === obsKey; })[0];
+    var hz = (S.cfg.learning && S.cfg.learning.horizon) || 60;
+    var obs = ob && ob.nWith ? '<p class="small">📏 Sur nos données, achats de dirigeants faits ' + (obsKey === 'breakout' ? 'juste après une cassure' : 'près d\'un support') + ' : ' + pct(ob.meanWith) + ' par rapport à l\'indice ' + hz + ' séances plus tard, contre ' + pct(ob.meanWithout) + ' pour les autres (' + ob.nWith + ' cas' + (/^en observation/.test(ob.action || '') ? ', mesure en cours' : ', ' + esc(ob.action)) + ').</p>' : '';
+    return '<div class="plan ' + V[0] + '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' + V[1] + ' <b>' + esc(plan.label) + '</b></p>' +
+      planChart(isin, adj, plan) + '<ul class="sc">' + line(pr, true) + (plan.alt ? line(plan.alt, false) : '') + '</ul>' +
+      (plan.why && plan.why.length ? '<p class="small muted whyh">Pourquoi</p><ul class="why">' + plan.why.map(function (w) { return '<li>' + esc(w.charAt(0).toUpperCase() + w.slice(1)) + '</li>'; }).join('') + '</ul>' : '') + obs +
+      '<p class="muted small">Analyse technique classique (supports, résistances, moyennes mobiles), pas encore validée sur l\'historique Euro Signal : son effet est mesuré au fil des achats. Le cône montre l\'amplitude probable des variations d\'ici 3 mois si la volatilité récente se maintient (' + (plan.volYearPct != null ? plan.volYearPct + ' % par an' : 'n.d.') + '), sans prévoir la direction. Ce n\'est pas un conseil en investissement.</p></div>';
   }
 
   function txSection(i, sc) {
@@ -4171,6 +4423,7 @@ details.pos summary{font-size:1rem}
     if (el.tagName === 'A') return;
     ev.preventDefault();
     if (a === 'view') { S.view = el.dataset.v; S.limit = 50; if (location.hash) history.replaceState(null, '', location.pathname + location.search); render(); window.scrollTo(0, 0); }
+    else if (a === 'range') { S.range = el.dataset.v === '5y' ? '5y' : '1y'; try { localStorage.setItem('es-range', S.range); } catch (e) { } var yr = window.scrollY; render(); window.scrollTo(0, yr); }
     else if (a === 'pfCore') { S.pfCore = el.dataset.v === '1'; var yy = window.scrollY; render(); window.scrollTo(0, yy); }
     else if (a === 'proofH') { S.proofH = +el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); }
     else if (a === 'proof') { S.view = 'aide'; render(); var pr = document.getElementById('preuves'); if (pr) pr.scrollIntoView(); }

@@ -17,7 +17,7 @@ const DATA = path.join(ROOT, 'data');
 const F = {
   latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), shorts: path.join(DATA, 'shorts.json'), financials: path.join(DATA, 'financials.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
   history: path.join(DATA, 'history'), insiders: path.join(DATA, 'euro-signal-insiders.json'),
-  out: path.join(DATA, 'euro-signal.json'), detail: path.join(DATA, 'euro-signal-detail.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
+  out: path.join(DATA, 'euro-signal.json'), detail: path.join(DATA, 'euro-signal-detail.json'), long: path.join(DATA, 'euro-signal-long.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
 // NaN / Infinity écrits par Python : remplacés seulement en position de valeur (jamais dans un texte)
@@ -379,6 +379,10 @@ export function build(opts = {}) {
     if (pItems[isin]) adjAll[isin] = ES.adjustedSeries(ES.normalizeSeries(pItems[isin].rows), pItems[isin].splits || []);
     // Supports et résistances sur un an (affichés dans les fiches et la sélection ; information, hors note)
     if (adjAll[isin]) { try { const sr = ES.supportResistance(adjAll[isin]); if (sr) inst[isin].levels = sr; } catch (e) { /* niveaux non calculables */ } }
+    // Plan d'entrée (rebond sur support ou cassure de résistance) : information, hors note ; le cône est recalculé par le tableau de bord
+    if (adjAll[isin] && inst[isin].levels) {
+      try { const pl = ES.entryPlan(adjAll[isin], { levels: inst[isin].levels, riskPct: (cfg.plan && cfg.plan.riskPct) || 1, maxWeightPct: (cfg.plan && cfg.plan.maxWeightPct) || 25 }); if (pl) { delete pl.cone; inst[isin].plan = pl; } } catch (e) { /* plan non calculable */ }
+    }
     const R0 = refs[isin] || {};
     sigAll[isin] = ES.countedBuys(tx[isin], R0, cfg).map((t) => ES.availDate(t));
   });
@@ -504,6 +508,8 @@ export function build(opts = {}) {
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
           ...(() => { const a = finList[isin] ? accAt(isin, d) : null; return { fscoreHigh: a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined,
             altmanDistress: a && a.altman && !a.altman.na ? a.altman.zone === 'distress' : undefined, beneishFlag: a && a.beneish && !a.beneish.na ? a.beneish.flag : undefined }; })(),
+          // Situation technique à la date de publication (support proche, cassure récente) : cours connus ce jour-là seulement
+          ...(() => { const st = ES.setupAt(adj, d); return st ? { nearSupport: st.nearSupport, breakout: st.breakout } : {}; })(),
           ...(() => { const pf = profileOf(t), m = moodAt(d); return { opportunistic: !pf || pf.routine === 'inconnu' ? undefined : pf.routine === 'inhabituel', trackGood: pf && pf.track && pf.track.n >= 2 ? pf.track.beat / pf.track.n >= 2 / 3 : undefined, personalRecord: pf && pf.record != null ? pf.record : undefined, marketFear: m ? m.key === 'fear' : undefined }; })() } });
       if (ES.daysBetween(d, today) <= 7 && !state.obsAtBuy[t.id]) {
         const fv = inst[isin].forecast ? ES.forecastView(inst[isin].forecast, inst[isin].fund) : null;
@@ -789,6 +795,33 @@ export function build(opts = {}) {
     if (!p || !tx[isin].some((t) => ES.availDate(t) >= from)) return;
     dashPrices[isin] = { rows: ES.normalizeSeries(p.rows).slice(-260).map((r) => [r[0], +r[4].toFixed(4)]), closesOnly: true, splits: p.splits || [], source: 'Yahoo Finance', updatedAt: prices.generated_at }; // [date, clôture] : format compact, développé par le tableau de bord
   });
+  // Historique 5 ans (une clôture par semaine) et achats des dirigeants sur la période avec leur résultat à 6 mois :
+  // fichier séparé, lu seulement quand l'utilisateur choisit la vue « 5 ans » d'une fiche
+  const longItems = {};
+  Object.keys(dashPrices).forEach((isin) => {
+    const p = pItems[isin];
+    if (!p || !Array.isArray(p.weekly) || p.weekly.length < 20) return;
+    try {
+      const wRows = ES.normalizeSeries(p.weekly.map((r) => [r[0], null, null, null, r[1], null]));
+      const d0 = p.rows && p.rows.length ? ES.normalizeSeries(p.rows)[0][0] : today;
+      // dividendes : mêmes facteurs que les cours journaliers sur leur période, calculés sur les clôtures hebdomadaires avant
+      const sp = (p.splits || []).concat(ES.dividendSplits(wRows, (p.dividends || []).filter((x) => x && x.date < d0)));
+      const w = ES.adjustedSeries(wRows, sp).map((r) => [r[0], r[4]]);
+      const near = (d) => { let k = w.length - 1; while (k > 0 && w[k][0] > d) k--; return w[k][1]; };
+      const R0 = refs[isin] || {}, seen = {};
+      const list = ((hist.tx && hist.tx[isin]) || []).concat(tx[isin] || []);
+      const buys = ES.countedBuys(list, R0, cfg).filter((t) => t.txDate >= w[0][0]).map((t) => {
+        const k = (t.personKey || t.person || '') + '|' + t.txDate; if (seen[k]) return null; seen[k] = 1;
+        let paid = R0[t.id] && R0[t.id].available ? R0[t.id].paidAdj : null;
+        if (paid == null && t.price > 0 && (!t.currency || !p.currency || String(t.currency).toUpperCase() === String(p.currency).toUpperCase())) paid = t.price / ES.splitFactor(sp, t.txDate);
+        if (!(paid > 0)) return null;
+        const ref = near(t.txDate); if (!(ref > 0) || paid / ref < 0.6 || paid / ref > 1.6) return null; // unité ou devise incohérente : écarté
+        const o = histOutcome(hist.outcomes[isin + '|' + ES.availDate(t)], 120);
+        return [t.txDate, +paid.toPrecision(5), String(t.person || '').slice(0, 40), o ? +((o.local != null ? o.local : o.excess) * 100).toFixed(1) : null, (t.ceo || t.cfo) ? 1 : 0];
+      }).filter(Boolean).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+      longItems[isin] = { w, buys };
+    } catch (e) { /* série longue illisible : vue 1 an seulement */ }
+  });
   const dashTx = {};
   const dashFrom = ES.addMonths(today, -13);
   Object.keys(tx).forEach((isin) => { if (inst[isin]) dashTx[isin] = tx[isin].filter((t) => t.txDate >= dashFrom).map((t) => { const o = Object.assign({}, t); delete o.dedupKey; return o; }); });
@@ -831,7 +864,7 @@ export function build(opts = {}) {
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
-    cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', backtest,
+    cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', longFile: 'data/euro-signal-long.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
     fx: ES.FX, mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, frozenUntil: learning.frozenUntil || null, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
@@ -899,6 +932,7 @@ export function build(opts = {}) {
     writeJSON(F.out, payload, false, true);
     writeJSON(F.insiders, insidersOut, false, true);
     writeJSON(F.detail, detail, false, true);
+    if (Object.keys(longItems).length) writeJSON(F.long, { format: 'euro-signal-long', generatedAt: new Date().toISOString(), today, items: longItems }, false, true);
     const mb = fs.statSync(F.detail).size / 1e6;
     if (mb > 60) { // garde-fou : GitHub refuse les fichiers de plus de 100 Mo, ce qui empêcherait aussi d'enregistrer le journal
       detail.prices = {}; detail.trimmed = 'cours retirés (fichier de ' + mb.toFixed(0) + ' Mo)';

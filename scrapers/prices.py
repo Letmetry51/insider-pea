@@ -14,7 +14,7 @@ import math
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -135,9 +135,14 @@ def fresh_enough(h, today):
     return bool(h and len(h["rows"]) >= 200 and h["rows"][-1][0] >= (today - timedelta(days=7)).isoformat())
 
 
-def history(ticker):
+DAILY_DAYS = 731  # cours journaliers gardés pour le moteur (2 ans, inchangé) ; au-delà, une clôture par semaine
+
+
+def history(ticker, period="2y"):
+    """Cours journaliers. Avec period="5y" : les 2 dernières années restent journalières (« rows », seules lues par le moteur)
+    et les 5 ans complets sont résumés en une clôture par semaine (« weekly », vue 5 ans des fiches)."""
     t = yf.Ticker(ticker)
-    h = t.history(period="2y", interval="1d", auto_adjust=False, actions=True)
+    h = t.history(period=period, interval="1d", auto_adjust=False, actions=True)
     if h is None or h.empty:
         return None
     currency = None
@@ -178,7 +183,16 @@ def history(ticker):
                     if sp["date"] > d:
                         f *= sp["ratio"]
                 dividends.append({"date": d, "amount": round(float(v) * f, 6)})
-    return {"rows": rows, "splits": splits, "dividends": dividends, "currency": currency}
+    weekly = []
+    if period != "2y" and rows:
+        last_week = {}
+        for r in rows:  # dernière clôture de chaque semaine (cours bruts publiés, comme « rows »)
+            y, w, _ = date.fromisoformat(r[0]).isocalendar()
+            last_week[(y, w)] = [r[0], r[4]]
+        weekly = [last_week[k] for k in sorted(last_week)]
+        cut = (date.fromisoformat(rows[-1][0]) - timedelta(days=DAILY_DAYS)).isoformat()
+        rows = [r for r in rows if r[0] >= cut]
+    return {"rows": rows, "splits": splits, "dividends": dividends, "currency": currency, "weekly": weekly}
 
 
 def main():
@@ -212,7 +226,7 @@ def main():
         c0 = cache.get(isin) or {}
         if cand and c0.get("homeTried") != cand:
             try:
-                hh = history(cand)
+                hh = history(cand, "5y")
             except Exception:
                 hh = None
             if isinstance(cache.get(isin), dict):
@@ -231,19 +245,19 @@ def main():
             if same and fresh_enough(hh, today):  # place d'origine trouvée : elle remplace durablement la place secondaire
                 info = {"ticker": cand, "method": "cotation du pays d'origine", "exchange": None, "name": info.get("name")}
                 cache[isin] = dict(info, resolvedAt=today.isoformat(), homeTried=cand)
-                items[isin] = {"ticker": cand, "exchange": None, "name": info.get("name"), "currency": hh["currency"], "rows": hh["rows"], "splits": hh["splits"], "dividends": hh.get("dividends") or [], "method": info["method"]}
+                items[isin] = {"ticker": cand, "exchange": None, "name": info.get("name"), "currency": hh["currency"], "rows": hh["rows"], "splits": hh["splits"], "dividends": hh.get("dividends") or [], "weekly": hh.get("weekly") or [], "method": info["method"]}
                 print(f"  [{n}/{len(isins)}] {isin} {cand} : {len(hh['rows'])} séances (cotation d'origine)")
                 time.sleep(0.2)
                 continue
         try:
-            h = history(info["ticker"])
+            h = history(info["ticker"], "5y")
         except Exception as e:
             print(f"  [{n}] {isin} {info['ticker']} : erreur {str(e)[:80]}")
             h = None
         if not h:
             unresolved.append(isin)
             continue
-        items[isin] = {"ticker": info["ticker"], "exchange": info.get("exchange"), "name": info.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "method": info.get("method")}
+        items[isin] = {"ticker": info["ticker"], "exchange": info.get("exchange"), "name": info.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "weekly": h.get("weekly") or [], "method": info.get("method")}
         print(f"  [{n}/{len(isins)}] {isin} {info['ticker']} : {len(h['rows'])} séances")
         time.sleep(0.2)
     bench = None

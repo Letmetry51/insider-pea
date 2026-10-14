@@ -1580,6 +1580,134 @@
     };
     return { last: last, atr: +atr.toPrecision(4), supports: out(-1), resistances: out(1) };
   };
+  /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
+  ES.normCdf = function (z) {
+    var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
+    var p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return z >= 0 ? 1 - p : p;
+  };
+  /**
+   * Cassure récente : une résistance d'il y a `lag` séances (calculée avec les seuls cours connus alors) est passée
+   * sous le cours depuis. Renvoie { level, sessions } (niveau cassé, séances écoulées depuis la première clôture au-dessus) ou null.
+   */
+  ES.recentBreakout = function (adj, lag) {
+    lag = lag || 20;
+    var n = (adj || []).length; if (n < 120 + lag) return null;
+    var before = ES.supportResistance(adj.slice(0, n - lag)); if (!before || !before.resistances.length) return null;
+    var last = adj[n - 1][4], atr = before.atr || last * 0.02, hit = null;
+    before.resistances.forEach(function (r) { if (!hit && r.kind !== 'high52' && last > r.price + 0.25 * atr) hit = r; });
+    if (!hit) { var h52 = before.resistances.filter(function (r) { return r.kind === 'high52'; })[0]; if (h52 && last > h52.price + 0.25 * atr) hit = h52; }
+    if (!hit) return null;
+    for (var k = n - lag; k < n; k++) if (adj[k][4] > hit.price) return { level: hit.price, kind: hit.kind, sessions: n - 1 - k };
+    return null;
+  };
+  /**
+   * Situation technique à une date, avec les seuls cours connus ce jour-là (critères « en observation ») :
+   * nearSupport : cours à moins de 3 % au-dessus du support le plus proche ; breakout : résistance passée depuis moins de 20 séances.
+   */
+  ES.setupAt = function (adj, d) {
+    var lo = 0, hi = (adj || []).length - 1, k = -1;
+    while (lo <= hi) { var m = (lo + hi) >> 1; if (adj[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
+    if (k < 119) return null;
+    var sub = adj.slice(Math.max(0, k - 279), k + 1), lv = ES.supportResistance(sub); if (!lv) return null;
+    var s1 = lv.supports[0];
+    return { nearSupport: !!(s1 && s1.kind !== 'low52' && (lv.last - s1.price) / lv.last <= 0.03), breakout: !!ES.recentBreakout(sub, 20) };
+  };
+  /**
+   * Plan d'entrée (analyse technique classique, sans prévision de direction) à partir d'un an de cours ajustés :
+   *  - situation : près d'un support, près d'une résistance, cassure récente, milieu de fourchette, plus haut ou chute sans support ;
+   *  - deux scénarios chiffrés : rebond sur support (achat près du support après une clôture de rebond) et cassure de résistance
+   *    (achat sur clôture au-dessus) ; chacun avec entrée, stop, objectif et rapport gain / risque ;
+   *  - scénario privilégié selon la tendance de fond (MM50 / MM200) : rebonds en tendance haussière, cassures en tendance baissière ;
+   *  - probabilités de toucher chaque niveau sous `horizon` séances et cône de volatilité (68 % et 90 %), cours sans dérive :
+   *    la direction n'est pas prévue, seule l'amplitude probable des variations l'est ;
+   *  - taille de ligne pour ne risquer que `riskPct` % du portefeuille jusqu'au stop (plafond `maxWeightPct`).
+   */
+  ES.entryPlan = function (adj, opts) {
+    opts = opts || {};
+    var H = opts.horizon || 60, riskPct = opts.riskPct || 1, maxW = opts.maxWeightPct || 25;
+    var R = (adj || []).filter(function (r) { return r && r[4] > 0; }), n = R.length;
+    if (n < 120) return null;
+    var lv = opts.levels || ES.supportResistance(R); if (!lv) return null;
+    var c = R.map(function (r) { return r[4]; }), last = c[n - 1], atr = lv.atr || last * 0.02;
+    var lr = []; for (var i = Math.max(1, n - 60); i < n; i++) lr.push(Math.log(c[i] / c[i - 1]));
+    var mu = mean(lr), sd = Math.sqrt(lr.reduce(function (s, x) { return s + (x - mu) * (x - mu); }, 0) / Math.max(1, lr.length - 1));
+    sd = Math.min(Math.max(sd, 0.004), 0.12);
+    var ma50 = sma(c, 50), ma200 = sma(c, 200), ma50ago = n >= 70 ? mean(c.slice(n - 70, n - 20)) : null;
+    var trend = ma200 != null ? (last > ma200 && ma50 > ma200 ? 'up' : last < ma200 && ma50 < ma200 ? 'down' : 'mixed')
+      : ma50 != null && ma50ago != null ? (ma50 > ma50ago * 1.02 && last > ma50 ? 'up' : ma50 < ma50ago * 0.98 && last < ma50 ? 'down' : 'mixed') : 'mixed';
+    var s1 = lv.supports[0] || null, s2 = lv.supports[1] || null, r1 = lv.resistances[0] || null, r2 = lv.resistances[1] || null;
+    var near = Math.max(1.5 * atr, last * 0.03), sqT = Math.sqrt(H);
+    var pTouch = function (p) { if (!(p > 0)) return null; var z = Math.abs(Math.log(p / last)) / (sd * sqT); return Math.min(1, 2 * (1 - ES.normCdf(z))); };
+    var rnd = function (v) { return v == null ? null : +v.toPrecision(5); };
+    var fr = function (v) { return String(+(+v).toPrecision(v >= 1000 ? 5 : 4)).replace('.', ','); }; // nombre affiché à la française
+    var mk = function (o) {
+      var risk = o.entry - o.stop, gain = o.target != null ? o.target - o.entry : null;
+      o.rr = risk > 0 && gain != null ? +(gain / risk).toFixed(1) : null;
+      o.stopPct = risk > 0 ? +(-risk / o.entry * 100).toFixed(1) : null;
+      o.targetPct = gain != null ? +(gain / o.entry * 100).toFixed(1) : null;
+      o.sizePct = risk > 0 ? Math.min(maxW, Math.round(riskPct / (risk / o.entry))) : null;
+      ['entry', 'stop', 'target', 'zoneLo', 'zoneHi', 'trigger'].forEach(function (k) { if (o[k] != null) o[k] = rnd(o[k]); });
+      return o;
+    };
+    // seuils techniques : 1 ATR de marge (une séance ordinaire ne déclenche ni l'achat ni le stop)
+    var bo = ES.recentBreakout(R, 20), lowLow = Math.min.apply(null, R.slice(-5).map(function (r) { return r[3] > 0 ? r[3] : r[4]; }));
+    var sup = null, brk = null;
+    if (bo && last - bo.level <= 2.5 * atr) {
+      // ancienne résistance devenue support : achat sur retour vers le niveau cassé
+      sup = mk({ key: 'retest', title: 'Retour sur la résistance cassée', zoneLo: bo.level, zoneHi: bo.level + atr, entry: Math.min(last, bo.level + 0.5 * atr), stop: bo.level - 1.5 * atr,
+        target: r1 ? r1.price : bo.level + 2 * (last - bo.level + 1.5 * atr), level: bo.level, touched: lowLow <= bo.level + atr, bounced: lowLow <= bo.level + atr && last >= lowLow + atr });
+    } else if (s1) {
+      var supStop = s1.price - 1.2 * atr, supT = r1 ? r1.price : s1.price + 3 * (s1.price + 0.5 * atr - supStop);
+      sup = mk({ key: 'support', title: 'Rebond sur le support', zoneLo: s1.price, zoneHi: s1.price + atr, entry: s1.price + 0.5 * atr, stop: s2 && s2.price > supStop - 2 * atr && s2.price < supStop ? s2.price - 0.5 * atr : supStop,
+        target: supT, level: s1.price, touched: lowLow <= s1.price + 0.5 * atr, bounced: lowLow <= s1.price + 0.5 * atr && last >= lowLow + atr });
+    }
+    if (r1) {
+      var trig = r1.price + 0.5 * atr, bStop = Math.max(r1.price - 1.5 * atr, s1 ? s1.price - 0.5 * atr : 0);
+      brk = mk({ key: 'breakout', title: 'Cassure de la résistance', trigger: trig, entry: trig, stop: bStop,
+        target: r2 ? r2.price : r1.price + (r1.price - (s1 ? s1.price : last - 2 * atr)), level: r1.price });
+    }
+    var pS = sup ? pTouch(sup.level) : null, pR = brk ? pTouch(brk.trigger) : null;
+    if (sup) sup.prob = pS == null ? null : Math.round(pS * 100);
+    if (brk) brk.prob = pR == null ? null : Math.round(pR * 100);
+    // situation et scénario privilégié
+    var dS = sup ? (last - sup.level) / last : null, dR = r1 ? (r1.price - last) / last : null;
+    var atHigh = !r1 || (r1.kind === 'high52' && r1.price - last <= atr); // plus haut de l'année à moins d'une séance ordinaire
+    var pos = !s1 && !bo ? 'falling' : bo && sup && sup.key === 'retest' ? 'retest' : atHigh ? 'highs' : dS != null && last - sup.level <= near ? 'support' : dR != null && r1.price - last <= near ? 'resistance' : 'middle';
+    var primary = null, alt = null, verdict, label, why = [];
+    var TR = { up: 'tendance de fond haussière (MM50 au-dessus de la MM200)', down: 'tendance de fond baissière (cours et MM50 sous la MM200)', mixed: 'tendance de fond indécise' };
+    if (pos === 'falling') {
+      primary = brk; verdict = 'avoid'; label = 'Ne pas acheter maintenant : aucun support sous le cours';
+      why.push('Le cours est au plus bas de l\'année sans plancher identifié : acheter maintenant revient à rattraper un couteau qui tombe.');
+      why.push('Attendre soit un plancher (deux creux au même niveau), soit la cassure de la résistance' + (brk ? ' à ' + fr(brk.level) : '') + '.');
+    } else if (pos === 'highs') {
+      var hStop = s1 ? Math.max(s1.price - 0.5 * atr, last - 3 * atr) : last - 2.5 * atr;
+      primary = mk({ key: 'highs', title: 'Achat sur force (plus haut de l\'année)', entry: last, stop: hStop, target: last + 2 * (last - hStop), level: last });
+      primary.prob = null; alt = sup;
+      verdict = trend === 'down' ? 'waitSupport' : 'buyNow';
+      label = trend === 'down' ? 'Plus haut récent mais tendance de fond fragile : attendre un repli vers le support' : 'Achat possible : au plus haut de l\'année, pas de résistance au-dessus';
+      why.push('Aucune résistance au-dessus du cours : l\'objectif est fixé à 2 fois le risque pris.');
+    } else {
+      var preferBreak = trend === 'down' || (trend === 'mixed' && (pos === 'resistance' || (pos === 'middle' && dR < dS)));
+      if (pos === 'retest') preferBreak = false;
+      primary = preferBreak ? brk : sup; alt = preferBreak ? sup : brk;
+      if (!primary) { primary = alt; alt = null; }
+      if (primary && primary.rr != null && primary.rr < 1.2 && alt && alt.rr != null && alt.rr >= 1.5) { var sw = primary; primary = alt; alt = sw; why.push('Le scénario attendu d\'après la tendance offre trop peu de gain pour le risque : l\'autre est retenu.'); }
+      var isSup = primary && (primary.key === 'support' || primary.key === 'retest');
+      if (isSup && primary.bounced && trend !== 'down' && last <= primary.zoneHi + atr && primary.rr != null && primary.rr < 1.5) { verdict = 'waitBreakout'; label = 'Rebond en cours, mais la résistance est trop proche pour bien gagner : attendre sa cassure'; }
+      else if (isSup && primary.bounced && trend !== 'down' && last <= primary.zoneHi + atr) { verdict = 'buyNow'; label = primary.key === 'retest' ? 'Achat possible : la résistance cassée tient comme support' : 'Achat possible : rebond en cours sur le support'; }
+      else if (isSup) { verdict = 'waitSupport'; label = primary.touched ? 'Attendre la confirmation du rebond sur le support' : 'Attendre un repli vers le support, puis un rebond'; }
+      else { verdict = 'waitBreakout'; label = 'Attendre la cassure de la résistance'; }
+      if (trend === 'down' && isSup) why.push('Tendance baissière : ne jouer le rebond qu\'avec une demi-ligne et un stop strict.');
+      if (!isSup && (pos === 'support' || pos === 'retest')) why.push('Le cours est près du support, mais en tendance baissière les supports cèdent souvent : la cassure de la résistance confirme mieux un retournement.');
+    }
+    why.unshift(TR[trend] + '.');
+    if (primary && primary.rr != null && primary.rr < 1.5) why.push('Rapport gain / risque faible (' + fr(primary.rr) + ') : la place pour monter jusqu\'à l\'objectif est limitée.');
+    var cone = [];
+    for (var k = 0; k <= H; k += 5) { var s = sd * Math.sqrt(k); cone.push([k, rnd(last * Math.exp(-1.645 * s)), rnd(last * Math.exp(-s)), rnd(last * Math.exp(s)), rnd(last * Math.exp(1.645 * s))]); }
+    return { last: last, atr: lv.atr, trend: trend, position: pos, verdict: verdict, label: label, why: why, primary: primary, alt: alt, horizon: H,
+      sd: +sd.toPrecision(4), volYearPct: +(sd * Math.sqrt(252) * 100).toFixed(0), move1sdPct: +((Math.exp(sd * sqT) - 1) * 100).toFixed(1), cone: cone, riskPct: riskPct };
+  };
   /**
    * Humeur du marché (aspect psychologique) à une date : volatilité sur 20 séances comparée à l'année écoulée et recul
    * depuis le plus haut 52 semaines de l'indice européen. rows : séries ajustées [[date, o, h, l, c, v]].
@@ -1860,7 +1988,9 @@
     ['lowFloat', 'Flottant inférieur à 40 % du capital (peu d\'actions échangées en Bourse)'],
     ['fcGrowth', 'Analystes : bénéfice par action attendu en hausse d\'au moins 10 % sur l\'exercice suivant, sans révision à la baisse (relevé à l\'achat, 3 analystes ou plus)'],
     ['fcBad', 'Analystes : pertes ou recul des bénéfices attendus, ou prévisions abaissées d\'au moins 10 % en 90 jours (relevé à l\'achat)'],
-    ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)']
+    ['fcUpside', 'Objectif de cours moyen des analystes au moins 20 % au-dessus du cours (relevé à l\'achat)'],
+    ['nearSupport', 'Achat à moins de 3 % au-dessus d\'un support (un an de cours connus à la date de l\'achat)'],
+    ['breakout', 'Achat dans les 20 séances suivant la cassure d\'une résistance (cours connus à la date de l\'achat)']
   ];
   /** Actionnariat : part détenue par les dirigeants et leurs proches (0 à 1) et flottant, d'après Yahoo. */
   ES.ownership = function (fund) {
