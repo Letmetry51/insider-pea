@@ -82,7 +82,7 @@ THEMES = [
      "eu": ["SU.PA", "LR.PA", "PRY.MI", "NEX.PA", "ENR.DE", "SIE.DE", "SPIE.PA", "MTRS.ST", "NKT.CO"]},
     {"key": "ia-logiciel", "name": "IA : logiciels et services", "trends": "ChatGPT",
      "us": ["MSFT", "GOOGL", "META", "ORCL", "NOW"],
-     "eu": ["SAP.DE", "DSY.PA", "CAP.PA", "NEM.DE", "TMV.DE", "SOP.PA", "REY.MI"]},
+     "eu": ["SAP.DE", "DSY.PA", "CAP.PA", "NEM.DE", "SOP.PA", "REY.MI"]},
     {"key": "cyber", "name": "Cybersécurité", "trends": "cybersecurity",
      "us": ["CRWD", "PANW", "FTNT", "ZS", "NET", "CHKP"],
      "eu": ["HO.PA", "YSN.DE", "YUBICO.ST", "FSECURE.HE", "ALLIX.PA", "CLAV.ST", "HAG.DE"]},
