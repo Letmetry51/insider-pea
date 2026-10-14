@@ -70,7 +70,14 @@ THEMES = [
      "us": ["LLY"],
      "eu": ["NOVO-B.CO", "ZEAL.CO"]},
 ]
-EU_EEA = set(COUNTRY.values()) | {"LU", "GR", "PL", "CZ", "HU", "RO", "IS", "LI"}
+EU_EEA = set(COUNTRY.values()) | {"LU", "GR", "PL", "CZ", "HU", "RO", "IS", "LI", "CY", "MT", "EE", "LV", "LT", "SI", "SK", "HR", "BG"}
+# pays du siège (fiche Yahoo) → code ; seuls les sièges de l'UE et de l'EEE rendent une action éligible au PEA
+HQ = {"France": "FR", "Germany": "DE", "Netherlands": "NL", "Italy": "IT", "Spain": "ES", "Belgium": "BE", "Portugal": "PT",
+      "Finland": "FI", "Ireland": "IE", "Austria": "AT", "Sweden": "SE", "Denmark": "DK", "Norway": "NO", "Luxembourg": "LU",
+      "Greece": "GR", "Poland": "PL", "Czech Republic": "CZ", "Czechia": "CZ", "Hungary": "HU", "Romania": "RO", "Iceland": "IS",
+      "Liechtenstein": "LI", "Cyprus": "CY", "Malta": "MT", "Estonia": "EE", "Latvia": "LV", "Lithuania": "LT", "Slovenia": "SI",
+      "Slovakia": "SK", "Croatia": "HR", "Bulgaria": "BG"}
+LEGAL = ("n.v.", "nv", "s.a.", "sa", "se", "ag", "spa", "s.p.a.", "plc", "ab", "asa", "a/s", "oyj", "publ", "(publ)", "kgaa", "& co.", "co.", "inc.", "ltd", "group", "holding", "holdings")
 
 
 def log(*a):
@@ -143,13 +150,38 @@ def enrich(items, fx_now):
         def f(k):
             v = inf.get(k)
             return None if v is None or (isinstance(v, float) and math.isnan(v)) else v
-        out[s] = dict(it, name=f("longName") or it.get("name"), sector=f("sector"), industry=f("industry"), capEur=cap_eur,
+        px = f("currentPrice") or f("regularMarketPrice") or f("previousClose")
+        vol = f("averageVolume") or f("averageDailyVolume10Day")
+        out[s] = dict(it, name=f("longName") or it.get("name"), hq=HQ.get(f("country")), hqName=f("country"),
+                      turnoverEur=(px * vol / unit / rate) if px and vol and rate else None, sector=f("sector"), industry=f("industry"), capEur=cap_eur,
                       currency=cur, revGrowth=f("revenueGrowth"), opMargin=f("operatingMargins"), grossMargin=f("grossMargins"),
                       revenue=f("totalRevenue"), fwdPE=f("forwardPE"), isin=f("isin"))
         if n % 50 == 0:
             log(f"  fiches : {n}/{len(items)}")
         time.sleep(0.25)
     return out
+
+
+def name_key(n):
+    w = [x for x in str(n or "").lower().replace(",", " ").split() if x not in LEGAL]
+    return " ".join(w)[:40]
+
+
+def dedupe(uni):
+    """Une seule cotation par société : siège dans l'UE ou l'EEE (les cotations secondaires de sociétés américaines,
+    suisses ou britanniques à Vienne ou Francfort sont écartées), puis la place où il s'échange le plus de capitaux."""
+    best = {}
+    for s, it in uni.items():
+        if it.get("hq") not in EU_EEA:
+            continue
+        k = name_key(it.get("name")) or s
+        home = 1 if COUNTRY.get(it.get("exchange")) == it.get("hq") else 0
+        rank = (it.get("turnoverEur") or 0, home)
+        if k not in best or rank > best[k][0]:
+            best[k] = (rank, s)
+    keep = {s for _, s in best.values()}
+    log(f"  cotations : {len(uni)} → {len(keep)} sociétés (siège UE / EEE, une cotation par société)")
+    return {s: uni[s] for s in keep}
 
 
 def build_universe():
@@ -166,13 +198,13 @@ def build_universe():
     for th in THEMES:
         for s in th["eu"]:
             raw.setdefault(s, {"symbol": s, "name": None, "exchange": None, "country": None, "currency": None})
-    uni = enrich(raw, fx_now)
+    uni = dedupe(enrich(raw, fx_now))
     for s, it in uni.items():
         if not it.get("country"):
             suf = s.rsplit(".", 1)[-1] if "." in s else ""
             it["country"] = {"PA": "FR", "DE": "DE", "AS": "NL", "MI": "IT", "MC": "ES", "BR": "BE", "LS": "PT", "HE": "FI",
                              "IR": "IE", "VI": "AT", "ST": "SE", "CO": "DK", "OL": "NO"}.get(suf)
-        it["pea"] = it.get("country") in EU_EEA
+        it["pea"] = it.get("hq") in EU_EEA if it.get("hq") else it.get("country") in EU_EEA
     SEC.mkdir(parents=True, exist_ok=True)
     UNIVERSE.write_text(json.dumps({"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR,
                                     "fx": fx_now, "items": uni}, ensure_ascii=False, indent=0), encoding="utf-8")
@@ -202,7 +234,8 @@ def download_weekly(tickers, years=8):
     W = pd.concat(frames, axis=1) if frames else pd.DataFrame()
     W = W.loc[:, ~W.columns.duplicated()]
     W.index = pd.to_datetime(W.index).tz_localize(None).normalize()
-    return W.sort_index()
+    # une ligne par semaine (vendredi), quelle que soit la date de la barre renvoyée par chaque place
+    return W.sort_index().resample("W-FRI").last()
 
 
 def to_eur(W, uni):
@@ -228,9 +261,24 @@ def fetch_prices():
     log(f"Cours hebdomadaires : {W.shape[1]} séries, {W.shape[0]} semaines ({W.index[0].date()} → {W.index[-1].date()}) ; manquants : {len(miss)} {miss[:15]}")
 
 
+def clean_prices(W):
+    """Erreurs de cours Yahoo : prix nuls ou négatifs, pics isolés (×3 puis retour) effacés ; séries trop abîmées écartées."""
+    W = W.where(W > 0)
+    r = W / W.ffill().shift(1)
+    nxt = W.shift(-1) / W
+    spike = ((r > 3) & (nxt < 1 / 2.5)) | ((r < 1 / 3) & (nxt > 2.5))
+    W = W.mask(spike)
+    r = W / W.ffill().shift(1)
+    bad = ((r > 3) | (r < 1 / 3)).sum()
+    drop = [c for c in W.columns if bad[c] > 2 and c not in (BENCH, US_BENCH)]
+    return W.drop(columns=drop)
+
+
 def load_weekly():
-    W = pd.read_csv(WEEKLY, index_col=0, parse_dates=True, compression="gzip")
-    return W.sort_index()
+    W = pd.read_csv(WEEKLY, index_col=0, parse_dates=True, compression="gzip").sort_index()
+    if len(W) > 10 and pd.Series(W.index.dayofweek).nunique() > 1:
+        W = W.resample("W-FRI").last()
+    return clean_prices(W)
 
 
 # --------------------------------------------------------------------------- moteur (identique pour le test et le tableau de bord)
@@ -322,7 +370,8 @@ def backtest(W, uni, step=4, top=3):
     cap_now = {s: it.get("capEur") for s, it in uni.items()}
     stocks = [s for s in groups if s in W.columns]
     Ws = W[stocks].ffill(limit=2)
-    fwd = lambda cols, t: (Ws.iloc[min(t + step, len(Ws) - 1)][cols] / Ws.iloc[t][cols] - 1).fillna(0) if cols else pd.Series(dtype=float)
+    # rendement sur la période, borné à −60 % / +150 % (une erreur de cours restante ne fait pas le résultat)
+    fwd = lambda cols, t: (Ws.iloc[min(t + step, len(Ws) - 1)][cols] / Ws.iloc[t][cols] - 1).clip(-0.6, 1.5).fillna(0) if cols else pd.Series(dtype=float)
     rows, prev = [], {"top": set(), "lead": set(), "chal": set()}
     hist = []
     for t in range(56, len(Ws) - step, step):
@@ -549,10 +598,10 @@ def dashboard(fetch_daily=True):
             if x.get(k):
                 picks.add(x[k]["symbol"])
     bt = json.loads(BACKTEST.read_text(encoding="utf-8")) if BACKTEST.exists() else None
-    payload = {"format": "euro-signal-sectors", "generatedAt": datetime.now(timezone.utc).isoformat(), "asOf": str(Ws.index[-1].date()),
+    payload = {"format": "euro-signal-sectors", "generatedAt": datetime.now(timezone.utc).isoformat(), "asOf": str(min(Ws.index[-1].date(), date.today())),  # semaine en cours : étiquetée au vendredi, affichée à la date du jour
                "universe": {"n": len(uni), "minCapEur": MIN_CAP_EUR}, "groups": out_groups, "themes": themes,
                "daily": daily_rows(sorted(picks)) if fetch_daily else {},
-               "backtest": {k: bt.get(k) for k in ("from", "to", "periods", "vsUniverse", "challengerVsLeader", "halves", "halvesSplit", "aiCase", "perf", "generatedAt")} if bt else None}
+               "backtest": {k: bt.get(k) for k in ("from", "to", "periods", "vsUniverse", "vsStoxx", "challengerVsLeader", "halves", "halvesSplit", "aiCase", "perf", "leadLag", "generatedAt")} if bt else None}
     OUT.write_text(json.dumps(clean(payload), ensure_ascii=False, allow_nan=False), encoding="utf-8")
     log(f"Secteurs : {len(out_groups)} groupes, {sum(x['trending'] for x in out_groups)} en tendance, {len(themes)} thèmes, {len(picks)} leaders / challengers")
 

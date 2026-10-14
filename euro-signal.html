@@ -4130,9 +4130,10 @@ details.pos summary{font-size:1rem}
     }
     return h + '</div>';
   }
+  function themeLL(t) { var B = S.sec && S.sec.backtest; return B && B.leadLag ? B.leadLag.filter(function (x) { return x.theme === t.key; })[0] || null : null; }
   function themeVerdict(t) {
-    var us = t.usRs13 > 0, eu = t.euRs13 > 0;
-    if (us && !eu) return ['warn', '🔭', 'L\'Amérique accélère, l\'Europe pas encore : fenêtre d\'anticipation à surveiller'];
+    var us = t.usRs13 > 0, eu = t.euRs13 > 0, ll = themeLL(t), lead = ll && ll.corr && ll.corr['t+1'] >= 0.2;
+    if (us && !eu) return ['warn', '🔭', lead ? 'L\'Amérique accélère, l\'Europe pas encore : fenêtre d\'anticipation' : 'L\'Amérique accélère, l\'Europe pas encore : à surveiller (par le passé, l\'Europe a suivi le même mois, pas avec retard)'];
     if (us && eu) return ['good', '🟢', 'Thème porteur des deux côtés de l\'Atlantique'];
     if (!us && eu) return ['neutral', '🟡', 'L\'Europe monte sans le baromètre américain : moins solide'];
     return ['neutral', '⚪', 'Thème à l\'arrêt'];
@@ -4148,6 +4149,10 @@ details.pos summary{font-size:1rem}
       var v = themeVerdict(t);
       h += '<section class="card theme ' + v[0] + '"><h3>' + esc(t.name) + '</h3><p class="verdict">' + v[1] + ' <b>' + v[2] + '</b></p>' +
         '<p class="small">Baromètre américain (' + esc(t.us.join(', ')) + ') : ' + pc100(t.usRs13) + ' sur 3 mois, ' + pc100(t.usRs26) + ' sur 6 mois face au S&amp;P 500.<br>Chaîne européenne : ' + pc100(t.euRs13) + ' sur 3 mois, ' + pc100(t.euRs26) + ' sur 6 mois face au STOXX 600.</p>' +
+        (function () { var ll = themeLL(t); if (!ll || !ll.corr) return ''; var c1 = ll.corr['t+1'], c0 = ll.corr['t+0'], R = ll.rule || {}, A = ll.alwaysEU || {};
+          return '<p class="small muted">Par le passé : ' + (c0 >= 0.3 ? 'la chaîne européenne a monté et baissé en même temps que le baromètre américain (corrélation ' + fmtN(c0, 2) + ')' : 'lien faible avec le baromètre américain') +
+            (c1 >= 0.2 ? ', avec un mois de retard exploitable (' + fmtN(c1, 2) + ').' : ', mais sans retard exploitable le mois suivant (' + fmtN(c1, 2) + ').') +
+            (R.cagr != null && A.cagr != null ? ' Ne la détenir que quand le baromètre monte : ' + pc100(R.cagr) + ' par an, pire baisse ' + pc100(R.maxdd) + ', contre ' + pc100(A.cagr) + ' et ' + pc100(A.maxdd) + ' en la gardant toujours.' : '') + '</p>'; })() +
         secStock(t.leader, 'leader') + secStock(t.challenger, 'challenger') +
         '<details class="fold" data-k="th-' + esc(t.key) + '"><summary>Toute la chaîne (' + (t.members || []).length + ' sociétés)</summary><ul class="seclist">' + (t.members || []).map(function (x) { return '<li>' + flag(x.country) + esc(x.name || x.symbol) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section>';
     });
@@ -4163,17 +4168,19 @@ details.pos summary{font-size:1rem}
       return '<section class="card grpc">' + '<p class="grp-h">' + head + '</p>' + line + secStock(g.leader, 'leader') + secStock(g.challenger, 'challenger') +
         '<details class="fold" data-k="g-' + esc(g.key) + '"><summary>Les 5 plus fortes du secteur</summary><ul class="seclist">' + (g.top || []).map(function (x) { return '<li>' + flag(x.country) + esc(x.name || x.symbol) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section>';
     };
-    h += trend.length ? trend.map(function (g) { return grpCard(g, true); }).join('') : '<p class="muted">Aucun secteur ne remplit les trois conditions aujourd\'hui (parmi les 20 % meilleurs, plus fort que le marché sur 6 mois, la moitié des sociétés en hausse).</p>';
-    if (emer.length) h += '<h3 class="sech">🌱 Secteurs émergents <span class="muted small">(forte remontée en 8 semaines)</span></h3>' + emer.map(function (g) { return grpCard(g, true); }).join('');
+    h += trend.length ? trend.slice(0, 6).map(function (g) { return grpCard(g, true); }).join('') + (trend.length > 6 ? '<section class="card"><h3>Autres secteurs en tendance</h3><ul class="grplist">' + trend.slice(6).map(function (g) { return grpCard(g, false); }).join('') + '</ul></section>' : '') : '<p class="muted">Aucun secteur ne remplit les trois conditions aujourd\'hui (parmi les 20 % meilleurs, plus fort que le marché sur 6 mois, la moitié des sociétés en hausse).</p>';
+    if (emer.length) h += '<h3 class="sech">🌱 Secteurs émergents <span class="muted small">(forte remontée en 8 semaines)</span></h3><section class="card"><ul class="grplist">' + emer.map(function (g) { return grpCard(g, false); }).join('') + '</ul></section>';
     h += '<details class="card fold" data-k="sec-all"><summary>Classement complet des ' + G.length + ' groupes</summary><ul class="grplist">' + G.map(function (g) { return grpCard(g, false); }).join('') + '</ul></details>';
     // preuves
     var B = X.backtest;
     if (B && B.vsUniverse) {
-      var row = function (lbl, v) { if (!v || v.t == null) return ''; var ok = v.t >= 2, bad = v.t <= -2; return '<li><b>' + lbl + '</b> : ' + pct(v.meanPerPeriod * 100) + ' par période de 4 semaines face à l\'ensemble des sociétés (t = ' + fmtN(v.t, 1) + ') → ' + (ok ? '<span class="pos">avantage mesuré</span>' : bad ? '<span class="neg">désavantage</span>' : 'pas d\'écart net') + '</li>'; };
+      var row = function (lbl, v, vs) { if (!v || v.t == null) return ''; var ok = v.t >= 2, bad = v.t <= -2; return '<li><b>' + lbl + '</b> : ' + pct(v.meanPerPeriod * 100) + ' par période de 4 semaines ' + (vs || 'face à l\'ensemble des sociétés') + ' (t = ' + fmtN(v.t, 1) + ') → ' + (ok ? '<span class="pos">avantage mesuré</span>' : bad ? '<span class="neg">désavantage</span>' : 'pas d\'écart net') + '</li>'; };
       h += '<section class="card"><h3>📏 Ce que dit le test historique</h3><p class="small muted">' + B.periods + ' périodes de 4 semaines, du ' + shortDate(B.from) + ' au ' + shortDate(B.to) + ', frais inclus. Comparaison avec l\'ensemble des sociétés à poids égaux, qui a le même biais (univers d\'aujourd\'hui appliqué au passé).</p><ul>' +
-        row('Les 3 meilleurs secteurs', B.vsUniverse.top) + row('Leurs leaders', B.vsUniverse.leaders) + row('Leurs challengers', B.vsUniverse.challengers) + row('Challenger plutôt que leader', B.challengerVsLeader) + '</ul>';
+        row('Les 3 meilleurs secteurs', B.vsUniverse.top) + row('Leurs leaders', B.vsUniverse.leaders) + row('Leurs challengers', B.vsUniverse.challengers) + row('Challenger plutôt que leader', B.challengerVsLeader, 'de plus que le leader') + '</ul>';
+      var any = ['top', 'leaders', 'challengers'].some(function (k) { return B.vsUniverse[k] && B.vsUniverse[k].t >= 2; });
+      h += '<p class="small"><b>Conclusion :</b> ' + (any ? 'le classement a apporté un avantage mesurable sur la période.' : 'acheter mécaniquement les secteurs en tête n\'a pas fait mieux que l\'ensemble des sociétés. Ce classement sert de radar pour repérer les thèmes et les sociétés à étudier, pas de règle d\'achat automatique ; la décision se prend avec le plan d\'entrée et les achats des dirigeants.') + '</p>';
       var A = B.aiCase;
-      if (A && A.groups) h += '<p class="small"><b>Cas de l\'IA</b> (ChatGPT le 30/11/2022) : ' + A.groups.filter(function (g) { return g.firstTrending; }).map(function (g) { return esc(secName(g.group)) + ' détecté le ' + shortDate(g.firstTrending) + ' (' + g.weeksAfterChatGPT + ' semaines après), puis leader ' + pc100(g.leader12m) + ' et challenger ' + pc100(g.challenger12m) + ' sur 12 mois contre ' + pc100(g.stoxx12m) + ' pour le STOXX 600'; }).join(' ; ') + '.</p>';
+      if (A && A.groups) h += '<p class="small"><b>Cas de l\'IA</b> (ChatGPT le 30/11/2022) : ' + A.groups.filter(function (g) { return g.firstTrending; }).map(function (g) { return esc(secName(g.group)) + ' détecté le ' + shortDate(g.firstTrending) + ' (' + g.weeksAfterChatGPT + ' semaine' + (g.weeksAfterChatGPT > 1 ? 's' : '') + ' après), puis leader ' + pc100(g.leader12m) + ' et challenger ' + pc100(g.challenger12m) + ' sur 12 mois contre ' + pc100(g.stoxx12m) + ' pour le STOXX 600'; }).join(' ; ') + '.</p>';
       h += '</section>';
     }
     h += '<p class="muted small pad">Méthode fixée à l\'avance, sans paramètre ajusté sur le passé : force relative sectorielle (Moskowitz et Grinblatt, 1999) et avance des clients sur leurs fournisseurs (Cohen et Frazzini, 2008). Les tendances se détectent après leur démarrage, jamais avant. Ce n\'est pas un conseil en investissement.</p>';

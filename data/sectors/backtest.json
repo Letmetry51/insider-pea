@@ -1,0 +1,1309 @@
+{
+ "periods": 90,
+ "from": "2019-11-08",
+ "to": "2026-09-04",
+ "stepWeeks": 4,
+ "topGroups": 3,
+ "cost": 0.003,
+ "perf": {
+  "top": {
+   "cagr": 0.149507,
+   "vol": 0.23326,
+   "sharpe": 0.714202,
+   "maxdd": -0.278784,
+   "n": 90
+  },
+  "leaders": {
+   "cagr": 0.064735,
+   "vol": 0.268588,
+   "sharpe": 0.366059,
+   "maxdd": -0.494696,
+   "n": 90
+  },
+  "challengers": {
+   "cagr": 0.094541,
+   "vol": 0.266955,
+   "sharpe": 0.474022,
+   "maxdd": -0.394091,
+   "n": 90
+  },
+  "universeEW": {
+   "cagr": 0.13835,
+   "vol": 0.186811,
+   "sharpe": 0.79151,
+   "maxdd": -0.29324,
+   "n": 90
+  },
+  "stoxx": {
+   "cagr": 0.066071,
+   "vol": 0.155616,
+   "sharpe": 0.490804,
+   "maxdd": -0.256807,
+   "n": 90
+  }
+ },
+ "vsStoxx": {
+  "top": {
+   "meanPerPeriod": 0.00694,
+   "t": 1.229016,
+   "beatPct": 0.522222,
+   "n": 90
+  },
+  "leaders": {
+   "meanPerPeriod": 0.001688,
+   "t": 0.235985,
+   "beatPct": 0.444444,
+   "n": 90
+  },
+  "challengers": {
+   "meanPerPeriod": 0.003859,
+   "t": 0.603747,
+   "beatPct": 0.555556,
+   "n": 90
+  },
+  "universeEW": {
+   "meanPerPeriod": 0.005499,
+   "t": 2.909863,
+   "beatPct": 0.622222,
+   "n": 90
+  }
+ },
+ "vsUniverse": {
+  "top": {
+   "meanPerPeriod": 0.001441,
+   "t": 0.277328,
+   "beatPct": 0.455556,
+   "n": 90
+  },
+  "leaders": {
+   "meanPerPeriod": -0.003811,
+   "t": -0.539773,
+   "beatPct": 0.433333,
+   "n": 90
+  },
+  "challengers": {
+   "meanPerPeriod": -0.00164,
+   "t": -0.26651,
+   "beatPct": 0.477778,
+   "n": 90
+  }
+ },
+ "challengerVsLeader": {
+  "meanPerPeriod": 0.002171,
+  "t": 0.385318,
+  "beatPct": 0.466667,
+  "n": 90
+ },
+ "halves": {
+  "top": [
+   {
+    "meanPerPeriod": 0.005254,
+    "t": 0.66896,
+    "beatPct": 0.565217,
+    "n": 46
+   },
+   {
+    "meanPerPeriod": -0.002406,
+    "t": -0.362544,
+    "beatPct": 0.355556,
+    "n": 45
+   }
+  ],
+  "leaders": [
+   {
+    "meanPerPeriod": -0.003309,
+    "t": -0.303419,
+    "beatPct": 0.456522,
+    "n": 46
+   },
+   {
+    "meanPerPeriod": -0.00454,
+    "t": -0.516225,
+    "beatPct": 0.4,
+    "n": 45
+   }
+  ],
+  "challengers": [
+   {
+    "meanPerPeriod": -0.004271,
+    "t": -0.438736,
+    "beatPct": 0.434783,
+    "n": 46
+   },
+   {
+    "meanPerPeriod": 0.000515,
+    "t": 0.070005,
+    "beatPct": 0.511111,
+    "n": 45
+   }
+  ]
+ },
+ "halvesSplit": "2023-04-21",
+ "history": [
+  {
+   "date": "2024-06-14",
+   "top": [
+    "Insurance - Property & Casualty",
+    "Building Materials",
+    "Specialty Retail"
+   ],
+   "trending": [
+    "Insurance - Property & Casualty",
+    "Building Materials",
+    "Specialty Retail",
+    "Capital Markets",
+    "Industrial Distribution",
+    "Railroads",
+    "Building Products & Equipment",
+    "Autres : Financial Services",
+    "Engineering & Construction",
+    "Banks - Regional",
+    "Banks - Diversified",
+    "Drug Manufacturers - Specialty & Generic",
+    "Publishing",
+    "Advertising Agencies",
+    "Medical Care Facilities",
+    "Packaged Foods",
+    "Real Estate - Diversified",
+    "Insurance - Diversified"
+   ]
+  },
+  {
+   "date": "2024-07-12",
+   "top": [
+    "Internet Content & Information",
+    "Insurance - Property & Casualty",
+    "Advertising Agencies"
+   ],
+   "trending": [
+    "Internet Content & Information",
+    "Insurance - Property & Casualty",
+    "Advertising Agencies",
+    "Industrial Distribution",
+    "Railroads",
+    "Capital Markets",
+    "Autres : Financial Services",
+    "Building Materials",
+    "Engineering & Construction",
+    "Insurance - Diversified",
+    "Semiconductor Equipment & Materials",
+    "Banks - Diversified",
+    "Banks - Regional",
+    "Building Products & Equipment",
+    "Communication Equipment",
+    "Tools & Accessories",
+    "Drug Manufacturers - Specialty & Generic"
+   ]
+  },
+  {
+   "date": "2024-08-09",
+   "top": [
+    "Engineering & Construction",
+    "REIT - Retail",
+    "Publishing"
+   ],
+   "trending": [
+    "Engineering & Construction",
+    "REIT - Retail",
+    "Publishing",
+    "Railroads",
+    "Communication Equipment",
+    "Real Estate - Diversified",
+    "Insurance - Property & Casualty",
+    "Real Estate Services",
+    "Integrated Freight & Logistics",
+    "Autres : Real Estate",
+    "Autres : Financial Services",
+    "Aerospace & Defense",
+    "Insurance - Diversified",
+    "Capital Markets",
+    "Telecom Services",
+    "Internet Content & Information",
+    "Real Estate - Development",
+    "Utilities - Diversified"
+   ]
+  },
+  {
+   "date": "2024-09-06",
+   "top": [
+    "Autres : Real Estate",
+    "Internet Content & Information",
+    "REIT - Retail"
+   ],
+   "trending": [
+    "Autres : Real Estate",
+    "Internet Content & Information",
+    "REIT - Retail",
+    "Utilities - Regulated Electric",
+    "Real Estate Services",
+    "Utilities - Diversified",
+    "Insurance - Property & Casualty",
+    "Telecom Services",
+    "Real Estate - Diversified",
+    "Autres : Financial Services",
+    "Grocery Stores",
+    "Insurance - Diversified",
+    "Publishing",
+    "Utilities - Regulated Gas",
+    "Real Estate - Development",
+    "Integrated Freight & Logistics",
+    "Packaged Foods",
+    "Drug Manufacturers - General",
+    "Engineering & Construction"
+   ]
+  },
+  {
+   "date": "2024-10-04",
+   "top": [
+    "Capital Markets",
+    "Security & Protection Services",
+    "Internet Content & Information"
+   ],
+   "trending": [
+    "Capital Markets",
+    "Security & Protection Services",
+    "Internet Content & Information",
+    "REIT - Retail",
+    "Utilities - Regulated Gas",
+    "Real Estate - Diversified",
+    "Real Estate Services",
+    "Autres : Financial Services",
+    "Autres : Real Estate",
+    "Real Estate - Development",
+    "Grocery Stores",
+    "Utilities - Diversified",
+    "Utilities - Regulated Electric",
+    "Insurance - Reinsurance",
+    "Diagnostics & Research",
+    "Railroads",
+    "Telecom Services",
+    "Insurance - Diversified",
+    "Drug Manufacturers - General"
+   ]
+  },
+  {
+   "date": "2024-11-01",
+   "top": [
+    "Insurance - Property & Casualty",
+    "Leisure",
+    "Internet Retail"
+   ],
+   "trending": [
+    "Insurance - Property & Casualty",
+    "Leisure",
+    "Internet Retail",
+    "Internet Content & Information",
+    "Autres : Financial Services",
+    "Insurance - Diversified",
+    "Gambling",
+    "Security & Protection Services",
+    "Capital Markets",
+    "Real Estate - Development",
+    "Utilities - Regulated Electric",
+    "Insurance - Reinsurance",
+    "Utilities - Regulated Gas",
+    "Banks - Regional",
+    "REIT - Retail",
+    "Publishing",
+    "Building Materials",
+    "Telecom Services"
+   ]
+  },
+  {
+   "date": "2024-11-29",
+   "top": [
+    "Insurance - Property & Casualty",
+    "Security & Protection Services",
+    "Autres : Financial Services"
+   ],
+   "trending": [
+    "Insurance - Property & Casualty",
+    "Security & Protection Services",
+    "Autres : Financial Services",
+    "Internet Content & Information",
+    "Farm Products",
+    "Capital Markets",
+    "Gambling",
+    "Building Materials",
+    "Utilities - Regulated Electric",
+    "Leisure",
+    "Insurance - Diversified",
+    "Internet Retail",
+    "Insurance - Reinsurance",
+    "Utilities - Regulated Gas",
+    "Airports & Air Services",
+    "Packaged Foods",
+    "Banks - Regional",
+    "Tools & Accessories"
+   ]
+  },
+  {
+   "date": "2024-12-27",
+   "top": [
+    "Insurance - Property & Casualty",
+    "Gambling",
+    "Building Materials"
+   ],
+   "trending": [
+    "Insurance - Property & Casualty",
+    "Gambling",
+    "Building Materials",
+    "Capital Markets",
+    "Autres : Financial Services",
+    "Aerospace & Defense",
+    "Airports & Air Services",
+    "Banks - Regional",
+    "Medical Care Facilities",
+    "Internet Content & Information",
+    "Farm Products",
+    "Insurance - Diversified",
+    "Security & Protection Services",
+    "Leisure",
+    "Autres : Consumer Defensive",
+    "Lodging",
+    "Packaged Foods",
+    "Insurance - Reinsurance"
+   ]
+  },
+  {
+   "date": "2025-01-24",
+   "top": [
+    "Insurance - Property & Casualty",
+    "Capital Markets",
+    "Building Materials"
+   ],
+   "trending": [
+    "Insurance - Property & Casualty",
+    "Capital Markets",
+    "Building Materials",
+    "Internet Content & Information",
+    "Banks - Regional",
+    "Autres : Financial Services",
+    "Insurance - Reinsurance",
+    "Lodging",
+    "Aerospace & Defense",
+    "Gambling",
+    "Medical Care Facilities",
+    "Airports & Air Services",
+    "Farm Products",
+    "Insurance - Diversified",
+    "Oil & Gas Equipment & Services",
+    "Security & Protection Services",
+    "Engineering & Construction",
+    "Autres : Consumer Defensive"
+   ]
+  },
+  {
+   "date": "2025-02-21",
+   "top": [
+    "Banks - Diversified",
+    "Capital Markets",
+    "Aerospace & Defense"
+   ],
+   "trending": [
+    "Banks - Diversified",
+    "Capital Markets",
+    "Aerospace & Defense",
+    "Banks - Regional",
+    "Autres : Consumer Defensive",
+    "Insurance - Property & Casualty",
+    "Security & Protection Services",
+    "Internet Content & Information",
+    "Building Materials",
+    "Autres : Financial Services",
+    "Apparel Manufacturing",
+    "Engineering & Construction",
+    "Software - Application",
+    "Luxury Goods",
+    "Oil & Gas E&P",
+    "Steel",
+    "Insurance - Diversified",
+    "Insurance - Reinsurance"
+   ]
+  },
+  {
+   "date": "2025-03-21",
+   "top": [
+    "Building Materials",
+    "Steel",
+    "Aerospace & Defense"
+   ],
+   "trending": [
+    "Building Materials",
+    "Steel",
+    "Aerospace & Defense",
+    "Banks - Diversified",
+    "Autres : Financial Services",
+    "Capital Markets",
+    "Insurance - Property & Casualty",
+    "Banks - Regional",
+    "Insurance - Diversified",
+    "Autres : Consumer Defensive",
+    "Engineering & Construction",
+    "Medical Care Facilities",
+    "Communication Equipment",
+    "Security & Protection Services",
+    "Oil & Gas E&P",
+    "Farm & Heavy Construction Machinery"
+   ]
+  },
+  {
+   "date": "2025-04-18",
+   "top": [
+    "Autres : Consumer Defensive",
+    "Aerospace & Defense",
+    "Autres : Financial Services"
+   ],
+   "trending": [
+    "Autres : Consumer Defensive",
+    "Aerospace & Defense",
+    "Autres : Financial Services",
+    "Capital Markets",
+    "Insurance - Property & Casualty",
+    "Building Materials",
+    "Insurance - Reinsurance",
+    "Broadcasting",
+    "Insurance - Diversified",
+    "Medical Care Facilities",
+    "Railroads",
+    "Security & Protection Services",
+    "Telecom Services",
+    "Banks - Regional",
+    "Engineering & Construction"
+   ]
+  },
+  {
+   "date": "2025-05-16",
+   "top": [
+    "Autres : Financial Services",
+    "Insurance - Property & Casualty",
+    "Aerospace & Defense"
+   ],
+   "trending": [
+    "Autres : Financial Services",
+    "Insurance - Property & Casualty",
+    "Aerospace & Defense",
+    "Capital Markets",
+    "Banks - Diversified",
+    "Insurance - Diversified",
+    "Autres : Consumer Defensive",
+    "Utilities - Regulated Electric",
+    "Insurance - Reinsurance",
+    "Broadcasting",
+    "Utilities - Diversified",
+    "Banks - Regional",
+    "Telecom Services",
+    "Engineering & Construction",
+    "Utilities - Regulated Gas",
+    "Building Materials",
+    "Medical Care Facilities",
+    "Railroads",
+    "REIT - Retail"
+   ]
+  },
+  {
+   "date": "2025-06-13",
+   "top": [
+    "Insurance - Property & Casualty",
+    "Utilities - Diversified",
+    "Capital Markets"
+   ],
+   "trending": [
+    "Insurance - Property & Casualty",
+    "Utilities - Diversified",
+    "Capital Markets",
+    "Autres : Consumer Defensive",
+    "Agricultural Inputs",
+    "Autres : Financial Services",
+    "Insurance - Diversified",
+    "Autres : Real Estate",
+    "Banks - Regional",
+    "Utilities - Regulated Electric",
+    "Telecom Services",
+    "Utilities - Regulated Gas",
+    "Banks - Diversified",
+    "REIT - Retail",
+    "Railroads",
+    "Engineering & Construction",
+    "Internet Content & Information",
+    "Credit Services",
+    "Beverages - Brewers"
+   ]
+  },
+  {
+   "date": "2025-07-11",
+   "top": [
+    "Autres : Energy",
+    "Banks - Diversified",
+    "Insurance - Property & Casualty"
+   ],
+   "trending": [
+    "Autres : Energy",
+    "Banks - Diversified",
+    "Insurance - Property & Casualty",
+    "Agricultural Inputs",
+    "Airlines",
+    "Building Materials",
+    "Capital Markets",
+    "Banks - Regional",
+    "Farm & Heavy Construction Machinery",
+    "Insurance - Diversified",
+    "Aerospace & Defense",
+    "Utilities - Diversified",
+    "Steel",
+    "Specialty Industrial Machinery",
+    "Electronic Components",
+    "Autres : Technology",
+    "Engineering & Construction"
+   ]
+  },
+  {
+   "date": "2025-08-08",
+   "top": [
+    "Electronic Components",
+    "Banks - Diversified",
+    "Airlines"
+   ],
+   "trending": [
+    "Electronic Components",
+    "Banks - Diversified",
+    "Airlines",
+    "Railroads",
+    "Insurance - Property & Casualty",
+    "Insurance - Diversified",
+    "Electrical Equipment & Parts",
+    "REIT - Retail",
+    "Banks - Regional",
+    "Autres : Technology",
+    "Lodging",
+    "Farm & Heavy Construction Machinery",
+    "Broadcasting",
+    "Engineering & Construction",
+    "Capital Markets",
+    "Marine Shipping",
+    "Utilities - Renewable",
+    "Auto Parts",
+    "Tools & Accessories"
+   ]
+  },
+  {
+   "date": "2025-09-05",
+   "top": [
+    "Banks - Diversified",
+    "Marine Shipping",
+    "Autres : Energy"
+   ],
+   "trending": [
+    "Banks - Diversified",
+    "Marine Shipping",
+    "Autres : Energy",
+    "Capital Markets",
+    "Insurance - Property & Casualty",
+    "REIT - Retail",
+    "Autres : Consumer Defensive",
+    "Broadcasting",
+    "Electrical Equipment & Parts",
+    "Insurance - Diversified",
+    "Computer Hardware",
+    "Biotechnology",
+    "Banks - Regional",
+    "Airports & Air Services",
+    "Telecom Services",
+    "Electronic Components",
+    "Lodging",
+    "Farm & Heavy Construction Machinery",
+    "Utilities - Regulated Gas"
+   ]
+  },
+  {
+   "date": "2025-10-03",
+   "top": [
+    "Banks - Diversified",
+    "Biotechnology",
+    "Electrical Equipment & Parts"
+   ],
+   "trending": [
+    "Banks - Diversified",
+    "Biotechnology",
+    "Electrical Equipment & Parts",
+    "Aerospace & Defense",
+    "Autres : Energy",
+    "Insurance - Property & Casualty",
+    "Banks - Regional",
+    "Computer Hardware",
+    "Auto Parts",
+    "Capital Markets",
+    "Marine Shipping",
+    "Autres : Technology",
+    "Insurance - Diversified",
+    "Engineering & Construction",
+    "Electronic Components",
+    "Airports & Air Services",
+    "Internet Retail",
+    "Utilities - Renewable"
+   ]
+  },
+  {
+   "date": "2025-10-31",
+   "top": [
+    "Other Industrial Metals & Mining",
+    "Banks - Diversified",
+    "Autres : Energy"
+   ],
+   "trending": [
+    "Other Industrial Metals & Mining",
+    "Banks - Diversified",
+    "Autres : Energy",
+    "Electrical Equipment & Parts",
+    "Oil & Gas Integrated",
+    "Electronic Components",
+    "Banks - Regional",
+    "Autres : Technology",
+    "Biotechnology",
+    "Auto Parts",
+    "Autres : Consumer Defensive",
+    "Utilities - Renewable",
+    "Marine Shipping",
+    "Building Materials",
+    "Capital Markets",
+    "Farm Products"
+   ]
+  },
+  {
+   "date": "2025-11-28",
+   "top": [
+    "Building Materials",
+    "Oil & Gas Integrated",
+    "Banks - Diversified"
+   ],
+   "trending": [
+    "Building Materials",
+    "Oil & Gas Integrated",
+    "Banks - Diversified",
+    "Steel",
+    "Utilities - Diversified",
+    "Banks - Regional",
+    "Communication Equipment",
+    "Autres : Energy",
+    "Electronic Components",
+    "Auto Parts",
+    "Biotechnology",
+    "Marine Shipping",
+    "Electrical Equipment & Parts",
+    "Airlines",
+    "Utilities - Regulated Electric",
+    "Semiconductor Equipment & Materials"
+   ]
+  },
+  {
+   "date": "2025-12-26",
+   "top": [
+    "Autres : Energy",
+    "Steel",
+    "Banks - Regional"
+   ],
+   "trending": [
+    "Autres : Energy",
+    "Steel",
+    "Banks - Regional",
+    "Building Materials",
+    "Airlines",
+    "Banks - Diversified",
+    "Insurance - Property & Casualty",
+    "Insurance - Diversified",
+    "Apparel Manufacturing",
+    "Utilities - Diversified",
+    "Farm Products",
+    "Drug Manufacturers - Specialty & Generic",
+    "Auto Parts",
+    "Electronic Components",
+    "Utilities - Regulated Electric",
+    "Biotechnology",
+    "Communication Equipment"
+   ]
+  },
+  {
+   "date": "2026-01-23",
+   "top": [
+    "Steel",
+    "Autres : Energy",
+    "Other Industrial Metals & Mining"
+   ],
+   "trending": [
+    "Steel",
+    "Autres : Energy",
+    "Other Industrial Metals & Mining",
+    "Banks - Regional",
+    "Drug Manufacturers - Specialty & Generic",
+    "Banks - Diversified",
+    "Building Materials",
+    "Auto Parts",
+    "Marine Shipping",
+    "Metal Fabrication",
+    "Semiconductor Equipment & Materials",
+    "Oil & Gas Integrated",
+    "Autres : Consumer Defensive",
+    "Communication Equipment",
+    "Engineering & Construction",
+    "Electronic Components"
+   ]
+  },
+  {
+   "date": "2026-02-20",
+   "top": [
+    "Steel",
+    "Autres : Energy",
+    "Semiconductor Equipment & Materials"
+   ],
+   "trending": [
+    "Steel",
+    "Autres : Energy",
+    "Semiconductor Equipment & Materials",
+    "Oil & Gas Equipment & Services",
+    "Beverages - Brewers",
+    "Oil & Gas E&P",
+    "Marine Shipping",
+    "Drug Manufacturers - Specialty & Generic",
+    "Engineering & Construction",
+    "Metal Fabrication",
+    "Auto Parts",
+    "Utilities - Diversified",
+    "Oil & Gas Integrated",
+    "Communication Equipment",
+    "Autres : Basic Materials"
+   ]
+  },
+  {
+   "date": "2026-03-20",
+   "top": [
+    "Autres : Energy",
+    "Oil & Gas Equipment & Services",
+    "Oil & Gas E&P"
+   ],
+   "trending": [
+    "Autres : Energy",
+    "Oil & Gas Equipment & Services",
+    "Oil & Gas E&P",
+    "Oil & Gas Integrated",
+    "Semiconductor Equipment & Materials",
+    "Utilities - Regulated Gas",
+    "Marine Shipping",
+    "Communication Equipment",
+    "Utilities - Diversified",
+    "Electronic Components",
+    "Utilities - Regulated Electric",
+    "Autres : Financial Services",
+    "Grocery Stores",
+    "Steel",
+    "Drug Manufacturers - Specialty & Generic",
+    "Semiconductors"
+   ]
+  },
+  {
+   "date": "2026-04-17",
+   "top": [
+    "Semiconductor Equipment & Materials",
+    "Steel",
+    "Communication Equipment"
+   ],
+   "trending": [
+    "Semiconductor Equipment & Materials",
+    "Steel",
+    "Communication Equipment",
+    "Oil & Gas Equipment & Services",
+    "Electronic Components",
+    "Marine Shipping",
+    "Semiconductors",
+    "REIT - Retail",
+    "Security & Protection Services",
+    "Oil & Gas Midstream",
+    "Autres : Financial Services",
+    "Grocery Stores",
+    "Banks - Diversified",
+    "Autres : Technology",
+    "Insurance - Property & Casualty",
+    "Utilities - Regulated Electric",
+    "Autres : Energy",
+    "Engineering & Construction",
+    "Utilities - Regulated Gas"
+   ]
+  },
+  {
+   "date": "2026-05-15",
+   "top": [
+    "Semiconductors",
+    "Oil & Gas E&P",
+    "Electrical Equipment & Parts"
+   ],
+   "trending": [
+    "Semiconductors",
+    "Oil & Gas E&P",
+    "Electrical Equipment & Parts",
+    "Electronic Components",
+    "Oil & Gas Equipment & Services",
+    "Semiconductor Equipment & Materials",
+    "Steel",
+    "Autres : Basic Materials",
+    "Oil & Gas Midstream",
+    "Autres : Energy",
+    "Communication Equipment",
+    "Autres : Technology",
+    "Marine Shipping",
+    "Waste Management",
+    "Oil & Gas Integrated",
+    "Insurance - Property & Casualty",
+    "Metal Fabrication",
+    "Capital Markets",
+    "REIT - Retail"
+   ]
+  },
+  {
+   "date": "2026-06-12",
+   "top": [
+    "Semiconductors",
+    "Steel",
+    "Oil & Gas Equipment & Services"
+   ],
+   "trending": [
+    "Semiconductors",
+    "Steel",
+    "Oil & Gas Equipment & Services",
+    "Semiconductor Equipment & Materials",
+    "Oil & Gas E&P",
+    "Oil & Gas Midstream",
+    "Banks - Regional",
+    "Capital Markets",
+    "REIT - Retail",
+    "Marine Shipping",
+    "Electronic Components",
+    "Utilities - Regulated Gas",
+    "Waste Management",
+    "Autres : Energy",
+    "Advertising Agencies",
+    "Insurance - Property & Casualty",
+    "Autres : Basic Materials",
+    "Communication Equipment"
+   ]
+  },
+  {
+   "date": "2026-07-10",
+   "top": [
+    "Oil & Gas Midstream",
+    "Banks - Diversified",
+    "Banks - Regional"
+   ],
+   "trending": [
+    "Oil & Gas Midstream",
+    "Banks - Diversified",
+    "Banks - Regional",
+    "Insurance - Diversified",
+    "Utilities - Regulated Electric",
+    "Steel",
+    "Credit Services",
+    "Insurance - Property & Casualty",
+    "REIT - Retail",
+    "Capital Markets",
+    "Semiconductors",
+    "Autres : Financial Services",
+    "Waste Management",
+    "Marine Shipping",
+    "Oil & Gas Equipment & Services",
+    "Semiconductor Equipment & Materials",
+    "Specialty Business Services"
+   ]
+  },
+  {
+   "date": "2026-08-07",
+   "top": [
+    "Advertising Agencies",
+    "Insurance - Diversified",
+    "Banks - Diversified"
+   ],
+   "trending": [
+    "Advertising Agencies",
+    "Insurance - Diversified",
+    "Banks - Diversified",
+    "Autres : Financial Services",
+    "Banks - Regional",
+    "Credit Services",
+    "Insurance - Property & Casualty",
+    "Utilities - Regulated Electric",
+    "Computer Hardware",
+    "Autres : Industrials",
+    "Insurance - Reinsurance",
+    "Specialty Chemicals",
+    "REIT - Retail",
+    "Publishing",
+    "Autres : Energy",
+    "Steel"
+   ]
+  },
+  {
+   "date": "2026-09-04",
+   "top": [
+    "Banks - Diversified",
+    "Insurance - Diversified",
+    "Advertising Agencies"
+   ],
+   "trending": [
+    "Banks - Diversified",
+    "Insurance - Diversified",
+    "Advertising Agencies",
+    "Banks - Regional",
+    "Autres : Financial Services",
+    "Insurance - Reinsurance",
+    "Insurance - Property & Casualty",
+    "Credit Services",
+    "Capital Markets",
+    "Oil & Gas Integrated",
+    "Autres : Energy",
+    "Marine Shipping",
+    "Specialty Chemicals",
+    "Household & Personal Products",
+    "Oil & Gas Midstream",
+    "Oil & Gas E&P",
+    "Steel",
+    "Computer Hardware",
+    "Diagnostics & Research"
+   ]
+  }
+ ],
+ "leadLag": [
+  {
+   "theme": "ia-puces",
+   "name": "IA : puces et équipements",
+   "us": [
+    "NVDA",
+    "AVGO",
+    "AMD",
+    "TSM",
+    "MU"
+   ],
+   "eu": [
+    "ASML.AS",
+    "ASM.AS",
+    "BESI.AS",
+    "AIXA.DE",
+    "IFX.DE",
+    "SOI.PA",
+    "TPRO.MI",
+    "WAF.DE",
+    "NOD.OL"
+   ],
+   "corr": {
+    "t+0": 0.597026,
+    "t+1": -0.020701,
+    "t+2": -0.126916,
+    "t+3": -0.088157
+   },
+   "rule": {
+    "cagr": 0.317805,
+    "vol": 0.346882,
+    "sharpe": 0.968408,
+    "maxdd": -0.319863,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.335014,
+    "vol": 0.380728,
+    "sharpe": 0.948368,
+    "maxdd": -0.434516,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075874,
+    "vol": 0.152199,
+    "sharpe": 0.558798,
+    "maxdd": -0.256807,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.001934,
+    "t": -0.538014,
+    "beatPct": 0.15,
+    "n": 100
+   }
+  },
+  {
+   "theme": "ia-energie",
+   "name": "IA : électricité et data centers",
+   "us": [
+    "VRT",
+    "ETN",
+    "PWR",
+    "MSFT",
+    "AMZN",
+    "GOOGL",
+    "META"
+   ],
+   "eu": [
+    "SU.PA",
+    "LR.PA",
+    "PRY.MI",
+    "NEX.PA",
+    "ENR.DE",
+    "SIE.DE",
+    "SPIE.PA",
+    "MTRS.ST",
+    "NKT.CO"
+   ],
+   "corr": {
+    "t+0": 0.514436,
+    "t+1": -0.00938,
+    "t+2": -0.060928,
+    "t+3": 0.042446
+   },
+   "rule": {
+    "cagr": 0.245068,
+    "vol": 0.233143,
+    "sharpe": 1.06602,
+    "maxdd": -0.314284,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.291222,
+    "vol": 0.26096,
+    "sharpe": 1.119531,
+    "maxdd": -0.314284,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075874,
+    "vol": 0.152199,
+    "sharpe": 0.558798,
+    "maxdd": -0.256807,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.003355,
+    "t": -1.395523,
+    "beatPct": 0.13,
+    "n": 100
+   }
+  },
+  {
+   "theme": "ia-logiciel",
+   "name": "IA : logiciels et services",
+   "us": [
+    "MSFT",
+    "GOOGL",
+    "META",
+    "ORCL",
+    "NOW"
+   ],
+   "eu": [
+    "SAP.DE",
+    "DSY.PA",
+    "CAP.PA",
+    "NEM.DE",
+    "TMV.DE",
+    "SOP.PA",
+    "REY.MI"
+   ],
+   "corr": {
+    "t+0": 0.484884,
+    "t+1": -0.014985,
+    "t+2": 0.117031,
+    "t+3": 0.051565
+   },
+   "rule": {
+    "cagr": 0.13238,
+    "vol": 0.219969,
+    "sharpe": 0.675931,
+    "maxdd": -0.279286,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.075816,
+    "vol": 0.251273,
+    "sharpe": 0.416531,
+    "maxdd": -0.462171,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075874,
+    "vol": 0.152199,
+    "sharpe": 0.558798,
+    "maxdd": -0.256807,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": 0.003386,
+    "t": 1.057074,
+    "beatPct": 0.18,
+    "n": 100
+   }
+  },
+  {
+   "theme": "defense",
+   "name": "Défense",
+   "us": [
+    "LMT",
+    "RTX",
+    "NOC",
+    "GD"
+   ],
+   "eu": [
+    "RHM.DE",
+    "HO.PA",
+    "SAF.PA",
+    "LDO.MI",
+    "AM.PA",
+    "HAG.DE",
+    "R3NK.DE",
+    "KOG.OL",
+    "SAAB-B.ST",
+    "EXA.PA"
+   ],
+   "corr": {
+    "t+0": 0.46622,
+    "t+1": 0.045147,
+    "t+2": -0.023132,
+    "t+3": -0.07084
+   },
+   "rule": {
+    "cagr": 0.125368,
+    "vol": 0.244952,
+    "sharpe": 0.598232,
+    "maxdd": -0.291325,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.315901,
+    "vol": 0.326587,
+    "sharpe": 1.002719,
+    "maxdd": -0.354248,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075874,
+    "vol": 0.152199,
+    "sharpe": 0.558798,
+    "maxdd": -0.256807,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.013918,
+    "t": -2.600882,
+    "beatPct": 0.21,
+    "n": 100
+   }
+  },
+  {
+   "theme": "obesite",
+   "name": "Obésité (GLP-1)",
+   "us": [
+    "LLY"
+   ],
+   "eu": [
+    "NOVO-B.CO",
+    "ZEAL.CO"
+   ],
+   "corr": {
+    "t+0": 0.385953,
+    "t+1": 0.015406,
+    "t+2": -0.054441,
+    "t+3": 0.028251
+   },
+   "rule": {
+    "cagr": 0.159139,
+    "vol": 0.280079,
+    "sharpe": 0.665962,
+    "maxdd": -0.577325,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.161114,
+    "vol": 0.352477,
+    "sharpe": 0.600498,
+    "maxdd": -0.689593,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075874,
+    "vol": 0.152199,
+    "sharpe": 0.558798,
+    "maxdd": -0.256807,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.001934,
+    "t": -0.315572,
+    "beatPct": 0.2,
+    "n": 100
+   }
+  }
+ ],
+ "aiCase": {
+  "chatgpt": "2022-11-30",
+  "usBarometerConfirmed": "2022-12-23",
+  "groups": [
+   {
+    "group": "Semiconductor Equipment & Materials",
+    "example": "ASML.AS",
+    "firstTrending": "2022-12-09",
+    "leader": "ASML.AS",
+    "challenger": "BESI.AS",
+    "weeksAfterChatGPT": 1,
+    "leader12m": 0.136469,
+    "challenger12m": 1.204967,
+    "stoxx12m": 0.075445,
+    "leaderToNow": 1.775909,
+    "challengerToNow": 2.03222,
+    "stoxxToNow": 0.450823,
+    "leaderFromChatGPT": 1.788482
+   },
+   {
+    "group": "Specialty Industrial Machinery",
+    "example": "SU.PA",
+    "firstTrending": "2022-12-09",
+    "leader": "SIE.DE",
+    "challenger": "ATCO-A.ST",
+    "weeksAfterChatGPT": 1,
+    "leader12m": 0.252798,
+    "challenger12m": 0.20148,
+    "stoxx12m": 0.075445,
+    "leaderToNow": 1.298317,
+    "challengerToNow": 0.627925,
+    "stoxxToNow": 0.450823,
+    "leaderFromChatGPT": 1.276797
+   },
+   {
+    "group": "Semiconductors",
+    "example": "IFX.DE",
+    "firstTrending": "2023-03-17",
+    "leader": "IFX.DE",
+    "challenger": "STMMI.MI",
+    "weeksAfterChatGPT": 15,
+    "leader12m": -0.064373,
+    "challenger12m": -0.083507,
+    "stoxx12m": 0.156976,
+    "leaderToNow": 0.716211,
+    "challengerToNow": 0.019813,
+    "stoxxToNow": 0.4602,
+    "leaderFromChatGPT": 0.859413
+   },
+   {
+    "group": "Electrical Equipment & Parts",
+    "example": "PRY.MI",
+    "firstTrending": "2022-12-02",
+    "leader": "LR.PA",
+    "challenger": "PRY.MI",
+    "weeksAfterChatGPT": 0,
+    "leader12m": 0.147596,
+    "challenger12m": 0.101105,
+    "stoxx12m": 0.051682,
+    "leaderToNow": 0.890985,
+    "challengerToNow": 2.809464,
+    "stoxxToNow": 0.437208,
+    "leaderFromChatGPT": 0.890985
+   }
+  ]
+ },
+ "generatedAt": "2026-10-14T07:43:49.950729+00:00",
+ "universe": {
+  "n": 1045,
+  "minCapEur": 500000000.0,
+  "bias": "univers d'aujourd'hui appliqué au passé : les sociétés disparues ou devenues petites manquent (biais du survivant) ; comparer à l'univers à poids égaux, qui a le même biais, plutôt qu'au STOXX 600"
+ }
+}
