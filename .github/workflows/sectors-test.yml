@@ -4,9 +4,6 @@ name: Secteurs - test historique
 # Ne modifie pas le dépôt : les résultats sont joints à l'exécution (onglet Actions → l'exécution → Artifacts).
 on:
   workflow_dispatch:
-  push:
-    branches: [secteurs]
-    paths: ['scrapers/sectors.py', '.github/workflows/sectors-test.yml']
 
 permissions:
   contents: read

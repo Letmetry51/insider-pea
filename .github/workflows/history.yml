@@ -39,6 +39,10 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt pypdf
+      - name: Univers des secteurs (grandes et moyennes valeurs européennes, une fois par semaine)
+        timeout-minutes: 35
+        run: python scrapers/sectors.py --universe-if-older 7
+        continue-on-error: true
       - name: Collecte de l'historique et résultats des achats
         env:
           MODE: ${{ github.event.inputs.mode || 'run' }}
@@ -57,6 +61,7 @@ jobs:
           git config --local user.name "GitHub Actions Bot"
           mkdir -p data/history data/diagnostics && touch data/diagnostics/history-probe.txt
           git add data/history data/diagnostics/history-probe.txt
+          if [ -f data/sectors/universe.json ]; then git add data/sectors/universe.json; fi
           if git diff --staged --quiet; then
             echo "Pas de changement"
           else

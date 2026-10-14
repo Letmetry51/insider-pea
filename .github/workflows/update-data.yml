@@ -78,6 +78,11 @@ jobs:
         run: python scrapers/prices.py
         continue-on-error: true
 
+      - name: 3b. Secteurs et thèmes (cours hebdomadaires, test historique, classement du jour)
+        timeout-minutes: 20
+        run: python scrapers/sectors.py --prices --backtest --dashboard
+        continue-on-error: true
+
       - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
         timeout-minutes: 35
         run: python scrapers/events.py
