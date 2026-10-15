@@ -1076,6 +1076,19 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         f"{sum(1 for v in items.values() if 'w' in v)} avec cinq ans), {size} Ko en {CO_SHARDS} fichiers ; liste de recherche {CO_INDEX.stat().st_size // 1024} Ko")
 
 
+def daily_rows(tickers):
+    import yfinance as yf
+    def one(s):
+        try:
+            h = with_retry(lambda: yf.Ticker(s).history(period="1y", interval="1d", auto_adjust=False), tries=2)
+            return s, [[i.strftime("%Y-%m-%d"), *(round(float(v), 4) if v == v else None for v in (r["Open"], r["High"], r["Low"], r["Close"])),
+                        int(r["Volume"]) if r["Volume"] == r["Volume"] else None] for i, r in h.iterrows() if r["Close"] == r["Close"] and r["Close"] > 0]
+        except Exception:
+            return s, None
+    with ThreadPoolExecutor(THREADS) as ex:
+        return {s: rows for s, rows in ex.map(one, tickers) if rows}
+
+
 def dashboard(fetch_daily=True):
     U = read_json(UNIVERSE, {})
     uni = U.get("items", {})
