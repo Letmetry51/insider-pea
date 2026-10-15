@@ -3912,6 +3912,7 @@ details.pos summary{font-size:1rem}
     var g = dgInfo(i);
     return ES.convergence({ dgRecent: g ? !!g.recent : false, sectorTrend: x.sectorTrend || null, revision30d: Number.isFinite(+x.revision30d) && x.revision30d !== null ? +x.revision30d : null, plan: planFor(i) });
   }
+  function secChip(i) { var t = (S.inst[i] || {}).sectorTrend; if (!t || !(t.trending || t.emerging)) return ''; return ' <span class="fig good" title="Secteur ' + (t.trending ? 'en tendance' : 'émergent') + ' : ' + t.rank + 'e sur ' + t.of + ' (onglet Secteurs)">🔥 ' + (t.trending ? 'Secteur en tendance' : 'Secteur émergent') + '</span>'; }
   function convChip(i) { var c = convOf(i); if (!c || c.n < 2) return ''; return ' <span class="fig conv c' + Math.min(c.n, 4) + '" title="' + esc(c.items.filter(function (x) { return x.ok; }).map(function (x) { return x.label; }).join(' · ')) + '">🎯 ' + c.n + '/' + c.of + '</span>'; }
   function figChip(i) { var k = figOf(i); if (!k || k === 'none') return ''; var F = ES.FIGURES[k]; return ' <span class="fig ' + F[2] + '" title="Figure des 3 derniers mois">' + F[0] + ' ' + F[1] + '</span>'; }
   function vClassement() {
@@ -3927,6 +3928,7 @@ details.pos summary{font-size:1rem}
       deep: ['Décote ≥ ' + W.discountBigPct + ' %', function (c) { return c.score.discount && c.score.discount.pct >= W.discountBigPct; }],
       dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (c, i) { var g = dgInfo(i); return !!(g && g.recent); }],
       conv3: ['Convergence ≥ 3 sur 5', function (c, i) { var v = convOf(i); return !!(v && v.n >= 3); }],
+      secTrend: ['🔥 Secteur en tendance', function (c, i) { var t = (S.inst[i] || {}).sectorTrend; return !!(t && (t.trending || t.emerging)); }],
       fs8: ['F-score 8 ou 9', function (c, i) { var a = S.inst[i] && S.inst[i].accounts; return !!(a && a.fscore && !a.fscore.na && a.fscore.f9 >= 8); }],
       all: ['Tous les titres', function () { return true; }]
     };
@@ -4006,7 +4008,7 @@ details.pos summary{font-size:1rem}
     list.slice(0, S.limit).forEach(function (i) {
       var x = S.inst[i], c = S.computed[i], d = c.score.discount, r = d && (S.refs[i] || {})[d.id];
       var who = d ? 'payé ' + fmtN(d.paid) + ' le ' + shortDate(d.date) + ' · ' + esc(shortName(d.person)) + (d.ceo ? ' (DG/DAF)' : '') : (c.score.buys.length ? c.score.buys.length + ' achat(s), cours indisponibles' : 'aucun achat récent');
-      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + figChip(i) + convChip(i) + '</td>' +
+      h += '<tr class="rowlink" data-a="open" data-i="' + i + '" tabindex="0"><td class="c-name"><b>' + flag(x.country) + esc(x.name || i) + '</b><small>' + esc([x.ticker, secOf(x)].filter(Boolean).join(' · ') || i) + '</small>' + figChip(i) + secChip(i) + convChip(i) + '</td>' +
         '<td data-l="Décote">' + discPill(d) + '<small>' + who + '</small></td>' +
         '<td data-l="Prix payé ○ / cours ■">' + rangeBar(r && r.today && r.today.paidPos52 != null ? r.today.paidPos52 : d && d.pos52, r && r.today ? r.today.currentPos52 : null) + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (r && r.available && !r.outOfRange ? '<span class="' + (r.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(r.currentVsPaidPct) + '</span>' : '<span class="muted">n.d.</span>') + '</td>' +
@@ -4016,6 +4018,8 @@ details.pos summary{font-size:1rem}
     h += '</tbody></table></div>';
     if (!list.length) h += '<p class="muted pad">Aucune société ne correspond. Essayez « Tous les titres ».</p>';
     if (list.length > S.limit) h += '<p class="pad"><button class="ghost" data-a="more">Afficher ' + Math.min(100, list.length - S.limit) + ' de plus (' + list.length + ' au total)</button></p>';
+    // une recherche porte aussi sur toutes les sociétés cotées, même sans achat de dirigeant (TotalEnergies, Vusion…)
+    if (f.q && f.q.trim().length >= 2) { var shown = {}; list.forEach(function (i) { shown[i] = 1; }); h += coSearch(f.q, shown, 20); }
     return h;
   }
   function stat(label, big, small, view, kind) { return '<button class="stat ' + (kind || '') + '" data-a="view" data-v="' + view + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; }
@@ -4265,8 +4269,13 @@ details.pos summary{font-size:1rem}
     else (S.tx[isin] || []).forEach(function (t) {
       var r = refs[t.id]; if (!r || !r.available || t.status === 'annulee' || t.txDate < ser[0][0]) return;
       if (t.type !== 'achat' && t.type !== 'vente') return;
+      if (r.priceSuspect) return; // prix déclaré aberrant (quantité et prix inversés, virgule…) : ignoré, comme dans les calculs
       marks.push({ d: t.txDate, p: r.paidAdj, buy: t.type === 'achat', who: t.person });
     });
+    // un point très loin des cours du graphique (erreur de saisie, autre catégorie d'actions) ne doit jamais écraser la courbe
+    var lo0 = lo, hi0 = hi, dropped = 0;
+    marks = marks.filter(function (m) { var ok = m.p > 0 && m.p >= lo0 * 0.5 && m.p <= hi0 * 2; if (!ok) dropped++; return ok; });
+    if (dropped) note += (note ? ' ' : '') + 'ℹ️ ' + dropped + ' prix déclaré' + (dropped > 1 ? 's' : '') + ' sans rapport avec les cours (erreur de saisie probable) non affiché' + (dropped > 1 ? 's' : '') + ' sur le graphique.';
     marks.forEach(function (m) { lo = Math.min(lo, m.p); hi = Math.max(hi, m.p); });
     var LV = S.inst[isin] && S.inst[isin].levels, lvl = LV ? (LV.supports || []).map(function (x) { return { p: x.price, s: true, x: x }; }).concat((LV.resistances || []).map(function (x) { return { p: x.price, s: false, x: x }; })) : [];
     lvl = lvl.filter(function (v) { return v.p > 0 && isFinite(v.p) && v.p >= lo * 0.75 && v.p <= hi * 1.35; });
@@ -4475,8 +4484,8 @@ details.pos summary{font-size:1rem}
     S.secLoading = true;
     fetch('data/sectors.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       if (!d || d.format !== 'euro-signal-sectors') throw new Error('format');
-      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; if (S.view === 'secteurs') render();
-    }).catch(function (e) { S.secLoaded = true; S.secLoading = false; S.secError = (e && e.message) || 'illisible'; if (S.view === 'secteurs') render(); });
+      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; if (S.view === 'secteurs' || S.view === 'secco') render();
+    }).catch(function (e) { S.secLoaded = true; S.secLoading = false; S.secError = (e && e.message) || 'illisible'; if (S.view === 'secteurs' || S.view === 'secco') render(); });
   }
   function secName(k) { if (!k) return '—'; var m = /^Autres : (.+)$/.exec(k); return m ? 'Autres : ' + (ES.sectorFr(m[1]) || m[1]) : ES.industryFr(k) || k; }
   function pc100(v) { return v == null ? 'n.d.' : pct(v * 100); }
@@ -4510,13 +4519,44 @@ details.pos summary{font-size:1rem}
     if (!S.tkMap) { S.tkMap = {}; Object.keys(S.inst).forEach(function (i) { var t = S.inst[i].ticker; if (t && !S.tkMap[t]) S.tkMap[t] = i; }); }
     return S.tkMap[sym] || null;
   }
-  function loadSecCo() {
-    if (S.coLoading || S.coLoaded) return;
-    S.coLoading = true;
-    fetch('data/sectors-companies.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
-      if (!d || d.format !== 'euro-signal-sector-companies') throw new Error('format');
-      S.secCo = defang(d); S.coLoaded = true; S.coLoading = false; if (S.view === 'secco') render();
-    }).catch(function (e) { S.secCo = null; S.coLoaded = true; S.coLoading = false; S.coError = (e && e.message) || 'illisible'; if (S.view === 'secco') render(); });
+  /* Toutes les sociétés cotées : liste de recherche (data/societes-index.json) et fiches réparties en 32 fichiers (data/societes/N.json) */
+  function coShards() { return (S.coIndex && S.coIndex.shards) || 32; }
+  function coReady(sym) { return !!(S.coShard && S.coShard[ES.shardOf(sym, coShards())] === true); }
+  function loadSecCo(sym) {
+    var k = ES.shardOf(sym || '', coShards()); S.coShard = S.coShard || {};
+    if (S.coShard[k]) return;
+    S.coShard[k] = 'loading';
+    var done = function (d) { d = defang(d); S.secCo = S.secCo || { items: {} }; Object.assign(S.secCo.items, d.items || {}); S.secCo.dDates = d.dDates; S.secCo.wDates = d.wDates; S.secCo.generatedAt = d.generatedAt; S.coShard[k] = true; if (S.view === 'secco') render(); };
+    fetch('data/societes/' + k + '.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(done).catch(function () {
+      // avant le premier calcul du soir avec le catalogue : ancien fichier unique, s'il existe encore
+      fetch('data/sectors-companies.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(done)
+        .catch(function () { S.coShard[k] = true; if (S.view === 'secco') render(); });
+    });
+  }
+  function loadCoIndex() {
+    if (S.coIndexLoading || S.coIndex) return;
+    S.coIndexLoading = true;
+    fetch('data/societes-index.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      S.coIndex = defang(d); S.coIndex.norm = (S.coIndex.rows || []).map(function (r) { return ES.norm([r[1], r[0], r[8]].join(' ')); }); S.coIndexLoading = false; render();
+    }).catch(function () { S.coIndex = { rows: [], norm: [], missing: true }; S.coIndexLoading = false; render(); });
+  }
+  /** Résultats de recherche parmi toutes les sociétés cotées (hors celles déjà affichées dans la liste). */
+  function coSearch(q, exclude, max) {
+    var nq = ES.norm(q || '').trim();
+    if (nq.length < 2) return '';
+    if (!S.coIndex) { loadCoIndex(); return '<p class="muted small pad">Recherche dans toutes les sociétés cotées…</p>'; }
+    if (S.coIndex.missing) return '<p class="muted small pad">La liste de toutes les sociétés cotées sera disponible après le prochain calcul du soir.</p>';
+    var R = S.coIndex.rows, N = S.coIndex.norm, hits = [];
+    for (var k = 0; k < R.length && hits.length < 200; k++) if (N[k].indexOf(nq) > -1) hits.push(R[k]);
+    hits = hits.filter(function (r) { var es = esIsinOfSym(r[0], r[8]); return !(exclude && es && exclude[es]); });
+    hits.sort(function (a, b) { var sa = ES.norm(a[1] || '').indexOf(nq) === 0 ? 0 : 1, sb = ES.norm(b[1] || '').indexOf(nq) === 0 ? 0 : 1; return sa - sb || (b[3] || 0) - (a[3] || 0); });
+    if (!hits.length) return '<p class="muted small pad">Aucune autre société cotée ne correspond à « ' + esc(q) + ' » parmi ' + R.length + '.</p>';
+    return '<section class="card"><h3>🔎 Toutes les sociétés cotées <span class="muted small">· ' + hits.length + ' sur ' + R.length + '</span></h3><ul class="evs">' + hits.slice(0, max || 20).map(function (r) {
+      var cap = r[3] == null ? '' : r[3] >= 1000 ? fmtN(r[3] / 1000, r[3] >= 10000 ? 0 : 1) + ' Md€' : r[3] + ' M€';
+      var es = esIsinOfSym(r[0], r[8]);
+      return '<li><div>' + coName({ symbol: r[0], name: r[1], country: r[2] }, true) + '<small>' + esc([r[0], cap ? 'capitalisation ' + cap : null, ES.sectorFr(r[4])].filter(Boolean).join(' · ')) + '</small></div><span>' +
+        (r[6] === 't' ? '<span class="fig good">🔥 Secteur en tendance</span> ' : r[6] === 'e' ? '<span class="fig good">🌱 Secteur émergent</span> ' : '') + (r[7] ? '<span class="chip good">PEA probable</span>' : '<span class="chip bad">hors PEA</span>') + (es ? ' <span class="chip">achats de dirigeants suivis</span>' : '') + '</span></li>';
+    }).join('') + '</ul>' + (hits.length > (max || 20) ? '<p class="muted small">Affinez la recherche pour voir les autres.</p>' : '') + '<p class="foot">Toutes les actions des bourses de l\'UE et de l\'EEE (Paris, Francfort, Milan, Madrid, Amsterdam, Bruxelles, Lisbonne, Dublin, Vienne, Helsinki, Stockholm, Copenhague, Oslo). Touchez une société pour sa fiche : chiffres clés, cours sur 1 an et 5 ans, plan d\'entrée.</p></section>';
   }
   function lineChart(ser, five) {
     var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
@@ -4537,7 +4577,7 @@ details.pos summary{font-size:1rem}
   function vSecCo() {
     var back = '<div class="crumbs"><button class="link" data-a="secBack">← Secteurs et thèmes</button></div>';
     if (!S.secLoaded) { loadSectors(); return back + '<p class="muted pad">Chargement…</p>'; }
-    if (!S.coLoaded) { loadSecCo(); return back + '<p class="muted pad">Chargement de la fiche…</p>'; }
+    if (!coReady(S.secSym)) { loadSecCo(S.secSym); return back + '<p class="muted pad">Chargement de la fiche…</p>'; }
     var sym = S.secSym, x = S.secCo && S.secCo.items && S.secCo.items[sym], partial = false;
     if (!x) { // fiches complètes pas encore calculées : on montre ce que le classement des secteurs connaît déjà
       ((S.sec && S.sec.groups) || []).concat((S.sec && S.sec.themes) || []).forEach(function (g) { [g.leader, g.challenger].concat(g.top || [], g.members || []).forEach(function (o) { if (!x && o && o.symbol === sym) x = Object.assign({}, o); }); });
@@ -4551,7 +4591,8 @@ details.pos summary{font-size:1rem}
     var roles = (x.roles || []).map(function (r) { return '<span class="chip ' + (r[0] === 'leader' ? 'pos-leader' : r[0] === 'challenger' ? 'pos-challenger' : '') + '">' + RL[r[0]] + ' · ' + esc(r[1] === 't' ? 'thème ' + (TH[r[2]] || r[2]) : secName(r[2])) + '</span>'; }).join(' ');
     var nG = (S.sec && S.sec.groups || []).length;
     var h = back + '<header class="fhead"><div><h2>' + flag(x.country) + esc(x.name || sym) + '</h2><p class="fsub">' + esc(sub) + '</p><p>' +
-      (x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">PEA (siège dans l\'UE ou l\'EEE)</span> ' : '') + roles + '</p></div></header>' + partH;
+      (x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">' + (x.basic ? 'PEA probable (cotée dans l\'UE ou l\'EEE)' : 'PEA (siège dans l\'UE ou l\'EEE)') + '</span> ' : '') + roles + '</p></div></header>' + partH +
+      (x.basic ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>' : '');
     if (es) h += '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' + esc(es) + '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
     // secteur
     if (x.group) h += '<section class="card"><h3>Secteur</h3><p><b>' + esc(secName(x.group)) + '</b>' + (x.groupRank ? ' : ' + x.groupRank + 'e sur ' + nG + ' groupes' : '') + (x.groupTrending ? ' <span class="chip good">En tendance</span>' : '') + (x.groupEmerging ? ' <span class="chip warn">Émergent</span>' : '') + '</p>' +
@@ -4610,6 +4651,8 @@ details.pos summary{font-size:1rem}
     if (!S.secLoaded) { loadSectors(); return '<p class="muted pad">Chargement des secteurs…</p>'; }
     if (!S.sec) return '<div class="card"><h3>Secteurs</h3><p class="muted">' + (S.secError === 'HTTP 404' ? 'Le classement des secteurs sera disponible après la prochaine mise à jour du soir.' : 'Classement indisponible (' + esc(S.secError) + ').') + '</p></div>';
     var X = S.sec, G = X.groups || [], h = '';
+    h += '<div class="toolbar"><input id="sec-q" type="search" placeholder="Rechercher une société cotée (TotalEnergies, Vusion…)" value="' + esc(S.secQ || '') + '" data-sq="q" aria-label="Rechercher une société cotée"></div>';
+    if (S.secQ && S.secQ.trim().length >= 2) h += coSearch(S.secQ, null, 30);
     h += '<section class="card"><h2>Thèmes et secteurs en tendance</h2><p class="muted small">' + X.universe.n + ' sociétés européennes d\'au moins ' + fmtN(X.universe.minCapEur / 1e6, 0) + ' M€ (toutes, avec ou sans achats de dirigeants), cours au ' + shortDate(X.asOf) + '. Les sociétés américaines servent seulement de baromètre : elles ne sont pas éligibles au PEA.</p></section>';
     h += '<details class="card fold" data-k="sec-help"><summary>ℹ️ Comment lire ces indicateurs</summary><ul class="small">' +
       '<li><b>Force 6 mois / 3 mois</b> : hausse du secteur par rapport au STOXX 600. Barre verte vers la droite = il fait mieux que le marché.</li>' +
@@ -4619,6 +4662,7 @@ details.pos summary{font-size:1rem}
       '<li><b>Résultats</b> : résultats au-dessus du consensus moins résultats en dessous.</li>' +
       '<li><b>Volumes</b> : échanges plus forts les semaines de hausse (achats) ou de baisse (ventes).</li>' +
       '<li><b>▲ / ▼</b> à côté du rang : places gagnées ou perdues en 8 semaines. <b>Émergent</b> : forte remontée récente.</li>' +
+      '<li>🔎 <b>Recherche</b> : toutes les actions cotées des bourses de l\'UE et de l\'EEE, même petites et sans achat de dirigeant.</li>' +
       '<li>🏆 <b>Leader</b> : plus grosse capitalisation du secteur. 🚀 <b>Challenger</b> : la plus forte des 2e à 4e capitalisations. Touchez un nom pour sa fiche complète.</li></ul></details>';
     // thèmes
     h += '<h3 class="sech">🧭 Thèmes</h3>';
@@ -5201,6 +5245,7 @@ details.pos summary{font-size:1rem}
   document.addEventListener('input', function (ev) {
     var t = ev.target;
     if (t.dataset.tf === 'q') { S.txFilter.q = t.value; S.limit = 50; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#t-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); return; }
+    if (t.dataset.sq === 'q') { S.secQ = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#sec-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); return; }
     if (t.dataset.f === 'q') { S.filters.q = t.value; clearTimeout(t._tm); t._tm = setTimeout(function () { var pos = t.selectionStart; render(); var n = $('#f-q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } }, 250); }
   });
   // Portefeuille simulé : réticule et infobulle au survol

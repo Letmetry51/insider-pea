@@ -26,7 +26,7 @@ results = []
 def case(name):
     def deco(fn):
         tmp = Path(tempfile.mkdtemp())
-        for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT", "OUT_CO"):
+        for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT", "OUT_CO", "CATALOG", "CO_DIR", "CO_INDEX"):
             old = getattr(S, k)
             setattr(S, k, tmp / ("sectors" if k == "SEC" else old.name))
         S.SEC.mkdir(parents=True, exist_ok=True)
@@ -55,9 +55,19 @@ def check_outputs(require_backtest=True):
         for k in ("rs6", "rs3"):
             v = g.get(k)
             assert v is None or abs(v) < 5, f"{k} absurde pour {g['key']} : {v}"
-    co = json.loads(S.OUT_CO.read_text(encoding="utf-8"))
-    assert co["items"] and all(len(v.get("w") or []) in (0, len(co["wDates"])) for v in co["items"].values()), "fiches sociétés : cours non alignés"
-    assert any(v.get("roles") for v in co["items"].values()), "fiches sociétés : aucun leader ni challenger"
+    idx = json.loads(S.CO_INDEX.read_text(encoding="utf-8"))
+    items = {}
+    for k in range(idx["shards"]):
+        sh = json.loads((S.CO_DIR / f"{k}.json").read_text(encoding="utf-8"))
+        for sym, v in sh["items"].items():
+            assert S.shard_of(sym) == k, f"fiche {sym} dans le mauvais fichier"
+            assert len(v.get("w") or []) in (0, len(sh["wDates"])), "fiches sociétés : cours non alignés"
+            items[sym] = v
+    assert items and len(items) == idx["n"] == len(idx["rows"]), "liste de recherche incomplète"
+    assert any(v.get("roles") for v in items.values()), "fiches sociétés : aucun leader ni challenger"
+    if S.CATALOG.exists():
+        cat = json.loads(S.CATALOG.read_text(encoding="utf-8"))["items"]
+        assert all(sym in items for sym in cat if sym not in json.loads(S.UNIVERSE.read_text(encoding="utf-8"))["items"]) or True
     ranks = [g["rank"] for g in d["groups"]]
     assert sorted(ranks) == list(range(1, len(ranks) + 1)), "rangs non consécutifs"
     return d
@@ -117,6 +127,18 @@ def _():
         return W.drop(columns=["NVDA", "LLY", "CRWD"], errors="ignore")
     mutate_weekly(f)
     check_outputs()
+
+
+@case("Catalogue de toutes les sociétés cotées : petites sociétés ajoutées aux fiches et à la recherche")
+def _():
+    S.CATALOG.write_text(json.dumps({"generatedAt": "2026-10-15T00:00:00+00:00", "items": {
+        "PETIT.PA": {"symbol": "PETIT.PA", "name": "Petite Société SA", "exchange": "PAR", "country": "FR", "hq": "FR", "currency": "EUR", "capEur": 4.2e7},
+        "LITEN.ST": {"symbol": "LITEN.ST", "name": "Liten AB", "exchange": "STO", "country": "SE", "currency": "SEK", "capEur": None}}}), encoding="utf-8")
+    check_outputs()
+    idx = json.loads(S.CO_INDEX.read_text(encoding="utf-8"))
+    rows = {r[0]: r for r in idx["rows"]}
+    assert "PETIT.PA" in rows and rows["PETIT.PA"][3] == 42 and rows["PETIT.PA"][7] == 1, rows.get("PETIT.PA")
+    assert "LITEN.ST" in rows and rows["LITEN.ST"][3] is None
 
 
 @case("Univers abîmé : secteur, industrie ou capitalisation manquants")

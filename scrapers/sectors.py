@@ -48,7 +48,11 @@ WEEKLY = SEC / "weekly.csv.gz"
 WEEKLY_VOL = SEC / "weekly_volume.csv.gz"
 BACKTEST = SEC / "backtest.json"
 OUT = DATA / "sectors.json"
-OUT_CO = DATA / "sectors-companies.json"  # fiche de chaque société de l'univers (lue à la demande par le tableau de bord)
+OUT_CO = DATA / "sectors-companies.json"  # ancien fichier unique (remplacé par les fiches réparties ci-dessous)
+CATALOG = SEC / "catalog.json"            # toutes les sociétés cotées des places de l'UE / l'EEE (filtre Yahoo, chaque semaine)
+CO_DIR = DATA / "societes"                # fiche de chaque société cotée, en 32 fichiers (lus à la demande)
+CO_INDEX = DATA / "societes-index.json"   # liste de recherche : symbole, nom, pays, capitalisation, secteur, tendance
+CO_SHARDS = 32
 
 MIN_CAP_EUR = 500e6
 BENCH = "^STOXX"          # STOXX Europe 600 (euros)
@@ -139,7 +143,129 @@ def with_retry(fn, tries=3, wait=4):
         except Exception as e:
             if k == tries - 1:
                 raise
+            if "Crumb" in str(e) or "401" in str(e):
+                reset_yahoo_session()
             time.sleep(wait * (k + 1) if "429" in str(e) or "Too Many" in str(e) else 1)
+
+
+# --------------------------------------------------------------------------- catalogue de toutes les sociétés cotées
+def screen_catalog(min_cap=1e6, info_minutes=15):
+    """Toutes les actions des places de l'UE / l'EEE suivies (une place par pays), sans seuil de taille sauf les coquilles vides.
+    Les places de Vienne et de Francfort cotent aussi des milliers de sociétés étrangères (américaines, asiatiques) : seules
+    les sociétés dont le siège est dans l'UE ou l'EEE (fiche Yahoo, gardée 60 jours) sont retenues, comme pour le PEA."""
+    import yfinance as yf
+    from yfinance import EquityQuery as Q
+    fx = fx_now()
+    out, failed = {}, set()
+    prev = read_json(CATALOG, {}).get("items", {})
+
+    def screen_page(q, off):
+        for attempt in range(3):
+            try:
+                return yf.screen(q, offset=off, size=250, sortField="intradaymarketcap", sortAsc=False)
+            except Exception as e:
+                if attempt == 2:
+                    raise
+                if "Crumb" in str(e) or "401" in str(e):
+                    reset_yahoo_session()  # jeton Yahoo expiré après de nombreuses requêtes : nouvelle session
+                time.sleep(5 * (attempt + 1))
+    for region, exchs in REGIONS.items():
+        q = Q("and", [Q("eq", ["region", region]), Q("eq", ["exchange", exchs[0]]), Q("gt", ["intradaymarketcap", min_cap])])
+        off, total = 0, None
+        while total is None or off < total:
+            try:
+                r = screen_page(q, off)
+            except Exception as e:
+                log(f"  catalogue {region} : erreur {str(e)[:100]}")
+                failed.add(COUNTRY.get(exchs[0], region.upper()))
+                break
+            quotes = r.get("quotes") or []
+            total = r.get("total") or len(quotes)
+            for x in quotes:
+                sym = x.get("symbol")
+                if not sym or x.get("quoteType", "EQUITY") != "EQUITY" or sym in out:
+                    continue
+                cur = x.get("currency") or "EUR"
+                unit = 100.0 if cur in ("GBp", "GBX") else 1.0
+                rate = 1.0 if cur.upper() == "EUR" else fx.get(cur.upper())
+                cap, px, vol = x.get("marketCap"), x.get("regularMarketPrice"), x.get("averageDailyVolume3Month")
+                out[sym] = {"symbol": sym, "name": x.get("longName") or x.get("shortName"), "exchange": x.get("exchange"),
+                            "country": COUNTRY.get(x.get("exchange"), region.upper()), "currency": cur,
+                            "capEur": cap / unit / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
+                            "sector": x.get("sector"), "industry": x.get("industry")}
+            off += 250
+            if not quotes:
+                break
+            time.sleep(0.4)
+    # place en échec ce soir : on garde ses sociétés de la semaine précédente plutôt que de les faire disparaître
+    for sym, it in prev.items():
+        if it.get("country") in failed and sym not in out:
+            out[sym] = dict(it)
+    if not out:
+        log("Catalogue : filtre Yahoo indisponible, catalogue précédent conservé")
+        return prev
+    # siège, secteur et ISIN : fiche Yahoo (cache partagé avec l'univers), lue dans la limite du temps donné, les plus grosses d'abord
+    cache = read_json(INFO_CACHE, {})
+    limit = (date.today() - timedelta(days=60)).isoformat()
+    todo = sorted([sym for sym in out if not cache.get(sym) or cache[sym].get("fetched", "") < limit], key=lambda x: -(out[x].get("capEur") or 0))
+    t0, n = time.time(), 0
+    with ThreadPoolExecutor(THREADS) as ex:
+        for k in range(0, len(todo), 40):
+            if time.time() - t0 > info_minutes * 60:
+                break
+            for sym, inf in ex.map(fetch_info, todo[k:k + 40]):
+                n += 1
+                if inf:
+                    cache[sym] = inf
+    write_json(INFO_CACHE, cache)
+    kept, foreign, unknown = {}, 0, 0
+    for sym, it in out.items():
+        inf = cache.get(sym)
+        if not inf:
+            unknown += 1
+            continue
+        hq = HQ.get(inf.get("country"))
+        if hq not in EU_EEA:
+            foreign += 1
+            continue
+        it.update({"hq": hq, "sector": inf.get("sector"), "industry": inf.get("industry"), "isin": inf.get("isin"),
+                   "name": inf.get("longName") or inf.get("shortName") or it.get("name")})
+        kept[sym] = it
+    write_json(CATALOG, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": min_cap, "items": kept,
+                         "pending": len(out) - len(kept) - foreign})
+    log(f"Catalogue : {len(out)} cotations sur {len(REGIONS)} places → {len(kept)} sociétés avec siège dans l'UE ou l'EEE "
+        f"({foreign} étrangères écartées, {unknown} fiches Yahoo pas encore lues ; {n} lues ce soir en {time.time() - t0:.0f} s)")
+    return kept
+
+
+def reset_yahoo_session():
+    """Jeton (crumb) Yahoo refusé : on force yfinance à en demander un nouveau."""
+    try:
+        from yfinance.data import YfData
+        d = YfData()
+        for k in ("_crumb", "_cookie"):
+            if hasattr(d, k):
+                setattr(d, k, None)
+    except Exception:
+        pass
+
+
+def catalog_age():
+    try:
+        c = read_json(CATALOG, {})
+        if c.get("pending"):  # fiches Yahoo encore à lire : on continue chaque soir jusqu'à ce que le catalogue soit complet
+            return 10 ** 6
+        return (datetime.now(timezone.utc) - datetime.fromisoformat(c["generatedAt"])).days
+    except Exception:
+        return 10 ** 6
+
+
+def shard_of(sym, n=CO_SHARDS):
+    """Même répartition que ES.shardOf (tableau de bord)."""
+    h = 0
+    for ch in str(sym):
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return h % n
 
 
 # --------------------------------------------------------------------------- univers
@@ -251,7 +377,8 @@ def build_universe():
                 cache[s] = inf
             if n % 250 == 0:
                 log(f"    {n}/{len(todo)}")
-    cache = {s: v for s, v in cache.items() if s in raw}  # cotations disparues du filtre : oubliées
+    cat = read_json(CATALOG, {}).get("items", {})
+    cache = {s: v for s, v in cache.items() if s in raw or s in cat or v.get("fetched", "") >= limit}  # cotations disparues des deux filtres : oubliées
     write_json(INFO_CACHE, cache)
     items = {s: make_item(s, raw[s], cache[s], fx) for s in raw if cache.get(s)}
     uni = dedupe(items)
@@ -939,8 +1066,9 @@ def daily_closes(tickers):
 
 
 def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True):
-    """Fiche de chaque société de l'univers : chiffres clés, secteur et rang, rôle de leader ou challenger,
-    5 ans de clôtures hebdomadaires et un an de clôtures journalières (devise locale), dates communes stockées une fois."""
+    """Fiche de chaque société cotée de l'UE / l'EEE : celles de l'univers des secteurs (≥ 500 M€, chiffres complets)
+    et toutes les autres du catalogue (chiffres de base). Cours en devise locale : un an journalier, cinq ans hebdomadaire.
+    Écrit 32 petits fichiers (une fiche n'en charge qu'un) et une liste de recherche."""
     rank = {g["key"]: g for g in out_groups}
     roles = {}
     for g in out_groups:
@@ -953,8 +1081,20 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
                 roles.setdefault(th[k]["symbol"], []).append([k, "t", th["key"]])
         for m in th.get("members") or []:
             roles.setdefault(m["symbol"], []).append(["member", "t", th["key"]])
-    syms = sorted(set(uni) | set(extra))
-    # hebdomadaire 5 ans, remis en devise locale (le moteur travaille en euros)
+    cat = read_json(CATALOG, {}).get("items", {})
+    by_name = {name_key(it.get("name")): sym for sym, it in uni.items()}
+    # une société du catalogue déjà dans l'univers sous une autre cotation (même nom) n'est pas répétée
+    cat_only = {sym: it for sym, it in cat.items() if sym not in uni and sym not in extra and name_key(it.get("name")) not in by_name}
+    # même société cotée sur plusieurs places (allemande aussi à Vienne…) : une seule fiche, la place du siège d'abord, puis la plus liquide
+    best = {}
+    for sym, it in cat_only.items():
+        k = name_key(it.get("name")) or sym
+        rk = (1 if it.get("country") == it.get("hq") else 0, it.get("turnoverEur") or 0)
+        if k not in best or rk > best[k][0]:
+            best[k] = (rk, sym)
+    cat_only = {sym: cat_only[sym] for _, sym in best.values()}
+    syms = sorted(set(uni) | set(extra) | set(cat_only))
+    # hebdomadaire 5 ans, remis en devise locale (le moteur des secteurs travaille en euros)
     Wl = W.iloc[-262:].copy()
     for cur, pair in FX_PAIRS.items():
         if pair in Wl.columns:
@@ -966,26 +1106,51 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         t0 = time.time()
         D = daily_closes(syms)
         log(f"Cours journaliers des fiches : {D.shape[1]} titres, {D.shape[0]} séances, {time.time() - t0:.0f} s")
+        miss = [x for x in cat_only if x not in Wl.columns]
+        if miss:
+            t0 = time.time()
+            W2, _ = download_weekly(miss, years=5)  # cours bruts en devise locale
+            if not W2.empty:
+                W2 = clean_prices(W2.where(W2 > 0))
+                Wl = Wl.join(W2.reindex(Wl.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
+            log(f"Cours hebdomadaires du catalogue : {W2.shape[1] if not W2.empty else 0} titres, {time.time() - t0:.0f} s")
     sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
-    items = {}
+    items, index = {}, []
     for sym in syms:
-        base = stock(sym) or {}
-        it = uni.get(sym) or extra.get(sym) or {}
+        it = uni.get(sym) or extra.get(sym) or cat_only.get(sym) or {}
+        base = stock(sym) if (sym in uni or sym in extra) else None
+        base = base or {"symbol": sym, "name": it.get("name"), "country": it.get("hq") or it.get("country"), "capEur": it.get("capEur"),
+                        "pea": (it.get("hq") or it.get("country")) in EU_EEA, "isin": it.get("isin")}
         g = groups.get(sym)
         gi = rank.get(g) or {}
         rec = dict(base, sector=it.get("sector"), industry=it.get("industry"), exchange=it.get("exchange"), currency=it.get("currency"),
                    grossMargin=it.get("grossMargin"), revenue=it.get("revenue"), reco=it.get("reco"), insiderPct=it.get("insiderPct"),
                    turnoverEur=it.get("turnoverEur"), group=g, groupRank=gi.get("rank"), groupTrending=gi.get("trending"), groupEmerging=gi.get("emerging"),
-                   roles=roles.get(sym) or [])
-        if sym in Wl.columns:
+                   roles=roles.get(sym) or [], basic=sym in cat_only)
+        if sym in Wl.columns and Wl[sym].notna().sum() >= 20:
             rec["w"] = [sig(v) for v in Wl[sym].tolist()]
         if sym in D.columns and D[sym].notna().sum() >= 20:
             rec["d"] = [sig(v) for v in D[sym].tolist()]
         items[sym] = rec
-    out = {"format": "euro-signal-sector-companies", "generatedAt": datetime.now(timezone.utc).isoformat(), "groups": len(out_groups),
-           "wDates": [min(d.date(), date.today()).isoformat() for d in Wl.index], "dDates": [d.strftime("%Y-%m-%d") for d in D.index], "items": items}
-    write_json(OUT_CO, out)
-    log(f"Fiches sociétés : {len(items)} ({sum(1 for v in items.values() if 'd' in v)} avec un an de cours journaliers), {OUT_CO.stat().st_size // 1024} Ko")
+        cap = rec.get("capEur")
+        index.append([sym, rec.get("name"), rec.get("country"), round(cap / 1e6) if cap else None, rec.get("sector"), g,
+                      "t" if gi.get("trending") else "e" if gi.get("emerging") else "", 1 if rec.get("pea") else 0, rec.get("isin")])
+    gen = datetime.now(timezone.utc).isoformat()
+    common = {"format": "euro-signal-sector-companies", "generatedAt": gen, "groups": len(out_groups),
+              "wDates": [min(d.date(), date.today()).isoformat() for d in Wl.index], "dDates": [d.strftime("%Y-%m-%d") for d in D.index]}
+    CO_DIR.mkdir(parents=True, exist_ok=True)
+    shards = [dict(common, shard=k, items={}) for k in range(CO_SHARDS)]
+    for sym, rec in items.items():
+        shards[shard_of(sym)]["items"][sym] = rec
+    for k, sh in enumerate(shards):
+        write_json(CO_DIR / f"{k}.json", sh)
+    write_json(CO_INDEX, {"format": "euro-signal-societes", "generatedAt": gen, "n": len(index), "shards": CO_SHARDS, "dir": "data/societes",
+                          "cols": ["symbol", "name", "country", "capMEur", "sector", "group", "trend", "pea", "isin"], "rows": index})
+    if OUT_CO.exists():
+        OUT_CO.unlink()
+    size = sum(f.stat().st_size for f in CO_DIR.glob("*.json")) // 1024
+    log(f"Fiches sociétés : {len(items)} dont {len(cat_only)} hors univers des secteurs ({sum(1 for v in items.values() if 'd' in v)} avec un an de cours, "
+        f"{sum(1 for v in items.values() if 'w' in v)} avec cinq ans), {size} Ko en {CO_SHARDS} fichiers ; liste de recherche {CO_INDEX.stat().st_size // 1024} Ko")
 
 
 def daily_rows(tickers):
@@ -1157,6 +1322,11 @@ def main():
         except Exception as e:  # expérimental : ne bloque jamais le reste
             log(f"Google Trends : {str(e)[:120]}")
     if a.dashboard:
+        if not a.synthetic and (a.weekly or catalog_age() >= 7):
+            try:
+                screen_catalog()
+            except Exception as e:  # le classement du jour ne dépend pas du catalogue
+                log(f"Catalogue non mis à jour : {str(e)[:160]}")
         dashboard(fetch_daily=not a.no_daily and not a.synthetic)
     return 0
 

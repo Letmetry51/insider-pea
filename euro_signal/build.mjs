@@ -263,7 +263,7 @@ export function build(opts = {}) {
   rows.forEach((t) => { if (t.isin && t.company_name) names[String(t.isin).toUpperCase()] = t.company_name; });
   Object.values(eu.records || {}).forEach((r) => { const k = String(r.isin || '').toUpperCase(); if (k && r.issuer && !names[k]) names[k] = r.issuer; });
   Object.keys(state.txArchive).forEach((isin) => {
-    const list = state.txArchive[isin];
+    let list = state.txArchive[isin];
     if (!list.some((t) => t.type !== 'instrument') || !ES.isValidIsin(isin)) return;
     const p = pItems[isin];
     const i = {
@@ -306,6 +306,18 @@ export function build(opts = {}) {
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
     // DG et DAF reconnus aussi par la liste des dirigeants publiée (déclarations allemandes : « membre du directoire » sans plus de détail)
     const off = i.fund && Array.isArray(i.fund.officers) ? i.fund.officers : null;
+    // Déclaration en double avec prix et quantité inversés (ex. Interparfums : 52 124 € « payés » pour 24,702 actions) : écartée
+    {
+      const lastClose = p && p.rows && p.rows.length ? p.rows[p.rows.length - 1][4] : null, seenSw = {};
+      list.forEach((t) => { if (t.price > 0 && t.qty > 0) seenSw[[t.person, t.txDate, Math.round(t.amount || t.price * t.qty)].join('|')] = (seenSw[[t.person, t.txDate, Math.round(t.amount || t.price * t.qty)].join('|')] || 0) + 1; });
+      list = list.filter((t) => {
+        if (!(t.price > 0 && t.qty > 0) || !lastClose) return true;
+        const k = [t.person, t.txDate, Math.round(t.amount || t.price * t.qty)].join('|');
+        if (seenSw[k] < 2) return true;
+        const far = (v) => Math.abs(Math.log(v / lastClose));
+        return !(far(t.price) > Math.log(5) && far(t.qty) < Math.log(2)); // c'est la quantité qui ressemble au cours : champs inversés
+      });
+    }
     inst[isin] = i; tx[isin] = off ? list.map((t) => {
       if (t.ceo || t.cfo || t.associated || (t.type !== 'achat' && t.type !== 'vente') || ES.isLegalEntity(t.person, t.issuer)) return t;
       const r = ES.officerMatch(t.person, off);
