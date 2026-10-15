@@ -3910,9 +3910,17 @@ details.pos summary{font-size:1rem}
   function convOf(i) {
     var x = S.inst[i]; if (!x) return null;
     var g = dgInfo(i);
-    return ES.convergence({ dgRecent: g ? !!g.recent : false, sectorTrend: x.sectorTrend || null, revision30d: Number.isFinite(+x.revision30d) && x.revision30d !== null ? +x.revision30d : null, plan: planFor(i) });
+    return ES.convergence({ dgRecent: g ? !!g.recent : false, sectorTrend: secTrendOf(i), revision30d: Number.isFinite(+x.revision30d) && x.revision30d !== null ? +x.revision30d : null, plan: planFor(i) });
   }
-  function secChip(i) { var t = (S.inst[i] || {}).sectorTrend; if (!t || !(t.trending || t.emerging)) return ''; return ' <span class="fig good" title="Secteur ' + (t.trending ? 'en tendance' : 'émergent') + ' : ' + t.rank + 'e sur ' + t.of + ' (onglet Secteurs)">🔥 ' + (t.trending ? 'Secteur en tendance' : 'Secteur émergent') + '</span>'; }
+  /** Tendance du secteur d'une société : calculée le soir, sinon retrouvée ici dans le classement des secteurs (même règle). */
+  function secTrendOf(i) {
+    var x = S.inst[i] || {}; if (x.sectorTrend) return x.sectorTrend;
+    if (!S.sec || !S.sec.groups) { if (!S.secLoaded) loadSectors(); return null; }
+    if (!S.gByKey) { S.gByKey = {}; S.sec.groups.forEach(function (g) { S.gByKey[g.key] = g; }); }
+    var f = x.fund || {}, g = (f.industry && S.gByKey[f.industry]) || (f.sector && S.gByKey['Autres : ' + f.sector]) || null;
+    return g ? { trending: !!g.trending, emerging: !!g.emerging, rank: g.rank, of: S.sec.groups.length, key: g.key } : null;
+  }
+  function secChip(i) { var t = secTrendOf(i); if (!t || !(t.trending || t.emerging)) return ''; return ' <span class="fig good" title="Secteur ' + (t.trending ? 'en tendance' : 'émergent') + ' : ' + t.rank + 'e sur ' + t.of + ' (onglet Secteurs)">🔥 ' + (t.trending ? 'Secteur en tendance' : 'Secteur émergent') + '</span>'; }
   function convChip(i) { var c = convOf(i); if (!c || c.n < 2) return ''; return ' <span class="fig conv c' + Math.min(c.n, 4) + '" title="' + esc(c.items.filter(function (x) { return x.ok; }).map(function (x) { return x.label; }).join(' · ')) + '">🎯 ' + c.n + '/' + c.of + '</span>'; }
   function figChip(i) { var k = figOf(i); if (!k || k === 'none') return ''; var F = ES.FIGURES[k]; return ' <span class="fig ' + F[2] + '" title="Figure des 3 derniers mois">' + F[0] + ' ' + F[1] + '</span>'; }
   function vClassement() {
@@ -3928,7 +3936,7 @@ details.pos summary{font-size:1rem}
       deep: ['Décote ≥ ' + W.discountBigPct + ' %', function (c) { return c.score.discount && c.score.discount.pct >= W.discountBigPct; }],
       dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (c, i) { var g = dgInfo(i); return !!(g && g.recent); }],
       conv3: ['Convergence ≥ 3 sur 5', function (c, i) { var v = convOf(i); return !!(v && v.n >= 3); }],
-      secTrend: ['🔥 Secteur en tendance', function (c, i) { var t = (S.inst[i] || {}).sectorTrend; return !!(t && (t.trending || t.emerging)); }],
+      secTrend: ['🔥 Secteur en tendance', function (c, i) { var t = secTrendOf(i); return !!(t && (t.trending || t.emerging)); }],
       fs8: ['F-score 8 ou 9', function (c, i) { var a = S.inst[i] && S.inst[i].accounts; return !!(a && a.fscore && !a.fscore.na && a.fscore.f9 >= 8); }],
       all: ['Tous les titres', function () { return true; }]
     };
@@ -4484,7 +4492,7 @@ details.pos summary{font-size:1rem}
     S.secLoading = true;
     fetch('data/sectors.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       if (!d || d.format !== 'euro-signal-sectors') throw new Error('format');
-      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; if (S.view === 'secteurs' || S.view === 'secco') render();
+      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; S.gByKey = null; if (S.view === 'secteurs' || S.view === 'secco' || S.view === 'classement' || S.view === 'fiche') render();
     }).catch(function (e) { S.secLoaded = true; S.secLoading = false; S.secError = (e && e.message) || 'illisible'; if (S.view === 'secteurs' || S.view === 'secco') render(); });
   }
   function secName(k) { if (!k) return '—'; var m = /^Autres : (.+)$/.exec(k); return m ? 'Autres : ' + (ES.sectorFr(m[1]) || m[1]) : ES.industryFr(k) || k; }
