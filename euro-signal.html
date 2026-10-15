@@ -3954,7 +3954,7 @@ details.pos summary{font-size:1rem}
     };
     list.sort(sorters[f.sort] || sorters.advice);
     var ctry = {}, secs = {}; keys.forEach(function (i) { if (S.inst[i].country) ctry[S.inst[i].country] = 1; var sc = secOf(S.inst[i]); if (sc && qf(S.computed[i], i)) secs[sc] = (secs[sc] || 0) + 1; });
-    var h = '<section class="hero"><h2>Où les dirigeants achètent-ils ?</h2><p>Touchez une société pour son avis. <button type="button" class="linkbtn" data-a="proof">Méthode et résultats →</button></p></section>';
+    var h = '<section class="hero"><h2>Où les dirigeants achètent-ils ?</h2><p>Touchez une société pour son avis. <button type="button" class="linkbtn" data-a="guide">📖 Lire une fiche en 30 s</button> · <button type="button" class="linkbtn" data-a="proof">Méthode et résultats →</button></p></section>';
     h += '<section class="summary">' +
       (S.cfg.alerts.buyEmails === false ? stat('Très forts (★★★★ et plus)', String(topN), topN ? 'dossiers avec une note ≥ ' + ES.note(S.cfg.alerts.minScore, S.cfg) : 'aucun aujourd\'hui', 'classement', topN ? 'good' : '') : stat('Alertes prêtes', String(ready), ready ? 'à regarder en priorité' : 'aucune aujourd\'hui', 'alertes', ready ? 'good' : '')) +
       stat('Achats cette semaine', String(recent), withBuys + (withBuys > 1 ? ' sociétés' : ' société') + ' avec achats sur ' + S.cfg.insiders.windowMonths + ' mois', 'inities') +
@@ -5134,7 +5134,7 @@ details.pos summary{font-size:1rem}
       step('Emails', 'Chaque lundi, la sélection de la semaine ; en cours de semaine, une alerte seulement pour un dossier très fort.') + '</ol>' +
       '<p class="foot">Aide à la décision, jamais un ordre d\'achat. Sur téléphone : « Ajouter à l\'écran d\'accueil » pour l\'ouvrir comme une application.</p></section>';
     var nD = 0, det = function (title, body) { return '<details class="card fold" data-k="aide' + (nD++) + '"><summary>' + title + '</summary>' + body + '</details>'; };
-    h += det('📖 Les critères en images : lire une fiche en 30 secondes', vGuide());
+    h += '<details class="card fold" data-k="aide-guide"><summary>📖 Les critères en images : lire une fiche en 30 secondes</summary>' + vGuide() + '</details>';
     h += det('Barème actuel (version ' + esc(c.scoringVersion) + ')', baremeTable());
     h += det('État des données', vSources());
     h += det('📓 Journal de bord du plan d\'entrée et de la convergence', vJournal());
@@ -5167,6 +5167,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'range') { S.range = el.dataset.v === '5y' ? '5y' : '1y'; try { localStorage.setItem('es-range', S.range); } catch (e) { } var yr = window.scrollY; render(); window.scrollTo(0, yr); }
     else if (a === 'pfCore') { S.pfCore = el.dataset.v === '1'; var yy = window.scrollY; render(); window.scrollTo(0, yy); }
     else if (a === 'proofH') { S.proofH = +el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); }
+    else if (a === 'guide') { S.view = 'aide'; S.openDet = S.openDet || {}; S.openDet['aide-guide'] = true; render(); var gd = document.querySelector('details[data-k="aide-guide"]'); if (gd) gd.scrollIntoView(); }
     else if (a === 'proof') { S.view = 'aide'; render(); var pr = document.getElementById('preuves'); if (pr) pr.scrollIntoView(); }
     else if (a === 'secCo') { S.secSym = el.dataset.v; if (S.view === 'secteurs') S.secScroll = window.scrollY; S.view = 'secco'; S.ficheFrom = null; render(); window.scrollTo(0, 0); }
     else if (a === 'secBack') { if (S.view === 'fiche' && S.ficheFrom === 'secco') { S.view = 'secco'; S.ficheFrom = null; render(); window.scrollTo(0, 0); } else { S.view = 'secteurs'; S.ficheFrom = null; render(); window.scrollTo(0, S.secScroll || 0); } }

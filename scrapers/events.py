@@ -10,10 +10,12 @@ L'interprétation (rachat, perspectives, surprise) est faite par le moteur Euro 
 Écrit data/events.json (régénéré à chaque exécution ; l'historique est conservé par build.mjs).
 """
 import json
+from concurrent.futures import ThreadPoolExecutor
 import math
 import os
 import sys
 import time
+import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -175,11 +177,12 @@ def main():
     pairs = first + rest
     partial = False
     print(f"Événements Yahoo : {len(pairs)} titres ; prévisionnels à relire ce soir : {len(fc_todo)}" + (f" ; budget {budget / 60:.0f} min" if budget else ""))
-    for n, (isin, ticker) in enumerate(pairs, 1):
-        if budget and time.monotonic() - t0 > budget:
-            partial = True
-            print(f"  Budget de temps atteint : {n - 1} titres sur {len(pairs)} relus ce soir, les autres gardent les données de la veille")
-            break
+    # Communiqués : Yahoo ne les sert plus (0 partout depuis octobre 2026). On n'interroge plus qu'un échantillon de 30 titres,
+    # pour repérer leur retour ; le reste du temps gagné accélère la collecte. Trois titres à la fois, avec une pause par appel.
+    press_sample = set(i for i, _ in pairs[:30])
+
+    def fetch(isin, ticker):
+        errs = 0
         t = yf.Ticker(ticker)
         rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None, "forecast": None}
         try:
@@ -191,11 +194,12 @@ def main():
                 fut = sorted(e["date"] for e in rec["earnings"] if e["date"] > today_s)
                 rec["nextEarnings"] = fut[0] if fut else None
         except Exception:
-            errors += 1
-        try:
-            rec["press"] = press_items(t)
-        except Exception:
-            errors += 1
+            errs += 1
+        if isin in press_sample:
+            try:
+                rec["press"] = press_items(t)
+            except Exception:
+                errs += 1
         try:
             tr = t.eps_trend
             if tr is not None and not tr.empty and "0y" in tr.index:
@@ -212,7 +216,9 @@ def main():
                 rec["forecast"] = forecasts(t, inf)
             except Exception:
                 rec["forecast"] = None
-            # Nombre d'actions sur un an (les communiqués Yahoo ne sont plus servis) : une baisse nette révèle des rachats
+        # Nombre d'actions sur un an : une baisse nette révèle des rachats, une hausse une émission d'actions.
+        # Relu pour un cinquième des titres chaque soir de semaine (tous les titres chaque semaine).
+        if zlib.crc32(isin.encode()) % 5 == today_d.weekday() % 5:
             try:
                 sh = t.get_shares_full(start=(today_d - timedelta(days=400)).isoformat())
                 if sh is not None and len(sh) >= 5:
@@ -225,10 +231,22 @@ def main():
                                      "to": sh.index[-1], "n1": int(sh.iloc[-1])}
             except Exception:
                 pass
-        items[isin] = rec
         time.sleep(0.4)
-        if n % 20 == 0:
-            print(f"  {n}/{len(pairs)}")
+        return isin, rec, errs
+
+    workers = int(os.environ.get("EVENTS_THREADS", "3") or 3)
+    done = 0
+    with ThreadPoolExecutor(max(1, workers)) as ex:
+        for k in range(0, len(pairs), 30):
+            if budget and time.monotonic() - t0 > budget:
+                partial = True
+                print(f"  Budget de temps atteint : {done} titres sur {len(pairs)} relus ce soir, les autres gardent les données de la veille")
+                break
+            for isin, rec, errs in ex.map(lambda p: fetch(*p), pairs[k:k + 30]):
+                items[isin] = rec
+                errors += errs
+                done += 1
+            print(f"  {done}/{len(pairs)} ({time.monotonic() - t0:.0f} s)")
     (DATA / "events.json").write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors, "partial": partial, "total": len(pairs)}, ensure_ascii=False), encoding="utf-8")
     withE = sum(1 for v in items.values() if v["earnings"])
     withP = sum(1 for v in items.values() if v["press"])
