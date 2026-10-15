@@ -143,6 +143,8 @@ def with_retry(fn, tries=3, wait=4):
         except Exception as e:
             if k == tries - 1:
                 raise
+            if "Crumb" in str(e) or "401" in str(e):
+                reset_yahoo_session()
             time.sleep(wait * (k + 1) if "429" in str(e) or "Too Many" in str(e) else 1)
 
 
@@ -154,15 +156,28 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
     import yfinance as yf
     from yfinance import EquityQuery as Q
     fx = fx_now()
-    out = {}
+    out, failed = {}, set()
+    prev = read_json(CATALOG, {}).get("items", {})
+
+    def screen_page(q, off):
+        for attempt in range(3):
+            try:
+                return yf.screen(q, offset=off, size=250, sortField="intradaymarketcap", sortAsc=False)
+            except Exception as e:
+                if attempt == 2:
+                    raise
+                if "Crumb" in str(e) or "401" in str(e):
+                    reset_yahoo_session()  # jeton Yahoo expiré après de nombreuses requêtes : nouvelle session
+                time.sleep(5 * (attempt + 1))
     for region, exchs in REGIONS.items():
         q = Q("and", [Q("eq", ["region", region]), Q("eq", ["exchange", exchs[0]]), Q("gt", ["intradaymarketcap", min_cap])])
         off, total = 0, None
         while total is None or off < total:
             try:
-                r = with_retry(lambda: yf.screen(q, offset=off, size=250, sortField="intradaymarketcap", sortAsc=False))
+                r = screen_page(q, off)
             except Exception as e:
                 log(f"  catalogue {region} : erreur {str(e)[:100]}")
+                failed.add(COUNTRY.get(exchs[0], region.upper()))
                 break
             quotes = r.get("quotes") or []
             total = r.get("total") or len(quotes)
@@ -182,6 +197,13 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
             if not quotes:
                 break
             time.sleep(0.4)
+    # place en échec ce soir : on garde ses sociétés de la semaine précédente plutôt que de les faire disparaître
+    for sym, it in prev.items():
+        if it.get("country") in failed and sym not in out:
+            out[sym] = dict(it)
+    if not out:
+        log("Catalogue : filtre Yahoo indisponible, catalogue précédent conservé")
+        return prev
     # siège, secteur et ISIN : fiche Yahoo (cache partagé avec l'univers), lue dans la limite du temps donné, les plus grosses d'abord
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=60)).isoformat()
@@ -214,6 +236,18 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
     log(f"Catalogue : {len(out)} cotations sur {len(REGIONS)} places → {len(kept)} sociétés avec siège dans l'UE ou l'EEE "
         f"({foreign} étrangères écartées, {unknown} fiches Yahoo pas encore lues ; {n} lues ce soir en {time.time() - t0:.0f} s)")
     return kept
+
+
+def reset_yahoo_session():
+    """Jeton (crumb) Yahoo refusé : on force yfinance à en demander un nouveau."""
+    try:
+        from yfinance.data import YfData
+        d = YfData()
+        for k in ("_crumb", "_cookie"):
+            if hasattr(d, k):
+                setattr(d, k, None)
+    except Exception:
+        pass
 
 
 def catalog_age():
@@ -343,7 +377,8 @@ def build_universe():
                 cache[s] = inf
             if n % 250 == 0:
                 log(f"    {n}/{len(todo)}")
-    cache = {s: v for s, v in cache.items() if s in raw}  # cotations disparues du filtre : oubliées
+    cat = read_json(CATALOG, {}).get("items", {})
+    cache = {s: v for s, v in cache.items() if s in raw or s in cat or v.get("fetched", "") >= limit}  # cotations disparues des deux filtres : oubliées
     write_json(INFO_CACHE, cache)
     items = {s: make_item(s, raw[s], cache[s], fx) for s in raw if cache.get(s)}
     uni = dedupe(items)
