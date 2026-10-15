@@ -78,7 +78,53 @@ def search_yahoo(isin):
     return {"ticker": q["symbol"], "exchange": q.get("exchDisp") or q.get("exchange"), "name": q.get("longname") or q.get("shortname")}
 
 
-def resolve(isin, cache, manual, today):
+LEGAL = re.compile(r"\b(s\.?a\.?|s\.?e\.?|ag|se|n\.?v\.?|nv|spa|s\.p\.a\.?|ab|publ|plc|oyj|asa|a/s|sca|gmbh|kgaa|co|holding|holdings|group|groupe|ser\.?|b|the)\b", re.I)
+
+
+def clean_name(n):
+    n = re.sub(r"[(),.&'’\-]", " ", str(n or "").lower())
+    return " ".join(w for w in LEGAL.sub(" ", n).split() if len(w) > 1)
+
+
+def search_by_name(isin, name, paid):
+    """Secours quand Yahoo ne connaît pas l'ISIN : recherche par nom, uniquement sur la bourse du pays d'origine,
+    gardée seulement si le nom correspond et si le cours est cohérent avec le prix payé par le dirigeant."""
+    home = HOME.get(isin[:2])
+    q0 = clean_name(name)
+    if not home or len(q0) < 3:
+        return None
+    try:
+        quotes = yf.Search(q0, max_results=10).quotes or []
+    except Exception:
+        return None
+    want = set(q0.split())
+    for q in quotes:
+        sym = q.get("symbol") or ""
+        if q.get("quoteType") != "EQUITY" or not sym.endswith(home):
+            continue
+        got = set(clean_name(q.get("longname") or q.get("shortname")).split())
+        if not got or len(want & got) / len(want | got) < 0.5:
+            continue
+        if paid:
+            try:
+                h = yf.Ticker(sym).history(period="1y", interval="1d", auto_adjust=False)
+                closes = {i.strftime("%Y-%m-%d"): float(v) for i, v in h["Close"].items() if v == v and v > 0}
+            except Exception:
+                closes = {}
+            d, price = paid
+            ref = [closes[k] for k in sorted(closes) if k <= d][-1:] or list(closes.values())[-1:]
+            if not ref or not (0.6 <= price / ref[0] <= 1.6):
+                continue
+        return {"ticker": sym, "exchange": q.get("exchDisp") or q.get("exchange"), "name": q.get("longname") or q.get("shortname")}
+    return None
+
+
+def taken(cache, isin, found):
+    """Ticker déjà attribué à un autre ISIN (ancienne ligne, droits, ISIN mal saisi) : pas de doublon de société."""
+    return bool(found) and any(k != isin and (v or {}).get("ticker") == found["ticker"] for k, v in cache.items())
+
+
+def resolve(isin, cache, manual, today, name=None, paid=None):
     """Recherche Yahoo par ISIN d'abord (fait foi) ; la table manuelle d'insider-pea ne sert qu'en secours."""
     if isin in OVERRIDES:
         return {"ticker": OVERRIDES[isin], "method": "correction vérifiée"}
@@ -103,15 +149,33 @@ def resolve(isin, cache, manual, today):
         cache[isin] = found
         time.sleep(0.3)
         return found
+    if c and not c.get("ticker") and name and not c.get("nameTried"):  # introuvable par ISIN : recherche par nom, une fois
+        found = search_by_name(isin, name, paid)
+        if found and not taken(cache, isin, found):
+            found.update({"method": "recherche Yahoo par nom (vérifiée par le prix payé)" if paid else "recherche Yahoo par nom", "resolvedAt": today.isoformat()})
+            cache[isin] = found
+            time.sleep(0.3)
+            return found
+        c["nameTried"] = today.isoformat()
     if c and not c.get("ticker") and c.get("triedAt", "") > (today - timedelta(days=7)).isoformat():
         return None
     found = search_yahoo(isin)
+    if not found and isin[2] == "O":  # « O » saisi à la place d'un zéro dans la déclaration (ex. ESO130960018)
+        found = search_yahoo(isin[:2] + "0" + isin[3:])
+        if taken(cache, isin, found):
+            found = None
     if found:
         found.update({"method": "recherche Yahoo par ISIN", "resolvedAt": today.isoformat()})
         cache[isin] = found
         time.sleep(0.3)
         return found
-    cache[isin] = {"ticker": None, "triedAt": today.isoformat()}
+    found = search_by_name(isin, name, paid) if name else None
+    if found and not taken(cache, isin, found):
+        found.update({"method": "recherche Yahoo par nom (vérifiée par le prix payé)" if paid else "recherche Yahoo par nom", "resolvedAt": today.isoformat()})
+        cache[isin] = found
+        time.sleep(0.3)
+        return found
+    cache[isin] = {"ticker": None, "triedAt": today.isoformat(), "nameTried": today.isoformat() if name else None}
     return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"} if manual.get(isin) else None
 
 
@@ -201,11 +265,33 @@ def main():
     if not latest:
         print("data/latest.json absent : aucun cours collecté")
         return 0
-    isins = set()
+    isins, names, paid = set(), {}, {}
+
+    def num(v, loc=None):
+        if isinstance(v, (int, float)):
+            return float(v)
+        v = str(v or "").replace("\u202f", "").replace(" ", "")
+        if loc == "en":
+            v = v.replace(",", "")
+        elif "," in v and "." in v:
+            v = v.replace(".", "").replace(",", ".") if v.rfind(",") > v.rfind(".") else v.replace(",", "")
+        else:
+            v = v.replace(",", ".")
+        try:
+            return float(v)
+        except ValueError:
+            return None
+
+    def note(isin, name, d, price):
+        if name and isin not in names:
+            names[isin] = name
+        if price and price > 0 and d and (isin not in paid or d > paid[isin][0]):
+            paid[isin] = (str(d)[:10], price)
     for t in latest.get("transactions", []):
         isin = str(t.get("isin") or "").upper()
         if re.fullmatch(r"[A-Z]{2}[A-Z0-9]{9}[0-9]", isin) and str(t.get("instrument") or "").strip().lower() in ("action", "actions"):
             isins.add(isin)
+            note(isin, t.get("company_name"), t.get("date") if str(t.get("date") or "") <= today.isoformat() else None, num(t.get("price")))
     # Déclarations hors France (FSMA, AFM) : mêmes besoins de cours
     eu = load(DATA / "insiders-eu.json", {}).get("records", {})
     share_words = {"share", "shares", "aandeel", "aandelen", "aktie", "aktien", "azioni", "acciones", "action", "actions", "ordinary shares", ""}
@@ -213,12 +299,13 @@ def main():
         isin = str(r.get("isin") or "").upper().replace(" ", "")
         if re.fullmatch(r"[A-Z]{2}[A-Z0-9]{9}[0-9]", isin) and str(r.get("instrument") or "").strip().lower() in share_words:
             isins.add(isin)
+            note(isin, r.get("issuer"), r.get("txDate") if str(r.get("txDate") or "") <= today.isoformat() else None, num(r.get("price"), r.get("numberLocale")))
     cache = load(TICKERS, {})
     manual = manual_map()
     items, unresolved = {}, []
     print(f"Cours Yahoo : {len(isins)} émetteurs")
     for n, isin in enumerate(sorted(isins), 1):
-        info = resolve(isin, cache, manual, today)
+        info = resolve(isin, cache, manual, today, names.get(isin), paid.get(isin))
         if not info:
             unresolved.append(isin)
             continue

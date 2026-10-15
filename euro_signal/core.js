@@ -97,6 +97,9 @@
   ES.safeId = function (s) { return String(s).replace(/[^A-Za-z0-9_\-.~:@+]/g, '_').slice(0, 180); };
 
   /** Contrôle de format + clé de contrôle ISIN (Luhn sur la conversion lettres → chiffres). */
+  /** Fiches détaillées réparties en N petits fichiers : une fiche n'en charge qu'un (même calcul côté calcul et tableau de bord). */
+  ES.DETAIL_SHARDS = 32;
+  ES.shardOf = function (isin, n) { var h = 0, s = String(isin || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % (n || ES.DETAIL_SHARDS); };
   ES.isValidIsin = function (isin) {
     if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin || '')) return false;
     var digits = '';
@@ -1711,7 +1714,7 @@
   ES.timingKeys = function (p) {
     if (!p) return [];
     var w = p.wedge, out = [];
-    if (p.primary && p.primary.rr >= 2) out.push('rr2');
+    if (p.primary && p.primary.rr >= 2 && (p.primary.prob == null || p.primary.prob >= 20)) out.push('rr2'); // un scénario dont le niveau d'entrée a peu de chances d'être atteint ne compte pas
     if (p.osc && p.osc.rsi < 30) out.push('rsiLow');
     if (p.position === 'retest' || p.position === 'highs' || (w && w.type && w.type !== 'none' && p.last > w.upperNow)) out.push('breakout');
     if (p.position === 'support' || p.position === 'retest') out.push('nearSup');
@@ -1808,10 +1811,13 @@
     var R = (adj || []).filter(function (r) { return r && r[4] > 0; }), n = R.length;
     if (n < 120) return null;
     var lv = opts.levels || ES.supportResistance(R); if (!lv) return null;
-    var c = R.map(function (r) { return r[4]; }), last = c[n - 1], atr = lv.atr || last * 0.02;
+    var c = R.map(function (r) { return r[4]; }), last = c[n - 1];
     var lr = []; for (var i = Math.max(1, n - 60); i < n; i++) lr.push(Math.log(c[i] / c[i - 1]));
     var mu = mean(lr), sd = Math.sqrt(lr.reduce(function (s, x) { return s + (x - mu) * (x - mu); }, 0) / Math.max(1, lr.length - 1));
     sd = Math.min(Math.max(sd, 0.004), 0.12);
+    // ATR plancher : un titre peu échangé (séances sans transaction, plus haut = plus bas) aurait sinon un stop collé
+    // au cours d'achat et un gain / risque irréaliste (×30) ; on prend au moins 0,8 écart-type journalier et 0,5 % du cours
+    var atr = Math.max(lv.atr || last * 0.02, last * sd * 0.8, last * 0.005);
     var ma50 = sma(c, 50), ma200 = sma(c, 200), ma50ago = n >= 70 ? mean(c.slice(n - 70, n - 20)) : null;
     var trend = ma200 != null ? (last > ma200 && ma50 > ma200 ? 'up' : last < ma200 && ma50 < ma200 ? 'down' : 'mixed')
       : ma50 != null && ma50ago != null ? (ma50 > ma50ago * 1.02 && last > ma50 ? 'up' : ma50 < ma50ago * 0.98 && last < ma50 ? 'down' : 'mixed') : 'mixed';

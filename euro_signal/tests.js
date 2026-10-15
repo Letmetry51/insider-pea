@@ -1130,6 +1130,11 @@ t('Convergence et étude historique du plan d\'entrée', () => {
   eq(ES.timingKeys({ primary: { rr: 2.4 }, osc: { rsi: 25 }, position: 'retest', last: 10, wedge: { type: 'none' } }).join(','), 'rr2,rsiLow,breakout,nearSup', 'tous les repères');
   eq(ES.timingKeys({ primary: { rr: 1.2 }, osc: { rsi: 55 }, position: 'middle', last: 10, wedge: { type: 'falling', upperNow: 9.5 } }).join(','), 'breakout', 'cassure de la droite haute');
   eq(ES.timingKeys(null).length, 0);
+  eq(ES.timingKeys({ primary: { rr: 39, prob: 0 }, position: 'middle', last: 10 }).indexOf('rr2'), -1, 'gain/risque théorique (niveau improbable) : pas compté');
+  // titre peu échangé : cours figé la plupart des jours, stop jamais collé au cours d'achat
+  const thin = mk((k) => (k % 7 === 0 ? 20 + (k % 3) * 0.3 : 20 + Math.floor(k / 50) * 0.1), 300).map((r) => [r[0], r[4], r[4], r[4], r[4], 1]);
+  const pt = ES.entryPlan(thin);
+  ok(!pt || !pt.primary || (pt.primary.stopPct <= -0.5 && pt.primary.rr < 20), 'stop réaliste pour un titre peu échangé : ' + (pt && pt.primary ? pt.primary.stopPct + ' %, gain/risque ' + pt.primary.rr : 'pas de plan'));
   ok(st.byTiming && Object.keys(st.byTiming).every((k) => ['rr2', 'rsiLow', 'breakout', 'nearSup'].indexOf(k) > -1), 'groupes de timing : ' + Object.keys(st.byTiming || {}).join(', '));
 });
 

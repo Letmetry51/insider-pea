@@ -130,7 +130,7 @@ jobs:
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: python euro_signal/positions.py
+        run: python euro_signal/test_positions.py > /tmp/test_positions.txt && python euro_signal/positions.py || { cat /tmp/test_positions.txt; exit 1; }
         continue-on-error: true
 
       - name: 7. Enregistrement des données

@@ -22,6 +22,7 @@ import email
 import imaplib
 import json
 import os
+import math
 import re
 import smtplib
 import ssl
@@ -128,24 +129,33 @@ def read_positions(imap):
     return positions, refs, [p for p in watch.values() if p["kind"] == "surveiller"]
 
 
-def watch_events(plan, last):
-    """Déclenchements du plan d'entrée au dernier cours. Clé = niveau arrondi : une seule alerte par niveau."""
+def level_key(v):
+    """Niveau arrondi par tranches d'environ 1 % : stable d'un soir à l'autre malgré les petites variations de l'ATR."""
+    return int(round(math.log(v) * 100)) if v and v > 0 else 0
+
+
+def watch_events(plan, last, today=None):
+    """Déclenchements du plan d'entrée au dernier cours. La clé ne dépend que du niveau technique (support, résistance,
+    stop) ou de la semaine (biseau, dont les droites bougent chaque jour) : une seule alerte par événement, jamais
+    un email chaque soir tant que la situation dure."""
     if not plan or not last:
         return []
     pr, ev = plan.get("primary") or {}, []
     k = pr.get("key")
     f = lambda v: ("%.2f" % v).replace(".", ",")
+    lvl = pr.get("level") or pr.get("zoneLo") or pr.get("trigger") or pr.get("entry")
     if k in ("support", "retest") and pr.get("zoneLo") and pr.get("zoneHi") and pr["zoneLo"] <= last <= pr["zoneHi"]:
-        ev.append(("zone%d" % round(pr["zoneLo"] * 100), "entre dans sa zone d'achat (%s à %s), à confirmer par une clôture de rebond" % (f(pr["zoneLo"]), f(pr["zoneHi"]))))
+        ev.append(("zone%d" % level_key(lvl), "entre dans sa zone d'achat (%s à %s), à confirmer par une clôture de rebond" % (f(pr["zoneLo"]), f(pr["zoneHi"]))))
     if k == "breakout" and pr.get("trigger") and last > pr["trigger"]:
-        ev.append(("cassure%d" % round(pr["trigger"] * 100), "clôture au-dessus du déclencheur %s : cassure de la résistance" % f(pr["trigger"])))
+        ev.append(("cassure%d" % level_key(lvl), "clôture au-dessus du déclencheur %s : cassure de la résistance" % f(pr["trigger"])))
     w = plan.get("wedge") or {}
     if w.get("type") == "falling" and w.get("upperNow") and last > w["upperNow"]:
-        ev.append(("biseau%d" % round(w["upperNow"] * 100), "sortie par le haut du biseau descendant (droite haute vers %s)" % f(w["upperNow"])))
+        y, wk, _ = (today or date.today()).isocalendar()
+        ev.append(("biseau%d%02d" % (y, wk), "sortie par le haut du biseau descendant (droite haute vers %s)" % f(w["upperNow"])))
     if plan.get("verdict") == "buyNow":
-        ev.append(("achat%d" % round((pr.get("entry") or last) * 100), "plan d'entrée : %s" % (plan.get("label") or "achat possible").lower()))
+        ev.append(("achat%d" % level_key(lvl), "plan d'entrée : %s" % (plan.get("label") or "achat possible").lower()))
     if pr.get("stop") and last < pr["stop"]:
-        ev.append(("stop%d" % round(pr["stop"] * 100), "sous le stop du plan (%s) : le scénario est invalidé" % f(pr["stop"])))
+        ev.append(("stop%d" % level_key(lvl), "sous le stop du plan (%s) : le scénario est invalidé" % f(pr["stop"])))
     return ev
 
 

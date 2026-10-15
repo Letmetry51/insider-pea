@@ -139,7 +139,7 @@ export function build(opts = {}) {
   amf.status = amfFresh ? 'ok' : 'echec';
   amf.lastSuccess = amfFresh ? genDate : prevAmf.lastSuccess || null;
   amf.lastAttempt = today;
-  amf.note = amfFresh ? null : !latest ? 'fichier data/latest.json absent' : rows.length === 0 ? 'collecte vide' : 'collecte non mise à jour depuis le ' + genDate;
+  amf.note = amfFresh ? null : !latest ? 'fichier data/latest.json absent ou illisible' : rows.length === 0 ? 'collecte vide' : 'collecte non mise à jour depuis le ' + genDate;
 
   /* 2. Conversion et fusion dans l'archive (corrections, doublons, première observation) */
   const rejects = [], incoming = {};
@@ -865,7 +865,7 @@ export function build(opts = {}) {
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
-    cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: 'data/euro-signal-detail.json', longFile: 'data/euro-signal-long.json', backtest,
+    cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: null, detailShards: { dir: 'data/fiches', n: ES.DETAIL_SHARDS }, longFile: 'data/euro-signal-long.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
     fx: ES.FX, mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, frozenUntil: learning.frozenUntil || null, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }
@@ -981,15 +981,17 @@ export function build(opts = {}) {
     writeJSON(F.learning, { month: learning.month, version: learning.version, weights: learning.weights, log: learning.log, stats: learning.stats, updatedAt: new Date().toISOString() }, true);
     writeJSON(F.out, payload, false, true);
     writeJSON(F.insiders, insidersOut, false, true);
-    writeJSON(F.detail, detail, false, true);
+    // fiches détaillées : 32 petits fichiers (une fiche ouverte sur téléphone n'en télécharge qu'un, environ 600 Ko au lieu de 20 Mo)
+    const shardDir = path.join(DATA, 'fiches'), shards = [];
+    for (let k = 0; k < ES.DETAIL_SHARDS; k++) shards.push({ format: 'euro-signal-detail', generatedAt: detail.generatedAt, today, shard: k, tx: {}, refs: {}, prices: {}, accounts: {} });
+    ['tx', 'refs', 'prices', 'accounts'].forEach((key) => Object.keys(detail[key] || {}).forEach((isin) => { shards[ES.shardOf(isin)][key][isin] = detail[key][isin]; }));
+    fs.mkdirSync(shardDir, { recursive: true });
+    shards.forEach((sh, k) => writeJSON(path.join(shardDir, k + '.json'), sh, false, true));
+    fs.readdirSync(shardDir).forEach((f) => { const m = /^(\d+)\.json$/.exec(f); if (!m || +m[1] >= ES.DETAIL_SHARDS) fs.rmSync(path.join(shardDir, f), { force: true }); });
+    if (fs.existsSync(F.detail)) fs.rmSync(F.detail); // ancien fichier unique, remplacé par les fiches réparties
     if (Object.keys(longItems).length) writeJSON(F.long, { format: 'euro-signal-long', generatedAt: new Date().toISOString(), today, items: longItems }, false, true);
-    const mb = fs.statSync(F.detail).size / 1e6;
-    if (mb > 60) { // garde-fou : GitHub refuse les fichiers de plus de 100 Mo, ce qui empêcherait aussi d'enregistrer le journal
-      detail.prices = {}; detail.trimmed = 'cours retirés (fichier de ' + mb.toFixed(0) + ' Mo)';
-      writeJSON(F.detail, detail, false, true);
-      console.warn('  ATTENTION : fichier détail allégé (' + mb.toFixed(0) + ' Mo sans allègement)');
-    }
-    console.log('  Tableau de bord : ' + (fs.statSync(F.out).size / 1e6).toFixed(1) + ' Mo (classement) + ' + (fs.statSync(F.detail).size / 1e6).toFixed(1) + ' Mo (fiches) + ' + (fs.statSync(F.insiders).size / 1e6).toFixed(1) + ' Mo (dirigeants)');
+    const shardMb = fs.readdirSync(shardDir).reduce((s, f) => s + fs.statSync(path.join(shardDir, f)).size, 0) / 1e6;
+    console.log('  Tableau de bord : ' + (fs.statSync(F.out).size / 1e6).toFixed(1) + ' Mo (classement) + ' + shardMb.toFixed(1) + ' Mo (fiches, en ' + ES.DETAIL_SHARDS + ' fichiers) + ' + (fs.statSync(F.insiders).size / 1e6).toFixed(1) + ' Mo (dirigeants)');
     console.log('  Historique long : ' + Object.keys(hist.n).map((r) => r + ' ' + hist.n[r] + ' déclarations depuis le ' + (hist.from[r] || '?')).join(', ') + ' ; ' + histEvents.length + ' achats avec résultat');
   }
   return { payload, outbox, state, rejects, mergeStats, computed };

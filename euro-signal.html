@@ -355,7 +355,7 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .pbar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:4px 0}.pbar i{display:block;height:100%;background:var(--accent)}
 .cdots i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:3px;background:var(--line);vertical-align:middle}.cdots i.ok{background:var(--good)}.cdots i.ko{background:var(--bad);opacity:.65}
 .mts{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin:8px 0}.mt{background:var(--sunk);border-radius:8px;padding:6px 8px 8px;display:grid;gap:3px;min-width:0}.mt-l{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mt-v{font-variant-numeric:tabular-nums}
-.mt-b{position:relative;height:6px;border-radius:3px;background:var(--line)}.mt-b i{position:absolute;top:0;bottom:0;border-radius:3px}.mt-b i.up{background:var(--good)}.mt-b i.dn{background:var(--bad)}.mt-b i.lv{background:var(--accent)}.fgrp{margin:12px 0 4px;font-weight:600}.hrow{margin:6px 0 10px}.hrow .mts{margin:4px 0}.mt-b s{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.mt-b{position:relative;height:6px;border-radius:3px;background:var(--line)}.mt-b i{position:absolute;top:0;bottom:0;border-radius:3px}.mt-b i.up{background:var(--good)}.mt-b i.dn{background:var(--bad)}.mt-b i.lv{background:var(--accent)}.fgrp{margin:12px 0 4px;font-weight:600}.liqw{background:color-mix(in srgb,var(--warn) 18%,transparent);border-radius:8px;padding:6px 10px}.hrow{margin:6px 0 10px}.hrow .mts{margin:4px 0}.mt-b s{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
 .sctr{width:100%;max-width:340px;height:auto;display:block;margin:8px 0 0;overflow:visible}.sctr-th{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1;opacity:.6}.sctr-ln{fill:none;stroke:var(--muted);stroke-width:1.5}
 .sctr-pt{stroke:var(--surface);stroke-width:2}.sctr-pt.z-good{fill:var(--good)}.sctr-pt.z-mid{fill:var(--warn)}.sctr-pt.z-bad{fill:var(--bad)}.sctr-v{font-size:11px;font-weight:700;fill:var(--ink)}.sctr-ax{font-size:10px;fill:var(--muted)}
 .chart .lv-sup{stroke:var(--good);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-res{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-t{font-weight:700;font-size:9px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}.chart .lv-ts{fill:var(--good)}.chart .lv-tr{fill:var(--bad)}
@@ -516,6 +516,9 @@ details.pos summary{font-size:1rem}
   ES.safeId = function (s) { return String(s).replace(/[^A-Za-z0-9_\-.~:@+]/g, '_').slice(0, 180); };
 
   /** Contrôle de format + clé de contrôle ISIN (Luhn sur la conversion lettres → chiffres). */
+  /** Fiches détaillées réparties en N petits fichiers : une fiche n'en charge qu'un (même calcul côté calcul et tableau de bord). */
+  ES.DETAIL_SHARDS = 32;
+  ES.shardOf = function (isin, n) { var h = 0, s = String(isin || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % (n || ES.DETAIL_SHARDS); };
   ES.isValidIsin = function (isin) {
     if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin || '')) return false;
     var digits = '';
@@ -2130,7 +2133,7 @@ details.pos summary{font-size:1rem}
   ES.timingKeys = function (p) {
     if (!p) return [];
     var w = p.wedge, out = [];
-    if (p.primary && p.primary.rr >= 2) out.push('rr2');
+    if (p.primary && p.primary.rr >= 2 && (p.primary.prob == null || p.primary.prob >= 20)) out.push('rr2'); // un scénario dont le niveau d'entrée a peu de chances d'être atteint ne compte pas
     if (p.osc && p.osc.rsi < 30) out.push('rsiLow');
     if (p.position === 'retest' || p.position === 'highs' || (w && w.type && w.type !== 'none' && p.last > w.upperNow)) out.push('breakout');
     if (p.position === 'support' || p.position === 'retest') out.push('nearSup');
@@ -2227,10 +2230,13 @@ details.pos summary{font-size:1rem}
     var R = (adj || []).filter(function (r) { return r && r[4] > 0; }), n = R.length;
     if (n < 120) return null;
     var lv = opts.levels || ES.supportResistance(R); if (!lv) return null;
-    var c = R.map(function (r) { return r[4]; }), last = c[n - 1], atr = lv.atr || last * 0.02;
+    var c = R.map(function (r) { return r[4]; }), last = c[n - 1];
     var lr = []; for (var i = Math.max(1, n - 60); i < n; i++) lr.push(Math.log(c[i] / c[i - 1]));
     var mu = mean(lr), sd = Math.sqrt(lr.reduce(function (s, x) { return s + (x - mu) * (x - mu); }, 0) / Math.max(1, lr.length - 1));
     sd = Math.min(Math.max(sd, 0.004), 0.12);
+    // ATR plancher : un titre peu échangé (séances sans transaction, plus haut = plus bas) aurait sinon un stop collé
+    // au cours d'achat et un gain / risque irréaliste (×30) ; on prend au moins 0,8 écart-type journalier et 0,5 % du cours
+    var atr = Math.max(lv.atr || last * 0.02, last * sd * 0.8, last * 0.005);
     var ma50 = sma(c, 50), ma200 = sma(c, 200), ma50ago = n >= 70 ? mean(c.slice(n - 70, n - 20)) : null;
     var trend = ma200 != null ? (last > ma200 && ma50 > ma200 ? 'up' : last < ma200 && ma50 < ma200 ? 'down' : 'mixed')
       : ma50 != null && ma50ago != null ? (ma50 > ma50ago * 1.02 && last > ma50 ? 'up' : ma50 < ma50ago * 0.98 && last < ma50 ? 'down' : 'mixed') : 'mixed';
@@ -3353,7 +3359,7 @@ details.pos summary{font-size:1rem}
     cfg: ES.mergeConfig(ES.DEFAULT_CONFIG, {}),
     inst: {}, tx: {}, ev: {}, src: {}, alerts: {}, prices: {}, refs: {}, computed: {},
     range: (function () { try { return localStorage.getItem('es-range') === '5y' ? '5y' : '1y'; } catch (e) { return '1y'; } })(),
-    view: 'classement', sel: null, filters: { q: '', country: '', status: '', signals: true, sort: 'discount', quick: ['buys'], figures: [], plans: [], timing: [] },
+    view: 'classement', sel: null, filters: { q: '', country: '', status: '', signals: true, sort: 'advice', quick: ['buys'], figures: [], plans: [], timing: [] },
     txFilter: { type: 'achat', registry: '', country: '' }, uniFilter: 'a_examiner', limit: 50,
     today: todayIso(), busy: null, imp: null, bt: null, restore: null, confirm: null, notice: null
   };
@@ -3386,7 +3392,9 @@ details.pos summary{font-size:1rem}
       S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, d.cfg || {});
       S.today = d.today || S.today;
       S.inst = d.inst || {}; S.tx = d.tx || {}; S.ev = d.ev || {}; S.src = d.src || {}; S.alerts = d.alerts || {};
-      S.prices = d.prices || {}; S.refs = d.refs || {}; S.detailFile = /^data\/[\w.-]+\.json$/.test(d.detailFile || '') ? d.detailFile : null; S.longFile = /^data\/[\w.-]+\.json$/.test(d.longFile || '') ? d.longFile : null; S.detailLoaded = !S.detailFile;
+      S.prices = d.prices || {}; S.refs = d.refs || {}; S.detailFile = /^data\/[\w.-]+\.json$/.test(d.detailFile || '') ? d.detailFile : null; S.longFile = /^data\/[\w.-]+\.json$/.test(d.longFile || '') ? d.longFile : null;
+      S.shards = d.detailShards && /^data\/[\w-]+$/.test(d.detailShards.dir || '') && d.detailShards.n > 0 ? d.detailShards : null; S.shardLoaded = {}; S.shardLoading = {};
+      S.detailLoaded = !S.detailFile && !S.shards;
       Object.keys(S.prices).forEach(function (i) { var p = S.prices[i]; if (p && p.closesOnly) p.rows = p.rows.map(function (r) { return [r[0], null, null, null, r[1], null]; }); });
       if (S.detailLoaded) Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
       S.bt = { remote: true, res: d.backtest ? d.backtest.results : [], meta: d.backtest || {} };
@@ -3397,9 +3405,39 @@ details.pos summary{font-size:1rem}
   }
   /** Lien direct vers une fiche (…/euro-signal.html#ISIN), utilisé dans les emails d'alerte. */
   /** Cours et historique complet : chargés une seule fois, à l'ouverture de la première fiche. */
+  /** Une partie des fiches (cours 1 an, déclarations, comptes) : intégrée à l'état, sociétés sans cours marquées. */
+  function mergeDetail(d, only) {
+    d = defang(d);
+    Object.keys(d.prices || {}).forEach(function (i) { var p = d.prices[i]; if (p && p.closesOnly) p.rows = p.rows.map(function (r) { return [r[0], null, null, null, r[1], null]; }); S.prices[i] = p; });
+    Object.keys(d.tx || {}).forEach(function (i) { S.tx[i] = d.tx[i]; });
+    Object.keys(d.refs || {}).forEach(function (i) { S.refs[i] = d.refs[i]; });
+    Object.keys(d.accounts || {}).forEach(function (i) { if (S.inst[i]) S.inst[i].accounts = d.accounts[i]; });
+    Object.keys(S.inst).forEach(function (i) { if (!S.prices[i] && (only == null || ES.shardOf(i, S.shards.n) === only)) S.prices[i] = { rows: [], missing: true }; });
+  }
+  function hasDetail(i) { return S.detailLoaded || !!(S.shards && S.shardLoaded[ES.shardOf(i, S.shards.n)]); }
+  /** Fiche d'une société : seul son petit fichier est téléchargé. */
+  function loadDetailFor(i) {
+    if (!S.shards) { loadDetail(); return; }
+    var k = ES.shardOf(i, S.shards.n);
+    if (S.detailLoaded || S.shardLoaded[k] || S.shardLoading[k]) return;
+    S.shardLoading[k] = true;
+    fetch(S.shards.dir + '/' + k + '.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      mergeDetail(d, k); S.shardLoaded[k] = true; S.shardLoading[k] = false; S.planCache = {};
+      if (S.sel) computeOne(S.sel);
+      render();
+    }).catch(function () { S.shardLoading[k] = false; S.shardLoaded[k] = true; Object.keys(S.inst).forEach(function (j) { if (!S.prices[j] && ES.shardOf(j, S.shards.n) === k) S.prices[j] = { rows: [], missing: true }; }); render(); });
+  }
   function loadDetail() {
     if (S.detailLoading || S.detailLoaded) return;
     S.detailLoading = true;
+    if (S.shards) { // toutes les fiches (calcul des tendances de toute la liste) : les fichiers sont lus en parallèle
+      var todo = []; for (var k = 0; k < S.shards.n; k++) if (!S.shardLoaded[k]) todo.push(k);
+      Promise.all(todo.map(function (k) { return fetch(S.shards.dir + '/' + k + '.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d) mergeDetail(d, k); S.shardLoaded[k] = true; }).catch(function () { S.shardLoaded[k] = true; }); })).then(function () {
+        Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; });
+        S.detailLoaded = true; S.detailLoading = false; S.planCache = {}; if (S.sel) computeOne(S.sel); render();
+      });
+      return;
+    }
     fetch(S.detailFile, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       d = defang(d);
       Object.keys(d.prices || {}).forEach(function (i) { var p = d.prices[i]; if (p && p.closesOnly) p.rows = p.rows.map(function (r) { return [r[0], null, null, null, r[1], null]; }); S.prices[i] = p; });
@@ -3687,6 +3725,7 @@ details.pos summary{font-size:1rem}
       var rr = pr.rr;
       out.push(critBox('⚖️', 'Gain / risque du scénario retenu', String(rr).replace('.', ','), rr >= 2 ? 'good' : rr >= 1.5 ? 'mid' : 'bad', rr >= 2 ? 'Le jeu en vaut la chandelle' : rr >= 1.5 ? 'Acceptable' : 'Trop peu de gain pour le risque',
         scaleLine(Math.min(rr, 4), 0, 4, [[0, 1.5, 'bad'], [1.5, 2, 'mid'], [2, 4, 'good']], [[0, '0'], [1.5, '1,5'], [2, '2'], [4, '4+']], 'Gain sur risque ' + rr) +
+        (pr.prob != null && pr.prob < 20 ? '<p class="small"><b>⚠️ Le cours a peu de chances d\'atteindre ce niveau d\'ici 3 mois : ce gain / risque reste théorique.</b></p>' : '') +
         (pr.prob != null ? '<p class="small">🎯 Probabilité que le cours atteigne ' + (pr.key === 'breakout' ? 'le déclencheur' : 'ce niveau') + ' d\'ici 3 mois : <b>' + pr.prob + ' %</b></p><div class="pbar"><i style="width:' + Math.max(0, Math.min(100, pr.prob)) + '%"></i></div>' : ''),
         'Gain visé jusqu\'à l\'objectif divisé par la perte acceptée jusqu\'au stop. Euro Signal exige au moins 1,5 pour dire « achat possible » ; au-dessus de 2, le gain potentiel vaut largement le risque.'));
     }
@@ -3767,7 +3806,7 @@ details.pos summary{font-size:1rem}
     var a = S.inst[i] && S.inst[i].accounts;
     var h = '<section class="card accounts"><h3>📊 Analyse des comptes</h3>';
     h += kidLine(a);
-    if (a && a.summary && !S.detailLoaded) return h + '<p class="muted">' + esc(a.verdict ? a.verdict.text : '') + ' — chargement du détail…</p></section>';
+    if (a && a.summary && !hasDetail(S.sel)) return h + '<p class="muted">' + esc(a.verdict ? a.verdict.text : '') + ' — chargement du détail…</p></section>';
     if (!a || !a.years || !a.years.length) return h + '<p class="muted">Comptes annuels pas encore collectés pour cette société (complétés au fil des soirs, en commençant par les sociétés où un dirigeant a acheté).</p>' + forecastBlock(i) + '</section>';
     var v = a.verdict || { key: 'na', text: 'Comptes insuffisants pour conclure', good: [], bad: [] };
     if (!(a.plain && a.plain.text)) h += '<p class="accv acc-' + esc(v.key) + '">' + ({ good: '🟢', mixed: '🟡', bad: '🔴', na: '⚪' }[v.key] || '⚪') + ' <b>' + esc(v.text) + '</b>' + (v.good.length || v.bad.length ? ' — ' + esc(v.good.concat(v.bad).join(' ; ')) : '') + '</p>';
@@ -3843,11 +3882,11 @@ details.pos summary{font-size:1rem}
     if (x.plan && x.plan.verdict) return x.plan;
     S.planCache = S.planCache || {};
     if (i in S.planCache) return S.planCache[i];
-    var p = S.detailLoaded && S.prices[i], out = null;
+    var p = hasDetail(i) && S.prices[i], out = null;
     if (p && p.rows && p.rows.length >= 120) {
       try { out = ES.entryPlan(ES.adjustedSeries(ES.normalizeSeries(p.rows), (S.ev[i] && S.ev[i].splits) || []).slice(-260), { levels: x.levels || undefined }); } catch (e) { out = null; }
     }
-    if (S.detailLoaded) S.planCache[i] = out;
+    if (hasDetail(i)) S.planCache[i] = out;
     return out;
   }
   function figOf(i) { var p = planFor(i); return p ? ES.figureKey(p.wedge) : null; }
@@ -3897,13 +3936,15 @@ details.pos summary{font-size:1rem}
       return qf(c, i);
     });
     var dv = function (i) { var d = S.computed[i].score.discount; return d ? d.pct : -999; };
+    var AVR = { priority: 0, watch: 1, wait: 2, avoid: 3 }, av = function (i) { var a = adviceOf(i); return a && AVR[a.key] != null ? AVR[a.key] : 4; };
     var sorters = {
+      advice: function (a, b) { return av(a) - av(b) || S.computed[b].score.total - S.computed[a].score.total; },
       discount: function (a, b) { return dv(b) - dv(a) || S.computed[b].score.total - S.computed[a].score.total; },
       score: function (a, b) { return S.computed[b].score.total - S.computed[a].score.total; },
       event: function (a, b) { return (S.computed[b].score.lastEventDate || '') < (S.computed[a].score.lastEventDate || '') ? -1 : 1; },
       name: function (a, b) { return (S.inst[a].name || a).localeCompare(S.inst[b].name || b, 'fr'); }
     };
-    list.sort(sorters[f.sort] || sorters.discount);
+    list.sort(sorters[f.sort] || sorters.advice);
     var ctry = {}, secs = {}; keys.forEach(function (i) { if (S.inst[i].country) ctry[S.inst[i].country] = 1; var sc = secOf(S.inst[i]); if (sc && qf(S.computed[i], i)) secs[sc] = (secs[sc] || 0) + 1; });
     var h = '<section class="hero"><h2>Où les dirigeants achètent-ils ?</h2><p>Touchez une société pour son avis. <button type="button" class="linkbtn" data-a="proof">Méthode et résultats →</button></p></section>';
     h += '<section class="summary">' +
@@ -3926,7 +3967,7 @@ details.pos summary{font-size:1rem}
         keys.forEach(function (i) { var c = S.computed[i]; if (c.score.buys.length && qf(c, i)) { var k = adviceOf(i).key; cnt[k] = (cnt[k] || 0) + 1; } });
         return '<select id="f-advice" data-f="advice" aria-label="Avis"><option value="">Tous les avis</option>' + AV.map(function (o) { return '<option value="' + o[0] + '"' + (f.advice === o[0] ? ' selected' : '') + '>' + o[1] + ' (' + (cnt[o[0]] || 0) + ')</option>'; }).join('') + '</select>';
       })() +
-      '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['discount', 'Trier par décote'], ['score', 'Trier par note'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'discount') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+      '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['advice', 'Trier par avis (🟢 d\'abord)'], ['discount', 'Trier par décote'], ['score', 'Trier par note'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'advice') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
     h += (function () {
       var cf = {}, cp = {}, ct = {}, any = false;
       keys.forEach(function (i) { if (!qf(S.computed[i], i)) return; var k = figOf(i), v = planVerdict(i); if (k) { cf[k] = (cf[k] || 0) + 1; any = true; } if (v) cp[v] = (cp[v] || 0) + 1; var pl = planFor(i); if (pl) TIMING.forEach(function (t) { if (t[2](pl)) ct[t[0]] = (ct[t[0]] || 0) + 1; }); });
@@ -3978,7 +4019,7 @@ details.pos summary{font-size:1rem}
     var i = S.sel, x = S.inst[i];
     if (!x) { S.view = 'classement'; return vClassement(); }
     var c = S.computed[i] || computeOne(i), sc = c.score, ev = S.ev[i] || { buybacks: [], results: [], splits: [] }, p = S.prices[i];
-    if (S.mode === 'remote' && !S.detailLoaded) loadDetail();
+    if (S.mode === 'remote' && !hasDetail(i)) loadDetailFor(i);
     var regs = {}; (S.tx[i] || []).forEach(function (t) { regs[t.registry] = 1; });
     var h = '<div class="crumbs">' + (S.ficheFrom === 'secco' ? '<button class="link" data-a="secBack">← Fiche secteur de ' + esc((S.secCo && S.secCo.items[S.secSym] || {}).name || S.secSym) + '</button>' : '<button class="link" data-a="view" data-v="classement">← Opportunités</button>') + '</div>';
     var sub = [x.ticker, secOf(x) ? secOf(x) + (x.fund && x.fund.industry ? ' — ' + ES.industryFr(x.fund.industry) : '') : null, x.country ? (COUNTRIES[x.country] || x.country) : null].filter(Boolean).join(' · ');
@@ -4111,11 +4152,14 @@ details.pos summary{font-size:1rem}
     return h;
   }
   function watchMail(i, on) {
-    var x = S.inst[i], e = document.getElementById('watch-email'), to = e ? String(e.value || '').trim() : '';
+    var x = S.inst[i], e = document.getElementById('watch-email'), to = e ? String(e.value || '').trim() : lsGet('email', '');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { notify('Indiquez votre adresse Gmail (celle configurée dans Euro Signal).', 'warn'); return; }
     lsSet('email', to);
+    lsSet('watch.' + i, on ? S.today : '');
+    var link = location.origin + location.pathname + '#' + i;
     var subject = '[Euro Signal] ' + (on ? 'Surveiller ' : 'Ne plus surveiller ') + i;
-    var body = 'Société : ' + (x && x.name || i) + '\nISIN : ' + i + '\nDate : ' + S.today + '\n\n(' + (on ? 'Euro Signal vous préviendra quand le plan d\'entrée se déclenche.' : 'Fin de la surveillance du plan d\'entrée.') + ' Email lu automatiquement chaque soir. Ne pas modifier l\'objet.)';
+    var body = 'Société : ' + (x && x.name || i) + '\nISIN : ' + i + '\nDate : ' + S.today + '\n\n(' + (on ? 'Euro Signal vous préviendra quand le plan d\'entrée se déclenche. Pour arrêter : bouton « Ne plus surveiller » dans la fiche ou dans Alertes > Mes suivis : ' + link : 'Fin de la surveillance du plan d\'entrée.') + ' Email lu automatiquement chaque soir. Ne pas modifier l\'objet.)';
+    if (!window.__esMailHook) setTimeout(render, 300);
     var url = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
     if (window.__esMailHook) { window.__esMailHook(url); return; }
     window.location.href = url;
@@ -4339,9 +4383,14 @@ details.pos summary{font-size:1rem}
       if (lines) histH = '<p class="small whyh">📚 Par le passé, 60 séances plus tard</p><p class="sp-cap">Plan recalculé chaque semaine du ' + shortDate(PS.from) + ' au ' + shortDate(PS.to) + ' avec les seuls cours connus ce jour-là, frais inclus. Le trait fin marque zéro ou 50 %.</p>' + lines;
     }
     var em = lsGet('email', '');
-    var watchH = inEs ? '<details class="watch"><summary>🔔 Me prévenir pour ce plan</summary><p class="small">Un email vous prévient quand le cours entre dans la zone d\'achat, casse sa résistance ou la droite haute du biseau, ou passe sous le stop. Comme pour vos positions, rien n\'est publié : le bouton prépare un email à vous-même.</p>' +
+    var wd = inEs ? lsGet('watch.' + isin, '') : '';
+    var watchH = inEs && wd ? '<details class="watch" open><summary>🔔 Plan surveillé depuis le ' + shortDate(wd) + '</summary><p class="small">Un email vous prévient quand le cours entre dans la zone d\'achat, casse sa résistance ou la droite haute du biseau, ou passe sous le stop.</p>' +
+      '<div class="row"><input id="watch-email" type="email" autocomplete="email" value="' + esc(em) + '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button class="ghost" data-a="watchOff" data-i="' + esc(isin) + '">Ne plus surveiller</button></div></details>'
+      : inEs ? '<details class="watch"><summary>🔔 Me prévenir pour ce plan</summary><p class="small">Un email vous prévient quand le cours entre dans la zone d\'achat, casse sa résistance ou la droite haute du biseau, ou passe sous le stop. Comme pour vos positions, rien n\'est publié : le bouton prépare un email à vous-même.</p>' +
       '<div class="row"><input id="watch-email" type="email" autocomplete="email" value="' + esc(em) + '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button data-a="watchOn" data-i="' + esc(isin) + '">Surveiller</button><button class="ghost" data-a="watchOff" data-i="' + esc(isin) + '">Ne plus surveiller</button></div></details>' : '';
-    return '<div class="plan ' + V[0] + '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' + V[1] + ' <b>' + esc(plan.label) + '</b></p>' + convH +
+    var adv = inEs && S.inst[isin].stats ? S.inst[isin].stats.adv20Eur : null;
+    var liqH = adv != null && adv < 20000 ? '<p class="small liqw">⚠️ <b>Titre très peu échangé</b> (' + ES.fmtEur(adv) + ' par jour en moyenne) : les niveaux techniques sont fragiles et un ordre peut faire bouger le cours. Passer des ordres à cours limité.</p>' : '';
+    return '<div class="plan ' + V[0] + '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' + V[1] + ' <b>' + esc(plan.label) + '</b></p>' + liqH + convH +
       planChart(isin, adj, plan) + planVisuals(plan, adj) + '<ul class="sc">' + line(pr, true) + (plan.alt ? line(plan.alt, false) : '') + '</ul>' +
       (plan.why && plan.why.length ? '<p class="small muted whyh">Pourquoi</p><ul class="why">' + plan.why.map(function (w) { return '<li>' + esc(w.charAt(0).toUpperCase() + w.slice(1)) + '</li>'; }).join('') + '</ul>' : '') + obs +
       histH + watchH + '<p class="muted small">Analyse technique classique (supports, résistances, moyennes mobiles), pas encore validée sur l\'historique Euro Signal : son effet est mesuré au fil des achats. Le cône montre l\'amplitude probable des variations d\'ici 3 mois si la volatilité récente se maintient (' + (plan.volYearPct != null ? plan.volYearPct + ' % par an' : 'n.d.') + '), sans prévoir la direction. Ce n\'est pas un conseil en investissement.</p></div>';
@@ -4477,15 +4526,20 @@ details.pos summary{font-size:1rem}
     var back = '<div class="crumbs"><button class="link" data-a="secBack">← Secteurs et thèmes</button></div>';
     if (!S.secLoaded) { loadSectors(); return back + '<p class="muted pad">Chargement…</p>'; }
     if (!S.coLoaded) { loadSecCo(); return back + '<p class="muted pad">Chargement de la fiche…</p>'; }
-    var sym = S.secSym, x = S.secCo && S.secCo.items && S.secCo.items[sym];
-    if (!x) return back + '<div class="card"><p>Fiche indisponible pour ' + esc(sym || '?') + (S.coError ? ' (fichier des fiches illisible : ' + esc(S.coError) + ')' : ' : elle apparaîtra après le prochain calcul du soir.') + '</p></div>';
+    var sym = S.secSym, x = S.secCo && S.secCo.items && S.secCo.items[sym], partial = false;
+    if (!x) { // fiches complètes pas encore calculées : on montre ce que le classement des secteurs connaît déjà
+      ((S.sec && S.sec.groups) || []).concat((S.sec && S.sec.themes) || []).forEach(function (g) { [g.leader, g.challenger].concat(g.top || [], g.members || []).forEach(function (o) { if (!x && o && o.symbol === sym) x = Object.assign({}, o); }); });
+      if (x) { partial = true; var gr = ((S.sec && S.sec.groups) || []).filter(function (g) { return [g.leader, g.challenger].concat(g.top || []).some(function (o) { return o && o.symbol === sym; }); })[0]; if (gr) { x.group = gr.key; x.groupRank = gr.rank; x.groupTrending = gr.trending; x.groupEmerging = gr.emerging; } }
+    }
+    if (!x) return back + '<div class="card"><p>Fiche indisponible pour ' + esc(sym || '?') + ' : elle apparaîtra après le prochain calcul du soir.</p></div>';
     var es = esIsinOfSym(sym, x.isin), cur = x.currency || '';
+    var partH = partial ? '<p class="note">ℹ️ Fiche abrégée : la fiche complète (tous les chiffres clés, cours sur 1 an et 5 ans, plan d\'entrée) sera calculée lors du calcul de ce soir.</p>' : '';
     var sub = [sym, x.exchange, x.country ? (COUNTRIES[x.country] || x.country) : null, [ES.sectorFr(x.sector), ES.industryFr(x.industry)].filter(Boolean).join(' — ')].filter(Boolean).join(' · ');
     var RL = { leader: '🏆 Leader', challenger: '🚀 Challenger', member: 'Membre' }, TH = {}; ((S.sec && S.sec.themes) || []).forEach(function (t) { TH[t.key] = t.name; });
     var roles = (x.roles || []).map(function (r) { return '<span class="chip ' + (r[0] === 'leader' ? 'pos-leader' : r[0] === 'challenger' ? 'pos-challenger' : '') + '">' + RL[r[0]] + ' · ' + esc(r[1] === 't' ? 'thème ' + (TH[r[2]] || r[2]) : secName(r[2])) + '</span>'; }).join(' ');
     var nG = (S.sec && S.sec.groups || []).length;
     var h = back + '<header class="fhead"><div><h2>' + flag(x.country) + esc(x.name || sym) + '</h2><p class="fsub">' + esc(sub) + '</p><p>' +
-      (x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">PEA (siège dans l\'UE ou l\'EEE)</span> ' : '') + roles + '</p></div></header>';
+      (x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">PEA (siège dans l\'UE ou l\'EEE)</span> ' : '') + roles + '</p></div></header>' + partH;
     if (es) h += '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' + esc(es) + '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
     // secteur
     if (x.group) h += '<section class="card"><h3>Secteur</h3><p><b>' + esc(secName(x.group)) + '</b>' + (x.groupRank ? ' : ' + x.groupRank + 'e sur ' + nG + ' groupes' : '') + (x.groupTrending ? ' <span class="chip good">En tendance</span>' : '') + (x.groupEmerging ? ' <span class="chip warn">Émergent</span>' : '') + '</p>' +
@@ -4505,10 +4559,11 @@ details.pos summary{font-size:1rem}
       mini('Croissance', pc100(x.revGrowth), x.revGrowth, -0.5, 0.5, true, 'Chiffre d\'affaires sur un an') + mini('Marge opérationnelle', x.opMargin != null ? fmtN(x.opMargin * 100, 0) + ' %' : '', x.opMargin, -0.2, 0.5, true) +
       mini('Objectif analystes', pc100(x.upside), x.upside, -0.5, 0.5, true, 'Objectif de cours moyen par rapport au cours') + mini('Institutionnels', x.instPct != null ? fmtN(x.instPct * 100, 0) + ' %' : '', x.instPct, 0, 1, false) + '</div>' +
       (x.reco != null ? '<p class="small"><b>Avis moyen des analystes</b> (' + (x.analysts || '?') + ')</p>' + scaleLine(x.reco, 1, 5, [[1, 2.5, 'good'], [2.5, 3.5, 'neu'], [3.5, 5, 'bad']], [[1, 'achat fort'], [3, 'conserver'], [5, 'vente']], 'Avis moyen ' + fmtN(x.reco, 1) + ' sur 5') : '') + '</section>';
-    h += '<section class="card"><h3>Chiffres clés</h3><table class="kv">' + rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('') + '</table><p class="small muted">Source Yahoo Finance, relevé du ' + shortDate(String(S.secCo.generatedAt || '').slice(0, 10)) + '.</p></section>';
+    h += '<section class="card"><h3>Chiffres clés</h3><table class="kv">' + rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('') + '</table><p class="small muted">Source Yahoo Finance, relevé du ' + shortDate(String(((S.secCo || S.sec || {}).generatedAt) || '').slice(0, 10)) + '.</p></section>';
     // cours
-    var D = S.secCo.dDates || [], Wd = S.secCo.wDates || [];
+    var D = (S.secCo && S.secCo.dDates) || [], Wd = (S.secCo && S.secCo.wDates) || [];
     var dser = (x.d || []).map(function (v, k) { return [D[k], v]; }).filter(function (r) { return r[0] && r[1] > 0; });
+    if (!dser.length && S.sec && S.sec.daily && S.sec.daily[sym]) dser = S.sec.daily[sym].map(function (r) { return [r[0], r[4]]; }).filter(function (r) { return r[0] && r[1] > 0; });
     var wser = (x.w || []).map(function (v, k) { return [Wd[k], v]; }).filter(function (r) { return r[0] && r[1] > 0; });
     if (dser.length && wser.length && wser[wser.length - 1][0] > dser[dser.length - 1][0]) wser[wser.length - 1][0] = dser[dser.length - 1][0];
     var five = S.range === '5y' && wser.length >= 20, note = '';
@@ -4630,6 +4685,14 @@ details.pos summary{font-size:1rem}
       });
     });
     rows.sort(function (a, b) { return ES.availDate(a.t) < ES.availDate(b.t) ? 1 : -1; });
+    // plusieurs déclarations du même dirigeant, même jour, même nature (achats fractionnés) : une seule ligne, montants additionnés
+    var grouped = [], gix = {};
+    rows.forEach(function (r) {
+      var t = r.t, k = [r.isin, t.personKey || t.person, t.type, t.pubDate || t.txDate, t.currency, t.status].join('|');
+      if (gix[k] != null) { var g = grouped[gix[k]]; g.n++; if (t.amount > 0) g.amount = (g.amount || 0) + t.amount; return; }
+      gix[k] = grouped.length; grouped.push({ t: t, inst: r.inst, isin: r.isin, n: 1, amount: t.amount > 0 ? t.amount : null });
+    });
+    rows = grouped;
     var regs = {}; Object.keys(S.tx).forEach(function (i) { S.tx[i].forEach(function (t) { regs[t.registry] = 1; }); });
     var clusterIsins = Object.keys(S.computed).filter(function (i) { return S.computed[i].score.families.insiders.items.some(function (it) { return /^cluster/.test(it.label); }); });
     var h = '<h2 class="vt">Achats et ventes des dirigeants</h2><p class="lead">Déclarations publiées depuis le ' + shortDate(from) + '. Touchez une ligne pour ouvrir la fiche.' + (clusterIsins.length ? ' ' + clusterIsins.length + ' société' + (clusterIsins.length > 1 ? 's' : '') + ' où plusieurs dirigeants achètent en même temps.' : '') + '</p>';
@@ -4646,7 +4709,7 @@ details.pos summary{font-size:1rem}
         '<td data-l="Publié">' + (t.pubDate ? shortDate(t.pubDate) : '<span class="muted">tx ' + shortDate(t.txDate) + '</span>') + '</td>' +
         '<td data-l="Dirigeant">' + esc(t.person || 'n.d.') + (key ? ' <button class="link small" data-a="person" data-k="' + esc(key) + '" title="Tout l\'historique de ce dirigeant">historique →</button>' : '') + '<small>' + esc(frRole(t.role)) + ((t.ceo || t.cfo) && !ES.isLegalEntity(t.person, t.issuer) ? ' · DG/DAF' : '') + '</small></td>' +
         '<td data-l="Nature">' + ES.TX_TYPES[t.type] + (t.status === 'annulee' ? ' <span class="chip bad">annulée</span>' : '') + '</td>' +
-        '<td class="num" data-l="Montant">' + fmtMoney(t.amount, t.currency) + '</td>' +
+        '<td class="num" data-l="Montant">' + fmtMoney(r.n > 1 ? r.amount : t.amount, t.currency) + (r.n > 1 ? '<small>' + r.n + ' déclarations le même jour</small>' : '') + '</td>' +
         '<td class="num" data-l="Sous le plus haut">' + (t.type === 'achat' && ok && ref.atPurchase && ref.atPurchase.paidVsHigh52Pct != null ? discPill({ pct: -ref.atPurchase.paidVsHigh52Pct }) : '<span class="muted">—</span>') + '</td>' +
         '<td class="num" data-l="Depuis l\'achat">' + (ok ? '<span class="' + (ref.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(ref.currentVsPaidPct) + '</span>' : '<span class="muted">—</span>') + '</td></tr>';
     });
@@ -4674,13 +4737,24 @@ details.pos summary{font-size:1rem}
   }
 
   /* ----- Alertes ----- */
+  /** Positions et plans surveillés depuis ce navigateur (rien n'est publié : la liste vit sur cet appareil). */
+  function mySuivis() {
+    var pos = [], wat = [];
+    try { for (var k = 0; k < window.localStorage.length; k++) { var key = window.localStorage.key(k), m = /^es\.(open|watch)\.([A-Z]{2}[A-Z0-9]{9}[0-9])$/.exec(key || ''); if (m && window.localStorage.getItem(key)) (m[1] === 'open' ? pos : wat).push([m[2], window.localStorage.getItem(key)]); } } catch (e) { }
+    var row = function (x, extra) { var n = (S.inst[x[0]] || {}).name || x[0]; return '<li><div><b>' + esc(n) + '</b><small>' + extra + '</small></div><span class="row-btn"><button class="ghost small" data-a="open" data-i="' + esc(x[0]) + '">Fiche</button>' + (x.btn || '') + '</span></li>'; };
+    var h = '<section class="card"><h3>🔔 Mes suivis</h3>';
+    h += '<p class="small"><b>Plans d\'entrée surveillés</b></p>' + (wat.length ? '<ul class="evs">' + wat.map(function (x) { x.btn = ' <button class="small" data-a="watchOff" data-i="' + esc(x[0]) + '">Ne plus surveiller</button>'; return row(x, 'surveillé depuis le ' + shortDate(x[1])); }).join('') + '</ul>' : '<p class="muted small">Aucun depuis cet appareil.</p>');
+    h += '<p class="small"><b>Positions suivies pour la revente</b></p>' + (pos.length ? '<ul class="evs">' + pos.map(function (x) { return row(x, 'bouton « Je l\'ai vendu » dans la fiche pour arrêter'); }).join('') + '</ul>' : '<p class="muted small">Aucune depuis cet appareil.</p>');
+    h += '<p class="foot">Vos suivis ne sont jamais publiés : ils partent par email vers votre propre boîte, que le calcul du soir lit. Cette liste ne montre donc que ceux faits depuis ce téléphone ou ce navigateur. Pour arrêter un suivi fait ailleurs : ouvrez la fiche de la société et touchez « Ne plus surveiller » (ou « Je l\'ai vendu »), ou envoyez-vous un email dont l\'objet est <code>[Euro Signal] Ne plus surveiller</code> suivi du code ISIN.</p></section>';
+    return h;
+  }
   function vAlertesAuto() {
     var ready = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; });
     var mailReady = S.snapshot && S.snapshot.mail && S.snapshot.mail.ready;
     var a = S.cfg.alerts, det = function (title, body, k) { return '<details class="fsscale more" data-k="' + k + '"><summary>' + title + '</summary>' + body + '</details>'; };
-    var h = '<h2 class="vt">Alertes</h2>' + selTrackSection((S.snapshot && S.snapshot.selectionTrack) || []) + followSection((S.snapshot && S.snapshot.followups) || []);
+    var h = '<h2 class="vt">Alertes</h2>' + mySuivis() + selTrackSection((S.snapshot && S.snapshot.selectionTrack) || []) + followSection((S.snapshot && S.snapshot.followups) || []);
     h += '<section class="card"><h3>Emails envoyés</h3>' + (mailReady ? '' : '<p class="note warn">Gmail n\'est pas configuré : rien ne part, les alertes sont seulement simulées.</p>') +
-      '<ul class="plain"><li>📬 <b>Lundi</b> : la sélection de la semaine.</li><li>🎯 <b>Revente</b> et 🛑 <b>signaux de sortie</b> : seulement pour les titres marqués « Je l\'ai acheté ».</li>' + (a.buyEmails === false ? '' : '<li>⚡ <b>Dossier très fort</b> (note ≥ ' + ES.note(a.minScore, S.cfg) + ') : email immédiat.</li>') + '</ul>' +
+      '<ul class="plain"><li>📬 <b>Lundi</b> : la sélection de la semaine.</li><li>🔔 <b>Plan d\'entrée</b> : pour les sociétés que vous surveillez, quand le cours entre dans la zone d\'achat, casse la résistance ou passe sous le stop.</li><li>🎯 <b>Revente</b> et 🛑 <b>signaux de sortie</b> : seulement pour les titres marqués « Je l\'ai acheté ».</li>' + (a.buyEmails === false ? '' : '<li>⚡ <b>Dossier très fort</b> (note ≥ ' + ES.note(a.minScore, S.cfg) + ') : email immédiat.</li>') + '</ul>' +
       det('Conditions d\'un dossier « très fort »', '<p class="foot">Titre retenu ; qualité ≥ ' + S.cfg.quality.minForAlert + ' ; note ≥ ' + ES.note(a.minScore, S.cfg) + ' ; au moins ' + a.minFamilies + ' familles de signaux dont un événement de moins de ' + a.recentEventDays + ' jours ; aucune déclaration ambiguë ; pas déjà signalé' + (S.cfg.pea.strict ? ' ; PEA confirmé' : '') + '.' + (a.buyEmails === false ? ' Ces dossiers sont repris dans la sélection du lundi (pas d\'email séparé).' : '') + '</p>' +
         (ready.length ? '<ul class="evs">' + ready.map(function (i) { var c = S.computed[i]; return '<li><div><b>' + esc(S.inst[i].name) + '</b><small>note ' + ES.note(c.score.total, S.cfg) + ' · ' + shortDate(c.score.lastEventDate) + '</small></div><button class="ghost small" data-a="open" data-i="' + i + '">Voir</button></li>'; }).join('') + '</ul>' : '<p class="muted">Aucun aujourd\'hui.</p>'), 'al-cond') + '</section>';
     var log = Object.keys(S.alerts).map(function (k) { return S.alerts[k]; }).sort(function (x, y) { return (x.createdAt || '') < (y.createdAt || '') ? 1 : -1; });

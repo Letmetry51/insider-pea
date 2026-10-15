@@ -26,7 +26,7 @@ const median = (a) => { if (!a.length) return null; const s = a.slice().sort((x,
 const main = read('euro-signal.json');
 check(main && !main.__error, 'euro-signal.json lisible' + (main && main.__error ? ' (' + main.__error + ')' : ''));
 if (!main || main.__error) finish();
-for (const f of ['euro-signal.json', 'euro-signal-detail.json', 'euro-signal-long.json', 'euro-signal-state.json', 'sectors.json']) {
+for (const f of ['euro-signal.json', 'euro-signal-long.json', 'euro-signal-state.json', 'sectors.json', 'sectors-companies.json']) {
   const mb = sizeMb(f);
   check(mb < 60, `${f} : ${mb.toFixed(1)} Mo (limite 60)`);
 }
@@ -35,9 +35,23 @@ check(!/\bNaN\b|\bInfinity\b/.test(raw), 'aucune valeur NaN ou Infinity dans eur
 check(main.today === today || process.env.ES_TODAY == null, `date des données ${main.today} (aujourd'hui ${today})`, true);
 
 // 2. Cours 1 an (fichier détaillé) et 5 ans (fichier long) : présents et réellement différents
-const detail = read('euro-signal-detail.json');
+// fiches détaillées : réparties en petits fichiers (data/fiches/N.json), rassemblées ici pour les contrôles
+const SH = main.detailShards || null;
+let detail = null, shardBad = 0, shardMax = 0;
+if (SH && SH.n > 0) {
+  detail = { prices: {}, tx: {} };
+  for (let k = 0; k < SH.n; k++) {
+    const f = path.join(ROOT, SH.dir, k + '.json');
+    let d = null; try { d = JSON.parse(fs.readFileSync(f, 'utf8')); shardMax = Math.max(shardMax, fs.statSync(f).size / 1048576); } catch (e) { shardBad++; continue; }
+    Object.assign(detail.prices, d.prices || {}); Object.assign(detail.tx, d.tx || {});
+    for (const i of Object.keys(d.prices || {})) if (ES_shard(i, SH.n) !== k) shardBad++;
+  }
+  check(shardBad === 0, `fiches réparties : ${SH.n} fichiers lisibles, chaque société dans le bon fichier`);
+  check(shardMax < 3, `plus gros fichier de fiches : ${shardMax.toFixed(1)} Mo (3 au plus, pour un téléphone)`, true);
+} else detail = read('euro-signal-detail.json');
+function ES_shard(isin, n) { let h = 0; for (const ch of String(isin)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % n; }
 const long = read('euro-signal-long.json');
-check(main.detailFile === 'data/euro-signal-detail.json' && detail && !detail.__error, 'cours journaliers (vue 1 an) publiés');
+check(detail && !detail.__error && Object.keys(detail.prices || {}).length > 0, 'cours journaliers (vue 1 an) publiés');
 check(main.longFile === 'data/euro-signal-long.json', 'le tableau de bord pointe vers le fichier 5 ans (longFile)');
 check(long && !long.__error && long.items, 'euro-signal-long.json lisible' + (long && long.__error ? ' (' + long.__error + ')' : ''));
 if (detail && detail.prices && long && long.items) {
