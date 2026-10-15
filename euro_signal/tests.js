@@ -1126,6 +1126,11 @@ t('Convergence et étude historique du plan d\'entrée', () => {
   const st2 = ES.planStudy(cut, bench.slice(0, 300), { step: 10, horizons: [20] });
   ok(st2.obs <= st.obs, 'série coupée : moins de relevés');
   ok(Object.values(st.byVerdict).every((g) => !g.h60 || (g.h60.beatPct >= 0 && g.h60.beatPct <= 100)), 'pourcentages valides');
+  // repères de timing : règles et mesure (une observation peut compter dans plusieurs repères)
+  eq(ES.timingKeys({ primary: { rr: 2.4 }, osc: { rsi: 25 }, position: 'retest', last: 10, wedge: { type: 'none' } }).join(','), 'rr2,rsiLow,breakout,nearSup', 'tous les repères');
+  eq(ES.timingKeys({ primary: { rr: 1.2 }, osc: { rsi: 55 }, position: 'middle', last: 10, wedge: { type: 'falling', upperNow: 9.5 } }).join(','), 'breakout', 'cassure de la droite haute');
+  eq(ES.timingKeys(null).length, 0);
+  ok(st.byTiming && Object.keys(st.byTiming).every((k) => ['rr2', 'rsiLow', 'breakout', 'nearSup'].indexOf(k) > -1), 'groupes de timing : ' + Object.keys(st.byTiming || {}).join(', '));
 });
 
 console.log(results.join('\n'));

@@ -1707,6 +1707,16 @@
    * plan recalculé avec les cours connus ce jour-là, puis écart à l'indice à `horizons` séances.
    * Regroupe par verdict du plan et par figure : n, écart moyen, part qui bat l'indice, t (moyennes par date, corrigé du recouvrement).
    */
+  /** Repères de timing d'un plan d'entrée (filtres du tableau de bord, mesurés par ES.planStudy). */
+  ES.timingKeys = function (p) {
+    if (!p) return [];
+    var w = p.wedge, out = [];
+    if (p.primary && p.primary.rr >= 2) out.push('rr2');
+    if (p.osc && p.osc.rsi < 30) out.push('rsiLow');
+    if (p.position === 'retest' || p.position === 'highs' || (w && w.type && w.type !== 'none' && p.last > w.upperNow)) out.push('breakout');
+    if (p.position === 'support' || p.position === 'retest') out.push('nearSup');
+    return out;
+  };
   ES.planStudy = function (series, bench, opts) {
     opts = opts || {};
     var step = opts.step || 5, H = opts.horizons || [20, 60], minHist = opts.minHist || 140, cost = (opts.costPct || 0) / 100;
@@ -1718,7 +1728,7 @@
         var d = a[k][0], bk = bIdx[d]; if (bk == null) continue;
         var pl; try { pl = ES.entryPlan(a.slice(Math.max(0, k - 259), k + 1)); } catch (e) { pl = null; }
         if (!pl) continue;
-        var o = { d: d, v: pl.verdict, f: ES.figureKey(pl.wedge) || 'none' };
+        var o = { d: d, v: pl.verdict, f: ES.figureKey(pl.wedge) || 'none', t: ES.timingKeys(pl) };
         H.forEach(function (h) {
           // rendement borné à −60 % / +150 % : une erreur de cours (regroupement non ajusté…) ne fait pas le résultat
           if (k + h < a.length && bk + h < bench.length && bench[bk + h][0] === a[k + h][0]) o['x' + h] = Math.max(-0.6, Math.min(1.5, a[k + h][4] / a[k][4] - 1)) - cost - (bench[bk + h][4] / bench[bk][4] - 1);
@@ -1733,7 +1743,7 @@
         obs.forEach(function (o) {
           var x = o['x' + h]; if (x == null || !isFinite(x)) return;
           (all[o.d] = all[o.d] || []).push(x);
-          var g = keyFn(o); ((byDate[g] = byDate[g] || {})[o.d] = byDate[g][o.d] || []).push(x);
+          var gs = keyFn(o); (Array.isArray(gs) ? gs : [gs]).forEach(function (g) { ((byDate[g] = byDate[g] || {})[o.d] = byDate[g][o.d] || []).push(x); });
         });
         Object.keys(byDate).forEach(function (g) {
           var diffs = [], xs = [], beat = 0;
@@ -1747,7 +1757,7 @@
       return out;
     };
     var ds = obs.map(function (o) { return o.d; }).sort();
-    return { from: ds[0] || null, to: ds[ds.length - 1] || null, obs: obs.length, step: step, horizons: H, byVerdict: group(function (o) { return o.v; }), byFigure: group(function (o) { return o.f; }) };
+    return { from: ds[0] || null, to: ds[ds.length - 1] || null, obs: obs.length, step: step, horizons: H, byVerdict: group(function (o) { return o.v; }), byFigure: group(function (o) { return o.f; }), byTiming: group(function (o) { return o.t; }) };
   };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {

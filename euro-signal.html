@@ -355,7 +355,7 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .pbar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:4px 0}.pbar i{display:block;height:100%;background:var(--accent)}
 .cdots i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:3px;background:var(--line);vertical-align:middle}.cdots i.ok{background:var(--good)}.cdots i.ko{background:var(--bad);opacity:.65}
 .mts{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin:8px 0}.mt{background:var(--sunk);border-radius:8px;padding:6px 8px 8px;display:grid;gap:3px;min-width:0}.mt-l{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mt-v{font-variant-numeric:tabular-nums}
-.mt-b{position:relative;height:6px;border-radius:3px;background:var(--line)}.mt-b i{position:absolute;top:0;bottom:0;border-radius:3px}.mt-b i.up{background:var(--good)}.mt-b i.dn{background:var(--bad)}.mt-b i.lv{background:var(--accent)}.hrow{margin:6px 0 10px}.hrow .mts{margin:4px 0}.mt-b s{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.mt-b{position:relative;height:6px;border-radius:3px;background:var(--line)}.mt-b i{position:absolute;top:0;bottom:0;border-radius:3px}.mt-b i.up{background:var(--good)}.mt-b i.dn{background:var(--bad)}.mt-b i.lv{background:var(--accent)}.fgrp{margin:12px 0 4px;font-weight:600}.hrow{margin:6px 0 10px}.hrow .mts{margin:4px 0}.mt-b s{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
 .sctr{width:100%;max-width:340px;height:auto;display:block;margin:8px 0 0;overflow:visible}.sctr-th{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1;opacity:.6}.sctr-ln{fill:none;stroke:var(--muted);stroke-width:1.5}
 .sctr-pt{stroke:var(--surface);stroke-width:2}.sctr-pt.z-good{fill:var(--good)}.sctr-pt.z-mid{fill:var(--warn)}.sctr-pt.z-bad{fill:var(--bad)}.sctr-v{font-size:11px;font-weight:700;fill:var(--ink)}.sctr-ax{font-size:10px;fill:var(--muted)}
 .chart .lv-sup{stroke:var(--good);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-res{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-t{font-weight:700;font-size:9px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}.chart .lv-ts{fill:var(--good)}.chart .lv-tr{fill:var(--bad)}
@@ -2126,6 +2126,16 @@ details.pos summary{font-size:1rem}
    * plan recalculé avec les cours connus ce jour-là, puis écart à l'indice à `horizons` séances.
    * Regroupe par verdict du plan et par figure : n, écart moyen, part qui bat l'indice, t (moyennes par date, corrigé du recouvrement).
    */
+  /** Repères de timing d'un plan d'entrée (filtres du tableau de bord, mesurés par ES.planStudy). */
+  ES.timingKeys = function (p) {
+    if (!p) return [];
+    var w = p.wedge, out = [];
+    if (p.primary && p.primary.rr >= 2) out.push('rr2');
+    if (p.osc && p.osc.rsi < 30) out.push('rsiLow');
+    if (p.position === 'retest' || p.position === 'highs' || (w && w.type && w.type !== 'none' && p.last > w.upperNow)) out.push('breakout');
+    if (p.position === 'support' || p.position === 'retest') out.push('nearSup');
+    return out;
+  };
   ES.planStudy = function (series, bench, opts) {
     opts = opts || {};
     var step = opts.step || 5, H = opts.horizons || [20, 60], minHist = opts.minHist || 140, cost = (opts.costPct || 0) / 100;
@@ -2137,7 +2147,7 @@ details.pos summary{font-size:1rem}
         var d = a[k][0], bk = bIdx[d]; if (bk == null) continue;
         var pl; try { pl = ES.entryPlan(a.slice(Math.max(0, k - 259), k + 1)); } catch (e) { pl = null; }
         if (!pl) continue;
-        var o = { d: d, v: pl.verdict, f: ES.figureKey(pl.wedge) || 'none' };
+        var o = { d: d, v: pl.verdict, f: ES.figureKey(pl.wedge) || 'none', t: ES.timingKeys(pl) };
         H.forEach(function (h) {
           // rendement borné à −60 % / +150 % : une erreur de cours (regroupement non ajusté…) ne fait pas le résultat
           if (k + h < a.length && bk + h < bench.length && bench[bk + h][0] === a[k + h][0]) o['x' + h] = Math.max(-0.6, Math.min(1.5, a[k + h][4] / a[k][4] - 1)) - cost - (bench[bk + h][4] / bench[bk][4] - 1);
@@ -2152,7 +2162,7 @@ details.pos summary{font-size:1rem}
         obs.forEach(function (o) {
           var x = o['x' + h]; if (x == null || !isFinite(x)) return;
           (all[o.d] = all[o.d] || []).push(x);
-          var g = keyFn(o); ((byDate[g] = byDate[g] || {})[o.d] = byDate[g][o.d] || []).push(x);
+          var gs = keyFn(o); (Array.isArray(gs) ? gs : [gs]).forEach(function (g) { ((byDate[g] = byDate[g] || {})[o.d] = byDate[g][o.d] || []).push(x); });
         });
         Object.keys(byDate).forEach(function (g) {
           var diffs = [], xs = [], beat = 0;
@@ -2166,7 +2176,7 @@ details.pos summary{font-size:1rem}
       return out;
     };
     var ds = obs.map(function (o) { return o.d; }).sort();
-    return { from: ds[0] || null, to: ds[ds.length - 1] || null, obs: obs.length, step: step, horizons: H, byVerdict: group(function (o) { return o.v; }), byFigure: group(function (o) { return o.f; }) };
+    return { from: ds[0] || null, to: ds[ds.length - 1] || null, obs: obs.length, step: step, horizons: H, byVerdict: group(function (o) { return o.v; }), byFigure: group(function (o) { return o.f; }), byTiming: group(function (o) { return o.t; }) };
   };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
@@ -3343,7 +3353,7 @@ details.pos summary{font-size:1rem}
     cfg: ES.mergeConfig(ES.DEFAULT_CONFIG, {}),
     inst: {}, tx: {}, ev: {}, src: {}, alerts: {}, prices: {}, refs: {}, computed: {},
     range: (function () { try { return localStorage.getItem('es-range') === '5y' ? '5y' : '1y'; } catch (e) { return '1y'; } })(),
-    view: 'classement', sel: null, filters: { q: '', country: '', status: '', signals: true, sort: 'discount', quick: ['buys'], figures: [], plans: [] },
+    view: 'classement', sel: null, filters: { q: '', country: '', status: '', signals: true, sort: 'discount', quick: ['buys'], figures: [], plans: [], timing: [] },
     txFilter: { type: 'achat', registry: '', country: '' }, uniFilter: 'a_examiner', limit: 50,
     today: todayIso(), busy: null, imp: null, bt: null, restore: null, confirm: null, notice: null
   };
@@ -3841,6 +3851,14 @@ details.pos summary{font-size:1rem}
     return out;
   }
   function figOf(i) { var p = planFor(i); return p ? ES.figureKey(p.wedge) : null; }
+  /** Repères de timing du plan d'entrée, utilisables comme filtres (tous les repères cochés doivent être vrais). */
+  var TIMING = [
+    ['rr2', '⚖️ Gain / risque ≥ 2', function (p) { return ES.timingKeys(p).indexOf('rr2') > -1; }, 'Le gain visé vaut au moins deux fois la perte acceptée jusqu\'au stop'],
+    ['rsiLow', '📶 RSI survendu (< 30)', function (p) { return ES.timingKeys(p).indexOf('rsiLow') > -1; }, 'Le titre a beaucoup baissé en peu de temps : rebond technique fréquent'],
+    ['breakout', '🚀 Cassure récente', function (p) { return ES.timingKeys(p).indexOf('breakout') > -1; }, 'Résistance franchie, cours au-dessus de la droite haute de la figure ou au plus haut de l\'année'],
+    ['nearSup', '🧱 Près du support', function (p) { return ES.timingKeys(p).indexOf('nearSup') > -1; }, 'Cours tout près d\'un support : perte limitée jusqu\'au stop']
+  ];
+  function timingOk(i, keys) { var p = planFor(i); if (!p) return false; return keys.every(function (k) { var t = TIMING.filter(function (x) { return x[0] === k; })[0]; return !t || t[2](p); }); }
   function planVerdict(i) { var p = planFor(i); return p ? p.verdict : null; }
   function convOf(i) {
     var x = S.inst[i]; if (!x) return null;
@@ -3875,6 +3893,7 @@ details.pos summary{font-size:1rem}
       if (f.advice && (!c.score.buys.length || adviceOf(i).key !== f.advice)) return false;
       if (f.figures && f.figures.length && f.figures.indexOf(figOf(i)) < 0) return false;
       if (f.plans && f.plans.length && f.plans.indexOf(planVerdict(i)) < 0) return false;
+      if (f.timing && f.timing.length && !timingOk(i, f.timing)) return false;
       return qf(c, i);
     });
     var dv = function (i) { var d = S.computed[i].score.discount; return d ? d.pct : -999; };
@@ -3909,8 +3928,8 @@ details.pos summary{font-size:1rem}
       })() +
       '<select id="f-sort" data-f="sort" aria-label="Tri">' + [['discount', 'Trier par décote'], ['score', 'Trier par note'], ['event', 'Trier par date'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'discount') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
     h += (function () {
-      var cf = {}, cp = {}, any = false;
-      keys.forEach(function (i) { if (!qf(S.computed[i], i)) return; var k = figOf(i), v = planVerdict(i); if (k) { cf[k] = (cf[k] || 0) + 1; any = true; } if (v) cp[v] = (cp[v] || 0) + 1; });
+      var cf = {}, cp = {}, ct = {}, any = false;
+      keys.forEach(function (i) { if (!qf(S.computed[i], i)) return; var k = figOf(i), v = planVerdict(i); if (k) { cf[k] = (cf[k] || 0) + 1; any = true; } if (v) cp[v] = (cp[v] || 0) + 1; var pl = planFor(i); if (pl) TIMING.forEach(function (t) { if (t[2](pl)) ct[t[0]] = (ct[t[0]] || 0) + 1; }); });
       if (!any) {
         if (S.mode === 'remote' && !S.detailLoaded) return '<details class="card fold ffold" data-k="ffilters" open><summary>Tendance et plan d\'entrée</summary><p class="small">' +
           (S.detailLoading ? 'Calcul des tendances à partir des cours… (quelques secondes)' : 'Les tendances (canal haussier, canal baissier, biseau…) et les plans d\'entrée seront calculés automatiquement dès ce soir. Pour les obtenir tout de suite, je les calcule à partir des cours :') + '</p>' +
@@ -3918,11 +3937,13 @@ details.pos summary{font-size:1rem}
         return '<p class="muted small">Tendances indisponibles : cours non chargés pour ces sociétés.</p>';
       }
       var chip = function (act, k, txt, n, on, tone) { return '<button class="fchip ' + (tone || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="' + act + '" data-v="' + k + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + txt + ' <span class="count">' + (n || 0) + '</span></button>'; };
-      var nf = (f.figures || []).length + (f.plans || []).length;
+      var nf = (f.figures || []).length + (f.plans || []).length + (f.timing || []).length;
       return '<details class="card fold ffold" data-k="ffilters"' + (nf ? ' open' : '') + '><summary>Tendance et plan d\'entrée' + (nf ? ' <span class="chip good">' + nf + ' filtre' + (nf > 1 ? 's' : '') + '</span>' : '') + '</summary>' +
-        '<p class="small muted">Plusieurs choix possibles : une société est gardée si elle correspond à l\'une des tendances cochées <b>et</b> à l\'un des plans cochés.</p>' +
+        '<p class="small muted">Plusieurs choix possibles : une société est gardée si elle correspond à l\'une des tendances cochées <b>et</b> à l\'un des plans cochés <b>et</b> à tous les repères de timing cochés.</p>' +
         '<div class="fchips">' + Object.keys(ES.FIGURES).map(function (k) { var F = ES.FIGURES[k]; return chip('figT', k, F[0] + ' ' + F[1], cf[k], (f.figures || []).indexOf(k) > -1, F[2]); }).join('') + '</div>' +
         '<div class="fchips">' + PLANS.map(function (o) { return chip('planT', o[0], o[1], cp[o[0]], (f.plans || []).indexOf(o[0]) > -1); }).join('') + '</div>' +
+        '<p class="small fgrp">⏱️ Repères de timing <span class="muted">(cumulables : tous doivent être vrais)</span></p><div class="fchips">' + TIMING.map(function (t) { return chip('timT', t[0], t[1], ct[t[0]], (f.timing || []).indexOf(t[0]) > -1, 'good').replace('<button ', '<button title="' + esc(t[3]) + '" '); }).join('') + '</div>' +
+        '<p class="small muted">Repères pour choisir le moment d\'entrée sur un dossier déjà bon (achat du dirigeant, solidité), pas pour choisir la société : leur effet est mesuré dans le journal de bord.</p>' +
         (nf ? '<button class="link" data-a="fClear">Tout décocher</button>' : '') + '</details>';
     })();
     h += '<details class="help"><summary>Comment lire ce tableau ?</summary><ul class="plain">' +
@@ -4956,7 +4977,7 @@ details.pos summary{font-size:1rem}
   }
   function vJournal() {
     var PS = S.snapshot && S.snapshot.planStudy, J = S.snapshot && S.snapshot.journal, h = '';
-    var VL = { buyNow: '✅ Achat possible', waitSupport: '⏳ Attendre un rebond', waitBreakout: '⏳ Attendre une cassure', avoid: '⛔ Ne pas acheter' };
+    var VL = { buyNow: '✅ Achat possible', waitSupport: '⏳ Attendre un rebond', waitBreakout: '⏳ Attendre une cassure', avoid: '⛔ Ne pas acheter' }; TIMING.forEach(function (t) { VL[t[0]] = t[1]; });
     var tbl = function (obj, label) {
       return '<table class="cmp st"><thead><tr><th>' + label + '</th><th>Cas</th><th>20 séances</th><th>60 séances</th><th>vs ensemble (t)</th></tr></thead><tbody>' + Object.keys(obj).sort(function (a, b) { return ((obj[b].h60 || {}).vsAll || -99) - ((obj[a].h60 || {}).vsAll || -99); }).map(function (k) {
         var a = obj[k].h20 || {}, b = obj[k].h60 || {};
@@ -4965,7 +4986,7 @@ details.pos summary{font-size:1rem}
     };
     if (PS && PS.byVerdict) {
       h += '<p class="small">Le plan d\'entrée et la figure sont recalculés chaque semaine du ' + shortDate(PS.from) + ' au ' + shortDate(PS.to) + ' avec les seuls cours connus ce jour-là (' + PS.obs + ' relevés), puis comparés à l\'indice européen 20 et 60 séances plus tard, frais inclus. « vs ensemble » : écart avec la moyenne de toutes les sociétés aux mêmes dates ; t corrigé du recouvrement des périodes (|t| ≥ 2 : écart net).</p>' +
-        tbl(PS.byVerdict, 'Plan') + tbl(PS.byFigure, 'Figure');
+        tbl(PS.byVerdict, 'Plan') + tbl(PS.byFigure, 'Figure') + (PS.byTiming && Object.keys(PS.byTiming).length ? tbl(PS.byTiming, 'Repère') : '');
     } else h += '<p class="muted small">Étude disponible après la mise à jour du soir.</p>';
     if (J) {
       var ks = Object.keys(J.byConv || {});
@@ -5070,13 +5091,13 @@ details.pos summary{font-size:1rem}
       S.filters.quick = v === 'all' ? [] : at > -1 ? cur.filter(function (x) { return x !== v && x !== 'all'; }) : cur.filter(function (x) { return x !== 'all'; }).concat([v]);
       S.limit = 50; var yq = window.scrollY; render(); window.scrollTo(0, yq);
     }
-    else if (a === 'figT' || a === 'planT') {
-      var key = a === 'figT' ? 'figures' : 'plans', arr = (S.filters[key] || []).slice(), w = el.dataset.v, ix = arr.indexOf(w);
+    else if (a === 'figT' || a === 'planT' || a === 'timT') {
+      var key = a === 'figT' ? 'figures' : a === 'planT' ? 'plans' : 'timing', arr = (S.filters[key] || []).slice(), w = el.dataset.v, ix = arr.indexOf(w);
       if (ix > -1) arr.splice(ix, 1); else arr.push(w);
       S.filters[key] = arr; S.limit = 50; var yf = window.scrollY; render(); window.scrollTo(0, yf);
     }
     else if (a === 'figLoad') { loadDetail(); var yl = window.scrollY; render(); window.scrollTo(0, yl); }
-    else if (a === 'fClear') { S.filters.figures = []; S.filters.plans = []; S.limit = 50; var yc = window.scrollY; render(); window.scrollTo(0, yc); }
+    else if (a === 'fClear') { S.filters.figures = []; S.filters.plans = []; S.filters.timing = []; S.limit = 50; var yc = window.scrollY; render(); window.scrollTo(0, yc); }
     else if (a === 'posBuy' || a === 'posSell') posMail(i, a === 'posBuy' ? 'buy' : 'sell');
     else if (a === 'watchOn' || a === 'watchOff') watchMail(i, a === 'watchOn');
     else if (a === 'uni') { S.uniFilter = el.dataset.v; render(); }
