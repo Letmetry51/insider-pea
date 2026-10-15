@@ -1676,6 +1676,75 @@
     if (w.key) return w.key;
     return w.type === 'channel' ? 'channel-' + (w.slopeUpPct > 0.02 ? 'up' : w.slopeUpPct < -0.02 ? 'down' : 'flat') : w.type;
   };
+  /**
+   * Convergence : 5 signaux indépendants croisés pour une société. Chaque élément vaut true, false ou null (inconnu).
+   *  dg        achat du DG ou du DAF dans les `recentDays` derniers jours ;
+   *  sector    secteur en tendance ou émergent (classement des secteurs, univers complet) ;
+   *  revisions prévisions de bénéfice des analystes relevées d'au moins 1 % sur 30 jours ;
+   *  plan      plan d'entrée « achat possible » ;
+   *  figure    figure de tendance haussière (canal haussier, biseau descendant).
+   */
+  ES.convergence = function (o) {
+    o = o || {};
+    var st = o.sectorTrend, rv = o.revision30d, p = o.plan, fk = p ? ES.figureKey(p.wedge) : null;
+    var items = [
+      { key: 'dg', label: 'Achat du DG ou du DAF récent', ok: o.dgRecent == null ? null : !!o.dgRecent },
+      { key: 'sector', label: st ? 'Secteur ' + (st.trending ? 'en tendance' : st.emerging ? 'émergent' : 'hors tendance') + ' (' + st.rank + 'e sur ' + st.of + ')' : 'Secteur : classement indisponible', ok: st ? !!(st.trending || st.emerging) : null },
+      { key: 'revisions', label: rv == null || !isFinite(rv) ? 'Révisions des analystes : n.d.' : 'Analystes : prévisions ' + (rv >= 0 ? 'relevées' : 'abaissées') + ' de ' + Math.abs(+rv).toFixed(1).replace('.', ',') + ' % en 30 jours', ok: rv == null || !isFinite(rv) ? null : rv >= 1 },
+      { key: 'plan', label: p ? 'Plan d\'entrée : ' + (p.label || p.verdict) : 'Plan d\'entrée : n.d.', ok: p ? p.verdict === 'buyNow' : null },
+      { key: 'figure', label: fk && ES.FIGURES[fk] ? 'Figure : ' + ES.FIGURES[fk][1].toLowerCase() : 'Figure : n.d.', ok: fk ? ES.FIGURES[fk][2] === 'good' : null }
+    ];
+    var n = items.filter(function (x) { return x.ok === true; }).length, known = items.filter(function (x) { return x.ok !== null; }).length;
+    return { n: n, known: known, of: items.length, items: items };
+  };
+  /**
+   * Étude historique du plan d'entrée (reconstitution, aucune donnée postérieure à chaque date) :
+   * series : { isin: lignes ajustées [[d,o,h,l,c,v]] }, bench : lignes ajustées de l'indice ; toutes les `step` séances,
+   * plan recalculé avec les cours connus ce jour-là, puis écart à l'indice à `horizons` séances.
+   * Regroupe par verdict du plan et par figure : n, écart moyen, part qui bat l'indice, t (moyennes par date, corrigé du recouvrement).
+   */
+  ES.planStudy = function (series, bench, opts) {
+    opts = opts || {};
+    var step = opts.step || 5, H = opts.horizons || [20, 60], minHist = opts.minHist || 140, cost = (opts.costPct || 0) / 100;
+    var bIdx = {}; (bench || []).forEach(function (r, k) { bIdx[r[0]] = k; });
+    var obs = [];
+    Object.keys(series || {}).forEach(function (isin) {
+      var a = series[isin]; if (!a || a.length < minHist + H[0]) return;
+      for (var k = minHist; k < a.length - H[0]; k += step) {
+        var d = a[k][0], bk = bIdx[d]; if (bk == null) continue;
+        var pl; try { pl = ES.entryPlan(a.slice(Math.max(0, k - 259), k + 1)); } catch (e) { pl = null; }
+        if (!pl) continue;
+        var o = { d: d, v: pl.verdict, f: ES.figureKey(pl.wedge) || 'none' };
+        H.forEach(function (h) {
+          // rendement borné à −60 % / +150 % : une erreur de cours (regroupement non ajusté…) ne fait pas le résultat
+          if (k + h < a.length && bk + h < bench.length && bench[bk + h][0] === a[k + h][0]) o['x' + h] = Math.max(-0.6, Math.min(1.5, a[k + h][4] / a[k][4] - 1)) - cost - (bench[bk + h][4] / bench[bk][4] - 1);
+        });
+        obs.push(o);
+      }
+    });
+    var group = function (keyFn) {
+      var out = {};
+      H.forEach(function (h) {
+        var byDate = {}, all = {};
+        obs.forEach(function (o) {
+          var x = o['x' + h]; if (x == null || !isFinite(x)) return;
+          (all[o.d] = all[o.d] || []).push(x);
+          var g = keyFn(o); ((byDate[g] = byDate[g] || {})[o.d] = byDate[g][o.d] || []).push(x);
+        });
+        Object.keys(byDate).forEach(function (g) {
+          var diffs = [], xs = [], beat = 0;
+          Object.keys(byDate[g]).forEach(function (d) { var v = byDate[g][d]; v.forEach(function (x) { xs.push(x); if (x > 0) beat++; }); diffs.push(mean(v) - mean(all[d])); });
+          var md = mean(diffs), sd = diffs.length > 1 ? Math.sqrt(diffs.reduce(function (s, x) { return s + (x - md) * (x - md); }, 0) / (diffs.length - 1)) : null;
+          var t = sd ? md / (sd / Math.sqrt(diffs.length)) / Math.sqrt(Math.max(1, h / step)) : null; // recouvrement des fenêtres : t réduit
+          var srt = xs.slice().sort(function (p1, p2) { return p1 - p2; }), med = srt.length % 2 ? srt[(srt.length - 1) / 2] : (srt[srt.length / 2 - 1] + srt[srt.length / 2]) / 2;
+          (out[g] = out[g] || {})['h' + h] = { n: xs.length, dates: diffs.length, mean: +(mean(xs) * 100).toFixed(2), median: +(med * 100).toFixed(2), vsAll: +(md * 100).toFixed(2), beatPct: Math.round(beat / xs.length * 100), t: t == null ? null : +t.toFixed(2) };
+        });
+      });
+      return out;
+    };
+    var ds = obs.map(function (o) { return o.d; }).sort();
+    return { from: ds[0] || null, to: ds[ds.length - 1] || null, obs: obs.length, step: step, horizons: H, byVerdict: group(function (o) { return o.v; }), byFigure: group(function (o) { return o.f; }) };
+  };
   /** Loi normale centrée réduite : fonction de répartition (approximation d'Abramowitz et Stegun, erreur < 1e-7). */
   ES.normCdf = function (z) {
     var t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);

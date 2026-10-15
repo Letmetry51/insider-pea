@@ -1110,6 +1110,24 @@ t('RSI (Wilder) et MACD : survente, surachat, croisement, sans regard vers le fu
   ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'rsiLow') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'macdBull'), 'mesurés en observation');
 });
 
+t('Convergence et étude historique du plan d\'entrée', () => {
+  const c = ES.convergence({ dgRecent: true, sectorTrend: { trending: false, emerging: true, rank: 12, of: 90 }, revision30d: 0.4, plan: { verdict: 'buyNow', label: 'Achat possible', wedge: { type: 'falling', key: 'falling' } } });
+  eq(c.n, 4, 'DG, secteur émergent, plan, biseau descendant'); eq(c.of, 5); eq(c.items.find((x) => x.key === 'revisions').ok, false);
+  const u = ES.convergence({});
+  ok(u.n === 0 && u.known === 0 && u.items.every((x) => x.ok === null), 'tout inconnu : rien de compté');
+  const mk = (f, n) => { const o = []; let d = '2024-01-01'; for (let k = 0; k < n; k++) { const v = f(k); o.push([d, v, v * 1.004, v * 0.996, v, 1]); d = ES.addDays(d, 1); } return o; };
+  const bench = mk(() => 100, 420), series = { A: mk((k) => 100 + 10 * Math.sin(k / 9) + k * 0.05, 420), B: mk((k) => 100 * Math.exp(-k / 300), 420), C: mk((k) => 50 + k * 0.1, 420) };
+  const st = ES.planStudy(series, bench, { step: 10, horizons: [20, 60] });
+  ok(st.obs > 50 && st.from && st.to > st.from, 'relevés : ' + st.obs);
+  const all = Object.values(st.byVerdict).reduce((s, g) => s + (g.h20 ? g.h20.n : 0), 0);
+  ok(all > 0 && Object.keys(st.byFigure).length > 0, 'groupes par verdict et par figure');
+  // aucune donnée postérieure : couper les séries après une date ne change pas les relevés antérieurs
+  const cut = {}; Object.keys(series).forEach((k) => { cut[k] = series[k].slice(0, 300); });
+  const st2 = ES.planStudy(cut, bench.slice(0, 300), { step: 10, horizons: [20] });
+  ok(st2.obs <= st.obs, 'série coupée : moins de relevés');
+  ok(Object.values(st.byVerdict).every((g) => !g.h60 || (g.h60.beatPct >= 0 && g.h60.beatPct <= 100)), 'pourcentages valides');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

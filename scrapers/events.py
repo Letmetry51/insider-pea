@@ -11,6 +11,7 @@ L'interprétation (rachat, perspectives, surprise) est faite par le moteur Euro 
 """
 import json
 import math
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -160,8 +161,25 @@ def main():
     due = sorted((i for i, _ in pairs if fc_age(i) >= 6), key=lambda i: -fc_age(i))
     fc_todo = set(i for i in due if fc_age(i) == 999) | set(due[:max(150, len(pairs) // 5)])
     fc_due = lambda isin: isin in fc_todo
-    print(f"Événements Yahoo : {len(pairs)} titres ; prévisionnels à relire ce soir : {len(fc_todo)}")
+    # Budget de temps : l'étape du workflow est coupée au-delà de sa limite, et rien ne serait écrit. On s'arrête donc à
+    # temps et on écrit ce qui est fait (Euro Signal garde les données des autres titres de la veille). Ordre : d'abord
+    # les prévisionnels à relire, puis les autres titres en partant d'un point qui tourne chaque soir, pour que tous
+    # soient relus au fil des soirs même quand la collecte n'a pas le temps de tout faire.
+    budget = float(os.environ.get("EVENTS_MINUTES", "0") or 0) * 60
+    t0 = time.monotonic()
+    first = [x for x in pairs if x[0] in fc_todo]
+    rest = [x for x in pairs if x[0] not in fc_todo]
+    if rest:
+        k = (today_d.toordinal() * 97) % len(rest)
+        rest = rest[k:] + rest[:k]
+    pairs = first + rest
+    partial = False
+    print(f"Événements Yahoo : {len(pairs)} titres ; prévisionnels à relire ce soir : {len(fc_todo)}" + (f" ; budget {budget / 60:.0f} min" if budget else ""))
     for n, (isin, ticker) in enumerate(pairs, 1):
+        if budget and time.monotonic() - t0 > budget:
+            partial = True
+            print(f"  Budget de temps atteint : {n - 1} titres sur {len(pairs)} relus ce soir, les autres gardent les données de la veille")
+            break
         t = yf.Ticker(ticker)
         rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None, "forecast": None}
         try:
@@ -198,7 +216,7 @@ def main():
         time.sleep(0.4)
         if n % 20 == 0:
             print(f"  {n}/{len(pairs)}")
-    (DATA / "events.json").write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors}, ensure_ascii=False), encoding="utf-8")
+    (DATA / "events.json").write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors, "partial": partial, "total": len(pairs)}, ensure_ascii=False), encoding="utf-8")
     withE = sum(1 for v in items.values() if v["earnings"])
     withP = sum(1 for v in items.values() if v["press"])
     withF = sum(1 for v in items.values() if v.get("fund"))

@@ -86,7 +86,9 @@ jobs:
         continue-on-error: true
 
       - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
-        timeout-minutes: 35
+        timeout-minutes: 45
+        env:
+          EVENTS_MINUTES: '38'
         run: python scrapers/events.py
         continue-on-error: true
 
@@ -109,6 +111,10 @@ jobs:
         timeout-minutes: 5
         run: python scrapers/event_archive.py
         continue-on-error: true
+
+      - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)
+        continue-on-error: true
+        run: node euro_signal/check_outputs.mjs
 
       - name: 6. Alertes email (Gmail)
         timeout-minutes: 10
