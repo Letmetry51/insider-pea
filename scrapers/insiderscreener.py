@@ -45,7 +45,7 @@ BACKUP = {"BE": ("FSMA", "Belgique"), "NL": ("AFM", "Pays-Bas")}
 BACKFILL_DAYS = 120
 MAX_CREDITS_PER_RUN = 150      # ≈ 30 pages de 100 lignes ; le rattrapage initial se répartit sur quelques soirs
 MAX_CREDITS_PER_MARKET = 50    # un rattrapage long (Italie) ne doit pas priver les autres marchés, ni le secours Pays-Bas
-MONTHLY_BUDGET = 900           # garde-fou sous les 1 000 crédits mensuels de l'offre Starter
+MONTHLY_BUDGET = 950           # garde-fou sous les 1 000 crédits mensuels de l'offre Starter (régime normal ≈ 20 par soir, soit 450 par mois)
 CREDITS_PER_PAGE = 5
 
 
