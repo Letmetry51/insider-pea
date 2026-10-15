@@ -178183,6 +178183,52 @@
    "status": null,
    "numberLocale": "en",
    "collectedAt": "2026-10-15"
+  },
+  "FI:2026-10-15-gentoo_media_inc-mateusz_juroszek-US36467X2062-5.20-54433.0-2026-10-15": {
+   "registry": "FI",
+   "country": "SE",
+   "id": "2026-10-15-gentoo_media_inc-mateusz_juroszek-US36467X2062-5.20-54433.0-2026-10-15",
+   "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn",
+   "via": "fi.se",
+   "published": "2026-10-15",
+   "issuer": "Gentoo Media Inc.",
+   "person": "Mateusz Juroszek",
+   "role": "Member of the Board of Directors",
+   "isin": "US36467X2062",
+   "instrument": "Share",
+   "nature": "Acquisition",
+   "txDate": "2026-10-15",
+   "currency": "SEK",
+   "quantity": "54433.0",
+   "price": "5.20",
+   "amount": null,
+   "place": "NASDAQ STOCKHOLM AB",
+   "numberLocale": "auto",
+   "linkedTo": null,
+   "collectedAt": "2026-10-15"
+  },
+  "FI:2026-10-15-scibase_holding_ab_publ-robert_molander-SE0030285706-15.0-31125.0-2026-10-15": {
+   "registry": "FI",
+   "country": "SE",
+   "id": "2026-10-15-scibase_holding_ab_publ-robert_molander-SE0030285706-15.0-31125.0-2026-10-15",
+   "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn",
+   "via": "fi.se",
+   "published": "2026-10-15",
+   "issuer": "SciBase Holding AB (publ)",
+   "person": "Robert Molander",
+   "role": "Member of the Board of Directors",
+   "isin": "SE0030285706",
+   "instrument": "BTA",
+   "nature": "Subscription",
+   "txDate": "2026-10-15",
+   "currency": "SEK",
+   "quantity": "31125.0",
+   "price": "15.0",
+   "amount": null,
+   "place": "Outside a trading venue",
+   "numberLocale": "auto",
+   "linkedTo": null,
+   "collectedAt": "2026-10-15"
   }
  },
  "sources": {
@@ -178194,8 +178240,8 @@
    "kind": "déclarations",
    "via": "afm.nl (export CSV officiel)",
    "lastAttempt": "2026-10-15",
-   "status": "ok",
-   "note": "complété via Insider Screener (collecte directe : l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : relevé complété via Insider Screener)",
+   "status": "partiel",
+   "note": "l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : relevé complété via Insider Screener",
    "rows": 9550,
    "kept": 0,
    "lastSuccess": "2026-10-15"
@@ -178210,7 +178256,7 @@
    "lastAttempt": "2026-10-15",
    "status": "ok",
    "rows": 50,
-   "fetched": 1,
+   "fetched": 0,
    "backlog": 0,
    "note": null,
    "lastSuccess": "2026-10-15"
@@ -178263,8 +178309,8 @@
    "via": "fi.se (export CSV officiel, registre Insynshandel)",
    "lastAttempt": "2026-10-15",
    "status": "ok",
-   "rows": 329,
-   "kept": 310,
+   "rows": 313,
+   "kept": 294,
    "note": null,
    "lastSuccess": "2026-10-15",
    "backfilled": true
@@ -178357,7 +178403,7 @@
    "https://www.fsma.be/en/manager-transaction/xior-2"
   ]
  },
- "generated_at": "2026-10-15T16:00:19.611459+00:00",
+ "generated_at": "2026-10-15T20:57:33.921856+00:00",
  "cursors": {
   "DE": "2026-10-12",
   "ES": "2026-10-14",
