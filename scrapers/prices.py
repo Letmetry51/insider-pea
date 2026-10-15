@@ -119,6 +119,11 @@ def search_by_name(isin, name, paid):
     return None
 
 
+def taken(cache, isin, found):
+    """Ticker déjà attribué à un autre ISIN (ancienne ligne, droits, ISIN mal saisi) : pas de doublon de société."""
+    return bool(found) and any(k != isin and (v or {}).get("ticker") == found["ticker"] for k, v in cache.items())
+
+
 def resolve(isin, cache, manual, today, name=None, paid=None):
     """Recherche Yahoo par ISIN d'abord (fait foi) ; la table manuelle d'insider-pea ne sert qu'en secours."""
     if isin in OVERRIDES:
@@ -146,7 +151,7 @@ def resolve(isin, cache, manual, today, name=None, paid=None):
         return found
     if c and not c.get("ticker") and name and not c.get("nameTried"):  # introuvable par ISIN : recherche par nom, une fois
         found = search_by_name(isin, name, paid)
-        if found:
+        if found and not taken(cache, isin, found):
             found.update({"method": "recherche Yahoo par nom (vérifiée par le prix payé)" if paid else "recherche Yahoo par nom", "resolvedAt": today.isoformat()})
             cache[isin] = found
             time.sleep(0.3)
@@ -157,13 +162,15 @@ def resolve(isin, cache, manual, today, name=None, paid=None):
     found = search_yahoo(isin)
     if not found and isin[2] == "O":  # « O » saisi à la place d'un zéro dans la déclaration (ex. ESO130960018)
         found = search_yahoo(isin[:2] + "0" + isin[3:])
+        if taken(cache, isin, found):
+            found = None
     if found:
         found.update({"method": "recherche Yahoo par ISIN", "resolvedAt": today.isoformat()})
         cache[isin] = found
         time.sleep(0.3)
         return found
     found = search_by_name(isin, name, paid) if name else None
-    if found:
+    if found and not taken(cache, isin, found):
         found.update({"method": "recherche Yahoo par nom (vérifiée par le prix payé)" if paid else "recherche Yahoo par nom", "resolvedAt": today.isoformat()})
         cache[isin] = found
         time.sleep(0.3)
