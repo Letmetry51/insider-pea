@@ -1,18 +1,18 @@
 {
  "chunks": [
   [
-   "2026-10-03",
-   "2026-10-09",
-   197
+   "2026-10-04",
+   "2026-10-10",
+   198
   ],
   [
-   "2026-10-10",
-   "2026-10-14",
-   109
+   "2026-10-11",
+   "2026-10-15",
+   131
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n14/10/2026 22:33:57;Gentoo Media Inc.;529900T8BM49AURSDO55;Mateusz Juroszek;Mateusz Juroszek;Member of the Board of Directors;;;;Yes;;Acquisition;Share;Gentoo Media Inc.;US36467X2062;14/10/2026 00:00:00;50000.0;Quantity;5.20;SEK;NASDAQ STOCKHOLM AB;Current;\r\n14/10/2026 20:",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n15/10/2026 17:36:38;Ranplan Group AB;5493002X40TKUGFY4408;Per Lindberg;Per Lindberg;Chief Executive Officer (CEO)/Managing Directory;;;;Yes;;Acquisition;Share;Ranplan Group AB;SE0011178201;15/10/2026 00:00:00;60.0;Quantity;0.48;SEK;FIRST NORTH SWEDEN;Current;\r\n15/10/2026 1",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,40 +59,40 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 306,
+ "rowCount": 329,
  "sampleRows": [
   [
-   "09/10/2026 19:28:34",
-   "Logistri Fastighets AB (Publ)",
-   "549300DGTCVHL640S069",
-   "Solid Equity Aktiebolag",
-   "Henrik Viktorsson",
+   "10/10/2026 13:43:38",
+   "Proport invest ab",
+   "984500F33AB40805EE63",
+   "Ing-Marie Agneta Thunvik",
+   "Ing-Marie Agneta Thunvik",
    "Chairman of the Board of Directors",
-   "Yes",
+   "",
    "",
    "",
    "Yes",
    "",
    "Acquisition",
    "Share",
-   "logistri fastighets A",
-   "SE0025197619",
-   "08/10/2026 00:00:00",
-   "23077.0",
+   "Proport invest AB",
+   "SE0027767724",
+   "09/10/2026 00:00:00",
+   "11600.0",
    "Quantity",
-   "14.6",
+   "2.01",
    "SEK",
    "SPOTLIGHT STOCK MARKET",
    "Current",
    ""
   ],
   [
-   "09/10/2026 19:21:05",
-   "Gentoo Media Inc.",
-   "529900T8BM49AURSDO55",
-   "Mateusz Juroszek",
-   "Mateusz Juroszek",
-   "Member of the Board of Directors",
+   "10/10/2026 13:43:38",
+   "Proport invest ab",
+   "984500F33AB40805EE63",
+   "Ing-Marie Agneta Thunvik",
+   "Ing-Marie Agneta Thunvik",
+   "Chairman of the Board of Directors",
    "",
    "",
    "",
@@ -100,17 +100,17 @@
    "",
    "Acquisition",
    "Share",
-   "Gentoo Media Inc.",
-   "US36467X2062",
-   "09/10/2026 00:00:00",
-   "98278.0",
+   "Proport invest ab",
+   "SE0027767724",
+   "08/10/2026 00:00:00",
+   "250.0",
    "Quantity",
-   "5.12007",
+   "2.19",
    "SEK",
-   "NASDAQ STOCKHOLM AB",
+   "SPOTLIGHT STOCK MARKET",
    "Current",
    ""
   ]
  ],
- "at": "2026-10-14T21:23:44.436250+00:00"
+ "at": "2026-10-15T16:00:11.495026+00:00"
 }
