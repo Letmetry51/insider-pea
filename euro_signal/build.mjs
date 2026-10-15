@@ -134,7 +134,7 @@ export function build(opts = {}) {
   const amf = { name: 'AMF', via: 'transactions-amf.swaoo.com, republication de la base BDIF', countries: ['FR'], kind: 'déclarations' };
   const prevAmf = state.src.AMF || {};
   const genDate = latest && latest.generated_at ? String(latest.generated_at).slice(0, 10) : null;
-  const rows = latest && Array.isArray(latest.transactions) ? latest.transactions.filter((t) => t && typeof t === 'object') : [];
+  let rows = latest && Array.isArray(latest.transactions) ? latest.transactions.filter((t) => t && typeof t === 'object') : [];
   const amfFresh = genDate && ES.daysBetween(genDate, today) <= 3 && rows.length > 0;
   amf.status = amfFresh ? 'ok' : 'echec';
   amf.lastSuccess = amfFresh ? genDate : prevAmf.lastSuccess || null;
@@ -144,6 +144,23 @@ export function build(opts = {}) {
   /* 2. Conversion et fusion dans l'archive (corrections, doublons, première observation) */
   const rejects = [], incoming = {};
   let warnCount = 0;
+  // ISIN mal saisi dans la déclaration : « O » à la place d'un zéro, ou chiffre manquant ou erroné. Réparé seulement quand c'est sûr :
+  // correction O → 0 qui donne un ISIN valide, sinon même nom de société qu'un ISIN valide déjà déclaré.
+  const normName = (n) => String(n || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  const isinByName = {};
+  rows.forEach((t) => { const i = String(t.isin || '').toUpperCase().trim(); if (ES.isValidIsin(i) && t.company_name) isinByName[normName(t.company_name)] = i; });
+  Object.keys(state.txArchive || {}).forEach((i) => { const l = state.txArchive[i] || []; const n = l.length && normName(l[l.length - 1].issuer); if (n && !isinByName[n] && ES.isValidIsin(i)) isinByName[n] = i; });
+  let isinFixed = 0;
+  rows = rows.map((t) => {
+    const raw = String(t.isin || '').toUpperCase().replace(/\s+/g, '');
+    if (!raw || ES.isValidIsin(raw)) return t;
+    const o = raw.slice(0, 2) + raw.slice(2).replace(/O/g, '0');
+    const fix = ES.isValidIsin(o) ? o : isinByName[normName(t.company_name)] || null;
+    if (!fix) return t;
+    isinFixed++;
+    return Object.assign({}, t, { isin: fix, isinDeclared: raw });
+  });
+  if (isinFixed) console.log('  ISIN mal saisis réparés : ' + isinFixed);
   rows.forEach((t) => {
     const r = ES.fromAmfCollector(t, { today, via: amf.via });
     if (!r.ok) { rejects.push({ isin: t.isin, company: t.company_name, declaration: t.declaration_number, errors: r.errors }); return; }
