@@ -712,8 +712,14 @@
   // formes courtes qui sont aussi des noms de famille (Sá, Sim, Se…) : retenues seulement en majuscules ou avec des points
   var AMBIG_FORMS = { sa: 1, se: 1, sc: 1, ss: 1, sim: 1, ab: 1, as: 1, ag: 1, kg: 1, nv: 1, bv: 1, sl: 1, lp: 1, cv: 1, ev: 1, ug: 1, oy: 1, gie: 1, inc: 0 };
   var LEGAL_WORDS = /(^| )(holding|holdings|participations?|participaciones|partecipazioni|deelnemingen|beteiligungs?\w*|invest|investissements?|investments?|investment|inversiones|inversora|investimenti|capital|partners|management|gestion|gestora|gestioni|family office|familienstiftung|stiftung|stichting|fondation|foundation|fondazione|fundacion|fonds|fund|funds|trust|beheer|verwaltungs?\w*|vermogensverwaltung|patrimoine|patrimonial|patrimoniale|societe|societa|sociedad|company|compagnie|groupe|group|gruppo|grupo|finanziaria|fiduciaria|immobiliare|cartera|consulting|conseil|ventures|equity|asset|assets|family|familie|famiglia|familia|croissance|gestao|investimentos|administracao|participacoes|sociedade|holdco|maatschap|financiere|finance|industries|industrie|beteiligung)( |$)/;
+  var LEGAL_MEMO = {};
   ES.isLegalEntity = function (name, issuer) {
     if (!name) return false;
+    var mk = name + '\u0001' + (issuer || '');
+    if (mk in LEGAL_MEMO) return LEGAL_MEMO[mk];
+    return (LEGAL_MEMO[mk] = isLegalEntityRaw(name, issuer));
+  };
+  function isLegalEntityRaw(name, issuer) {
     var raw = String(name), t = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     var toks = raw.split(/[\s,;()]+/).filter(Boolean);
     for (var x = 0; x < toks.length; x++) {
@@ -733,7 +739,7 @@
       if (i && (t === i || (i.length >= 4 && t.indexOf(i) === 0))) return true;
     }
     return false;
-  };
+  }
   /** Société exclue du comptage : par défaut, seules les sociétés qui ne sont pas la holding personnelle d'un dirigeant
    *  (fonds, investisseur, l'émetteur lui-même). Mode « strict » : toutes les sociétés. */
   ES.excludedEntity = function (t, cfg) {
@@ -2710,7 +2716,9 @@
     t.push('', 'Score non probabiliste. Aide à l\'analyse ; aucun ordre passé. Empreinte ' + a.decision.fingerprint);
     return { subject: subj, html: h.join(''), text: t.join('\n') };
   };
-  ES.PEA_LABEL = { eligible: 'confirmé éligible', non_eligible: 'confirmé non éligible', a_verifier: 'à vérifier' };
+  ES.PEA_LABEL = { eligible: 'confirmé éligible', probable: 'probable', non_eligible: 'confirmé non éligible', a_verifier: 'à vérifier' };
+  /** Pays de l'Union européenne et de l'Espace économique européen : siège exigé pour le PEA. */
+  ES.EEA = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'IS', 'LI', 'NO'];
 
   /* =============== Collecteur insider-pea (AMF via transactions-amf.swaoo.com) =============== */
   /** Natures AMF, y compris tronquées par la source (« ATTRIBUTION GRA... »). L'ordre compte. */

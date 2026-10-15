@@ -355,7 +355,7 @@ details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .pbar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:4px 0}.pbar i{display:block;height:100%;background:var(--accent)}
 .cdots i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:3px;background:var(--line);vertical-align:middle}.cdots i.ok{background:var(--good)}.cdots i.ko{background:var(--bad);opacity:.65}
 .mts{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin:8px 0}.mt{background:var(--sunk);border-radius:8px;padding:6px 8px 8px;display:grid;gap:3px;min-width:0}.mt-l{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mt-v{font-variant-numeric:tabular-nums}
-.mt-b{position:relative;height:6px;border-radius:3px;background:var(--line)}.mt-b i{position:absolute;top:0;bottom:0;border-radius:3px}.mt-b i.up{background:var(--good)}.mt-b i.dn{background:var(--bad)}.mt-b i.lv{background:var(--accent)}.fgrp{margin:12px 0 4px;font-weight:600}.liqw{background:color-mix(in srgb,var(--warn) 18%,transparent);border-radius:8px;padding:6px 10px}.hrow{margin:6px 0 10px}.hrow .mts{margin:4px 0}.mt-b s{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.mt-b{position:relative;height:6px;border-radius:3px;background:var(--line)}.mt-b i{position:absolute;top:0;bottom:0;border-radius:3px}.mt-b i.up{background:var(--good)}.mt-b i.dn{background:var(--bad)}.mt-b i.lv{background:var(--accent)}.fgrp{margin:12px 0 4px;font-weight:600}.linkbtn{min-height:32px;padding-top:4px;padding-bottom:4px}.liqw{background:color-mix(in srgb,var(--warn) 18%,transparent);border-radius:8px;padding:6px 10px}.hrow{margin:6px 0 10px}.hrow .mts{margin:4px 0}.mt-b s{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
 .sctr{width:100%;max-width:340px;height:auto;display:block;margin:8px 0 0;overflow:visible}.sctr-th{stroke:var(--muted);stroke-dasharray:3 3;stroke-width:1;opacity:.6}.sctr-ln{fill:none;stroke:var(--muted);stroke-width:1.5}
 .sctr-pt{stroke:var(--surface);stroke-width:2}.sctr-pt.z-good{fill:var(--good)}.sctr-pt.z-mid{fill:var(--warn)}.sctr-pt.z-bad{fill:var(--bad)}.sctr-v{font-size:11px;font-weight:700;fill:var(--ink)}.sctr-ax{font-size:10px;fill:var(--muted)}
 .chart .lv-sup{stroke:var(--good);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-res{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;opacity:.85}.chart .lv-t{font-weight:700;font-size:9px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}.chart .lv-ts{fill:var(--good)}.chart .lv-tr{fill:var(--bad)}
@@ -1131,8 +1131,14 @@ details.pos summary{font-size:1rem}
   // formes courtes qui sont aussi des noms de famille (Sá, Sim, Se…) : retenues seulement en majuscules ou avec des points
   var AMBIG_FORMS = { sa: 1, se: 1, sc: 1, ss: 1, sim: 1, ab: 1, as: 1, ag: 1, kg: 1, nv: 1, bv: 1, sl: 1, lp: 1, cv: 1, ev: 1, ug: 1, oy: 1, gie: 1, inc: 0 };
   var LEGAL_WORDS = /(^| )(holding|holdings|participations?|participaciones|partecipazioni|deelnemingen|beteiligungs?\w*|invest|investissements?|investments?|investment|inversiones|inversora|investimenti|capital|partners|management|gestion|gestora|gestioni|family office|familienstiftung|stiftung|stichting|fondation|foundation|fondazione|fundacion|fonds|fund|funds|trust|beheer|verwaltungs?\w*|vermogensverwaltung|patrimoine|patrimonial|patrimoniale|societe|societa|sociedad|company|compagnie|groupe|group|gruppo|grupo|finanziaria|fiduciaria|immobiliare|cartera|consulting|conseil|ventures|equity|asset|assets|family|familie|famiglia|familia|croissance|gestao|investimentos|administracao|participacoes|sociedade|holdco|maatschap|financiere|finance|industries|industrie|beteiligung)( |$)/;
+  var LEGAL_MEMO = {};
   ES.isLegalEntity = function (name, issuer) {
     if (!name) return false;
+    var mk = name + '\u0001' + (issuer || '');
+    if (mk in LEGAL_MEMO) return LEGAL_MEMO[mk];
+    return (LEGAL_MEMO[mk] = isLegalEntityRaw(name, issuer));
+  };
+  function isLegalEntityRaw(name, issuer) {
     var raw = String(name), t = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     var toks = raw.split(/[\s,;()]+/).filter(Boolean);
     for (var x = 0; x < toks.length; x++) {
@@ -1152,7 +1158,7 @@ details.pos summary{font-size:1rem}
       if (i && (t === i || (i.length >= 4 && t.indexOf(i) === 0))) return true;
     }
     return false;
-  };
+  }
   /** Société exclue du comptage : par défaut, seules les sociétés qui ne sont pas la holding personnelle d'un dirigeant
    *  (fonds, investisseur, l'émetteur lui-même). Mode « strict » : toutes les sociétés. */
   ES.excludedEntity = function (t, cfg) {
@@ -3129,7 +3135,9 @@ details.pos summary{font-size:1rem}
     t.push('', 'Score non probabiliste. Aide à l\'analyse ; aucun ordre passé. Empreinte ' + a.decision.fingerprint);
     return { subject: subj, html: h.join(''), text: t.join('\n') };
   };
-  ES.PEA_LABEL = { eligible: 'confirmé éligible', non_eligible: 'confirmé non éligible', a_verifier: 'à vérifier' };
+  ES.PEA_LABEL = { eligible: 'confirmé éligible', probable: 'probable', non_eligible: 'confirmé non éligible', a_verifier: 'à vérifier' };
+  /** Pays de l'Union européenne et de l'Espace économique européen : siège exigé pour le PEA. */
+  ES.EEA = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'IS', 'LI', 'NO'];
 
   /* =============== Collecteur insider-pea (AMF via transactions-amf.swaoo.com) =============== */
   /** Natures AMF, y compris tronquées par la source (« ATTRIBUTION GRA... »). L'ordre compte. */
@@ -3374,7 +3382,7 @@ details.pos summary{font-size:1rem}
     try { if ('serviceWorker' in navigator && (/^https:$/.test(location.protocol) || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
   }
   function defang(o) {
-    if (typeof o === 'string') return o.replace(/</g, '‹').replace(/>/g, '›');
+    if (typeof o === 'string') return o.indexOf('<') < 0 && o.indexOf('>') < 0 ? o : o.replace(/</g, '‹').replace(/>/g, '›');
     if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) o[i] = defang(o[i]); return o; }
     if (o && typeof o === 'object') { Object.keys(o).forEach(function (k) { o[k] = defang(o[k]); }); return o; }
     return o;
@@ -3515,7 +3523,7 @@ details.pos summary{font-size:1rem}
     return '<div class="sbar" role="img" aria-label="Note ' + ES.note(sc.total, S.cfg) + ' sur 100">' + seg('insiders') + seg('buyback') + seg('results') + seg('market') + '</div>';
   }
   function uniChip(u) { var m = { retenu: ['Retenu', 'good'], rejete: ['Rejeté', 'bad'], a_examiner: ['À examiner', 'warn'] }[u.status]; return '<span class="chip ' + m[1] + '">' + m[0] + '</span>'; }
-  function peaChip(i) { var s = i.peaStatus || 'a_verifier'; return '<span class="chip ' + (s === 'eligible' ? 'good' : s === 'non_eligible' ? 'bad' : 'warn') + '" title="' + esc(i.peaSource ? 'Source : ' + i.peaSource + ' (' + i.peaDate + ')' : 'Aucune source enregistrée') + '">PEA ' + ES.PEA_LABEL[s] + '</span>'; }
+  function peaChip(i) { var s = i.peaStatus || 'a_verifier'; return '<span class="chip ' + (s === 'eligible' || s === 'probable' ? 'good' : s === 'non_eligible' ? 'bad' : 'warn') + '" title="' + esc(i.peaSource ? 'Source : ' + i.peaSource + ' (' + i.peaDate + ')' : 'Aucune source enregistrée') + '">PEA ' + ES.PEA_LABEL[s] + '</span>'; }
   function alertChip(isin) {
     var c = S.computed[isin], d = c.dec;
     if (d.send) return '<span class="chip good">Alerte prête</span>';
@@ -4071,7 +4079,7 @@ details.pos summary{font-size:1rem}
     ['buyback', 'results'].forEach(function (k) { sc.families[k].items.forEach(function (it) { if (it.points > 0) plus.push(esc(it.label.charAt(0).toUpperCase() + it.label.slice(1)) + '.'); }); });
     if (!plus.length) plus.push('Aucun signal récent : ni achat de dirigeant, ni rachat, ni résultat au-dessus du consensus.');
     var pea = x.peaStatus || 'a_verifier';
-    if (pea !== 'eligible') check.push(pea === 'non_eligible' ? 'Non éligible au PEA.' : 'Éligibilité PEA à vérifier auprès de votre courtier.');
+    if (pea !== 'eligible') check.push(pea === 'non_eligible' ? 'Non éligible au PEA.' : pea === 'probable' ? 'PEA probable (' + esc(x.peaSource || '') + ') : à confirmer chez votre courtier.' : 'Éligibilité PEA à vérifier auprès de votre courtier.');
     if (sc.fallingKnife) check.push('Cours en repli : il est passé sous ses moyennes 50 et 200 séances. Un achat de dirigeant ne marque pas forcément le point bas ; entrer en plusieurs fois.');
     if (sc.cluster && sc.cluster.coordinated) check.push('Achats groupés le même jour avec des montants proches : souvent un programme collectif décidé par la société, moins parlant que des achats spontanés.');
     var hl = ES.financialHealth(x.fund);
@@ -4131,7 +4139,7 @@ details.pos summary{font-size:1rem}
         (lv.s1 && lv.s1.distPct >= -3 ? (lv.s1.kind === 'low52' ? ' Près du plus bas annuel : attendre qu\'il tienne.' : ' Près du support : entrée favorable.') : lv.r1 && lv.r1.distPct <= 3 ? ' Bute sur la résistance : entrer en partie.' : ''));
       if (paid) buy.push('Le dirigeant a payé ' + fmtN(paid) + ' le ' + shortDate(sc.discount.date) + '.');
     }
-    if (x.peaStatus !== 'eligible') buy.push(x.peaStatus === 'non_eligible' ? '🚫 Non éligible au PEA.' : 'PEA : à vérifier chez votre courtier.');
+    if (x.peaStatus !== 'eligible') buy.push(x.peaStatus === 'non_eligible' ? '🚫 Non éligible au PEA.' : x.peaStatus === 'probable' ? 'PEA : probable (siège dans l\'UE), à confirmer chez votre courtier.' : 'PEA : à vérifier chez votre courtier.');
     // Pour revendre : objectif, sortie
     if (lv && lv.r1) sell.push('🎯 Objectif : ' + fmtN(lv.r1.price) + ' (' + pct(lv.r1.distPct) + ')' + (lv.r2 ? ', puis ' + fmtN(lv.r2.price) + ' (' + pct(lv.r2.distPct) + ')' : '') + '.');
     var outs = []; if (lv && lv.s1) outs.push('clôture sous ' + fmtN(lv.s1.price) + ' (' + pct(lv.s1.distPct) + ')'); if (z.stopPct) outs.push('−' + z.stopPct + ' % depuis votre prix'); if (paid) outs.push('cours sous ' + fmtN(paid * 0.9) + ' (−10 % du prix du dirigeant)');
@@ -4441,7 +4449,10 @@ details.pos summary{font-size:1rem}
     var h = '<div class="cols"><section class="card"><h3>Rachats d\'actions</h3>';
     h += ev.buybacks.length ? '<ul class="evs">' + ev.buybacks.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).map(function (b) {
       return '<li><div><b>' + STAGES[b.stage] + '</b> · ' + b.date + (b.amount ? ' · ' + fmtMoney(b.amount, 'EUR') : '') + (b.pctCapital != null ? ' · ' + fmtN(b.pctCapital, 1) + ' % du capital' : '') + (b.note ? '<small>' + esc(b.note) + '</small>' : '') + (ES.safeUrl(b.sourceUrl) ? '<small><a href="' + esc(ES.safeUrl(b.sourceUrl)) + '" target="_blank" rel="noopener">source</a></small>' : '') + '</div>' + (b.confirmed ? '<span class="chip good">Confirmé</span>' : '<span class="chip warn">À vérifier</span>') + '</li>';
-    }).join('') + '</ul>' : '<p class="muted">Aucun rachat repéré.</p>';
+    }).join('') + '</ul>' : '<p class="muted">Aucun rachat repéré dans les communiqués.</p>';
+    var sc = (S.inst[i] || {}).sharesChange;
+    if (sc) h += '<p><b>Nombre d\'actions</b> : ' + (sc.pct <= -1.5 ? '<span class="pos">' + pct(sc.pct) + '</span> du ' + shortDate(sc.from) + ' au ' + shortDate(sc.to) + ' → la société rachète et annule ses actions (chaque action restante détient une plus grande part de l\'entreprise).' : sc.pct >= 3 ? '<span class="neg">' + pct(sc.pct) + '</span> du ' + shortDate(sc.from) + ' au ' + shortDate(sc.to) + ' → émission d\'actions nouvelles (dilution des actionnaires).' : pct(sc.pct) + ' du ' + shortDate(sc.from) + ' au ' + shortDate(sc.to) + ' : stable.') + '</p>' +
+      mini('Actions en circulation sur un an', pct(sc.pct), -sc.pct / 100, -0.1, 0.1, true, 'Vert : moins d\'actions (rachats) ; rouge : plus d\'actions (dilution)');
     h += '</section><section class="card"><h3>Résultats et perspectives</h3>';
     h += ev.results.length ? '<ul class="evs">' + ev.results.slice().sort(function (a, b) { return a.pubDate < b.pubDate ? 1 : -1; }).map(function (r) {
       var e = ES.surprise(r.epsActual, r.epsConsensus), v = ES.surprise(r.revActual, r.revConsensus);
@@ -4613,7 +4624,10 @@ details.pos summary{font-size:1rem}
     (X.themes || []).forEach(function (t) {
       var v = themeVerdict(t);
       h += '<section class="card theme ' + v[0] + '"><h3>' + esc(t.name) + '</h3><p class="verdict">' + v[1] + ' <b>' + v[2] + '</b></p>' +
-        '<p class="small">Baromètre américain (' + esc(t.us.join(', ')) + ') : ' + pc100(t.usRs13) + ' sur 3 mois, ' + pc100(t.usRs26) + ' sur 6 mois face au S&amp;P 500.<br>Chaîne européenne : ' + pc100(t.euRs13) + ' sur 3 mois, ' + pc100(t.euRs26) + ' sur 6 mois face au STOXX 600.' + (t.revisions != null ? '<br>Analystes sur la chaîne européenne : ' + (t.revisions >= 0 ? '+' : '') + Math.round(t.revisions * 100) + ' % de révisions nettes à la hausse en 30 jours.' : '') + '</p>' +
+        '<div class="mts">' + mini('🇺🇸 Baromètre 3 mois', pc100(t.usRs13), t.usRs13, -0.3, 0.3, true, 'Sociétés américaines du thème (' + t.us.join(', ') + ') face au S&P 500') + mini('🇺🇸 Baromètre 6 mois', pc100(t.usRs26), t.usRs26, -0.3, 0.3, true, 'Face au S&P 500') +
+          mini('🇪🇺 Europe 3 mois', pc100(t.euRs13), t.euRs13, -0.3, 0.3, true, 'Chaîne européenne du thème face au STOXX 600') + mini('🇪🇺 Europe 6 mois', pc100(t.euRs26), t.euRs26, -0.3, 0.3, true, 'Face au STOXX 600') +
+          (t.revisions != null ? mini('Analystes (Europe)', (t.revisions >= 0 ? '+' : '') + Math.round(t.revisions * 100) + ' %', t.revisions, -1, 1, true, 'Révisions de prévisions nettes à la hausse en 30 jours') : '') + '</div>' +
+          '<p class="sp-cap">Baromètre américain : ' + esc(t.us.join(', ')) + '. Barre verte vers la droite : fait mieux que son indice.</p>' +
         (function () { var ll = themeLL(t); if (!ll || !ll.corr) return ''; var c1 = ll.corr['t+1'], c0 = ll.corr['t+0'], R = ll.rule || {}, A = ll.alwaysEU || {};
           return '<p class="small muted">Par le passé : ' + (c0 >= 0.3 ? 'la chaîne européenne a monté et baissé en même temps que le baromètre américain (corrélation ' + fmtN(c0, 2) + ')' : 'lien faible avec le baromètre américain') +
             (c1 >= 0.2 ? ', avec un mois de retard exploitable (' + fmtN(c1, 2) + ').' : ', mais sans retard exploitable le mois suivant (' + fmtN(c1, 2) + ').') +

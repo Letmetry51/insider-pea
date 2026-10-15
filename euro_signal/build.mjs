@@ -222,7 +222,10 @@ export function build(opts = {}) {
   const eDate = evRaw.generated_at ? String(evRaw.generated_at).slice(0, 10) : null;
   const eFresh = eDate && ES.daysBetween(eDate, today) <= 3 && Object.keys(evRaw.items || {}).length > 0;
   const prevE = state.src['Yahoo Finance (événements)'] || {};
-  const yev = { name: 'Yahoo Finance (événements)', kind: 'résultats, communiqués, révisions', via: 'yfinance (GitHub Actions)', status: eFresh ? 'ok' : 'echec', lastSuccess: eFresh ? eDate : prevE.lastSuccess || null, lastAttempt: today, countries: [], note: eFresh ? (evRaw.partial ? 'collecte partielle faute de temps : ' + Object.keys(evRaw.items || {}).length + ' titres sur ' + (evRaw.total || '?') + ' relus ce soir, les autres gardent leurs données précédentes' : null) : 'événements non mis à jour (familles R et E figées à la dernière collecte)' };
+  // Communiqués : Yahoo ne les sert plus depuis GitHub (aucun titre, sur tous les onglets) → rachats et prévisions des communiqués non détectés
+  const pressN = Object.values(evRaw.items || {}).reduce((s, v) => s + ((v && v.press) || []).length, 0);
+  const noPress = eFresh && Object.keys(evRaw.items || {}).length >= 50 && pressN === 0;
+  const yev = { name: 'Yahoo Finance (événements)', kind: 'résultats, communiqués, révisions', via: 'yfinance (GitHub Actions)', status: eFresh ? (noPress ? 'partiel' : 'ok') : 'echec', lastSuccess: eFresh ? eDate : prevE.lastSuccess || null, lastAttempt: today, countries: [], note: eFresh ? (noPress ? 'résultats et révisions à jour ; communiqués indisponibles chez Yahoo (rachats d\'actions et prévisions des communiqués non détectés, nombre d\'actions suivi à la place)' + (evRaw.partial ? ' ; collecte partielle faute de temps' : '') : evRaw.partial ? 'collecte partielle faute de temps : ' + Object.keys(evRaw.items || {}).length + ' titres sur ' + (evRaw.total || '?') + ' relus ce soir, les autres gardent leurs données précédentes' : null) : 'événements non mis à jour (familles R et E figées à la dernière collecte)' };
   yev.log = [{ at: today, accepted: Object.keys(evRaw.items || {}).length, rejected: evRaw.errors || 0 }].concat(prevE.log || []).slice(0, 15);
   state.events = state.events || {};
   const revisions = {};
@@ -259,6 +262,12 @@ export function build(opts = {}) {
     const er = (evRaw.items || {})[isin];
     state.fund = state.fund || {};
     if (er && er.fund) state.fund[isin] = er.fund; // conservées si la collecte du soir échoue
+    // Nombre d'actions sur un an (relu une fois par semaine) : baisse nette = rachats, hausse = émission d'actions (dilution)
+    state.shares = state.shares || {};
+    if (er && er.shares && er.shares.n0 > 0 && er.shares.n1 > 0) state.shares[isin] = Object.assign({ asOf: today }, er.shares);
+    if (state.shares[isin] && ES.daysBetween(state.shares[isin].asOf || today, today) > 45) delete state.shares[isin];
+    const shr = state.shares[isin];
+    i.sharesChange = shr && ES.daysBetween(shr.from, shr.to) >= 180 ? { pct: +((shr.n1 / shr.n0 - 1) * 100).toFixed(2), from: shr.from, to: shr.to } : null;
     i.fund = state.fund[isin] || null;
     // Prévisionnels des analystes (consensus du jour) : conservés si la collecte du soir échoue, abandonnés après 30 jours
     state.forecast = state.forecast || {};
@@ -270,6 +279,9 @@ export function build(opts = {}) {
     if (i.fund && /^REIT\b/i.test(String(i.fund.industry || ''))) { i.peaStatus = 'non_eligible'; i.peaSource = 'foncière cotée (SIIC, SOCIMI, REIT) : exclue du PEA'; i.peaDate = today; }
     // PEA : siège dans l'Union européenne ou l'Espace économique européen exigé ; Royaume-Uni, Suisse, îles anglo-normandes… exclus
     if (/^(GB|CH|JE|GG|IM|GI|FO|MC)/.test(isin)) { i.peaStatus = 'non_eligible'; i.peaSource = 'siège hors Union européenne et Espace économique européen (code ISIN ' + isin.slice(0, 2) + ')'; i.peaDate = today; }
+    // Probable : action d'une société immatriculée dans l'UE ou l'EEE (code ISIN), qui n'est pas une foncière cotée. Affichage seulement :
+    // le statut « éligible » confirmé (mode strict, qualité des données) reste réservé à une vérification documentée.
+    if (i.peaStatus === 'a_verifier' && ES.EEA.indexOf(isin.slice(0, 2)) > -1 && i.fund && i.fund.industry) { i.peaStatus = 'probable'; i.peaSource = 'siège dans l\'UE ou l\'EEE (code ISIN ' + isin.slice(0, 2) + '), pas une foncière cotée'; i.peaDate = today; }
     i.nextEarnings = er && er.nextEarnings && er.nextEarnings > today ? er.nextEarnings : (state.nextEarnings || {})[isin] > today ? state.nextEarnings[isin] : null;
     if (i.nextEarnings) (state.nextEarnings = state.nextEarnings || {})[isin] = i.nextEarnings;
     if (!p) i.priceNote = (prices.unresolved || []).indexOf(isin) > -1 ? 'aucun ticker Yahoo trouvé pour cet ISIN' : 'cours non collectés';
