@@ -14,7 +14,7 @@ import math
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yfinance as yf
@@ -212,6 +212,19 @@ def main():
                 rec["forecast"] = forecasts(t, inf)
             except Exception:
                 rec["forecast"] = None
+            # Nombre d'actions sur un an (les communiqués Yahoo ne sont plus servis) : une baisse nette révèle des rachats
+            try:
+                sh = t.get_shares_full(start=(today_d - timedelta(days=400)).isoformat())
+                if sh is not None and len(sh) >= 5:
+                    sh = sh[sh > 0]
+                    sh.index = [str(x)[:10] for x in sh.index]
+                    sh = sh.groupby(level=0).last()
+                    old = sh[sh.index <= (today_d - timedelta(days=330)).isoformat()]
+                    base = old if len(old) else sh
+                    rec["shares"] = {"from": base.index[-1] if len(old) else base.index[0], "n0": int(base.iloc[-1] if len(old) else base.iloc[0]),
+                                     "to": sh.index[-1], "n1": int(sh.iloc[-1])}
+            except Exception:
+                pass
         items[isin] = rec
         time.sleep(0.4)
         if n % 20 == 0:
@@ -220,6 +233,7 @@ def main():
     withE = sum(1 for v in items.values() if v["earnings"])
     withP = sum(1 for v in items.values() if v["press"])
     withF = sum(1 for v in items.values() if v.get("fund"))
+    print(f"Nombre d'actions sur un an : {sum(1 for v in items.values() if v.get('shares'))} titres relus ce soir")
     print(f"Prévisionnels d'analystes : {sum(1 for v in items.values() if (v.get('forecast') or {}).get('eps'))} titres ; objectifs de cours : {sum(1 for v in items.values() if (v.get('forecast') or {}).get('target'))}")
     print(f"Données financières : {withF} titres ; prochaines publications connues : {sum(1 for v in items.values() if v.get('nextEarnings'))}")
     print(f"Événements écrits : {len(items)} titres, {withE} avec résultats, {withP} avec communiqués, {errors} erreur(s)")
