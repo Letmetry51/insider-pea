@@ -1639,13 +1639,14 @@
    * RSI 14 jours lissé de Wilder ; MACD = moyenne exponentielle 12 − 26 jours, ligne de signal = moyenne exponentielle 9 jours du MACD.
    * cross : 'up' ou 'down' si le MACD a croisé sa ligne de signal dans les 5 dernières séances (crossAgo : séances écoulées).
    */
-  ES.oscillators = function (adj) {
+  ES.oscillators = function (adj, opts) {
     var c = (adj || []).filter(function (r) { return r && r[4] > 0; }).map(function (r) { return r[4]; }), n = c.length;
     if (n < 40) return null;
     var g = 0, l = 0, k;
     for (k = 1; k <= 14; k++) { var d0 = c[k] - c[k - 1]; if (d0 > 0) g += d0; else l -= d0; }
     g /= 14; l /= 14;
-    for (k = 15; k < n; k++) { var d1 = c[k] - c[k - 1]; g = (g * 13 + Math.max(d1, 0)) / 14; l = (l * 13 + Math.max(-d1, 0)) / 14; }
+    var rsiS = [];
+    for (k = 15; k < n; k++) { var d1 = c[k] - c[k - 1]; g = (g * 13 + Math.max(d1, 0)) / 14; l = (l * 13 + Math.max(-d1, 0)) / 14; rsiS.push(l === 0 ? 100 : 100 - 100 / (1 + g / l)); }
     var rsiW = l === 0 ? 100 : 100 - 100 / (1 + g / l);
     var ema = function (arr, p) { var a = 2 / (p + 1), out = [arr[0]]; for (var i = 1; i < arr.length; i++) out.push(a * arr[i] + (1 - a) * out[i - 1]); return out; };
     var e12 = ema(c, 12), e26 = ema(c, 26), m = c.map(function (_, i) { return e12[i] - e26[i]; }), sg = ema(m, 9);
@@ -1657,7 +1658,10 @@
     }
     var last = c[n - 1];
     return { rsi: +rsiW.toFixed(1), macd: +(m[n - 1] / last * 100).toFixed(3), signal: +(sg[n - 1] / last * 100).toFixed(3), above: m[n - 1] > sg[n - 1], cross: cross, crossAgo: ago,
-      zone: rsiW < 30 ? 'survente' : rsiW > 70 ? 'surachat' : 'neutre' };
+      zone: rsiW < 30 ? 'survente' : rsiW > 70 ? 'surachat' : 'neutre',
+      // séries récentes pour les jauges du tableau de bord (jamais stockées dans les fichiers : recalculées à l'affichage)
+      series: opts && opts.series ? { rsi: rsiS.slice(-(opts.series)).map(function (v) { return +v.toFixed(1); }),
+        hist: m.slice(-(opts.series)).map(function (v, i, arr) { var j = n - arr.length + i; return +((v - sg[j]) / c[j] * 100).toFixed(3); }) } : undefined };
   };
   /** Oscillateurs à une date (cours connus ce jour-là seulement). */
   ES.oscillatorsAt = function (adj, d) {
