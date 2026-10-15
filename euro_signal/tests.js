@@ -1072,6 +1072,11 @@ t('Plan d\'entrée : rebond sur support, cassure de résistance, chute sans supp
   const pd = ES.entryPlan(dn);
   ok(pd.trend === 'down' && (pd.position === 'falling' || pd.primary.key === 'breakout'), 'tendance baissière : ' + JSON.stringify([pd.trend, pd.position, pd.primary && pd.primary.key]));
   eq(ES.entryPlan(range.slice(0, 50)), null, 'historique trop court');
+  // saut de cours non ajusté (÷2,6 en une séance, cas Volati) : aucun niveau ni objectif tiré d'avant le saut
+  const gap = mkRows((k) => 100 + 10 * Math.sin(k / 8), 140).concat(mkRows((k) => 35 + 3 * Math.sin(k / 7), 120, '2025-05-21'));
+  const pg = ES.entryPlan(gap);
+  ok(pg && [pg.primary, pg.alt].every((x) => !x || x.target == null || x.target < 50), 'objectifs dans la plage d\'après le saut : ' + JSON.stringify(pg && [pg.primary, pg.alt].map((x) => x && x.target)));
+  ok(pg.sd < 0.05 && /Saut de cours/.test(pg.why.join(' ')), 'volatilité sans le saut et explication');
   // critères en observation : aucune donnée postérieure à la date de l'achat
   const d = range[200][0];
   eq(JSON.stringify(ES.setupAt(range, d)), JSON.stringify(ES.setupAt(range.slice(0, 201), d)), 'setupAt sans regard vers le futur');

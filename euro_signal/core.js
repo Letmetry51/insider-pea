@@ -1818,13 +1818,23 @@
     if (n < 120) return null;
     var lv = opts.levels || ES.supportResistance(R); if (!lv) return null;
     var c = R.map(function (r) { return r[4]; }), last = c[n - 1];
-    var lr = []; for (var i = Math.max(1, n - 60); i < n; i++) lr.push(Math.log(c[i] / c[i - 1]));
+    // saut de cours non ajusté (scission, regroupement, distribution : ×2,5 ou ÷2,5 en une séance) : les niveaux d'avant
+    // le saut n'ont plus de sens (objectif à +265 % sur un ancien plus haut) ; on ne garde que ceux de la plage d'après
+    var jumpAt = -1;
+    for (var j = n - 1; j > 0; j--) { var q = c[j] / c[j - 1]; if (q > 2.5 || q < 0.4) { jumpAt = j; break; } }
+    if (jumpAt > 0) {
+      var post = c.slice(jumpAt), lo = Math.min.apply(null, post) * 0.9, hi = Math.max.apply(null, post) * 1.1;
+      var inR = function (l) { return l && l.price >= lo && l.price <= hi; };
+      lv = Object.assign({}, lv, { supports: (lv.supports || []).filter(inR), resistances: (lv.resistances || []).filter(inR) });
+    }
+    var lr = []; for (var i = Math.max(1, n - 60); i < n; i++) if (i !== jumpAt) lr.push(Math.log(c[i] / c[i - 1]));
     var mu = mean(lr), sd = Math.sqrt(lr.reduce(function (s, x) { return s + (x - mu) * (x - mu); }, 0) / Math.max(1, lr.length - 1));
     sd = Math.min(Math.max(sd, 0.004), 0.12);
     // ATR plancher : un titre peu échangé (séances sans transaction, plus haut = plus bas) aurait sinon un stop collé
     // au cours d'achat et un gain / risque irréaliste (×30) ; on prend au moins 0,8 écart-type journalier et 0,5 % du cours
     var atr = Math.max(lv.atr || last * 0.02, last * sd * 0.8, last * 0.005);
-    var ma50 = sma(c, 50), ma200 = sma(c, 200), ma50ago = n >= 70 ? mean(c.slice(n - 70, n - 20)) : null;
+    var cT = jumpAt > 0 ? c.slice(jumpAt) : c, nT = cT.length; // moyennes mobiles sans les cours d'avant un saut non ajusté
+    var ma50 = sma(cT, 50), ma200 = sma(cT, 200), ma50ago = nT >= 70 ? mean(cT.slice(nT - 70, nT - 20)) : null;
     var trend = ma200 != null ? (last > ma200 && ma50 > ma200 ? 'up' : last < ma200 && ma50 < ma200 ? 'down' : 'mixed')
       : ma50 != null && ma50ago != null ? (ma50 > ma50ago * 1.02 && last > ma50 ? 'up' : ma50 < ma50ago * 0.98 && last < ma50 ? 'down' : 'mixed') : 'mixed';
     var s1 = lv.supports[0] || null, s2 = lv.supports[1] || null, r1 = lv.resistances[0] || null, r2 = lv.resistances[1] || null;
@@ -1866,6 +1876,7 @@
     var atHigh = !r1 || (r1.kind === 'high52' && r1.price - last <= atr); // plus haut de l'année à moins d'une séance ordinaire
     var pos = !s1 && !bo ? 'falling' : bo && sup && sup.key === 'retest' ? 'retest' : atHigh ? 'highs' : dS != null && last - sup.level <= near ? 'support' : dR != null && r1.price - last <= near ? 'resistance' : 'middle';
     var primary = null, alt = null, verdict, label, why = [];
+    if (jumpAt > 0) why.push('Saut de cours le ' + R[jumpAt][0].split('-').reverse().join('/') + ' (opération sur titres probable) : seuls les niveaux postérieurs sont retenus.');
     var TR = { up: 'tendance de fond haussière (MM50 au-dessus de la MM200)', down: 'tendance de fond baissière (cours et MM50 sous la MM200)', mixed: 'tendance de fond indécise' };
     if (pos === 'falling') {
       primary = brk; verdict = 'avoid'; label = 'Ne pas acheter maintenant : aucun support sous le cours';
