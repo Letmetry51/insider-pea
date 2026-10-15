@@ -1235,6 +1235,11 @@
   function fmtPct1(v) { return String(Math.round(v * 1000) / 10).replace('.', ',') + ' %'; }
   /** Lecture en une phrase de ES.intrinsicValue : { tone: good | mixed | bad | na, chip, text }. */
   ES.valueView = function (v) {
+    var r = ES.valueView0(v);
+    if (r && r.text) r.text = r.text.replace(/ %/g, '\u00a0%'); // pas de « % » seul en début de ligne
+    return r;
+  };
+  ES.valueView0 = function (v) {
     if (!v) return null;
     var f = function (x) { return String(+(+x).toPrecision(x >= 1000 ? 5 : 3)).replace('.', ','); };
     if (v.negEquity) return { tone: 'bad', chip: 'fonds propres négatifs', text: 'Capitaux propres négatifs : les dettes dépassent les actifs. Aucune valeur comptable ne soutient le cours.' };

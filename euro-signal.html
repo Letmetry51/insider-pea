@@ -395,8 +395,8 @@ svg .mk-old{stroke:var(--surface);stroke-width:1.5}svg .mk-ok{fill:var(--good)}s
 .vb-tb{position:absolute;top:-5px;bottom:-5px;width:0;margin-left:-1px;border-left:2px dashed var(--s1)}
 .vb-px{position:absolute;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--surface);border:3px solid var(--ink);box-shadow:0 0 0 2px var(--surface)}
 .vb-ax{position:relative;height:16px;font-size:.72rem;color:var(--muted)}.vb-ax span{position:absolute;top:3px;white-space:nowrap}
-.vb-leg{list-style:none;padding:0;margin:6px 0 0;font-size:.88rem;display:flex;flex-wrap:wrap;gap:4px 16px}.vb-leg li{display:flex;align-items:center;gap:6px;min-width:0}
-.vb-leg b[class^="k-"]{display:inline-block;flex:none}.k-px{width:12px;height:12px;border-radius:50%;border:3px solid var(--ink);background:var(--surface)}
+.vb-leg{list-style:none;padding:0;margin:6px 0 0;font-size:.88rem}.vb-leg li{margin:2px 0}
+.vb-leg b[class^="k-"]{display:inline-block;vertical-align:-1px;margin-right:7px}.k-px{width:12px;height:12px;border-radius:50%;border:3px solid var(--ink);background:var(--surface)}
 .k-iv{width:16px;height:10px;border-radius:3px;background:color-mix(in srgb,var(--good) 45%,transparent);box-shadow:inset 3px 0 0 var(--good)}.k-bv{width:3px;height:14px;background:var(--s1);border-radius:2px}
 .acct th small{display:block;font-weight:400;color:var(--muted);font-size:.76rem;max-width:42ch}
 .kid-good{border-left-color:var(--good);background:var(--good-soft)}.kid-mixed{border-left-color:var(--warn);background:var(--warn-soft)}.kid-bad{border-left-color:var(--bad);background:var(--bad-soft)}
@@ -1666,6 +1666,11 @@ details.pos summary{font-size:1rem}
   function fmtPct1(v) { return String(Math.round(v * 1000) / 10).replace('.', ',') + ' %'; }
   /** Lecture en une phrase de ES.intrinsicValue : { tone: good | mixed | bad | na, chip, text }. */
   ES.valueView = function (v) {
+    var r = ES.valueView0(v);
+    if (r && r.text) r.text = r.text.replace(/ %/g, '\u00a0%'); // pas de « % » seul en début de ligne
+    return r;
+  };
+  ES.valueView0 = function (v) {
     if (!v) return null;
     var f = function (x) { return String(+(+x).toPrecision(x >= 1000 ? 5 : 3)).replace('.', ','); };
     if (v.negEquity) return { tone: 'bad', chip: 'fonds propres négatifs', text: 'Capitaux propres négatifs : les dettes dépassent les actifs. Aucune valeur comptable ne soutient le cours.' };
@@ -3984,14 +3989,18 @@ details.pos summary{font-size:1rem}
     var x = S.inst[i] || {}, v = x.value, cur = curOf(x);
     if (!v) return '<p class="muted">' + (x.accounts ? 'Valeur non calculable : cours ou nombre d\'actions manquant.' : 'Comptes annuels pas encore collectés pour cette société (complétés au fil des soirs).') + '</p>';
     var vv = ES.valueView(v) || { tone: 'na', text: '' }, TI = { good: '🟢', mixed: '🟡', bad: '🔴', na: '⚪' };
-    var h = '<div class="kidline kid-' + esc(vv.tone) + '"><p class="kidh">' + (TI[vv.tone] || '⚪') + ' <b>' + ({ good: 'Cours sous la valeur estimée', mixed: 'Cours proche ou au-dessus de la valeur estimée', bad: v.negEquity ? 'Fonds propres négatifs' : v.lossMaking ? 'Société en pertes' : 'Cours éloigné de la valeur estimée', na: 'Valeur non estimable' }[vv.tone]) + '</b></p><p>' + esc(vv.text) + '</p></div>';
+    var below = v.mid != null && (v.zone === 'below' || v.marginPct >= 20), why = v.stale ? 'comptes anciens' : v.irregular ? 'rentabilité irrégulière' : 'rentabilité faible, piège de valeur possible';
+    var head = vv.tone === 'good' ? 'Cours sous la valeur estimée' : vv.tone === 'bad' ? (v.negEquity ? 'Fonds propres négatifs' : v.lossMaking ? 'Société en pertes' : 'Cours très au-dessus de la valeur estimée')
+      : vv.tone === 'na' ? 'Valeur non estimable' : below ? 'Décote à confirmer (' + why + ')' : v.zone === 'above' ? 'Cours au-dessus de la valeur estimée' : 'Cours proche de la valeur estimée';
+    var h = '<div class="kidline kid-' + esc(vv.tone) + '"><p class="kidh">' + (TI[vv.tone] || '⚪') + ' <b>' + esc(head) + '</b></p><p>' + esc(vv.text) + '</p></div>';
     if (v.na || v.negEquity) return h + '<p class="foot">Comptes de l\'exercice ' + esc(v.year) + '.</p>';
     h += valueBar(v, cur);
     var crits = [];
     if (v.mid != null) {
       var ratio = v.price / v.mid;
-      crits.push(critBox('💎', 'Marge de sécurité', v.marginPct >= 0 ? '+' + v.marginPct + ' %' : '×' + fmtN(ratio, 1), v.marginPct >= 20 ? 'good' : v.marginPct >= 0 ? 'neu' : ratio > 2 ? 'bad' : 'mid',
-        v.marginPct >= 30 ? 'Large décote sur la valeur estimée' : v.marginPct >= 20 ? 'Décote nette' : v.marginPct >= 0 ? 'Cours proche de la valeur estimée' : 'Aucune : le cours vaut ' + fmtN(ratio, 1) + ' fois la valeur estimée',
+      var cheap = ES.valueCheap(v);
+      crits.push(critBox('💎', 'Marge de sécurité', v.marginPct >= 0 ? '+' + v.marginPct + ' %' : '×' + fmtN(ratio, 1), cheap ? 'good' : v.marginPct >= 20 ? 'mid' : v.marginPct >= 0 ? 'neu' : ratio > 2 ? 'bad' : 'mid',
+        v.marginPct >= 20 && !cheap ? 'Décote à confirmer : ' + why : v.marginPct >= 30 ? 'Large décote sur la valeur estimée' : v.marginPct >= 20 ? 'Décote nette' : v.marginPct >= 0 ? 'Cours proche de la valeur estimée' : 'Aucune : le cours vaut ' + fmtN(ratio, 1) + ' fois la valeur estimée',
         scaleLine(Math.min(ratio, 3), 0, 3, [[0, 0.8, 'good'], [0.8, 1.2, 'neu'], [1.2, 2, 'mid'], [2, 3, 'bad']], [[0, '0'], [1, '= valeur'], [2, '×2'], [3, '×3+']], 'Cours divisé par la valeur intrinsèque : ' + fmtN(ratio, 2)),
         'Écart entre la valeur intrinsèque centrale et le cours. Benjamin Graham demandait au moins 30 % de marge pour se protéger des erreurs d\'estimation.'));
     }
