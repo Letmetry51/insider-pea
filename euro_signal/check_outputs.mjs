@@ -26,7 +26,7 @@ const median = (a) => { if (!a.length) return null; const s = a.slice().sort((x,
 const main = read('euro-signal.json');
 check(main && !main.__error, 'euro-signal.json lisible' + (main && main.__error ? ' (' + main.__error + ')' : ''));
 if (!main || main.__error) finish();
-for (const f of ['euro-signal.json', 'euro-signal-long.json', 'euro-signal-state.json', 'sectors.json', 'sectors-companies.json']) {
+for (const f of ['euro-signal.json', 'euro-signal-long.json', 'euro-signal-state.json', 'sectors.json', 'societes-index.json']) {
   const mb = sizeMb(f);
   check(mb < 60, `${f} : ${mb.toFixed(1)} Mo (limite 60)`);
 }
@@ -99,7 +99,19 @@ check(secT >= 0.3 * I.length, `tendance du secteur rattachée pour ${secT} titre
 check(main.planStudy && main.planStudy.obs > 1000, `étude historique du plan : ${main.planStudy ? main.planStudy.obs : 0} relevés`, true);
 check(main.journal && main.journal.entries > 0, `journal de bord : ${main.journal ? main.journal.entries : 0} relevés`, true);
 
-// 4. Secteurs
+// 4. Toutes les sociétés cotées (recherche et fiches)
+const CI = read('societes-index.json');
+check(CI && !CI.__error && CI.rows && CI.rows.length >= 1500, `toutes les sociétés cotées : ${CI && CI.rows ? CI.rows.length : 0} dans la liste de recherche (1 500 au moins)`, true);
+if (CI && CI.rows) {
+  const want = ['TTE.PA', 'MC.PA', 'SAN.PA', 'ASML.AS', 'SAP.DE', 'VU.PA'];
+  const have = new Set(CI.rows.map((r) => r[0]));
+  check(want.every((w) => have.has(w)), 'grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : ' + want.filter((w) => !have.has(w)).join(', ') || 'toutes');
+  let bad = 0;
+  for (let k = 0; k < (CI.shards || 32); k++) { try { JSON.parse(fs.readFileSync(path.join(DATA, 'societes', k + '.json'), 'utf8')); } catch (e) { bad++; } }
+  check(bad === 0, `fiches des sociétés : ${CI.shards || 32} fichiers lisibles`);
+}
+
+// 5. Secteurs
 const sec = read('sectors.json');
 check(sec && !sec.__error && sec.format === 'euro-signal-sectors' && (sec.groups || []).length >= 20, `secteurs : ${sec && sec.groups ? sec.groups.length : 0} groupes classés`);
 if (sec && sec.generatedAt) check(yearsBetween(sec.generatedAt.slice(0, 10), today) * 365 <= 4, `secteurs à jour (${sec.generatedAt.slice(0, 10)})`, true);
