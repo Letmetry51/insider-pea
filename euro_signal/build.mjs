@@ -363,10 +363,11 @@ export function build(opts = {}) {
   const valueAt = (isin, d) => {
     const i = inst[isin], fin = finList[isin]; if (!i || !fin) return null;
     const f = i.fund || {}, px = rawCloseAt(isin, d); if (!px || !(px.close > 0)) return null;
+    if (/PREF|-PR?\.|\bPFD\b/i.test(i.ticker || '')) return null; // action de préférence : les comptes ne sont pas les siens
     const capEur = +f.marketCap > 0 ? (i.currency === 'EUR' ? +f.marketCap : ES.FX[i.currency] > 0 ? f.marketCap / ES.FX[i.currency] : null) : null;
     try {
       const v = ES.intrinsicValue(fin, { asOf: d, price: px.close, priceDate: px.date, currency: i.currency || f.currency, splits: ((pItems[isin] && pItems[isin].splits) || []).filter((s) => !s.dividend),
-        sharesNow: f.sharesOut, capEur, sector: f.sector || i.sector, industry: f.industry, pbYahoo: d === today ? f.priceToBook : null });
+        sharesNow: f.sharesOut, marketCap: d === today && (!f.currency || f.currency === i.currency) ? f.marketCap : null, capEur, sector: f.sector || i.sector, industry: f.industry, pbYahoo: d === today ? f.priceToBook : null });
       if (!v) return null;
       v.price = px.close;
       if (v.methods) v.methods = v.methods.map((m) => ({ k: m.k, v: m.v })); // libellés côté page
@@ -576,7 +577,7 @@ export function build(opts = {}) {
           ...(() => { const a = finList[isin] ? accAt(isin, d) : null; return { fscoreHigh: a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined,
             altmanDistress: a && a.altman && !a.altman.na ? a.altman.zone === 'distress' : undefined, beneishFlag: a && a.beneish && !a.beneish.na ? a.beneish.flag : undefined }; })(),
           // Valeur comptable et intrinsèque avec le cours et les comptes publiés à la date de l'achat
-          ...(() => { const v = valueAt(isin, d); return v && !v.na && !v.negEquity && v.pb != null ? { belowBook: v.pb < 1, ivDiscount: v.marginPct != null ? v.marginPct >= 20 : undefined } : {}; })(),
+          ...(() => { const v = valueAt(isin, d); return v && !v.na && !v.negEquity && v.pb != null ? { belowBook: v.pb < 1, ivDiscount: v.marginPct != null ? ES.valueCheap(v) : undefined } : {}; })(),
           // Situation technique à la date de publication (support proche, cassure récente) : cours connus ce jour-là seulement
           ...(() => { const st = ES.setupAt(adj, d); return st ? { nearSupport: st.nearSupport, breakout: st.breakout } : {}; })(),
           ...(() => { const o = ES.oscillatorsAt(adj, d); return o ? { rsiLow: o.rsi < 30, macdBull: o.above } : {}; })(),

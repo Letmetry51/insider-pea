@@ -912,7 +912,7 @@
       if (vv.tone === 'good') push('value', '💎', vv.chip, 'good');
       else if (inst.value.negEquity) push('negEquity', '🕳️', 'fonds propres négatifs', 'bad');
       else if (inst.value.zone === 'above') push('valueRich', '🎈', vv.chip, 'warn');
-      else if (inst.value.pb < 1) push('belowBook', '📘', vv.chip + (inst.value.lossMaking ? ' (mais en pertes)' : ''), 'info');
+      else if (inst.value.pb < 1) push('belowBook', '📘', vv.chip + (inst.value.lossMaking ? ' (mais en pertes)' : ' (rentabilité faible)'), 'info');
     }
     var pos = inst.position;
     if (pos && (pos.key === 'leader' || pos.key === 'challenger')) push('pos', '🏆', (pos.key === 'leader' ? 'leader' : 'challenger') + ' de son industrie', 'good');
@@ -1154,7 +1154,7 @@
    *    2. trésorerie disponible (FCF) moyenne des derniers exercices capitalisée au taux r (hors banques et assurances) ;
    *    fourchette = plus basse et plus haute des estimations, valeur centrale = médiane.
    * fin : comptes annuels ({ years, currency }) ; opts : { asOf, price, priceDate, currency (cotation), splits (divisions et regroupements, hors dividendes),
-   *   sharesNow, capEur, sector, industry, pbYahoo }.
+   *   sharesNow, marketCap (devise de cotation), capEur, sector, industry, pbYahoo }.
    */
   ES.intrinsicValue = function (fin, opts) {
     opts = opts || {};
@@ -1168,6 +1168,7 @@
     var kind = /bank|insurance|banque|assurance|capital markets|credit services|mortgage/i.test(sec) ? 'fin' : /real estate|reit|immobili|foncier/i.test(sec) ? 'property'
       : /asset management|shell compan|conglomerat/i.test(sec) ? 'holding' : 'ops';
     var out = { year: last.date.slice(0, 4), date: last.date, kind: kind, notes: [] };
+    if (opts.asOf && ES.daysBetween(last.date, opts.asOf) > 548) { out.stale = true; out.notes.push('derniers comptes disponibles : exercice clos le ' + ES.frDate(last.date) + ', il y a plus de 18 mois ; la situation a pu changer depuis'); }
     // devise : comptes convertis dans la devise de cotation (taux du jour) ; devise des comptes inconnue = devise de cotation, contrôlée plus bas
     var fc = fin.currency || null, qc = opts.currency || null, rate = function (c) { return c === 'EUR' ? 1 : c && ES.FX[c] > 0 ? ES.FX[c] : null; };
     var k = 1;
@@ -1177,6 +1178,9 @@
     var sf = n(opts.splitFactor) > 0 ? n(opts.splitFactor) : Array.isArray(opts.splits) ? ES.splitFactor(opts.splits, last.date) / ES.splitFactor(opts.splits, opts.priceDate || '9999') : 1, sharesY = n(last.shares), shares = sharesY > 0 ? sharesY * sf : n(opts.sharesNow);
     if (!(shares > 0)) return Object.assign(out, { na: true, reason: 'nombre d\'actions inconnu' });
     if (sf !== 1) out.notes.push('nombre d\'actions du bilan corrigé de la division ou du regroupement intervenu depuis la clôture');
+    // action de préférence ou autre catégorie cotée à part : cours × nombre d'actions sans rapport avec la capitalisation
+    var mcap = n(opts.marketCap);
+    if (mcap > 0 && (price * shares / mcap > 3 || price * shares / mcap < 1 / 3)) return Object.assign(out, { na: true, suspect: true, reason: 'cours × nombre d\'actions sans rapport avec la capitalisation (action de préférence ou autre catégorie d\'actions) : valeur par action non calculable' });
     var E = last.equity;
     if (E <= 0) return Object.assign(out, { negEquity: true, bvps: +(E * k / shares).toPrecision(4), reason: 'capitaux propres négatifs au ' + ES.frDate(last.date) + ' : les dettes dépassent les actifs' });
     var bvps = E * k / shares;
@@ -1188,13 +1192,21 @@
     if (pbY > 0 && (out.pb / pbY > 2 || out.pb / pbY < 0.5)) return Object.assign(out, { na: true, suspect: true, reason: 'données incohérentes (cours / actif net ' + out.pb + ' calculé contre ' + pbY.toFixed(2) + ' chez Yahoo) : devise ou nombre d\'actions à vérifier' });
     if (!fc && !(pbY > 0)) out.notes.push('devise des comptes non précisée : supposée identique à la cotation');
     // rentabilité normalisée des fonds propres : résultat ÷ fonds propres moyens de l'exercice, moyenne des exercices disponibles
-    var roes = Y.map(function (y, j) { var e0 = j ? Y[j - 1].equity : null, e = e0 > 0 ? (e0 + y.equity) / 2 : y.equity; return y.netIncome != null && e > 0 ? y.netIncome / e : null; }).filter(function (v) { return v != null; });
+    // (fonds propres positifs en début et en fin d'exercice : sinon le ratio n'a pas de sens)
+    var roes = Y.map(function (y, j) { var e0 = j ? Y[j - 1].equity : null; if (j && !(e0 > 0)) return null; var e = e0 > 0 ? (e0 + y.equity) / 2 : y.equity; return y.netIncome != null && e > 0 && y.equity > 0 ? y.netIncome / e : null; }).filter(function (v) { return v != null; });
     var r = ES.costOfEquity(n(opts.capEur));
     out.r = r; out.nYears = roes.length;
     if (!roes.length) return Object.assign(out, { reason: 'résultat net inconnu : valeur intrinsèque non estimable' });
-    var roe = roes.reduce(function (s, v) { return s + v; }, 0) / roes.length;
+    var avg = function (a) { return a.reduce(function (s, v) { return s + v; }, 0) / a.length; };
+    var med = function (a) { a = a.slice().sort(function (x, y) { return x - y; }); var m = a.length; return m % 2 ? a[(m - 1) / 2] : (a[m / 2 - 1] + a[m / 2]) / 2; };
+    // principe de prudence : rentabilité « normale » = médiane des exercices (un résultat exceptionnel, plus-value de cession
+    // ou réévaluation, ne la gonfle pas), puis la plus basse de cette médiane et de la moyenne des deux derniers exercices
+    var roeAll = roes.length >= 3 ? med(roes) : avg(roes), roe2 = roes.length >= 3 ? avg(roes.slice(-2)) : roeAll, roe = Math.min(roeAll, roe2);
     out.roe = +(roe * 100).toFixed(1);
-    if (roe <= 0) return Object.assign(out, { lossMaking: true, reason: 'pertes en moyenne sur ' + roes.length + ' exercice' + (roes.length > 1 ? 's' : '') + ' : la valeur dépend du redressement, pas des comptes passés' });
+    if (roe2 < roeAll * 0.6 && roeAll > 0) out.notes.push('rentabilité récente en net recul (' + fmtPct1(roe2) + ' sur les deux derniers exercices contre ' + fmtPct1(roeAll) + ' habituellement) : retenue par prudence');
+    var rMin = Math.min.apply(null, roes), rMax = Math.max.apply(null, roes);
+    if (roes.length >= 2 && rMax - rMin > 0.5) { out.irregular = true; out.notes.push('rentabilité très irrégulière d\'un exercice à l\'autre (de ' + fmtPct1(rMin) + ' à ' + fmtPct1(rMax) + ', éléments exceptionnels probables) : estimation fragile'); }
+    if (roe <= 0) return Object.assign(out, { lossMaking: true, reason: (roeAll > 0 ? 'pertes sur les deux derniers exercices' : 'pertes en moyenne sur ' + roes.length + ' exercice' + (roes.length > 1 ? 's' : '')) + ' : la valeur dépend du redressement, pas des comptes passés' });
     var roeC = Math.min(roe, 0.35);
     if (roe > 0.35) out.notes.push('rentabilité des fonds propres de ' + Math.round(roe * 100) + ' % ramenée à 35 % (niveau rarement durable)');
     var A = 0; for (var t = 1; t <= 10; t++) A += (1 - t / 11) / Math.pow(1 + r, t);
@@ -1202,7 +1214,7 @@
       { k: 'riLast', label: 'revenu résiduel, avantage durable', v: bvps * roeC / r }];
     if (kind !== 'fin') {
       var F = Y.map(function (y) { var f = n(y.fcf); if (f == null && n(y.cfo) != null && n(y.capex) != null) f = y.cfo + y.capex; return f; }).filter(function (v) { return v != null; });
-      if (F.length >= 2) { var fm = F.reduce(function (s, v) { return s + v; }, 0) / F.length; out.fcfps = +(fm * k / shares).toPrecision(4); if (fm > 0) est.push({ k: 'fcf', label: 'trésorerie disponible moyenne capitalisée', v: fm * k / shares / r }); }
+      if (F.length >= 2) { var fm = Math.min(avg(F), F.length >= 3 ? avg(F.slice(-2)) : avg(F)); out.fcfps = +(fm * k / shares).toPrecision(4); if (fm > 0) est.push({ k: 'fcf', label: 'trésorerie disponible moyenne capitalisée', v: fm * k / shares / r }); }
     }
     est = est.filter(function (e) { return e.v > 0 && isFinite(e.v); });
     if (!est.length) return Object.assign(out, { reason: 'valeur intrinsèque non estimable' });
@@ -1218,6 +1230,8 @@
     if (roe < r) out.notes.push('rentabilité des fonds propres (' + fmtPct1(roe) + ') inférieure au rendement exigé (' + fmtPct1(r) + ') : la société vaut moins que ses fonds propres tant que cela dure');
     return out;
   };
+  /** Décote « saine » : cours au moins 20 % sous la valeur intrinsèque d'une société qui rapporte au moins le rendement exigé (à 1 point près). */
+  ES.valueCheap = function (v) { return !!(v && !v.na && !v.irregular && !v.stale && v.marginPct != null && v.marginPct >= 20 && v.roe != null && v.roe >= v.r * 100 - 1); };
   function fmtPct1(v) { return String(Math.round(v * 1000) / 10).replace('.', ',') + ' %'; }
   /** Lecture en une phrase de ES.intrinsicValue : { tone: good | mixed | bad | na, chip, text }. */
   ES.valueView = function (v) {
@@ -1234,10 +1248,12 @@
     var gT = g == null ? '' : g >= rp - 0.5 ? 'le cours suppose une croissance durable supérieure au rendement exigé : aucun calcul fondé sur les comptes ne le justifie'
       : g > 0 ? 'le cours suppose une croissance des résultats de ' + f(g) + ' % par an, indéfiniment' + (g >= 6 ? ' : hypothèse exigeante' : g <= 2.5 ? ' : hypothèse modeste' : '')
       : 'le cours suppose un recul des résultats de ' + f(-g) + ' % par an : le marché est pessimiste';
-    var tone = (v.zone === 'below' || m >= 20) ? 'good' : v.zone === 'above' && g != null && g >= 6 ? 'bad' : 'mixed';
-    var chip = m >= 20 ? m + ' % sous sa valeur intrinsèque' : v.zone === 'above' && g != null && g >= 6 ? (g >= rp - 0.5 ? 'cours sans appui dans les comptes' : 'cours qui suppose ' + f(g) + ' % de croissance par an') : null;
+    var weak = v.roe != null && v.roe < rp - 1; // rentabilité sous le rendement exigé : décote souvent justifiée
+    var tone = (v.zone === 'below' || m >= 20) && !weak && !v.irregular && !v.stale ? 'good' : v.zone === 'above' && g != null && g >= 6 ? 'bad' : 'mixed';
+    var chip = ES.valueCheap(v) ? m + ' % sous sa valeur intrinsèque' : weak && v.pb < 1 ? 'sous sa valeur comptable' : v.zone === 'above' && g != null && g >= 6 ? (g >= rp - 0.5 ? 'cours sans appui dans les comptes' : 'cours qui suppose ' + f(g) + ' % de croissance par an') : null;
     var zt = v.zone === 'below' ? 'sous la fourchette de valeur intrinsèque (' + rng + ')' : v.zone === 'above' ? 'au-dessus de la fourchette de valeur intrinsèque (' + rng + ')' : 'dans la fourchette de valeur intrinsèque (' + rng + ')';
-    return { tone: tone, chip: chip, text: 'Cours ' + zt + ', valeur centrale ' + f(v.mid) + (m >= 0 ? ' : marge de sécurité de ' + m + ' %' : '') + '. ' + (gT && (v.zone === 'above' || g < 0) ? cap(gT) + '. ' : '') + cap(pbT) + '.' };
+    return { tone: tone, chip: chip, text: 'Cours ' + zt + ', valeur centrale ' + f(v.mid) + (m >= 0 ? ' : marge de sécurité de ' + m + ' %' : '') + '. ' + (gT && (v.zone === 'above' || g < 0) ? cap(gT) + '. ' : '') + cap(pbT) + '.' +
+      (weak && m >= 0 ? ' Attention : la société rapporte moins (' + f(v.roe) + ' % sur ses fonds propres) que ce qu\'exige un actionnaire (' + f(rp) + ' %) ; la décote peut durer (piège de valeur possible).' : '') };
   };
   /**
    * Position concurrentielle : rang par chiffre d'affaires dans l'industrie (au moins 4 sociétés), parmi les sociétés suivies

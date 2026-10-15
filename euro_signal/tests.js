@@ -1115,6 +1115,13 @@ t('Valeur comptable et valeur intrinsèque : calculs, devises, divisions, garde-
   const vv = ES.valueView(rich); ok(vv.tone === 'bad' && /croissance/.test(vv.chip) && /par an, indéfiniment/.test(vv.text), 'lecture : ' + JSON.stringify(vv));
   const cheap = ES.valueView(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9, currency: 'EUR', capEur: 2e9 }));
   ok(cheap.tone === 'good' && /sous sa valeur intrinsèque/.test(cheap.chip) && !/\d\.\d/.test(cheap.text), 'décote et nombres à la française : ' + JSON.stringify(cheap));
+  // garde-fous : capitalisation (action de préférence), résultat exceptionnel, comptes anciens
+  ok(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 3, currency: 'EUR', marketCap: 2000 }).suspect, 'cours × actions sans rapport avec la capitalisation');
+  const spike = ES.intrinsicValue({ currency: 'EUR', years: [yr(2022, 1000, 80, 60), yr(2023, 1000, 80, 60), yr(2024, 3000, 2080, 60), yr(2025, 2000, 60, 60)] }, { asOf: '2026-10-15', price: 15, currency: 'EUR' });
+  ok(spike.irregular && spike.roe < 9 && !ES.valueCheap(spike), 'plus-value exceptionnelle : médiane, estimation fragile : ' + spike.roe);
+  const old = ES.intrinsicValue(fin, { asOf: '2027-09-01', price: 9, currency: 'EUR', capEur: 2e9 });
+  ok(old.stale && !ES.valueCheap(old) && ES.valueView(old).tone !== 'good', 'comptes de plus de 18 mois');
+  ok(ES.valueCheap(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9, currency: 'EUR', capEur: 2e9 })), 'décote saine reconnue');
   ES.setFx({});
 });
 
