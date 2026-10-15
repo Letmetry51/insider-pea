@@ -132,7 +132,7 @@ def _():
 @case("Catalogue de toutes les sociétés cotées : petites sociétés ajoutées aux fiches et à la recherche")
 def _():
     S.CATALOG.write_text(json.dumps({"generatedAt": "2026-10-15T00:00:00+00:00", "items": {
-        "PETIT.PA": {"symbol": "PETIT.PA", "name": "Petite Société SA", "exchange": "PAR", "country": "FR", "currency": "EUR", "capEur": 4.2e7},
+        "PETIT.PA": {"symbol": "PETIT.PA", "name": "Petite Société SA", "exchange": "PAR", "country": "FR", "hq": "FR", "currency": "EUR", "capEur": 4.2e7},
         "LITEN.ST": {"symbol": "LITEN.ST", "name": "Liten AB", "exchange": "STO", "country": "SE", "currency": "SEK", "capEur": None}}}), encoding="utf-8")
     check_outputs()
     idx = json.loads(S.CO_INDEX.read_text(encoding="utf-8"))

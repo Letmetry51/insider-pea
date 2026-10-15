@@ -147,8 +147,10 @@ def with_retry(fn, tries=3, wait=4):
 
 
 # --------------------------------------------------------------------------- catalogue de toutes les sociétés cotées
-def screen_catalog(min_cap=1e6):
-    """Toutes les actions des places de l'UE / l'EEE suivies (une place par pays), sans seuil de taille sauf les coquilles vides."""
+def screen_catalog(min_cap=1e6, info_minutes=15):
+    """Toutes les actions des places de l'UE / l'EEE suivies (une place par pays), sans seuil de taille sauf les coquilles vides.
+    Les places de Vienne et de Francfort cotent aussi des milliers de sociétés étrangères (américaines, asiatiques) : seules
+    les sociétés dont le siège est dans l'UE ou l'EEE (fiche Yahoo, gardée 60 jours) sont retenues, comme pour le PEA."""
     import yfinance as yf
     from yfinance import EquityQuery as Q
     fx = fx_now()
@@ -180,14 +182,46 @@ def screen_catalog(min_cap=1e6):
             if not quotes:
                 break
             time.sleep(0.4)
-    write_json(CATALOG, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": min_cap, "items": out})
-    log(f"Catalogue : {len(out)} sociétés cotées sur {len(REGIONS)} places")
-    return out
+    # siège, secteur et ISIN : fiche Yahoo (cache partagé avec l'univers), lue dans la limite du temps donné, les plus grosses d'abord
+    cache = read_json(INFO_CACHE, {})
+    limit = (date.today() - timedelta(days=60)).isoformat()
+    todo = sorted([sym for sym in out if not cache.get(sym) or cache[sym].get("fetched", "") < limit], key=lambda x: -(out[x].get("capEur") or 0))
+    t0, n = time.time(), 0
+    with ThreadPoolExecutor(THREADS) as ex:
+        for k in range(0, len(todo), 40):
+            if time.time() - t0 > info_minutes * 60:
+                break
+            for sym, inf in ex.map(fetch_info, todo[k:k + 40]):
+                n += 1
+                if inf:
+                    cache[sym] = inf
+    write_json(INFO_CACHE, cache)
+    kept, foreign, unknown = {}, 0, 0
+    for sym, it in out.items():
+        inf = cache.get(sym)
+        if not inf:
+            unknown += 1
+            continue
+        hq = HQ.get(inf.get("country"))
+        if hq not in EU_EEA:
+            foreign += 1
+            continue
+        it.update({"hq": hq, "sector": inf.get("sector"), "industry": inf.get("industry"), "isin": inf.get("isin"),
+                   "name": inf.get("longName") or inf.get("shortName") or it.get("name")})
+        kept[sym] = it
+    write_json(CATALOG, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": min_cap, "items": kept,
+                         "pending": len(out) - len(kept) - foreign})
+    log(f"Catalogue : {len(out)} cotations sur {len(REGIONS)} places → {len(kept)} sociétés avec siège dans l'UE ou l'EEE "
+        f"({foreign} étrangères écartées, {unknown} fiches Yahoo pas encore lues ; {n} lues ce soir en {time.time() - t0:.0f} s)")
+    return kept
 
 
 def catalog_age():
     try:
-        return (datetime.now(timezone.utc) - datetime.fromisoformat(read_json(CATALOG, {})["generatedAt"])).days
+        c = read_json(CATALOG, {})
+        if c.get("pending"):  # fiches Yahoo encore à lire : on continue chaque soir jusqu'à ce que le catalogue soit complet
+            return 10 ** 6
+        return (datetime.now(timezone.utc) - datetime.fromisoformat(c["generatedAt"])).days
     except Exception:
         return 10 ** 6
 
@@ -1042,8 +1076,8 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
     for sym in syms:
         it = uni.get(sym) or extra.get(sym) or cat_only.get(sym) or {}
         base = stock(sym) if (sym in uni or sym in extra) else None
-        base = base or {"symbol": sym, "name": it.get("name"), "country": it.get("country"), "capEur": it.get("capEur"),
-                        "pea": it.get("country") in EU_EEA}
+        base = base or {"symbol": sym, "name": it.get("name"), "country": it.get("hq") or it.get("country"), "capEur": it.get("capEur"),
+                        "pea": (it.get("hq") or it.get("country")) in EU_EEA, "isin": it.get("isin")}
         g = groups.get(sym)
         gi = rank.get(g) or {}
         rec = dict(base, sector=it.get("sector"), industry=it.get("industry"), exchange=it.get("exchange"), currency=it.get("currency"),
