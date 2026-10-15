@@ -285,6 +285,8 @@ export function build(opts = {}) {
     if (state.shares[isin] && ES.daysBetween(state.shares[isin].asOf || today, today) > 45) delete state.shares[isin];
     const shr = state.shares[isin];
     i.sharesChange = shr && ES.daysBetween(shr.from, shr.to) >= 180 ? { pct: +((shr.n1 / shr.n0 - 1) * 100).toFixed(2), from: shr.from, to: shr.to } : null;
+    // variation énorme (÷2 ou ×2 et plus) : regroupement ou division d'actions, pas des rachats ni une émission
+    if (i.sharesChange && (shr.n1 / shr.n0 <= 0.5 || shr.n1 / shr.n0 >= 2)) i.sharesChange.corporate = true;
     i.fund = state.fund[isin] || null;
     // Prévisionnels des analystes (consensus du jour) : conservés si la collecte du soir échoue, abandonnés après 30 jours
     state.forecast = state.forecast || {};
