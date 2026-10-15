@@ -1083,6 +1083,41 @@ t('Plan d\'entrée : rebond sur support, cassure de résistance, chute sans supp
   ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'nearSupport') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'breakout'), 'mesurés en observation');
 });
 
+t('Valeur comptable et valeur intrinsèque : calculs, devises, divisions, garde-fous', () => {
+  ES.setFx({ SEK: 11, USD: 1.1 });
+  const yr = (y, eq, ni, fcf, sh) => ({ date: y + '-12-31', equity: eq, netIncome: ni, fcf, shares: sh || 100 });
+  const fin = { currency: 'EUR', years: [yr(2022, 1000, 150, 120), yr(2023, 1100, 160, 130), yr(2024, 1200, 180, 140), yr(2025, 1300, 200, 150)] };
+  const v = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
+  eq(v.bvps, 13, 'valeur comptable par action = 1 300 / 100');
+  ok(Math.abs(v.pb - 20 / 13) < 0.01 && v.r === 0.095, 'cours / actif net et rendement exigé d\'une valeur moyenne');
+  ok(v.roe > 15 && v.roe < 16, 'rentabilité moyenne sur fonds propres moyens : ' + v.roe);
+  ok(v.methods.length === 3 && v.low < v.mid && v.mid < v.high && v.low > v.bvps, 'trois méthodes, fourchette au-dessus de la valeur comptable (rentabilité > rendement exigé) : ' + JSON.stringify(v.methods));
+  const ri = v.methods.find((m) => m.k === 'riLast').v; ok(Math.abs(ri - 13 * (v.roe / 100) / 0.095) < 0.2, 'revenu résiduel durable = B × ROE / r');
+  ok(v.zone === 'inside' || v.zone === 'below' || v.zone === 'above', 'zone');
+  // comptes de 2025 pas encore publiés au 15/03/2026 (moins de 4 mois) : exercice 2024 retenu
+  eq(ES.intrinsicValue(fin, { asOf: '2026-03-15', price: 20, currency: 'EUR' }).year, '2024', 'sans regard vers le futur');
+  // division par 2 après la clôture : deux fois plus d'actions, valeur par action divisée par 2
+  eq(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 10, currency: 'EUR', splitFactor: 2 }).bvps, 6.5, 'division');
+  // comptes en euros, cotation en couronnes : conversion au taux du jour
+  eq(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 200, currency: 'SEK' }).bvps, 143, 'conversion EUR → SEK');
+  ok(ES.intrinsicValue(Object.assign({}, fin, { currency: 'NOK' }), { asOf: '2026-10-15', price: 200, currency: 'SEK' }).na, 'taux inconnu : non calculé');
+  // incohérence avec Yahoo (devise ou nombre d'actions faux) : non affiché
+  ok(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 20, currency: 'EUR', pbYahoo: 6 }).suspect, 'garde-fou Yahoo');
+  // pertes, fonds propres négatifs, banque (pas de trésorerie disponible)
+  const loss = ES.intrinsicValue({ currency: 'EUR', years: [yr(2024, 500, -80, -50), yr(2025, 420, -60, -40)] }, { asOf: '2026-10-15', price: 3, currency: 'EUR' });
+  ok(loss.lossMaking && loss.mid == null && loss.pb < 1, 'société en pertes : valeur comptable seule');
+  ok(ES.intrinsicValue({ currency: 'EUR', years: [yr(2025, -50, -10, -5)] }, { asOf: '2026-10-15', price: 3, currency: 'EUR' }).negEquity, 'fonds propres négatifs');
+  const bank = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 10, currency: 'EUR', sector: 'Financial Services', industry: 'Banks - Regional' });
+  ok(bank.kind === 'fin' && !bank.methods.some((m) => m.k === 'fcf'), 'banque : revenu résiduel seulement');
+  // croissance implicite : le cours ne se justifie qu'avec une croissance perpétuelle
+  const rich = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 60, currency: 'EUR', capEur: 2e9 });
+  ok(rich.zone === 'above' && rich.impliedG > 5 && rich.impliedG < 9.5, 'croissance implicite : ' + rich.impliedG);
+  const vv = ES.valueView(rich); ok(vv.tone === 'bad' && /croissance/.test(vv.chip) && /par an, indéfiniment/.test(vv.text), 'lecture : ' + JSON.stringify(vv));
+  const cheap = ES.valueView(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9, currency: 'EUR', capEur: 2e9 }));
+  ok(cheap.tone === 'good' && /sous sa valeur intrinsèque/.test(cheap.chip) && !/\d\.\d/.test(cheap.text), 'décote et nombres à la française : ' + JSON.stringify(cheap));
+  ES.setFx({});
+});
+
 t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, canal', () => {
   const mk = (f, n) => { const o = []; let d = '2025-01-01'; for (let k = 0; k < n; k++) { const c = f(k); o.push([d, c, c * 1.004, c * 0.996, c, 1]); d = ES.addDays(d, 1); } return o; };
   const fall = ES.wedge(mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63));

@@ -207,7 +207,7 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
     # siège, secteur et ISIN : fiche Yahoo (cache partagé avec l'univers), lue dans la limite du temps donné, les plus grosses d'abord
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=60)).isoformat()
-    todo = sorted([sym for sym in out if not cache.get(sym) or cache[sym].get("fetched", "") < limit], key=lambda x: -(out[x].get("capEur") or 0))
+    todo = sorted([sym for sym in out if info_stale(cache.get(sym), limit)], key=lambda x: -(out[x].get("capEur") or 0))
     t0, n = time.time(), 0
     with ThreadPoolExecutor(THREADS) as ex:
         for k in range(0, len(todo), 40):
@@ -297,6 +297,28 @@ def screen_universe():
     return seen
 
 
+INFO_V = 2  # version des champs lus dans la fiche Yahoo : une fiche plus ancienne est relue (2 : valeur comptable)
+
+
+def info_stale(inf, limit):
+    return not inf or inf.get("fetched", "") < limit or inf.get("v", 1) < INFO_V
+
+
+def book_fields(inf):
+    """Cours / valeur comptable et rentabilité des fonds propres (Yahoo), seulement si les comptes sont dans la devise de cotation."""
+    if not inf:
+        return {}
+    fc, qc = inf.get("financialCurrency"), inf.get("currency")
+    pb, roe = inf.get("priceToBook"), inf.get("returnOnEquity")
+    ok_cur = not fc or not qc or fc == qc or (qc in ("GBp", "GBX") and fc == "GBP")
+    out = {}
+    if ok_cur and isinstance(pb, (int, float)) and 0.02 < pb < 100:
+        out["pb"] = float(f"{pb:.4g}")
+    if isinstance(roe, (int, float)) and -2 < roe < 2:
+        out["roe"] = float(f"{roe:.4g}")
+    return out
+
+
 def fetch_info(s):
     import yfinance as yf
     try:
@@ -306,9 +328,11 @@ def fetch_info(s):
     keep = ("longName", "shortName", "sector", "industry", "country", "marketCap", "currency", "revenueGrowth", "operatingMargins",
             "grossMargins", "totalRevenue", "forwardPE", "isin", "currentPrice", "regularMarketPrice", "previousClose",
             "averageVolume", "averageDailyVolume10Day", "numberOfAnalystOpinions", "recommendationMean", "targetMeanPrice",
-            "heldPercentInstitutions", "heldPercentInsiders", "shortPercentOfFloat")
+            "heldPercentInstitutions", "heldPercentInsiders", "shortPercentOfFloat",
+            "priceToBook", "bookValue", "returnOnEquity", "financialCurrency")  # valeur comptable (v2)
     out = {k: inf.get(k) for k in keep if inf.get(k) is not None and not (isinstance(inf.get(k), float) and math.isnan(inf.get(k)))}
     out["fetched"] = date.today().isoformat()
+    out["v"] = INFO_V
     return s, out
 
 
@@ -369,7 +393,7 @@ def build_universe():
             raw.setdefault(s, {"symbol": s})
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=INFO_MAX_AGE)).isoformat()
-    todo = [s for s in raw if not cache.get(s) or cache[s].get("fetched", "") < limit]
+    todo = [s for s in raw if info_stale(cache.get(s), limit)]
     log(f"  fiches Yahoo : {len(raw) - len(todo)} en cache, {len(todo)} à lire ({THREADS} en parallèle)")
     with ThreadPoolExecutor(THREADS) as ex:
         for n, (s, inf) in enumerate(ex.map(fetch_info, todo), 1):
@@ -1115,6 +1139,7 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
                 Wl = Wl.join(W2.reindex(Wl.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
             log(f"Cours hebdomadaires du catalogue : {W2.shape[1] if not W2.empty else 0} titres, {time.time() - t0:.0f} s")
     sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
+    info = read_json(INFO_CACHE, {})  # fiches Yahoo : valeur comptable
     items, index = {}, []
     for sym in syms:
         it = uni.get(sym) or extra.get(sym) or cat_only.get(sym) or {}
@@ -1126,7 +1151,7 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         rec = dict(base, sector=it.get("sector"), industry=it.get("industry"), exchange=it.get("exchange"), currency=it.get("currency"),
                    grossMargin=it.get("grossMargin"), revenue=it.get("revenue"), reco=it.get("reco"), insiderPct=it.get("insiderPct"),
                    turnoverEur=it.get("turnoverEur"), group=g, groupRank=gi.get("rank"), groupTrending=gi.get("trending"), groupEmerging=gi.get("emerging"),
-                   roles=roles.get(sym) or [], basic=sym in cat_only)
+                   roles=roles.get(sym) or [], basic=sym in cat_only, **book_fields(info.get(sym)))
         if sym in Wl.columns and Wl[sym].notna().sum() >= 20:
             rec["w"] = [sig(v) for v in Wl[sym].tolist()]
         if sym in D.columns and D[sym].notna().sum() >= 20:
