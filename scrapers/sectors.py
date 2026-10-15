@@ -1085,6 +1085,14 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
     by_name = {name_key(it.get("name")): sym for sym, it in uni.items()}
     # une société du catalogue déjà dans l'univers sous une autre cotation (même nom) n'est pas répétée
     cat_only = {sym: it for sym, it in cat.items() if sym not in uni and sym not in extra and name_key(it.get("name")) not in by_name}
+    # même société cotée sur plusieurs places (allemande aussi à Vienne…) : une seule fiche, la place du siège d'abord, puis la plus liquide
+    best = {}
+    for sym, it in cat_only.items():
+        k = name_key(it.get("name")) or sym
+        rk = (1 if it.get("country") == it.get("hq") else 0, it.get("turnoverEur") or 0)
+        if k not in best or rk > best[k][0]:
+            best[k] = (rk, sym)
+    cat_only = {sym: cat_only[sym] for _, sym in best.values()}
     syms = sorted(set(uni) | set(extra) | set(cat_only))
     # hebdomadaire 5 ans, remis en devise locale (le moteur des secteurs travaille en euros)
     Wl = W.iloc[-262:].copy()

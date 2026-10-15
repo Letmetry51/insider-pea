@@ -4484,8 +4484,8 @@ details.pos summary{font-size:1rem}
     S.secLoading = true;
     fetch('data/sectors.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       if (!d || d.format !== 'euro-signal-sectors') throw new Error('format');
-      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; if (S.view === 'secteurs') render();
-    }).catch(function (e) { S.secLoaded = true; S.secLoading = false; S.secError = (e && e.message) || 'illisible'; if (S.view === 'secteurs') render(); });
+      S.sec = defang(d); S.secLoaded = true; S.secLoading = false; if (S.view === 'secteurs' || S.view === 'secco') render();
+    }).catch(function (e) { S.secLoaded = true; S.secLoading = false; S.secError = (e && e.message) || 'illisible'; if (S.view === 'secteurs' || S.view === 'secco') render(); });
   }
   function secName(k) { if (!k) return '—'; var m = /^Autres : (.+)$/.exec(k); return m ? 'Autres : ' + (ES.sectorFr(m[1]) || m[1]) : ES.industryFr(k) || k; }
   function pc100(v) { return v == null ? 'n.d.' : pct(v * 100); }
