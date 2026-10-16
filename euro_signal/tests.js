@@ -151,11 +151,11 @@ t('doublons, corrections, annulations et doublons inter-fournisseurs', () => {
   eq(m.stats.cancelled, 1); eq(m.list[0].status, 'annulee');
   eq(ES.activeTx(m.list).length, 0, 'annulée exclue');
   // même opération vue par un agrégateur puis par le registre officiel
-  const agg = ES.normalizeTx(row({ id: 'IS-9', px: '50' }), Object.assign({}, opts, { registry: 'Insider Screener' })).rec;
+  const agg = ES.normalizeTx(row({ id: 'IS-9', px: '50' }), Object.assign({}, opts, { registry: 'Agrégateur' })).rec;
   const off = ES.normalizeTx(row({ id: 'B7', px: '50' }), Object.assign({}, opts, { registry: 'AMF' })).rec;
   let m2 = ES.mergeTransactions([], [agg], TODAY);
   m2 = ES.mergeTransactions(m2.list, [off], TODAY);
-  eq(m2.list.length, 1); eq(m2.list[0].registry, 'AMF'); eq(m2.list[0].alsoSeenIn[0].registry, 'Insider Screener'); eq(m2.stats.crossSource, 1);
+  eq(m2.list.length, 1); eq(m2.list[0].registry, 'AMF'); eq(m2.list[0].alsoSeenIn[0].registry, 'Agrégateur'); eq(m2.stats.crossSource, 1);
 });
 
 /* ---------- Séries, splits, extrêmes ---------- */
@@ -425,7 +425,7 @@ t('registre FSMA : nombres au format belge, personne liée', () => {
   ok(l.associated); eq(ES.buyerKey(l), ES.personKey('Jan Peeters'));
 });
 
-t('Insider Screener : codes BUY/SELL/OO, libellé d\'origine prioritaire, source non configurée', () => {
+t('Registre normalisé : codes BUY/SELL/OO, libellé d\'origine prioritaire, source non configurée', () => {
   const base = { registry: 'BaFin', country: 'DE', id: 'tx_1', isin: 'DE0007164600', issuer: 'SAP SE', person: 'Christian Klein', role: 'CEO', instrument: 'Share', txDate: '2026-10-01', published: '2026-10-02', price: '210.5', quantity: '1000', currency: 'EUR', numberLocale: 'en' };
   const b = ES.fromCollectorRecord(Object.assign({}, base, { nature: 'BUY', natureCode: 'BUY' }), { today: TODAY }).rec;
   eq(b.type, 'achat'); ok(b.ceo); eq(b.amount, 210500); eq(b.id, 'BaFin:tx_1');
@@ -525,9 +525,13 @@ t('Stress test : devise, prix incohérents, liens, corrections, doublons entre r
   eq(m2.list.filter((x) => x.status === 'active').length, 1, 'correction sous un nouvel identifiant remplace l\'originale'); eq(m2.list[0].price, 18.05);
   const m3 = ES.mergeTransactions(m2.list, [c2r], '2026-10-02');
   eq(m3.stats.corrected, 0, 'idempotent'); eq(m3.list.length, 1);
-  const inst = { isin: 'DE0007030009', country: 'DE', registry: 'AMF' };
-  ok(!ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, BaFin: { status: 'echec' } }, c2, '2026-10-01').ok, 'registre du pays de domiciliation aussi exigé');
-  ok(ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, BaFin: { status: 'ok', lastSuccess: '2026-10-01', countries: ['DE'] } }, c2, '2026-10-01').ok);
+  const inst = { isin: 'BE0003470755', country: 'BE', registry: 'AMF' };
+  ok(!ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, FSMA: { status: 'echec' } }, c2, '2026-10-01').ok, 'registre du pays de domiciliation aussi exigé');
+  // pays sans source gratuite (Allemagne depuis l'arrêt d'Insider Screener) : société non bloquée par un registre absent, mais signalée
+  ok(ES.coverage({ isin: 'DE0007030009', country: 'DE', registry: 'AMF' }, { AMF: { status: 'ok', lastSuccess: '2026-10-01' } }, c2, '2026-10-01').ok, 'déclaration AMF d\'une société allemande');
+  const un = ES.coverage({ isin: 'DE0007030009', country: 'DE' }, { AMF: { status: 'ok', lastSuccess: '2026-10-01' } }, c2, '2026-10-01');
+  ok(!un.ok && un.untracked, 'Allemagne : déclarations non suivies');
+  ok(ES.coverage(inst, { AMF: { status: 'ok', lastSuccess: '2026-10-01' }, FSMA: { status: 'ok', lastSuccess: '2026-10-01', countries: ['BE'] } }, c2, '2026-10-01').ok, 'registre du pays à jour');
 });
 
 t('Force relative 6 mois et tendance du marché européen', () => {
@@ -1265,6 +1269,62 @@ t('Convergence et étude historique du plan d\'entrée', () => {
   const pt = ES.entryPlan(thin);
   ok(!pt || !pt.primary || (pt.primary.stopPct <= -0.5 && pt.primary.rr < 20), 'stop réaliste pour un titre peu échangé : ' + (pt && pt.primary ? pt.primary.stopPct + ' %, gain/risque ' + pt.primary.rr : 'pas de plan'));
   ok(st.byTiming && Object.keys(st.byTiming).every((k) => ['rr2', 'rsiLow', 'breakout', 'nearSup'].indexOf(k) > -1), 'groupes de timing : ' + Object.keys(st.byTiming || {}).join(', '));
+});
+
+/* ---------- Classement tendance + comptes (barème 3.0) ---------- */
+t('Classement : repères de tendance (force relative 12-1, plus haut, MM50/MM200, calme)', () => {
+  const up = Array.from({ length: 260 }, (_, k) => 100 * Math.exp(k * 0.004)), wUp = Array.from({ length: 262 }, (_, k) => 50 * Math.exp(k * 0.01));
+  const f = ES.rankFeatures(up, wUp);
+  ok(f.mom > 0.4 && f.trend === 'up' && f.ratio > 0.99 && f.vol != null, JSON.stringify(f));
+  const down = up.slice().reverse(), wDown = wUp.slice().reverse();
+  const g = ES.rankFeatures(down, wDown);
+  ok(g.mom < 0 && g.trend === 'down' && g.ratio < 0.4, 'baisse : ' + JSON.stringify(g));
+  const h = ES.rankFeatures([null, null].concat(up.slice(0, 100)), wUp.slice(0, 40));
+  ok(h.mom == null && h.days === 100, 'historique court : force relative incalculable');
+  eq(ES.rankFeatures([], []), null);
+  // cours journaliers absents : repères tirés des cours hebdomadaires
+  const w = ES.rankFeatures([], wUp); ok(w.weeklyOnly && w.trend === 'up' && w.mom > 0);
+});
+t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélection', () => {
+  const c3 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  eq(ES.validateConfig(c3), []);
+  ok(ES.validateConfig(ES.mergeConfig(c3, { rank: { w: { mom: 40 } } })).some((e) => /tendance \+ comptes/.test(e)), 'somme des poids contrôlée');
+  const mk = (key, mom, extra) => Object.assign({ key, sym: key, name: key, turnoverEur: 5e6, pea: true, f: { mom, ratio: 0.95, trend: 'up', vol: 0.2 + mom / 10 }, acc: { key: 'good', f9: 8 } }, extra || {});
+  const items = [mk('A', 0.9), mk('B', 0.6), mk('C', 0.5, { acc: { key: 'good', f9: 7, loss: true } }), mk('D', 0.4, { turnoverEur: 2e5 }), mk('E', 0.35, { acc: { key: 'bad', f9: 2 } }),
+    mk('F', 0.3, { acc: { key: 'mixed', f9: 5, alt: 'distress' } }), mk('G', 0.2, { pea: false }), mk('H', 0.1, { ins: { buys: 2, ceo: true, multi: 2 } }), mk('I', 0.0, { acc: null }), mk('J', -0.3), mk('K', -0.5), mk('L', -0.6, { f: { mom: null } })];
+  const rows = ES.rankUniverse(items, c3), by = {}; rows.forEach((r) => { by[r.key] = r; });
+  ok(!by.A.out.length && by.A.pos <= 2 && by.A.note >= c3.rank.good && by.A.verdict.key === (by.A.note >= c3.rank.top ? 'top' : 'good'), 'A en tête : ' + by.A.note);
+  eq(by.A.parts.calm, 0, 'cours le plus agité : 0 point de calme');
+  ok(/perte/.test(by.C.out.join()), 'perte'); ok(/peu liquide/.test(by.D.out.join()), 'liquidité'); ok(/dégradation/.test(by.E.out.join()), 'F-score ≤ 3');
+  ok(/détresse/.test(by.F.out.join()), 'Altman'); ok(/PEA/.test(by.G.out.join()), 'PEA'); ok(/tiers le plus faible/.test(by.K.out.join()), 'tiers faible');
+  ok(/moins d'un an/.test(by.L.out.join()), 'historique court');
+  eq(by.H.parts.insiders, 5, 'bonus plafonné à 5'); ok(by.H.why.some((w) => /DG ou le DAF/.test(w)));
+  eq(by.I.parts.accounts, 8, 'comptes pas encore lus : 8 points'); ok(by.I.warn.indexOf('comptes pas encore lus') > -1);
+  const sumOk = rows.every((r) => r.note === Math.max(0, Math.min(100, Object.values(r.parts).reduce((a, b) => a + b, 0))));
+  ok(sumOk, 'note = somme des points');
+  ok(rows.findIndex((r) => r.out.length) > rows.filter((r) => !r.out.length).length - 1, 'écartées en fin de liste');
+  // vendeurs : malus, plancher à −15
+  const s2 = ES.rankUniverse([mk('S', 0.9, { ins: { netSeller: true, ceoSale: true } }), mk('T', 0.5), mk('U', 0.1)], c3);
+  eq(s2.find((r) => r.key === 'S').parts.insiders, -15); ok(s2.find((r) => r.key === 'S').warn.some((w) => /vendent/.test(w)));
+  // sélection : seuil et taille
+  const sel = ES.rankSelection(rows, c3); ok(sel.every((r) => !r.out.length && r.note >= c3.rank.selMin) && sel.length <= c3.rank.selSize, 'sélection ' + sel.map((r) => r.key + ':' + r.note));
+  const mail = ES.buildRankEmail(sel.map((r) => Object.assign({}, r, { link: 'https://x/#co=' + r.sym, isNew: true })), '2026-W43', c3, 'https://x/', '2026-10-19', { n: 4, avg: 2.5, bench: 1 });
+  ok(/Sélection de la semaine/.test(mail.subject) && /#co=A/.test(mail.text) && !/undefined|null|NaN/.test(mail.text + mail.html), 'email lisible');
+  const none = ES.buildRankEmail([], '2026-W43', c3, null, '2026-10-19', null); ok(/aucune société/.test(none.subject));
+});
+t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le futur)', () => {
+  const nW = 160, dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)), series = {};
+  // 150 sociétés : la moitié avec une tendance persistante, l'autre avec une baisse ; bruit identique
+  for (let s = 0; s < 150; s++) { const drift = s % 2 ? 0.006 : -0.004; series['S' + s] = dates.map((_, k) => 20 * Math.exp(drift * k + 0.03 * Math.sin(k * 0.7 + s))); }
+  const st = ES.factorStudy(dates, series, { insiders: { S1: [dates[70], dates[120]] }, accounts: { S2: [{ from: dates[60], key: 'bad' }] } });
+  ok(st.weeks > 50 && st.h13 && st.h26, 'semaines : ' + st.weeks);
+  ok(st.h26.momTop.mean > 0 && st.h26.momLow.mean < 0 && st.h26.rankTop.mean > 0, 'tendance persistante détectée');
+  ok(st.h13.ins.n > 0 && st.h13.accBad.n > 0, 'achats et comptes datés pris en compte');
+  ok(st.groups.length === ES.FACTOR_GROUPS.length);
+  // les séries coupées donnent les mêmes relevés sur la partie commune (aucune donnée future dans les repères)
+  const cut = {}; Object.keys(series).forEach((k) => { cut[k] = series[k].slice(0, 120); });
+  const st2 = ES.factorStudy(dates.slice(0, 120), cut, {});
+  ok(st2.weeks < st.weeks && st2.h13.momTop.n > 0);
 });
 
 console.log(results.join('\n'));

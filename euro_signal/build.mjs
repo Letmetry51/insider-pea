@@ -16,7 +16,7 @@ const ROOT = path.resolve(HERE, '..');
 const DATA = path.join(ROOT, 'data');
 const F = {
   latest: path.join(DATA, 'latest.json'), eu: path.join(DATA, 'insiders-eu.json'), events: path.join(DATA, 'events.json'), shorts: path.join(DATA, 'shorts.json'), financials: path.join(DATA, 'financials.json'), prices: path.join(DATA, 'prices.json'), state: path.join(DATA, 'euro-signal-state.json'),
-  history: path.join(DATA, 'history'), insiders: path.join(DATA, 'euro-signal-insiders.json'),
+  history: path.join(DATA, 'history'), insiders: path.join(DATA, 'euro-signal-insiders.json'), societes: path.join(DATA, 'societes'),
   out: path.join(DATA, 'euro-signal.json'), sectors: path.join(DATA, 'sectors.json'), journal: path.join(DATA, 'history', 'journal.json.gz'), detail: path.join(DATA, 'euro-signal-detail.json'), long: path.join(DATA, 'euro-signal-long.json'), learning: path.join(DATA, 'euro-signal-learning.json'), outbox: path.join(DATA, 'euro-signal-outbox.json'), config: path.join(HERE, 'config.json')
 };
 
@@ -856,6 +856,82 @@ export function build(opts = {}) {
       // Cœur indiciel + satellite Euro Signal : la question qui compte pour un épargnant (faire mieux que l'indice seul ?)
       core: coreRule ? { ret: coreRule.ret, bench: coreRule.bench, maxDD: coreRule.maxDD, benchMaxDD: coreRule.benchMaxDD, curve: coreRule.curve.map((p) => [p[0], p[1]]), coreAll: (() => { const r = run((w) => (w.cands || []).slice(0, N), true); return r ? { ret: r.ret, maxDD: r.maxDD, curve: r.curve.map((p) => [p[0], p[1]]) } : null; })() } : null };
   } catch (e) { console.warn('  Portefeuille simulé indisponible : ' + e.message); }
+  /* 6e. Classement principal (barème 3.0) : tendance + comptes sur toutes les sociétés liquides du catalogue, dirigeants en bonus */
+  let rank = null;
+  try {
+    const t0 = Date.now(), R = cfg.rank, co = {};
+    let wDates = [], dDates = [], coDate = null;
+    if (fs.existsSync(F.societes)) fs.readdirSync(F.societes).filter((f) => /^\d+\.json$/.test(f)).forEach((f) => {
+      const sh = readJSON(path.join(F.societes, f), null); if (!sh || !isObj(sh.items)) return;
+      if (Array.isArray(sh.wDates) && sh.wDates.length > wDates.length) wDates = sh.wDates;
+      if (Array.isArray(sh.dDates) && sh.dDates.length > dDates.length) dDates = sh.dDates;
+      const g = String(sh.generatedAt || '').slice(0, 10); if (g && (!coDate || g > coDate)) coDate = g;
+      Object.assign(co, sh.items);
+    });
+    const isinOfSym = {}; Object.keys(inst).forEach((isin) => { const t = inst[isin].ticker; if (t && !isinOfSym[t]) isinOfSym[t] = isin; });
+    const histTk = readJSON(path.join(F.history, 'tickers.json'), {});
+    const symOfIsin = {}; Object.keys(isObj(histTk) ? histTk : {}).forEach((i) => { const t = histTk[i] && histTk[i].ticker; if (t && co[t]) symOfIsin[i] = t; });
+    Object.keys(isinOfSym).forEach((t) => { if (co[t]) symOfIsin[isinOfSym[t]] = t; });
+    const accSummary = (a) => {
+      if (!a) return null;
+      const last = a.years && a.years.length ? a.years[a.years.length - 1] : null;
+      return { key: a.verdict ? a.verdict.key : 'na', f9: a.fscore && !a.fscore.na ? a.fscore.f9 : null, loss: !!(last && last.netIncome != null && last.netIncome < 0),
+        alt: a.altman && !a.altman.na ? a.altman.zone : null, fin: !!(a.fscore && a.fscore.na && /banques/.test(a.fscore.reason || '')) };
+    };
+    const coAcc = (sym, x, d) => { const fin = finList['@' + sym]; if (!fin || !Array.isArray(fin.years) || !fin.years.length) return null; try { return ES.accountsAnalysis(fin, { asOf: d, sector: x.sector, industry: x.industry }); } catch (e) { return null; } };
+    const scoreOf = {}; cands.forEach((c) => { scoreOf[c.isin] = c.score; });
+    const winFrom = ES.windowStart(today, cfg.insiders.windowMonths);
+    const items = Object.keys(co).map((sym) => {
+      const x = co[sym], isin = isinOfSym[sym] || null, i = isin ? inst[isin] : null;
+      const acc = i ? accSummary(i.accounts) : accSummary(coAcc(sym, x, today));
+      const sc = isin ? scoreOf[isin] : null;
+      const ins = sc ? { buys: sc.buys.length, ceo: sc.buys.some((t) => t.ceo || t.cfo), multi: sc.cluster && sc.cluster.count >= 2 ? sc.cluster.count : 0,
+        netSeller: sc.sellEur > sc.buyEur && sc.sellEur > 0, ceoSale: ES.activeTx(tx[isin] || []).some((t) => t.type === 'vente' && (t.ceo || t.cfo) && ES.availDate(t) >= winFrom && ES.availDate(t) <= today) } : null;
+      return { key: isin || sym, isin, sym, name: (i && i.name) || x.name || sym, country: x.country || (i && i.country) || null, sector: ES.sectorFr(x.sector) || null,
+        turnoverEur: x.turnoverEur, pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) ? false : x.pea, f: ES.rankFeatures(x.d, x.w), acc, ins, nextEarnings: i ? i.nextEarnings || null : null };
+    });
+    const rows = ES.rankUniverse(items, cfg);
+    const nextE = {}; items.forEach((x) => { if (x.nextEarnings) nextE[x.key] = x.nextEarnings; });
+    // Étude de contrôle sur 4 ans de cours hebdomadaires (même méthode que l'étude qui a fondé le barème)
+    let study = null;
+    try {
+      const series = {}, insM = {}, accM = {};
+      Object.keys(co).forEach((sym) => { if (Array.isArray(co[sym].w) && co[sym].w.length === wDates.length) series[sym] = co[sym].w; });
+      Object.keys(sigBuys).forEach((isin) => { const sym = symOfIsin[isin]; if (!sym || !series[sym]) return; (insM[sym] = insM[sym] || []).push(...sigBuys[isin].map((t) => ES.availDate(t))); });
+      Object.keys(insM).forEach((k) => insM[k].sort());
+      Object.keys(series).forEach((sym) => {
+        const isin = isinOfSym[sym], fin = isin ? finList[isin] : finList['@' + sym]; if (!fin || !Array.isArray(fin.years) || fin.years.length < 2) return;
+        const x = co[sym], ds = [...new Set(fin.years.map((y) => y && y.date ? ES.addDays(y.date, 120) : null).filter(Boolean))].sort();
+        accM[sym] = ds.map((d) => { let a = null; try { a = ES.accountsAnalysis(fin, { asOf: d, sector: x.sector, industry: x.industry }); } catch (e) { a = null; } const sm = accSummary(a); return sm ? Object.assign({ from: d }, sm) : null; }).filter(Boolean);
+      });
+      study = ES.factorStudy(wDates, series, { cfg, insiders: insM, accounts: accM });
+      study.withAccounts = Object.keys(accM).length; study.withInsiders = Object.keys(insM).length;
+    } catch (e) { console.warn('  Étude de contrôle du classement indisponible : ' + e.message); }
+    // Sélection de la semaine : les premières sociétés non écartées au-dessus du seuil ; suivi depuis l'envoi
+    state.rankSelections = isObj(state.rankSelections) ? state.rankSelections : {};
+    const week = ES.isoWeek(today), mkLink = (r) => dashUrl ? dashUrl + '#' + (r.isin || 'co=' + r.sym) : null;
+    const lastOf = {}; rows.forEach((r) => { lastOf[r.key] = r.last; });
+    const mRows = mRef && Array.isArray(mRef.rows) ? ES.normalizeSeries(mRef.rows) : [], mLast = mRows.length ? mRows[mRows.length - 1][4] : null;
+    const prevW = Object.keys(state.rankSelections).filter((w) => w < week).sort().pop(), was = new Set(prevW ? state.rankSelections[prevW].items.map((x) => x.key) : []);
+    const sel = ES.rankSelection(rows, cfg).map((r) => Object.assign({}, r, { isNew: !!prevW && !was.has(r.key), link: mkLink(r), nextEarnings: nextE[r.key] || null }));
+    const track = Object.keys(state.rankSelections).filter((w) => w < week).sort().slice(-26).map((w) => {
+      const S0 = state.rankSelections[w];
+      return { week: w, date: S0.date, bench: S0.b0 && mLast ? (mLast / S0.b0 - 1) * 100 : null,
+        items: S0.items.map((x) => ({ key: x.key, name: x.name, note: x.note, perf: x.p0 > 0 && lastOf[x.key] > 0 ? (lastOf[x.key] / x.p0 - 1) * 100 : null })) };
+    });
+    const perfs = [], benches = []; track.forEach((w) => w.items.forEach((x) => { if (x.perf != null) { perfs.push(x.perf); if (w.bench != null) benches.push(w.bench); } }));
+    const trackSum = perfs.length ? { n: perfs.length, avg: perfs.reduce((a, b) => a + b, 0) / perfs.length, bench: benches.length ? benches.reduce((a, b) => a + b, 0) / benches.length : null, beat: track.reduce((a, w) => a + w.items.filter((x) => x.perf != null && w.bench != null && x.perf > w.bench).length, 0) } : null;
+    const slimRow = (r) => ({ key: r.key, isin: r.isin, sym: r.sym, name: r.name, country: r.country, sector: r.sector, note: r.note, parts: r.parts, v: r.verdict.key, out: r.out, why: r.why, warn: r.warn,
+      mom: r.mom != null ? +(r.mom * 100).toFixed(1) : null, momPct: r.momPct != null ? Math.round(r.momPct * 100) : null, ratio: r.ratio != null ? +(r.ratio * 100).toFixed(1) : null, trend: r.trend,
+      ret6m: r.ret6m != null ? +(r.ret6m * 100).toFixed(1) : null, liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : null, pos: r.pos || null, acc: r.acc });
+    // Liste publiée : sociétés liquides (classées ou écartées pour une raison de fond) ; les autres sont trouvables par la recherche du catalogue
+    const shown = rows.filter((r) => (r.turnoverEur || 0) >= cfg.rank.minTurnoverEur || r.isin);
+    rank = { version: R.version, since: R.since, today, coDate, coFresh: !!(coDate && ES.daysBetween(coDate, today) <= 3), generatedAt: new Date().toISOString(), counts: { catalogue: rows.length, liquid: rows.filter((r) => (r.turnoverEur || 0) >= R.minTurnoverEur).length, ranked: rows.filter((r) => !r.out.length).length, top: rows.filter((r) => r.verdict.key === 'top').length },
+      bench: mRef ? mRef.ticker : null, selection: { week, items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })), track: trackSum, weeks: track }, rows: shown.map(slimRow), study };
+    rank.ms = Date.now() - t0;
+    console.log('  Classement tendance + comptes : ' + rank.counts.ranked + ' sociétés classées sur ' + rank.counts.liquid + ' liquides (' + rank.counts.catalogue + ' au catalogue), ' + rank.counts.top + ' en tête ; sélection : ' + sel.length + ' (' + (rank.ms / 1000).toFixed(0) + ' s)');
+    rank._sel = sel; rank._b0 = mLast;
+  } catch (e) { console.warn('  Classement tendance + comptes indisponible : ' + e.message); rank = null; }
   if (selCfg.enabled) {
     // Renvoi demandé à la main (bouton « Run workflow ») : un nouvel identifiant, donc un seul email de plus, jamais en boucle
     const resend = String(process.env.ES_RESEND_SELECTION || '').toLowerCase() === 'true';
@@ -865,14 +941,19 @@ export function build(opts = {}) {
     const insBad = Object.keys(state.src).filter((n) => state.src[n].kind === 'déclarations' || /^(AMF|BaFin|CNMV|CONSOB|FSMA|AFM|FI)$/.test(n)).filter((n) => state.src[n].status === 'echec');
     selection.sourcesDown = insBad;
     if (insBad.length && selection.verdict) selection.verdict = { key: 'na', icon: '⚠️', text: 'Données incomplètes : ' + insBad.join(', ') + ' en panne. Les sociétés concernées peuvent manquer à la sélection.' };
-    const wait = insBad.length && dow < 5; // on attend que la source revienne, au plus tard le vendredi
-    if ((resend && pFresh) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && pFresh)) {
-      const since = events.length ? events.map((e) => e.date).sort()[0] : null;
-      const mail = ES.buildSelectionEmail(selection.items, week, cfg, dashUrl, today, ES.methodRationale(backtest.results, cfg, since ? since.split('-').reverse().join('/') : null), selection.track, selection.verdict, selection.replayStats);
+    // la sélection vient du classement tendance + comptes : on attend des cours du catalogue à jour, au plus tard le vendredi
+    const coOk = !!(rank && rank.coFresh), wait = !coOk && dow < 5;
+    if ((resend && coOk) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && coOk)) {
+      // Depuis le barème 3.0 : la sélection envoyée est celle du classement tendance + comptes (l'ancienne, fondée sur les dirigeants,
+      // reste calculée et affichée pour comparaison jusqu'à la revue du 31/01/2027)
+      const mail = rank ? ES.buildRankEmail(rank._sel, week, cfg, dashUrl, today, rank.selection.track) : null;
+      if (!mail) { console.warn('  Sélection de la semaine non envoyée : classement indisponible'); }
+      if (rank) state.rankSelections[week] = { date: today, b0: rank._b0, items: rank._sel.map((x) => ({ key: x.key, name: x.name, note: x.note, p0: x.last })) };
+      Object.keys(state.rankSelections || {}).sort().slice(0, -60).forEach((w) => { delete state.rankSelections[w]; });
       state.selections[week] = { date: today, items: selection.items.map((x) => ({ isin: x.isin, name: x.name, score: x.score })) };
       Object.keys(state.selections).sort().slice(0, -60).forEach((w) => { delete state.selections[w]; });
-      outbox.push({ id, kind: 'selection', isin: null, name: 'Sélection ' + week, subject: mail.subject, text: mail.text, html: mail.html,
-        eventIds: ['selection:' + week], score: null, version: cfg.scoringVersion });
+      if (mail) outbox.push({ id, kind: 'selection', isin: null, name: 'Sélection ' + week, subject: mail.subject, text: mail.text, html: mail.html,
+        eventIds: ['selection:' + week], score: null, version: cfg.rank.version });
     }
   }
 
@@ -1067,6 +1148,7 @@ export function build(opts = {}) {
   } catch (e) { console.warn('  Journal de bord indisponible : ' + e.message); }
   payload.planStudy = planStudy; payload.journal = journal;
   if (planStudy) console.log('  Plan d\'entrée reconstitué : ' + planStudy.obs + ' relevés du ' + planStudy.from + ' au ' + planStudy.to + ' (' + (planStudy.ms / 1000).toFixed(0) + ' s)');
+  if (rank) { const r = Object.assign({}, rank); delete r._sel; delete r._b0; payload.rank = r; }
   payload.history = { cov: hist.cov, n: hist.n, cut: hist.cut, outcomes: Object.keys(hist.outcomes).length, events: histEvents.length, persons: Object.keys(persons).length,
     study: histStudy, insidersFile: 'data/euro-signal-insiders.json' };
   Object.keys(state.obsAtBuy).forEach((k) => { if (ES.daysBetween(state.obsAtBuy[k].at, today) > 400) delete state.obsAtBuy[k]; });

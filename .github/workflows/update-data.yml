@@ -61,13 +61,6 @@ jobs:
         run: python scrapers/europe_insiders.py
         continue-on-error: true
 
-      - name: 2b. Allemagne, Espagne, Italie + secours Belgique / Pays-Bas (Insider Screener API)
-        timeout-minutes: 10
-        env:
-          INSIDERSCREENER_API_KEY: ${{ secrets.INSIDERSCREENER_API_KEY }}
-        run: python scrapers/insiderscreener.py
-        continue-on-error: true
-
       - name: 2c. Positions vendeuses des fonds (AMF, Bundesanzeiger, CNMV, Consob, AFM, FSMA)
         timeout-minutes: 10
         run: python scrapers/shorts.py

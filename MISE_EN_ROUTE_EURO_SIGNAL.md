@@ -3,11 +3,18 @@
 Euro Signal s'ajoute à ton dépôt `insider-pea`, qui tourne déjà chaque soir sur GitHub.
 Après cette mise en route, **tout est automatique**. Chaque soir de semaine, GitHub :
 
-- collecte les déclarations des dirigeants en **France (AMF)**, **Belgique (FSMA)** et **Pays-Bas (AFM)**,
-  et, avec ta clé Insider Screener, en **Allemagne (BaFin)**, **Espagne (CNMV)** et **Italie (Consob)** ;
+- collecte les déclarations des dirigeants en **France (AMF)**, **Suède (FI)** et **Belgique (FSMA)**,
+  sources officielles et gratuites (l'Allemagne, l'Espagne et l'Italie ne sont pas collectables gratuitement :
+  leurs sociétés restent suivies par leurs cours, dans le classement tendance + comptes) ;
 - récupère les **cours**, les **résultats** (BPA publié et consensus), les **communiqués** des sociétés
   (rachats d'actions, perspectives relevées ou abaissées) et les **révisions des analystes** ;
 - calcule les scores, t'envoie les alertes par email et met à jour le tableau de bord.
+
+Depuis le 17/10/2026, le **classement principal** porte sur toutes les sociétés liquides éligibles au PEA du catalogue :
+exclusions (liquidité, comptes dégradés ou en perte, bilan en détresse, cours parmi les plus faibles), puis note sur la
+tendance (force relative 12 mois, proximité du plus haut, MM50 > MM200), les comptes et le calme du cours ; les achats de
+dirigeants ne comptent plus qu'en petit bonus (leurs ventes en malus). La sélection du lundi en est tirée. L'ancien
+classement par les dirigeants reste consultable pour comparaison jusqu'à la revue du 31/01/2027.
 
 Tu n'as plus rien à saisir.
 
@@ -56,32 +63,6 @@ Les secrets sont chiffrés par GitHub : personne ne peut les relire, même dans 
 **Créer ces secrets vaut activation de l'envoi réel.** Sans eux, Euro Signal reste en simulation :
 il journalise les alertes sans rien envoyer.
 
-## Étape 3 bis — Allemagne, Espagne, Italie avec ta clé Insider Screener (3 min)
-
-Ces trois pays ne sont pas collectables gratuitement et légitimement (BaFin : robots.txt qui interdit la
-collecte ; CNMV : serveurs de GitHub bloqués ; Consob : plus de tableau publié). Insider Screener relève ces
-registres toutes les heures et revend l'accès par API ; l'offre **API Starter** (1 000 crédits par mois) suffit.
-
-1. Sur https://www.insiderscreener.com/api-access (Compte → API Access), copie ta clé.
-   Elle n'est affichée en entier qu'une fois : si tu ne l'as plus, clique sur « rotate » pour en créer une
-   nouvelle (l'ancienne cesse alors de fonctionner).
-2. Dans GitHub : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
-3. Name : `INSIDERSCREENER_API_KEY` — Secret : ta clé, sans espace avant ni après — **Add secret**.
-
-**Ne colle jamais cette clé ailleurs que dans ce champ GitHub** (ni dans une conversation, ni dans un fichier).
-
-Ce que fait Euro Signal avec la clé, chaque soir :
-
-- Allemagne, Espagne, Italie : il récupère les nouvelles déclarations depuis le soir précédent.
-- Belgique, Pays-Bas : **en secours seulement**. Si la collecte directe FSMA ou AFM du soir n'est pas
-  complète, il comble le trou par Insider Screener (les doublons entre les deux sont écartés).
-- Consommation : environ 200 crédits pour le rattrapage des 4 derniers mois (répartis sur les premiers soirs,
-  120 au plus par soir), puis 15 à 25 par soir, soit 350 à 550 par mois.
-- **Garde-fou** : jamais plus de 900 crédits par mois. Si ce plafond est atteint, les pays concernés passent
-  « partiels » et leurs alertes sont bloquées jusqu'au mois suivant, sans fausse conclusion « aucun achat ».
-
-Sans ce secret, ces trois pays apparaissent « Non configurés » dans l'onglet Comment ça marche, rubrique État des données. Pour arrêter : supprime
-le secret, puis résilie l'abonnement.
 
 ## Étape 4 — Premier lancement avec email de test (10 min d'attente)
 
@@ -255,9 +236,9 @@ et visible dans l'onglet Comment ça marche, rubrique Résultats passés. Pour d
 
 ## Ce que l'outil ne fait pas (à savoir)
 
-- **Allemagne, Espagne, Italie** : couvertes par l'API Insider Screener (étape 3 bis, payante).
-  Le format exact de ses réponses n'étant pas public, un échantillon est déposé dans
-  `data/diagnostics/insiderscreener.json` au premier appel, pour vérification.
+- **Allemagne, Espagne, Italie, Pays-Bas** : pas de source gratuite exploitable pour les déclarations des dirigeants
+  (BaFin : collecte interdite ; CNMV : serveurs de GitHub bloqués ; Consob : plus de tableau publié ; AFM : export
+  sans ISIN ni prix). Leurs sociétés restent dans le classement tendance + comptes, sans bonus des dirigeants.
 - **Rachats et perspectives** : lus dans les **titres** des communiqués de l'émetteur, en 6 langues. Un
   titre ambigu n'est pas compté. Le montant d'un rachat n'est connu que s'il figure dans le titre.
 - **Résultats** : surprise sur le BPA uniquement, avec le consensus Yahoo figé à la publication. Il n'y a
@@ -274,7 +255,7 @@ et visible dans l'onglet Comment ça marche, rubrique Résultats passés. Pour d
 
 Les registres belge et néerlandais n'étaient pas accessibles depuis l'environnement où l'outil a été
 construit. Leurs collecteurs s'adaptent aux colonnes trouvées et déposent un court échantillon dans
-`data/diagnostics/` (fichiers `fsma.json` et `afm.json`). Il en va de même pour `insiderscreener.json` si l'API est configurée. Après le premier lancement,
+`data/diagnostics/` (fichiers `fsma.json` et `afm.json`). Après le premier lancement,
 demande à Claude de « vérifier les diagnostics Euro Signal » : le dépôt étant public, il peut les lire et ajuster les
 collecteurs si un format diffère. En attendant, une source mal lue apparaît « partielle » ou
 « en échec » dans l'onglet Comment ça marche, rubrique État des données, et ses alertes restent bloquées.
@@ -294,9 +275,4 @@ Exemples : `"minScore": 60` (seuil d'alerte) ou `"minAdv20Eur": 1000000` (liquid
 | État des données : AMF « En échec » | Le site source n'a pas répondu. Les alertes sont bloquées, sans fausse conclusion « aucun achat ». Ça repart au prochain soir. |
 | Un titre « sans ticker Yahoo » | Ajoute la correspondance ISIN → ticker dans `ISIN_TO_TICKER` de `run.py` (ex. `"FR0000062234": "ODET.PA"`). |
 | Alerte « Statut incertain » | Gmail a peut-être accepté le message avant une coupure. Elle n'est jamais renvoyée : regarde ton dossier Envoyés. |
-| Étape « 2b » : `clé absente` | Le secret `INSIDERSCREENER_API_KEY` n'est pas lu : vérifie son nom exact, puis relance. |
-| Étape « 2b » : `clé refusée ou inactive (HTTP 401)` | Recolle la clé dans le secret (crayon → nouvelle valeur) et vérifie que l'abonnement API est actif. |
-| Étape « 2b » : `HTTP 403` | Ton offre n'inclut pas ce marché : vérifie l'offre sur insiderscreener.com/api-access. |
-| Étape « 2b » : `HTTP 429` ou `budget mensuel` | Crédits ou débit dépassés : rien à faire, ça repart au soir suivant ou au mois suivant. |
-| Étape « 2b » : `HTTP 400` ou `réponse illisible` | Demande à Claude de « vérifier les diagnostics Euro Signal ». |
 | Révoquer l'accès Gmail | https://myaccount.google.com/apppasswords → supprimer « Euro Signal ». |

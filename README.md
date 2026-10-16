@@ -50,7 +50,6 @@ insider-pea/
 ├── scrapers/
 │   ├── france_amf.py             ← Déclarations AMF (France)
 │   ├── europe_insiders.py        ← FSMA (Belgique), AFM (Pays-Bas), Finansinspektionen (Suède)
-│   ├── insiderscreener.py        ← Allemagne, Espagne, Italie (API Insider Screener)
 │   ├── insider_history.py        ← Historique long France et Suède (workflow history.yml)
 │   ├── shorts.py, prices.py, events.py, financials.py ← ventes à découvert, cours, résultats, comptes
 ├── euro_signal/                  ← Moteur (core.js, testé par tests.js) et calcul du soir (build.mjs)

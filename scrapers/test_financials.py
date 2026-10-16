@@ -88,6 +88,16 @@ def _():
     assert all(it[i]["years"] == [] and it[i]["asOf"] > "2020-01-01" for i in isins)
 
 
+@case("Sociétés liquides du catalogue ajoutées (clé @TICKER), sauf celles déjà suivies, hors PEA ou peu liquides")
+def _():
+    setup(1)
+    (F.DATA / "societes").mkdir()
+    (F.DATA / "societes" / "0.json").write_text(json.dumps({"items": {"OMV.VI": {"pea": True, "turnoverEur": 5e7}, "T0.PA": {"pea": True, "turnoverEur": 9e7},
+                                                                      "TINY.ST": {"pea": True, "turnoverEur": 2e4}, "UK.L": {"pea": False, "turnoverEur": 9e7}}}))
+    got = F.catalogue_pairs({"T0.PA"})
+    assert got == {"@OMV.VI": "OMV.VI"}, got
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

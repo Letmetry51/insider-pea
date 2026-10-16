@@ -360,7 +360,7 @@ def afm_collect(st):
         complete = all(f in colmap for f in ("isin", "nature", "txDate"))
         thin = "isin" not in colmap and "price" not in colmap and len(headers) <= 6
         src.update({"status": "ok" if complete else "partiel", "rows": d["rowCount"], "kept": kept,
-                    "note": None if complete else ("l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : relevé complété via Insider Screener"
+                    "note": None if complete else ("l'export public de l'AFM ne donne ni ISIN, ni nature, ni prix : déclarations néerlandaises non exploitables"
                                                     if thin else "export sans ISIN, nature ou date reconnue : format à adapter (voir data/diagnostics/afm.json)")})
         src["lastSuccess"] = date.today().isoformat() if complete else src.get("lastSuccess")
         print(f"AFM : {d['rowCount']} lignes, {kept} dans la fenêtre, colonnes reconnues : {sorted(colmap)}")

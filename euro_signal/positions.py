@@ -35,6 +35,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 ISIN_RE = re.compile(r"\b([A-Z]{2}[A-Z0-9]{9}[0-9])\b")
+# sociétés du catalogue sans dossier Euro Signal (classement tendance + comptes) : symbole Yahoo, ex. « VOLV-B.ST »
+SYM_RE = re.compile(r"\]\s*(?:Position|Vente|Surveiller|Ne plus surveiller)\s+([A-Z0-9][A-Z0-9&-]{0,20}\.[A-Z]{1,3})\b")
 DRAWDOWN_PCT = 20
 
 
@@ -68,7 +70,7 @@ def text_of(msg):
 
 def parse_position(subject, body, sent_at):
     """Objet « [Euro Signal] Position ISIN » ou « [Euro Signal] Vente ISIN » ; corps en lignes « clé : valeur »."""
-    m = ISIN_RE.search(subject or "")
+    m = ISIN_RE.search(subject or "") or SYM_RE.search(subject or "")
     if not m:
         return None
     kind = ("arret" if re.search(r"\]\s*Ne plus surveiller\b", subject, re.I) else "surveiller" if re.search(r"\]\s*Surveiller\b", subject, re.I)
@@ -157,6 +159,39 @@ def watch_events(plan, last, today=None):
     if pr.get("stop") and last < pr["stop"]:
         ev.append(("stop%d" % level_key(lvl), "sous le stop du plan (%s) : le scénario est invalidé" % f(pr["stop"])))
     return ev
+
+
+def shard_of(sym, n=32):
+    """Même répartition que ES.shardOf (fiches du catalogue)."""
+    h = 0
+    for ch in str(sym):
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return h % n
+
+
+def catalogue_rows(sym):
+    """Clôtures journalières (un an) d'une société du catalogue, au format [date, o, h, l, close, v]."""
+    try:
+        sh = json.loads((DATA / "societes" / ("%d.json" % shard_of(sym))).read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    x = (sh.get("items") or {}).get(sym) or {}
+    return [[d, c, c, c, c, None] for d, c in zip(sh.get("dDates") or [], x.get("d") or []) if d and c]
+
+
+def death_cross(rows, since):
+    """Date à laquelle la MM50 est repassée sous la MM200 après « since » (clôtures journalières), sinon None."""
+    c = [(r[0], r[4]) for r in rows if r and r[4]]
+    if len(c) < 201:
+        return None
+    vals = [v for _, v in c]
+    prev = None
+    for k in range(200, len(c)):
+        below = sum(vals[k - 49:k + 1]) / 50 < sum(vals[k - 199:k + 1]) / 200
+        if prev is False and below and c[k][0] > since:
+            return c[k][0]
+        prev = below
+    return None
 
 
 def evaluate(pos, rows, stats, txs, today):
@@ -269,9 +304,15 @@ def main():
         p = prices.get(isin)
         inst = (dash.get("inst") or {}).get((dash.get("aliases") or {}).get(isin, isin)) or {}  # ancien ISIN réuni à un autre dossier
         name = inst.get("name") or pos.get("name") or isin
+        if not p and not ISIN_RE.fullmatch(isin):  # société du catalogue : cours du catalogue, MM50 / MM200 recalculées ici
+            rows = catalogue_rows(isin)
+            p = {"rows": rows} if rows else None
+            stats = {"deathCrossDate": death_cross(rows, pos["date"])} if rows else {}
+        else:
+            stats = inst.get("stats") or {}
         if not p:
             continue
-        evs, info = evaluate(pos, p.get("rows") or [], inst.get("stats") or {}, (state.get("txArchive") or {}).get(isin) or [], today)
+        evs, info = evaluate(pos, p.get("rows") or [], stats, (state.get("txArchive") or {}).get(isin) or [], today)
         for key, label in evs:
             ref = "%s:%s:%s" % (isin, pos["date"].replace("-", ""), key)
             if ref in refs:
@@ -280,7 +321,7 @@ def main():
                     "Ce n'est pas un ordre de vente : à décider selon votre stratégie (vendre tout, une partie, ou relever l'objectif).\n"
                     "Pour arrêter le suivi : bouton « Je l'ai vendu » dans la fiche%s.") % (
                 name, label, ("%.2f" % pos["price"]).replace(".", ","), pos["date"], ("%.2f" % info["last"]).replace(".", ","), pc(info["perf"]),
-                (" : " + dash_url + "#" + isin) if dash_url else "")
+                (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Revente — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # Plans d'entrée surveillés
     for w in watches:
@@ -299,7 +340,7 @@ def main():
             body = ("%s %s.\n\nDernier cours : %s. Plan du soir : %s.\n%s\n"
                     "Ce n'est pas un ordre : vérifiez la fiche avant d'agir.\nPour arrêter : bouton « Ne plus surveiller » dans la fiche%s.") % (
                 name, label, ("%.2f" % last).replace(".", ","), inst["plan"].get("label") or "", "Convergence : %s signaux sur 5." % (inst.get("convergence") or {}).get("n", "?"),
-                (" : " + dash_url + "#" + isin) if dash_url else "")
+                (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Plan — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # Diversification : une fois par semaine au plus, seulement si une concentration apparaît
     try:
