@@ -638,7 +638,7 @@
     sizing: { riskPct: 1, stopMinPct: 10, stopMaxPct: 30, maxPct: 8 },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     // Classement principal depuis le 17/10/2026 : tendance + comptes sur toutes les sociétés liquides du catalogue, dirigeants en bonus
-    rank: { version: '3.0.0', since: '2026-10-17', minTurnoverEur: 1000000, highFloor: 0.6, insFloor: -15, top: 75, good: 60, selMin: 60, selSize: 5,
+    rank: { version: '3.0.0', since: '2026-10-17', minTurnoverEur: 1000000, highFloor: 0.6, insFloor: -15, top: 80, good: 65, selMin: 70, selSize: 5,
       w: { mom: 30, high: 20, trend: 15, accounts: 20, calm: 10, insiders: 5 } },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     rules: { frozenUntil: '', reviewMinCases: 50, review: { date: '', fixedOn: '', minCases: 50, maxUnderperfPts: 3, waitCostPct: 1 } },

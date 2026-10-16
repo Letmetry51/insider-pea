@@ -888,7 +888,7 @@ export function build(opts = {}) {
       const ins = sc ? { buys: sc.buys.length, ceo: sc.buys.some((t) => t.ceo || t.cfo), multi: sc.cluster && sc.cluster.count >= 2 ? sc.cluster.count : 0,
         netSeller: sc.sellEur > sc.buyEur && sc.sellEur > 0, ceoSale: ES.activeTx(tx[isin] || []).some((t) => t.type === 'vente' && (t.ceo || t.cfo) && ES.availDate(t) >= winFrom && ES.availDate(t) <= today) } : null;
       return { key: isin || sym, isin, sym, name: (i && i.name) || x.name || sym, country: x.country || (i && i.country) || null, sector: ES.sectorFr(x.sector) || null,
-        turnoverEur: x.turnoverEur, pea: i && i.peaStatus === 'non_eligible' ? false : x.pea, f: ES.rankFeatures(x.d, x.w), acc, ins, nextEarnings: i ? i.nextEarnings || null : null };
+        turnoverEur: x.turnoverEur, pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) ? false : x.pea, f: ES.rankFeatures(x.d, x.w), acc, ins, nextEarnings: i ? i.nextEarnings || null : null };
     });
     const rows = ES.rankUniverse(items, cfg);
     const nextE = {}; items.forEach((x) => { if (x.nextEarnings) nextE[x.key] = x.nextEarnings; });

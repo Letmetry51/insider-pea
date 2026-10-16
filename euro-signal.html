@@ -1119,7 +1119,7 @@ details.pos summary{font-size:1rem}
     sizing: { riskPct: 1, stopMinPct: 10, stopMaxPct: 30, maxPct: 8 },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     // Classement principal depuis le 17/10/2026 : tendance + comptes sur toutes les sociétés liquides du catalogue, dirigeants en bonus
-    rank: { version: '3.0.0', since: '2026-10-17', minTurnoverEur: 1000000, highFloor: 0.6, insFloor: -15, top: 75, good: 60, selMin: 60, selSize: 5,
+    rank: { version: '3.0.0', since: '2026-10-17', minTurnoverEur: 1000000, highFloor: 0.6, insFloor: -15, top: 80, good: 65, selMin: 70, selSize: 5,
       w: { mom: 30, high: 20, trend: 15, accounts: 20, calm: 10, insiders: 5 } },
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     rules: { frozenUntil: '', reviewMinCases: 50, review: { date: '', fixedOn: '', minCases: 50, maxUnderperfPts: 3, waitCostPct: 1 } },
@@ -4703,7 +4703,7 @@ details.pos summary{font-size:1rem}
   function rankSelCard() {
     var R = rankData(); if (!R || !R.selection) return '';
     var sel = R.selection, t = sel.track;
-    var h = '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="selrule">Les premières sociétés du classement avec au moins ' + ((S.cfg.rank || {}).selMin || 60) + '/100. Envoyée par email le lundi.</p>';
+    var h = '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="selrule">Les premières sociétés du classement avec au moins ' + ((S.cfg.rank || {}).selMin || 70) + '/100. Envoyée par email le lundi.</p>';
     if (!sel.items.length) return h + '<p class="muted">Aucune société ne dépasse le seuil en ce moment. Mieux vaut ne rien faire que forcer un choix.</p></section>';
     h += '<ol class="sel">' + sel.items.map(function (r) {
       return '<li class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b>' + (r.isNew ? ' <span class="chip newc">Nouveau</span>' : '') +
@@ -4734,7 +4734,7 @@ details.pos summary{font-size:1rem}
     var C = R.counts || {};
     var h = modeSeg() + '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
     var rstat = function (label, big, small, v, kind) { var on = f.v === v; return '<button class="stat ' + (kind || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfV" data-v="' + v + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; };
-    h += '<section class="summary">' + rstat('En tête 🟢', String(cv.top || 0), 'note ≥ ' + ((S.cfg.rank || {}).top || 75), 'top', cv.top ? 'good' : '') + rstat('Solides 🟡', String(cv.good || 0), 'note ' + ((S.cfg.rank || {}).good || 60) + ' à ' + (((S.cfg.rank || {}).top || 75) - 1), 'good', 'warn') + '</section>';
+    h += '<section class="summary">' + rstat('En tête 🟢', String(cv.top || 0), 'note ≥ ' + ((S.cfg.rank || {}).top || 80), 'top', cv.top ? 'good' : '') + rstat('Solides 🟡', String(cv.good || 0), 'note ' + ((S.cfg.rank || {}).good || 65) + ' à ' + (((S.cfg.rank || {}).top || 80) - 1), 'good', 'warn') + '</section>';
     h += rankSelCard();
     var nSel = (f.country ? 1 : 0) + (f.sector ? 1 : 0) + (f.v ? 1 : 0);
     h += '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q || '') + '" data-rf="q" aria-label="Rechercher"></div>' +
@@ -5523,7 +5523,7 @@ details.pos summary{font-size:1rem}
     var roles = (x.roles || []).map(function (r) { return '<span class="chip ' + (r[0] === 'leader' ? 'pos-leader' : r[0] === 'challenger' ? 'pos-challenger' : '') + '">' + RL[r[0]] + ' · ' + esc(r[1] === 't' ? 'thème ' + (TH[r[2]] || r[2]) : secName(r[2])) + '</span>'; }).join(' ');
     var nG = (S.sec && S.sec.groups || []).length;
     var h = back + '<header class="fhead"><div><h2>' + flag(x.country) + esc(x.name || sym) + '</h2><p class="fsub">' + esc(sub) + '</p><p>' +
-      (x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">' + (x.basic ? 'PEA probable (cotée dans l\'UE ou l\'EEE)' : 'PEA (siège dans l\'UE ou l\'EEE)') + '</span> ' : '') + roles + '</p></div></header>' + partH +
+      (/^REIT\b/i.test(String(x.industry || '')) ? '<span class="chip bad">hors PEA (foncière cotée)</span> ' : x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">' + (x.basic ? 'PEA probable (cotée dans l\'UE ou l\'EEE)' : 'PEA (siège dans l\'UE ou l\'EEE)') + '</span> ' : '') + roles + '</p></div></header>' + partH +
       (x.basic ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>' : '');
     h += rankCard(rankOf(es, sym));
     if (es) h += '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' + esc(es) + '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
@@ -5817,7 +5817,7 @@ details.pos summary{font-size:1rem}
   function vSources() {
     var h = '<h2 class="vt">Sources de données</h2><p class="lead">État de chaque source. Une source en échec ou en retard bloque les alertes des titres domiciliés dans le pays concerné : l\'absence d\'opération n\'est jamais confondue avec une absence de collecte.</p>';
     h += '<div class="tablewrap"><table class="grid"><thead><tr><th>Source</th><th>État</th><th class="hide-s">Pays couverts</th><th class="hide-s">Dernière collecte réussie</th><th class="hide-s">Dernier import</th></tr></thead><tbody>';
-    var srcList = REGISTRIES.slice();
+    var srcList = REGISTRIES.filter(function (r) { return !S.ro || S.src[r.name]; }); // en ligne : seulement les sources réellement collectées
     Object.keys(S.src).forEach(function (n) { if (!srcList.some(function (r) { return r.name === n; })) srcList.push({ name: n, label: (S.src[n].kind ? S.src[n].kind + ' · ' : '') + (S.src[n].via || n), url: '' }); });
     if (S.ro) srcList.sort(function (x, y) { return (S.src[y.name] ? 1 : 0) - (S.src[x.name] ? 1 : 0); });
     srcList.forEach(function (r) {
@@ -6109,7 +6109,8 @@ details.pos summary{font-size:1rem}
   function vGuide() {
     var h = '<p class="small">Chaque repère suit la même règle : <span class="fsc fs-good">vert</span> favorable à l\'achat, <span class="fsc fs-neu">gris</span> neutre, <span class="fsc fs-mid">orange</span> à surveiller, <span class="fsc fs-bad">rouge</span> défavorable. Le rond blanc montre où se trouve la société sur l\'échelle.</p><div class="crits">';
     var NA = ES.note(S.cfg.alerts.minScore, S.cfg), NS = ES.note(S.cfg.selection.minScore, S.cfg), NM = ES.note(Math.round(S.cfg.selection.minScore / 2), S.cfg);
-    h += critBox('⭐', 'Note d\'opportunité', '78', 'good', 'Sur 100 : force du signal d\'achat des dirigeants', scaleLine(78, 0, 100, [[0, NM, 'neu'], [NM, NS, 'mid'], [NS, 100, 'good']], [[NM, 'moyen'], [NS, 'fort'], [NA, 'très fort']], 'Exemple de note'), 'Combine l\'achat des dirigeants (montant, fonction, plusieurs acheteurs), les rachats d\'actions, les résultats et le marché. L\'avis (🟢 🟡 🔴) ajoute la solidité de la société et les risques.');
+    h += critBox('📈', 'Note du classement', '81', 'good', 'Sur 100 : tendance, comptes et calme du cours ; dirigeants en petit bonus', rankBar({ note: 81, parts: { mom: 28, high: 19, trend: 15, accounts: 10, calm: 5, insiders: 4 } }, true) + '<p class="small">' + RPARTS.map(function (p) { return '<span class="rkey"><i class="rp-' + p[0] + '"></i>' + p[1] + '</span>'; }).join(' ') + '</p>', 'La barre montre d\'où viennent les points : les bleus pour la tendance (force sur 12 mois, proximité du plus haut, moyennes 50 et 200 séances), l\'ocre pour les comptes, le violet pour le calme du cours, le vert pour les dirigeants. En tête à partir de ' + ((S.cfg.rank || {}).top || 80) + ', solide à partir de ' + ((S.cfg.rank || {}).good || 65) + '. Une société aux comptes dégradés, en perte ou au cours parmi les plus faibles est écartée, quelle que soit sa note.');
+    h += critBox('⭐', 'Ancienne note (dirigeants)', '78', 'good', 'Sur 100 : force du signal d\'achat des dirigeants', scaleLine(78, 0, 100, [[0, NM, 'neu'], [NM, NS, 'mid'], [NS, 100, 'good']], [[NM, 'moyen'], [NS, 'fort'], [NA, 'très fort']], 'Exemple de note'), 'Combine l\'achat des dirigeants (montant, fonction, plusieurs acheteurs), les rachats d\'actions, les résultats et le marché. L\'avis (🟢 🟡 🔴) ajoute la solidité de la société et les risques.');
     h += critBox('🎯', 'Convergence', '3/5', 'good', '<span class="cdots"><i class="ok"></i><i class="ok"></i><i class="ok"></i><i class="ko"></i><i class="na"></i></span>', '', 'Cinq signaux indépendants : achat récent du DG ou du DAF, secteur en tendance, analystes qui relèvent leurs prévisions, plan d\'entrée favorable, figure de cours favorable. Gris : information manquante. À partir de 3, plusieurs raisons vont dans le même sens.');
     h += critBox('📶', 'RSI 14 jours', '25', 'good', 'Survendu : un rebond est fréquent', scaleLine(25, 0, 100, [[0, 30, 'good'], [30, 70, 'neu'], [70, 100, 'bad']], [[0, '0'], [30, '30'], [70, '70'], [100, '100']], 'Exemple RSI'), 'Sous 30, le titre a beaucoup baissé en peu de temps ; au-dessus de 70, il a beaucoup monté. Sert à choisir le moment, pas la société.');
     h += critBox('〽️', 'MACD', '▲ haussier', 'good', 'Au-dessus de sa ligne de signal', scaleLine(0.4, -1, 1, [[-1, 0, 'bad'], [0, 1, 'good']], [[-1, 'baisse forte'], [0, 'signal'], [1, 'hausse forte']], 'Exemple MACD') + sparkBars([-0.5, -0.4, -0.35, -0.2, -0.1, -0.05, 0.05, 0.15, 0.25, 0.3, 0.35, 0.4], 'Exemple d\'histogramme'), 'Le passage des barres rouges aux barres vertes (croisement haussier) marque souvent la fin d\'une baisse.');
@@ -6186,7 +6187,7 @@ details.pos summary{font-size:1rem}
       step('Collecte', 'Cours et comptes de toutes les sociétés cotées de l\'Union européenne et de l\'EEE ; déclarations des dirigeants en France, en Suède et en Belgique (sources officielles gratuites).') +
       step('Tri', 'Sont écartées les sociétés peu liquides, hors PEA, aux comptes dégradés ou en perte, au bilan en détresse, ou dont le cours est parmi les plus faibles du marché.') +
       step('Note', (function () { var w = rankW(); return 'Tendance ' + (w.mom + w.high + w.trend) + ' points, comptes ' + w.accounts + ', calme du cours ' + w.calm + ' ; les achats de dirigeants en petit bonus (' + w.insiders + ' au plus), leurs ventes en malus.'; })()) +
-      step('Emails', 'Chaque lundi, la sélection de la semaine : les ' + ((c.rank || {}).selSize || 5) + ' premières sociétés avec au moins ' + ((c.rank || {}).selMin || 60) + '/100.') + '</ol>' +
+      step('Emails', 'Chaque lundi, la sélection de la semaine : les ' + ((c.rank || {}).selSize || 5) + ' premières sociétés avec au moins ' + ((c.rank || {}).selMin || 70) + '/100.') + '</ol>' +
       '<p class="foot">Aide à la décision, jamais un ordre d\'achat. Sur téléphone : « Ajouter à l\'écran d\'accueil » pour l\'ouvrir comme une application.</p></section>';
     var nD = 0, det = function (title, body) { return '<details class="card fold" data-k="aide' + (nD++) + '"><summary>' + title + '</summary>' + body + '</details>'; };
     h += '<details class="card fold" data-k="aide-guide"><summary>📖 Les critères en images : lire une fiche en 30 secondes</summary>' + vGuide() + '</details>';
