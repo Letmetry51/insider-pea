@@ -1771,32 +1771,63 @@
       var sxy = 0, sxx = 0; pts.forEach(function (p) { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) * (p[0] - mx); });
       var b = sxx > 0 ? sxy / sxx : 0, a = my - b * mx;
       // décalage : la droite haute passe par le sommet le plus haut par rapport à la pente, la basse par le creux le plus bas
+      // (la méthode des deux sommets reliés, essayée sur les cours réels, écartait trop les droites sur trois mois)
       var off = pts.reduce(function (o, p) { var d = p[1] - (a + b * p[0]); return upper ? Math.max(o, d) : Math.min(o, d); }, upper ? -Infinity : Infinity);
       return { a: a + off, b: b, touches: pts.filter(function (p) { return Math.abs(p[1] - (a + off + b * p[0])) <= Math.abs(a + b * p[0]) * 0.015; }).length };
     };
     var U = fit(H, true), D = fit(Lw, false), last = R[n - 1][4];
+    return ES.wedgeShape({ a: U.a, b: U.b, touches: U.touches }, { a: D.a, b: D.b, touches: D.touches }, n, last, R[0][0]);
+  };
+  /**
+   * Nature de la figure formée par deux droites (prix = a + b × k, k = séance depuis le début de la fenêtre de n séances).
+   * Pentes en % du cours par séance (su : droite haute, sl : droite basse), largeur au début (w0) et à la fin (w1) :
+   *  - canal : droites presque parallèles (écart de pente faible) et largeur stable ;
+   *  - triangle : droites de sens opposés qui se rapprochent (symétrique), ou une droite plate et l'autre qui la rejoint
+   *    (ascendant : sommets au même niveau, creux qui montent ; descendant : l'inverse) ;
+   *  - biseau descendant : les deux droites baissent et se rapprochent (la haute plus vite) ; ascendant : l'inverse ;
+   *  - sinon (droites qui s'écartent, ou sans forme nette) : pas de figure.
+   * Fonction séparée pour reclasser des droites déjà calculées (fichiers de la veille) avec les mêmes règles.
+   */
+  ES.wedgeShape = function (U, D, n, last, from) {
     var at = function (l, k) { return l.a + l.b * k; };
     var w0 = at(U, 0) - at(D, 0), w1 = at(U, n - 1) - at(D, n - 1);
-    var su = U.b / last * 100, sl = D.b / last * 100; // pentes en % du cours par séance
-    var conv = w1 > 0 && w0 > 0 && w1 < w0 * 0.75 && U.b < D.b;
-    var apex = U.b < D.b ? (at(U, n - 1) - at(D, n - 1)) / (D.b - U.b) : null; // séances avant la jonction des droites
-    var type = 'none';
-    if (w1 <= 0) type = 'none';
-    else if (conv && su < -0.02 && sl < -0.005) type = 'falling';
-    else if (conv && su > 0.005 && sl > 0.02) type = 'rising';
-    else if (conv && su < 0 && sl > 0) type = 'triangle';
-    else if (Math.abs(w1 - w0) <= w0 * 0.25) type = 'channel';
-    var label = { falling: 'Biseau descendant', rising: 'Biseau ascendant', triangle: 'Triangle symétrique', channel: su > 0.02 ? 'Canal haussier' : su < -0.02 ? 'Canal baissier' : 'Canal horizontal', none: 'Droites de tendance' }[type];
+    var su = U.b / last * 100, sl = D.b / last * 100, F = 0.01; // pente « plate » : moins de 0,01 % par séance
+    var conv = w0 > 0 && w1 > 0 && w1 < w0 * 0.85 && U.b < D.b, flat = function (x) { return Math.abs(x) < F; };
+    var par = Math.abs(su - sl) <= Math.max(0.015, 0.3 * Math.max(Math.abs(su), Math.abs(sl))) && w0 > 0 && Math.abs(w1 - w0) <= w0 * 0.25;
+    var type = 'none', sub = null;
+    if (!(w1 > 0)) type = 'none';
+    else if (par) type = 'channel';
+    // une droite « plate » à côté de l'autre (moins du quart de sa pente) : triangle ascendant ou descendant
+    else if (conv && sl >= F && (flat(su) || Math.abs(su) < 0.25 * sl)) { type = 'triangle'; sub = 'asc'; }
+    else if (conv && su <= -F && (flat(sl) || Math.abs(sl) < 0.25 * -su)) { type = 'triangle'; sub = 'desc'; }
+    else if (conv && su <= -F && sl >= F) { type = 'triangle'; sub = 'sym'; }
+    else if (conv && su < 0 && sl < 0) type = 'falling';
+    else if (conv && su > 0 && sl > 0) type = 'rising';
+    // droites de sens opposés qui s'écartent (sommets plus hauts, creux plus bas) : élargissement ; même sens qui s'écartent
+    // un peu : le cours suit un canal qui s'évase, lu comme un canal (essai sur les cours réels du 16/10/2026)
+    else if (w1 > w0 * 1.15 && ((su >= F && sl <= -F) || (flat(su) && sl <= -F) || (su >= F && flat(sl)))) type = 'broadening';
+    else if (!conv && ((su <= -F && sl <= -F) || (su >= F && sl >= F))) type = 'channel';
+    var mid = (su + sl) / 2, cdir = mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat';
+    var label = { falling: 'Biseau descendant', rising: 'Biseau ascendant', triangle: { sym: 'Triangle symétrique', asc: 'Triangle ascendant', desc: 'Triangle descendant' }[sub],
+      channel: { up: 'Canal haussier', down: 'Canal baissier', flat: 'Canal horizontal' }[cdir], broadening: 'Élargissement', none: 'Droites de tendance' }[type];
     var reading = { falling: 'souvent suivi d\'une cassure par le haut : signal d\'achat si le cours clôture au-dessus de la droite haute',
       rising: 'souvent suivi d\'une cassure par le bas : prudence, sortie si le cours clôture sous la droite basse',
-      triangle: 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
+      triangle: sub === 'asc' ? 'acheteurs de plus en plus pressants sous une résistance : achat si clôture au-dessus de la droite haute'
+        : sub === 'desc' ? 'vendeurs de plus en plus pressants sur un support : prudence, sortie si clôture sous la droite basse'
+        : 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
       channel: 'le cours oscille entre les deux droites : acheter près de la droite basse, alléger près de la haute',
+      broadening: 'les écarts s\'amplifient (sommets plus hauts, creux plus bas) : marché nerveux, pas de signal fiable avant une sortie franche',
       none: 'pas de figure nette' }[type];
-    var mid = (su + sl) / 2;
-    return { type: type, key: type === 'channel' ? 'channel-' + (su > 0.02 ? 'up' : su < -0.02 ? 'down' : 'flat') : type, dir: mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat',
-      label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
+    var apex = U.b < D.b ? w1 / (D.b - U.b) : null; // séances avant la jonction des droites
+    return { type: type, sub: sub, key: type === 'channel' ? 'channel-' + cdir : type, dir: cdir,
+      label: label, reading: reading, n: n, from: from, upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
+  };
+  /** Reclasse un biseau déjà calculé (fichier de la veille) avec les règles actuelles ; dernier cours de la fenêtre déduit des pentes. */
+  ES.reclassWedge = function (w, last) {
+    if (!w || !w.upper || !w.lower || !(w.n > 1) || !(last > 0)) return w;
+    try { var r = ES.wedgeShape(w.upper, w.lower, w.n, last, w.from); return r; } catch (e) { return w; }
   };
   /**
    * Oscillateurs classiques sur les clôtures (aucune donnée postérieure à la dernière ligne) :
@@ -1835,14 +1866,15 @@
   };
   /** Figures de tendance (biseau, triangle, canal) : clé de filtre → [symbole, libellé, ton (good : haussier, bad : baissier)]. */
   ES.FIGURES = {
-    'channel-up': ['↗', 'Canal haussier', 'good'], 'falling': ['▽', 'Biseau descendant', 'good'], 'triangle': ['◇', 'Triangle symétrique', 'neutral'],
-    'channel-flat': ['→', 'Canal horizontal', 'neutral'], 'rising': ['△', 'Biseau ascendant', 'bad'], 'channel-down': ['↘', 'Canal baissier', 'bad'], 'none': ['·', 'Pas de figure nette', 'neutral']
+    'channel-up': ['↗', 'Canal haussier', 'good'], 'falling': ['▽', 'Biseau descendant', 'good'], 'triangle': ['◇', 'Triangle', 'neutral'],
+    'channel-flat': ['→', 'Canal horizontal', 'neutral'], 'rising': ['△', 'Biseau ascendant', 'bad'], 'channel-down': ['↘', 'Canal baissier', 'bad'], 'broadening': ['◁▷', 'Élargissement', 'bad'], 'none': ['·', 'Pas de figure nette', 'neutral']
   };
   /** Clé de figure d'un biseau calculé par ES.wedge (ancien format sans « key » accepté). */
   ES.figureKey = function (w) {
     if (!w || !w.type) return null;
     if (w.key) return w.key;
-    return w.type === 'channel' ? 'channel-' + (w.slopeUpPct > 0.02 ? 'up' : w.slopeUpPct < -0.02 ? 'down' : 'flat') : w.type;
+    var m = w.slopeLowPct != null ? (w.slopeUpPct + w.slopeLowPct) / 2 : w.slopeUpPct; // ancien format : pente haute seule
+    return w.type === 'channel' ? 'channel-' + (m > 0.02 ? 'up' : m < -0.02 ? 'down' : 'flat') : w.type;
   };
   /**
    * Convergence : 5 signaux indépendants croisés pour une société. Chaque élément vaut true, false ou null (inconnu).
@@ -1905,6 +1937,20 @@
     else fit = (inL(cy.lead) && inL(cy.lead2)) || ((inL(cy.lead) || inL(cy.lead2)) && rs > 0 && !inL(cy.lag) && !inL(cy.lag2)) ? 'up'
       : (inL(cy.lag) && inL(cy.lag2)) || ((inL(cy.lag) || inL(cy.lag2)) && rs < 0 && !inL(cy.lead) && !inL(cy.lead2)) ? 'down' : 'flat';
     return { cyclical: !!ES.CYCLICAL[sector], fit: fit, rs: rs, phase: cy.second ? cy.label + ' ou ' + cy.second : cy.label };
+  };
+  /**
+   * Lien vers la déclaration elle-même. Suède : l'export FI ne donne qu'un lien vers le formulaire de recherche ; on le
+   * remplit (société, dirigeant, date de transaction) pour tomber sur la déclaration. Autres registres : lien d'origine.
+   */
+  ES.sourceLink = function (t) {
+    if (!t) return null;
+    var u = t.sourceUrl || null;
+    if (t.registry === 'FI' && (!u || /SearchFunctionType=Insyn$/.test(u)) && t.issuer && t.txDate) {
+      var q = function (v) { return encodeURIComponent(String(v || '').trim()); };
+      return 'https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=' + q(t.issuer) +
+        '&PersonILedandeSt%C3%A4llningNamn=' + q(t.linkedTo || t.person) + '&Transaktionsdatum.From=' + q(t.txDate) + '&Transaktionsdatum.To=' + q(t.txDate);
+    }
+    return u;
   };
   ES.convergence = function (o) {
     o = o || {};

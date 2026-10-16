@@ -267,7 +267,7 @@ def main():
     for pos in positions:
         isin = pos["isin"]
         p = prices.get(isin)
-        inst = (dash.get("inst") or {}).get(isin) or {}
+        inst = (dash.get("inst") or {}).get((dash.get("aliases") or {}).get(isin, isin)) or {}  # ancien ISIN réuni à un autre dossier
         name = inst.get("name") or pos.get("name") or isin
         if not p:
             continue
@@ -286,7 +286,7 @@ def main():
     for w in watches:
         isin = w["isin"]
         p = prices.get(isin)
-        inst = (dash.get("inst") or {}).get(isin) or {}
+        inst = (dash.get("inst") or {}).get((dash.get("aliases") or {}).get(isin, isin)) or {}  # ancien ISIN réuni à un autre dossier
         rows = [r for r in (p or {}).get("rows") or [] if r and r[4]]
         if not rows or not inst.get("plan"):
             continue

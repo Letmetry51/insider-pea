@@ -98,7 +98,7 @@ jobs:
         continue-on-error: true
 
       - name: 5a. Tests du moteur Euro Signal
-        run: node euro_signal/tests.js
+        run: node euro_signal/tests.js && python scrapers/test_prices.py
 
       - name: 5b. Calcul Euro Signal
         timeout-minutes: 10

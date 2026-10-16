@@ -1170,6 +1170,37 @@ t('Phase du cycle : rotation des secteurs, phase nette ou incertaine, secteurs p
   const c2 = ES.cyclePhase(sh); ok(c2.shift && c2.shift.from === 'Fin de cycle' && c2.shift.to === 'Ralentissement', 'rotation détectée : ' + JSON.stringify(c2.shift));
 });
 
+t('Liens vers les déclarations : Suède ciblée sur la déclaration, autres registres inchangés', () => {
+  const fi = ES.sourceLink({ registry: 'FI', sourceUrl: 'https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn', issuer: 'Nordea Bank Abp', person: 'Anna Ek', txDate: '2026-10-01' });
+  ok(/Utgivare=Nordea%20Bank%20Abp/.test(fi) && /Anna%20Ek/.test(fi) && /Transaktionsdatum.From=2026-10-01&Transaktionsdatum.To=2026-10-01$/.test(fi), fi);
+  ok(/Anna%20Ek/.test(ES.sourceLink({ registry: 'FI', issuer: 'X AB', person: 'Holding AB', linkedTo: 'Anna Ek', txDate: '2026-10-01' })), 'personne liée : nom du dirigeant');
+  eq(ES.sourceLink({ registry: 'AMF', sourceUrl: 'https://bdif.amf-france.org/x.pdf' }), 'https://bdif.amf-france.org/x.pdf');
+  eq(ES.sourceLink(null), null);
+  ok(ES.safeUrl(fi) === fi, 'lien accepté par le filtre de sécurité');
+});
+
+t('Figures : classement des deux droites (cas réels et types limites)', () => {
+  const S = (ua, ub, la, lb, n, last) => ES.wedgeShape({ a: ua, b: ub, touches: 2 }, { a: la, b: lb, touches: 2 }, n || 63, last || 1000, '2026-07-20');
+  // Compagnie de l'Odet le 16/10/2026 : haute qui baisse, basse qui monte, largeur 172 → 129 : triangle, pas un canal baissier
+  const odet = S(1047.2, -0.2033, 874.86, 0.489);
+  eq(odet.label, 'Triangle symétrique', 'cas Odet');
+  eq(S(1100, -1, 950, -1).label, 'Canal baissier', 'droites parallèles qui baissent');
+  eq(S(1000, 1, 900, 1).label, 'Canal haussier', 'droites parallèles qui montent');
+  eq(S(1000, 0, 900, 0.05).label, 'Canal horizontal', 'droites plates');
+  eq(S(1100, -3, 900, -1).label, 'Biseau descendant', 'deux droites qui baissent et se rapprochent');
+  eq(S(1100, 3, 900, 5).label, 'Biseau ascendant', 'deux droites qui montent et se rapprochent');
+  eq(S(1100, 0, 900, 1.5).label, 'Triangle ascendant', 'sommets au même niveau, creux qui montent');
+  eq(S(1100, -1.5, 900, 0).label, 'Triangle descendant', 'creux au même niveau, sommets qui baissent');
+  eq(S(190, -0.08, 150, 0.5, 63, 190).label, 'Triangle ascendant', 'sommets presque plats face à des creux qui montent vite');
+  eq(S(1000, 1, 950, -1).label, 'Élargissement', 'droites qui s\'écartent : élargissement');
+  eq(S(1000, 0.15, 900, -0.05).label, 'Droites de tendance', 'ni parallèles, ni convergentes, ni franchement divergentes');
+  eq(S(990, -0.56, 945, -0.82, 63, 945).label, 'Canal baissier', 'SEGRO : canal baissier qui s\'évase, pas un élargissement');
+  eq(S(1000, 0.35, 950, -1.1).label, 'Élargissement', 'sommets qui montent, creux qui baissent');
+  const r = ES.reclassWedge({ upper: { a: 1047.2, b: -0.2033 }, lower: { a: 874.86, b: 0.489 }, n: 63, from: '2026-07-20', label: 'Canal baissier', type: 'channel' }, 1000);
+  ok(r.label === 'Triangle symétrique' && r.key === 'triangle', 'fichier de la veille reclassé');
+  eq(ES.reclassWedge(null, 10), null, 'sans figure');
+});
+
 t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, canal', () => {
   const mk = (f, n) => { const o = []; let d = '2025-01-01'; for (let k = 0; k < n; k++) { const c = f(k); o.push([d, c, c * 1.004, c * 0.996, c, 1]); d = ES.addDays(d, 1); } return o; };
   const fall = ES.wedge(mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63));
@@ -1178,9 +1209,9 @@ t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, ca
   ok(rise && rise.type === 'rising', 'biseau ascendant : ' + (rise && rise.type));
   const ch = ES.wedge(mk((k) => 100 + 0.2 * k + 5 * Math.sin(k / 3), 63));
   ok(ch && ch.type === 'channel' && ch.apexIn === null, 'canal : ' + (ch && ch.type));
-  // aucune clôture au-dessus de la droite haute ni sous la droite basse (droites appuyées sur les extrêmes)
+  // aucune clôture ne traverse les droites (droites appuyées sur les extrêmes), sauf une sortie toute récente
   const rows = mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63);
-  ok(rows.every((r, k) => r[4] <= fall.upper.a + fall.upper.b * k + 1e-6 && r[4] >= fall.lower.a + fall.lower.b * k - 1e-6), 'cours entre les deux droites');
+  ok(rows.every((r, k) => k >= 60 || (r[4] <= fall.upper.a + fall.upper.b * k + 1e-6 && r[4] >= fall.lower.a + fall.lower.b * k - 1e-6)), 'cours entre les deux droites');
   eq(ES.wedge(rows.slice(0, 10)), null, 'historique trop court');
   const p = ES.entryPlan(mk((k) => 100 + 10 * Math.sin(k / 8), 250));
   ok(p && 'wedge' in p, 'le plan d\'entrée porte le biseau');

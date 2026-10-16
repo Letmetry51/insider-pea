@@ -1187,6 +1187,9 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
                    grossMargin=it.get("grossMargin"), revenue=it.get("revenue"), reco=it.get("reco"), insiderPct=it.get("insiderPct"),
                    turnoverEur=it.get("turnoverEur"), group=g, groupRank=gi.get("rank"), groupTrending=gi.get("trending"), groupEmerging=gi.get("emerging"),
                    roles=roles.get(sym) or [], basic=sym in cat_only, **book_fields(info.get(sym)))
+        if not rec.get("name"):  # nom absent du catalogue Yahoo : fiche de la société, à défaut le symbole
+            inf = info.get(sym) or {}
+            rec["name"] = inf.get("longName") or inf.get("shortName") or sym
         if sym in Wl.columns and Wl[sym].notna().sum() >= 20:
             rec["w"] = [sig(v) for v in Wl[sym].tolist()]
         if sym in D.columns and D[sym].notna().sum() >= 20:
