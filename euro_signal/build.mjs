@@ -347,6 +347,19 @@ export function build(opts = {}) {
       aliases[x] = keep; delete inst[x]; delete tx[x];
     });
   });
+  // ISIN sans cours dont le nom est celui d'une société suivie avec cours (Studsvik : options et droits d'un programme) :
+  // ligne secondaire, signalée et retirée des listes (la fiche renvoie vers la ligne principale)
+  {
+    const nk = (n) => String(n || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[(),.&'’-]/g, ' ')
+      .split(/\s+/).filter((w) => w.length > 1 && !/^(sa|se|ag|nv|spa|ab|publ|plc|oyj|abp|asa|as|sca|gmbh|kgaa|co|holding|holdings|group|groupe|ser|the|aktiebolag|aktiebolaget)$/.test(w)).join(' ');
+    const priced = {};
+    Object.keys(inst).forEach((i) => { const p = pItems[i]; if (p && p.rows && p.rows.length && inst[i].name) { const k = nk(inst[i].name); if (k && !priced[k]) priced[k] = i; } });
+    Object.keys(inst).forEach((i) => {
+      const p = pItems[i]; if (p && p.rows && p.rows.length) return;
+      const main = priced[nk(inst[i].name)];
+      if (main && main !== i) { inst[i].secondary = main; inst[i].shareType = 'ligne secondaire sans cours (options, droits ou actions nouvelles de ' + main + ')'; }
+    });
+  }
   // Informations croisées : jamais bloquantes (une donnée mal formée est ignorée, le calcul continue)
   const shortsRaw = readJSON(F.shorts, { items: {}, sources: {} });
   const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);
