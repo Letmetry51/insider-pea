@@ -1,37 +1,37 @@
-Contrôle des fichiers du 2026-10-15
+Contrôle des fichiers du 2026-10-16
 
 OK     euro-signal.json lisible
-OK     euro-signal.json : 10.7 Mo (limite 60)
-OK     euro-signal-long.json : 4.1 Mo (limite 60)
+OK     euro-signal.json : 10.1 Mo (limite 60)
+OK     euro-signal-long.json : 4.0 Mo (limite 60)
 OK     euro-signal-state.json : 10.9 Mo (limite 60)
 OK     sectors.json : 0.6 Mo (limite 60)
 OK     societes-index.json : 0.3 Mo (limite 60)
 OK     aucune valeur NaN ou Infinity dans euro-signal.json
-OK     date des données 2026-10-15 (aujourd'hui 2026-10-15)
+OK     date des données 2026-10-16 (aujourd'hui 2026-10-16)
 OK     fiches réparties : 32 fichiers lisibles, chaque société dans le bon fichier
-OK     plus gros fichier de fiches : 1.1 Mo (3 au plus, pour un téléphone)
+OK     plus gros fichier de fiches : 1.0 Mo (3 au plus, pour un téléphone)
 OK     cours journaliers (vue 1 an) publiés
 OK     le tableau de bord pointe vers le fichier 5 ans (longFile)
 OK     euro-signal-long.json lisible
-OK     vue 5 ans disponible pour 779 titres sur 809 (80 % au moins)
+OK     vue 5 ans disponible pour 774 titres sur 804 (80 % au moins)
 OK     vue 1 an : 1.03 an de cours (médiane)
 OK     vue 5 ans : 5.00 ans de cours (médiane, 4,5 au moins)
-OK     702 titres sur 779 ont au moins 4,5 ans de cours hebdomadaires
+OK     697 titres sur 774 ont au moins 4,5 ans de cours hebdomadaires
 OK     43 titres dont la vue 5 ans ne remonte pas plus loin que la vue 1 an (20 % au plus)
-OK     0 titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)
+OK     1 titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)
 OK     32 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, signalé sur la fiche (6 % au plus ; souvent réel : augmentation de capital, regroupement, scission)
 OK     plans d'entrée calculés : 993 sur 1167 titres
 OK     plans complets (verdict, scénario, figure, RSI/MACD) : 991 sur 993
 OK     0 plan(s) avec un rapport gain / risque absurde
-OK     répartition des verdicts : waitSupport 446, waitBreakout 431, buyNow 49, avoid 67
+OK     répartition des verdicts : waitSupport 420, waitBreakout 452, buyNow 52, avoid 69
 OK     convergence notée pour 1167 titres
 OK     tendance du secteur rattachée pour 1001 titres
-OK     étude historique du plan : 67140 relevés
+OK     étude historique du plan : 66741 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 2995 dans la liste de recherche (1 500 au moins)
 OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : 
 OK     fiches des sociétés : 32 fichiers lisibles
 OK     secteurs : 92 groupes classés
-OK     secteurs à jour (2026-10-15)
+OK     secteurs à jour (2026-10-16)
 
 0 échec(s), 0 alerte(s)

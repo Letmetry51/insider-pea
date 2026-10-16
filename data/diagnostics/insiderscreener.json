@@ -1,25 +1,25 @@
 {
- "at": "2026-10-15T16:00:11.824470+00:00",
+ "at": "2026-10-16T04:50:43.530993+00:00",
  "markets": {
   "DE": {
-   "from": "2026-10-06",
+   "from": "2026-10-09",
    "samples": [
     {
      "object": "insider_transaction",
      "schema_version": "2026-04-01",
-     "id": "txn_11342608",
+     "id": "txn_11347003",
      "links": {
-      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11342608/",
-      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/deutz-ag/",
-      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/deutz-ag/transactions/"
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11347003/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/transactions/"
      },
      "source": {
       "country": "DE",
       "filing_reference": null,
       "declaration_reference": null,
       "submission_type": null,
-      "filed_at": "2026-10-10T06:01:19.722334",
-      "notification_date": "2026-10-06",
+      "filed_at": "2026-10-15T11:26:07.579870",
+      "notification_date": "2026-10-09",
       "notification_type": "INITIAL",
       "is_amendment": false,
       "amends_filing_reference": null,
@@ -27,34 +27,34 @@
       "status": "CURRENT"
      },
      "issuer": {
-      "id": "iss_517",
-      "name": "DEUTZ AG",
-      "slug": "deutz-ag",
-      "ticker": "DEZ",
+      "id": "iss_28341",
+      "name": "Brockhaus Capital Management AG",
+      "slug": "brockhaus-capital-management-ag",
+      "ticker": "BKHT",
       "exchange": "GER",
       "exchange_mic": "XETR",
       "country": "DE",
-      "isin": "DE0006305006",
+      "isin": "DE000A2GSU42",
       "cik": null,
-      "lei": "5299005DETTV58V2PP63",
-      "permid": 4295869220,
+      "lei": "5299007DQ4OLATJQIX97",
+      "permid": 5059102631,
       "links": {
-       "self": "https://www.insiderscreener.com/api/v1/data/issuers/deutz-ag/",
-       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/deutz-ag/transactions/",
-       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/deutz-ag/",
-       "signals": "https://www.insiderscreener.com/api/v1/research/signals/deutz-ag/"
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/brockhaus-capital-management-ag/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/brockhaus-capital-management-ag/"
       }
      },
      "reporting_person": {
-      "id": "per_189137",
-      "name": "Maier, Dr. Rudolf",
+      "id": null,
+      "name": "Brockhaus Private Equity GmbH",
       "name_locale": null,
-      "display_name": "Maier, Dr. Rudolf",
-      "effective_name": "MAIER DR RUDOLF",
+      "display_name": "Brockhaus Private Equity GmbH",
+      "effective_name": "BROCKHAUS PRIVATE EQUITY GMBH",
       "cik": null,
-      "pdmr_name": "Maier, Dr. Rudolf",
+      "pdmr_name": null,
       "pdmr_name_locale": null,
-      "cap_name": null,
+      "cap_name": "Brockhaus Private Equity GmbH",
       "closely_affiliated_name": null,
       "relationship_flags": {
        "is_officer": null,
@@ -62,64 +62,64 @@
        "is_major_owner": null,
        "is_director_or_officer_of_major_owner": null,
        "is_director_or_officer_of_subsidiary": null,
-       "is_closely_affiliated": false
+       "is_closely_affiliated": true
       },
       "position": {
        "raw": null,
        "locale": null,
        "display": null,
-       "normalized": "Supervisory Board Member"
+       "normalized": null
       },
       "entity_match": {
-       "identified_person_id": "per_189137",
-       "match_status": "MATCHED"
+       "identified_person_id": null,
+       "match_status": null
       }
      },
      "security": {
-      "id": "sec_517",
-      "ticker": "DEZ.DE",
-      "isin": "DE0006305006",
+      "id": "sec_23625",
+      "ticker": "BKHT",
+      "isin": "DE000A2GSU42",
       "trading_place": "DE",
       "issuer": {
-       "id": "iss_517",
-       "name": "DEUTZ AG",
-       "slug": "deutz-ag",
-       "ticker": "DEZ",
+       "id": "iss_28341",
+       "name": "Brockhaus Capital Management AG",
+       "slug": "brockhaus-capital-management-ag",
+       "ticker": "BKHT",
        "exchange": "GER",
        "exchange_mic": "XETR",
        "country": "DE",
-       "isin": "DE0006305006",
+       "isin": "DE000A2GSU42",
        "cik": null,
-       "lei": "5299005DETTV58V2PP63",
-       "permid": 4295869220,
+       "lei": "5299007DQ4OLATJQIX97",
+       "permid": 5059102631,
        "links": {
-        "self": "https://www.insiderscreener.com/api/v1/data/issuers/deutz-ag/",
-        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/deutz-ag/transactions/",
-        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/deutz-ag/",
-        "signals": "https://www.insiderscreener.com/api/v1/research/signals/deutz-ag/"
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/brockhaus-capital-management-ag/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/brockhaus-capital-management-ag/"
        }
       }
      },
      "transaction": {
-      "execution_date": "2026-10-01",
-      "activation_date": "10/10/2026 06:01:40",
+      "execution_date": "2026-10-06",
+      "activation_date": "15/10/2026 12:37:32",
       "classification": {
-       "normalized_operation": "BUY",
+       "normalized_operation": "OO",
        "nature_raw": null
       },
       "price": {
-       "amount": "11.060000",
+       "amount": "25.000000",
        "currency": "EUR"
       },
       "quantity": {
-       "amount": "9000.0000"
+       "amount": "83333.0000"
       },
       "gross_value": {
-       "amount": "99540.00",
+       "amount": "2083325.00",
        "currency": "EUR"
       },
       "gross_value_usd": {
-       "amount": "112776.83"
+       "amount": "2338449.84"
       },
       "holdings_before": {
        "quantity": null,
@@ -133,7 +133,7 @@
        "quantity": null
       },
       "market_context": {
-       "at_market_price": true
+       "at_market_price": null
       }
      },
      "analytics": {
@@ -154,38 +154,38 @@
       "comments": null,
       "amendment_remarks": null,
       "extra_data": {
-       "ISIN": "DE0006305006",
-       "Bafin-ID": "40001150",
-       "﻿Issuer": "DEUTZ Aktiengesellschaft",
-       "Averrage price": "11,06 EUR",
-       "Aggregated volume": "99.540,00 EUR",
-       "Position / status": "Supervisory board",
+       "ISIN": "DE000A2GSU42",
+       "Bafin-ID": "40026230",
+       "﻿Issuer": "Brockhaus Technologies AG",
+       "Averrage price": "25,00 EUR",
+       "Aggregated volume": "2.083.325,00 EUR",
+       "Position / status": "Closely associated",
        "Typ of instrument": "Share",
-       "Date of activation": "10/10/2026 06:01:40",
-       "Date of transaction": "01/10/2026",
-       "Date of notification": "06/10/2026",
-       "Place of transaction": "Börse Stuttgart",
-       "Nature of transaction": "Buy",
-       "Parties subject to the notification requirement": "Maier, Dr. Rudolf"
+       "Date of activation": "15/10/2026 12:37:32",
+       "Date of transaction": "06/10/2026",
+       "Date of notification": "09/10/2026",
+       "Place of transaction": "",
+       "Nature of transaction": "Other",
+       "Parties subject to the notification requirement": "Brockhaus Private Equity GmbH"
       }
      }
     },
     {
      "object": "insider_transaction",
      "schema_version": "2026-04-01",
-     "id": "txn_11342599",
+     "id": "txn_11347004",
      "links": {
-      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11342599/",
-      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/brenntag-se/",
-      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brenntag-se/transactions/"
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11347004/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/transactions/"
      },
      "source": {
       "country": "DE",
       "filing_reference": null,
       "declaration_reference": null,
       "submission_type": null,
-      "filed_at": "2026-10-10T06:01:10.812902",
-      "notification_date": "2026-10-06",
+      "filed_at": "2026-10-15T11:26:07.742529",
+      "notification_date": "2026-10-09",
       "notification_type": "INITIAL",
       "is_amendment": false,
       "amends_filing_reference": null,
@@ -193,34 +193,34 @@
       "status": "CURRENT"
      },
      "issuer": {
-      "id": "iss_193",
-      "name": "Brenntag SE",
-      "slug": "brenntag-se",
-      "ticker": "BNR",
+      "id": "iss_28341",
+      "name": "Brockhaus Capital Management AG",
+      "slug": "brockhaus-capital-management-ag",
+      "ticker": "BKHT",
       "exchange": "GER",
       "exchange_mic": "XETR",
       "country": "DE",
-      "isin": "DE000A1DAHH0",
+      "isin": "DE000A2GSU42",
       "cik": null,
-      "lei": "NNROIXVWJ7CPSR27SV97",
-      "permid": 5059963032,
+      "lei": "5299007DQ4OLATJQIX97",
+      "permid": 5059102631,
       "links": {
-       "self": "https://www.insiderscreener.com/api/v1/data/issuers/brenntag-se/",
-       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brenntag-se/transactions/",
-       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/brenntag-se/",
-       "signals": "https://www.insiderscreener.com/api/v1/research/signals/brenntag-se/"
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/brockhaus-capital-management-ag/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/brockhaus-capital-management-ag/"
       }
      },
      "reporting_person": {
-      "id": "per_143595",
-      "name": "Mollenkopf, Dr. Claudine",
+      "id": null,
+      "name": "Manhattan Heritage GmbH",
       "name_locale": null,
-      "display_name": "Mollenkopf, Dr. Claudine",
-      "effective_name": "MOLLENKOPF DR CLAUDINE",
+      "display_name": "Manhattan Heritage GmbH",
+      "effective_name": "MANHATTAN HERITAGE GMBH",
       "cik": null,
-      "pdmr_name": "Mollenkopf, Dr. Claudine",
+      "pdmr_name": null,
       "pdmr_name_locale": null,
-      "cap_name": null,
+      "cap_name": "Manhattan Heritage GmbH",
       "closely_affiliated_name": null,
       "relationship_flags": {
        "is_officer": null,
@@ -228,64 +228,64 @@
        "is_major_owner": null,
        "is_director_or_officer_of_major_owner": null,
        "is_director_or_officer_of_subsidiary": null,
-       "is_closely_affiliated": false
+       "is_closely_affiliated": true
       },
       "position": {
        "raw": null,
        "locale": null,
        "display": null,
-       "normalized": "Supervisory Board Member"
+       "normalized": null
       },
       "entity_match": {
-       "identified_person_id": "per_143595",
-       "match_status": "MATCHED"
+       "identified_person_id": null,
+       "match_status": null
       }
      },
      "security": {
-      "id": "sec_193",
-      "ticker": "BNR.DE",
-      "isin": "DE000A1DAHH0",
+      "id": "sec_23625",
+      "ticker": "BKHT",
+      "isin": "DE000A2GSU42",
       "trading_place": "DE",
       "issuer": {
-       "id": "iss_193",
-       "name": "Brenntag SE",
-       "slug": "brenntag-se",
-       "ticker": "BNR",
+       "id": "iss_28341",
+       "name": "Brockhaus Capital Management AG",
+       "slug": "brockhaus-capital-management-ag",
+       "ticker": "BKHT",
        "exchange": "GER",
        "exchange_mic": "XETR",
        "country": "DE",
-       "isin": "DE000A1DAHH0",
+       "isin": "DE000A2GSU42",
        "cik": null,
-       "lei": "NNROIXVWJ7CPSR27SV97",
-       "permid": 5059963032,
+       "lei": "5299007DQ4OLATJQIX97",
+       "permid": 5059102631,
        "links": {
-        "self": "https://www.insiderscreener.com/api/v1/data/issuers/brenntag-se/",
-        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brenntag-se/transactions/",
-        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/brenntag-se/",
-        "signals": "https://www.insiderscreener.com/api/v1/research/signals/brenntag-se/"
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/brockhaus-capital-management-ag/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/brockhaus-capital-management-ag/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/brockhaus-capital-management-ag/"
        }
       }
      },
      "transaction": {
       "execution_date": "2026-10-06",
-      "activation_date": "10/10/2026 06:01:40",
+      "activation_date": "15/10/2026 12:44:48",
       "classification": {
-       "normalized_operation": "BUY",
+       "normalized_operation": "OO",
        "nature_raw": null
       },
       "price": {
-       "amount": "59.830000",
+       "amount": "25.000000",
        "currency": "EUR"
       },
       "quantity": {
-       "amount": "360.0201"
+       "amount": "30317.0000"
       },
       "gross_value": {
-       "amount": "21540.00",
+       "amount": "757925.00",
        "currency": "EUR"
       },
       "gross_value_usd": {
-       "amount": "24177.80"
+       "amount": "850740.81"
       },
       "holdings_before": {
        "quantity": null,
@@ -299,7 +299,7 @@
        "quantity": null
       },
       "market_context": {
-       "at_market_price": true
+       "at_market_price": null
       }
      },
      "analytics": {
@@ -320,25 +320,25 @@
       "comments": null,
       "amendment_remarks": null,
       "extra_data": {
-       "ISIN": "DE000A1DAHH0",
-       "Bafin-ID": "40012425",
-       "﻿Issuer": "Brenntag SE",
-       "Averrage price": "59,83 EUR",
-       "Aggregated volume": "21.540,00 EUR",
-       "Position / status": "Supervisory board",
+       "ISIN": "DE000A2GSU42",
+       "Bafin-ID": "40026230",
+       "﻿Issuer": "Brockhaus Technologies AG",
+       "Averrage price": "25,00 EUR",
+       "Aggregated volume": "757.925,00 EUR",
+       "Position / status": "Closely associated",
        "Typ of instrument": "Share",
-       "Date of activation": "10/10/2026 06:01:40",
+       "Date of activation": "15/10/2026 12:44:48",
        "Date of transaction": "06/10/2026",
-       "Date of notification": "06/10/2026",
+       "Date of notification": "09/10/2026",
        "Place of transaction": "",
-       "Nature of transaction": "Buy",
-       "Parties subject to the notification requirement": "Mollenkopf, Dr. Claudine"
+       "Nature of transaction": "Other",
+       "Parties subject to the notification requirement": "Manhattan Heritage GmbH"
       }
      }
     }
    ],
    "pages": 1,
-   "rows": 28,
+   "rows": 14,
    "complete": true,
    "error": null
   },
@@ -651,12 +651,12 @@
     }
    ],
    "pages": 1,
-   "rows": 25,
+   "rows": 32,
    "complete": true,
    "error": null
   },
   "IT": {
-   "from": "2026-10-11",
+   "from": "2026-10-12",
    "samples": [
     {
      "object": "insider_transaction",
@@ -1017,24 +1017,24 @@
    "error": null
   },
   "NL": {
-   "from": "2026-10-06",
+   "from": "2026-10-12",
    "samples": [
     {
      "object": "insider_transaction",
      "schema_version": "2026-04-01",
-     "id": "txn_11334921",
+     "id": "txn_11346924",
      "links": {
-      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11334921/",
-      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
-      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/"
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11346924/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/transactions/"
      },
      "source": {
       "country": "NL",
-      "filing_reference": "2026093016D3566C-F0E9-4B5D-A76B-4F5EA2D62E6B",
-      "declaration_reference": "2026093016D3566C-F0E9-4B5D-A76B-4F5EA2D62E6B",
+      "filing_reference": "20261012366C29F4-45F0-41DA-9F8D-40060A629AA3",
+      "declaration_reference": "20261012366C29F4-45F0-41DA-9F8D-40060A629AA3",
       "submission_type": null,
-      "filed_at": "2026-10-06T06:05:55.674238",
-      "notification_date": "2026-10-06",
+      "filed_at": "2026-10-15T06:04:12.824535",
+      "notification_date": "2026-10-15",
       "notification_type": "INITIAL",
       "is_amendment": false,
       "amends_filing_reference": null,
@@ -1042,32 +1042,32 @@
       "status": "CURRENT"
      },
      "issuer": {
-      "id": "iss_47625",
-      "name": "DSM-Firmenich",
-      "slug": "dsm-firmenich",
-      "ticker": null,
-      "exchange": null,
-      "exchange_mic": null,
+      "id": "iss_42722",
+      "name": "Coca-Cola Europacific Partners PLC",
+      "slug": "coca-cola-europacific-partners-plc",
+      "ticker": "CCEP",
+      "exchange": "NSM",
+      "exchange_mic": "XNAS",
       "country": "NL",
-      "isin": "CH121647879",
+      "isin": "GB00BDCPN049",
       "cik": null,
-      "lei": "\n506700G44V67MPM4BI12\n",
-      "permid": 5083153148,
+      "lei": "549300LTH67W4GWMRF57",
+      "permid": 5046625212,
       "links": {
-       "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
-       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
-       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
-       "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/coca-cola-europacific-partners-plc/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/coca-cola-europacific-partners-plc/"
       }
      },
      "reporting_person": {
-      "id": "per_162937",
-      "name": "Erica Mann",
+      "id": "per_184073",
+      "name": "Juan A. De Rueda Gamboa",
       "name_locale": null,
-      "display_name": "Erica Mann",
-      "effective_name": "MANN E",
+      "display_name": "Juan A. De Rueda Gamboa",
+      "effective_name": "RUEDA GAMBOA DE J",
       "cik": null,
-      "pdmr_name": "\nMann E.\n",
+      "pdmr_name": "\nRueda Gamboa, de J.\n",
       "pdmr_name_locale": null,
       "cap_name": null,
       "closely_affiliated_name": null,
@@ -1080,61 +1080,61 @@
        "is_closely_affiliated": null
       },
       "position": {
-       "raw": "\nmember  Board of Directors\n",
+       "raw": "\nChief Public Affairs, Communications and Sustainability Officer\n",
        "locale": null,
-       "display": "member  Board of Directors",
-       "normalized": "Director"
+       "display": "Chief Public Affairs, Communications and Sustainability Officer",
+       "normalized": null
       },
       "entity_match": {
-       "identified_person_id": "per_162937",
+       "identified_person_id": "per_184073",
        "match_status": "MATCHED"
       }
      },
      "security": {
-      "id": "sec_46487",
-      "ticker": "",
-      "isin": "CH121647879",
+      "id": "sec_46758",
+      "ticker": "CCEP",
+      "isin": "GB00BDCPN049",
       "trading_place": "NL",
       "issuer": {
-       "id": "iss_47625",
-       "name": "DSM-Firmenich",
-       "slug": "dsm-firmenich",
-       "ticker": null,
-       "exchange": null,
-       "exchange_mic": null,
+       "id": "iss_42722",
+       "name": "Coca-Cola Europacific Partners PLC",
+       "slug": "coca-cola-europacific-partners-plc",
+       "ticker": "CCEP",
+       "exchange": "NSM",
+       "exchange_mic": "XNAS",
        "country": "NL",
-       "isin": "CH121647879",
+       "isin": "GB00BDCPN049",
        "cik": null,
-       "lei": "\n506700G44V67MPM4BI12\n",
-       "permid": 5083153148,
+       "lei": "549300LTH67W4GWMRF57",
+       "permid": 5046625212,
        "links": {
-        "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
-        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
-        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
-        "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/coca-cola-europacific-partners-plc/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/coca-cola-europacific-partners-plc/"
        }
       }
      },
      "transaction": {
-      "execution_date": "2026-09-30",
+      "execution_date": "2026-10-12",
       "activation_date": null,
       "classification": {
-       "normalized_operation": "SELL",
+       "normalized_operation": "BUY",
        "nature_raw": null
       },
       "price": {
-       "amount": "98.190000",
-       "currency": "EUR"
+       "amount": "104.510000",
+       "currency": "USD"
       },
       "quantity": {
-       "amount": "297.0000"
+       "amount": "4.8600"
       },
       "gross_value": {
-       "amount": "29162.43",
-       "currency": "EUR"
+       "amount": "507.92",
+       "currency": "USD"
       },
       "gross_value_usd": {
-       "amount": "33090.24"
+       "amount": "507.92"
       },
       "holdings_before": {
        "quantity": null,
@@ -1148,7 +1148,7 @@
        "quantity": null
       },
       "market_context": {
-       "at_market_price": null
+       "at_market_price": true
       }
      },
      "analytics": {
@@ -1174,19 +1174,19 @@
     {
      "object": "insider_transaction",
      "schema_version": "2026-04-01",
-     "id": "txn_11334922",
+     "id": "txn_11346925",
      "links": {
-      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11334922/",
-      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
-      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/"
+      "self": "https://www.insiderscreener.com/api/v1/data/transactions/txn_11346925/",
+      "issuer": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/",
+      "issuer_transactions": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/transactions/"
      },
      "source": {
       "country": "NL",
-      "filing_reference": "202609303A53BBB3-7F5B-481E-ACFC-7E7F5B128880",
-      "declaration_reference": "202609303A53BBB3-7F5B-481E-ACFC-7E7F5B128880",
+      "filing_reference": "202610129F706F80-C5A8-4DE8-B6A4-4384B479DE9A",
+      "declaration_reference": "202610129F706F80-C5A8-4DE8-B6A4-4384B479DE9A",
       "submission_type": null,
-      "filed_at": "2026-10-06T06:05:59.518210",
-      "notification_date": "2026-10-06",
+      "filed_at": "2026-10-15T06:04:14.740545",
+      "notification_date": "2026-10-15",
       "notification_type": "INITIAL",
       "is_amendment": false,
       "amends_filing_reference": null,
@@ -1194,32 +1194,32 @@
       "status": "CURRENT"
      },
      "issuer": {
-      "id": "iss_47625",
-      "name": "DSM-Firmenich",
-      "slug": "dsm-firmenich",
-      "ticker": null,
-      "exchange": null,
-      "exchange_mic": null,
+      "id": "iss_42722",
+      "name": "Coca-Cola Europacific Partners PLC",
+      "slug": "coca-cola-europacific-partners-plc",
+      "ticker": "CCEP",
+      "exchange": "NSM",
+      "exchange_mic": "XNAS",
       "country": "NL",
-      "isin": "CH121647879",
+      "isin": "GB00BDCPN049",
       "cik": null,
-      "lei": "\n506700G44V67MPM4BI12\n",
-      "permid": 5083153148,
+      "lei": "549300LTH67W4GWMRF57",
+      "permid": 5046625212,
       "links": {
-       "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
-       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
-       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
-       "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
+       "self": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/",
+       "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/transactions/",
+       "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/coca-cola-europacific-partners-plc/",
+       "signals": "https://www.insiderscreener.com/api/v1/research/signals/coca-cola-europacific-partners-plc/"
       }
      },
      "reporting_person": {
-      "id": "per_162944",
-      "name": "Corien Wortmann-Kool",
+      "id": "per_162811",
+      "name": "José Antonio Echeverría",
       "name_locale": null,
-      "display_name": "Corien Wortmann-Kool",
-      "effective_name": "WORTMANN - KOOL CM",
+      "display_name": "José Antonio Echeverría",
+      "effective_name": "ECHEVERRIA JA",
       "cik": null,
-      "pdmr_name": "\nWortmann - Kool C.M.\n",
+      "pdmr_name": "\nEcheverría J.A.\n",
       "pdmr_name_locale": null,
       "cap_name": null,
       "closely_affiliated_name": null,
@@ -1232,61 +1232,61 @@
        "is_closely_affiliated": null
       },
       "position": {
-       "raw": "\nmember  Board of Directors\n",
+       "raw": "\nGeneral Manager, France and Northern Europe Business Unit\n",
        "locale": null,
-       "display": "member  Board of Directors",
-       "normalized": "Director"
+       "display": "General Manager, France and Northern Europe Business Unit",
+       "normalized": null
       },
       "entity_match": {
-       "identified_person_id": "per_162944",
+       "identified_person_id": "per_162811",
        "match_status": "MATCHED"
       }
      },
      "security": {
-      "id": "sec_46487",
-      "ticker": "",
-      "isin": "CH121647879",
+      "id": "sec_46758",
+      "ticker": "CCEP",
+      "isin": "GB00BDCPN049",
       "trading_place": "NL",
       "issuer": {
-       "id": "iss_47625",
-       "name": "DSM-Firmenich",
-       "slug": "dsm-firmenich",
-       "ticker": null,
-       "exchange": null,
-       "exchange_mic": null,
+       "id": "iss_42722",
+       "name": "Coca-Cola Europacific Partners PLC",
+       "slug": "coca-cola-europacific-partners-plc",
+       "ticker": "CCEP",
+       "exchange": "NSM",
+       "exchange_mic": "XNAS",
        "country": "NL",
-       "isin": "CH121647879",
+       "isin": "GB00BDCPN049",
        "cik": null,
-       "lei": "\n506700G44V67MPM4BI12\n",
-       "permid": 5083153148,
+       "lei": "549300LTH67W4GWMRF57",
+       "permid": 5046625212,
        "links": {
-        "self": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/",
-        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/dsm-firmenich/transactions/",
-        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/dsm-firmenich/",
-        "signals": "https://www.insiderscreener.com/api/v1/research/signals/dsm-firmenich/"
+        "self": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/",
+        "transactions": "https://www.insiderscreener.com/api/v1/data/issuers/coca-cola-europacific-partners-plc/transactions/",
+        "analytics": "https://www.insiderscreener.com/api/v1/research/analytics/coca-cola-europacific-partners-plc/",
+        "signals": "https://www.insiderscreener.com/api/v1/research/signals/coca-cola-europacific-partners-plc/"
        }
       }
      },
      "transaction": {
-      "execution_date": "2026-09-30",
+      "execution_date": "2026-10-12",
       "activation_date": null,
       "classification": {
-       "normalized_operation": "SELL",
+       "normalized_operation": "BUY",
        "nature_raw": null
       },
       "price": {
-       "amount": "98.190000",
-       "currency": "EUR"
+       "amount": "505.470000",
+       "currency": "USD"
       },
       "quantity": {
-       "amount": "494.0000"
+       "amount": "4.8600"
       },
       "gross_value": {
-       "amount": "48505.86",
-       "currency": "EUR"
+       "amount": "2456.58",
+       "currency": "USD"
       },
       "gross_value_usd": {
-       "amount": "55038.99"
+       "amount": "2456.58"
       },
       "holdings_before": {
        "quantity": null,
@@ -1300,7 +1300,7 @@
        "quantity": null
       },
       "market_context": {
-       "at_market_price": null
+       "at_market_price": false
       }
      },
      "analytics": {
@@ -1325,7 +1325,7 @@
     }
    ],
    "pages": 1,
-   "rows": 22,
+   "rows": 3,
    "complete": true,
    "error": null,
    "backupFor": "AFM"
@@ -1333,7 +1333,7 @@
  },
  "credits": {
   "thisRun": 20,
-  "thisMonth": 710,
+  "thisMonth": 730,
   "monthlyBudget": 950
  }
 }

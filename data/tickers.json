@@ -5774,11 +5774,10 @@
   "ticker": "INFREA.ST"
  },
  "SE0010662585": {
+  "checkedHome": "2026-10-16",
   "exchange": "Stuttgart",
   "method": "recherche Yahoo par ISIN",
   "name": "Valuno Group AB",
-  "nordicHome": "2026-10-15",
-  "resolvedAt": "2026-10-15",
   "ticker": "SE0010662585.SG"
  },
  "SE0010663161": {
