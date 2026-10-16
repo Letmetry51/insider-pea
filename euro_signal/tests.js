@@ -490,6 +490,10 @@ t('Le script de l\'interface se compile (aucune erreur de syntaxe qui laisserait
   ok(k > 0 && e > k, 'script de l\'interface trouvé');
   let err = null; try { new Function(html.slice(k, e)); } catch (x) { err = x.message; }
   ok(!err, 'syntaxe : ' + err);
+  // une fonction déclarée deux fois remplace silencieusement la première (« nullnull… » dans l'identité du titre)
+  const names = {}, dup = [];
+  (html.slice(k, e).match(/^ {2}function (\w+)\(/gm) || []).forEach((m) => { const n = m.trim().slice(9, -1); if (names[n]) dup.push(n); names[n] = 1; });
+  ok(!dup.length, 'fonctions déclarées deux fois : ' + dup.join(', '));
 });
 
 t('Le tableau de bord embarque exactement le moteur testé (pas de version désynchronisée)', () => {
