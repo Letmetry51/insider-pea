@@ -1140,8 +1140,8 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         for m in th.get("members") or []:
             roles.setdefault(m["symbol"], []).append(["member", "t", th["key"]])
     cat = read_json(CATALOG, {}).get("items", {})
-    by_name = {name_key(it.get("name")): sym for sym, it in uni.items()}
-    # une société du catalogue déjà dans l'univers sous une autre cotation (même nom) n'est pas répétée
+    by_name = {name_key(it.get("name")): sym for sym, it in list(uni.items()) + list(extra.items()) if it and it.get("name")}
+    # une société du catalogue déjà suivie sous une autre cotation (même nom, univers ou sociétés d'Euro Signal) n'est pas répétée
     cat_only = {sym: it for sym, it in cat.items() if sym not in uni and sym not in extra and name_key(it.get("name")) not in by_name}
     # même société cotée sur plusieurs places (allemande aussi à Vienne…) : une seule fiche, la place du siège d'abord, puis la plus liquide
     best = {}
