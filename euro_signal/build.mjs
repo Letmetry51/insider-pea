@@ -328,10 +328,24 @@ export function build(opts = {}) {
   // Deux ISIN pour la même cotation (ancien et nouveau code après une opération sur titres) : un seul dossier, le plus récent
   const byTicker = {};
   Object.keys(inst).forEach((isin) => { const t = inst[isin].ticker; if (t) (byTicker[t] = byTicker[t] || []).push(isin); });
+  // les déclarations de l'autre ISIN rejoignent le dossier gardé (une seule fiche, avec son graphique) ; l'ancien ISIN reste
+  // joignable (lien d'un email, favori) par la table des alias
+  const aliases = {}, finEarly = (readJSON(F.financials, { items: {} }).items) || {};
   Object.values(byTicker).filter((l) => l.length > 1).forEach((l) => {
     const last = (isin) => (tx[isin] || []).map((t) => ES.availDate(t)).sort().pop() || '';
-    const keep = l.slice().sort((a, b) => (last(a) < last(b) ? 1 : -1))[0];
-    l.filter((x) => x !== keep).forEach((x) => { inst[x].shareType = 'doublon de cotation (même titre que ' + keep + ')'; });
+    const hasFin = (isin) => !!(finEarly[isin] && Array.isArray(finEarly[isin].years) && finEarly[isin].years.length);
+    // dossier gardé : celui qui a des comptes annuels, puis la déclaration la plus récente
+    const keep = l.slice().sort((a, b) => (hasFin(b) - hasFin(a)) || (last(a) < last(b) ? 1 : last(a) > last(b) ? -1 : 0))[0];
+    l.filter((x) => x !== keep).forEach((x) => {
+      const seen = new Set((tx[keep] || []).map((t) => t.id)), sig = new Set((tx[keep] || []).map((t) => [t.person, t.txDate, t.price, t.qty].join('|')));
+      (tx[x] || []).forEach((t) => {
+        const k = [t.person, t.txDate, t.price, t.qty].join('|');
+        if (seen.has(t.id) || sig.has(k)) return; // même déclaration publiée sous les deux ISIN
+        tx[keep].push(Object.assign({}, t, { isin: keep, isinDeclared: x }));
+      });
+      tx[keep].sort((a, b) => (ES.availDate(a) < ES.availDate(b) ? -1 : 1));
+      aliases[x] = keep; delete inst[x]; delete tx[x];
+    });
   });
   // Informations croisées : jamais bloquantes (une donnée mal formée est ignorée, le calcul continue)
   const shortsRaw = readJSON(F.shorts, { items: {}, sources: {} });
@@ -858,12 +872,12 @@ export function build(opts = {}) {
     m.text = r.text + '\n\n' + m.text;
   });
 
-  /* 7. Tableau de bord : cours allégés (clôtures, 260 séances) pour les titres actifs dans la fenêtre */
-  const from = ES.windowStart(today, cfg.insiders.windowMonths);
+  /* 7. Tableau de bord : cours allégés (clôtures, 260 séances) pour tous les titres suivis : une fiche ouverte depuis la
+     recherche ou « Tous les titres » (sans achat récent) a aussi son graphique et son plan d'entrée */
   const dashPrices = {};
   Object.keys(inst).forEach((isin) => {
     const p = pItems[isin];
-    if (!p || !tx[isin].some((t) => ES.availDate(t) >= from)) return;
+    if (!p || !Array.isArray(p.rows) || !p.rows.length) return;
     dashPrices[isin] = { rows: ES.normalizeSeries(p.rows).slice(-260).map((r) => [r[0], +r[4].toFixed(4)]), closesOnly: true, splits: p.splits || [], source: 'Yahoo Finance', updatedAt: prices.generated_at }; // [date, clôture] : format compact, développé par le tableau de bord
   });
   // Historique 5 ans (une clôture par semaine) et achats des dirigeants sur la période avec leur résultat à 6 mois :
@@ -935,7 +949,7 @@ export function build(opts = {}) {
   const payload = {
     format: 'euro-signal-snapshot', formatVersion: 1, engine: ES.ENGINE_VERSION, generatedAt: new Date().toISOString(), today,
     // fichier principal léger (classement) : déclarations de la fenêtre seulement ; cours et historique dans le fichier « détail »
-    cfg, inst, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: null, detailShards: { dir: 'data/fiches', n: ES.DETAIL_SHARDS }, longFile: 'data/euro-signal-long.json', backtest,
+    cfg, inst, aliases, tx: mainTx, ev: evOut, src: state.src, alerts: alertsMap, refs: mainRefs, prices: {}, detailFile: null, detailShards: { dir: 'data/fiches', n: ES.DETAIL_SHARDS }, longFile: 'data/euro-signal-long.json', backtest,
     run: { rejects: rejects.slice(0, 200), merge: mergeStats, outbox: outbox.length, instruments: Object.keys(inst).length, unresolved: prices.unresolved || [] },
     fx: ES.FX, mail: { ready: process.env.ES_MAIL_READY === 'oui' }, market: Object.assign({}, mkt, { mood: moodAt(today) }), followups, selection, selectionTrack, shortsSrc,
     learning: { mode: learning.mode, frozenUntil: learning.frozenUntil || null, month: learning.month, version: learning.version, samples: learning.samples, withOutcome: learning.withOutcome, stats: learning.stats, log: learning.log.slice(-24), baseVersion, observe: ES.observeStats(samples, cfg) }

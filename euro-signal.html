@@ -2231,33 +2231,75 @@ details.pos summary{font-size:1rem}
       var mx = mean(pts.map(function (p) { return p[0]; })), my = mean(pts.map(function (p) { return p[1]; }));
       var sxy = 0, sxx = 0; pts.forEach(function (p) { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) * (p[0] - mx); });
       var b = sxx > 0 ? sxy / sxx : 0, a = my - b * mx;
-      // décalage : la droite haute passe par le sommet le plus haut par rapport à la pente, la basse par le creux le plus bas
+      var touches = function (A, B) { return pts.filter(function (p) { return Math.abs(p[1] - (A + B * p[0])) <= Math.abs(A + B * p[0]) * 0.015; }).length; };
+      // ligne de tendance classique : elle relie deux sommets (droite haute) ou deux creux (droite basse) sans qu'aucun autre ne
+      // la traverse, c'est-à-dire un côté de l'enveloppe convexe ; on prend le côté assez long (un quart de la fenêtre au moins)
+      // dont la pente est la plus proche de la tendance d'ensemble (moindres carrés), le plus récent à égalité
+      var hull = [], cross = function (o, p, q) { return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]); };
+      pts.slice().sort(function (p, q) { return p[0] - q[0]; }).forEach(function (p) {
+        while (hull.length >= 2 && (upper ? cross(hull[hull.length - 2], hull[hull.length - 1], p) >= 0 : cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0)) hull.pop();
+        hull.push(p);
+      });
+      var best = null;
+      for (var e = 0; e < hull.length - 1; e++) {
+        var p1 = hull[e], p2 = hull[e + 1]; if (p2[0] - p1[0] < n / 4) continue;
+        var be = (p2[1] - p1[1]) / (p2[0] - p1[0]), d = Math.abs(be - b);
+        if (!best || d <= best.d) best = { d: d, b: be, a: p1[1] - be * p1[0] };
+      }
+      if (best) return { a: best.a, b: best.b, touches: Math.max(2, touches(best.a, best.b)) };
+      // à défaut (sommets trop rapprochés) : droite des moindres carrés décalée sur le point extrême
       var off = pts.reduce(function (o, p) { var d = p[1] - (a + b * p[0]); return upper ? Math.max(o, d) : Math.min(o, d); }, upper ? -Infinity : Infinity);
-      return { a: a + off, b: b, touches: pts.filter(function (p) { return Math.abs(p[1] - (a + off + b * p[0])) <= Math.abs(a + b * p[0]) * 0.015; }).length };
+      return { a: a + off, b: b, touches: touches(a + off, b) };
     };
     var U = fit(H, true), D = fit(Lw, false), last = R[n - 1][4];
+    return ES.wedgeShape({ a: U.a, b: U.b, touches: U.touches }, { a: D.a, b: D.b, touches: D.touches }, n, last, R[0][0]);
+  };
+  /**
+   * Nature de la figure formée par deux droites (prix = a + b × k, k = séance depuis le début de la fenêtre de n séances).
+   * Pentes en % du cours par séance (su : droite haute, sl : droite basse), largeur au début (w0) et à la fin (w1) :
+   *  - canal : droites presque parallèles (écart de pente faible) et largeur stable ;
+   *  - triangle : droites de sens opposés qui se rapprochent (symétrique), ou une droite plate et l'autre qui la rejoint
+   *    (ascendant : sommets au même niveau, creux qui montent ; descendant : l'inverse) ;
+   *  - biseau descendant : les deux droites baissent et se rapprochent (la haute plus vite) ; ascendant : l'inverse ;
+   *  - sinon (droites qui s'écartent, ou sans forme nette) : pas de figure.
+   * Fonction séparée pour reclasser des droites déjà calculées (fichiers de la veille) avec les mêmes règles.
+   */
+  ES.wedgeShape = function (U, D, n, last, from) {
     var at = function (l, k) { return l.a + l.b * k; };
     var w0 = at(U, 0) - at(D, 0), w1 = at(U, n - 1) - at(D, n - 1);
-    var su = U.b / last * 100, sl = D.b / last * 100; // pentes en % du cours par séance
-    var conv = w1 > 0 && w0 > 0 && w1 < w0 * 0.75 && U.b < D.b;
-    var apex = U.b < D.b ? (at(U, n - 1) - at(D, n - 1)) / (D.b - U.b) : null; // séances avant la jonction des droites
-    var type = 'none';
-    if (w1 <= 0) type = 'none';
-    else if (conv && su < -0.02 && sl < -0.005) type = 'falling';
-    else if (conv && su > 0.005 && sl > 0.02) type = 'rising';
-    else if (conv && su < 0 && sl > 0) type = 'triangle';
-    else if (Math.abs(w1 - w0) <= w0 * 0.25) type = 'channel';
-    var label = { falling: 'Biseau descendant', rising: 'Biseau ascendant', triangle: 'Triangle symétrique', channel: su > 0.02 ? 'Canal haussier' : su < -0.02 ? 'Canal baissier' : 'Canal horizontal', none: 'Droites de tendance' }[type];
+    var su = U.b / last * 100, sl = D.b / last * 100, F = 0.01; // pente « plate » : moins de 0,01 % par séance
+    var conv = w0 > 0 && w1 > 0 && w1 < w0 * 0.85 && U.b < D.b, flat = function (x) { return Math.abs(x) < F; };
+    var par = Math.abs(su - sl) <= Math.max(0.015, 0.3 * Math.max(Math.abs(su), Math.abs(sl))) && w0 > 0 && Math.abs(w1 - w0) <= w0 * 0.25;
+    var type = 'none', sub = null;
+    if (!(w1 > 0)) type = 'none';
+    else if (par) type = 'channel';
+    else if (conv && su <= -F && sl >= F) { type = 'triangle'; sub = 'sym'; }
+    else if (conv && flat(su) && sl >= F) { type = 'triangle'; sub = 'asc'; }
+    else if (conv && su <= -F && flat(sl)) { type = 'triangle'; sub = 'desc'; }
+    else if (conv && su < 0 && sl < 0) type = 'falling';
+    else if (conv && su > 0 && sl > 0) type = 'rising';
+    else if (w0 > 0 && w1 > w0 * 1.15 && U.b > D.b) type = 'broadening'; // sommets de plus en plus hauts, creux de plus en plus bas
+    var mid = (su + sl) / 2, cdir = mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat';
+    var label = { falling: 'Biseau descendant', rising: 'Biseau ascendant', triangle: { sym: 'Triangle symétrique', asc: 'Triangle ascendant', desc: 'Triangle descendant' }[sub],
+      channel: { up: 'Canal haussier', down: 'Canal baissier', flat: 'Canal horizontal' }[cdir], broadening: 'Élargissement', none: 'Droites de tendance' }[type];
     var reading = { falling: 'souvent suivi d\'une cassure par le haut : signal d\'achat si le cours clôture au-dessus de la droite haute',
       rising: 'souvent suivi d\'une cassure par le bas : prudence, sortie si le cours clôture sous la droite basse',
-      triangle: 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
+      triangle: sub === 'asc' ? 'acheteurs de plus en plus pressants sous une résistance : achat si clôture au-dessus de la droite haute'
+        : sub === 'desc' ? 'vendeurs de plus en plus pressants sur un support : prudence, sortie si clôture sous la droite basse'
+        : 'indécision : attendre la sortie, achat si clôture au-dessus de la droite haute',
       channel: 'le cours oscille entre les deux droites : acheter près de la droite basse, alléger près de la haute',
+      broadening: 'les écarts s\'amplifient (sommets plus hauts, creux plus bas) : marché nerveux, pas de signal fiable avant une sortie franche',
       none: 'pas de figure nette' }[type];
-    var mid = (su + sl) / 2;
-    return { type: type, key: type === 'channel' ? 'channel-' + (su > 0.02 ? 'up' : su < -0.02 ? 'down' : 'flat') : type, dir: mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat',
-      label: label, reading: reading, n: n, from: R[0][0], upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
+    var apex = U.b < D.b ? w1 / (D.b - U.b) : null; // séances avant la jonction des droites
+    return { type: type, sub: sub, key: type === 'channel' ? 'channel-' + cdir : type, dir: cdir,
+      label: label, reading: reading, n: n, from: from, upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
+  };
+  /** Reclasse un biseau déjà calculé (fichier de la veille) avec les règles actuelles ; dernier cours de la fenêtre déduit des pentes. */
+  ES.reclassWedge = function (w, last) {
+    if (!w || !w.upper || !w.lower || !(w.n > 1) || !(last > 0)) return w;
+    try { var r = ES.wedgeShape(w.upper, w.lower, w.n, last, w.from); return r; } catch (e) { return w; }
   };
   /**
    * Oscillateurs classiques sur les clôtures (aucune donnée postérieure à la dernière ligne) :
@@ -2296,14 +2338,15 @@ details.pos summary{font-size:1rem}
   };
   /** Figures de tendance (biseau, triangle, canal) : clé de filtre → [symbole, libellé, ton (good : haussier, bad : baissier)]. */
   ES.FIGURES = {
-    'channel-up': ['↗', 'Canal haussier', 'good'], 'falling': ['▽', 'Biseau descendant', 'good'], 'triangle': ['◇', 'Triangle symétrique', 'neutral'],
-    'channel-flat': ['→', 'Canal horizontal', 'neutral'], 'rising': ['△', 'Biseau ascendant', 'bad'], 'channel-down': ['↘', 'Canal baissier', 'bad'], 'none': ['·', 'Pas de figure nette', 'neutral']
+    'channel-up': ['↗', 'Canal haussier', 'good'], 'falling': ['▽', 'Biseau descendant', 'good'], 'triangle': ['◇', 'Triangle', 'neutral'],
+    'channel-flat': ['→', 'Canal horizontal', 'neutral'], 'rising': ['△', 'Biseau ascendant', 'bad'], 'channel-down': ['↘', 'Canal baissier', 'bad'], 'broadening': ['◁▷', 'Élargissement', 'bad'], 'none': ['·', 'Pas de figure nette', 'neutral']
   };
   /** Clé de figure d'un biseau calculé par ES.wedge (ancien format sans « key » accepté). */
   ES.figureKey = function (w) {
     if (!w || !w.type) return null;
     if (w.key) return w.key;
-    return w.type === 'channel' ? 'channel-' + (w.slopeUpPct > 0.02 ? 'up' : w.slopeUpPct < -0.02 ? 'down' : 'flat') : w.type;
+    var m = w.slopeLowPct != null ? (w.slopeUpPct + w.slopeLowPct) / 2 : w.slopeUpPct; // ancien format : pente haute seule
+    return w.type === 'channel' ? 'channel-' + (m > 0.02 ? 'up' : m < -0.02 ? 'down' : 'flat') : w.type;
   };
   /**
    * Convergence : 5 signaux indépendants croisés pour une société. Chaque élément vaut true, false ou null (inconnu).
@@ -2366,6 +2409,20 @@ details.pos summary{font-size:1rem}
     else fit = (inL(cy.lead) && inL(cy.lead2)) || ((inL(cy.lead) || inL(cy.lead2)) && rs > 0 && !inL(cy.lag) && !inL(cy.lag2)) ? 'up'
       : (inL(cy.lag) && inL(cy.lag2)) || ((inL(cy.lag) || inL(cy.lag2)) && rs < 0 && !inL(cy.lead) && !inL(cy.lead2)) ? 'down' : 'flat';
     return { cyclical: !!ES.CYCLICAL[sector], fit: fit, rs: rs, phase: cy.second ? cy.label + ' ou ' + cy.second : cy.label };
+  };
+  /**
+   * Lien vers la déclaration elle-même. Suède : l'export FI ne donne qu'un lien vers le formulaire de recherche ; on le
+   * remplit (société, dirigeant, date de transaction) pour tomber sur la déclaration. Autres registres : lien d'origine.
+   */
+  ES.sourceLink = function (t) {
+    if (!t) return null;
+    var u = t.sourceUrl || null;
+    if (t.registry === 'FI' && (!u || /SearchFunctionType=Insyn$/.test(u)) && t.issuer && t.txDate) {
+      var q = function (v) { return encodeURIComponent(String(v || '').trim()); };
+      return 'https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=' + q(t.issuer) +
+        '&PersonILedandeSt%C3%A4llningNamn=' + q(t.linkedTo || t.person) + '&Transaktionsdatum.From=' + q(t.txDate) + '&Transaktionsdatum.To=' + q(t.txDate);
+    }
+    return u;
   };
   ES.convergence = function (o) {
     o = o || {};
@@ -3663,7 +3720,7 @@ details.pos summary{font-size:1rem}
       S.mode = 'remote'; S.ro = true; S.snapshot = d; ES.setFx(d.fx || {});
       S.cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, d.cfg || {});
       S.today = d.today || S.today;
-      S.inst = d.inst || {}; S.tx = d.tx || {}; S.ev = d.ev || {}; S.src = d.src || {}; S.alerts = d.alerts || {};
+      S.inst = d.inst || {}; S.aliases = d.aliases || {}; S.tx = d.tx || {}; S.ev = d.ev || {}; S.src = d.src || {}; S.alerts = d.alerts || {};
       S.prices = d.prices || {}; S.refs = d.refs || {}; S.detailFile = /^data\/[\w.-]+\.json$/.test(d.detailFile || '') ? d.detailFile : null; S.longFile = /^data\/[\w.-]+\.json$/.test(d.longFile || '') ? d.longFile : null;
       S.shards = d.detailShards && /^data\/[\w-]+$/.test(d.detailShards.dir || '') && d.detailShards.n > 0 ? d.detailShards : null; S.shardLoaded = {}; S.shardLoading = {};
       S.detailLoaded = !S.detailFile && !S.shards;
@@ -3724,7 +3781,9 @@ details.pos summary{font-size:1rem}
   }
   function openFromHash() {
     var m = (location.hash || '').match(/^#([A-Z]{2}[A-Z0-9]{9}[0-9])$/);
-    if (m && S.inst[m[1]]) { S.sel = m[1]; S.view = 'fiche'; }
+    var al = m && !S.inst[m[1]] && S.aliases && S.aliases[m[1]]; // ancien ISIN réuni à un autre dossier
+    if (al && S.inst[al]) { S.sel = al; S.view = 'fiche'; }
+    else if (m && S.inst[m[1]]) { S.sel = m[1]; S.view = 'fiche'; }
     else if (location.hash === '#aide') S.view = 'aide';
   }
   window.addEventListener('hashchange', function () {
@@ -4240,9 +4299,11 @@ details.pos summary{font-size:1rem}
   /** Figure de tendance et verdict du plan d'entrée d'une société (calculés chaque soir avec le plan). */
   var PLANS = [['buyNow', '✅ Achat possible'], ['waitSupport', '⏳ Attendre un rebond sur support'], ['waitBreakout', '⏳ Attendre une cassure'], ['avoid', '⛔ Ne pas acheter']];
   /** Plan d'entrée d'une société : calculé le soir ; à défaut, recalculé ici à partir des cours (fichier détaillé chargé). */
+  /** Figure d'un plan calculé la veille, reclassée avec les règles du moteur de la page (une seule fois). */
+  function reclassPlan(p) { if (p && !p.rc && p.wedge && p.wedge.upper) { p.wedge = ES.reclassWedge(p.wedge, p.last); p.rc = 1; } return p; }
   function planFor(i) {
     var x = S.inst[i]; if (!x) return null;
-    if (x.plan && x.plan.verdict) return x.plan;
+    if (x.plan && x.plan.verdict) return reclassPlan(x.plan);
     S.planCache = S.planCache || {};
     if (i in S.planCache) return S.planCache[i];
     var p = hasDetail(i) && S.prices[i], out = null;
@@ -4602,10 +4663,11 @@ details.pos summary{font-size:1rem}
       if (paid) buy.push('Le dirigeant a payé ' + fmtN(paid) + ' le ' + shortDate(sc.discount.date) + '.');
     }
     var pl0 = planFor(i), pp0 = pl0 && pl0.primary;
-    if (pp0 && pp0.target && pp0.stop) buy.push('🧭 ' + esc(pl0.label) + ' : entrée ' + (pp0.zoneLo ? fmtN(pp0.zoneLo, pp0.zoneLo < 10 ? 2 : 1) + '–' + fmtN(pp0.zoneHi, pp0.zoneHi < 10 ? 2 : 1) : fmtN(pp0.entry, pp0.entry < 10 ? 2 : 1)) + '.');
+    if (pl0 && pl0.verdict === 'avoid') buy.push('⛔ ' + esc(pl0.label) + '.');
+    else if (pp0 && pp0.target && pp0.stop) buy.push('🧭 ' + esc(pl0.label) + ' : entrée ' + (pp0.zoneLo ? fmtN(pp0.zoneLo, pp0.zoneLo < 10 ? 2 : 1) + '–' + fmtN(pp0.zoneHi, pp0.zoneHi < 10 ? 2 : 1) : fmtN(pp0.entry, pp0.entry < 10 ? 2 : 1)) + '.');
     if (x.peaStatus !== 'eligible') buy.push(x.peaStatus === 'non_eligible' ? '🚫 Non éligible au PEA.' : x.peaStatus === 'probable' ? 'PEA probable : à confirmer chez le courtier.' : 'PEA : à vérifier chez le courtier.');
     // Pour revendre : objectif et stop du plan d'entrée quand il existe (mêmes chiffres partout sur la fiche)
-    var pl = planFor(i), pp = pl && pl.primary, f4 = function (v) { return fmtN(v, v < 10 ? 2 : 1); };
+    var pl = planFor(i), pp = pl && pl.verdict !== 'avoid' ? pl.primary : null, f4 = function (v) { return fmtN(v, v < 10 ? 2 : 1); };
     if (pp && pp.target && pp.stop) {
       sell.push('🎯 Objectif ' + f4(pp.target) + ' (' + pct(pp.targetPct) + ' depuis l\'entrée).'); sell.push('🛑 Stop : clôture sous ' + f4(pp.stop) + ' (' + pct(pp.stopPct) + ').'); }
     else if (lv && lv.r1) sell.push('🎯 Objectif : ' + fmtN(lv.r1.price) + ' (' + pct(lv.r1.distPct) + ')' + (lv.r2 ? ', puis ' + fmtN(lv.r2.price) + ' (' + pct(lv.r2.distPct) + ')' : '') + '.');
@@ -4685,13 +4747,13 @@ details.pos summary{font-size:1rem}
   /** Plan d'entrée : calculé chaque soir avec les plus hauts et plus bas du jour ; à défaut, recalculé ici sur les clôtures. */
   function planOf(isin, adj) {
     var x = S.inst[isin] || {};
-    if (x.plan && x.plan.verdict) return x.plan;
+    if (x.plan && x.plan.verdict) return reclassPlan(x.plan);
     try { return ES.entryPlan(adj, { levels: x.levels || undefined }); } catch (e) { return null; }
   }
   function chart(isin) {
     var p = S.prices[isin];
     if (!p) return '<p class="muted">Chargement des cours…</p>';
-    if (!p.rows || !p.rows.length) return '<p class="muted">Aucun cours importé pour ce titre.</p>';
+    if (!p.rows || !p.rows.length) { var xx = S.inst[isin] || {}; return '<p class="muted">' + (xx.ticker || (xx.stats && xx.stats.lastClose) ? 'Cours en cours de chargement ou publiés au prochain calcul du soir.' : 'Cours introuvables chez Yahoo Finance pour cet ISIN : société retirée de la cote, ligne secondaire (droits, actions nouvelles) ou marché que Yahoo ne suit pas (Spotlight, NGM).') + '</p>'; }
     var splits = (S.ev[isin] && S.ev[isin].splits) || [];
     var adj = ES.adjustedSeries(ES.normalizeSeries(p.rows), splits).slice(-260);
     var five = S.range === '5y', note = '';
@@ -4897,7 +4959,7 @@ details.pos summary{font-size:1rem}
       mar('4f', 'Lieu', esc(t.venue || 'n.d.')) +
       mar('', 'Vue par Euro Signal', ES.frDate((t.firstSeen || '').slice(0, 10)) || 'n.d.') +
       mar('', 'Détention', esc(t.holding || 'n.d.') + (t.stakeAfter != null ? ' · participation après opération : ' + fmtN(t.stakeAfter, 2) : '')) +
-      mar('', 'Source', '<a href="' + esc(ES.safeUrl(t.sourceUrl) || '#') + '" target="_blank" rel="noopener">' + esc(t.registry) + (t.registryId ? ' · ' + esc(t.registryId) : '') + '</a>' + (t.alsoSeenIn && t.alsoSeenIn.length ? ' · aussi vue chez ' + t.alsoSeenIn.map(function (a) { return esc(a.registry); }).join(', ') : '') + (t.corrected ? ' · <b>corrigée</b>' : '') + (t.status === 'annulee' ? ' · <b>annulée</b>' : '')) +
+      mar('', 'Source', '<a href="' + esc(ES.safeUrl(ES.sourceLink(t)) || '#') + '" target="_blank" rel="noopener">' + esc(t.registry) + (t.registryId ? ' · ' + esc(t.registryId) : '') + '</a>' + (t.alsoSeenIn && t.alsoSeenIn.length ? ' · aussi vue chez ' + t.alsoSeenIn.map(function (a) { return esc(a.registry); }).join(', ') : '') + (t.corrected ? ' · <b>corrigée</b>' : '') + (t.status === 'annulee' ? ' · <b>annulée</b>' : '')) +
       '</dl>';
     if (r && r.available) {
       var ap = r.atPurchase, td = r.today;

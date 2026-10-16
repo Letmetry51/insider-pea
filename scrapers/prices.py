@@ -14,6 +14,7 @@ import math
 import re
 import sys
 import time
+import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -78,11 +79,12 @@ def search_yahoo(isin):
     return {"ticker": q["symbol"], "exchange": q.get("exchDisp") or q.get("exchange"), "name": q.get("longname") or q.get("shortname")}
 
 
-LEGAL = re.compile(r"\b(s\.?a\.?|s\.?e\.?|ag|se|n\.?v\.?|nv|spa|s\.p\.a\.?|ab|publ|plc|oyj|asa|a/s|sca|gmbh|kgaa|co|holding|holdings|group|groupe|ser\.?|b|the)\b", re.I)
+LEGAL = re.compile(r"\b(s\.?a\.?|s\.?e\.?|ag|se|n\.?v\.?|nv|spa|s\.p\.a\.?|ab|publ|plc|oyj|abp|asa|a/s|sca|gmbh|kgaa|co|holding|holdings|group|groupe|ser\.?|b|the|aktiebolag|aktiebolaget)\b", re.I)
 
 
 def clean_name(n):
-    n = re.sub(r"[(),.&'’\-]", " ", str(n or "").lower())
+    n = unicodedata.normalize("NFKD", str(n or "")).encode("ascii", "ignore").decode()  # Enagás = Enagas
+    n = re.sub(r"[(),.&'’\-]", " ", n.lower())
     return " ".join(w for w in LEGAL.sub(" ", n).split() if len(w) > 1)
 
 
@@ -149,7 +151,7 @@ def resolve(isin, cache, manual, today, name=None, paid=None):
         cache[isin] = found
         time.sleep(0.3)
         return found
-    if c and not c.get("ticker") and name and not c.get("nameTried"):  # introuvable par ISIN : recherche par nom, une fois
+    if c and not c.get("ticker") and name and (not c.get("nameTried") or c["nameTried"] < (today - timedelta(days=30)).isoformat()):  # introuvable par ISIN : recherche par nom, chaque mois
         found = search_by_name(isin, name, paid)
         if found and not taken(cache, isin, found):
             found.update({"method": "recherche Yahoo par nom (vérifiée par le prix payé)" if paid else "recherche Yahoo par nom", "resolvedAt": today.isoformat()})
@@ -177,6 +179,33 @@ def resolve(isin, cache, manual, today, name=None, paid=None):
         return found
     cache[isin] = {"ticker": None, "triedAt": today.isoformat(), "nameTried": today.isoformat() if name else None}
     return {"ticker": manual[isin], "method": "correspondance insider-pea (secours)"} if manual.get(isin) else None
+
+
+def local_by_name(isin, name, cache, names):
+    """Secours sans réseau : même nom (sans accents ni forme juridique) dans le catalogue de toutes les sociétés cotées
+    (data/societes-index.json) ou parmi les sociétés déjà suivies, sur la bourse du pays d'origine. Sert surtout aux
+    nouveaux ISIN d'une société déjà suivie (regroupement d'actions, actions nouvelles, ISIN mal saisi) : le calcul
+    réunit ensuite les deux ISIN en un seul dossier."""
+    home = HOME.get(isin[:2])
+    key = clean_name(name)
+    if not home or len(key) < 3:
+        return None
+    for r in load(DATA / "societes-index.json", {}).get("rows", []):
+        if r and str(r[0]).endswith(home) and clean_name(r[1]) == key:
+            return {"ticker": r[0], "name": r[1], "method": "catalogue des sociétés cotées (même nom)"}
+    for other, c in cache.items():
+        if other != isin and (c or {}).get("ticker", "").endswith(home) and clean_name(names.get(other) or (c or {}).get("name")) == key:
+            return {"ticker": c["ticker"], "name": c.get("name"), "method": "même société qu'un autre ISIN suivi"}
+    return None
+
+
+def coherent(h, paid):
+    """Le cours de la cotation trouvée colle au prix déclaré par le dirigeant (sinon : autre titre, droits, bons)."""
+    if not paid:
+        return True
+    d, price = paid
+    ref = [r[4] for r in h["rows"] if r[0] <= d][-1:] or [h["rows"][-1][4]]
+    return bool(ref and ref[0] and 0.6 <= price / ref[0] <= 1.6)
 
 
 def home_candidate(isin, ticker):
@@ -307,7 +336,19 @@ def main():
     for n, isin in enumerate(sorted(isins), 1):
         info = resolve(isin, cache, manual, today, names.get(isin), paid.get(isin))
         if not info:
-            unresolved.append(isin)
+            loc = local_by_name(isin, names.get(isin), cache, names)
+            h = None
+            if loc:
+                try:
+                    h = history(loc["ticker"], "5y")
+                except Exception:
+                    h = None
+            if not (h and coherent(h, paid.get(isin))):
+                unresolved.append(isin)
+                continue
+            items[isin] = {"ticker": loc["ticker"], "exchange": None, "name": loc.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "weekly": h.get("weekly") or [], "method": loc["method"]}
+            print(f"  [{n}/{len(isins)}] {isin} {loc['ticker']} : {len(h['rows'])} séances ({loc['method']})")
+            time.sleep(0.2)
             continue
         cand = home_candidate(isin, info["ticker"]) if info.get("method") != "correction vérifiée" else None
         c0 = cache.get(isin) or {}

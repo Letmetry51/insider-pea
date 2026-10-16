@@ -13,6 +13,7 @@ Chaque exécution écrit :
 Une source qui échoue est marquée « echec » : Euro Signal bloque alors les alertes des titres concernés
 au lieu de conclure qu'il n'y a eu aucune opération.
 """
+from urllib.parse import quote
 import csv
 import io
 import json
@@ -429,7 +430,10 @@ def fi_parse(headers, body, since):
         unit = norm(get("unit"))
         qty = get("quantity") if unit in ("", "quantity", "antal", "st", "styck", "number") else None  # volumes en montant nominal (obligations) ignorés
         rid = f"{tx}-{norm(get('issuer'))[:30]}-{norm(person)[:30]}-{get('isin') or ''}-{get('price') or ''}-{get('quantity') or ''}-{pub or ''}"
-        recs.append({"registry": "FI", "country": "SE", "id": re.sub(r"[^A-Za-z0-9_.:-]", "_", rid)[:150], "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn",
+        # lien vers la déclaration : formulaire de recherche FI rempli (société, dirigeant, date de transaction)
+        url = ("https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=" + quote(get("issuer") or "")
+               + "&PersonILedandeSt%C3%A4llningNamn=" + quote(get("pdmr") or person or "") + "&Transaktionsdatum.From=" + tx + "&Transaktionsdatum.To=" + tx)
+        recs.append({"registry": "FI", "country": "SE", "id": re.sub(r"[^A-Za-z0-9_.:-]", "_", rid)[:150], "url": url,
                      "via": "fi.se", "published": pub or tx, "issuer": get("issuer"), "person": person, "role": role.strip() or None, "isin": get("isin"),
                      "instrument": get("instrument") or "Share", "nature": nature, "txDate": tx, "currency": get("currency"), "quantity": qty, "price": get("price"),
                      "amount": None, "place": get("place"), "numberLocale": "auto", "linkedTo": get("pdmr") if assoc else None, "collectedAt": date.today().isoformat()})
