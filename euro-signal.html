@@ -3759,10 +3759,11 @@ details.pos summary{font-size:1rem}
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
     return rows;
   };
-  /** Sélection de la semaine du classement : les N premières sociétés non écartées dont la note atteint le seuil. */
+  /** Sélection de la semaine du classement : les N premières sociétés non écartées, aux comptes lus, dont la note atteint le seuil. */
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
-    return (rows || []).filter(function (r) { return !r.out.length && r.note >= R.selMin; }).slice(0, R.selSize);
+    // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
+    return (rows || []).filter(function (r) { return !r.out.length && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
   };
   /**
    * Étude de contrôle, recalculée chaque soir : clôtures hebdomadaires de toutes les sociétés (dates communes), chaque
@@ -3847,7 +3848,7 @@ details.pos summary{font-size:1rem}
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track) {
     var n = items.length, R = cfg.rank;
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + ' en tête du classement' : 'aucune société au-dessus du seuil');
-    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, sans comptes dégradés ni perte, notées sur la force relative, la proximité du plus haut, la tendance de fond, les comptes et le calme du cours ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
+    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, aux comptes lus, sans comptes dégradés ni perte, notées sur la force relative, la proximité du plus haut, la tendance de fond, les comptes et le calme du cours ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
     var pcs = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
     var tr = track && track.n ? 'Sélections précédentes (' + track.n + ' dossiers) : ' + pcs(track.avg) + ' en moyenne depuis l\'envoi' + (track.bench != null ? ', indice ' + pcs(track.bench) : '') + '.' : null;
     var warnOf = function (x) { var w = (x.warn || []).slice(0, 2); if (x.nextEarnings && today && x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 21) w.unshift('résultats le ' + ES.frDate(x.nextEarnings)); return w; };
@@ -4703,7 +4704,7 @@ details.pos summary{font-size:1rem}
   function rankSelCard() {
     var R = rankData(); if (!R || !R.selection) return '';
     var sel = R.selection, t = sel.track;
-    var h = '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="selrule">Les premières sociétés du classement avec au moins ' + ((S.cfg.rank || {}).selMin || 70) + '/100. Envoyée par email le lundi.</p>';
+    var h = '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="selrule">Les premières sociétés du classement, comptes lus, avec au moins ' + ((S.cfg.rank || {}).selMin || 70) + '/100. Envoyée par email le lundi.</p>';
     if (!sel.items.length) return h + '<p class="muted">Aucune société ne dépasse le seuil en ce moment. Mieux vaut ne rien faire que forcer un choix.</p></section>';
     h += '<ol class="sel">' + sel.items.map(function (r) {
       return '<li class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b>' + (r.isNew ? ' <span class="chip newc">Nouveau</span>' : '') +
@@ -6160,7 +6161,7 @@ details.pos summary{font-size:1rem}
       step('Classer sur la tendance (' + (w.mom + w.high + w.trend) + ' points)', 'Force relative sur 12 mois hors dernier mois (' + w.mom + '), proximité du plus haut sur un an (' + w.high + '), tendance de fond : moyenne 50 séances au-dessus de la 200 (' + w.trend + ').') +
       step('Départager (' + (w.accounts + w.calm) + ' points)', 'Comptes solides (' + w.accounts + ' ; mitigés ' + Math.round(w.accounts / 2) + ', pas encore lus ' + Math.round(w.accounts * 0.4) + '), cours calme (' + w.calm + ').') +
       step('Dirigeants (petit bonus de ' + w.insiders + ' au plus)', 'Achat ces 3 derniers mois +3, DG ou DAF +1, plusieurs dirigeants +1 ; ventes nettes −10, vente du DG ou du DAF −5.') +
-      step('Sélection du lundi', 'Les ' + c.selSize + ' premières sociétés avec au moins ' + c.selMin + '/100, envoyées par email.') + '</ol>';
+      step('Sélection du lundi', 'Les ' + c.selSize + ' premières sociétés dont les comptes ont été lus, avec au moins ' + c.selMin + '/100, envoyées par email.') + '</ol>';
     if (st && st['h' + H]) {
       var g = st['h' + H];
       h += '<h4 class="mt">Étude de contrôle, recalculée chaque soir</h4><p class="small">' + fmtInt(st.companies) + ' sociétés cotées, chaque semaine du ' + shortDate(st.from) + ' au ' + shortDate(st.to) + ' : résultat ' + (H === 13 ? '3' : '6') + ' mois plus tard, comparé au titre moyen de la même semaine.</p>' +

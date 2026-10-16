@@ -75,7 +75,7 @@ def _():
     assert it[isins[3]]["years"][0]["equity"] == 100.0 and it[isins[3]]["schema"] == 2, it[isins[3]]
 
 
-@case("Société nouvelle sans comptes chez Yahoo : notée vide, relue dans 30 jours")
+@case("Société nouvelle sans comptes chez Yahoo : notée vide, relue une semaine plus tard")
 def _():
     isins = setup(5, schema=F.SCHEMA, years=False)
     raw = json.loads(F.OUT.read_text())
@@ -109,6 +109,18 @@ def _():
     F.main()
     it = saved()
     assert len(it) == 50 and all(it[i]["schema"] == F.SCHEMA for i in isins[:50]), len(it)
+
+
+@case("Yahoo bloqué : les nouvelles sociétés ne sont pas notées « sans comptes » (relues le soir suivant)")
+def _():
+    setup(2)
+    (F.DATA / "societes").mkdir()
+    (F.DATA / "societes" / "0.json").write_text(json.dumps({"items": {"N%d.ST" % k: {"pea": True, "turnoverEur": 5e6} for k in range(80)}}))
+    F.statements = lambda t: {"years": [], "currency": None}
+    F.main()
+    it = saved()
+    assert not any(k.startswith("@") for k in it), [k for k in it if k.startswith("@")][:5]
+    assert all(it[i]["years"] for i in it), "anciens comptes conservés"
 
 
 if __name__ == "__main__":

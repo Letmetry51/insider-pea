@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 OUT = DATA / "financials.json"
 REFRESH_DAYS = 30
+RETRY_EMPTY_DAYS = 7  # société sans comptes chez Yahoo : nouvel essai une semaine plus tard
 SCHEMA = 3  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité (3 : écarts d'acquisition et incorporels)
 CAT_MIN_TURNOVER_EUR = 1e6  # même seuil de liquidité que le classement
 BUDGET_S = 18 * 60  # au plus 18 minutes par soir (l'étape est coupée à 20)
@@ -136,13 +137,15 @@ def main():
     week_ago = (today - timedelta(days=7)).isoformat()
     order = sorted(pairs, key=lambda i: ((items.get(i) or {}).get("triedAt", "") > week_ago, i not in buyers, (items.get(i) or {}).get("schema", 1) >= SCHEMA, i))
     fresh_before = (today - timedelta(days=REFRESH_DAYS)).isoformat()
+    retry_before = (today - timedelta(days=RETRY_EMPTY_DAYS)).isoformat()
     done = failed = kept = streak = 0
+    streak_new = []  # sociétés notées « sans comptes » pendant la série de réponses vides en cours
     # comptes déjà disponibles pour les titres de la liste du soir (une société sortie de la liste n'est pas une perte de données)
     avail_before = sum(1 for i, v in items.items() if v.get("years") and i in pairs)
     stopped = False
     for isin in order:
         old = items.get(isin) or {}
-        if old.get("asOf", "") > fresh_before and old.get("ticker") == pairs[isin] and old.get("schema", 1) >= SCHEMA:
+        if old.get("asOf", "") > (fresh_before if old.get("years") else retry_before) and old.get("ticker") == pairs[isin] and old.get("schema", 1) >= SCHEMA:
             continue
         if time.time() - t0 > BUDGET_S:
             break
@@ -161,6 +164,7 @@ def main():
             items[isin] = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, **st}
             done += 1
             streak = 0
+            streak_new = []
         else:
             failed += 1
             streak += 1
@@ -169,8 +173,13 @@ def main():
                 old["triedAt"] = today.isoformat()  # relue en dernier pendant une semaine
                 kept += 1
             else:
+                if isin not in items:
+                    streak_new.append(isin)
                 items[isin] = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, "years": [], "currency": None}
         time.sleep(0.3)
+    if stopped:  # Yahoo bloqué : les sociétés de la série vide ne sont pas notées « sans comptes », elles seront relues dès le soir suivant
+        for k in streak_new:
+            items.pop(k, None)
     items = {i: v for i, v in items.items() if i in pairs}  # titres disparus de la liste : retirés
     avail = sum(1 for v in items.values() if v.get("years"))
     if avail < avail_before * 0.8:  # garde-fou : jamais de fichier qui perd plus de 20 % des comptes disponibles

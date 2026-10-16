@@ -1308,6 +1308,7 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
   eq(s2.find((r) => r.key === 'S').parts.insiders, -15); ok(s2.find((r) => r.key === 'S').warn.some((w) => /vendent/.test(w)));
   // sélection : seuil et taille
   const sel = ES.rankSelection(rows, c3); ok(sel.every((r) => !r.out.length && r.note >= c3.rank.selMin) && sel.length <= c3.rank.selSize, 'sélection ' + sel.map((r) => r.key + ':' + r.note));
+  ok(!ES.rankSelection([Object.assign({}, by.A, { acc: null })], c3).length, 'comptes non lus : pas dans la sélection');
   const mail = ES.buildRankEmail(sel.map((r) => Object.assign({}, r, { link: 'https://x/#co=' + r.sym, isNew: true })), '2026-W43', c3, 'https://x/', '2026-10-19', { n: 4, avg: 2.5, bench: 1 });
   ok(/Sélection de la semaine/.test(mail.subject) && /#co=A/.test(mail.text) && !/undefined|null|NaN/.test(mail.text + mail.html), 'email lisible');
   const none = ES.buildRankEmail([], '2026-W43', c3, null, '2026-10-19', null); ok(/aucune société/.test(none.subject));
