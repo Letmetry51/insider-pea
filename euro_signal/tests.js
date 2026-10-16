@@ -1191,8 +1191,11 @@ t('Figures : classement des deux droites (cas réels et types limites)', () => {
   eq(S(1100, 3, 900, 5).label, 'Biseau ascendant', 'deux droites qui montent et se rapprochent');
   eq(S(1100, 0, 900, 1.5).label, 'Triangle ascendant', 'sommets au même niveau, creux qui montent');
   eq(S(1100, -1.5, 900, 0).label, 'Triangle descendant', 'creux au même niveau, sommets qui baissent');
+  eq(S(190, -0.08, 150, 0.5, 63, 190).label, 'Triangle ascendant', 'sommets presque plats face à des creux qui montent vite');
   eq(S(1000, 1, 950, -1).label, 'Élargissement', 'droites qui s\'écartent : élargissement');
   eq(S(1000, 0.15, 900, -0.05).label, 'Droites de tendance', 'ni parallèles, ni convergentes, ni franchement divergentes');
+  eq(S(990, -0.56, 945, -0.82, 63, 945).label, 'Canal baissier', 'SEGRO : canal baissier qui s\'évase, pas un élargissement');
+  eq(S(1000, 0.35, 950, -1.1).label, 'Élargissement', 'sommets qui montent, creux qui baissent');
   const r = ES.reclassWedge({ upper: { a: 1047.2, b: -0.2033 }, lower: { a: 874.86, b: 0.489 }, n: 63, from: '2026-07-20', label: 'Canal baissier', type: 'channel' }, 1000);
   ok(r.label === 'Triangle symétrique' && r.key === 'triangle', 'fichier de la veille reclassé');
   eq(ES.reclassWedge(null, 10), null, 'sans figure');
@@ -1206,11 +1209,9 @@ t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, ca
   ok(rise && rise.type === 'rising', 'biseau ascendant : ' + (rise && rise.type));
   const ch = ES.wedge(mk((k) => 100 + 0.2 * k + 5 * Math.sin(k / 3), 63));
   ok(ch && ch.type === 'channel' && ch.apexIn === null, 'canal : ' + (ch && ch.type));
-  // droites de tendance classiques : chacune relie au moins deux sommets (ou deux creux) ; aucune clôture ne les traverse,
-  // sauf une sortie toute récente (3 dernières séances, pas encore des sommets confirmés)
+  // aucune clôture ne traverse les droites (droites appuyées sur les extrêmes), sauf une sortie toute récente
   const rows = mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63);
   ok(rows.every((r, k) => k >= 60 || (r[4] <= fall.upper.a + fall.upper.b * k + 1e-6 && r[4] >= fall.lower.a + fall.lower.b * k - 1e-6)), 'cours entre les deux droites');
-  ok(fall.upper.touches >= 2 && fall.lower.touches >= 2 && ch.upper.touches >= 2 && ch.lower.touches >= 2, 'deux points de contact au moins par droite');
   eq(ES.wedge(rows.slice(0, 10)), null, 'historique trop court');
   const p = ES.entryPlan(mk((k) => 100 + 10 * Math.sin(k / 8), 250));
   ok(p && 'wedge' in p, 'le plan d\'entrée porte le biseau');

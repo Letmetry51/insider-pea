@@ -2231,25 +2231,10 @@ details.pos summary{font-size:1rem}
       var mx = mean(pts.map(function (p) { return p[0]; })), my = mean(pts.map(function (p) { return p[1]; }));
       var sxy = 0, sxx = 0; pts.forEach(function (p) { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) * (p[0] - mx); });
       var b = sxx > 0 ? sxy / sxx : 0, a = my - b * mx;
-      var touches = function (A, B) { return pts.filter(function (p) { return Math.abs(p[1] - (A + B * p[0])) <= Math.abs(A + B * p[0]) * 0.015; }).length; };
-      // ligne de tendance classique : elle relie deux sommets (droite haute) ou deux creux (droite basse) sans qu'aucun autre ne
-      // la traverse, c'est-à-dire un côté de l'enveloppe convexe ; on prend le côté assez long (un quart de la fenêtre au moins)
-      // dont la pente est la plus proche de la tendance d'ensemble (moindres carrés), le plus récent à égalité
-      var hull = [], cross = function (o, p, q) { return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]); };
-      pts.slice().sort(function (p, q) { return p[0] - q[0]; }).forEach(function (p) {
-        while (hull.length >= 2 && (upper ? cross(hull[hull.length - 2], hull[hull.length - 1], p) >= 0 : cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0)) hull.pop();
-        hull.push(p);
-      });
-      var best = null;
-      for (var e = 0; e < hull.length - 1; e++) {
-        var p1 = hull[e], p2 = hull[e + 1]; if (p2[0] - p1[0] < n / 4) continue;
-        var be = (p2[1] - p1[1]) / (p2[0] - p1[0]), d = Math.abs(be - b);
-        if (!best || d <= best.d) best = { d: d, b: be, a: p1[1] - be * p1[0] };
-      }
-      if (best) return { a: best.a, b: best.b, touches: Math.max(2, touches(best.a, best.b)) };
-      // à défaut (sommets trop rapprochés) : droite des moindres carrés décalée sur le point extrême
+      // décalage : la droite haute passe par le sommet le plus haut par rapport à la pente, la basse par le creux le plus bas
+      // (la méthode des deux sommets reliés, essayée sur les cours réels, écartait trop les droites sur trois mois)
       var off = pts.reduce(function (o, p) { var d = p[1] - (a + b * p[0]); return upper ? Math.max(o, d) : Math.min(o, d); }, upper ? -Infinity : Infinity);
-      return { a: a + off, b: b, touches: touches(a + off, b) };
+      return { a: a + off, b: b, touches: pts.filter(function (p) { return Math.abs(p[1] - (a + off + b * p[0])) <= Math.abs(a + b * p[0]) * 0.015; }).length };
     };
     var U = fit(H, true), D = fit(Lw, false), last = R[n - 1][4];
     return ES.wedgeShape({ a: U.a, b: U.b, touches: U.touches }, { a: D.a, b: D.b, touches: D.touches }, n, last, R[0][0]);
@@ -2273,12 +2258,16 @@ details.pos summary{font-size:1rem}
     var type = 'none', sub = null;
     if (!(w1 > 0)) type = 'none';
     else if (par) type = 'channel';
+    // une droite « plate » à côté de l'autre (moins du quart de sa pente) : triangle ascendant ou descendant
+    else if (conv && sl >= F && (flat(su) || Math.abs(su) < 0.25 * sl)) { type = 'triangle'; sub = 'asc'; }
+    else if (conv && su <= -F && (flat(sl) || Math.abs(sl) < 0.25 * -su)) { type = 'triangle'; sub = 'desc'; }
     else if (conv && su <= -F && sl >= F) { type = 'triangle'; sub = 'sym'; }
-    else if (conv && flat(su) && sl >= F) { type = 'triangle'; sub = 'asc'; }
-    else if (conv && su <= -F && flat(sl)) { type = 'triangle'; sub = 'desc'; }
     else if (conv && su < 0 && sl < 0) type = 'falling';
     else if (conv && su > 0 && sl > 0) type = 'rising';
-    else if (w0 > 0 && w1 > w0 * 1.15 && U.b > D.b) type = 'broadening'; // sommets de plus en plus hauts, creux de plus en plus bas
+    // droites de sens opposés qui s'écartent (sommets plus hauts, creux plus bas) : élargissement ; même sens qui s'écartent
+    // un peu : le cours suit un canal qui s'évase, lu comme un canal (essai sur les cours réels du 16/10/2026)
+    else if (w1 > w0 * 1.15 && ((su >= F && sl <= -F) || (flat(su) && sl <= -F) || (su >= F && flat(sl)))) type = 'broadening';
+    else if (!conv && ((su <= -F && sl <= -F) || (su >= F && sl >= F))) type = 'channel';
     var mid = (su + sl) / 2, cdir = mid > 0.02 ? 'up' : mid < -0.02 ? 'down' : 'flat';
     var label = { falling: 'Biseau descendant', rising: 'Biseau ascendant', triangle: { sym: 'Triangle symétrique', asc: 'Triangle ascendant', desc: 'Triangle descendant' }[sub],
       channel: { up: 'Canal haussier', down: 'Canal baissier', flat: 'Canal horizontal' }[cdir], broadening: 'Élargissement', none: 'Droites de tendance' }[type];
