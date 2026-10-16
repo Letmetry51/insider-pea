@@ -8,11 +8,11 @@
   [
    "2026-10-13",
    "2026-10-16",
-   96
+   99
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n16/10/2026 20:07:15;Sveafastigheter AB (publ);636700W1VM86O2G2AA36;APG Invest AS ;Jens Fredrik Jalland;Member of the Board of Directors;Yes;;;Yes;;Acquisition;Share;B shares;SE0029856053;14/10/2026 00:00:00;2000000.0;Quantity;30.1992;SEK;NASDAQ STOCKHOLM AB;Current;\r\n16/10",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n16/10/2026 23:04:42;Transferator AB (publ);52990006UHX52097KI68;Skywall AB;Fredrik Vojbacke;Chief Executive Officer (CEO)/Managing Directory;Yes;;;Yes;;Acquisition;Share;Transferator A;SE0017911233;12/10/2026 00:00:00;4.0;Quantity;1.28;SEK;SPOTLIGHT STOCK MARKET;Current;\r\n",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 298,
+ "rowCount": 301,
  "sampleRows": [
   [
    "12/10/2026 22:19:35",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-16T20:30:49.765011+00:00"
+ "at": "2026-10-16T22:05:51.813015+00:00"
 }

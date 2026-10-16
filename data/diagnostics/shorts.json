@@ -21,16 +21,6 @@
  },
  {
   "country": "IT",
-  "error": "UnicodeDecodeError : 'utf-8' codec can't decode byte 0xe9 in position 608: invalid continuation byte",
-  "response": {
-   "url": "https://www.consob.it/web/area-pubblica/pnc",
-   "status": 200,
-   "type": "text/html;charset=UTF-8",
-   "head": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
-  }
- },
- {
-  "country": "IT",
   "header": [
    "Detentore",
    "LEI del Detentore",
