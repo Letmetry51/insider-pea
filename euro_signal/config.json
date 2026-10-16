@@ -1,5 +1,5 @@
 {
- "scoringVersion": "2.3.0",
+ "scoringVersion": "2.4.0",
  "dashboardUrl": "https://letmetry51.github.io/insider-pea/euro-signal.html",
  "pea": {
   "strict": false
@@ -34,7 +34,7 @@
   "reviewMinCases": 50,
   "review": {
    "date": "2027-01-31",
-   "fixedOn": "2026-10-10",
+   "fixedOn": "2026-10-17",
    "minCases": 50,
    "maxUnderperfPts": 3,
    "waitCostPct": 1
@@ -64,5 +64,16 @@
  },
  "display": {
   "scoreCeiling": 60
+ },
+ "weights": {
+  "insiders": {
+   "discountBig": 0,
+   "discountMedium": 0,
+   "panicBuy": 0
+  }
+ },
+ "rank": {
+  "selMin": 60,
+  "selSize": 5
  }
 }

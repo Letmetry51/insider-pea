@@ -92,6 +92,33 @@ await Promise.all(Array.from({ length: PAGES }, async () => {
       if (sw > W + 2) problem('débordement avec une police plus large', 'onglet ' + v, sw + ' px pour ' + W);
     } catch (e) { problem('onglet impossible à ouvrir', v, e.message.split('\n')[0]); }
   }
+  // classement principal : ancien classement (dirigeants) et fiches ouvertes depuis le classement tendance + comptes
+  try {
+    p.__where = 'ancien classement';
+    await p.goto(URL0); await p.waitForTimeout(2500);
+    const b = p.locator('[data-a="rankMode"][data-v="ins"]').first();
+    if (await b.count()) {
+      await b.click({ timeout: 5000 }); await p.waitForTimeout(800);
+      if (!(await p.locator('tr.rowlink').count())) problem('onglet sans contenu', 'ancien classement', 'aucune ligne');
+      judge(await inspect(p, 'ancien classement'), 'ancien classement', false); report.views++;
+      await p.locator('[data-a="rankMode"][data-v="rank"]').first().click({ timeout: 5000 }); await p.waitForTimeout(500);
+    } else if (main.rank) problem('onglet sans contenu', 'classement', 'bouton « ancien classement » absent');
+  } catch (e) { problem('onglet impossible à ouvrir', 'ancien classement', e.message.split('\n')[0]); }
+  const rk = (main.rank && main.rank.rows) || [];
+  if (main.rank && !rk.filter((r) => !r.out.length).length) problem('classement vide', 'classement tendance + comptes', 'aucune société classée');
+  for (const r of rk.filter((x) => !x.out.length).slice(0, 30)) {
+    p.__where = 'classement ' + r.key;
+    try {
+      await p.evaluate((h) => { location.hash = h; }, r.isin ? '#' + r.isin : '#co=' + encodeURIComponent(r.sym));
+      try { await p.waitForFunction(() => document.querySelector('.fhead') && !/Chargement( de la fiche)?…/.test(document.body.innerText), null, { timeout: 6000 }); } catch (e) { }
+      await p.waitForTimeout(150);
+      const res = await inspect(p, 'classement ' + r.key);
+      judge(res, 'classement ' + r.key + ' ' + (r.name || ''), true);
+      if (!(await p.locator('.rcard').count())) problem('fiche sans note du classement', r.key + ' ' + (r.name || ''), '');
+      report.ranked = (report.ranked || 0) + 1;
+    } catch (e) { problem('classement : fiche impossible à ouvrir', r.key, e.message.split('\n')[0]); }
+  }
+  await p.evaluate(() => { location.hash = ''; });
   let rows = []; try { rows = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'societes-index.json'), 'utf8')).rows || []; } catch (e) { problem('catalogue illisible', 'societes-index.json', e.message); }
   const sample = rows.filter((_, k) => k % Math.max(1, Math.floor(rows.length / 40)) === 0).slice(0, 40);
   await p.goto(URL0); await p.waitForTimeout(2500);
@@ -117,7 +144,7 @@ function finish(note) {
   const by = {}; report.problems.forEach((x) => { by[x.kind] = (by[x.kind] || 0) + 1; });
   report.summary = by;
   const L = ['Contrôle du tableau de bord du ' + report.date + ' (téléphone ' + W + ' px, panneaux dépliés)', '',
-    (note ? note + '\n' : '') + report.fiches + ' fiches, ' + report.catalogue + ' fiches du catalogue, ' + report.views + ' onglets ouverts',
+    (note ? note + '\n' : '') + report.fiches + ' fiches, ' + (report.ranked || 0) + ' fiches du classement, ' + report.catalogue + ' fiches du catalogue, ' + report.views + ' onglets ouverts',
     report.problems.length + ' problème(s) d\'affichage, ' + report.jsErrors.length + ' erreur(s) JavaScript', ''];
   Object.entries(by).forEach(([k, n]) => L.push('  ' + k + ' : ' + n));
   report.problems.slice(0, 60).forEach((x) => L.push('- ' + x.kind + ' · ' + x.where + (x.detail ? ' · ' + x.detail : '')));

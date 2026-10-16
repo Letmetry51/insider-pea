@@ -1,7 +1,8 @@
 """
 Euro Signal — comptes annuels (4 derniers exercices) : compte de résultat, bilan, flux de trésorerie (Yahoo Finance).
 
-Sert à l'« Analyse des comptes » (tendances sur 4 ans, F-score de Piotroski) des sociétés suivies.
+Sert à l'« Analyse des comptes » (tendances sur 4 ans, F-score de Piotroski) des sociétés suivies, et aux exclusions
+et au départage du classement tendance + comptes pour les sociétés liquides du catalogue (clé « @TICKER »).
 Les comptes ne changent qu'une fois par an : chaque société est relue au plus tous les 30 jours (cache dans
 data/financials.json, conservé d'un soir à l'autre), en commençant par celles où un dirigeant a acheté récemment.
 Durée plafonnée : le reste est complété les soirs suivants. Une donnée absente reste absente (jamais devinée).
@@ -20,6 +21,7 @@ DATA = ROOT / "data"
 OUT = DATA / "financials.json"
 REFRESH_DAYS = 30
 SCHEMA = 3  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité (3 : écarts d'acquisition et incorporels)
+CAT_MIN_TURNOVER_EUR = 1e6  # même seuil de liquidité que le classement
 BUDGET_S = 18 * 60  # au plus 18 minutes par soir (l'étape est coupée à 20)
 STREAK_RESET, STREAK_STOP = 15, 40  # réponses vides de suite : nouveau jeton Yahoo, puis arrêt
 
@@ -104,11 +106,25 @@ def load(path, default):
         return default
 
 
+def catalogue_pairs(known, min_turnover=CAT_MIN_TURNOVER_EUR):
+    """Sociétés liquides du catalogue (classement tendance + comptes) sans dossier Euro Signal : clé « @TICKER »."""
+    out = {}
+    for f in sorted((DATA / "societes").glob("*.json")):
+        items = load(f, {}).get("items")
+        for sym, x in (items if isinstance(items, dict) else {}).items():
+            if not isinstance(x, dict) or sym in known or x.get("pea") is False:
+                continue
+            if (x.get("turnoverEur") or 0) >= min_turnover:
+                out["@" + sym] = sym
+    return out
+
+
 def main():
     t0 = time.time()
     today = datetime.now(timezone.utc).date()
     prices = load(DATA / "prices.json", {}).get("items", {})
     pairs = {isin: p.get("ticker") for isin, p in prices.items() if isinstance(p, dict) and p.get("ticker")}
+    pairs.update(catalogue_pairs(set(pairs.values())))
     if not pairs:
         print("Comptes : pas de liste de titres (cours absents), rien à faire")
         return 0

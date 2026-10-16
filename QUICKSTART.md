@@ -172,7 +172,6 @@ Onglet Actions → **"Run workflow"** (comme à l'étape 5)
 - ✅ **Zéro coût, zéro maintenance**
 - ✅ **Ton code t'appartient** : tu peux le modifier, l'améliorer, l'étendre quand tu veux
 
-**Comparaison avec InsiderScreener Plus à 14€/mois** : tu as gratuitement l'essentiel (suivi, screener, données AMF). Il te manque les alertes email temps réel — mais le scraping quotidien à 19h est largement suffisant pour un PEA (pas de day trading).
 
 ---
 

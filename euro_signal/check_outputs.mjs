@@ -119,6 +119,17 @@ const sec = read('sectors.json');
 check(sec && !sec.__error && sec.format === 'euro-signal-sectors' && (sec.groups || []).length >= 20, `secteurs : ${sec && sec.groups ? sec.groups.length : 0} groupes classés`);
 if (sec && sec.generatedAt) check(yearsBetween(sec.generatedAt.slice(0, 10), today) * 365 <= 4, `secteurs à jour (${sec.generatedAt.slice(0, 10)})`, true);
 
+// 5b. Classement principal (tendance + comptes) et sélection du lundi
+const RK = main.rank;
+check(RK && RK.counts && RK.counts.ranked >= 200, `classement tendance + comptes : ${RK && RK.counts ? RK.counts.ranked : 0} sociétés classées (200 au moins)`);
+if (RK) {
+  check(RK.coFresh, `cours du catalogue à jour pour le classement (${RK.coDate || '?'})`, true);
+  check(RK.study && RK.study.weeks >= 100, `étude de contrôle du classement : ${RK.study ? RK.study.weeks : 0} semaines`, true);
+  const nAccR = (RK.rows || []).filter((r) => !r.out.length && r.acc && r.acc !== 'na').length;
+  check(nAccR >= 0.5 * (RK.counts.ranked || 1), `comptes lus pour ${nAccR} des ${RK.counts.ranked} sociétés classées (50 % au moins)`, true);
+  check(RK.rows.every((r) => r.note >= 0 && r.note <= 100 && r.name), 'notes du classement entre 0 et 100, chaque société nommée');
+}
+
 // 6. Couverture rubrique par rubrique, comparée au calcul précédent : une baisse brutale (Yahoo qui répond vide, fichier
 // abîmé) est signalée le soir même, avant qu'un lecteur ne la découvre
 const COV = {};
@@ -135,10 +146,14 @@ const COV = {};
   COV['déclarations (3 mois)'] = Object.values(main.tx || {}).reduce((s, l) => s + (l || []).length, 0);
   COV['sources à jour'] = Object.values(main.src || {}).filter((x) => x && x.status === 'ok').length;
   if (CI && CI.rows) COV['catalogue des sociétés cotées'] = CI.rows.length;
+  if (RK && RK.counts) { COV['classement (sociétés classées)'] = RK.counts.ranked; COV['classement (comptes lus)'] = (RK.rows || []).filter((r) => r.acc && r.acc !== 'na').length; }
 }
+// Changement de périmètre voulu : comparaison avec les calculs antérieurs suspendue (17/10/2026 : arrêt d'Insider Screener,
+// les sociétés allemandes, espagnoles, italiennes et néerlandaises quittent les dossiers suivis ; nouveau classement principal)
+const REBASE = '2026-10-17';
 const HIST = path.join(DATA, 'diagnostics', 'coverage-history.json');
 let hist = []; try { hist = JSON.parse(fs.readFileSync(HIST, 'utf8')); if (!Array.isArray(hist)) hist = []; } catch (e) { hist = []; }
-const prev = hist.filter((h) => h && h.at && h.at < new Date().toISOString()).slice(-1)[0] || null;
+const prev = hist.filter((h) => h && h.at && h.at < new Date().toISOString() && h.at >= REBASE).slice(-1)[0] || null;
 const delta = {};
 Object.keys(COV).forEach((k) => {
   const now = COV[k], was = prev && prev.cov ? prev.cov[k] : null;

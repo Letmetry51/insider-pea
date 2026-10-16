@@ -87,6 +87,20 @@ def _():
     assert P.evaluate(pos, [], {}, [], date(2026, 10, 2)) == ([], None)
 
 
+@case("Société du catalogue (symbole Yahoo, sans ISIN) : position lue, MM50 sous MM200 recalculée")
+def _():
+    p = P.parse_position("[Euro Signal] Position VOLV-B.ST", "Société : Volvo\nSymbole : VOLV-B.ST\nPrix d'achat : 250\nDate d'achat : 2026-10-20", "2026-10-20T20:00:00+00:00")
+    assert p and p["isin"] == "VOLV-B.ST" and p["price"] == 250, p
+    assert P.parse_position("[Euro Signal] Vente OMV.VI", "", "x")["isin"] == "OMV.VI"
+    assert P.parse_position("[Euro Signal] Revente — Volvo : stop (réf. VOLV-B.ST:20261020:stop10)", "", "x") is None
+    up = [[("2026-%03d" % k), 0, 0, 0, 100 + k * 0.5, 0] for k in range(260)]
+    down = up + [[("2026-%03d" % (260 + k)), 0, 0, 0, 230 - k * 2.0, 0] for k in range(80)]
+    assert P.death_cross(up, "2026-000") is None
+    d = P.death_cross(down, "2026-000")
+    assert d and d > "2026-260", d
+    assert P.shard_of("VU.PA") == P.shard_of("VU.PA") and 0 <= P.shard_of("VOLV-B.ST") < 32
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))
