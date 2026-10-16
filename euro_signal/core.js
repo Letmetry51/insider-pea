@@ -1207,6 +1207,17 @@
     var rMin = Math.min.apply(null, roes), rMax = Math.max.apply(null, roes);
     if (roes.length >= 2 && rMax - rMin > 0.5) { out.irregular = true; out.notes.push('rentabilité très irrégulière d\'un exercice à l\'autre (de ' + fmtPct1(rMin) + ' à ' + fmtPct1(rMax) + ', éléments exceptionnels probables) : estimation fragile'); }
     if (roe <= 0) return Object.assign(out, { lossMaking: true, reason: (roeAll > 0 ? 'pertes sur les deux derniers exercices' : 'pertes en moyenne sur ' + roes.length + ' exercice' + (roes.length > 1 ? 's' : '')) + ' : la valeur dépend du redressement, pas des comptes passés' });
+    // foncière : le résultat comprend les variations de juste valeur des immeubles et la trésorerie disponible ignore les
+    // investissements immobiliers ; la référence du métier est l'actif net réévalué (ANR), que les capitaux propres IFRS
+    // approchent (immeubles à leur valeur d'expertise)
+    if (kind === 'property') {
+      var nav = bvps, p4n = function (v) { return +v.toPrecision(4); };
+      out.methods = [{ k: 'nav', label: 'actif net réévalué (capitaux propres, immeubles à leur valeur d\'expertise)', v: p4n(nav) }];
+      out.low = out.high = out.mid = p4n(nav); out.marginPct = Math.round((nav - price) / nav * 100);
+      out.zone = price < nav * 0.98 ? 'below' : price > nav * 1.02 ? 'above' : 'inside';
+      if (roe < r) out.notes.push('rentabilité des fonds propres (' + fmtPct1(roe) + ') inférieure au rendement exigé (' + fmtPct1(r) + ') : une décote sur l\'actif net peut durer');
+      return out;
+    }
     var roeC = Math.min(roe, 0.35);
     if (roe > 0.35) out.notes.push('rentabilité des fonds propres de ' + Math.round(roe * 100) + ' % ramenée à 35 % (niveau rarement durable)');
     var A = 0; for (var t = 1; t <= 10; t++) A += (1 - t / 11) / Math.pow(1 + r, t);
@@ -1260,12 +1271,15 @@
     var m = v.marginPct, g = v.impliedG, rp = v.r * 100;
     var rng = v.high / v.low <= 1.05 ? 'environ ' + f(v.mid) : f(v.low) + ' à ' + f(v.high);
     // au-dessus de la fourchette : la question devient « quelle croissance le cours suppose-t-il ? »
-    var gT = g == null ? '' : g >= rp - 0.5 ? 'le cours suppose une croissance durable supérieure au rendement exigé : aucun calcul fondé sur les comptes ne le justifie'
+    var weak = v.roe != null && v.roe < rp - 1; // rentabilité sous le rendement exigé : décote souvent justifiée
+    var gT = weak && v.pb > 1 ? 'la société rapporte ' + f(v.roe) + ' % sur ses fonds propres, moins que le rendement exigé (' + f(rp) + ' %) : le cours parie sur une rentabilité future bien meilleure' + (v.intangPct >= 40 ? ' (ou sur des fonds propres gonflés par les écarts d\'acquisition des rachats de sociétés)' : '')
+      : g == null ? '' : g >= rp - 0.5 ? 'le cours suppose une croissance durable supérieure au rendement exigé : aucun calcul fondé sur les comptes ne le justifie'
       : g > 0 ? 'le cours suppose une croissance des résultats de ' + f(g) + ' % par an, indéfiniment' + (g >= 6 ? ' : hypothèse exigeante' : g <= 2.5 ? ' : hypothèse modeste' : '')
       : 'le cours suppose un recul des résultats de ' + f(-g) + ' % par an : le marché est pessimiste';
-    var weak = v.roe != null && v.roe < rp - 1; // rentabilité sous le rendement exigé : décote souvent justifiée
     var tone = (v.zone === 'below' || m >= 20) && !weak && !v.irregular && !v.stale ? 'good' : v.zone === 'above' && g != null && g >= 6 ? 'bad' : 'mixed';
-    var chip = ES.valueCheap(v) ? m + ' % sous sa valeur intrinsèque' : weak && v.pb < 1 ? 'sous sa valeur comptable' : v.zone === 'above' && g != null && g >= 6 ? (g >= rp - 0.5 ? 'cours sans appui dans les comptes' : 'cours qui suppose ' + f(g) + ' % de croissance par an') : null;
+    var nav = v.kind === 'property', chip = ES.valueCheap(v) ? m + ' % sous sa valeur ' + (nav ? 'd\'actif net' : 'intrinsèque') : weak && v.pb < 1 ? 'sous sa valeur comptable' : weak && v.zone === 'above' ? 'rentabilité sous le rendement exigé'
+      : v.zone === 'above' && g != null && g >= 6 ? (g >= rp - 0.5 ? 'cours sans appui dans les comptes' : 'cours qui suppose ' + f(g) + ' % de croissance par an') : null;
+    if (nav) return { tone: tone, chip: chip, text: (v.zone === 'below' ? 'Cours ' + m + ' % sous l\'actif net réévalué (' + f(v.mid) + ')' : v.zone === 'above' ? 'Cours ' + f(v.pb) + ' fois l\'actif net réévalué (' + f(v.mid) + ')' : 'Cours proche de l\'actif net réévalué (' + f(v.mid) + ')') + ', la référence pour une foncière.' + (weak ? ' Attention : la société rapporte ' + f(v.roe) + ' % sur ses fonds propres, moins que ce qu\'exige un actionnaire (' + f(rp) + ' %) ; la décote peut durer.' : '') };
     var zt = v.zone === 'below' ? 'sous la fourchette de valeur intrinsèque (' + rng + ')' : v.zone === 'above' ? 'au-dessus de la fourchette de valeur intrinsèque (' + rng + ')' : 'dans la fourchette de valeur intrinsèque (' + rng + ')';
     return { tone: tone, chip: chip, text: 'Cours ' + zt + ', valeur centrale ' + f(v.mid) + (m >= 0 ? ' : marge de sécurité de ' + m + ' %' : '') + '. ' + (gT && (v.zone === 'above' || g < 0) ? cap(gT) + '. ' : '') + cap(pbT) + '.' +
       (weak && m >= 0 ? ' Attention : la société rapporte moins (' + f(v.roe) + ' % sur ses fonds propres) que ce qu\'exige un actionnaire (' + f(rp) + ' %) ; la décote peut durer (piège de valeur possible).' : '') };

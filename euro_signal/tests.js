@@ -1117,6 +1117,13 @@ t('Valeur comptable et valeur intrinsèque : calculs, devises, divisions, garde-
   ok(ES.intrinsicValue({ currency: 'EUR', years: [yr(2025, -50, -10, -5)] }, { asOf: '2026-10-15', price: 3, currency: 'EUR' }).negEquity, 'fonds propres négatifs');
   const bank = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 10, currency: 'EUR', sector: 'Financial Services', industry: 'Banks - Regional' });
   ok(bank.kind === 'fin' && !bank.methods.some((m) => m.k === 'fcf'), 'banque : revenu résiduel seulement');
+  // foncière : actif net réévalué (capitaux propres IFRS), ni revenu résiduel ni trésorerie disponible
+  const reit = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9.1, currency: 'EUR', sector: 'Real Estate', industry: 'REIT - Retail' });
+  ok(reit.kind === 'property' && reit.methods.length === 1 && reit.methods[0].k === 'nav' && reit.mid === 13 && reit.marginPct === 30 && reit.zone === 'below', 'foncière : ANR : ' + JSON.stringify(reit.methods));
+  ok(/actif net réévalué/.test(ES.valueView(reit).text) && /sous sa valeur d'actif net/.test(ES.valueView(reit).chip), 'foncière : lecture ANR : ' + JSON.stringify(ES.valueView(reit)));
+  // rentabilité sous le rendement exigé, cours au-dessus de la valeur comptable : pas de « croissance implicite » absurde
+  const low = ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { netIncome: y.equity * 0.05 })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
+  const lv2 = ES.valueView(low); ok(lv2.chip === 'rentabilité sous le rendement exigé' && /parie sur une rentabilité future/.test(lv2.text), 'rentabilité faible : ' + JSON.stringify(lv2));
   // croissance implicite : le cours ne se justifie qu'avec une croissance perpétuelle
   const rich = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 60, currency: 'EUR', capEur: 2e9 });
   ok(rich.zone === 'above' && rich.impliedG > 5 && rich.impliedG < 9.5, 'croissance implicite : ' + rich.impliedG);
