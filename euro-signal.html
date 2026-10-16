@@ -168,7 +168,7 @@ svg .last{fill:var(--chart-line)}
 .ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:12px}
 .op{border:1px solid var(--line);border-top:3px solid var(--muted);border-radius:var(--r);padding:12px;background:var(--bg);min-width:0}
 .op.buy{border-top-color:var(--good)}.op.sell{border-top-color:var(--bad)}.op.cancel{opacity:.6}
-.op header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+.op header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}.op header>div{min-width:0;overflow-wrap:anywhere}
 .mar{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 14px;margin-bottom:10px}
 .mar dt{font-size:.68rem;color:var(--muted)}
 .mar dd{margin:0;font-size:.85rem;overflow-wrap:anywhere}
@@ -239,7 +239,7 @@ ul.plain li{margin:3px 0}
 }
 /* Opportunités : version lisible */
 .selc h3{margin-bottom:2px}.selc .foot{margin:0 0 8px}ol.sel{margin:0;padding-left:1.4em}ol.sel li{padding:7px 4px;border-top:1px solid var(--line);cursor:pointer}ol.sel li:first-child{border-top:0}ol.sel li small{display:block;color:var(--muted)}ol.sel li:hover{background:var(--sunk)}
-.tabs .ts{display:none}@media (max-width:560px){.tabs .tl{display:none}.tabs .ts{display:inline}.tabs button{padding:8px 8px}}
+.tabs .ts{display:none}@media (max-width:560px){.tabs .tl{display:none}.tabs .ts{display:inline}.tabs button{padding:8px 4px;flex:1 1 auto;font-size:.86rem}.tabs{gap:0}}
 /* Carte « Je l'ai acheté » : bien détachée du conseil */
 .buybox{border:2px solid var(--bad);background:color-mix(in srgb,var(--bad) 7%,var(--surface))}
 .buybox summary{display:flex;gap:12px;align-items:center;cursor:pointer;list-style:none;font-size:1.05rem}
@@ -3870,7 +3870,10 @@ details.pos summary{font-size:1rem}
   /* ----- Opportunités (classement) ----- */
   // Code pays en pastille (les drapeaux emoji ne s'affichent pas sous Windows) ; version texte pour les listes déroulantes
   function flag(cc) { return cc && /^[A-Z]{2}$/.test(cc) ? '<span class="cc cc-' + cc + '">' + cc + '</span> ' : ''; }
-  var ROLES = [[/chief executive|\bceo\b|vorstandsvorsitz|consejero delegado|amministratore delegato/i, 'Directeur général'], [/chief financial|\bcfo\b|finanzvorstand/i, 'Directeur financier'],
+  var ROLES = [[/deputy (ceo|managing|chief)|vice[- ]ceo|stellvertret|directeur g[ée]n[ée]ral d[ée]l[ée]gu[ée]/i, 'Directeur général délégué'],
+    [/employee representative|repr[ée]sentant des salari/i, 'Représentant des salariés au conseil'], [/chairman|chairwoman|chair of the board/i, 'Président du conseil'],
+    [/other senior executive|senior executive/i, 'Cadre dirigeant'], [/funzioni di direzione|direction functions/i, 'Dirigeant'], [/funzioni di amministrazione|administrative functi/i, 'Administrateur'],
+    [/chief executive|\bceo\b|vorstandsvorsitz|consejero delegado|amministratore delegato/i, 'Directeur général'], [/chief financial|\bcfo\b|finanzvorstand/i, 'Directeur financier'],
     [/supervisory board|aufsichtsrat|raad van commissarissen/i, 'Membre du conseil de surveillance'], [/management board|vorstand|raad van bestuur/i, 'Membre du directoire'],
     [/closely associated|personne étroitement liée|eng verbunden/i, 'Personne étroitement liée'], [/member of (the )?(administrative|board)|administrative, management or supervisory/i, 'Membre d’un organe d’administration ou de direction'],
     [/consejero ejecutivo/i, 'Administrateur exécutif'], [/consejero/i, 'Administrateur'], [/presidente/i, 'Président'], [/^director$|non-executive director|board member/i, 'Administrateur']];
@@ -5036,7 +5039,7 @@ details.pos summary{font-size:1rem}
   function pc100(v) { return v == null ? 'n.d.' : pct(v * 100); }
   function capTxt(v) { return v == null ? 'n.d.' : v >= 1e9 ? fmtN(v / 1e9, v >= 1e10 ? 0 : 1) + ' Md€' : fmtN(v / 1e6, 0) + ' M€'; }
   /** Chiffre clé en ligne : libellé + valeur colorée (vert si positif, rouge si négatif). */
-  function kv(label, v, txt) { return v == null || !isFinite(v) ? null : '<span class="nw">' + label + ' <b class="' + (v >= 0 ? 'pos' : 'neg') + '">' + String(txt).replace(' %', '\u00a0%') + '</b></span>'; }
+  function kvNum(label, v, txt) { return v == null || !isFinite(v) ? null : '<span class="nw">' + label + ' <b class="' + (v >= 0 ? 'pos' : 'neg') + '">' + String(txt).replace(' %', '\u00a0%') + '</b></span>'; }
   function secStock(x, role) {
     if (!x) return '';
     var inEs = x.isin && S.inst[x.isin], sym = esc(x.symbol);
@@ -5050,8 +5053,8 @@ details.pos summary{font-size:1rem}
     var d = S.sec.daily && S.sec.daily[x.symbol], open = S.secOpen && S.secOpen[x.symbol];
     var h = '<div class="secst"><div class="secst-h"><span class="chip ' + (role === 'leader' ? 'pos-leader' : 'pos-challenger') + '">' + (role === 'leader' ? '🏆 Leader' : '🚀 Challenger') + '</span> ' + coName(x, true) + ' <span class="muted small">' + sym + '</span>' +
       (x.pea === false ? ' <span class="chip bad">hors PEA</span>' : '') + '</div><p class="secst-k">' + [capTxt(x.capEur),
-        kv('force 6 mois', x.rs6, pc100(x.rs6)), kv('croissance', x.revGrowth, pc100(x.revGrowth)),
-        x.opMargin != null ? '<span class="nw">marge ' + fmtN(x.opMargin * 100, 0) + '\u00a0%</span>' : null, kv('objectif', x.upside, pc100(x.upside))].filter(Boolean).join(' · ') + '</p>' + (fa ? xpi(fa, 'Analystes') : '');
+        kvNum('force 6 mois', x.rs6, pc100(x.rs6)), kvNum('croissance', x.revGrowth, pc100(x.revGrowth)),
+        x.opMargin != null ? '<span class="nw">marge ' + fmtN(x.opMargin * 100, 0) + '\u00a0%</span>' : null, kvNum('objectif', x.upside, pc100(x.upside))].filter(Boolean).join(' · ') + '</p>' + (fa ? xpi(fa, 'Analystes') : '');
     h += '<div class="row-btn">' + (d && d.length >= 120 ? '<button class="link" data-a="secPlan" data-v="' + sym + '">' + (open ? 'Masquer le plan d\'entrée' : '🧭 Plan d\'entrée') + '</button>' : '') +
       ' <button class="link" data-a="secCo" data-v="' + sym + '">📄 Fiche complète</button>' + '</div>';
     if (open && d) {
