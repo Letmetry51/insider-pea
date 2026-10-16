@@ -28,7 +28,7 @@ OK     convergence notée pour 779 titres
 OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 668 titres sur 779 (50 % au moins)
 OK     valeur comptable et intrinsèque pour 661 titres sur 779 (50 % au moins)
 OK     tendance du secteur rattachée pour 668 titres
-OK     étude historique du plan : 44912 relevés
+OK     étude historique du plan : 44916 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 2995 dans la liste de recherche (1 500 au moins)
 OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : 
@@ -46,7 +46,7 @@ OK     graphiques (cours 1 an) : 685
 OK     comptes annuels : 668
 OK     valeur comptable : 642
 OK     secteur : 668
-OK     liquidité : 677
+OK     liquidité : 676 (-1 depuis le calcul précédent)
 OK     plan d'entrée : 663
 OK     déclarations (3 mois) : 3288
 OK     sources à jour : 4
