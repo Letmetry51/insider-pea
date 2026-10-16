@@ -86,6 +86,10 @@ await Promise.all(Array.from({ length: PAGES }, async () => {
       const b = p.locator(`nav [data-v="${v}"]`).first(); if (await b.count()) { await b.click({ timeout: 5000 }); await p.waitForTimeout(1500); }
       if (!(await p.locator(EXPECT[v]).count())) problem('onglet sans contenu', v, 'élément attendu absent : ' + EXPECT[v]);
       judge(await inspect(p, 'onglet ' + v), 'onglet ' + v, false); report.views++;
+      // polices un peu plus larges (celles du téléphone, chargées depuis Google, varient selon les appareils) : pas de débordement
+      await p.addStyleTag({ content: '*{letter-spacing:.05em !important}' }); await p.waitForTimeout(200);
+      const sw = await p.evaluate(() => document.documentElement.scrollWidth);
+      if (sw > W + 2) problem('débordement avec une police plus large', 'onglet ' + v, sw + ' px pour ' + W);
     } catch (e) { problem('onglet impossible à ouvrir', v, e.message.split('\n')[0]); }
   }
   let rows = []; try { rows = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'societes-index.json'), 'utf8')).rows || []; } catch (e) { problem('catalogue illisible', 'societes-index.json', e.message); }
