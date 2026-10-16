@@ -1,18 +1,18 @@
 {
  "chunks": [
   [
-   "2026-10-05",
-   "2026-10-11",
-   182
+   "2026-10-06",
+   "2026-10-12",
+   202
   ],
   [
-   "2026-10-12",
+   "2026-10-13",
    "2026-10-16",
-   131
+   72
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n15/10/2026 21:41:51;Gentoo Media Inc.;529900T8BM49AURSDO55;Mateusz Juroszek;Mateusz Juroszek;Member of the Board of Directors;;;;Yes;;Acquisition;Share;Gentoo Media Inc.;US36467X2062;15/10/2026 00:00:00;54433.0;Quantity;5.20;SEK;NASDAQ STOCKHOLM AB;Current;\r\n15/10/2026 20:",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n16/10/2026 08:18:56;Skanska AB;549300UINV5RINHGMG07;Hans Reinholdsson;Hans Reinholdsson;Employee Representative of the Board of Directors or deputy Employee Representative of the Board of Directors;;;;Yes;;Acquisition;Share;Skanska AB ser. B;SE0000113250;13/10/2026 00:00:0",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,58 +59,58 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 313,
+ "rowCount": 274,
  "sampleRows": [
   [
-   "11/10/2026 01:38:08",
-   "Beammwave AB",
-   "9845008AD575B0BD7B65",
-   "Markus Antero Törmänen",
-   "Markus Antero Törmänen",
+   "12/10/2026 22:19:35",
+   "Gentoo Media Inc.",
+   "529900T8BM49AURSDO55",
+   "Mateusz Juroszek",
+   "Mateusz Juroszek",
    "Member of the Board of Directors",
    "",
    "",
    "",
    "Yes",
    "",
-   "Exchange increase",
+   "Acquisition",
    "Share",
-   "BeammWave AB ser. B",
-   "SE0016799068",
-   "08/10/2026 00:00:00",
-   "567000.0",
+   "Gentoo Media Inc.",
+   "US36467X2062",
+   "12/10/2026 00:00:00",
+   "131715.0",
    "Quantity",
-   "0.0",
+   "5.1726",
    "SEK",
-   "Outside a trading venue",
+   "NASDAQ STOCKHOLM AB",
    "Current",
    ""
   ],
   [
-   "11/10/2026 01:38:08",
-   "Beammwave AB",
-   "9845008AD575B0BD7B65",
-   "Markus Antero Törmänen",
-   "Markus Antero Törmänen",
+   "12/10/2026 21:03:48",
+   "Prisjakt AB (publ)",
+   "64884611QSN9AD2WC970",
+   "Aida Jammal Holding AB",
+   "Aida Jammal",
    "Member of the Board of Directors",
-   "",
+   "Yes",
    "",
    "",
    "Yes",
    "",
-   "Exchange decrease",
+   "Subscription",
    "Share",
-   "BeammWave AB ser. A",
-   "SE0016798532",
-   "08/10/2026 00:00:00",
-   "567000.0",
+   "Aktie",
+   "SE0028026757",
+   "07/10/2026 00:00:00",
+   "113286.0",
    "Quantity",
-   "0.0",
+   "31.0",
    "SEK",
    "Outside a trading venue",
    "Current",
    ""
   ]
  ],
- "at": "2026-10-16T04:50:43.196153+00:00"
+ "at": "2026-10-16T06:34:20.313723+00:00"
 }

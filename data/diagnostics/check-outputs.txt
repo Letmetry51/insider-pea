@@ -1,7 +1,7 @@
 Contrôle des fichiers du 2026-10-16
 
 OK     euro-signal.json lisible
-OK     euro-signal.json : 10.1 Mo (limite 60)
+OK     euro-signal.json : 11.0 Mo (limite 60)
 OK     euro-signal-long.json : 4.0 Mo (limite 60)
 OK     euro-signal-state.json : 10.9 Mo (limite 60)
 OK     sectors.json : 0.6 Mo (limite 60)
@@ -9,7 +9,7 @@ OK     societes-index.json : 0.3 Mo (limite 60)
 OK     aucune valeur NaN ou Infinity dans euro-signal.json
 OK     date des données 2026-10-16 (aujourd'hui 2026-10-16)
 OK     fiches réparties : 32 fichiers lisibles, chaque société dans le bon fichier
-OK     plus gros fichier de fiches : 1.0 Mo (3 au plus, pour un téléphone)
+OK     plus gros fichier de fiches : 1.1 Mo (3 au plus, pour un téléphone)
 OK     cours journaliers (vue 1 an) publiés
 OK     le tableau de bord pointe vers le fichier 5 ans (longFile)
 OK     euro-signal-long.json lisible
@@ -23,10 +23,12 @@ OK     32 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, sig
 OK     plans d'entrée calculés : 993 sur 1167 titres
 OK     plans complets (verdict, scénario, figure, RSI/MACD) : 991 sur 993
 OK     0 plan(s) avec un rapport gain / risque absurde
-OK     répartition des verdicts : waitSupport 420, waitBreakout 452, buyNow 52, avoid 69
+OK     répartition des verdicts : waitSupport 421, waitBreakout 450, buyNow 52, avoid 70
 OK     convergence notée pour 1167 titres
+OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 1007 titres sur 1167 (50 % au moins)
+OK     valeur comptable et intrinsèque pour 998 titres sur 1167 (50 % au moins)
 OK     tendance du secteur rattachée pour 1001 titres
-OK     étude historique du plan : 66741 relevés
+OK     étude historique du plan : 66719 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 2995 dans la liste de recherche (1 500 au moins)
 OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : 
