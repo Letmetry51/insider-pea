@@ -3278,10 +3278,11 @@
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
     return rows;
   };
-  /** Sélection de la semaine du classement : les N premières sociétés non écartées dont la note atteint le seuil. */
+  /** Sélection de la semaine du classement : les N premières sociétés non écartées, aux comptes lus, dont la note atteint le seuil. */
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
-    return (rows || []).filter(function (r) { return !r.out.length && r.note >= R.selMin; }).slice(0, R.selSize);
+    // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
+    return (rows || []).filter(function (r) { return !r.out.length && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
   };
   /**
    * Étude de contrôle, recalculée chaque soir : clôtures hebdomadaires de toutes les sociétés (dates communes), chaque
@@ -3366,7 +3367,7 @@
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track) {
     var n = items.length, R = cfg.rank;
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + ' en tête du classement' : 'aucune société au-dessus du seuil');
-    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, sans comptes dégradés ni perte, notées sur la force relative, la proximité du plus haut, la tendance de fond, les comptes et le calme du cours ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
+    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, aux comptes lus, sans comptes dégradés ni perte, notées sur la force relative, la proximité du plus haut, la tendance de fond, les comptes et le calme du cours ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
     var pcs = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
     var tr = track && track.n ? 'Sélections précédentes (' + track.n + ' dossiers) : ' + pcs(track.avg) + ' en moyenne depuis l\'envoi' + (track.bench != null ? ', indice ' + pcs(track.bench) : '') + '.' : null;
     var warnOf = function (x) { var w = (x.warn || []).slice(0, 2); if (x.nextEarnings && today && x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 21) w.unshift('résultats le ' + ES.frDate(x.nextEarnings)); return w; };
