@@ -693,7 +693,7 @@
     return String(txt).replace(/entre le (\d{4}-\d{2}-\d{2}) et le \1/g, 'le $1').replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3/$2/$1')
       .replace(/(\d)\.(\d+)(?=\s?(?:%|point|fois|séance))/g, '$1,$2').replace(/(\d) %/g, '$1\u00a0%'); // virgule décimale, espace insécable avant %
   };
-  function fmtEur(n) { return n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' M€' : Math.round(n / 1e3) + ' k€'; }
+  function fmtEur(n) { return n >= 999500 ? (n / 1e6).toFixed(1).replace('.', ',') + ' M€' : Math.round(n / 1e3) + ' k€'; }
   ES.fmtEur = fmtEur;
 
   /* ========================= Signaux d'initiés ========================= */
@@ -1818,8 +1818,11 @@
       channel: 'le cours oscille entre les deux droites : acheter près de la droite basse, alléger près de la haute',
       broadening: 'les écarts s\'amplifient (sommets plus hauts, creux plus bas) : marché nerveux, pas de signal fiable avant une sortie franche',
       none: 'pas de figure nette' }[type];
+    // figure peu marquée : une des droites ne touche le cours qu'une fois (pas de deuxième sommet ou creux pour la confirmer)
+    var weak = type !== 'none' && Math.min(U.touches || 0, D.touches || 0) < 2;
+    if (weak) label += ' peu marqué';
     var apex = U.b < D.b ? w1 / (D.b - U.b) : null; // séances avant la jonction des droites
-    return { type: type, sub: sub, key: type === 'channel' ? 'channel-' + cdir : type, dir: cdir,
+    return { type: type, sub: sub, weak: weak, key: type === 'channel' ? 'channel-' + cdir : type, dir: cdir,
       label: label, reading: reading, n: n, from: from, upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
       upperNow: +at(U, n - 1).toPrecision(5), lowerNow: +at(D, n - 1).toPrecision(5), apexIn: conv && apex != null && apex > 0 ? Math.round(apex) : null,
       slopeUpPct: +su.toFixed(3), slopeLowPct: +sl.toFixed(3) };
@@ -1960,7 +1963,7 @@
       { key: 'sector', label: st ? 'Secteur ' + (st.trending ? 'en tendance' : st.emerging ? 'émergent' : 'hors tendance') + ' (' + st.rank + 'e sur ' + st.of + ')' : 'Secteur : classement indisponible', ok: st ? !!(st.trending || st.emerging) : null },
       { key: 'revisions', label: rv == null || !isFinite(rv) ? 'Révisions des analystes : n.d.' : 'Analystes : prévisions ' + (rv >= 0 ? 'relevées' : 'abaissées') + ' de ' + Math.abs(+rv).toFixed(1).replace('.', ',') + ' % en 30 jours', ok: rv == null || !isFinite(rv) ? null : rv >= 1 },
       { key: 'plan', label: p ? 'Plan d\'entrée : ' + (p.label || p.verdict) : 'Plan d\'entrée : n.d.', ok: p ? p.verdict === 'buyNow' : null },
-      { key: 'figure', label: fk && ES.FIGURES[fk] ? 'Figure : ' + ES.FIGURES[fk][1].toLowerCase() : 'Figure : n.d.', ok: fk ? ES.FIGURES[fk][2] === 'good' : null }
+      { key: 'figure', label: fk && ES.FIGURES[fk] ? 'Figure : ' + ES.FIGURES[fk][1].toLowerCase() + (p.wedge && p.wedge.weak ? ' (peu marquée)' : '') : 'Figure : n.d.', ok: fk ? ES.FIGURES[fk][2] === 'good' && !(p.wedge && p.wedge.weak) : null }
     ];
     var n = items.filter(function (x) { return x.ok === true; }).length, known = items.filter(function (x) { return x.ok !== null; }).length;
     return { n: n, known: known, of: items.length, items: items };
