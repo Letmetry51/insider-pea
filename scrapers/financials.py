@@ -137,7 +137,8 @@ def main():
     order = sorted(pairs, key=lambda i: ((items.get(i) or {}).get("triedAt", "") > week_ago, i not in buyers, (items.get(i) or {}).get("schema", 1) >= SCHEMA, i))
     fresh_before = (today - timedelta(days=REFRESH_DAYS)).isoformat()
     done = failed = kept = streak = 0
-    avail_before = sum(1 for v in items.values() if v.get("years"))
+    # comptes déjà disponibles pour les titres de la liste du soir (une société sortie de la liste n'est pas une perte de données)
+    avail_before = sum(1 for i, v in items.items() if v.get("years") and i in pairs)
     stopped = False
     for isin in order:
         old = items.get(isin) or {}

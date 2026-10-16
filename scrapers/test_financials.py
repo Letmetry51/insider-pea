@@ -98,6 +98,19 @@ def _():
     assert got == {"@OMV.VI": "OMV.VI"}, got
 
 
+@case("Liste des titres réduite (pays plus suivis) : le fichier est quand même mis à jour")
+def _():
+    isins = setup(100)
+    raw = json.loads((F.DATA / "prices.json").read_text())
+    raw["items"] = {i: raw["items"][i] for i in isins[:50]}  # la moitié des sociétés quitte la liste
+    (F.DATA / "prices.json").write_text(json.dumps(raw))
+    new = [{"date": "2025-12-31", "equity": 120.0, "netIncome": 12.0, "shares": 5.0}]
+    F.statements = lambda t: {"years": new, "currency": "EUR"}
+    F.main()
+    it = saved()
+    assert len(it) == 50 and all(it[i]["schema"] == F.SCHEMA for i in isins[:50]), len(it)
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))
