@@ -8,11 +8,11 @@
   [
    "2026-10-13",
    "2026-10-16",
-   93
+   96
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n16/10/2026 15:09:02;KINNEVIK AB;2138006PZH76JOS6MN27;Helena Saxon;Helena Saxon;Chief Executive Officer (CEO)/Managing Directory;;;;Yes;;Acquisition;Share;KINVB;SE0022060521;16/10/2026 00:00:00;3000.0;Quantity;63.56;SEK;NASDAQ STOCKHOLM AB;Current;\r\n16/10/2026 14:44:13;Aqur",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n16/10/2026 20:07:15;Sveafastigheter AB (publ);636700W1VM86O2G2AA36;APG Invest AS ;Jens Fredrik Jalland;Member of the Board of Directors;Yes;;;Yes;;Acquisition;Share;B shares;SE0029856053;14/10/2026 00:00:00;2000000.0;Quantity;30.1992;SEK;NASDAQ STOCKHOLM AB;Current;\r\n16/10",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 295,
+ "rowCount": 298,
  "sampleRows": [
   [
    "12/10/2026 22:19:35",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-16T16:39:31.401579+00:00"
+ "at": "2026-10-16T18:38:36.804580+00:00"
 }

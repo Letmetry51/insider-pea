@@ -1,0 +1,5 @@
+Contrôle du tableau de bord du 2026-10-16 (téléphone 390 px, panneaux dépliés)
+
+1120 fiches, 40 fiches du catalogue, 5 onglets ouverts
+0 problème(s) d'affichage, 0 erreur(s) JavaScript
+

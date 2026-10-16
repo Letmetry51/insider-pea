@@ -1,7 +1,7 @@
 Contrôle des fichiers du 2026-10-16
 
 OK     euro-signal.json lisible
-OK     euro-signal.json : 11.0 Mo (limite 60)
+OK     euro-signal.json : 11.1 Mo (limite 60)
 OK     euro-signal-long.json : 5.1 Mo (limite 60)
 OK     euro-signal-state.json : 11.0 Mo (limite 60)
 OK     sectors.json : 0.6 Mo (limite 60)
@@ -23,11 +23,11 @@ OK     41 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, sig
 OK     plans d'entrée calculés : 982 sur 1120 titres
 OK     plans complets (verdict, scénario, figure, RSI/MACD) : 980 sur 982
 OK     0 plan(s) avec un rapport gain / risque absurde
-OK     répartition des verdicts : waitSupport 447, waitBreakout 439, buyNow 51, avoid 45
+OK     répartition des verdicts : waitSupport 446, waitBreakout 440, buyNow 51, avoid 45
 OK     convergence notée pour 1120 titres
-OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 988 titres sur 1120 (50 % au moins)
-OK     valeur comptable et intrinsèque pour 979 titres sur 1120 (50 % au moins)
-OK     tendance du secteur rattachée pour 982 titres
+OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 995 titres sur 1120 (50 % au moins)
+OK     valeur comptable et intrinsèque pour 986 titres sur 1120 (50 % au moins)
+OK     tendance du secteur rattachée pour 979 titres
 OK     étude historique du plan : 66038 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 2995 dans la liste de recherche (1 500 au moins)
