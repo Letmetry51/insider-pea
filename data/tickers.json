@@ -4146,6 +4146,14 @@
   "name": "Elekta AB (publ)",
   "ticker": "EKTA-B.ST"
  },
+ "SE0000164626": {
+  "exchange": "London",
+  "homeTried": "0RH1.ST",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Kinnevik AB",
+  "resolvedAt": "2026-10-16",
+  "ticker": "0RH1.L"
+ },
  "SE0000170110": {
   "checkedHome": "2026-10-10",
   "exchange": "Frankfurt",
@@ -8083,6 +8091,11 @@
   "method": "recherche Yahoo par ISIN",
   "name": "Alzinova AB (publ)",
   "ticker": "ALZ-BTU.ST"
+ },
+ "SE0030588513": {
+  "nameTried": "2026-10-16",
+  "ticker": null,
+  "triedAt": "2026-10-16"
  },
  "SE0030588539": {
   "ticker": null,
