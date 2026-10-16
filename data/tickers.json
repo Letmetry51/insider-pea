@@ -8028,6 +8028,11 @@
   "name": "Dormy Corporation AB (publ)",
   "ticker": "DORMY.ST"
  },
+ "SE0030285623": {
+  "nameTried": "2026-10-16",
+  "ticker": null,
+  "triedAt": "2026-10-16"
+ },
  "SE0030285706": {
   "checkedHome": "2026-10-10",
   "exchange": "Stockholm",

@@ -2,33 +2,33 @@ Contrôle des fichiers du 2026-10-16
 
 OK     euro-signal.json lisible
 OK     euro-signal.json : 11.0 Mo (limite 60)
-OK     euro-signal-long.json : 4.0 Mo (limite 60)
-OK     euro-signal-state.json : 10.9 Mo (limite 60)
+OK     euro-signal-long.json : 5.1 Mo (limite 60)
+OK     euro-signal-state.json : 11.0 Mo (limite 60)
 OK     sectors.json : 0.6 Mo (limite 60)
 OK     societes-index.json : 0.3 Mo (limite 60)
 OK     aucune valeur NaN ou Infinity dans euro-signal.json
 OK     date des données 2026-10-16 (aujourd'hui 2026-10-16)
 OK     fiches réparties : 32 fichiers lisibles, chaque société dans le bon fichier
-OK     plus gros fichier de fiches : 1.1 Mo (3 au plus, pour un téléphone)
+OK     plus gros fichier de fiches : 1.2 Mo (3 au plus, pour un téléphone)
 OK     cours journaliers (vue 1 an) publiés
 OK     le tableau de bord pointe vers le fichier 5 ans (longFile)
 OK     euro-signal-long.json lisible
-OK     vue 5 ans disponible pour 774 titres sur 804 (80 % au moins)
-OK     vue 1 an : 1.03 an de cours (médiane)
-OK     vue 5 ans : 5.00 ans de cours (médiane, 4,5 au moins)
-OK     697 titres sur 774 ont au moins 4,5 ans de cours hebdomadaires
-OK     43 titres dont la vue 5 ans ne remonte pas plus loin que la vue 1 an (20 % au plus)
-OK     1 titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)
-OK     32 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, signalé sur la fiche (6 % au plus ; souvent réel : augmentation de capital, regroupement, scission)
-OK     plans d'entrée calculés : 993 sur 1167 titres
-OK     plans complets (verdict, scénario, figure, RSI/MACD) : 991 sur 993
+OK     vue 5 ans disponible pour 985 titres sur 1019 (80 % au moins)
+OK     vue 1 an : 1.02 an de cours (médiane)
+OK     vue 5 ans : 4.98 ans de cours (médiane, 4,5 au moins)
+OK     880 titres sur 985 ont au moins 4,5 ans de cours hebdomadaires
+OK     60 titres dont la vue 5 ans ne remonte pas plus loin que la vue 1 an (20 % au plus)
+OK     0 titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)
+OK     41 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, signalé sur la fiche (6 % au plus ; souvent réel : augmentation de capital, regroupement, scission)
+OK     plans d'entrée calculés : 982 sur 1118 titres
+OK     plans complets (verdict, scénario, figure, RSI/MACD) : 980 sur 982
 OK     0 plan(s) avec un rapport gain / risque absurde
-OK     répartition des verdicts : waitSupport 421, waitBreakout 450, buyNow 52, avoid 70
-OK     convergence notée pour 1167 titres
-OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 1007 titres sur 1167 (50 % au moins)
-OK     valeur comptable et intrinsèque pour 998 titres sur 1167 (50 % au moins)
-OK     tendance du secteur rattachée pour 1001 titres
-OK     étude historique du plan : 66719 relevés
+OK     répartition des verdicts : waitSupport 432, waitBreakout 437, avoid 50, buyNow 63
+OK     convergence notée pour 1118 titres
+OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 988 titres sur 1118 (50 % au moins)
+OK     valeur comptable et intrinsèque pour 979 titres sur 1118 (50 % au moins)
+OK     tendance du secteur rattachée pour 982 titres
+OK     étude historique du plan : 66046 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 2995 dans la liste de recherche (1 500 au moins)
 OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : 
