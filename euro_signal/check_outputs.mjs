@@ -150,7 +150,7 @@ const COV = {};
 }
 // Changement de périmètre voulu : comparaison avec les calculs antérieurs suspendue (17/10/2026 : arrêt d'Insider Screener,
 // les sociétés allemandes, espagnoles, italiennes et néerlandaises quittent les dossiers suivis ; nouveau classement principal)
-const REBASE = '2026-10-17';
+const REBASE = '2026-10-16T22:00'; // premier calcul du soir avec le nouveau périmètre
 const HIST = path.join(DATA, 'diagnostics', 'coverage-history.json');
 let hist = []; try { hist = JSON.parse(fs.readFileSync(HIST, 'utf8')); if (!Array.isArray(hist)) hist = []; } catch (e) { hist = []; }
 const prev = hist.filter((h) => h && h.at && h.at < new Date().toISOString() && h.at >= REBASE).slice(-1)[0] || null;
