@@ -901,7 +901,7 @@
     if (big) push('big', '💰', fmtEur(sc.buyEur) + ' achetés', 'good');
     if (sc.discount && sc.discount.pct >= cfg.weights.insiders.discountMediumPct) push('disc', '🏷️', 'payé ' + Math.round(sc.discount.pct) + ' % sous le plus haut', 'good');
     if (sc.panicBuy) push('panic', '😱', 'achat dans la panique', 'good');
-    if (sc.trendUp) push('trend', '📈', 'tendance de fond haussière', 'good');
+    if (sc.trendUp) push('trend', '📈', 'moyenne 50 jours au-dessus de la 200 jours', 'good');
     if (sc.fallingKnife) push('knife', '🔻', 'cours en repli', 'warn');
     var p = inst.peer;
     if (p && p.discountPct >= cfg.valuation.cheapPct) push('cheap', '💶', Math.round(p.discountPct) + ' % moins chère que ses pairs', 'good');
@@ -1021,7 +1021,7 @@
       w.push(x.ceo ? 'achat du DG ou du DAF' : 'achat d\'un dirigeant');
       if (x.buyers >= cfg.insiders.clusterMinBuyers) w.push(x.buyers + ' dirigeants acheteurs');
       if (x.peer && x.peer.discountPct >= cfg.valuation.cheapPct) w.push(Math.round(x.peer.discountPct) + ' % sous ses pairs (' + x.peer.metric + ')');
-      if (x.trendUp) w.push('tendance de fond haussière');
+      if (x.trendUp) w.push('moyenne 50 jours au-dessus de la 200 jours');
       if (x.buyEur) w.push(fmtEur(x.buyEur) + ' achetés par les dirigeants');
       return w.map(function (t) { return t.charAt(0).toUpperCase() + t.slice(1); });
     };
@@ -2086,7 +2086,7 @@
     var pos = !s1 && !bo ? 'falling' : bo && sup && sup.key === 'retest' ? 'retest' : atHigh ? 'highs' : dS != null && last - sup.level <= near ? 'support' : dR != null && r1.price - last <= near ? 'resistance' : 'middle';
     var primary = null, alt = null, verdict, label, why = [];
     if (jumpAt > 0) why.push('Saut de cours le ' + R[jumpAt][0].split('-').reverse().join('/') + ' (opération sur titres probable) : seuls les niveaux postérieurs sont retenus.');
-    var TR = { up: 'tendance de fond haussière (MM50 au-dessus de la MM200)', down: 'tendance de fond baissière (cours et MM50 sous la MM200)', mixed: 'tendance de fond indécise' };
+    var TR = { up: 'tendance de fond haussière (MM50 au-dessus de la MM200)', down: 'tendance de fond baissière (cours et MM50 sous la MM200)', mixed: 'tendance de fond indécise (cours et moyennes 50 et 200 jours pas alignés)' };
     if (pos === 'falling') {
       primary = brk; verdict = 'avoid'; label = 'Ne pas acheter maintenant : aucun support sous le cours';
       why.push('Le cours est au plus bas de l\'année sans plancher identifié : acheter maintenant revient à rattraper un couteau qui tombe.');
