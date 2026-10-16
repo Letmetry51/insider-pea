@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 OUT = DATA / "financials.json"
 REFRESH_DAYS = 30
-SCHEMA = 2  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité
+SCHEMA = 3  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité (3 : écarts d'acquisition et incorporels)
 BUDGET_S = 20 * 60  # au plus 20 minutes par soir
 
 # Lignes Yahoo (plusieurs libellés possibles selon les sociétés) → nos champs
@@ -29,11 +29,13 @@ INCOME = {"revenue": ["Total Revenue", "Operating Revenue"], "grossProfit": ["Gr
           "ebitda": ["EBITDA", "Normalized EBITDA"], "interestExpense": ["Interest Expense", "Interest Expense Non Operating"]}
 BALANCE = {"totalAssets": ["Total Assets"], "currentAssets": ["Current Assets"], "currentLiabilities": ["Current Liabilities"],
            "totalDebt": ["Total Debt"], "longTermDebt": ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"],
-           "cash": ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"], "equity": ["Stockholders Equity", "Common Stock Equity"],
+           "cash": ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"], "equity": ["Common Stock Equity", "Stockholders Equity"],  # part du groupe revenant aux actions ordinaires (hors actions de préférence)
            "shares": ["Ordinary Shares Number", "Share Issued"],
            # Altman (Z'') et Beneish (M-score)
            "retainedEarnings": ["Retained Earnings"], "totalLiabilities": ["Total Liabilities Net Minority Interest", "Total Liabilities"],
-           "receivables": ["Accounts Receivable", "Receivables", "Gross Accounts Receivable"], "ppe": ["Net PPE", "Net Property Plant And Equipment"]}
+           "receivables": ["Accounts Receivable", "Receivables", "Gross Accounts Receivable"], "ppe": ["Net PPE", "Net Property Plant And Equipment"],
+           # valeur comptable tangible : capitaux propres hors écarts d'acquisition (goodwill) et autres incorporels
+           "intangibles": ["Goodwill And Other Intangible Assets"], "goodwill": ["Goodwill"], "otherIntangibles": ["Other Intangible Assets"]}
 CASH = {"cfo": ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"], "capex": ["Capital Expenditure"], "fcf": ["Free Cash Flow"]}
 
 
@@ -68,6 +70,10 @@ def statements(ticker):
     table(t.income_stmt, INCOME, years)
     table(t.balance_sheet, BALANCE, years)
     table(t.cashflow, CASH, years)
+    for y in years.values():
+        gw, oi = y.pop("goodwill", None), y.pop("otherIntangibles", None)
+        if y.get("intangibles") is None and (gw is not None or oi is not None):
+            y["intangibles"] = (gw or 0) + (oi or 0)
     rows = [y for y in sorted(years.values(), key=lambda y: y["date"]) if len(y) > 3][-5:]
     currency = None
     try:

@@ -352,6 +352,29 @@ export function build(opts = {}) {
   const finRaw = readJSON(F.financials, { items: {} });
   const finList = isObj(finRaw.items) ? finRaw.items : {};
   const accAt = (isin, d) => { try { const i = inst[isin]; return ES.accountsAnalysis(finList[isin], { asOf: d, sector: i.sector || (i.fund && i.fund.sector), industry: i.fund && i.fund.industry }); } catch (e) { return null; } };
+  // Valeur comptable et valeur intrinsèque : cours brut du jour d (non ajusté des dividendes) et comptes publiés à cette date
+  const rawCache = {};
+  const rawCloseAt = (isin, d) => {
+    const p = pItems[isin]; if (!p || !p.rows) return null;
+    const a = rawCache[isin] || (rawCache[isin] = ES.normalizeSeries(p.rows));
+    let lo = 0, hi = a.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (a[m][0] <= d) { k = m; lo = m + 1; } else hi = m - 1; }
+    return k >= 0 && ES.daysBetween(a[k][0], d) <= 10 ? { date: a[k][0], close: a[k][4] } : null;
+  };
+  const valueAt = (isin, d) => {
+    const i = inst[isin], fin = finList[isin]; if (!i || !fin) return null;
+    const f = i.fund || {}, px = rawCloseAt(isin, d); if (!px || !(px.close > 0)) return null;
+    if (/PREF|-PR?\.|\bPFD\b/i.test(i.ticker || '')) return null; // action de préférence : les comptes ne sont pas les siens
+    const capEur = +f.marketCap > 0 ? (i.currency === 'EUR' ? +f.marketCap : ES.FX[i.currency] > 0 ? f.marketCap / ES.FX[i.currency] : null) : null;
+    try {
+      const v = ES.intrinsicValue(fin, { asOf: d, price: px.close, priceDate: px.date, currency: i.currency || f.currency, splits: ((pItems[isin] && pItems[isin].splits) || []).filter((s) => !s.dividend),
+        sharesNow: f.sharesOut, marketCap: d === today && (!f.currency || f.currency === i.currency) ? f.marketCap : null, capEur, sector: f.sector || i.sector, industry: f.industry, pbYahoo: d === today ? f.priceToBook : null });
+      if (!v) return null;
+      v.price = px.close;
+      if (v.methods) v.methods = v.methods.map((m) => ({ k: m.k, v: m.v })); // libellés côté page
+      if (!v.notes.length) delete v.notes;
+      return v;
+    } catch (e) { return null; }
+  };
   Object.keys(inst).forEach((isin) => {
     const a = finList[isin] ? accAt(isin, today) : null;
     if (a) {
@@ -360,6 +383,8 @@ export function build(opts = {}) {
       if (a.plain && a.plain.tone === 'bad' && a.verdict && a.verdict.key === 'good') a.verdict = Object.assign({}, a.verdict, { key: 'mixed', text: a.verdict.text.replace('Comptes solides et en amélioration', 'Comptes mitigés') });
       inst[isin].accounts = a;
     }
+    const v = valueAt(isin, today);
+    if (v) inst[isin].value = v;
     if (peers[isin]) inst[isin].peer = peers[isin];
     if (positions[isin]) inst[isin].position = positions[isin];
     const sh = ES.shortInfo(shortsList[isin], today);
@@ -551,6 +576,8 @@ export function build(opts = {}) {
           shorted: shortCovered(isin, d) ? !!ES.shortInfo(shortsList[isin], d) : undefined,
           ...(() => { const a = finList[isin] ? accAt(isin, d) : null; return { fscoreHigh: a && a.fscore && !a.fscore.na ? a.fscore.f9 >= cfg.accounts.fscoreGood : undefined,
             altmanDistress: a && a.altman && !a.altman.na ? a.altman.zone === 'distress' : undefined, beneishFlag: a && a.beneish && !a.beneish.na ? a.beneish.flag : undefined }; })(),
+          // Valeur comptable et intrinsèque avec le cours et les comptes publiés à la date de l'achat
+          ...(() => { const v = valueAt(isin, d); return v && !v.na && !v.negEquity && v.pb != null ? { belowBook: v.pb < 1, ivDiscount: v.marginPct != null ? ES.valueCheap(v) : undefined } : {}; })(),
           // Situation technique à la date de publication (support proche, cassure récente) : cours connus ce jour-là seulement
           ...(() => { const st = ES.setupAt(adj, d); return st ? { nearSupport: st.nearSupport, breakout: st.breakout } : {}; })(),
           ...(() => { const o = ES.oscillatorsAt(adj, d); return o ? { rsiLow: o.rsi < 30, macdBull: o.above } : {}; })(),

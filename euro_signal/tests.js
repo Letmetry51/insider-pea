@@ -1083,6 +1083,63 @@ t('Plan d\'entrée : rebond sur support, cassure de résistance, chute sans supp
   ok(ES.OBSERVE_FEATURES.some((f) => f[0] === 'nearSupport') && ES.OBSERVE_FEATURES.some((f) => f[0] === 'breakout'), 'mesurés en observation');
 });
 
+t('Valeur comptable et valeur intrinsèque : calculs, devises, divisions, garde-fous', () => {
+  ES.setFx({ SEK: 11, USD: 1.1 });
+  const yr = (y, eq, ni, fcf, sh) => ({ date: y + '-12-31', equity: eq, netIncome: ni, fcf, shares: sh || 100, totalDebt: 300, cash: 100 });
+  const fin = { currency: 'EUR', years: [yr(2022, 1000, 150, 120), yr(2023, 1100, 160, 130), yr(2024, 1200, 180, 140), yr(2025, 1300, 200, 150)] };
+  const v = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
+  eq(v.bvps, 13, 'valeur comptable par action = 1 300 / 100');
+  ok(v.tbvps == null && v.intangPct == null, 'incorporels inconnus : pas de valeur tangible inventée');
+  eq(ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { intangibles: 400 })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR' }).tbvps, 9, 'valeur tangible = (1 300 − 400) / 100');
+  ok(Math.abs(v.pb - 20 / 13) < 0.01 && v.r === 0.095, 'cours / actif net et rendement exigé d\'une valeur moyenne');
+  ok(v.roe > 15 && v.roe < 16, 'rentabilité moyenne sur fonds propres moyens : ' + v.roe);
+  ok(v.methods.length === 3 && v.low < v.mid && v.mid < v.high && v.methods.find((m) => m.k === 'riFade').v > v.bvps, 'trois méthodes ; revenu résiduel au-dessus de la valeur comptable (rentabilité > rendement exigé) : ' + JSON.stringify(v.methods));
+  // trésorerie disponible : 135 (moyenne des 4 exercices, plus basse que celle des 2 derniers) ÷ 9,5 % = 1 474, moins 200 d'endettement net, ÷ 100 actions
+  ok(Math.abs(v.methods.find((m) => m.k === 'fcf').v - (135 / 0.095 - 200) / 100) < 0.01 && v.netDebtPs === 2, 'trésorerie disponible capitalisée moins l\'endettement net : ' + JSON.stringify(v.methods));
+  const lev = ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { totalDebt: 2000, cash: 0 })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
+  ok(lev.methods.find((m) => m.k === 'fcf').v === 0 && lev.low === 0 && lev.mid <= v.mid && lev.notes.some((t) => /endettement net dépasse/.test(t)), 'dettes supérieures à la trésorerie capitalisée : 0 retenu, bas de fourchette à 0');
+  ok(!/Infinity|NaN/.test(JSON.stringify(ES.valueView(lev))), 'lecture sans division par zéro');
+  ok(!ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { totalDebt: null })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR' }).methods.some((m) => m.k === 'fcf'), 'endettement inconnu : méthode écartée');
+  const ri = v.methods.find((m) => m.k === 'riLast').v; ok(Math.abs(ri - 13 * (v.roe / 100) / 0.095) < 0.2, 'revenu résiduel durable = B × ROE / r');
+  ok(v.zone === 'inside' || v.zone === 'below' || v.zone === 'above', 'zone');
+  // comptes de 2025 pas encore publiés au 15/03/2026 (moins de 4 mois) : exercice 2024 retenu
+  eq(ES.intrinsicValue(fin, { asOf: '2026-03-15', price: 20, currency: 'EUR' }).year, '2024', 'sans regard vers le futur');
+  // division par 2 après la clôture : deux fois plus d'actions, valeur par action divisée par 2
+  eq(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 10, currency: 'EUR', splitFactor: 2 }).bvps, 6.5, 'division');
+  // comptes en euros, cotation en couronnes : conversion au taux du jour
+  eq(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 200, currency: 'SEK' }).bvps, 143, 'conversion EUR → SEK');
+  ok(ES.intrinsicValue(Object.assign({}, fin, { currency: 'NOK' }), { asOf: '2026-10-15', price: 200, currency: 'SEK' }).na, 'taux inconnu : non calculé');
+  // incohérence avec Yahoo (devise ou nombre d'actions faux) : non affiché
+  ok(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 20, currency: 'EUR', pbYahoo: 6 }).suspect, 'garde-fou Yahoo');
+  // pertes, fonds propres négatifs, banque (pas de trésorerie disponible)
+  const loss = ES.intrinsicValue({ currency: 'EUR', years: [yr(2024, 500, -80, -50), yr(2025, 420, -60, -40)] }, { asOf: '2026-10-15', price: 3, currency: 'EUR' });
+  ok(loss.lossMaking && loss.mid == null && loss.pb < 1, 'société en pertes : valeur comptable seule');
+  ok(ES.intrinsicValue({ currency: 'EUR', years: [yr(2025, -50, -10, -5)] }, { asOf: '2026-10-15', price: 3, currency: 'EUR' }).negEquity, 'fonds propres négatifs');
+  const bank = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 10, currency: 'EUR', sector: 'Financial Services', industry: 'Banks - Regional' });
+  ok(bank.kind === 'fin' && !bank.methods.some((m) => m.k === 'fcf'), 'banque : revenu résiduel seulement');
+  // foncière : actif net réévalué (capitaux propres IFRS), ni revenu résiduel ni trésorerie disponible
+  const reit = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9.1, currency: 'EUR', sector: 'Real Estate', industry: 'REIT - Retail' });
+  ok(reit.kind === 'property' && reit.methods.length === 1 && reit.methods[0].k === 'nav' && reit.mid === 13 && reit.marginPct === 30 && reit.zone === 'below', 'foncière : ANR : ' + JSON.stringify(reit.methods));
+  ok(/actif net réévalué/.test(ES.valueView(reit).text) && /sous sa valeur d'actif net/.test(ES.valueView(reit).chip), 'foncière : lecture ANR : ' + JSON.stringify(ES.valueView(reit)));
+  // rentabilité sous le rendement exigé, cours au-dessus de la valeur comptable : pas de « croissance implicite » absurde
+  const low = ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { netIncome: y.equity * 0.05 })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
+  const lv2 = ES.valueView(low); ok(lv2.chip === 'rentabilité sous le rendement exigé' && /parie sur une rentabilité future/.test(lv2.text), 'rentabilité faible : ' + JSON.stringify(lv2));
+  // croissance implicite : le cours ne se justifie qu'avec une croissance perpétuelle
+  const rich = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 60, currency: 'EUR', capEur: 2e9 });
+  ok(rich.zone === 'above' && rich.impliedG > 5 && rich.impliedG < 9.5, 'croissance implicite : ' + rich.impliedG);
+  const vv = ES.valueView(rich); ok(vv.tone === 'bad' && /croissance/.test(vv.chip) && /par an, indéfiniment/.test(vv.text), 'lecture : ' + JSON.stringify(vv));
+  const cheap = ES.valueView(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9, currency: 'EUR', capEur: 2e9 }));
+  ok(cheap.tone === 'good' && /sous sa valeur intrinsèque/.test(cheap.chip) && !/\d\.\d/.test(cheap.text), 'décote et nombres à la française : ' + JSON.stringify(cheap));
+  // garde-fous : capitalisation (action de préférence), résultat exceptionnel, comptes anciens
+  ok(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 3, currency: 'EUR', marketCap: 2000 }).suspect, 'cours × actions sans rapport avec la capitalisation');
+  const spike = ES.intrinsicValue({ currency: 'EUR', years: [yr(2022, 1000, 80, 60), yr(2023, 1000, 80, 60), yr(2024, 3000, 2080, 60), yr(2025, 2000, 60, 60)] }, { asOf: '2026-10-15', price: 15, currency: 'EUR' });
+  ok(spike.irregular && spike.roe < 9 && !ES.valueCheap(spike), 'plus-value exceptionnelle : médiane, estimation fragile : ' + spike.roe);
+  const old = ES.intrinsicValue(fin, { asOf: '2027-09-01', price: 9, currency: 'EUR', capEur: 2e9 });
+  ok(old.stale && !ES.valueCheap(old) && ES.valueView(old).tone !== 'good', 'comptes de plus de 18 mois');
+  ok(ES.valueCheap(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9, currency: 'EUR', capEur: 2e9 })), 'décote saine reconnue');
+  ES.setFx({});
+});
+
 t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, canal', () => {
   const mk = (f, n) => { const o = []; let d = '2025-01-01'; for (let k = 0; k < n; k++) { const c = f(k); o.push([d, c, c * 1.004, c * 0.996, c, 1]); d = ES.addDays(d, 1); } return o; };
   const fall = ES.wedge(mk((k) => 100 - 0.25 * k + (6 - 0.08 * k) * Math.sin(k / 3), 63));
