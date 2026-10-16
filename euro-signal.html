@@ -304,6 +304,7 @@ button.fxb-i{display:flex;flex-direction:column;align-items:center;gap:0;padding
 button.fxb-i:disabled{opacity:1;cursor:default}button.fxb-i.t-na{opacity:.6}.fxb-ic{font-size:1.1rem;line-height:1.2}.fxb-i b{font:700 .9rem var(--body);color:var(--fx);white-space:nowrap}.fxb-i small{font-size:.68rem;color:var(--muted);margin-top:1px}
 .fxb-sum{margin:2px 0 8px;font-size:.8rem;color:var(--muted)}
 details.fold,.plan{scroll-margin-top:170px} /* sous l'en-tête fixe quand un feu y mène */
+.miss{margin:6px 0 10px;font-size:.84rem;color:var(--muted);background:var(--sunk);border-radius:8px;padding:6px 10px}.rep{margin:10px 0;text-align:right}a.repbtn{font-size:.85rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:3px 10px}a.repbtn:hover{color:var(--ink)}
 /* Phase du cycle */
 .cyc{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:10px 0}.cyc>i{display:none}
 .cyc-p{flex:1;min-width:0;text-align:center;padding:6px 2px;border-radius:6px;background:var(--sunk);color:var(--muted)}.cyc-p b{display:block;font-size:.72rem;line-height:1.15;overflow-wrap:anywhere;hyphens:auto}.cyc-p small{font-size:.66rem;line-height:1.1}
@@ -3955,7 +3956,7 @@ details.pos summary{font-size:1rem}
     var cmp = sc.buys.length ? ES.comparables(S.snapshot && S.snapshot.selection && S.snapshot.selection.replayStats, note, S.cfg) : null;
     var li = function (l) { return '<ul class="plain">' + l.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>'; };
     return '<section class="card advcard adv-b-' + a.key + '"><div class="synhead">' + (sc.buys.length ? starsHtml(sc.total, true) + '<span class="synnote"><b>' + note + '</b>/100 · ' + esc(lab.label) + '</span>' : '') + advBadge(a, true) + '</div>' +
-      feuxHtml(i, true) + (function () { var q = liqOf(i); return q && q.tone !== 'good' ? '<p class="liqw">💧 <b>' + cap1(q.label) + '</b> : ' + esc(liqTxt(q)) + '. Ordres à cours limité' + (q.place ? ' sur ' + esc(q.place) : '') + ', ' + ES.fmtEur(q.maxOrder) + ' par jour au plus.' + (q.place && q.place !== 'Paris' ? ' Sur Francfort ou Tradegate, les volumes de ce titre sont souvent de quelques centaines d\'actions.' : '') + '</p>' : ''; })() + (hr && hr.key !== 'na' ? '<p class="hist h-' + hr.key + '">' + hr.icon + ' ' + esc(hr.label) + '</p>' : '') +
+      feuxHtml(i, true) + (function () { var q = liqOf(i); return q && q.tone !== 'good' ? '<p class="liqw">💧 <b>' + cap1(q.label) + '</b> : ' + esc(liqTxt(q)) + '. Ordres à cours limité' + (q.place ? ' sur ' + esc(q.place) : '') + ', ' + ES.fmtEur(q.maxOrder) + ' par jour au plus.' + (q.place && q.place !== 'Paris' && !/Francfort/.test(q.place) ? ' Sur les places allemandes (Francfort, Tradegate), les volumes de ce titre sont bien plus faibles : passer l\'ordre sur ' + esc(q.place) + '.' : '') + '</p>' : ''; })() + (hr && hr.key !== 'na' ? '<p class="hist h-' + hr.key + '">' + hr.icon + ' ' + esc(hr.label) + '</p>' : '') +
       '<div class="syn2">' + (sm.pros.length ? '<div class="syn-pro"><h4>Pourquoi</h4>' + li(sm.pros) + '</div>' : '') + (sm.cons.length ? '<div class="syn-con"><h4>Attention</h4>' + li(sm.cons) + '</div>' : '') + '</div>' +
       (cmp ? '<p class="cmpline">🎯 <b>Dossiers comparables</b> : ' + esc(cmp.text) + '.</p>' : '') +
       '<p class="' + (/^⏱/.test(selTxt) ? 'selout' : 'foot') + '">' + esc(selTxt) + '.</p></section>';
@@ -4569,6 +4570,7 @@ details.pos summary{font-size:1rem}
     var sub = [x.ticker, secOf(x) ? secOf(x) + (x.fund && x.fund.industry ? ' — ' + ES.industryFr(x.fund.industry) : '') : null, x.country ? (COUNTRIES[x.country] || x.country) : null].filter(Boolean).join(' · ');
     h += '<header class="fhead"><div><h2>' + flag(x.country) + esc(x.name || i) + '</h2><p class="fsub">' + esc(sub) + (x.position ? ' ' + posChip(x.position) : '') + '</p></div>' +
       '<div class="fchips">' + (c.uni.status === 'retenu' ? '' : uniChip(c.uni)) + peaChip(x) + '</div></header>';  // « retenu » est la règle : seul l'écart est signalé ; le cycle est dans les feux
+    h += missingLine(i);
     if (x.secondary && S.inst[x.secondary]) h += '<p class="liqw">ℹ️ <b>Ligne secondaire sans cours</b> (options, droits ou actions nouvelles) de la société : <button class="link" data-a="open" data-i="' + esc(x.secondary) + '">fiche de la ligne principale (' + esc(S.inst[x.secondary].name) + ')</button>.</p>';
     h += adviceCard(i, c);
     h += adviceSection(i, c);
@@ -4598,11 +4600,34 @@ details.pos summary{font-size:1rem}
     h += det('🧮 Détail de la note', noteBody);
     var nTx = (S.tx[i] || []).filter(function (t) { return ES.availDate(t) >= sc.windowFrom; }).length;
     h += det('📝 Déclarations des dirigeants <span class="muted">· ' + nTx + '</span>', txSection(i, sc));
+    h += '<p class="rep">' + reportBtn(x.name || i, i, x.ticker) + '</p>';
     h += det('🔁 Rachats d\'actions et résultats', eventsSection(i, ev));
     h += det('🪪 Détails techniques <span class="muted">· alerte, identité du titre</span>', alertSection(i, c) + '<h4 class="mt">Identité du titre</h4><dl class="ids">' + kv('ISIN', i) + kv('Ticker', x.ticker || 'n.d.') + kv('Domiciliation', x.country ? (COUNTRIES[x.country] || x.country) : 'inconnue') + kv('Place de cotation', (x.venue || 'n.d.') + (x.isReference === false ? ' (secondaire)' : '')) +
       kv('Registres consultés', Object.keys(regs).join(', ') || 'aucun') + kv('Devise', x.currency || 'n.d.') + kv('Secteur', (secOf(x) || 'n.d.') + (x.fund && x.fund.industry ? ' — ' + ES.industryFr(x.fund.industry) : '')) + '</dl>' +
-      '<p class="foot">' + esc([x.priceNote ? 'Cours : ' + x.priceNote : null, x.ticker ? 'Ticker Yahoo : ' + x.ticker : null, x.registry ? 'Registre : ' + x.registry : null, x.countrySource ? 'Domiciliation : ' + x.countrySource : null, 'Rachats et perspectives détectés d\'après les titres des communiqués ; résultats : BPA publié et consensus Yahoo figé à la publication'].filter(Boolean).join(' · ')) + '</p>');
+      reportBtn(x.name || i, i, x.ticker) + '<p class="foot">' + esc([x.priceNote ? 'Cours : ' + x.priceNote : null, x.ticker ? 'Ticker Yahoo : ' + x.ticker : null, x.registry ? 'Registre : ' + x.registry : null, x.countrySource ? 'Domiciliation : ' + x.countrySource : null, 'Rachats et perspectives détectés d\'après les titres des communiqués ; résultats : BPA publié et consensus Yahoo figé à la publication'].filter(Boolean).join(' · ')) + '</p>');
     return h;
+  }
+  /** Données manquantes d'une fiche, avec la raison : un « n.d. » ne doit jamais rester une énigme. */
+  function missingLine(i) {
+    var x = S.inst[i] || {}, st = x.stats || {}, f = x.fund || {}, v = x.value, out = [];
+    if (!(st.lastClose > 0)) out.push('cours (introuvables chez Yahoo pour cet ISIN : retirée de la cote, ligne secondaire ou marché non suivi)');
+    else {
+      if (!x.accounts) out.push('comptes annuels (pas encore lus chez Yahoo, complétés au fil des soirs)');
+      if (!v) out.push('valeur comptable et intrinsèque (comptes ou nombre d\'actions manquants)');
+      else if (v.na) out.push('valeur (' + (v.reason || 'données incohérentes') + ')');
+      if (!f.sector) out.push('secteur et capitalisation (fiche Yahoo absente)');
+      if (st.adv20Eur == null) out.push('liquidité (volumes absents chez Yahoo)');
+      if (!x.plan && !(st.sessions >= 120)) out.push('plan d\'entrée (moins de 6 mois de cours)');
+      if (x.revision30d == null && !x.forecast) out.push('prévisions des analystes (société non suivie par les analystes chez Yahoo)');
+    }
+    return out.length ? '<p class="miss">ℹ️ <b>Données manquantes</b> : ' + esc(out.join(' ; ')) + '.</p>' : '';
+  }
+  /** Signaler une erreur : prépare un email à soi-même avec la société et le lien (à recopier dans la conversation avec Claude). */
+  function reportBtn(name, isin, ticker) {
+    var link = location.origin + location.pathname + (isin ? '#' + isin : '');
+    var body = 'Société : ' + name + '\n' + (isin ? 'ISIN : ' + isin + '\n' : '') + (ticker ? 'Ticker : ' + ticker + '\n' : '') + 'Données du : ' + (S.today || '') + '\nFiche : ' + link + '\n\nCe qui ne va pas (et ce que montre Yahoo ou votre courtier) :\n';
+    var url = 'mailto:' + encodeURIComponent(lsGet('email', '')) + '?subject=' + encodeURIComponent('[Euro Signal] Erreur — ' + name) + '&body=' + encodeURIComponent(body);
+    return '<a class="repbtn" href="' + esc(url) + '">⚑ Signaler une erreur</a>';
   }
   /** Résumé en langage courant en tête de fiche : ce qui ressort, ce qu'il faut vérifier. */
   function brief(i, c) {
@@ -5188,7 +5213,7 @@ details.pos summary{font-size:1rem}
       mini('Croissance', pc100(x.revGrowth), x.revGrowth, -0.5, 0.5, true, 'Chiffre d\'affaires sur un an') + mini('Marge opérationnelle', x.opMargin != null ? fmtN(x.opMargin * 100, 0) + ' %' : '', x.opMargin, -0.2, 0.5, true) +
       mini('Objectif', pc100(x.upside), x.upside, -0.5, 0.5, true, 'Objectif de cours moyen par rapport au cours') + mini('Institutionnels', x.instPct != null ? fmtN(x.instPct * 100, 0) + ' %' : '', x.instPct, 0, 1, false) + '</div>' +
       (x.reco != null ? '<p class="small"><b>Avis moyen des analystes</b> (' + (x.analysts || '?') + ')</p>' + scaleLine(x.reco, 1, 5, [[1, 2.5, 'good'], [2.5, 3.5, 'neu'], [3.5, 5, 'bad']], [[1, 'achat fort'], [3, 'conserver'], [5, 'vente']], 'Avis moyen ' + fmtN(x.reco, 1) + ' sur 5') : '') + '</section>';
-    h += '<section class="card"><h3>Chiffres clés</h3><table class="kv">' + rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('') + '</table><p class="small muted">Source Yahoo Finance, relevé du ' + shortDate(String(((S.secCo || S.sec || {}).generatedAt) || '').slice(0, 10)) + '.</p></section>';
+    h += '<section class="card"><h3>Chiffres clés</h3><table class="kv">' + rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('') + '</table><p class="small muted">Source Yahoo Finance, relevé du ' + shortDate(String(((S.secCo || S.sec || {}).generatedAt) || '').slice(0, 10)) + '.</p>' + '<p class="rep">' + reportBtn(x.name || sym, x.isin || null, sym) + '</p></section>';
     // cours
     var D = (S.secCo && S.secCo.dDates) || [], Wd = (S.secCo && S.secCo.wDates) || [];
     var dser = (x.d || []).map(function (v, k) { return [D[k], v]; }).filter(function (r) { return r[0] && r[1] > 0; });
@@ -5750,6 +5775,31 @@ details.pos summary{font-size:1rem}
     h += critBox('🔍', 'Qualité des comptes (Beneish)', '-2,96', 'good', 'Sous le seuil d\'alerte', scaleLine(-2.96, -4, 0, [[-4, -1.78, 'good'], [-1.78, 0, 'bad']], [-1.78], 'Exemple Beneish'), 'Au-dessus de −1,78 : profil semblable aux sociétés qui ont embelli leurs comptes. Même lecture pour Altman (risque de défaillance) et le F-score (solidité, sur 9).');
     return (h + '</div>').replace(/<details class="xpi">/g, '<details class="xpi" open>'); // dans le guide, les explications sont le sujet
   }
+  function loadQuality() {
+    S.qualityLoaded = true;
+    var get = function (f) { return fetch('data/diagnostics/' + f, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); };
+    Promise.all([get('quality.json'), get('ui-check.json')]).then(function (r) { S.quality = r[0]; S.uiCheck = r[1]; if (S.view === 'aide') render(); });
+  }
+  /** Résultat du contrôle automatique du soir : fichiers, couverture comparée au calcul précédent, affichage sur téléphone. */
+  function vQuality() {
+    var q = S.quality, u = S.uiCheck;
+    if (!q && !u) return '<p class="muted">' + (S.qualityLoaded ? 'Pas encore de contrôle enregistré : il s\'ajoute au calcul du soir.' : 'Chargement…') + '</p>';
+    var h = '<p class="small">Chaque soir, après le calcul : contrôle des fichiers, comparaison de chaque rubrique avec le calcul précédent, puis ouverture de toutes les fiches comme sur un téléphone. Un email vous prévient seulement en cas de problème.</p>';
+    if (q) {
+      h += '<p>' + (q.issues && q.issues.length ? '<b>⚠️ ' + q.issues.length + ' point(s) dans les fichiers</b>' : '✅ Fichiers : aucun problème') + ' <span class="muted">· ' + esc(shortDate(q.date)) + '</span></p>';
+      if (q.issues && q.issues.length) h += '<ul class="plain small">' + q.issues.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
+      var cov = q.cov || {};
+      if (Object.keys(cov).length) h += '<div class="tablewrap"><table class="grid small"><thead><tr><th>Rubrique</th><th class="num">Ce soir</th><th class="num">Calcul précédent</th></tr></thead><tbody>' + Object.keys(cov).map(function (k) {
+        var a = cov[k][0], b = cov[k][1], d = b != null ? a - b : null;
+        return '<tr><td>' + esc(k) + '</td><td class="num">' + fmtInt(a) + '</td><td class="num ' + (d != null && d < 0 ? 'neg' : '') + '">' + (b == null ? '—' : fmtInt(b) + (d ? ' (' + (d > 0 ? '+' : '') + fmtInt(d) + ')' : '')) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    }
+    if (u) {
+      var np = (u.problems || []).length, nj = (u.jsErrors || []).length;
+      h += '<p>' + (np || nj ? '<b>⚠️ Affichage : ' + np + ' problème(s), ' + nj + ' erreur(s)</b>' : '✅ Affichage : aucun problème') + ' <span class="muted">· ' + fmtInt(u.fiches || 0) + ' fiches et ' + (u.catalogue || 0) + ' fiches du catalogue ouvertes sur téléphone</span></p>';
+      if (np || nj) h += '<ul class="plain small">' + (u.problems || []).slice(0, 12).map(function (x) { return '<li>' + esc(x.kind + ' · ' + x.where + (x.detail ? ' · ' + x.detail : '')) + '</li>'; }).join('') + (u.jsErrors || []).slice(0, 5).map(function (x) { return '<li>' + esc('erreur · ' + x.where + ' · ' + x.message) + '</li>'; }).join('') + '</ul>';
+    }
+    return h + '<p class="small">Une erreur vue sur une fiche ? Bouton <b>⚑ Signaler une erreur</b> en bas de la fiche.</p>';
+  }
   function vAide() {
     var c = S.cfg, h = '<h2 class="vt">Comment ça marche</h2>' + proofCard();
     h += '<section class="card"><h3>Chaque soir, en 4 étapes</h3><ol class="steps">' +
@@ -5761,6 +5811,9 @@ details.pos summary{font-size:1rem}
     var nD = 0, det = function (title, body) { return '<details class="card fold" data-k="aide' + (nD++) + '"><summary>' + title + '</summary>' + body + '</details>'; };
     h += '<details class="card fold" data-k="aide-guide"><summary>📖 Les critères en images : lire une fiche en 30 secondes</summary>' + vGuide() + '</details>';
     h += det('Barème actuel (version ' + esc(c.scoringVersion) + ')', baremeTable());
+    if (!S.qualityLoaded) loadQuality();
+    var qa = S.quality, qn = qa ? (qa.issues || []).length + ((S.uiCheck && S.uiCheck.problems) || []).length + ((S.uiCheck && S.uiCheck.jsErrors) || []).length : null;
+    h += det('🩺 Contrôle du soir' + (qa ? ' <span class="muted">· ' + (qn ? '⚠️ ' + qn + ' point(s) à vérifier' : '✅ aucun problème') + '</span>' : ''), vQuality());
     h += det('État des données', vSources());
     h += det('📓 Journal de bord du plan d\'entrée et de la convergence', vJournal());
     h += det('🍂 Saisonnalité : faut-il moins investir en septembre-octobre ?', vSeason());

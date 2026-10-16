@@ -119,6 +119,41 @@ const sec = read('sectors.json');
 check(sec && !sec.__error && sec.format === 'euro-signal-sectors' && (sec.groups || []).length >= 20, `secteurs : ${sec && sec.groups ? sec.groups.length : 0} groupes classés`);
 if (sec && sec.generatedAt) check(yearsBetween(sec.generatedAt.slice(0, 10), today) * 365 <= 4, `secteurs à jour (${sec.generatedAt.slice(0, 10)})`, true);
 
+// 6. Couverture rubrique par rubrique, comparée au calcul précédent : une baisse brutale (Yahoo qui répond vide, fichier
+// abîmé) est signalée le soir même, avant qu'un lecteur ne la découvre
+const COV = {};
+{
+  const ids = I.filter((i) => !main.inst[i].secondary), n = ids.length || 1, has = (f) => ids.filter(f).length;
+  COV['sociétés suivies'] = ids.length;
+  COV['cours'] = has((i) => (main.inst[i].stats || {}).lastClose > 0);
+  COV['graphiques (cours 1 an)'] = detail && detail.prices ? has((i) => detail.prices[i] && (detail.prices[i].rows || []).length > 0) : 0;
+  COV['comptes annuels'] = has((i) => main.inst[i].accounts);
+  COV['valeur comptable'] = has((i) => main.inst[i].value && main.inst[i].value.bvps != null);
+  COV['secteur'] = has((i) => main.inst[i].fund && main.inst[i].fund.sector);
+  COV['liquidité'] = has((i) => (main.inst[i].stats || {}).adv20Eur != null);
+  COV['plan d\'entrée'] = has((i) => main.inst[i].plan);
+  COV['déclarations (3 mois)'] = Object.values(main.tx || {}).reduce((s, l) => s + (l || []).length, 0);
+  COV['sources à jour'] = Object.values(main.src || {}).filter((x) => x && x.status === 'ok').length;
+  if (CI && CI.rows) COV['catalogue des sociétés cotées'] = CI.rows.length;
+}
+const HIST = path.join(DATA, 'diagnostics', 'coverage-history.json');
+let hist = []; try { hist = JSON.parse(fs.readFileSync(HIST, 'utf8')); if (!Array.isArray(hist)) hist = []; } catch (e) { hist = []; }
+const prev = hist.filter((h) => h && h.at && h.at < new Date().toISOString()).slice(-1)[0] || null;
+const delta = {};
+Object.keys(COV).forEach((k) => {
+  const now = COV[k], was = prev && prev.cov ? prev.cov[k] : null;
+  delta[k] = [now, was];
+  if (was == null || !(was > 0)) return;
+  const drop = (was - now) / was;
+  if (drop > 0.1 && was - now >= 20) ko(`baisse anormale : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
+  else if (drop > 0.03 && was - now >= 10) warn(`baisse : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
+  else ok(`${k} : ${now}` + (now !== was ? ` (${now > was ? '+' : ''}${now - was} depuis le calcul précédent)` : ''));
+});
+hist.push({ at: new Date().toISOString(), date: today, cov: COV });
+fs.mkdirSync(path.join(DATA, 'diagnostics'), { recursive: true });
+fs.writeFileSync(HIST, JSON.stringify(hist.slice(-60)));
+globalThis.__COV = { cov: delta, prevAt: prev ? prev.at : null };
+
 finish();
 
 function finish() {
@@ -126,6 +161,9 @@ function finish() {
   const txt = `Contrôle des fichiers du ${today}\n\n` + lines.join('\n') + '\n';
   fs.mkdirSync(path.join(DATA, 'diagnostics'), { recursive: true });
   fs.writeFileSync(path.join(DATA, 'diagnostics', 'check-outputs.txt'), txt);
+  // synthèse lisible par la page (Aide → État des données) et par l'email de contrôle
+  const bad = lines.filter((l) => /^(ÉCHEC|ALERTE)/.test(l)).map((l) => l.replace(/^(ÉCHEC|ALERTE)\s+/, (m, k) => (k === 'ÉCHEC' ? '✖ ' : '⚠ ')));
+  fs.writeFileSync(path.join(DATA, 'diagnostics', 'quality.json'), JSON.stringify(Object.assign({ date: today, at: new Date().toISOString(), fails, warns, issues: bad.filter(Boolean) }, globalThis.__COV || {})));
   console.log(txt);
   process.exit(fails ? 1 : 0);
 }
