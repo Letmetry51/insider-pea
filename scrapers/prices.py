@@ -194,7 +194,7 @@ def local_by_name(isin, name, cache, names):
         if r and str(r[0]).endswith(home) and clean_name(r[1]) == key:
             return {"ticker": r[0], "name": r[1], "method": "catalogue des sociétés cotées (même nom)"}
     for other, c in cache.items():
-        if other != isin and (c or {}).get("ticker", "").endswith(home) and clean_name(names.get(other) or (c or {}).get("name")) == key:
+        if other != isin and str((c or {}).get("ticker") or "").endswith(home) and clean_name(names.get(other) or (c or {}).get("name")) == key:
             return {"ticker": c["ticker"], "name": c.get("name"), "method": "même société qu'un autre ISIN suivi"}
     return None
 
@@ -336,7 +336,10 @@ def main():
     for n, isin in enumerate(sorted(isins), 1):
         info = resolve(isin, cache, manual, today, names.get(isin), paid.get(isin))
         if not info:
-            loc = local_by_name(isin, names.get(isin), cache, names)
+            try:
+                loc = local_by_name(isin, names.get(isin), cache, names)
+            except Exception:  # secours : ne doit jamais arrêter la collecte des cours
+                loc = None
             h = None
             if loc:
                 try:
