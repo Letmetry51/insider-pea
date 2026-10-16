@@ -1852,6 +1852,60 @@
    *  plan      plan d'entrée « achat possible » ;
    *  figure    figure de tendance haussière (canal haussier, biseau descendant).
    */
+  /**
+   * Phase du cycle économique lue dans la rotation des secteurs européens (modèle de rotation sectorielle de Fidelity et de
+   * Stovall) : chaque phase a ses secteurs qui mènent et ceux qui traînent. Force relative de chaque secteur face au STOXX 600
+   * (moyenne de 3 et 6 mois, pondérée par le nombre de sociétés) ; note de la phase = force des meneurs − force des traînards.
+   * Lecture de ce que le marché anticipe, pas une prévision. groups : sectors.json (groups[].sector, n, rs3, rs6).
+   */
+  ES.CYCLE = [
+    { key: 'early', label: 'Reprise', short: 'début de cycle', lead: ['Financial Services', 'Consumer Cyclical', 'Real Estate', 'Industrials', 'Technology', 'Basic Materials'], lag: ['Utilities', 'Healthcare', 'Consumer Defensive', 'Energy', 'Communication Services'] },
+    { key: 'mid', label: 'Expansion', short: 'milieu de cycle', lead: ['Technology', 'Communication Services', 'Industrials'], lag: ['Utilities', 'Basic Materials'] },
+    { key: 'late', label: 'Fin de cycle', short: 'surchauffe', lead: ['Energy', 'Basic Materials', 'Healthcare', 'Consumer Defensive', 'Utilities'], lag: ['Technology', 'Consumer Cyclical', 'Financial Services', 'Real Estate'] },
+    { key: 'rec', label: 'Ralentissement', short: 'récession possible', lead: ['Consumer Defensive', 'Healthcare', 'Utilities'], lag: ['Industrials', 'Technology', 'Basic Materials', 'Real Estate', 'Consumer Cyclical'] }
+  ];
+  ES.CYCLICAL = { 'Consumer Cyclical': 1, 'Industrials': 1, 'Basic Materials': 1, 'Energy': 1, 'Financial Services': 1, 'Technology': 1, 'Real Estate': 1 };
+  ES.cyclePhase = function (groups) {
+    var agg = {};
+    (groups || []).forEach(function (g) {
+      if (!g || !g.sector || !(g.n > 0)) return;
+      var a = +g.rs3, b = +g.rs6; if (!isFinite(a) && !isFinite(b)) return;
+      var s = agg[g.sector] || (agg[g.sector] = { n: 0, m: 0, r3: 0, r6: 0 });
+      a = isFinite(a) ? a : b; b = isFinite(b) ? b : a;
+      s.n += g.n; s.m += g.n * (a + b) / 2; s.r3 += g.n * a; s.r6 += g.n * b;
+    });
+    var secs = Object.keys(agg); if (secs.length < 8) return null;
+    secs.forEach(function (k) { var s = agg[k]; s.m /= s.n; s.r3 /= s.n; s.r6 /= s.n; });
+    var score = function (ph, f) {
+      var m = function (l) { var v = l.filter(function (k) { return agg[k]; }).map(function (k) { return agg[k][f]; }); return v.length ? v.reduce(function (s, x) { return s + x; }, 0) / v.length : null; };
+      var a = m(ph.lead), b = m(ph.lag); return a == null || b == null ? null : a - b;
+    };
+    var rank = function (f) { return ES.CYCLE.map(function (ph) { return { key: ph.key, label: ph.label, score: score(ph, f) }; }).filter(function (x) { return x.score != null; }).sort(function (x, y) { return y.score - x.score; }); };
+    var all = rank('m'); if (all.length < 2) return null;
+    var top = all[0], gap = top.score - all[1].score, ph = ES.CYCLE.filter(function (p) { return p.key === top.key; })[0];
+    var recent = rank('r3')[0], older = rank('r6')[0];
+    var out = {
+      key: top.key, label: ph.label, short: ph.short, conf: gap >= 0.04 ? 'nette' : gap >= 0.02 ? 'probable' : 'incertaine',
+      second: gap < 0.02 ? all[1].label : null, scores: all.map(function (x) { return { key: x.key, label: x.label, score: +x.score.toFixed(4) }; }),
+      lead: ph.lead.filter(function (k) { return agg[k]; }), lag: ph.lag.filter(function (k) { return agg[k]; }),
+      sectors: secs.map(function (k) { return { sector: k, rs: +agg[k].m.toFixed(4), n: agg[k].n, cyclical: !!ES.CYCLICAL[k] }; }).sort(function (x, y) { return y.rs - x.rs; })
+    };
+    if (out.second) { var p2 = ES.CYCLE.filter(function (p) { return p.key === all[1].key; })[0]; out.lead2 = p2.lead.filter(function (k) { return agg[k]; }); out.lag2 = p2.lag.filter(function (k) { return agg[k]; }); }
+    out.rs = {}; secs.forEach(function (k) { out.rs[k] = +agg[k].m.toFixed(4); });
+    // la lecture sur 3 mois diffère de celle sur 6 mois : la rotation est en cours
+    if (recent && older && recent.key !== older.key) out.shift = { from: older.label, to: recent.label };
+    return out;
+  };
+  /** Place d'un secteur (nom Yahoo) dans la phase du cycle : { cyclical, fit: 'up' (porté) | 'down' (à contre-cycle) | 'flat' }. */
+  ES.cycleFit = function (cy, sector) {
+    if (!cy || !sector || !cy.rs || cy.rs[sector] == null) return null;
+    var inL = function (l) { return (l || []).indexOf(sector) > -1; }, rs = cy.rs[sector], fit;
+    if (!cy.second) fit = inL(cy.lead) ? 'up' : inL(cy.lag) ? 'down' : 'flat';
+    // phase incertaine entre deux : porté si les deux phases le portent, ou si l'une le porte et que le marché le confirme déjà
+    else fit = (inL(cy.lead) && inL(cy.lead2)) || ((inL(cy.lead) || inL(cy.lead2)) && rs > 0 && !inL(cy.lag) && !inL(cy.lag2)) ? 'up'
+      : (inL(cy.lag) && inL(cy.lag2)) || ((inL(cy.lag) || inL(cy.lag2)) && rs < 0 && !inL(cy.lead) && !inL(cy.lead2)) ? 'down' : 'flat';
+    return { cyclical: !!ES.CYCLICAL[sector], fit: fit, rs: rs, phase: cy.second ? cy.label + ' ou ' + cy.second : cy.label };
+  };
   ES.convergence = function (o) {
     o = o || {};
     var st = o.sectorTrend, rv = o.revision30d, p = o.plan, fk = p ? ES.figureKey(p.wedge) : null;

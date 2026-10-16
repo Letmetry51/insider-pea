@@ -484,6 +484,14 @@ t('Croisement MM50 / MM200 après un achat de dirigeant', () => {
   ok(!sc2.goldenCrossAfterBuy && sc2.trendUp, 'croisement antérieur à l\'achat : tendance seulement');
 });
 
+t('Le script de l\'interface se compile (aucune erreur de syntaxe qui laisserait la page blanche)', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'euro-signal.html'), 'utf8');
+  const k = html.indexOf('/* Euro Signal — interface'), e = html.indexOf('</script>', k);
+  ok(k > 0 && e > k, 'script de l\'interface trouvé');
+  let err = null; try { new Function(html.slice(k, e)); } catch (x) { err = x.message; }
+  ok(!err, 'syntaxe : ' + err);
+});
+
 t('Le tableau de bord embarque exactement le moteur testé (pas de version désynchronisée)', () => {
   const fs = require('fs'), path = require('path');
   const html = path.join(__dirname, '..', 'euro-signal.html');
@@ -1138,6 +1146,28 @@ t('Valeur comptable et valeur intrinsèque : calculs, devises, divisions, garde-
   ok(old.stale && !ES.valueCheap(old) && ES.valueView(old).tone !== 'good', 'comptes de plus de 18 mois');
   ok(ES.valueCheap(ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 9, currency: 'EUR', capEur: 2e9 })), 'décote saine reconnue');
   ES.setFx({});
+});
+
+t('Phase du cycle : rotation des secteurs, phase nette ou incertaine, secteurs portés', () => {
+  const ALL = ['Financial Services', 'Consumer Cyclical', 'Real Estate', 'Industrials', 'Technology', 'Basic Materials', 'Utilities', 'Healthcare', 'Consumer Defensive', 'Energy', 'Communication Services'];
+  const mk = (strong, weak) => ALL.map((s) => ({ sector: s, n: 10, rs3: strong.includes(s) ? 0.12 : weak.includes(s) ? -0.12 : 0, rs6: strong.includes(s) ? 0.1 : weak.includes(s) ? -0.1 : 0 }));
+  for (const ph of ES.CYCLE) {
+    const c = ES.cyclePhase(mk(ph.lead, ph.lag));
+    ok(c && c.key === ph.key && c.conf === 'nette', ph.label + ' reconnue : ' + JSON.stringify(c && [c.key, c.conf, c.scores]));
+    ok(ES.cycleFit(c, ph.lead[0]).fit === 'up' && ES.cycleFit(c, ph.lag[0]).fit === 'down', 'secteurs portés et à contre-cycle');
+  }
+  const flat = ES.cyclePhase(ALL.map((s) => ({ sector: s, n: 5, rs3: 0.01, rs6: 0.01 })));
+  ok(flat && flat.conf === 'incertaine' && flat.second, 'marché sans rotation : phase incertaine, deux candidates');
+  eq(ES.cyclePhase(mk(['Energy'], []).slice(0, 5)), null, 'trop peu de secteurs');
+  eq(ES.cyclePhase(null), null, 'sans données');
+  ok(ES.cycleFit(flat, 'Inconnu') === null && ES.cycleFit(null, 'Energy') === null, 'secteur inconnu');
+  // pondération : un groupe d'une seule société ne fait pas basculer un secteur de 30 sociétés
+  const g = mk(ES.CYCLE[1].lead, ES.CYCLE[1].lag).concat([{ sector: 'Technology', n: 1, rs3: -0.9, rs6: -0.9 }]);
+  ok(ES.cyclePhase(g).key === 'mid', 'pondération par le nombre de sociétés');
+  // rotation en cours : 6 mois disent fin de cycle, 3 mois disent ralentissement
+  const L = ES.CYCLE[2], R = ES.CYCLE[3];
+  const sh = ALL.map((s) => ({ sector: s, n: 10, rs6: L.lead.includes(s) ? 0.1 : L.lag.includes(s) ? -0.1 : 0, rs3: R.lead.includes(s) ? 0.1 : R.lag.includes(s) ? -0.1 : 0 }));
+  const c2 = ES.cyclePhase(sh); ok(c2.shift && c2.shift.from === 'Fin de cycle' && c2.shift.to === 'Ralentissement', 'rotation détectée : ' + JSON.stringify(c2.shift));
 });
 
 t('Biseau : droites des sommets et des creux, biseau descendant ou ascendant, canal', () => {
