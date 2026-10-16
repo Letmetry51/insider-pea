@@ -94,6 +94,9 @@ const verdicts = {}; plans.forEach((p) => { verdicts[p.verdict] = (verdicts[p.ve
 check(Object.keys(verdicts).length >= 2, 'répartition des verdicts : ' + Object.entries(verdicts).map(([k, v]) => k + ' ' + v).join(', '), true);
 const conv = I.map((i) => main.inst[i].convergence).filter(Boolean);
 check(conv.length >= 0.5 * I.length && conv.every((c) => c.n >= 0 && c.n <= 5), `convergence notée pour ${conv.length} titres`);
+const nAcc = I.filter((i) => main.inst[i].accounts).length, nVal = I.filter((i) => main.inst[i].value).length;
+check(nAcc >= 0.5 * I.length, `comptes annuels (F-score, Beneish, analyse des comptes) pour ${nAcc} titres sur ${I.length} (50 % au moins)`);
+check(nVal >= 0.5 * I.length, `valeur comptable et intrinsèque pour ${nVal} titres sur ${I.length} (50 % au moins)`, true);
 const secT = I.filter((i) => main.inst[i].sectorTrend).length;
 check(secT >= 0.3 * I.length, `tendance du secteur rattachée pour ${secT} titres`, true);
 check(main.planStudy && main.planStudy.obs > 1000, `étude historique du plan : ${main.planStudy ? main.planStudy.obs : 0} relevés`, true);

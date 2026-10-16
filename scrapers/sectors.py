@@ -324,16 +324,27 @@ def refresh_infos(syms, minutes=4):
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=60)).isoformat()
     todo = [x for x in syms if info_stale(cache.get(x), limit)]
-    t0, n = time.time(), 0
+    t0, n, empty = time.time(), 0, 0
     try:
         with ThreadPoolExecutor(THREADS) as ex:
             for k in range(0, len(todo), 40):
                 if time.time() - t0 > minutes * 60:
                     break
+                got = 0
                 for sym, inf in ex.map(fetch_info, todo[k:k + 40]):
-                    if inf:
+                    # fiche vide (Yahoo qui refuse le jeton ou bloque) : l'ancienne fiche est conservée, jamais remplacée par du vide
+                    if inf and (inf.get("longName") or inf.get("shortName") or inf.get("marketCap")):
                         cache[sym] = inf
                         n += 1
+                        got += 1
+                if not got:
+                    empty += 1
+                    reset_yahoo_session()
+                    if empty >= 2:  # deux paquets de 40 fiches vides de suite : Yahoo ne répond plus, arrêt pour ce soir
+                        log("  fiches Yahoo : réponses vides, relecture arrêtée (anciennes fiches conservées)")
+                        break
+                else:
+                    empty = 0
     except Exception as e:  # noqa: BLE001
         log(f"  fiches Yahoo : relecture interrompue ({e})")
     if n:
