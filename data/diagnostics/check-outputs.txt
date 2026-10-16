@@ -35,5 +35,16 @@ OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusio
 OK     fiches des sociétés : 32 fichiers lisibles
 OK     secteurs : 92 groupes classés
 OK     secteurs à jour (2026-10-16)
+OK     sociétés suivies : 1086
+OK     cours : 1020
+OK     graphiques (cours 1 an) : 1020
+OK     comptes annuels : 995
+OK     valeur comptable : 962
+OK     secteur : 979
+OK     liquidité : 1006 (-1 depuis le calcul précédent)
+OK     plan d'entrée : 982
+OK     déclarations (3 mois) : 4650
+OK     sources à jour : 7
+OK     catalogue des sociétés cotées : 2995
 
 0 échec(s), 0 alerte(s)
