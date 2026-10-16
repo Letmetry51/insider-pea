@@ -98,7 +98,7 @@ jobs:
         continue-on-error: true
 
       - name: 5a. Tests du moteur Euro Signal
-        run: node euro_signal/tests.js && python scrapers/test_prices.py
+        run: node euro_signal/tests.js && python scrapers/test_prices.py && python euro_signal/test_health.py
 
       - name: 5b. Calcul Euro Signal
         timeout-minutes: 10
@@ -116,6 +116,14 @@ jobs:
         continue-on-error: true
         run: node euro_signal/check_outputs.mjs
 
+      - name: 5e. Contrôle de l'affichage (toutes les fiches ouvertes comme sur un téléphone)
+        timeout-minutes: 25
+        continue-on-error: true
+        run: |
+          npm install --no-save --no-package-lock playwright@1.47.2 > /dev/null 2>&1
+          npx playwright install --with-deps chromium > /dev/null 2>&1
+          node euro_signal/ui_check.mjs
+
       - name: 6. Alertes email (Gmail)
         timeout-minutes: 10
         env:
@@ -132,6 +140,15 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: python euro_signal/test_positions.py > /tmp/test_positions.txt && python euro_signal/positions.py || { cat /tmp/test_positions.txt; exit 1; }
         continue-on-error: true
+
+      - name: 6c. Email de contrôle (seulement si un contrôle a trouvé un problème)
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+        run: python euro_signal/send_health.py
 
       - name: 7. Enregistrement des données
         # Toujours exécuté, même après une erreur, pour conserver le journal des alertes déjà envoyées
