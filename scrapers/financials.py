@@ -29,7 +29,7 @@ INCOME = {"revenue": ["Total Revenue", "Operating Revenue"], "grossProfit": ["Gr
           "ebitda": ["EBITDA", "Normalized EBITDA"], "interestExpense": ["Interest Expense", "Interest Expense Non Operating"]}
 BALANCE = {"totalAssets": ["Total Assets"], "currentAssets": ["Current Assets"], "currentLiabilities": ["Current Liabilities"],
            "totalDebt": ["Total Debt"], "longTermDebt": ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"],
-           "cash": ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"], "equity": ["Stockholders Equity", "Common Stock Equity"],
+           "cash": ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"], "equity": ["Common Stock Equity", "Stockholders Equity"],  # part du groupe revenant aux actions ordinaires (hors actions de préférence)
            "shares": ["Ordinary Shares Number", "Share Issued"],
            # Altman (Z'') et Beneish (M-score)
            "retainedEarnings": ["Retained Earnings"], "totalLiabilities": ["Total Liabilities Net Minority Interest", "Total Liabilities"],

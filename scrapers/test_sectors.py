@@ -190,6 +190,16 @@ def _():
         assert ((a == b) | (a.isna() & b.isna())).all(), f"{k} dépend de données futures"
 
 
+
+@case("Valeur comptable du catalogue : devise des comptes vérifiée, valeurs aberrantes écartées, fiches anciennes relues")
+def _():
+    assert S.book_fields({"priceToBook": 2.345678, "returnOnEquity": 0.12, "currency": "EUR", "financialCurrency": "EUR"}) == {"pb": 2.346, "roe": 0.12}
+    assert "pb" not in S.book_fields({"priceToBook": 0.03, "currency": "SEK", "financialCurrency": "EUR"}), "comptes en euros, cotation en couronnes"
+    assert "pb" in S.book_fields({"priceToBook": 1.2, "currency": "GBp", "financialCurrency": "GBP"})
+    assert S.book_fields({"priceToBook": 500, "returnOnEquity": 9}) == {} and S.book_fields(None) == {}
+    assert S.info_stale({"fetched": "2099-01-01"}, "2026-01-01") and not S.info_stale({"fetched": "2099-01-01", "v": S.INFO_V}, "2026-01-01")
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

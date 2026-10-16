@@ -1151,14 +1151,14 @@
    *    1. revenu résiduel (Edwards-Bell-Ohlson) : valeur comptable + valeur actuelle de ce que la société gagne au-delà du rendement
    *       exigé r, avec la rentabilité moyenne des fonds propres des derniers exercices (plafonnée à 35 %) ; deux hypothèses :
    *       excès de rentabilité qui s'efface en 10 ans (concurrence) ou qui dure (avantage durable) ;
-   *    2. trésorerie disponible (FCF) moyenne des derniers exercices capitalisée au taux r (hors banques et assurances) ;
+   *    2. trésorerie disponible (FCF) moyenne des derniers exercices capitalisée au taux r, moins l'endettement net (hors banques et assurances) ;
    *    fourchette = plus basse et plus haute des estimations, valeur centrale = médiane.
    * fin : comptes annuels ({ years, currency }) ; opts : { asOf, price, priceDate, currency (cotation), splits (divisions et regroupements, hors dividendes),
    *   sharesNow, marketCap (devise de cotation), capEur, sector, industry, pbYahoo }.
    */
   ES.intrinsicValue = function (fin, opts) {
     opts = opts || {};
-    var n = function (v) { v = +v; return Number.isFinite(v) ? v : null; };
+    var n = function (v) { if (v == null || v === '') return null; v = +v; return Number.isFinite(v) ? v : null; }; // donnée absente ≠ 0
     var limit = opts.asOf ? ES.addDays(opts.asOf, -120) : null; // comptes publiés à cette date (clos depuis au moins 4 mois)
     var Y = (fin && Array.isArray(fin.years) ? fin.years : []).filter(function (y) { return y && typeof y.date === 'string' && (!limit || y.date <= limit) && n(y.equity) != null; })
       .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(-4);
@@ -1214,9 +1214,19 @@
       { k: 'riLast', label: 'revenu résiduel, avantage durable', v: bvps * roeC / r }];
     if (kind !== 'fin') {
       var F = Y.map(function (y) { var f = n(y.fcf); if (f == null && n(y.cfo) != null && n(y.capex) != null) f = y.cfo + y.capex; return f; }).filter(function (v) { return v != null; });
-      if (F.length >= 2) { var fm = Math.min(avg(F), F.length >= 3 ? avg(F.slice(-2)) : avg(F)); out.fcfps = +(fm * k / shares).toPrecision(4); if (fm > 0) est.push({ k: 'fcf', label: 'trésorerie disponible moyenne capitalisée', v: fm * k / shares / r }); }
+      // valeur de l'entreprise (trésorerie disponible capitalisée) moins son endettement net : la trésorerie dégagée revient d'abord
+      // aux prêteurs (dettes financières, loyers IFRS 16 compris, moins la trésorerie) ; endettement inconnu = méthode écartée
+      var nd = n(last.totalDebt) != null && n(last.cash) != null ? last.totalDebt - last.cash : null;
+      if (F.length >= 2) {
+        var fm = Math.min(avg(F), F.length >= 3 ? avg(F.slice(-2)) : avg(F)); out.fcfps = +(fm * k / shares).toPrecision(4);
+        if (nd != null) out.netDebtPs = +(nd * k / shares).toPrecision(4);
+        if (fm > 0 && nd != null) est.push({ k: 'fcf', label: 'trésorerie disponible moyenne capitalisée, moins l\'endettement net', v: (fm / r - nd) * k / shares });
+      }
     }
-    est = est.filter(function (e) { return e.v > 0 && isFinite(e.v); });
+    // dettes supérieures à la trésorerie disponible capitalisée : rien pour l'actionnaire selon cette méthode (0, gardé par prudence)
+    est.forEach(function (e) { if (e.k === 'fcf' && isFinite(e.v) && e.v <= 0) { e.v = 0; out.notes.push('l\'endettement net dépasse la valeur de la trésorerie disponible capitalisée : selon cette méthode, il ne reste rien pour l\'actionnaire'); } });
+    est = est.filter(function (e) { return (e.v > 0 || e.k === 'fcf') && isFinite(e.v); });
+    if (!est.some(function (e) { return e.v > 0; })) est = [];
     if (!est.length) return Object.assign(out, { reason: 'valeur intrinsèque non estimable' });
     var vs = est.map(function (e) { return e.v; }).sort(function (a, b) { return a - b; }), mid = vs.length % 2 ? vs[(vs.length - 1) / 2] : (vs[vs.length / 2 - 1] + vs[vs.length / 2]) / 2;
     if (mid / price > 8 || mid / price < 0.04) return Object.assign(out, { na: true, suspect: true, reason: 'estimation hors de proportion avec le cours : données à vérifier' });

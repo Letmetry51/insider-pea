@@ -1085,13 +1085,21 @@ t('Plan d\'entrée : rebond sur support, cassure de résistance, chute sans supp
 
 t('Valeur comptable et valeur intrinsèque : calculs, devises, divisions, garde-fous', () => {
   ES.setFx({ SEK: 11, USD: 1.1 });
-  const yr = (y, eq, ni, fcf, sh) => ({ date: y + '-12-31', equity: eq, netIncome: ni, fcf, shares: sh || 100 });
+  const yr = (y, eq, ni, fcf, sh) => ({ date: y + '-12-31', equity: eq, netIncome: ni, fcf, shares: sh || 100, totalDebt: 300, cash: 100 });
   const fin = { currency: 'EUR', years: [yr(2022, 1000, 150, 120), yr(2023, 1100, 160, 130), yr(2024, 1200, 180, 140), yr(2025, 1300, 200, 150)] };
   const v = ES.intrinsicValue(fin, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
   eq(v.bvps, 13, 'valeur comptable par action = 1 300 / 100');
+  ok(v.tbvps == null && v.intangPct == null, 'incorporels inconnus : pas de valeur tangible inventée');
+  eq(ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { intangibles: 400 })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR' }).tbvps, 9, 'valeur tangible = (1 300 − 400) / 100');
   ok(Math.abs(v.pb - 20 / 13) < 0.01 && v.r === 0.095, 'cours / actif net et rendement exigé d\'une valeur moyenne');
   ok(v.roe > 15 && v.roe < 16, 'rentabilité moyenne sur fonds propres moyens : ' + v.roe);
-  ok(v.methods.length === 3 && v.low < v.mid && v.mid < v.high && v.low > v.bvps, 'trois méthodes, fourchette au-dessus de la valeur comptable (rentabilité > rendement exigé) : ' + JSON.stringify(v.methods));
+  ok(v.methods.length === 3 && v.low < v.mid && v.mid < v.high && v.methods.find((m) => m.k === 'riFade').v > v.bvps, 'trois méthodes ; revenu résiduel au-dessus de la valeur comptable (rentabilité > rendement exigé) : ' + JSON.stringify(v.methods));
+  // trésorerie disponible : 135 (moyenne des 4 exercices, plus basse que celle des 2 derniers) ÷ 9,5 % = 1 474, moins 200 d'endettement net, ÷ 100 actions
+  ok(Math.abs(v.methods.find((m) => m.k === 'fcf').v - (135 / 0.095 - 200) / 100) < 0.01 && v.netDebtPs === 2, 'trésorerie disponible capitalisée moins l\'endettement net : ' + JSON.stringify(v.methods));
+  const lev = ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { totalDebt: 2000, cash: 0 })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR', capEur: 2e9 });
+  ok(lev.methods.find((m) => m.k === 'fcf').v === 0 && lev.low === 0 && lev.mid <= v.mid && lev.notes.some((t) => /endettement net dépasse/.test(t)), 'dettes supérieures à la trésorerie capitalisée : 0 retenu, bas de fourchette à 0');
+  ok(!/Infinity|NaN/.test(JSON.stringify(ES.valueView(lev))), 'lecture sans division par zéro');
+  ok(!ES.intrinsicValue({ currency: 'EUR', years: fin.years.map((y) => Object.assign({}, y, { totalDebt: null })) }, { asOf: '2026-10-15', price: 20, currency: 'EUR' }).methods.some((m) => m.k === 'fcf'), 'endettement inconnu : méthode écartée');
   const ri = v.methods.find((m) => m.k === 'riLast').v; ok(Math.abs(ri - 13 * (v.roe / 100) / 0.095) < 0.2, 'revenu résiduel durable = B × ROE / r');
   ok(v.zone === 'inside' || v.zone === 'below' || v.zone === 'above', 'zone');
   // comptes de 2025 pas encore publiés au 15/03/2026 (moins de 4 mois) : exercice 2024 retenu

@@ -319,6 +319,29 @@ def book_fields(inf):
     return out
 
 
+def refresh_infos(syms, minutes=4):
+    """Relit, dans la limite du temps donné et les plus grosses d'abord, les fiches Yahoo anciennes ou d'une version précédente."""
+    cache = read_json(INFO_CACHE, {})
+    limit = (date.today() - timedelta(days=60)).isoformat()
+    todo = [x for x in syms if info_stale(cache.get(x), limit)]
+    t0, n = time.time(), 0
+    try:
+        with ThreadPoolExecutor(THREADS) as ex:
+            for k in range(0, len(todo), 40):
+                if time.time() - t0 > minutes * 60:
+                    break
+                for sym, inf in ex.map(fetch_info, todo[k:k + 40]):
+                    if inf:
+                        cache[sym] = inf
+                        n += 1
+    except Exception as e:  # noqa: BLE001
+        log(f"  fiches Yahoo : relecture interrompue ({e})")
+    if n:
+        write_json(INFO_CACHE, cache)
+    log(f"  fiches Yahoo relues : {n} sur {len(todo)} à mettre à jour, {time.time() - t0:.0f} s")
+    return cache
+
+
 def fetch_info(s):
     import yfinance as yf
     try:
@@ -1139,7 +1162,8 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
                 Wl = Wl.join(W2.reindex(Wl.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
             log(f"Cours hebdomadaires du catalogue : {W2.shape[1] if not W2.empty else 0} titres, {time.time() - t0:.0f} s")
     sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
-    info = read_json(INFO_CACHE, {})  # fiches Yahoo : valeur comptable
+    # fiches Yahoo (valeur comptable) : complétées chaque soir dans la limite de 4 minutes, les plus grosses sociétés d'abord
+    info = refresh_infos(sorted(syms, key=lambda x: -((uni.get(x) or extra.get(x) or cat_only.get(x) or {}).get("capEur") or 0))) if fetch_daily else read_json(INFO_CACHE, {})
     items, index = {}, []
     for sym in syms:
         it = uni.get(sym) or extra.get(sym) or cat_only.get(sym) or {}
