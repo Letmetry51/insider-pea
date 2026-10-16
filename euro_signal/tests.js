@@ -1182,7 +1182,8 @@ t('Liens vers les déclarations : Suède ciblée sur la déclaration, autres reg
 t('Figures : classement des deux droites (cas réels et types limites)', () => {
   const S = (ua, ub, la, lb, n, last) => ES.wedgeShape({ a: ua, b: ub, touches: 2 }, { a: la, b: lb, touches: 2 }, n || 63, last || 1000, '2026-07-20');
   // Compagnie de l'Odet le 16/10/2026 : haute qui baisse, basse qui monte, largeur 172 → 129 : triangle, pas un canal baissier
-  ok(ES.wedgeShape({ a: 1100, b: -1, touches: 1 }, { a: 950, b: -1, touches: 3 }, 63, 1000).label === 'Canal baissier peu marqué', 'une droite qui ne touche qu\'une fois : figure peu marquée');
+  const wk = ES.wedgeShape({ a: 1100, b: -1, touches: 1 }, { a: 950, b: -1, touches: 3 }, 63, 1000);
+  ok(wk.label === 'Canal baissier' && wk.weak === true, 'une droite qui ne touche qu\'une fois : figure peu marquée (signalée, nom inchangé)');
   const odet = S(1047.2, -0.2033, 874.86, 0.489);
   eq(odet.label, 'Triangle symétrique', 'cas Odet');
   eq(S(1100, -1, 950, -1).label, 'Canal baissier', 'droites parallèles qui baissent');

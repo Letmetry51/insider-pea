@@ -2280,8 +2280,8 @@ details.pos summary{font-size:1rem}
       broadening: 'les écarts s\'amplifient (sommets plus hauts, creux plus bas) : marché nerveux, pas de signal fiable avant une sortie franche',
       none: 'pas de figure nette' }[type];
     // figure peu marquée : une des droites ne touche le cours qu'une fois (pas de deuxième sommet ou creux pour la confirmer)
+    // (signalé dans l'explication de l'indicateur et non compté comme signal favorable, pas dans le nom : deux figures sur trois)
     var weak = type !== 'none' && Math.min(U.touches || 0, D.touches || 0) < 2;
-    if (weak) label += ' peu marqué';
     var apex = U.b < D.b ? w1 / (D.b - U.b) : null; // séances avant la jonction des droites
     return { type: type, sub: sub, weak: weak, key: type === 'channel' ? 'channel-' + cdir : type, dir: cdir,
       label: label, reading: reading, n: n, from: from, upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
@@ -4055,7 +4055,7 @@ details.pos summary{font-size:1rem}
       var where = pos > 1 ? 'Cassure par le haut' : pos < 0 ? 'Cassure par le bas' : pos < 0.33 ? 'Près du bas' : pos > 0.67 ? 'Près du haut' : 'Au milieu';
       out.push(critBox((ES.FIGURES[fk] || ['📐'])[0], esc(w.label), Math.round(pos * 100) + ' %', pos > 1 ? (fk === 'rising' ? 'neu' : 'good') : pos < 0 ? 'bad' : tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : 'neu', where,
         scaleLine(pos, -0.25, 1.25, [[-0.25, 0, 'bad'], [0, 1, 'neu'], [1, 1.25, 'good']], [[0, f2(w.lowerNow)], [1, f2(w.upperNow)]], 'Position du cours entre les deux droites'),
-        esc(w.reading.charAt(0).toUpperCase() + w.reading.slice(1)) + '. La droite haute relie les sommets des 3 derniers mois, la droite basse les creux' + (w.apexIn ? ' ; elles se rejoignent dans environ ' + w.apexIn + ' séances, la sortie se fait en général avant' : '') + '.'));
+        (w.weak ? '<b>Figure peu marquée</b> : une des droites ne touche le cours qu\'une fois, à confirmer. ' : '') + esc(w.reading.charAt(0).toUpperCase() + w.reading.slice(1)) + '. La droite haute relie les sommets des 3 derniers mois, la droite basse les creux' + (w.apexIn ? ' ; elles se rejoignent dans environ ' + w.apexIn + ' séances, la sortie se fait en général avant' : '') + '.'));
     }
     var sc = [plan.primary, plan.alt].filter(Boolean), res = null, sup = null;
     sc.forEach(function (c) { if (c.key === 'breakout' && c.level > 0) res = c.level; if ((c.key === 'support' || c.key === 'retest') && c.level > 0) sup = c.level; });

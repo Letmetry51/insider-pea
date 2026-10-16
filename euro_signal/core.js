@@ -1819,8 +1819,8 @@
       broadening: 'les écarts s\'amplifient (sommets plus hauts, creux plus bas) : marché nerveux, pas de signal fiable avant une sortie franche',
       none: 'pas de figure nette' }[type];
     // figure peu marquée : une des droites ne touche le cours qu'une fois (pas de deuxième sommet ou creux pour la confirmer)
+    // (signalé dans l'explication de l'indicateur et non compté comme signal favorable, pas dans le nom : deux figures sur trois)
     var weak = type !== 'none' && Math.min(U.touches || 0, D.touches || 0) < 2;
-    if (weak) label += ' peu marqué';
     var apex = U.b < D.b ? w1 / (D.b - U.b) : null; // séances avant la jonction des droites
     return { type: type, sub: sub, weak: weak, key: type === 'channel' ? 'channel-' + cdir : type, dir: cdir,
       label: label, reading: reading, n: n, from: from, upper: { a: U.a, b: U.b, touches: U.touches }, lower: { a: D.a, b: D.b, touches: D.touches },
