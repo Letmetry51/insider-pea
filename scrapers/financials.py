@@ -20,7 +20,8 @@ DATA = ROOT / "data"
 OUT = DATA / "financials.json"
 REFRESH_DAYS = 30
 SCHEMA = 3  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité (3 : écarts d'acquisition et incorporels)
-BUDGET_S = 20 * 60  # au plus 20 minutes par soir
+BUDGET_S = 18 * 60  # au plus 18 minutes par soir (l'étape est coupée à 20)
+STREAK_RESET, STREAK_STOP = 15, 40  # réponses vides de suite : nouveau jeton Yahoo, puis arrêt
 
 # Lignes Yahoo (plusieurs libellés possibles selon les sociétés) → nos champs
 INCOME = {"revenue": ["Total Revenue", "Operating Revenue"], "grossProfit": ["Gross Profit"], "operatingIncome": ["Operating Income", "Total Operating Income As Reported"],
@@ -83,6 +84,18 @@ def statements(ticker):
     return {"years": rows, "currency": currency}
 
 
+def reset_yahoo_session():
+    """Jeton (crumb) Yahoo refusé : on force yfinance à en demander un nouveau."""
+    try:
+        from yfinance.data import YfData
+        d = YfData()
+        for k in ("_crumb", "_cookie"):
+            if hasattr(d, k):
+                setattr(d, k, None)
+    except Exception:
+        pass
+
+
 def load(path, default):
     try:
         v = json.loads(path.read_text(encoding="utf-8"))
@@ -104,30 +117,53 @@ def main():
     # Priorité : sociétés avec un achat de dirigeant dans le tableau de bord, puis les autres
     dash = load(DATA / "euro-signal.json", {})
     buyers = {i for i, l in (dash.get("tx") or {}).items() if any(isinstance(t, dict) and t.get("type") == "achat" for t in (l or []))}
-    order = sorted(pairs, key=lambda i: (i not in buyers, (items.get(i) or {}).get("schema", 1) >= SCHEMA, i))
+    week_ago = (today - timedelta(days=7)).isoformat()
+    order = sorted(pairs, key=lambda i: ((items.get(i) or {}).get("triedAt", "") > week_ago, i not in buyers, (items.get(i) or {}).get("schema", 1) >= SCHEMA, i))
     fresh_before = (today - timedelta(days=REFRESH_DAYS)).isoformat()
-    done = failed = 0
+    done = failed = kept = streak = 0
+    avail_before = sum(1 for v in items.values() if v.get("years"))
+    stopped = False
     for isin in order:
         old = items.get(isin) or {}
         if old.get("asOf", "") > fresh_before and old.get("ticker") == pairs[isin] and old.get("schema", 1) >= SCHEMA:
             continue
         if time.time() - t0 > BUDGET_S:
             break
+        # Yahoo qui répond vide à la suite (jeton refusé, blocage passager) : nouveau jeton, puis arrêt pour ce soir
+        if streak == STREAK_RESET:
+            reset_yahoo_session()
+            time.sleep(5)
+        if streak >= STREAK_STOP:
+            stopped = True
+            break
         try:
             st = statements(pairs[isin])
-            if st["years"]:
-                items[isin] = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, **st}
-                done += 1
+        except Exception:
+            st = {"years": []}
+        if st["years"]:
+            items[isin] = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, **st}
+            done += 1
+            streak = 0
+        else:
+            failed += 1
+            streak += 1
+            # réponse vide : les comptes déjà connus sont conservés (jamais effacés par une panne de Yahoo)
+            if old.get("years") and old.get("ticker") == pairs[isin]:
+                old["triedAt"] = today.isoformat()  # relue en dernier pendant une semaine
+                kept += 1
             else:
                 items[isin] = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, "years": [], "currency": None}
-                failed += 1
-        except Exception:
-            failed += 1
         time.sleep(0.3)
     items = {i: v for i, v in items.items() if i in pairs}  # titres disparus de la liste : retirés
+    avail = sum(1 for v in items.values() if v.get("years"))
+    if avail < avail_before * 0.8:  # garde-fou : jamais de fichier qui perd plus de 20 % des comptes disponibles
+        print(f"Comptes annuels : {avail} disponibles contre {avail_before} avant, fichier précédent conservé")
+        return 0
     OUT.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if stopped:
+        print(f"Comptes annuels : Yahoo ne renvoie plus de comptes ({STREAK_STOP} réponses vides de suite), arrêt pour ce soir")
     pending = sum(1 for i in pairs if (items.get(i) or {}).get("asOf", "") <= fresh_before or (items.get(i) or {}).get("schema", 1) < SCHEMA)
-    print(f"Comptes annuels : {done} société(s) mises à jour, {failed} sans données, {pending} à compléter les soirs suivants ; {sum(1 for v in items.values() if v.get('years'))} disponibles")
+    print(f"Comptes annuels : {done} société(s) mises à jour, {failed} sans données (dont {kept} anciens comptes conservés), {pending} à compléter les soirs suivants ; {sum(1 for v in items.values() if v.get('years'))} disponibles")
     return 0
 
 

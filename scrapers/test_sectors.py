@@ -200,6 +200,25 @@ def _():
     assert S.info_stale({"fetched": "2099-01-01"}, "2026-01-01") and not S.info_stale({"fetched": "2099-01-01", "v": S.INFO_V}, "2026-01-01")
 
 
+
+@case("Yahoo renvoie des fiches vides : les anciennes fiches sont conservées, relecture arrêtée")
+def _():
+    old = {"OR.PA": {"longName": "L'Oréal S.A.", "sector": "Consumer Defensive", "marketCap": 2e11, "country": "France", "fetched": "2020-01-01"}}
+    syms = ["OR.PA"] + ["X%d.PA" % k for k in range(200)]
+    S.write_json(S.INFO_CACHE, old)
+    calls = []
+    real, real_reset = S.fetch_info, S.reset_yahoo_session
+    S.fetch_info = lambda s: (calls.append(s) or (s, {"fetched": "2026-10-16", "v": S.INFO_V}))
+    S.reset_yahoo_session = lambda: None
+    try:
+        c = S.refresh_infos(syms, minutes=1)
+    finally:
+        S.fetch_info, S.reset_yahoo_session = real, real_reset
+    assert c["OR.PA"].get("longName") == "L'Oréal S.A.", c["OR.PA"]
+    assert len(calls) <= 80, len(calls)
+    assert S.read_json(S.INFO_CACHE, {})["OR.PA"].get("marketCap") == 2e11
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

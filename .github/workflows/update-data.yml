@@ -94,7 +94,7 @@ jobs:
 
       - name: 4b. Comptes annuels (4 exercices, Yahoo Finance)
         timeout-minutes: 20
-        run: python scrapers/financials.py
+        run: python scrapers/test_financials.py && python scrapers/financials.py  # tests d'abord : une panne de Yahoo n'efface jamais les comptes
         continue-on-error: true
 
       - name: 5a. Tests du moteur Euro Signal
