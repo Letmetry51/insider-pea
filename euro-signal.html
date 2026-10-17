@@ -4740,6 +4740,11 @@ details.pos summary{font-size:1rem}
     return '<div class="segs" role="group" aria-label="Classement"><button class="' + (m === 'rank' ? 'on' : '') + '" aria-pressed="' + (m === 'rank') + '" data-a="rankMode" data-v="rank">📈 Classement</button><button class="' + (m === 'ins' ? 'on' : '') + '" aria-pressed="' + (m === 'ins') + '" data-a="rankMode" data-v="ins">👔 Ancien (dirigeants)</button></div>';
   }
   /** Filtres rapides du classement : les mêmes que l'ancien classement, appliqués à toutes les sociétés classées. */
+  /** Repères d'une ligne du classement : calculés le soir, sinon repris du dossier Euro Signal de la société (même règle). */
+  function rkSec(r) { if (r.sec) return true; var t = r.isin && S.inst[r.isin] ? secTrendOf(r.isin) : null; return !!(t && (t.trending || t.emerging)); }
+  function rkSecEn(r) { var x = r.isin && S.inst[r.isin]; return r.secEn || (x && ((x.fund && x.fund.sector) || x.sector)) || null; }
+  function rkF9(r) { if (r.f9 != null) return r.f9; var a = r.isin && S.inst[r.isin] && S.inst[r.isin].accounts; return a && a.fscore && !a.fscore.na ? a.fscore.f9 : null; }
+  function rkVal(r) { return r.isin && S.inst[r.isin] ? S.inst[r.isin].value : null; }
   function rankQuick() {
     var liq5 = 5e6;
     return {
@@ -4747,13 +4752,13 @@ details.pos summary{font-size:1rem}
       dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (r) { var g = r.isin && S.inst[r.isin] ? dgInfo(r.isin) : null; return !!(g && g.recent); }],
       pull: ['↘️ En repli de 5 à 25 %', function (r) { return r.ratio != null && r.ratio <= 95 && r.ratio >= 75; }],
       conv3: ['Convergence ≥ 3 sur 5', function (r) { var v = r.isin && S.inst[r.isin] ? convOf(r.isin) : null; return !!(v && v.n >= 3); }],
-      secTrend: ['🔥 Secteur en tendance', function (r) { return !!r.sec; }],
-      cycUp: ['🔄 Porté par le cycle', function (r) { var f = S.cycle && r.secEn ? ES.cycleFit(S.cycle, r.secEn) : null; return !!(f && f.fit === 'up'); }],
+      secTrend: ['🔥 Secteur en tendance', rkSec],
+      cycUp: ['🔄 Porté par le cycle', function (r) { var se = rkSecEn(r), f = S.cycle && se ? ES.cycleFit(S.cycle, se) : null; return !!(f && f.fit === 'up'); }],
       acc: ['📊 Comptes solides', function (r) { return r.acc === 'good'; }],
-      fs8: ['F-score 8 ou 9', function (r) { return r.f9 != null && r.f9 >= 8; }],
+      fs8: ['F-score 8 ou 9', function (r) { var f9 = rkF9(r); return f9 != null && f9 >= 8; }],
       liq: ['💧 Très liquide (≥ 5 M€/jour)', function (r) { return (r.liq || 0) >= liq5; }],
-      ivCheap: ['💎 Sous sa valeur intrinsèque', function (r) { return !!r.iv; }],
-      belowBook: ['📘 Sous sa valeur comptable', function (r) { return r.pb != null && r.pb > 0 && r.pb < 1; }]
+      ivCheap: ['💎 Sous sa valeur intrinsèque', function (r) { return !!r.iv || ES.valueCheap(rkVal(r)); }],
+      belowBook: ['📘 Sous sa valeur comptable', function (r) { var v = rkVal(r), pb = r.pb != null ? r.pb : v && !v.na && !v.negEquity ? v.pb : null; return pb != null && pb > 0 && pb < 1; }]
     };
   }
   function vClassement() {
