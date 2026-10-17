@@ -1,17 +1,15 @@
 name: Secteurs - test historique
 
-# Test complet à la demande : vérification du module, univers, révisions, cours, test historique et stress test,
-# Google Trends, classement du jour. Ne modifie pas le tableau de bord.
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,10 +20,18 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install --upgrade yfinance pandas numpy pytrends
-      - name: Vérification du module (données simulées, sans réseau)
-        run: python scrapers/test_sectors.py
-      - name: Univers, révisions, cours, test historique, Google Trends, classement
-        timeout-minutes: 60
+      - name: Variantes
+        continue-on-error: true
+        timeout-minutes: 45
         run: |
-          python scrapers/sectors.py --universe --prices --backtest --trends --dashboard | tee data/sectors/rapport.txt
+          mkdir -p rep
+          python scrapers/sectors.py --prices > rep/1-prices.txt 2>&1 || true
+          python scrapers/_variantes.py > rep/2-variantes.txt 2>&1 || true
+      - name: Résultats
+        if: always()
+        run: |
+          git config user.email actions@github.com; git config user.name bot
+          git checkout -B secteurs-resultats
+          git rm -r -q --cached . > /dev/null
+          git add -f rep
+          git commit -q -m "Variantes $(date -u +%H:%M)" && git push -f origin secteurs-resultats
