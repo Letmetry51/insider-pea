@@ -1323,6 +1323,12 @@ t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cou
   const j = wk(0.2); for (let k = 100; k < 120; k++) j[k] *= 10; // regroupement d'actions non ajusté
   const fj = ES.rankFeatures([], j); ok(fj.jump && fj.jump.x > 9 && fj.jump.ago === 19, JSON.stringify(fj.jump));
   const old = wk(0.2); for (let k = 30; k < 120; k++) old[k] *= 10; ok(!ES.rankFeatures([], old).jump, 'saut de plus d\'un an : ignoré');
+  // sortie de base : 60 semaines de baisse, 26 semaines à plat, puis nouveau plus haut sur un an
+  const base = []; for (let k = 0; k < 60; k++) base.push(20 * Math.pow(0.99, k)); for (let k = 0; k < 26; k++) base.push(base[59] * (1 + 0.01 * Math.sin(k)));
+  for (let k = 0; k < 10; k++) base.push(base[base.length - 1] * 1.06);
+  const fb = ES.rankFeatures([], base); ok(fb.brk != null && fb.brk <= 3, 'nouveau plus haut après une base : ' + fb.brk);
+  ok(ES.rankFeatures([], wk(1.5)).brk == null, 'hausse continue : pas de sortie de base');
+  ok(ES.rankFeatures([], base.slice(0, 80)).brk == null, 'pendant la base : pas de signal');
   const c3 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const mk = (key, f) => ({ key, sym: key, name: key, turnoverEur: 5e6, pea: true, f, acc: { key: 'good', f9: 8 } });
   const rows = ES.rankUniverse([mk('S', fs), mk('M', fm), mk('J', fj), mk('X', Object.assign({}, fm, { mom: -0.5 }))], c3), by = {}; rows.forEach((r) => { by[r.key] = r; });
