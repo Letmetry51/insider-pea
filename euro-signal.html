@@ -115,7 +115,7 @@ table{border-collapse:collapse;width:100%}
 .scorecell .big{font:700 1.15rem var(--display);font-variant-numeric:tabular-nums}
 .sbar{display:flex;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin-top:3px;width:110px}
 .sbar i{display:block;height:100%}
-.slbar{margin:6px 0 10px}.slbar .slt{display:block;font-size:.85rem;font-weight:600;margin:0 0 4px}.slbar .fchip small{opacity:.75}.slbar .slt+.fchips+.slt{margin-top:8px}.brkx{margin:6px 0 0}.rbrk{display:block;font-weight:600;color:var(--good);white-space:nowrap}
+.slbar{margin:6px 0 10px}.slbar .slt{display:block;font-size:.85rem;font-weight:600;margin:0 0 4px}.slbar .fchip small{opacity:.75}.slbar .slt+.fchips+.slt{margin-top:8px}.brkx{margin:6px 0 0}.brkx p{margin:4px 0}.brk-good{color:var(--good)}.brk-bad{color:var(--bad)}.rbrk{display:block;font-weight:600;color:var(--good);white-space:nowrap}
 .rslope{font-weight:600;line-height:1.3;margin-top:2px;white-space:normal!important}.rslope span{white-space:nowrap}.rslope.sl-strong{color:var(--good)}.rslope.sl-mid{color:var(--warn)}.rslope.sl-light{color:var(--muted,inherit);font-weight:400}
 .rpills{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .rpill{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:10px;font-size:.8rem;background:var(--sunk);color:var(--ink);white-space:nowrap}
@@ -3720,7 +3720,8 @@ details.pos summary{font-size:1rem}
       if (q > ES.RANK_JUMP_UP || q < ES.RANK_JUMP_DOWN) { if (!f.jump || Math.abs(Math.log(q)) > Math.abs(Math.log(f.jump.x))) f.jump = { x: q, ago: W.length - 1 - j }; }
     }
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
-    // son plus haut d'alors il y a 6 mois (sortie de base). Test 5 et 8 ans : 1,6 à 2,2 fois plus souvent suivi de +40 % en 6 mois.
+    // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
+    // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
     if (W.length >= 82) {
       var mx = function (a, b) { var m = 0; for (var i = a; i <= b; i++) if (W[i] > m) m = W[i]; return m; };
       for (var t = W.length - 1; t >= W.length - 4; t--) {
@@ -4841,6 +4842,14 @@ details.pos summary{font-size:1rem}
   function rkSc(r) { return r.sc !== undefined ? r.sc : (ES.slopeClass(r.slope6 != null ? Math.pow(1 + r.slope6 / 100, 2) - 1 : null, r.trend) || {}).key || null; }
   /** Sortie de base récente (moins de 4 semaines) sur une société classée ou seulement écartée pour sa baisse sur 12 mois. */
   function rkBrk(r) { return r.brk != null && (!r.out.length || (r.out.length === 1 && /tiers le plus faible/.test(r.out[0]))); }
+  /** Explication du signal précoce, avec la combinaison qui a le mieux marché et l'état actuel du marché. */
+  function brkNote() {
+    var R = rankData(), rg = R && R.breadth && R.breadth.now ? R.breadth.now.regime : null;
+    var mk = rg === 'high' ? '<b class="brk-bad">😃 euphorique : défavorable</b> (1 fois sur 10 à 12 seulement)' : rg === 'low' ? '<b class="brk-good">😟 pessimiste : le plus favorable</b>' : rg === 'mid' ? '<b class="brk-good">😐 neutre : favorable</b>' : 'inconnu';
+    return '<div class="small brkx"><p>Seul, ce signal a été suivi d\'une hausse d\'au moins 40 % en 6 mois 1 fois sur 6 (5 ans) à 1 fois sur 9 (8 ans), contre 1 sur 10 en moyenne : il apporte peu.</p>' +
+      '<p><b>Meilleur croisement : cochez aussi ⬆⬆ Forte, et seulement quand le marché n\'est pas euphorique</b> : 1 fois sur 4 à 5, sans plus de chutes que la moyenne. Marché actuel : ' + mk + '. Un cours calme (peu de volatilité) fait au contraire tomber à 1 sur 15.</p>' +
+      '<p class="muted">Les sociétés encore « écartées » pour une baisse sur 12 mois sont montrées en fin de liste. À surveiller, pas à acheter les yeux fermés.</p></div>';
+  }
   var SLOPE_TXT = { strong: ['⬆⬆', 'forte', 'good'], mid: ['⬆', 'moyenne', 'warn'], light: ['↗', 'légère', 'neutral'] };
   function rkVal(r) { return r.isin && S.inst[r.isin] ? S.inst[r.isin].value : null; }
   /** Psychologie du marché : part des sociétés en tendance haussière (ampleur), plus hauts et plus bas de l'année, volatilité, et ce qui a suivi dans le passé. */
@@ -4951,7 +4960,7 @@ details.pos summary{font-size:1rem}
         return '<button class="fchip sl-' + o[0] + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfSlope" data-v="' + o[0] + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + o[1] + ' <small>' + o[2] + '</small> <span class="count">' + (slN[o[0]] || 0) + '</span></button>';
       }).join('') + (f.slope.length ? '<button class="fchip" data-a="rfSlope" data-v="all">Toutes</button>' : '') + '</div>' +
       '<span class="slt">Signal précoce <span class="muted">(à surveiller, hors note)</span></span><div class="fchips"><button class="fchip brk' + (f.brk ? ' on' : '') + '" aria-pressed="' + !!f.brk + '" data-a="rfBrk" title="Nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut il y a 6 mois"><span aria-hidden="true">' + (f.brk ? '☑' : '☐') + '</span> 🚀 Nouveau plus haut après une base <span class="count">' + brkN + '</span></button></div>' +
-      (f.brk ? '<p class="small muted brkx">Depuis 2018, ce signal a été suivi d\'une hausse d\'au moins 40 % en 6 mois 1,6 à 2,2 fois plus souvent que la moyenne (environ 1 fois sur 6), avec moins de chutes. Mais 4 fois sur 5 la hausse reste modeste : à surveiller, pas à acheter les yeux fermés. Les sociétés encore « écartées » pour une baisse sur 12 mois sont montrées en fin de liste.</p>' : '') + '</div>' +
+      (f.brk ? brkNote() : '') + '</div>' +
       '<details class="card fold ffold" data-k="rquick"' + (f.quick.length ? ' open' : '') + '><summary>🔎 Filtres' + (f.quick.length ? ' <span class="chip good">' + f.quick.length + '</span>' : ' <span class="muted">· dirigeants, repli, secteur, cycle, comptes, valeur…</span>') + '</summary>' +
       '<div class="segs wrapq" role="group" aria-label="Filtres rapides">' + Object.keys(Q).map(function (k) {
         var on = f.quick.indexOf(k) > -1, n = pool.filter(function (r) { return Q[k][1](r) && qf(r, k); }).length;
@@ -4978,7 +4987,7 @@ details.pos summary{font-size:1rem}
       '<li><b>Note /100</b> et ses pastilles : <span class="rpill t-good">📈 <b>70<small>/75</small></b></span> tendance (dont la force sur 12 mois, le critère le plus fiable), <span class="rpill t-good">📊 <b>20<small>/20</small></b></span> comptes, <span class="rpill t-good">👔 <b>+3</b></span> dirigeants. Vert : bon, orange : moyen, rouge : faible.</li>' +
       '<li><b>12 mois</b> : hausse ou baisse sur un an (hors dernier mois) et rang parmi les sociétés liquides.</li>' +
       '<li><b>Pente</b> (sous les 12 mois) : rythme de la droite de tendance du canal haussier sur les 6 derniers mois (moins sensible aux à-coups que la simple hausse). ⬆⬆ forte : au moins +40 %, ⬆ moyenne : +15 à +40 %, ↗ légère : moins de +15 %. Sur 5 et 8 ans, les pentes fortes ont fait environ 4 points de mieux que la société moyenne à 6 mois, les pentes légères pas mieux que la moyenne. Une pente qui retombe pendant une consolidation n\'annonce pas la fin de la hausse : c\'est une mesure du rythme passé.</li><li><b>Plus haut</b> : écart avec le plus haut des 52 dernières semaines. Les premières sociétés sont souvent près de leur plus haut : c\'est ce qui marche le mieux dans nos données. Pour attendre un meilleur prix, utilisez le plan d\'entrée de la fiche ou le filtre « ↘️ En repli ».</li>' +
-      '<li><b>🚀 Sortie de base</b> : nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut 6 mois plus tôt. C\'est le seul signal de début de hausse qui a tenu dans nos tests (1,6 à 2,2 fois plus de hausses d\'au moins 40 % en 6 mois), mais il se trompe souvent : à surveiller, il ne compte pas dans la note.</li>' +
+      '<li><b>🚀 Sortie de base</b> : nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut 6 mois plus tôt. Seul, il apporte peu (hausse d\'au moins 40 % en 6 mois 1 fois sur 6 à 9, contre 1 sur 10). Avec une pente forte et un marché qui n\'est pas euphorique, c\'est 1 fois sur 4 à 5. À surveiller, il ne compte pas dans la note.</li>' +
       '<li><b>Écartées</b> : peu liquides, comptes en dégradation, dernier exercice en perte, bilan en détresse, ou cours parmi le tiers le plus faible du marché.</li></ul></details>';
     // barre de tri visible : critère + sens ; en-têtes du tableau cliquables sur grand écran
     h += '<div class="rsort" role="group" aria-label="Trier"><label for="r-sort">Trier par</label><select id="r-sort" data-rf="sort">' + Object.keys(RSORT).map(function (k) { return '<option value="' + k + '"' + (k === sk ? ' selected' : '') + '>' + RSORT[k][0] + '</option>'; }).join('') + '</select>' +
