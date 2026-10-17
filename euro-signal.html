@@ -129,6 +129,8 @@ table{border-collapse:collapse;width:100%}
 .rg.t-good .rg-t i{background:var(--good)}.rg.t-mid .rg-t i{background:var(--warn)}.rg.t-bad .rg-t i{background:var(--bad)}
 .rg-v{font:600 .9rem var(--mono);text-align:right;white-space:nowrap}.rg-v small{font-weight:400;color:var(--muted)}
 .linkbtn.suivn{display:block;text-align:left;font-size:1rem;padding:0;color:var(--ink);text-decoration:none}.linkbtn.suivn b{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.pick3b{list-style:none;cursor:pointer;display:block;text-align:center;font-weight:700;padding:10px 12px;border-radius:10px;background:var(--accent);color:var(--surface)}.pick3b::-webkit-details-marker{display:none}.pick3[open] .pick3b{margin-bottom:10px}
+.pick3l{padding-left:1.2em;margin:8px 0}.pick3l li{margin:8px 0;cursor:pointer}.pick3l small{display:block;color:var(--muted)}
 .weekc .weekl{margin:6px 0 0;padding-left:1.2em}.weekc .weekl li{margin:6px 0}.psyfold>section.card{border:0;box-shadow:none;background:none;padding:0;margin:10px 0 0}
 .psy .psyh{margin:4px 0 6px}.psy .psyi{font-size:1.3rem;margin-right:4px}
 .psyline{width:100%;height:56px;display:block;margin:6px 0 0;background:var(--sunk);border-radius:4px}
@@ -3735,6 +3737,31 @@ details.pos summary{font-size:1rem}
   };
   ES.RANK_JUMP_UP = 2.5; ES.RANK_JUMP_DOWN = 0.35;
   /**
+   * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
+   * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
+   * au moins 3 M€ échangés par jour ; par note décroissante, une seule par secteur. Renvoie { picks, rejected, pool }.
+   */
+  ES.pickThree = function (rows, opt) {
+    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6 }, opt || {});
+    var secOf = function (r) { return r.secEn || r.sector || '?'; };
+    var why = function (r) {
+      if (r.out && r.out.length) return 'écartée';
+      if (r.acc !== 'good') return 'comptes pas solides ou pas encore lus';
+      if (r.sc !== 'strong') return r.sc === 'mid' ? 'pente seulement moyenne' : 'pente légère ou pas de tendance';
+      if (r.mom == null || r.mom < o.momMin) return 'hausse sur 12 mois inférieure à +' + o.momMin + ' %';
+      if (r.mom > o.momMax) return 'déjà plus de +' + o.momMax + ' % sur 12 mois (chutes plus fréquentes)';
+      if ((r.liq || 0) < o.liqMin) return 'moins de ' + o.liqMin / 1e6 + ' M€ échangés par jour';
+      return null;
+    };
+    var pool = [], rejected = [];
+    (rows || []).forEach(function (r) { var w = why(r); if (w) { if (!r.out || !r.out.length) rejected.push({ r: r, why: w }); } else pool.push(r); });
+    pool.sort(function (a, b) { return b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); });
+    var picks = [], seen = {};
+    pool.forEach(function (r) { if (picks.length < o.n && !seen[secOf(r)]) { seen[secOf(r)] = 1; picks.push(r); } else if (picks.indexOf(r) < 0) rejected.push({ r: r, why: seen[secOf(r)] ? 'même secteur qu\'une société mieux notée' : 'au-delà des ' + o.n + ' premières' }); });
+    rejected.sort(function (a, b) { return b.r.note - a.r.note; });
+    return { picks: picks, rejected: rejected, pool: pool.length };
+  };
+  /**
    * Classe de pente d'un canal haussier (rythme annuel de la régression sur 6 mois), seulement si la tendance de fond est haussière.
    * Seuils : +100 %/an (soit +41 % en 6 mois) et +30 %/an (+14 % en 6 mois).
    * Test historique (excès sur la société moyenne, 6 mois) : ≥ +100 %/an +4 points (5 et 8 ans), +30 à +100 % +1 à +2, < +30 % ≈ 0 ;
@@ -4886,8 +4913,27 @@ details.pos summary{font-size:1rem}
     var mk = rg === 'high' ? ['😃', 'Marché euphorique', 'étalez vos achats ; les sorties de base marchent mal dans ce climat'] : rg === 'low' ? ['😟', 'Marché pessimiste', 'bon moment historiquement pour entrer, surtout sur les sorties de base 🚀'] : rg === 'mid' ? ['😐', 'Marché neutre', 'conditions normales, sorties de base 🚀 favorables'] : ['❔', 'Marché', 'état indisponible'];
     return '<section class="card weekc"><h3>🧭 Cette semaine</h3><ol class="weekl">' +
       '<li><b>' + mk[0] + ' ' + mk[1] + '</b>' + (N ? ' <span class="muted">(' + fmtN(N.up, 0) + ' % des sociétés en hausse)</span>' : '') + ' : ' + esc(mk[2]) + '.</li>' +
-      '<li><b>À étudier :</b> ' + (sel.length ? 'la sélection ci-dessous (' + sel.length + ' société' + (sel.length > 1 ? 's' : '') + ')' : 'aucune société ne passe le seuil de la sélection') + (brkStrong ? ', et <button class="linkbtn" data-a="weekBrk">' + brkStrong + ' sortie' + (brkStrong > 1 ? 's' : '') + ' de base 🚀 en pente forte</button>' : '') + '.</li>' +
+      '<li><b>À étudier :</b> <button class="linkbtn" data-a="pick3">🎯 les 3 des règles testées</button>, ' + (sel.length ? 'la sélection ci-dessous (' + sel.length + ' société' + (sel.length > 1 ? 's' : '') + ')' : 'aucune société ne passe le seuil de la sélection') + (brkStrong ? ', et <button class="linkbtn" data-a="weekBrk">' + brkStrong + ' sortie' + (brkStrong > 1 ? 's' : '') + ' de base 🚀 en pente forte</button>' : '') + '.</li>' +
       '<li><b>Après l\'achat :</b> garder 6 mois, protection à −30 % seulement (64 % de positions gagnantes sur 8 ans, contre 45 à 52 % avec des stops serrés). « Je l\'ai acheté » sur la fiche vous le rappelle par email.</li></ol></section>';
+  }
+  /** Bouton « Choisir 3 sociétés » : les règles testées appliquées au classement du soir (ES.pickThree). */
+  function pick3Card() {
+    var R = rankData(); if (!R) return '';
+    var P = ES.pickThree(R.rows || []), rg = R.breadth && R.breadth.now ? R.breadth.now.regime : null;
+    var plan = function (r) { var o = r.plan && PLANS.filter(function (x) { return x[0] === r.plan.v; })[0]; return o ? o[1] : null; };
+    var h = '<details class="card pick3" data-k="pick3"><summary class="pick3b">🎯 Choisir 3 sociétés selon les règles testées</summary>';
+    h += '<p class="small">Classées, comptes solides, ⬆⬆ pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; puis les meilleures notes, <b>une seule par secteur</b>. ' + P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' ces filtres ce soir.</p>';
+    if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
+    if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
+    else h += '<ol class="pick3l">' + P.picks.map(function (r) {
+      var pl = plan(r);
+      return '<li class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· ' + r.note + '/100</span>' +
+        '<small>' + esc([r.sector, '12\u00a0mois ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', 'pente +' + r.slope6 + '\u00a0%/6\u00a0mois', r.ratio != null ? (r.ratio >= 99.5 ? 'au plus haut' : Math.round(r.ratio - 100) + '\u00a0% du plus haut') : null].filter(Boolean).join(' · ')) + '</small>' +
+        (pl ? '<small>' + esc(pl) + ((r.liq || 0) < 5e6 ? ' · 💧 peu liquide : ordres à cours limité' : '') + '</small>' : '') + '</li>';
+    }).join('') + '</ol>';
+    h += '<p class="small"><b>Ensuite :</b> des lignes de taille égale, achat en une ou deux fois, garder 6 mois avec une protection à −30 %, puis refaire le point. Touchez une société puis « Je l\'ai acheté » pour le rappel par email. Sur 8 ans : 64 % de positions gagnantes à 6 mois, mais le marché n\'a été battu qu\'une fois sur deux.</p>';
+    if (P.rejected.length) h += '<details class="xpi"><summary>Pourquoi pas les autres ?</summary><ul class="plain small">' + P.rejected.slice(0, 10).map(function (x) { return '<li><b>' + esc(x.r.name) + '</b> (' + x.r.note + ') : ' + esc(x.why) + '</li>'; }).join('') + '</ul></details>';
+    return h + '<p class="foot">Application automatique de règles testées, pas un conseil en investissement.</p></details>';
   }
   function rankQuick() {
     return {
@@ -4951,7 +4997,7 @@ details.pos summary{font-size:1rem}
     var h = '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
     var rstat = function (label, big, small, v, kind) { var on = f.v === v; return '<button class="stat ' + (kind || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfV" data-v="' + v + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; };
     h += '<section class="summary">' + rstat('En tête 🟢', String(cv.top || 0), 'note ≥ ' + (RC.top || 80), 'top', cv.top ? 'good' : '') + rstat('Solides 🟡', String(cv.good || 0), 'note ' + (RC.good || 65) + ' à ' + ((RC.top || 80) - 1), 'good', 'warn') + '</section>';
-    h += weekCard() + rankSelCard();
+    h += weekCard() + pick3Card() + rankSelCard();
     var psy = psyCard(); if (psy) h += '<details class="card fold psyfold" data-k="psy"><summary>🧠 Psychologie du marché <span class="muted">· détail et historique</span></summary>' + psy + '</details>';
     // filtres rapides, avec le nombre de résultats si l'on coche ce filtre en plus des autres
     var pool = rows.filter(function (r) { return base(r) && plf(r); });
@@ -6498,6 +6544,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'rfDir') { S.rf = S.rf || {}; var dsk = RSORT[S.rf.sort] ? S.rf.sort : 'note', cur0 = S.rf.dir || (dsk === 'name' ? 'asc' : 'desc'); S.rf.dir = cur0 === 'asc' ? 'desc' : 'asc'; S.limit = 50; var yd = window.scrollY; render(); window.scrollTo(0, yd); }
     else if (a === 'rfSort') { S.rf = S.rf || {}; var nk = el.dataset.v, ck = RSORT[S.rf.sort] ? S.rf.sort : 'note'; if (nk === ck) { var c1 = S.rf.dir || (ck === 'name' ? 'asc' : 'desc'); S.rf.dir = c1 === 'asc' ? 'desc' : 'asc'; } else { S.rf.sort = nk; S.rf.dir = nk === 'name' ? 'asc' : 'desc'; } S.limit = 50; var ys = window.scrollY; render(); window.scrollTo(0, ys); }
     else if (a === 'rfBrk') { S.rf = S.rf || {}; S.rf.brk = !S.rf.brk; S.limit = 50; var ybk = window.scrollY; render(); window.scrollTo(0, ybk); }
+    else if (a === 'pick3') { S.openDet = S.openDet || {}; S.openDet.pick3 = true; render(); var pc3 = document.querySelector('.pick3'); if (pc3) pc3.scrollIntoView({ block: 'start' }); }
     else if (a === 'weekBrk') { S.rf = S.rf || {}; S.rf.brk = true; S.rf.slope = ['strong']; S.limit = 50; render(); var sb = document.querySelector('.slbar'); if (sb) sb.scrollIntoView({ block: 'start' }); }
     else if (a === 'rfSlope') { S.rf = S.rf || {}; var cs = Array.isArray(S.rf.slope) ? S.rf.slope : [], vs = el.dataset.v; S.rf.slope = vs === 'all' ? [] : cs.indexOf(vs) > -1 ? cs.filter(function (x) { return x !== vs; }) : cs.concat([vs]); S.limit = 50; var ysl = window.scrollY; render(); window.scrollTo(0, ysl); }
     else if (a === 'rfQuick') { S.rf = S.rf || {}; var cq = Array.isArray(S.rf.quick) ? S.rf.quick : [], vq = el.dataset.v; S.rf.quick = vq === 'all' ? [] : cq.indexOf(vq) > -1 ? cq.filter(function (x) { return x !== vq; }) : cq.concat([vq]); S.limit = 50; var yk = window.scrollY; render(); window.scrollTo(0, yk); }
