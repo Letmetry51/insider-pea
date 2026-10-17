@@ -92,18 +92,7 @@ await Promise.all(Array.from({ length: PAGES }, async () => {
       if (sw > W + 2) problem('débordement avec une police plus large', 'onglet ' + v, sw + ' px pour ' + W);
     } catch (e) { problem('onglet impossible à ouvrir', v, e.message.split('\n')[0]); }
   }
-  // classement principal : ancien classement (dirigeants) et fiches ouvertes depuis le classement tendance + comptes
-  try {
-    p.__where = 'ancien classement';
-    await p.goto(URL0); await p.waitForTimeout(2500);
-    const b = p.locator('[data-a="rankMode"][data-v="ins"]').first();
-    if (await b.count()) {
-      await b.click({ timeout: 5000 }); await p.waitForTimeout(800);
-      if (!(await p.locator('tr.rowlink').count())) problem('onglet sans contenu', 'ancien classement', 'aucune ligne');
-      judge(await inspect(p, 'ancien classement'), 'ancien classement', false); report.views++;
-      await p.locator('[data-a="rankMode"][data-v="rank"]').first().click({ timeout: 5000 }); await p.waitForTimeout(500);
-    } else if (main.rank) problem('onglet sans contenu', 'classement', 'bouton « ancien classement » absent');
-  } catch (e) { problem('onglet impossible à ouvrir', 'ancien classement', e.message.split('\n')[0]); }
+  // fiches ouvertes depuis le classement tendance + comptes (l'ancien classement « dirigeants » a été retiré de l'écran le 17/10/2026)
   const rk = (main.rank && main.rank.rows) || [];
   if (main.rank && !rk.filter((r) => !r.out.length).length) problem('classement vide', 'classement tendance + comptes', 'aucune société classée');
   for (const r of rk.filter((x) => !x.out.length).slice(0, 30)) {
