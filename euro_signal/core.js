@@ -3278,6 +3278,53 @@
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
     return rows;
   };
+
+  /**
+   * Trend Template de Minervini (clôtures journalières, un an au moins) : cours au-dessus des moyennes 50, 150 et 200 séances,
+   * MM50 > MM150 > MM200, MM200 en hausse sur un mois, cours au moins 30 % au-dessus du plus bas et à moins de 25 % du plus haut sur un an.
+   */
+  ES.trendTemplate = function (daily) {
+    var D = (daily || []).filter(function (v) { return v > 0; }), n = D.length;
+    if (n < 222) return null;
+    var avg = function (k, L) { var t = 0; for (var j = k - L + 1; j <= k; j++) t += D[j]; return t / L; };
+    var c = D[n - 1], m50 = avg(n - 1, 50), m150 = avg(n - 1, 150), m200 = avg(n - 1, 200), m200b = avg(n - 21, 200);
+    var y = D.slice(-252), hi = Math.max.apply(null, y), lo = Math.min.apply(null, y);
+    var rules = [c > m150 && c > m200, m150 > m200, m200 > m200b, m50 > m150 && m50 > m200, c > m50, c >= 1.3 * lo, c >= 0.75 * hi];
+    return { ok: rules.every(Boolean), n: rules.filter(Boolean).length, of: 7 };
+  };
+  /**
+   * Psychologie du marché, à partir des clôtures hebdomadaires de toutes les sociétés cotées (dates communes) :
+   * ampleur = part des sociétés en tendance de fond haussière (MM10 > MM40 semaines et cours > MM40), part au plus haut et au plus bas
+   * de l'année ; historique de l'ampleur et résultat moyen d'une société 3 et 6 mois plus tard selon le tiers d'ampleur.
+   */
+  ES.marketBreadth = function (dates, series, opts) {
+    opts = opts || {};
+    var keys = Object.keys(series || {}), nD = (dates || []).length, rows = [], H = [13, 26];
+    for (var t = 52; t < nD; t++) {
+      var up = 0, n = 0, hi = 0, lo = 0, fw = { 13: [], 26: [] };
+      keys.forEach(function (k) {
+        var p = series[k]; if (!(p[t] > 0)) return;
+        var w = []; for (var j = t - 51; j <= t; j++) if (p[j] > 0) w.push(p[j]);
+        if (w.length < 45) return;
+        var m40 = mean(w.slice(-40)), m10 = mean(w.slice(-10)), mx = Math.max.apply(null, w), mn = Math.min.apply(null, w);
+        n++; if (m10 > m40 && p[t] > m40) up++; if (p[t] >= mx * 0.98) hi++; if (p[t] <= mn * 1.02) lo++;
+        H.forEach(function (h) { if (t + h < nD && p[t + h] > 0) fw[h].push(clamp(p[t + h] / p[t] - 1, -0.6, 1.5)); });
+      });
+      if (n < (opts.minCross || 100)) continue;
+      rows.push({ d: dates[t], up: up / n, hi: hi / n, lo: lo / n, n: n, f13: fw[13].length > 50 ? mean(fw[13]) : null, f26: fw[26].length > 50 ? mean(fw[26]) : null });
+    }
+    if (!rows.length) return null;
+    var srt = rows.map(function (r) { return r.up; }).sort(function (a, b) { return a - b; }), c1 = srt[Math.floor(srt.length / 3)], c2 = srt[Math.floor(2 * srt.length / 3)];
+    var reg = function (r) { return r.up < c1 ? 'low' : r.up > c2 ? 'high' : 'mid'; }, out = { low: {}, mid: {}, high: {} };
+    ['low', 'mid', 'high'].forEach(function (g) {
+      var rr = rows.filter(function (r) { return reg(r) === g; });
+      H.forEach(function (h) { var v = rr.map(function (r) { return r['f' + h]; }).filter(function (x) { return x != null; }); out[g]['h' + h] = v.length ? { mean: +(mean(v) * 100).toFixed(1), weeks: v.length, pos: Math.round(v.filter(function (x) { return x > 0; }).length / v.length * 100) } : null; });
+    });
+    var last = rows[rows.length - 1], below = srt.filter(function (v) { return v < last.up; }).length;
+    return { now: { date: last.d, up: +(last.up * 100).toFixed(1), hi: +(last.hi * 100).toFixed(1), lo: +(last.lo * 100).toFixed(1), n: last.n, regime: reg(last), pct: Math.round(below / srt.length * 100) },
+      cuts: [+(c1 * 100).toFixed(1), +(c2 * 100).toFixed(1)], regimes: out, from: rows[0].d, to: last.d,
+      hist: rows.filter(function (r, k) { return k % 2 === 0 || k === rows.length - 1; }).map(function (r) { return [r.d, +(r.up * 100).toFixed(1), +(r.hi * 100).toFixed(1), +(r.lo * 100).toFixed(1)]; }) };
+  };
   /** Sélection de la semaine du classement : les N premières sociétés non écartées, aux comptes lus, dont la note atteint le seuil. */
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
