@@ -48,7 +48,7 @@ OK     valeur comptable : 645
 OK     secteur : 667
 OK     liquidité : 679
 OK     plan d'entrée : 665
-OK     déclarations (3 mois) : 3298 (+2 depuis le calcul précédent)
+OK     déclarations (3 mois) : 3298
 OK     sources à jour : 4
 OK     catalogue des sociétés cotées : 2995
 OK     classement (sociétés classées) : 436
