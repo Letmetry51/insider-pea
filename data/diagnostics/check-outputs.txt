@@ -1,7 +1,7 @@
 Contrôle des fichiers du 2026-10-17
 
 OK     euro-signal.json lisible
-OK     euro-signal.json : 8.6 Mo (limite 60)
+OK     euro-signal.json : 8.7 Mo (limite 60)
 OK     euro-signal-long.json : 3.5 Mo (limite 60)
 OK     euro-signal-state.json : 8.9 Mo (limite 60)
 OK     sectors.json : 0.6 Mo (limite 60)
@@ -25,9 +25,9 @@ OK     plans complets (verdict, scénario, figure, RSI/MACD) : 663 sur 665
 OK     0 plan(s) avec un rapport gain / risque absurde
 OK     répartition des verdicts : waitSupport 283, waitBreakout 317, buyNow 29, avoid 36
 OK     convergence notée pour 781 titres
-OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 668 titres sur 781 (50 % au moins)
-OK     valeur comptable et intrinsèque pour 661 titres sur 781 (50 % au moins)
-OK     tendance du secteur rattachée pour 668 titres
+OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 671 titres sur 781 (50 % au moins)
+OK     valeur comptable et intrinsèque pour 664 titres sur 781 (50 % au moins)
+OK     tendance du secteur rattachée pour 667 titres
 OK     étude historique du plan : 44863 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 2995 dans la liste de recherche (1 500 au moins)
@@ -35,23 +35,23 @@ OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusio
 OK     fiches des sociétés : 32 fichiers lisibles
 OK     secteurs : 92 groupes classés
 OK     secteurs à jour (2026-10-17)
-OK     classement tendance + comptes : 483 sociétés classées (200 au moins)
+OK     classement tendance + comptes : 436 sociétés classées (200 au moins)
 OK     cours du catalogue à jour pour le classement (2026-10-17)
 OK     étude de contrôle du classement : 366 semaines
-ALERTE comptes lus pour 106 des 483 sociétés classées (50 % au moins)
+OK     comptes lus pour 436 des 436 sociétés classées (50 % au moins)
 OK     notes du classement entre 0 et 100, chaque société nommée
 OK     sociétés suivies : 749
 OK     cours : 687
 OK     graphiques (cours 1 an) : 687
-OK     comptes annuels : 668
-OK     valeur comptable : 642
-OK     secteur : 668
+OK     comptes annuels : 671 (+3 depuis le calcul précédent)
+OK     valeur comptable : 645 (+3 depuis le calcul précédent)
+OK     secteur : 667 (-1 depuis le calcul précédent)
 OK     liquidité : 679
 OK     plan d'entrée : 665
 OK     déclarations (3 mois) : 3296
 OK     sources à jour : 4
 OK     catalogue des sociétés cotées : 2995
-OK     classement (sociétés classées) : 483
-OK     classement (comptes lus) : 569
+ALERTE baisse : classement (sociétés classées) 483 → 436 (−10 %) depuis le calcul précédent
+OK     classement (comptes lus) : 1150 (+581 depuis le calcul précédent)
 
 0 échec(s), 1 alerte(s)
