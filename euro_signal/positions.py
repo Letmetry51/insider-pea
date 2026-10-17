@@ -13,8 +13,10 @@ Chaque soir, ce script relit ces emails dans le dossier « Envoyés » (seuls le
 comptent), compare au dernier cours et vous écrit, une seule fois par événement :
   - objectif de hausse atteint ;
   - seuil de protection franchi ;
-  - signal de sortie : vente d'un dirigeant, MM50 repassée sous la MM200, recul de 20 % depuis le plus haut atteint
-    depuis votre achat.
+  - vente d'un dirigeant depuis votre achat ;
+  - rappel à 6 mois : sur 8 ans de cours (2018-2026), garder 6 mois les premières du classement a donné 64 % de gagnants ;
+    les sorties sur MM50 sous MM200, sur recul de 20 % depuis le plus haut ou sur stop serré (−15 %) en ont donné 45 à 52 %.
+    Ces deux signaux ne sont donc plus envoyés (test du 17/10/2026).
 L'unicité des envois est vérifiée dans votre dossier « Envoyés » (référence dans l'objet) : rien n'est stocké ailleurs.
 Le journal GitHub étant public, le script n'y écrit rien de personnel : ni ISIN, ni prix, ni adresse, ni même le nombre de positions.
 """
@@ -37,7 +39,8 @@ DATA = ROOT / "data"
 ISIN_RE = re.compile(r"\b([A-Z]{2}[A-Z0-9]{9}[0-9])\b")
 # sociétés du catalogue sans dossier Euro Signal (classement tendance + comptes) : symbole Yahoo, ex. « VOLV-B.ST »
 SYM_RE = re.compile(r"\]\s*(?:Position|Vente|Surveiller|Ne plus surveiller)\s+([A-Z0-9][A-Z0-9&-]{0,20}\.[A-Z]{1,3})\b")
-DRAWDOWN_PCT = 20
+DRAWDOWN_PCT = 20  # plus utilisé pour les alertes (voir l'en-tête)
+HOLD_DAYS = 182
 
 
 def pc(v):
@@ -207,14 +210,17 @@ def evaluate(pos, rows, stats, txs, today):
         ev.append(("obj" + str(int(pos["target"])), "objectif de +%d %% atteint (%s depuis votre achat)" % (pos["target"], pc(perf))))
     if pos.get("stop") and perf <= -abs(pos["stop"]):
         ev.append(("stop" + str(int(abs(pos["stop"]))), "seuil de protection de -%d %% franchi (%s depuis votre achat)" % (abs(pos["stop"]), pc(perf))))
-    if (stats or {}).get("deathCrossDate") and stats["deathCrossDate"] > pos["date"]:
-        ev.append(("mm" + stats["deathCrossDate"].replace("-", ""), "la MM50 est repassée sous la MM200 le " + stats["deathCrossDate"]))
     sells = [t for t in (txs or []) if t.get("type") == "vente" and t.get("status") != "annulee" and (t.get("pubDate") or t.get("txDate") or "") > pos["date"]]
     if sells:
         ev.append(("vente" + max((t.get("pubDate") or t.get("txDate")) for t in sells).replace("-", ""),
                    "un dirigeant a vendu depuis votre achat (" + ", ".join(((t.get("person") or "?") + " le " + (t.get("txDate") or "?")) for t in sells[:3]) + ")"))
-    if peak > buy and last / peak - 1 <= -DRAWDOWN_PCT / 100:
-        ev.append(("repli%d" % DRAWDOWN_PCT, "recul de %d %% depuis le plus haut atteint depuis votre achat" % round((1 - last / peak) * 100)))
+    try:
+        held = (today - date.fromisoformat(pos["date"][:10])).days
+    except (TypeError, ValueError):
+        held = 0
+    if held >= HOLD_DAYS:
+        ev.append(("6mois", "6 mois depuis votre achat (%s) : c'est l'horizon testé. Sur 8 ans, revendre à 6 mois a donné 64 %% de gagnants ; "
+                            "garder plus longtemps reste possible si la société est toujours en tête du classement" % pc(perf)))
     return ev, {"last": last, "perf": perf, "peak": peak}
 
 

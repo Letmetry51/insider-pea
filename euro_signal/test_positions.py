@@ -74,7 +74,7 @@ def _():
     assert P.watch_events(None, 10) == [] and P.watch_events(p, None) == []
 
 
-@case("Revente : objectif, protection, repli depuis le plus haut, vente d'un dirigeant")
+@case("Revente : objectif, protection, vente d'un dirigeant, rappel à 6 mois (plus d'alerte de repli ni de MM)")
 def _():
     pos = {"isin": "FR0000054470", "price": 10.0, "date": "2026-09-01", "target": 20, "stop": 10}
     rows = [["2026-09-%02d" % d, 0, 0, 0, 10 + d * 0.1, 0] for d in range(1, 31)]  # 10,1 → 13,0 : +30 %
@@ -83,7 +83,10 @@ def _():
     rows2 = rows + [["2026-10-01", 0, 0, 0, 8.9, 0]]
     ev2, _ = P.evaluate(pos, rows2, {}, [{"type": "vente", "status": "ok", "pubDate": "2026-09-20", "person": "X", "txDate": "2026-09-18"}], date(2026, 10, 2))
     k2 = {k for k, _ in ev2}
-    assert "stop10" in k2 and any(k.startswith("repli") for k in k2) and "vente20260920" in k2, k2
+    assert "stop10" in k2 and not any(k.startswith("repli") for k in k2) and "vente20260920" in k2 and "6mois" not in k2, k2
+    ev3, _ = P.evaluate(pos, rows2, {"deathCrossDate": "2026-09-25"}, [], date(2027, 3, 3))
+    k3 = {k for k, _ in ev3}
+    assert "6mois" in k3 and not any(k.startswith("mm") for k in k3), k3
     assert P.evaluate(pos, [], {}, [], date(2026, 10, 2)) == ([], None)
 
 
