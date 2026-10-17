@@ -131,6 +131,8 @@ table{border-collapse:collapse;width:100%}
 .psyline .psy-low{fill:var(--good-soft)}.psyline .psy-high{fill:var(--bad-soft)}
 .psyax{display:flex;justify-content:space-between;gap:6px;margin:2px 0 8px;font-size:.72rem}
 .psyg{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.psyc{padding:3px 9px;border-radius:12px;background:var(--sunk);font-size:.85rem;white-space:nowrap}.psyc b{font-family:var(--mono)}.psyc.on{background:var(--accent);color:var(--accent-ink)}
+.rsort{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 8px}.rsort label{font-weight:600;font-size:.9rem}.rsort select{flex:1;min-width:150px}
+.thsort{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:600;cursor:pointer}.thsort.on{color:var(--accent)}
 .rtab .rplan{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}
 .rcard .rhead{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin:4px 0 0}
 .rcard .rnote{font:700 2rem/1 var(--display)}
@@ -4837,6 +4839,18 @@ details.pos summary{font-size:1rem}
       belowBook: ['📘 Sous sa valeur comptable', function (r) { var v = rkVal(r), pb = r.pb != null ? r.pb : v && !v.na && !v.negEquity ? v.pb : null; return pb != null && pb > 0 && pb < 1; }]
     };
   }
+  /** Critères de tri du classement : [libellé, valeur] (valeur absente = en fin de liste). */
+  var RSORT = {
+    note: ['Note', function (r) { return r.note; }],
+    trend: ['📈 Points de tendance', function (r) { var p = r.parts || {}; return (p.mom || 0) + (p.high || 0) + (p.trend || 0); }],
+    acc: ['📊 Points de comptes', function (r) { return (r.parts || {}).accounts; }],
+    ins: ['👔 Points des dirigeants', function (r) { return (r.parts || {}).insiders; }],
+    mom: ['Hausse sur 12 mois', function (r) { return r.mom; }],
+    high: ['Écart au plus haut', function (r) { return r.ratio == null ? null : r.ratio - 100; }],
+    liq: ['Liquidité (échanges par jour)', function (r) { return r.liq; }],
+    f9: ['F-score', function (r) { return rkF9(r); }],
+    name: ['Nom', function (r) { return r.name || ''; }]
+  };
   function vClassement() {
     if ((S.rankMode || 'rank') === 'ins' || !rankData()) return (rankData() ? modeSeg() : '') + vInsRank();
     if (!S.cycle && !S.secLoaded) loadSectors();
@@ -4861,9 +4875,15 @@ details.pos summary{font-size:1rem}
     };
     var qf = function (r, skip) { return f.quick.every(function (k) { return k === skip || !Q[k] || Q[k][1](r); }); };
     var list = rows.filter(function (r) { return base(r) && qf(r) && plf(r); });
-    var SORT = { note: function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note; }, pull: function (a, b) { return (a.ratio == null ? 999 : a.ratio) - (b.ratio == null ? 999 : b.ratio) || b.note - a.note; },
-      mom: function (a, b) { return (b.mom == null ? -999 : b.mom) - (a.mom == null ? -999 : a.mom); }, liq: function (a, b) { return (b.liq || 0) - (a.liq || 0); }, name: function (a, b) { return (a.name || '').localeCompare(b.name || '', 'fr'); } };
-    list.sort(SORT[f.sort] || SORT.note);
+    // Tri sur chaque critère affiché, croissant ou décroissant (les sociétés sans valeur et les écartées restent en fin de liste)
+    var sk = RSORT[f.sort] ? f.sort : 'note', dir = f.dir === 'asc' ? 1 : f.dir === 'desc' ? -1 : (sk === 'name' ? 1 : -1), get = RSORT[sk][1];
+    list.sort(function (a, b) {
+      var o = (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0); if (o) return o;
+      var va = get(a), vb = get(b);
+      if (va == null || vb == null) return va == null && vb == null ? b.note - a.note : va == null ? 1 : -1;
+      var c = typeof va === 'string' ? va.localeCompare(vb, 'fr') : va - vb;
+      return c * dir || b.note - a.note;
+    });
     var ctry = {}, secs = {}, cv = {}; rows.forEach(function (r) { if (r.country) ctry[r.country] = 1; if (r.sector) secs[r.sector] = 1; cv[r.v] = (cv[r.v] || 0) + 1; });
     var C = R.counts || {}, RC = S.cfg.rank || {};
     var h = modeSeg() + '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
@@ -4878,12 +4898,12 @@ details.pos summary{font-size:1rem}
         var on = f.quick.indexOf(k) > -1, n = pool.filter(function (r) { return Q[k][1](r) && qf(r, k); }).length;
         return '<button class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '" data-a="rfQuick" data-v="' + k + '"><span class="box" aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + Q[k][0] + ' <span class="count">' + n + '</span></button>';
       }).join('') + (f.quick.length ? '<button data-a="rfQuick" data-v="all">Tout décocher</button>' : '') + '</div></details>';
-    var nSel = (f.country ? 1 : 0) + (f.sector ? 1 : 0) + (f.v ? 1 : 0) + (f.sort && f.sort !== 'note' ? 1 : 0);
-    h += '<details class="card fold ffold" data-k="rsel"' + (nSel ? ' open' : '') + '><summary>Pays, secteur, avis, tri' + (nSel ? ' <span class="chip good">' + nSel + '</span>' : '') + '</summary><div class="toolbar">' +
+    var nSel = (f.country ? 1 : 0) + (f.sector ? 1 : 0) + (f.v ? 1 : 0);
+    h += '<details class="card fold ffold" data-k="rsel"' + (nSel ? ' open' : '') + '><summary>Pays, secteur, avis' + (nSel ? ' <span class="chip good">' + nSel + '</span>' : '') + '</summary><div class="toolbar">' +
       '<select data-rf="country" aria-label="Pays"><option value="">Tous les pays</option>' + Object.keys(ctry).sort().map(function (c) { return '<option value="' + c + '"' + (f.country === c ? ' selected' : '') + '>' + flagTxt(c) + (COUNTRIES[c] || c) + '</option>'; }).join('') + '</select>' +
       '<select data-rf="sector" aria-label="Secteur"><option value="">Tous les secteurs</option>' + Object.keys(secs).sort(function (a, b) { return a.localeCompare(b, 'fr'); }).map(function (c) { return '<option value="' + esc(c) + '"' + (f.sector === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select>' +
       '<select data-rf="v" aria-label="Avis"><option value="">Classées (sans les écartées)</option>' + ['top', 'good', 'mid', 'out'].map(function (k) { return '<option value="' + k + '"' + (f.v === k ? ' selected' : '') + '>' + RV[k][0] + ' ' + RV[k][1] + ' (' + (cv[k] || 0) + ')</option>'; }).join('') + '</select>' +
-      '<select data-rf="sort" aria-label="Tri">' + [['note', 'Trier par note'], ['pull', 'Trier par repli depuis le plus haut'], ['mom', 'Trier par hausse sur 12 mois'], ['liq', 'Trier par liquidité'], ['name', 'Trier par nom']].map(function (o) { return '<option value="' + o[0] + '"' + ((f.sort || 'note') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div></details>';
+'</div></details>';
     // figure, plan d'entrée, repères de timing
     var cf = {}, cp = {}, ct = {}, pool2 = rows.filter(function (r) { return base(r) && qf(r); });
     pool2.forEach(function (r) { var p = r.plan; if (!p) return; cf[p.f || 'none'] = (cf[p.f || 'none'] || 0) + 1; cp[p.v] = (cp[p.v] || 0) + 1; (p.t || []).forEach(function (k) { ct[k] = (ct[k] || 0) + 1; }); });
@@ -4899,7 +4919,11 @@ details.pos summary{font-size:1rem}
       '<li><b>Note /100</b> et ses pastilles : <span class="rpill t-good">📈 <b>70<small>/75</small></b></span> tendance (dont la force sur 12 mois, le critère le plus fiable), <span class="rpill t-good">📊 <b>20<small>/20</small></b></span> comptes, <span class="rpill t-good">👔 <b>+3</b></span> dirigeants. Vert : bon, orange : moyen, rouge : faible.</li>' +
       '<li><b>12 mois</b> : hausse ou baisse sur un an (hors dernier mois) et rang parmi les sociétés liquides.</li><li><b>Plus haut</b> : écart avec le plus haut des 52 dernières semaines. Les premières sociétés sont souvent près de leur plus haut : c\'est ce qui marche le mieux dans nos données. Pour attendre un meilleur prix, utilisez le plan d\'entrée de la fiche ou le filtre « ↘️ En repli ».</li>' +
       '<li><b>Écartées</b> : peu liquides, comptes en dégradation, dernier exercice en perte, bilan en détresse, ou cours parmi le tiers le plus faible du marché.</li></ul></details>';
-    h += '<div class="tablewrap"><table class="grid cards rtab"><thead><tr><th>Société</th><th class="num">Note</th><th class="num">12 mois</th><th class="num">Plus haut</th><th>Avis</th></tr></thead><tbody>';
+    // barre de tri visible : critère + sens ; en-têtes du tableau cliquables sur grand écran
+    h += '<div class="rsort" role="group" aria-label="Trier"><label for="r-sort">Trier par</label><select id="r-sort" data-rf="sort">' + Object.keys(RSORT).map(function (k) { return '<option value="' + k + '"' + (k === sk ? ' selected' : '') + '>' + RSORT[k][0] + '</option>'; }).join('') + '</select>' +
+      '<button class="ghost" data-a="rfDir" aria-label="Inverser l\'ordre" title="Inverser l\'ordre">' + (dir < 0 ? '↓ décroissant' : '↑ croissant') + '</button></div>';
+    var th = function (k, label, cls) { var on = sk === k; return '<th' + (cls ? ' class="' + cls + '"' : '') + '><button class="thsort' + (on ? ' on' : '') + '" data-a="rfSort" data-v="' + k + '">' + label + (on ? (dir < 0 ? ' ↓' : ' ↑') : '') + '</button></th>'; };
+    h += '<div class="tablewrap"><table class="grid cards rtab"><thead><tr>' + th('name', 'Société') + th('note', 'Note', 'num') + th('mom', '12 mois', 'num') + th('high', 'Plus haut', 'num') + '<th>Avis</th></tr></thead><tbody>';
     list.slice(0, S.limit).forEach(function (r) {
       var pl = r.plan, P = pl ? PLANS.filter(function (o) { return o[0] === pl.v; })[0] : null, F = pl && pl.f && ES.FIGURES[pl.f];
       h += '<tr class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><td class="c-name"><b>' + flag(r.country) + esc(r.name) + '</b><small>' + esc([r.sym, r.sector].filter(Boolean).join(' · ')) + '</small>' +
@@ -6395,6 +6419,8 @@ details.pos summary{font-size:1rem}
       if (fromRank) S.secFrom = 'classement';
       S.secSym = el.dataset.v; S.view = 'secco'; S.ficheFrom = null; render(); window.scrollTo(0, 0); }
     else if (a === 'rankMode') { S.rankMode = el.dataset.v === 'ins' ? 'ins' : 'rank'; S.limit = 50; try { localStorage.setItem('es-rankmode', S.rankMode); } catch (e) { } render(); }
+    else if (a === 'rfDir') { S.rf = S.rf || {}; var dsk = RSORT[S.rf.sort] ? S.rf.sort : 'note', cur0 = S.rf.dir || (dsk === 'name' ? 'asc' : 'desc'); S.rf.dir = cur0 === 'asc' ? 'desc' : 'asc'; S.limit = 50; var yd = window.scrollY; render(); window.scrollTo(0, yd); }
+    else if (a === 'rfSort') { S.rf = S.rf || {}; var nk = el.dataset.v, ck = RSORT[S.rf.sort] ? S.rf.sort : 'note'; if (nk === ck) { var c1 = S.rf.dir || (ck === 'name' ? 'asc' : 'desc'); S.rf.dir = c1 === 'asc' ? 'desc' : 'asc'; } else { S.rf.sort = nk; S.rf.dir = nk === 'name' ? 'asc' : 'desc'; } S.limit = 50; var ys = window.scrollY; render(); window.scrollTo(0, ys); }
     else if (a === 'rfQuick') { S.rf = S.rf || {}; var cq = Array.isArray(S.rf.quick) ? S.rf.quick : [], vq = el.dataset.v; S.rf.quick = vq === 'all' ? [] : cq.indexOf(vq) > -1 ? cq.filter(function (x) { return x !== vq; }) : cq.concat([vq]); S.limit = 50; var yk = window.scrollY; render(); window.scrollTo(0, yk); }
     else if (a === 'rfFig' || a === 'rfPlan' || a === 'rfTim') { S.rf = S.rf || {}; var kk = a === 'rfFig' ? 'figures' : a === 'rfPlan' ? 'plans' : 'timing', ar = Array.isArray(S.rf[kk]) ? S.rf[kk].slice() : [], ix2 = ar.indexOf(el.dataset.v); if (ix2 > -1) ar.splice(ix2, 1); else ar.push(el.dataset.v); S.rf[kk] = ar; S.limit = 50; var yr2 = window.scrollY; render(); window.scrollTo(0, yr2); }
     else if (a === 'rfFClear') { S.rf.figures = []; S.rf.plans = []; S.rf.timing = []; S.limit = 50; var yc2 = window.scrollY; render(); window.scrollTo(0, yc2); }
@@ -6432,7 +6458,7 @@ details.pos summary{font-size:1rem}
   document.addEventListener('change', function (ev) {
     var t = ev.target;
     if (t.dataset.f) { S.filters[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; S.limit = 50; render(); return; }
-    if (t.dataset.rf && t.dataset.rf !== 'q') { S.rf = S.rf || {}; S.rf[t.dataset.rf] = t.value; S.limit = 50; render(); return; }
+    if (t.dataset.rf && t.dataset.rf !== 'q') { S.rf = S.rf || {}; S.rf[t.dataset.rf] = t.value; if (t.dataset.rf === 'sort') S.rf.dir = t.value === 'name' ? 'asc' : 'desc'; S.limit = 50; render(); return; }
     if (t.dataset.tf && t.dataset.tf !== 'q') { S.txFilter[t.dataset.tf] = t.value; S.limit = 50; render(); }
   });
   document.addEventListener('input', function (ev) {
