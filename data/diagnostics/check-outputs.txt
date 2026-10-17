@@ -1,7 +1,7 @@
 Contrôle des fichiers du 2026-10-17
 
 OK     euro-signal.json lisible
-OK     euro-signal.json : 8.5 Mo (limite 60)
+OK     euro-signal.json : 8.6 Mo (limite 60)
 OK     euro-signal-long.json : 3.5 Mo (limite 60)
 OK     euro-signal-state.json : 8.9 Mo (limite 60)
 OK     sectors.json : 0.6 Mo (limite 60)
