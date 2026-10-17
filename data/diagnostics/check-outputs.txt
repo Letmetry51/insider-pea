@@ -43,15 +43,15 @@ OK     notes du classement entre 0 et 100, chaque société nommée
 OK     sociétés suivies : 749
 OK     cours : 687
 OK     graphiques (cours 1 an) : 687
-OK     comptes annuels : 671 (+3 depuis le calcul précédent)
-OK     valeur comptable : 645 (+3 depuis le calcul précédent)
-OK     secteur : 667 (-1 depuis le calcul précédent)
+OK     comptes annuels : 671
+OK     valeur comptable : 645
+OK     secteur : 667
 OK     liquidité : 679
 OK     plan d'entrée : 665
-OK     déclarations (3 mois) : 3296
+OK     déclarations (3 mois) : 3298 (+2 depuis le calcul précédent)
 OK     sources à jour : 4
 OK     catalogue des sociétés cotées : 2995
-ALERTE baisse : classement (sociétés classées) 483 → 436 (−10 %) depuis le calcul précédent
-OK     classement (comptes lus) : 1150 (+581 depuis le calcul précédent)
+OK     classement (sociétés classées) : 436
+OK     classement (comptes lus) : 1150
 
-0 échec(s), 1 alerte(s)
+0 échec(s), 0 alerte(s)

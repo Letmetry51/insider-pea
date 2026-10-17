@@ -112216,6 +112216,52 @@
    "numberLocale": "auto",
    "linkedTo": null,
    "collectedAt": "2026-10-17"
+  },
+  "FI:2026-10-16-krona_public_real_estate_ab-krona_bidco_ab-SE0015657895-44.0-23.0-2026-10-17": {
+   "registry": "FI",
+   "country": "SE",
+   "id": "2026-10-16-krona_public_real_estate_ab-krona_bidco_ab-SE0015657895-44.0-23.0-2026-10-17",
+   "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=Krona%20Public%20Real%20Estate%20AB&PersonILedandeSt%C3%A4llningNamn=Tomas%20Georgiadis&Transaktionsdatum.From=2026-10-16&Transaktionsdatum.To=2026-10-16",
+   "via": "fi.se",
+   "published": "2026-10-17",
+   "issuer": "Krona Public Real Estate AB",
+   "person": "Krona BidCo AB",
+   "role": "Member of the Board of Directors (closely associated person, linked to Tomas Georgiadis)",
+   "isin": "SE0015657895",
+   "instrument": "Share",
+   "nature": "Acquisition",
+   "txDate": "2026-10-16",
+   "currency": "SEK",
+   "quantity": "23.0",
+   "price": "44.0",
+   "amount": null,
+   "place": "SPOTLIGHT STOCK MARKET",
+   "numberLocale": "auto",
+   "linkedTo": "Tomas Georgiadis",
+   "collectedAt": "2026-10-17"
+  },
+  "FI:2026-10-16-krona_public_real_estate_ab-krona_bidco_ab-SE0015657895-44.0-6000.0-2026-10-17": {
+   "registry": "FI",
+   "country": "SE",
+   "id": "2026-10-16-krona_public_real_estate_ab-krona_bidco_ab-SE0015657895-44.0-6000.0-2026-10-17",
+   "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=Krona%20Public%20Real%20Estate%20AB&PersonILedandeSt%C3%A4llningNamn=Tomas%20Georgiadis&Transaktionsdatum.From=2026-10-16&Transaktionsdatum.To=2026-10-16",
+   "via": "fi.se",
+   "published": "2026-10-17",
+   "issuer": "Krona Public Real Estate AB",
+   "person": "Krona BidCo AB",
+   "role": "Member of the Board of Directors (closely associated person, linked to Tomas Georgiadis)",
+   "isin": "SE0015657895",
+   "instrument": "Share",
+   "nature": "Acquisition",
+   "txDate": "2026-10-16",
+   "currency": "SEK",
+   "quantity": "6000.0",
+   "price": "44.0",
+   "amount": null,
+   "place": "SPOTLIGHT STOCK MARKET",
+   "numberLocale": "auto",
+   "linkedTo": "Tomas Georgiadis",
+   "collectedAt": "2026-10-17"
   }
  },
  "sources": {
@@ -112257,8 +112303,8 @@
    "via": "fi.se (export CSV officiel, registre Insynshandel)",
    "lastAttempt": "2026-10-17",
    "status": "ok",
-   "rows": 267,
-   "kept": 250,
+   "rows": 269,
+   "kept": 252,
    "note": null,
    "lastSuccess": "2026-10-17",
    "backfilled": true
@@ -112355,5 +112401,5 @@
    "https://www.fsma.be/en/manager-transaction/xior-2"
   ]
  },
- "generated_at": "2026-10-17T13:59:59.014823+00:00"
+ "generated_at": "2026-10-17T16:07:02.735959+00:00"
 }
