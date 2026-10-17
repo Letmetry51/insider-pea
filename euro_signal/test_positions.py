@@ -101,6 +101,17 @@ def _():
     assert P.shard_of("VU.PA") == P.shard_of("VU.PA") and 0 <= P.shard_of("VOLV-B.ST") < 32
 
 
+@case("Plan surveillé d'une société du catalogue : email « Surveiller SYMBOLE » lu, repères du classement utilisables")
+def _():
+    w = P.parse_position("[Euro Signal] Surveiller OMV.VI", "Société : OMV\nSymbole : OMV.VI", "2026-10-17T10:00:00+00:00")
+    assert w and w["kind"] == "surveiller" and w["isin"] == "OMV.VI", w
+    pw = {"v": "waitBreakout", "label": "Attendre une cassure", "p": {"key": "breakout", "trigger": 52.1, "entry": 52.3, "level": 51.8, "stop": 48.0, "zoneLo": None, "zoneHi": None}, "w": {"type": "rising", "upperNow": 55.0}}
+    plan = {"verdict": pw["v"], "label": pw["label"], "primary": pw["p"], "wedge": pw["w"]}
+    keys = [k for k, _ in P.watch_events(plan, 52.5)]
+    assert any(k.startswith("cassure") for k in keys), keys
+    assert any(k.startswith("stop") for k, _ in P.watch_events(plan, 47.0))
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

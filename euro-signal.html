@@ -5222,13 +5222,13 @@ details.pos summary{font-size:1rem}
     return h;
   }
   function watchMail(i, on) {
-    var x = S.inst[i], e = document.getElementById('watch-email'), to = e ? String(e.value || '').trim() : lsGet('email', '');
+    var x = S.inst[i] || (S.secCo && S.secCo.items && S.secCo.items[i]) || null, e = document.getElementById('watch-email'), to = e ? String(e.value || '').trim() : lsGet('email', '');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { notify('Indiquez votre adresse Gmail (celle configurée dans Euro Signal).', 'warn'); return; }
     lsSet('email', to);
     lsSet('watch.' + i, on ? S.today : '');
-    var link = location.origin + location.pathname + '#' + i;
+    var link = location.origin + location.pathname + '#' + (ES.isValidIsin(i) ? i : 'co=' + encodeURIComponent(i));
     var subject = '[Euro Signal] ' + (on ? 'Surveiller ' : 'Ne plus surveiller ') + i;
-    var body = 'Société : ' + (x && x.name || i) + '\nISIN : ' + i + '\nDate : ' + S.today + '\n\n(' + (on ? 'Euro Signal vous préviendra quand le plan d\'entrée se déclenche. Pour arrêter : bouton « Ne plus surveiller » dans la fiche ou dans Alertes > Mes suivis : ' + link : 'Fin de la surveillance du plan d\'entrée.') + ' Email lu automatiquement chaque soir. Ne pas modifier l\'objet.)';
+    var body = 'Société : ' + (x && x.name || i) + (ES.isValidIsin(i) ? '\nISIN : ' : '\nSymbole : ') + i + '\nDate : ' + S.today + '\n\n(' + (on ? 'Euro Signal vous préviendra quand le plan d\'entrée se déclenche. Pour arrêter : bouton « Ne plus surveiller » dans la fiche ou dans Alertes > Mes suivis : ' + link : 'Fin de la surveillance du plan d\'entrée.') + ' Email lu automatiquement chaque soir. Ne pas modifier l\'objet.)';
     if (!window.__esMailHook) setTimeout(render, 300);
     var url = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
     if (window.__esMailHook) { window.__esMailHook(url); return; }
@@ -5458,10 +5458,10 @@ details.pos summary{font-size:1rem}
       if (lines) histH = '<p class="sp-cap">60 séances plus tard. Plan recalculé chaque semaine du ' + shortDate(PS.from) + ' au ' + shortDate(PS.to) + ' avec les seuls cours connus ce jour-là, frais inclus. Le trait fin marque zéro ou 50 %.</p>' + lines;
     }
     var em = lsGet('email', '');
-    var wd = inEs ? lsGet('watch.' + isin, '') : '';
-    var watchH = inEs && wd ? '<details class="watch" open><summary>🔔 Plan surveillé depuis le ' + shortDate(wd) + '</summary><p class="small">Email : entrée en zone d\'achat, cassure, ou passage sous le stop.</p>' +
+    var wd = lsGet('watch.' + isin, ''); // fiches Euro Signal (ISIN) et fiches du catalogue (symbole Yahoo)
+    var watchH = wd ? '<details class="watch" open><summary>🔔 Plan surveillé depuis le ' + shortDate(wd) + '</summary><p class="small">Email : entrée en zone d\'achat, cassure, ou passage sous le stop.</p>' +
       '<div class="row"><input id="watch-email" type="email" autocomplete="email" value="' + esc(em) + '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button class="ghost" data-a="watchOff" data-i="' + esc(isin) + '">Ne plus surveiller</button></div></details>'
-      : inEs ? '<details class="watch"><summary>🔔 Me prévenir pour ce plan</summary><p class="small">Email : entrée en zone d\'achat, cassure, ou passage sous le stop.</p>' +
+      : isin ? '<details class="watch"><summary>🔔 Me prévenir pour ce plan</summary><p class="small">Email : entrée en zone d\'achat, cassure, ou passage sous le stop.</p>' +
       '<div class="row"><input id="watch-email" type="email" autocomplete="email" value="' + esc(em) + '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button data-a="watchOn" data-i="' + esc(isin) + '">Surveiller</button><button class="ghost" data-a="watchOff" data-i="' + esc(isin) + '">Ne plus surveiller</button></div></details>' : '';
     var adv = inEs && S.inst[isin].stats ? S.inst[isin].stats.adv20Eur : null;
     var liqH = adv != null && adv < 2e5 ? '<p class="small liqw">⚠️ <b>Très peu échangé</b> (' + ES.fmtEur(adv) + ' par jour) : niveaux fragiles, ordres à cours limité.</p>' : '';
@@ -5901,8 +5901,8 @@ details.pos summary{font-size:1rem}
   /** Positions et plans surveillés depuis ce navigateur (rien n'est publié : la liste vit sur cet appareil). */
   function mySuivis() {
     var pos = [], wat = [];
-    try { for (var k = 0; k < window.localStorage.length; k++) { var key = window.localStorage.key(k), m = /^es\.(open|watch)\.([A-Z]{2}[A-Z0-9]{9}[0-9])$/.exec(key || ''); if (m && window.localStorage.getItem(key)) (m[1] === 'open' ? pos : wat).push([m[2], window.localStorage.getItem(key)]); } } catch (e) { }
-    var row = function (x, extra) { var n = (S.inst[x[0]] || {}).name || x[0]; return '<li><div><b>' + esc(n) + '</b><small>' + extra + '</small></div><span class="row-btn"><button class="ghost small" data-a="open" data-i="' + esc(x[0]) + '">Fiche</button>' + (x.btn || '') + '</span></li>'; };
+    try { for (var k = 0; k < window.localStorage.length; k++) { var key = window.localStorage.key(k), m = /^es\.(open|watch)\.([A-Z0-9][A-Z0-9.&-]{1,24})$/.exec(key || ''); if (m && window.localStorage.getItem(key)) (m[1] === 'open' ? pos : wat).push([m[2], window.localStorage.getItem(key)]); } } catch (e) { }
+    var row = function (x, extra) { var es = ES.isValidIsin(x[0]), rk = es ? null : rankOf(null, x[0]), n = (S.inst[x[0]] || rk || {}).name || x[0]; return '<li><div><b>' + esc(n) + '</b><small>' + extra + '</small></div><span class="row-btn"><button class="ghost small" ' + (es ? 'data-a="open" data-i="' + esc(x[0]) + '"' : 'data-a="secCo" data-v="' + esc(x[0]) + '" data-from="rank"') + '>Fiche</button>' + (x.btn || '') + '</span></li>'; };
     var h = '<section class="card"><h3>🔔 Mes suivis</h3>';
     h += '<p class="small"><b>Plans d\'entrée surveillés</b></p>' + (wat.length ? '<ul class="evs">' + wat.map(function (x) { x.btn = ' <button class="small" data-a="watchOff" data-i="' + esc(x[0]) + '">Ne plus surveiller</button>'; return row(x, 'surveillé depuis le ' + shortDate(x[1])); }).join('') + '</ul>' : '<p class="muted small">Aucun depuis cet appareil.</p>');
     h += '<p class="small"><b>Positions suivies pour la revente</b></p>' + (pos.length ? '<ul class="evs">' + pos.map(function (x) { return row(x, 'bouton « Je l\'ai vendu » dans la fiche pour arrêter'); }).join('') + '</ul>' : '<p class="muted small">Aucune depuis cet appareil.</p>');

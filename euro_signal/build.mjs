@@ -945,7 +945,7 @@ export function build(opts = {}) {
     const slimRow = (r) => ({ key: r.key, isin: r.isin, sym: r.sym, name: r.name, country: r.country, sector: r.sector, note: r.note, parts: r.parts, v: r.verdict.key, out: r.out, why: r.why, warn: r.warn,
       mom: r.mom != null ? +(r.mom * 100).toFixed(1) : null, momPct: r.momPct != null ? Math.round(r.momPct * 100) : null, ratio: r.ratio != null ? +(r.ratio * 100).toFixed(1) : null, trend: r.trend,
       ret6m: r.ret6m != null ? +(r.ret6m * 100).toFixed(1) : null, liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : null, pos: r.pos || null, acc: r.acc,
-      plan: r.plan || null, tmpl: r.tmpl, sec: r.sec || null, secEn: r.secEn || null, f9: r.f9 != null ? r.f9 : null, pb: r.pb != null ? r.pb : null, iv: r.iv || undefined });
+      plan: r.plan || null, pw: r.pw || undefined, tmpl: r.tmpl, sec: r.sec || null, secEn: r.secEn || null, f9: r.f9 != null ? r.f9 : null, pb: r.pb != null ? r.pb : null, iv: r.iv || undefined });
     // Liste publiée : sociétés liquides (classées ou écartées pour une raison de fond) ; les autres sont trouvables par la recherche du catalogue
     const shown = rows.filter((r) => (r.turnoverEur || 0) >= cfg.rank.minTurnoverEur || r.isin);
     // Repères des filtres (mêmes que l'ancien classement) : plan d'entrée et figure, secteur, cycle, valeur, F-score
@@ -957,6 +957,12 @@ export function build(opts = {}) {
         try { const a = ES.normalizeSeries(x.d.map((v, k) => [dDates[k], null, null, null, v, null]).filter((q) => q[0] && q[4] > 0)); if (a.length >= 120) pl = ES.entryPlan(a.slice(-260)); } catch (e) { pl = null; }
       }
       if (pl && pl.verdict) r.plan = { v: pl.verdict, f: ES.figureKey(pl.wedge) || null, t: ES.timingKeys(pl) };
+      // repères du plan pour les alertes « Me prévenir pour ce plan » des sociétés sans dossier Euro Signal (lus par positions.py)
+      if (pl && pl.verdict && !r.isin) {
+        const rd = (v) => (v != null && isFinite(v) ? +(+v).toPrecision(6) : null), pr = pl.primary || {};
+        r.pw = { v: pl.verdict, label: pl.label || null, p: { key: pr.key || null, trigger: rd(pr.trigger), entry: rd(pr.entry), level: rd(pr.level), stop: rd(pr.stop), zoneLo: rd(pr.zoneLo), zoneHi: rd(pr.zoneHi) },
+          w: pl.wedge ? { type: pl.wedge.type || null, upperNow: rd(pl.wedge.upperNow) } : null };
+      }
       r.sec = x.groupTrending ? 't' : x.groupEmerging ? 'e' : null; r.secEn = x.sector || (i && i.fund && i.fund.sector) || null;
       r.f9 = accF9[r.key] != null ? accF9[r.key] : null;
       const pb = i && i.value && i.value.pb != null ? i.value.pb : x.pb; r.pb = pb != null && isFinite(pb) ? +(+pb).toFixed(2) : null;
