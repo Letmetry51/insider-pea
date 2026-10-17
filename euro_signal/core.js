@@ -3239,6 +3239,31 @@
   };
   ES.RANK_JUMP_UP = 2.5; ES.RANK_JUMP_DOWN = 0.35;
   /**
+   * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
+   * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
+   * au moins 3 M€ échangés par jour ; par note décroissante, une seule par secteur. Renvoie { picks, rejected, pool }.
+   */
+  ES.pickThree = function (rows, opt) {
+    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6 }, opt || {});
+    var secOf = function (r) { return r.secEn || r.sector || '?'; };
+    var why = function (r) {
+      if (r.out && r.out.length) return 'écartée';
+      if (r.acc !== 'good') return 'comptes pas solides ou pas encore lus';
+      if (r.sc !== 'strong') return r.sc === 'mid' ? 'pente seulement moyenne' : 'pente légère ou pas de tendance';
+      if (r.mom == null || r.mom < o.momMin) return 'hausse sur 12 mois inférieure à +' + o.momMin + ' %';
+      if (r.mom > o.momMax) return 'déjà plus de +' + o.momMax + ' % sur 12 mois (chutes plus fréquentes)';
+      if ((r.liq || 0) < o.liqMin) return 'moins de ' + o.liqMin / 1e6 + ' M€ échangés par jour';
+      return null;
+    };
+    var pool = [], rejected = [];
+    (rows || []).forEach(function (r) { var w = why(r); if (w) { if (!r.out || !r.out.length) rejected.push({ r: r, why: w }); } else pool.push(r); });
+    pool.sort(function (a, b) { return b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); });
+    var picks = [], seen = {};
+    pool.forEach(function (r) { if (picks.length < o.n && !seen[secOf(r)]) { seen[secOf(r)] = 1; picks.push(r); } else if (picks.indexOf(r) < 0) rejected.push({ r: r, why: seen[secOf(r)] ? 'même secteur qu\'une société mieux notée' : 'au-delà des ' + o.n + ' premières' }); });
+    rejected.sort(function (a, b) { return b.r.note - a.r.note; });
+    return { picks: picks, rejected: rejected, pool: pool.length };
+  };
+  /**
    * Classe de pente d'un canal haussier (rythme annuel de la régression sur 6 mois), seulement si la tendance de fond est haussière.
    * Seuils : +100 %/an (soit +41 % en 6 mois) et +30 %/an (+14 % en 6 mois).
    * Test historique (excès sur la société moyenne, 6 mois) : ≥ +100 %/an +4 points (5 et 8 ans), +30 à +100 % +1 à +2, < +30 % ≈ 0 ;

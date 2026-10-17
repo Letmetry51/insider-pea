@@ -1335,6 +1335,16 @@ t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cou
   eq(by.S.slopeCls, 'strong'); ok(by.S.why.some((w) => /pente forte/.test(w)), by.S.why.join(' | '));
   ok(/saut de cours anormal/.test(by.J.out.join()) && /×10/.test(by.J.out.join()), by.J.out.join());
 });
+t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées', () => {
+  const r = (name, note, o) => Object.assign({ key: name, name, note, out: [], acc: 'good', sc: 'strong', mom: 100, liq: 1e7, secEn: 'Energy' }, o);
+  const rows = [r('A', 95), r('B', 94), r('C', 93, { secEn: 'Industrials' }), r('D', 92, { sc: 'mid', secEn: 'Tech' }), r('E', 91, { mom: 900, secEn: 'Tech' }),
+    r('F', 90, { secEn: 'Media' }), r('G', 89, { acc: null, secEn: 'Health' }), r('H', 88, { liq: 1e6, secEn: 'Health' }), r('I', 99, { out: ['x'] }), r('J', 80, { secEn: 'Utilities' })];
+  const p = ES.pickThree(rows);
+  eq(p.picks.map((x) => x.key).join(), 'A,C,F', 'une par secteur, par note');
+  const w = {}; p.rejected.forEach((x) => { w[x.r.key] = x.why; });
+  ok(/même secteur/.test(w.B) && /moyenne/.test(w.D) && /200/.test(w.E) && /comptes/.test(w.G) && /M€/.test(w.H) && /premières/.test(w.J) && !w.I, JSON.stringify(w));
+  eq(ES.pickThree([]).picks.length, 0);
+});
 t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le futur)', () => {
   const nW = 160, dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)), series = {};
   // 150 sociétés : la moitié avec une tendance persistante, l'autre avec une baisse ; bruit identique
