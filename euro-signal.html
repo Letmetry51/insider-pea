@@ -115,7 +115,8 @@ table{border-collapse:collapse;width:100%}
 .scorecell .big{font:700 1.15rem var(--display);font-variant-numeric:tabular-nums}
 .sbar{display:flex;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin-top:3px;width:110px}
 .sbar i{display:block;height:100%}
-.rslope{font-weight:600;line-height:1.3;margin-top:2px;white-space:normal!important}.rslope.sl-strong{color:var(--good)}.rslope.sl-mid{color:var(--warn)}.rslope.sl-light{color:var(--muted,inherit);font-weight:400}
+.slbar{margin:6px 0 10px}.slbar .slt{display:block;font-size:.85rem;font-weight:600;margin:0 0 4px}.slbar .fchip small{opacity:.75}
+.rslope{font-weight:600;line-height:1.3;margin-top:2px;white-space:normal!important}.rslope span{white-space:nowrap}.rslope.sl-strong{color:var(--good)}.rslope.sl-mid{color:var(--warn)}.rslope.sl-light{color:var(--muted,inherit);font-weight:400}
 .rpills{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .rpill{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:10px;font-size:.8rem;background:var(--sunk);color:var(--ink);white-space:nowrap}
 .rpill b{font:600 .8rem var(--mono);white-space:nowrap}.rpill small{display:inline!important;font-size:.72rem}
@@ -4858,9 +4859,6 @@ details.pos summary{font-size:1rem}
     return {
       ins: ['👔 Achats de dirigeants', function (r) { return (r.parts || {}).insiders > 0; }],
       dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (r) { var g = r.isin && S.inst[r.isin] ? dgInfo(r.isin) : null; return !!(g && g.recent); }],
-      slStrong: ['⬆⬆ Pente forte (≥ +40 % en 6 mois)', function (r) { return rkSc(r) === 'strong'; }],
-      slMid: ['⬆ Pente moyenne (+15 à +40 %)', function (r) { return rkSc(r) === 'mid'; }],
-      slLight: ['↗ Pente légère (< +15 %)', function (r) { return rkSc(r) === 'light'; }],
       tmpl: ['✅ Trend Template (Minervini)', function (r) { return r.tmpl === 1; }],
       pull: ['↘️ En repli de 5 à 25 %', function (r) { return r.ratio != null && r.ratio <= 95 && r.ratio >= 75; }],
       conv3: ['Convergence ≥ 3 sur 5', function (r) { var v = r.isin && S.inst[r.isin] ? convOf(r.isin) : null; return !!(v && v.n >= 3); }],
@@ -4890,13 +4888,14 @@ details.pos summary{font-size:1rem}
     if ((S.rankMode || 'rank') === 'ins' || !rankData()) return (rankData() ? modeSeg() : '') + vInsRank();
     if (!S.cycle && !S.secLoaded) loadSectors();
     var R = rankData(), f = S.rf = S.rf || {};
-    ['quick', 'figures', 'plans', 'timing'].forEach(function (k) { if (!Array.isArray(f[k])) f[k] = []; });
+    ['quick', 'figures', 'plans', 'timing', 'slope'].forEach(function (k) { if (!Array.isArray(f[k])) f[k] = []; });
     var Q = rankQuick(), q = ES.norm(f.q || ''), rows = R.rows;
     var shownV = f.v || (q ? '' : 'in');
     var base = function (r) {
       if (q && ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) < 0) return false;
       if (f.country && r.country !== f.country) return false;
       if (f.sector && r.sector !== f.sector) return false;
+      if (f.slope && f.slope.length && f.slope.indexOf(rkSc(r) || 'none') < 0) return false;
       if (shownV === 'in' && r.out.length) return false;
       if (shownV && shownV !== 'in' && r.v !== shownV) return false;
       return true;
@@ -4927,8 +4926,16 @@ details.pos summary{font-size:1rem}
     h += psyCard() + cycleCard(true) + rankSelCard();
     // filtres rapides, avec le nombre de résultats si l'on coche ce filtre en plus des autres
     var pool = rows.filter(function (r) { return base(r) && plf(r); });
-    h += '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q || '') + '" data-rf="q" aria-label="Rechercher"></div>' +
-      '<details class="card fold ffold" data-k="rquick"' + (f.quick.length ? ' open' : '') + '><summary>🔎 Filtres' + (f.quick.length ? ' <span class="chip good">' + f.quick.length + '</span>' : ' <span class="muted">· pente, dirigeants, repli, secteur, cycle, comptes, valeur…</span>') + '</summary>' +
+    h += '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q || '') + '" data-rf="q" aria-label="Rechercher"></div>';
+    // pente du canal haussier : barre toujours visible, cumulable (forte + moyenne par exemple)
+    var slPool = rows.filter(function (r) { return (!q || ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) > -1) && (!f.country || r.country === f.country) && (!f.sector || r.sector === f.sector) && (shownV !== 'in' || !r.out.length) && (!shownV || shownV === 'in' || r.v === shownV) && qf(r) && plf(r); });
+    var slN = {}; slPool.forEach(function (r) { var k = rkSc(r) || 'none'; slN[k] = (slN[k] || 0) + 1; });
+    h += '<div class="slbar" role="group" aria-label="Pente du canal haussier"><span class="slt">Pente du canal haussier <span class="muted">(rythme sur 6 mois)</span></span><div class="fchips">' +
+      [['strong', '⬆⬆ Forte', '≥ +40 %'], ['mid', '⬆ Moyenne', '+15 à +40 %'], ['light', '↗ Légère', '< +15 %']].map(function (o) {
+        var on = f.slope.indexOf(o[0]) > -1;
+        return '<button class="fchip sl-' + o[0] + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfSlope" data-v="' + o[0] + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + o[1] + ' <small>' + o[2] + '</small> <span class="count">' + (slN[o[0]] || 0) + '</span></button>';
+      }).join('') + (f.slope.length ? '<button class="fchip" data-a="rfSlope" data-v="all">Toutes</button>' : '') + '</div></div>' +
+      '<details class="card fold ffold" data-k="rquick"' + (f.quick.length ? ' open' : '') + '><summary>🔎 Filtres' + (f.quick.length ? ' <span class="chip good">' + f.quick.length + '</span>' : ' <span class="muted">· dirigeants, repli, secteur, cycle, comptes, valeur…</span>') + '</summary>' +
       '<div class="segs wrapq" role="group" aria-label="Filtres rapides">' + Object.keys(Q).map(function (k) {
         var on = f.quick.indexOf(k) > -1, n = pool.filter(function (r) { return Q[k][1](r) && qf(r, k); }).length;
         return '<button class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '" data-a="rfQuick" data-v="' + k + '"><span class="box" aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + Q[k][0] + ' <span class="count">' + n + '</span></button>';
@@ -4965,7 +4972,7 @@ details.pos summary{font-size:1rem}
       h += '<tr class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><td class="c-name"><b>' + flag(r.country) + esc(r.name) + '</b><small>' + esc([r.sym, r.sector].filter(Boolean).join(' · ')) + '</small>' +
         '<small class="rwhy1">' + esc(r.out.length ? '⛔ ' + cap1r(r.out[0]) : (r.why || []).slice(0, 2).map(cap1r).join(' · ')) + '</small>' + (r.out.length ? '' : rankPills(r)) + '</td>' +
         '<td class="num scorecell" data-l="Note"><span class="big">' + r.note + '</span><small>/100</small></td>' +
-        '<td class="num" data-l="12 mois">' + (r.mom != null ? '<span class="' + (r.mom >= 0 ? 'pos' : 'neg') + '">' + pct(r.mom) + '</span>' + (r.momPct != null ? '<small>mieux que ' + r.momPct + ' %</small>' : '') : '<span class="muted">n.d.</span>') + (rkSc(r) && r.slope6 != null ? '<small class="rslope sl-' + rkSc(r) + '" title="Pente du canal haussier : rythme de la droite de tendance sur les 6 derniers mois">' + SLOPE_TXT[rkSc(r)][0] + ' pente ' + SLOPE_TXT[rkSc(r)][1] + '<br>' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' % en 6 mois</small>' : '') + '</td>' +
+        '<td class="num" data-l="12 mois">' + (r.mom != null ? '<span class="' + (r.mom >= 0 ? 'pos' : 'neg') + '">' + pct(r.mom) + '</span>' + (r.momPct != null ? '<small>mieux que ' + r.momPct + ' %</small>' : '') : '<span class="muted">n.d.</span>') + (rkSc(r) && r.slope6 != null ? '<small class="rslope sl-' + rkSc(r) + '" title="Pente du canal haussier : rythme de la droite de tendance sur les 6 derniers mois">' + '<span>' + SLOPE_TXT[rkSc(r)][0] + ' pente ' + SLOPE_TXT[rkSc(r)][1] + '</span> <span>' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' %/6 mois</span></small>' : '') + '</td>' +
         '<td class="num" data-l="Plus haut">' + (r.ratio != null ? (r.ratio >= 99.5 ? '<span class="pos">au plus haut</span>' : '<span>' + pct(r.ratio - 100) + '</span>') : '<span class="muted">n.d.</span>') + '</td>' +
         '<td data-l="Avis">' + rankChip(r) + (P ? '<small class="rplan">' + esc(P[1]) + (F ? ' · ' + F[0] + ' ' + esc(F[1]) : '') + '</small>' : '') + '</td></tr>';
     });
@@ -6457,6 +6464,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'rankMode') { S.rankMode = el.dataset.v === 'ins' ? 'ins' : 'rank'; S.limit = 50; try { localStorage.setItem('es-rankmode', S.rankMode); } catch (e) { } render(); }
     else if (a === 'rfDir') { S.rf = S.rf || {}; var dsk = RSORT[S.rf.sort] ? S.rf.sort : 'note', cur0 = S.rf.dir || (dsk === 'name' ? 'asc' : 'desc'); S.rf.dir = cur0 === 'asc' ? 'desc' : 'asc'; S.limit = 50; var yd = window.scrollY; render(); window.scrollTo(0, yd); }
     else if (a === 'rfSort') { S.rf = S.rf || {}; var nk = el.dataset.v, ck = RSORT[S.rf.sort] ? S.rf.sort : 'note'; if (nk === ck) { var c1 = S.rf.dir || (ck === 'name' ? 'asc' : 'desc'); S.rf.dir = c1 === 'asc' ? 'desc' : 'asc'; } else { S.rf.sort = nk; S.rf.dir = nk === 'name' ? 'asc' : 'desc'; } S.limit = 50; var ys = window.scrollY; render(); window.scrollTo(0, ys); }
+    else if (a === 'rfSlope') { S.rf = S.rf || {}; var cs = Array.isArray(S.rf.slope) ? S.rf.slope : [], vs = el.dataset.v; S.rf.slope = vs === 'all' ? [] : cs.indexOf(vs) > -1 ? cs.filter(function (x) { return x !== vs; }) : cs.concat([vs]); S.limit = 50; var ysl = window.scrollY; render(); window.scrollTo(0, ysl); }
     else if (a === 'rfQuick') { S.rf = S.rf || {}; var cq = Array.isArray(S.rf.quick) ? S.rf.quick : [], vq = el.dataset.v; S.rf.quick = vq === 'all' ? [] : cq.indexOf(vq) > -1 ? cq.filter(function (x) { return x !== vq; }) : cq.concat([vq]); S.limit = 50; var yk = window.scrollY; render(); window.scrollTo(0, yk); }
     else if (a === 'rfFig' || a === 'rfPlan' || a === 'rfTim') { S.rf = S.rf || {}; var kk = a === 'rfFig' ? 'figures' : a === 'rfPlan' ? 'plans' : 'timing', ar = Array.isArray(S.rf[kk]) ? S.rf[kk].slice() : [], ix2 = ar.indexOf(el.dataset.v); if (ix2 > -1) ar.splice(ix2, 1); else ar.push(el.dataset.v); S.rf[kk] = ar; S.limit = 50; var yr2 = window.scrollY; render(); window.scrollTo(0, yr2); }
     else if (a === 'rfFClear') { S.rf.figures = []; S.rf.plans = []; S.rf.timing = []; S.limit = 50; var yc2 = window.scrollY; render(); window.scrollTo(0, yc2); }
