@@ -3214,7 +3214,30 @@
       f.ret6m = last / W[W.length - 27] - 1;
     }
     if (W.length >= 53) f.ret1y = last / W[W.length - 53] - 1;
+    // pente du canal : régression du logarithme des 26 dernières clôtures hebdomadaires, ramenée à un rythme annuel, et sa régularité (R²)
+    if (W.length >= 26) {
+      var ys = W.slice(-26).map(Math.log), n2 = ys.length, xm = (n2 - 1) / 2, ym = mean(ys), sxy = 0, sxx = 0, sst = 0, sse;
+      ys.forEach(function (y, i) { sxy += (i - xm) * (y - ym); sxx += (i - xm) * (i - xm); sst += (y - ym) * (y - ym); });
+      var b = sxy / sxx; sse = ys.reduce(function (t, y, i) { var e = y - ym - b * (i - xm); return t + e * e; }, 0);
+      f.slope = Math.exp(b * 52) - 1; f.r2 = sst > 0 ? Math.max(0, 1 - sse / sst) : 0;
+    }
+    // saut anormal sur un an (regroupement d'actions non ajusté, erreur de cours) : il fausserait la force relative
+    for (var j = Math.max(1, W.length - 53); j < W.length; j++) {
+      var q = W[j] / W[j - 1];
+      if (q > ES.RANK_JUMP_UP || q < ES.RANK_JUMP_DOWN) { if (!f.jump || Math.abs(Math.log(q)) > Math.abs(Math.log(f.jump.x))) f.jump = { x: q, ago: W.length - 1 - j }; }
+    }
     return f;
+  };
+  ES.RANK_JUMP_UP = 2.5; ES.RANK_JUMP_DOWN = 0.35;
+  /**
+   * Classe de pente d'un canal haussier (rythme annuel de la régression sur 6 mois), seulement si la tendance de fond est haussière.
+   * Seuils : +100 %/an (soit +41 % en 6 mois) et +30 %/an (+14 % en 6 mois).
+   * Test historique (excès sur la société moyenne, 6 mois) : ≥ +100 %/an +4 points (5 et 8 ans), +30 à +100 % +1 à +2, < +30 % ≈ 0 ;
+   * parmi les sociétés du classement : pente forte +4 à +5 points contre +1 à +2,5 pour les autres.
+   */
+  ES.slopeClass = function (slope, trend) {
+    if (slope == null || trend !== 'up') return null;
+    return slope >= 1 ? { key: 'strong', label: 'pente forte', icon: '⬆⬆' } : slope >= 0.3 ? { key: 'mid', label: 'pente moyenne', icon: '⬆' } : { key: 'light', label: 'pente légère', icon: '↗' };
   };
   /** Bonus ou malus des dirigeants à partir du score des initiés (fenêtre de 3 mois) : { buys, ceo, multi, netSeller, ceoSale }. */
   ES.rankInsiders = function (ins, cfg) {
@@ -3250,6 +3273,7 @@
       if (acc && acc.key === 'bad') out.push('comptes en dégradation' + (acc.f9 != null ? ' (F-score ' + acc.f9 + '/9)' : ''));
       if (acc && acc.loss) out.push('dernier exercice en perte');
       if (acc && acc.alt === 'distress') out.push('bilan en zone de détresse (score d\'Altman)');
+      if (f.jump) out.push('saut de cours anormal (' + (f.jump.x >= 1 ? '×' + f.jump.x.toFixed(1).replace('.', ',') : '−' + Math.round((1 - f.jump.x) * 100) + ' %') + ' en une semaine, il y a ' + (f.jump.ago ? f.jump.ago + ' sem.' : 'moins d\'une semaine') + ') : regroupement d\'actions non ajusté ou événement exceptionnel, à vérifier');
       // 2. tendance
       parts.mom = mp != null ? Math.round(W.mom * mp) : 0;
       if (mp != null) why.push('plus fort que ' + pc(mp) + ' % des sociétés sur 12 mois' + (f.mom != null ? ' (' + (f.mom >= 0 ? '+' : '') + Math.round(f.mom * 100) + ' %)' : ''));
@@ -3257,6 +3281,8 @@
       if (f.ratio != null) why.push(f.ratio >= 0.995 ? 'à son plus haut sur un an' : 'à ' + Math.max(1, Math.round((1 - f.ratio) * 100)) + ' % de son plus haut sur un an');
       parts.trend = f.trend === 'up' ? W.trend : f.trend === 'part' ? Math.round(W.trend / 3) : 0;
       if (f.trend) (f.trend === 'up' ? why : warn).push(f.trend === 'up' ? 'tendance de fond haussière (MM50 au-dessus de la MM200)' : f.trend === 'part' ? 'cours au-dessus de sa MM200, sans tendance confirmée' : 'cours sous sa moyenne 200 séances');
+      var sc = ES.slopeClass(f.slope, f.trend);
+      if (sc) (sc.key === 'light' ? warn : why).push('canal haussier en ' + sc.label + ' (rythme de ' + (f.slope >= 0 ? '+' : '') + Math.round((Math.sqrt(1 + f.slope) - 1) * 100) + ' % en 6 mois)');
       // 3. comptes
       parts.accounts = !acc ? Math.round(W.accounts * 0.4) : acc.fin ? Math.round(W.accounts / 2) : acc.key === 'good' ? W.accounts : acc.key === 'mixed' ? Math.round(W.accounts / 2) : acc.key === 'bad' ? 0 : Math.round(W.accounts * 0.4);
       if (acc && acc.key === 'good' && !acc.fin) why.push('comptes solides' + (acc.f9 != null ? ' (F-score ' + acc.f9 + '/9)' : ''));
@@ -3272,7 +3298,8 @@
       var note = clamp(Object.keys(parts).reduce(function (t, k) { return t + parts[k]; }, 0), 0, 100);
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
-        momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null };
+        momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });

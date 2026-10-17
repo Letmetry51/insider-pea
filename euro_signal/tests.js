@@ -1313,6 +1313,22 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
   ok(/Sélection de la semaine/.test(mail.subject) && /#co=A/.test(mail.text) && !/undefined|null|NaN/.test(mail.text + mail.html), 'email lisible');
   const none = ES.buildRankEmail([], '2026-W43', c3, null, '2026-10-19', null); ok(/aucune société/.test(none.subject));
 });
+t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cours anormal', () => {
+  const wk = (g) => Array.from({ length: 120 }, (_, k) => 10 * Math.pow(1 + g, k / 52));
+  const fs = ES.rankFeatures([], wk(1.5)), fm = ES.rankFeatures([], wk(0.5)), fl = ES.rankFeatures([], wk(0.1));
+  ok(Math.abs(fs.slope - 1.5) < 0.01 && fs.r2 > 0.99, 'pente annuelle retrouvée : ' + fs.slope);
+  eq(ES.slopeClass(fs.slope, 'up').key, 'strong'); eq(ES.slopeClass(fm.slope, 'up').key, 'mid'); eq(ES.slopeClass(fl.slope, 'up').key, 'light');
+  eq(ES.slopeClass(fs.slope, 'part'), null, 'pas de classe hors tendance de fond');
+  ok(!fs.jump, 'pas de saut sur une hausse régulière');
+  const j = wk(0.2); for (let k = 100; k < 120; k++) j[k] *= 10; // regroupement d'actions non ajusté
+  const fj = ES.rankFeatures([], j); ok(fj.jump && fj.jump.x > 9 && fj.jump.ago === 19, JSON.stringify(fj.jump));
+  const old = wk(0.2); for (let k = 30; k < 120; k++) old[k] *= 10; ok(!ES.rankFeatures([], old).jump, 'saut de plus d\'un an : ignoré');
+  const c3 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
+  const mk = (key, f) => ({ key, sym: key, name: key, turnoverEur: 5e6, pea: true, f, acc: { key: 'good', f9: 8 } });
+  const rows = ES.rankUniverse([mk('S', fs), mk('M', fm), mk('J', fj), mk('X', Object.assign({}, fm, { mom: -0.5 }))], c3), by = {}; rows.forEach((r) => { by[r.key] = r; });
+  eq(by.S.slopeCls, 'strong'); ok(by.S.why.some((w) => /pente forte/.test(w)), by.S.why.join(' | '));
+  ok(/saut de cours anormal/.test(by.J.out.join()) && /×10/.test(by.J.out.join()), by.J.out.join());
+});
 t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le futur)', () => {
   const nW = 160, dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)), series = {};
   // 150 sociétés : la moitié avec une tendance persistante, l'autre avec une baisse ; bruit identique
