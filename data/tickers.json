@@ -1955,6 +1955,13 @@
   "resolvedAt": "2026-10-07",
   "ticker": "INF.PA"
  },
+ "FR0000071946": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Alten S.A.",
+  "resolvedAt": "2026-10-17",
+  "ticker": "ATE.PA"
+ },
  "FR0000073041": {
   "exchange": "Paris",
   "method": "recherche Yahoo par ISIN",
@@ -2587,6 +2594,13 @@
   "name": "MaaT Pharma SA",
   "resolvedAt": "2026-10-07",
   "ticker": "MAAT.PA"
+ },
+ "FR0013053535": {
+  "exchange": "Paris",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Miliboo Société anonyme",
+  "resolvedAt": "2026-10-17",
+  "ticker": "ALMLB.PA"
  },
  "FR0013154002": {
   "exchange": "Paris",
@@ -4057,14 +4071,14 @@
   "ticker": "RROS.ST"
  },
  "SE0000112385": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0000112906": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0000113250": {
   "checkedHome": "2026-10-10",
@@ -4200,9 +4214,9 @@
   "ticker": "SIVI.ST"
  },
  "SE0000226953": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0000236515": {
   "checkedHome": "2026-10-10",
@@ -4212,9 +4226,9 @@
   "ticker": "HEBA-B.ST"
  },
  "SE0000273294": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0000312043": {
   "checkedHome": "2026-10-10",
@@ -4367,9 +4381,9 @@
   "ticker": "DUNI.ST"
  },
  "SE0000619371": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0000653230": {
   "checkedHome": "2026-10-10",
@@ -4433,9 +4447,9 @@
   "triedAt": "2026-10-10"
  },
  "SE0000808396": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0000825820": {
   "checkedHome": "2026-10-10",
@@ -4480,9 +4494,9 @@
   "ticker": "NOTE.ST"
  },
  "SE0001175746": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0001200015": {
   "exchange": "Stockholm",
@@ -4493,14 +4507,14 @@
   "ticker": "IVSO.ST"
  },
  "SE0001338039": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0001413600": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0001426131": {
   "checkedHome": "2026-10-10",
@@ -4660,9 +4674,9 @@
   "ticker": "MPOS.ST"
  },
  "SE0003210590": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0003491562": {
   "exchange": "Stockholm",
@@ -4730,9 +4744,9 @@
   "ticker": "AVT-B.ST"
  },
  "SE0004298610": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0004635878": {
   "checkedHome": "2026-10-10",
@@ -4843,9 +4857,9 @@
   "ticker": "DOXA.ST"
  },
  "SE0005704087": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0005704095": {
   "checkedHome": "2026-10-10",
@@ -4890,9 +4904,9 @@
   "ticker": "HANZA.ST"
  },
  "SE0005878733": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0005878741": {
   "exchange": "Stockholm",
@@ -4910,9 +4924,9 @@
   "ticker": "STAR-B.ST"
  },
  "SE0005993102": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0005999760": {
   "checkedHome": "2026-10-10",
@@ -5020,9 +5034,9 @@
   "ticker": "ELTEL.ST"
  },
  "SE0006510491": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0006625471": {
   "checkedHome": "2026-10-10",
@@ -5083,14 +5097,14 @@
   "ticker": "NANEXA.ST"
  },
  "SE0007100334": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0007100342": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0007100359": {
   "checkedHome": "2026-10-10",
@@ -5327,9 +5341,9 @@
   "ticker": "GOMX.ST"
  },
  "SE0008588131": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0008588354": {
   "checkedHome": "2026-10-10",
@@ -5377,9 +5391,9 @@
   "ticker": "FINE.ST"
  },
  "SE0009190572": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0009190788": {
   "checkedHome": "2026-10-10",
@@ -5440,9 +5454,9 @@
   "ticker": "AERW-B.ST"
  },
  "SE0009382989": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0009414303": {
   "checkedHome": "2026-10-10",
@@ -5452,9 +5466,9 @@
   "ticker": "AXOLOT.ST"
  },
  "SE0009496482": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0009548597": {
   "checkedHome": "2026-10-10",
@@ -5479,9 +5493,9 @@
   "ticker": "SONE.ST"
  },
  "SE0009580756": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0009581051": {
   "checkedHome": "2026-10-10",
@@ -5613,9 +5627,9 @@
   "ticker": "XSPRAY.ST"
  },
  "SE0009994445": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0009997018": {
   "checkedHome": "2026-10-10",
@@ -5674,14 +5688,14 @@
   "ticker": "TOUCH.ST"
  },
  "SE0010414573": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0010414615": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0010415281": {
   "checkedHome": "2026-10-10",
@@ -5854,9 +5868,9 @@
   "ticker": "CIBUS.ST"
  },
  "SE0010832279": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0010832287": {
   "checkedHome": "2026-10-10",
@@ -5952,19 +5966,19 @@
   "ticker": "ALTRA.ST"
  },
  "SE0011451921": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0011528082": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0011643980": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0011644376": {
   "checkedHome": "2026-10-10",
@@ -5974,14 +5988,14 @@
   "ticker": "BIM.ST"
  },
  "SE0011724889": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0011870757": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0011923341": {
   "checkedHome": "2026-10-10",
@@ -6070,9 +6084,9 @@
   "ticker": "SE0012481570.SG"
  },
  "SE0012569663": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0012596120": {
   "checkedHome": "2026-10-10",
@@ -6134,14 +6148,14 @@
   "ticker": "FLMNG.ST"
  },
  "SE0013107083": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0013147113": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0013382355": {
   "checkedHome": "2026-10-10",
@@ -6151,9 +6165,9 @@
   "ticker": "KFAST-B.ST"
  },
  "SE0013382546": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0013512282": {
   "checkedHome": "2026-10-10",
@@ -6373,9 +6387,9 @@
   "ticker": "SFL.ST"
  },
  "SE0015382148": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0015407390": {
   "checkedHome": "2026-10-10",
@@ -6385,9 +6399,9 @@
   "ticker": "BOAT.ST"
  },
  "SE0015483276": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0015504097": {
   "checkedHome": "2026-10-10",
@@ -6502,9 +6516,11 @@
   "ticker": "EDYOU.ST"
  },
  "SE0015811955": {
-  "nameTried": "2026-10-15",
-  "ticker": null,
-  "triedAt": "2026-10-10"
+  "exchange": "Stockholm",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Investor AB (publ)",
+  "resolvedAt": "2026-10-17",
+  "ticker": "INVE-A.ST"
  },
  "SE0015811963": {
   "exchange": "Stockholm",
@@ -6667,14 +6683,14 @@
   "ticker": "WTW-A.ST"
  },
  "SE0016075253": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0016101661": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0016101679": {
   "checkedHome": "2026-10-10",
@@ -6805,9 +6821,9 @@
   "ticker": "STOR-B.ST"
  },
  "SE0016797765": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0016797773": {
   "checkedHome": "2026-10-10",
@@ -6885,9 +6901,9 @@
   "ticker": "COMPDM.ST"
  },
  "SE0016844831": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0016845655": {
   "checkedHome": "2026-10-10",
@@ -6974,14 +6990,16 @@
   "ticker": "OBAB.ST"
  },
  "SE0017134125": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0017160575": {
-  "nameTried": "2026-10-15",
-  "ticker": null,
-  "triedAt": "2026-10-10"
+  "exchange": "Stockholm",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Lyckegård Group AB (publ)",
+  "resolvedAt": "2026-10-17",
+  "ticker": "LYGRD.ST"
  },
  "SE0017160773": {
   "checkedHome": "2026-10-10",
@@ -7090,14 +7108,14 @@
   "ticker": "XER.ST"
  },
  "SE0017830771": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0017830789": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0017831795": {
   "checkedHome": "2026-10-10",
@@ -7226,14 +7244,14 @@
   "ticker": "LUMEN.ST"
  },
  "SE0019175274": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0019763988": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0020050417": {
   "checkedHome": "2026-10-10",
@@ -7243,9 +7261,9 @@
   "ticker": "BOL.ST"
  },
  "SE0020050896": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0020179158": {
   "checkedHome": "2026-10-10",
@@ -7291,9 +7309,9 @@
   "ticker": "NEWA-B.ST"
  },
  "SE0020541563": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0020699296": {
   "checkedHome": "2026-10-10",
@@ -7303,9 +7321,9 @@
   "ticker": "OODA.ST"
  },
  "SE0020846392": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0020848356": {
   "checkedHome": "2026-10-10",
@@ -7368,9 +7386,9 @@
   "ticker": "BRAVE.ST"
  },
  "SE0021922747": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0022050183": {
   "checkedHome": "2026-10-10",
@@ -7401,9 +7419,9 @@
   "ticker": "AQ.ST"
  },
  "SE0022087680": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0022088217": {
   "checkedHome": "2026-10-10",
@@ -7413,9 +7431,9 @@
   "ticker": "NREST.ST"
  },
  "SE0022239133": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0022239950": {
   "checkedHome": "2026-10-10",
@@ -7432,9 +7450,9 @@
   "ticker": "NYAB.ST"
  },
  "SE0022243812": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0022447207": {
   "checkedHome": "2026-10-10",
@@ -7500,9 +7518,9 @@
   "ticker": "MRSELL.ST"
  },
  "SE0023287065": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0023313762": {
   "checkedHome": "2026-10-10",
@@ -7526,14 +7544,14 @@
   "ticker": "MANTEX.ST"
  },
  "SE0023468194": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0023468954": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0023615638": {
   "checkedHome": "2026-10-10",
@@ -7557,9 +7575,9 @@
   "ticker": "CLIME-B.ST"
  },
  "SE0023849583": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0023950795": {
   "checkedHome": "2026-10-10",
@@ -7625,9 +7643,11 @@
   "ticker": "HACK.ST"
  },
  "SE0025158629": {
-  "nameTried": "2026-10-15",
-  "ticker": null,
-  "triedAt": "2026-10-10"
+  "exchange": "Stockholm",
+  "method": "recherche Yahoo par ISIN",
+  "name": "Mycronic AB (publ)",
+  "resolvedAt": "2026-10-17",
+  "ticker": "MYCR.ST"
  },
  "SE0025159023": {
   "checkedHome": "2026-10-10",
@@ -7641,9 +7661,9 @@
   "triedAt": "2026-10-10"
  },
  "SE0025196835": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0025197619": {
   "checkedHome": "2026-10-10",
@@ -7674,9 +7694,9 @@
   "ticker": "AVARDA.ST"
  },
  "SE0026141665": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0026526352": {
   "checkedHome": "2026-10-10",
@@ -7707,9 +7727,9 @@
   "ticker": "COFFEE-B.ST"
  },
  "SE0026820540": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0026853335": {
   "checkedHome": "2026-10-10",
@@ -7744,9 +7764,9 @@
   "ticker": "OVZON.ST"
  },
  "SE0027620469": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0027691569": {
   "ticker": null,
@@ -7760,14 +7780,14 @@
   "ticker": "PRPORT.ST"
  },
  "SE0028026757": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028026997": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028329540": {
   "checkedHome": "2026-10-10",
@@ -7802,14 +7822,14 @@
   "ticker": "ELLOS.ST"
  },
  "SE0028825026": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028825034": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028825042": {
   "checkedHome": "2026-10-10",
@@ -7826,49 +7846,49 @@
   "ticker": "VIVE.ST"
  },
  "SE0028925727": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028925735": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028925743": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028925750": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028925768": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0028925776": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029278241": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029278969": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029278977": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029278985": {
   "checkedHome": "2026-10-10",
@@ -7878,9 +7898,9 @@
   "ticker": "TANGEN-B.ST"
  },
  "SE0029279066": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029300573": {
   "ticker": null,
@@ -7901,14 +7921,14 @@
   "ticker": "ENRO.ST"
  },
  "SE0029301035": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029301043": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029301175": {
   "exchange": "Stockholm",
@@ -7925,9 +7945,9 @@
   "ticker": "VETT.ST"
  },
  "SE0029302215": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029529767": {
   "ticker": null,
@@ -7952,9 +7972,9 @@
   "ticker": "C100.ST"
  },
  "SE0029856046": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029856053": {
   "checkedHome": "2026-10-10",
@@ -7964,14 +7984,14 @@
   "ticker": "SVEAF-B.ST"
  },
  "SE0029856129": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029856137": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0029951458": {
   "checkedHome": "2026-10-10",
@@ -8014,9 +8034,9 @@
   "ticker": "NRDAMP.ST"
  },
  "SE0030263596": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0030264628": {
   "checkedHome": "2026-10-10",
@@ -8026,9 +8046,9 @@
   "ticker": "ONCOZ-BTA.ST"
  },
  "SE0030264636": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0030285227": {
   "checkedHome": "2026-10-10",
@@ -8103,9 +8123,9 @@
   "triedAt": "2026-10-10"
  },
  "SE0030614319": {
-  "nameTried": "2026-10-15",
+  "nameTried": "2026-10-17",
   "ticker": null,
-  "triedAt": "2026-10-10"
+  "triedAt": "2026-10-17"
  },
  "SE0030614749": {
   "ticker": null,
