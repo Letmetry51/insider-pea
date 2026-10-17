@@ -128,6 +128,7 @@ table{border-collapse:collapse;width:100%}
 .rg-t{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}.rg-t i{display:block;height:100%;border-radius:5px;background:var(--muted)}
 .rg.t-good .rg-t i{background:var(--good)}.rg.t-mid .rg-t i{background:var(--warn)}.rg.t-bad .rg-t i{background:var(--bad)}
 .rg-v{font:600 .9rem var(--mono);text-align:right;white-space:nowrap}.rg-v small{font-weight:400;color:var(--muted)}
+.linkbtn.suivn{display:block;text-align:left;font-size:1rem;padding:0;color:var(--ink);text-decoration:none}.linkbtn.suivn b{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .weekc .weekl{margin:6px 0 0;padding-left:1.2em}.weekc .weekl li{margin:6px 0}.psyfold>section.card{border:0;box-shadow:none;background:none;padding:0;margin:10px 0 0}
 .psy .psyh{margin:4px 0 6px}.psy .psyi{font-size:1.3rem;margin-right:4px}
 .psyline{width:100%;height:56px;display:block;margin:6px 0 0;background:var(--sunk);border-radius:4px}
@@ -6001,7 +6002,7 @@ details.pos summary{font-size:1rem}
   function mySuivis() {
     var pos = [], wat = [];
     try { for (var k = 0; k < window.localStorage.length; k++) { var key = window.localStorage.key(k), m = /^es\.(open|watch)\.([A-Z0-9][A-Z0-9.&-]{1,24})$/.exec(key || ''); if (m && window.localStorage.getItem(key)) (m[1] === 'open' ? pos : wat).push([m[2], window.localStorage.getItem(key)]); } } catch (e) { }
-    var row = function (x, extra) { var es = ES.isValidIsin(x[0]), rk = es ? null : rankOf(null, x[0]), n = (S.inst[x[0]] || rk || {}).name || x[0]; return '<li><div><b>' + esc(n) + '</b><small>' + extra + '</small></div><span class="row-btn"><button class="ghost small" ' + (es ? 'data-a="open" data-i="' + esc(x[0]) + '"' : 'data-a="secCo" data-v="' + esc(x[0]) + '" data-from="rank"') + '>Fiche</button>' + (x.btn || '') + '</span></li>'; };
+    var row = function (x, extra) { var es = ES.isValidIsin(x[0]), rk = es ? null : rankOf(null, x[0]), n = (S.inst[x[0]] || rk || {}).name || x[0], go = es ? 'data-a="open" data-i="' + esc(x[0]) + '"' : 'data-a="secCo" data-v="' + esc(x[0]) + '" data-from="rank"'; return '<li><div><button class="linkbtn suivn" ' + go + '><b>' + esc(n) + '</b> ›</button><small>' + extra + '</small></div>' + (x.btn ? '<span class="row-btn">' + x.btn + '</span>' : '') + '</li>'; };
     var h = '<section class="card"><h3>🔔 Mes suivis</h3>';
     h += '<p class="small"><b>Plans d\'entrée surveillés</b></p>' + (wat.length ? '<ul class="evs">' + wat.map(function (x) { x.btn = ' <button class="small" data-a="watchOff" data-i="' + esc(x[0]) + '">Ne plus surveiller</button>'; return row(x, 'surveillé depuis le ' + shortDate(x[1])); }).join('') + '</ul>' : '<p class="muted small">Aucun depuis cet appareil.</p>');
     h += '<p class="small"><b>Positions suivies pour la revente</b></p>' + (pos.length ? '<ul class="evs">' + pos.map(function (x) { return row(x, 'bouton « Je l\'ai vendu » dans la fiche pour arrêter'); }).join('') + '</ul>' : '<p class="muted small">Aucune depuis cet appareil.</p>');
