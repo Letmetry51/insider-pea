@@ -3197,7 +3197,7 @@
    * Ordre de décision : 1. exclusions, 2. tendance (force relative surtout, barème 3.1), 3. comptes, 4. dirigeants en bonus ou malus.
    */
   /** Repères de tendance d'une société : clôtures journalières (1 an) et hebdomadaires (5 ans), valeurs nulles tolérées. */
-  ES.rankFeatures = function (daily, weekly) {
+  ES.rankFeatures = function (daily, weekly, wvol) {
     var D = (daily || []).filter(function (v) { return v > 0; }), W = (weekly || []).filter(function (v) { return v > 0; });
     var last = D.length ? D[D.length - 1] : W.length ? W[W.length - 1] : null;
     if (!last) return null;
@@ -3226,6 +3226,13 @@
       var q = W[j] / W[j - 1];
       if (q > ES.RANK_JUMP_UP || q < ES.RANK_JUMP_DOWN) { if (!f.jump || Math.abs(Math.log(q)) > Math.abs(Math.log(f.jump.x))) f.jump = { x: q, ago: W.length - 1 - j }; }
     }
+    // volumes : moyenne des 10 dernières semaines rapportée à celle des 52 (≥ 2 : accumulation). Test 1997-2026 : parmi le classement,
+    // volumes doublés +7,7 points à 6 mois contre +2,3 sans hausse de volume, positif dans chaque période (17/10/2026).
+    var VV = (wvol || []).slice(-52), vok = VV.filter(function (v) { return v > 0; });
+    if (VV.length >= 52 && vok.length >= 45) {
+      var v10 = VV.slice(-10).filter(function (v) { return v > 0; });
+      if (v10.length >= 8) f.volx = Math.round(mean(v10) / mean(vok) * 10) / 10;
+    }
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
     // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
     // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
@@ -3237,7 +3244,10 @@
     }
     return f;
   };
-  ES.RANK_JUMP_UP = 2.5; ES.RANK_JUMP_DOWN = 0.35;
+  ES.RANK_JUMP_UP = 2.5; ES.VOL_SURGE = 2;
+  /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
+   *  ont fait 12,5 points de moins que la moyenne à 6 mois (1997-2026 : 2001-2003, 2009, 2012, 2022-2023). */
+  ES.MOM_CRASH_M52 = -20; ES.RANK_JUMP_DOWN = 0.35;
   /**
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
@@ -3315,6 +3325,7 @@
       if (f.ratio != null) why.push(f.ratio >= 0.995 ? 'à son plus haut sur un an' : 'à ' + Math.max(1, Math.round((1 - f.ratio) * 100)) + ' % de son plus haut sur un an');
       parts.trend = f.trend === 'up' ? W.trend : f.trend === 'part' ? Math.round(W.trend / 3) : 0;
       if (f.trend) (f.trend === 'up' ? why : warn).push(f.trend === 'up' ? 'tendance de fond haussière (MM50 au-dessus de la MM200)' : f.trend === 'part' ? 'cours au-dessus de sa MM200, sans tendance confirmée' : 'cours sous sa moyenne 200 séances');
+      if (f.volx != null && f.volx >= ES.VOL_SURGE) why.push('volumes ×' + String(f.volx).replace('.', ',') + ' sur 10 semaines par rapport à l\'année : des acheteurs s\'accumulent');
       if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
       var sc = ES.slopeClass(f.slope, f.trend);
       if (sc) (sc.key === 'light' ? warn : why).push('canal haussier en ' + sc.label + ' (rythme de ' + (f.slope >= 0 ? '+' : '') + Math.round((Math.sqrt(1 + f.slope) - 1) * 100) + ' % en 6 mois)');
@@ -3334,7 +3345,7 @@
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3376,6 +3387,10 @@
       rows.push({ d: dates[t], up: up / n, hi: hi / n, lo: lo / n, n: n, f13: fw[13].length > 50 ? mean(fw[13]) : null, f26: fw[26].length > 50 ? mean(fw[26]) : null });
     }
     if (!rows.length) return null;
+    // indice équipondéré (moyenne des variations hebdomadaires) : variation sur 52 semaines, pour l'alerte « krach du momentum »
+    var idx = [1];
+    for (var u = 1; u < nD; u++) { var rr0 = []; keys.forEach(function (k) { var p = series[k]; if (p[u] > 0 && p[u - 1] > 0) rr0.push(clamp(p[u] / p[u - 1] - 1, -0.5, 1)); }); idx.push(idx[u - 1] * (1 + (rr0.length >= 30 ? mean(rr0) : 0))); }
+    var m52 = nD > 52 ? +((idx[nD - 1] / idx[nD - 53] - 1) * 100).toFixed(1) : null;
     var srt = rows.map(function (r) { return r.up; }).sort(function (a, b) { return a - b; }), c1 = srt[Math.floor(srt.length / 3)], c2 = srt[Math.floor(2 * srt.length / 3)];
     var reg = function (r) { return r.up < c1 ? 'low' : r.up > c2 ? 'high' : 'mid'; }, out = { low: {}, mid: {}, high: {} };
     ['low', 'mid', 'high'].forEach(function (g) {
@@ -3383,7 +3398,7 @@
       H.forEach(function (h) { var v = rr.map(function (r) { return r['f' + h]; }).filter(function (x) { return x != null; }); out[g]['h' + h] = v.length ? { mean: +(mean(v) * 100).toFixed(1), weeks: v.length, pos: Math.round(v.filter(function (x) { return x > 0; }).length / v.length * 100) } : null; });
     });
     var last = rows[rows.length - 1], below = srt.filter(function (v) { return v < last.up; }).length;
-    return { now: { date: last.d, up: +(last.up * 100).toFixed(1), hi: +(last.hi * 100).toFixed(1), lo: +(last.lo * 100).toFixed(1), n: last.n, regime: reg(last), pct: Math.round(below / srt.length * 100) },
+    return { now: { date: last.d, up: +(last.up * 100).toFixed(1), hi: +(last.hi * 100).toFixed(1), lo: +(last.lo * 100).toFixed(1), n: last.n, regime: reg(last), pct: Math.round(below / srt.length * 100), m52: m52 },
       cuts: [+(c1 * 100).toFixed(1), +(c2 * 100).toFixed(1)], regimes: out, from: rows[0].d, to: last.d,
       hist: rows.filter(function (r, k) { return k % 2 === 0 || k === rows.length - 1; }).map(function (r) { return [r.d, +(r.up * 100).toFixed(1), +(r.hi * 100).toFixed(1), +(r.lo * 100).toFixed(1)]; }) };
   };

@@ -1123,7 +1123,7 @@ def daily_closes(tickers):
     return X.where(X > 0)
 
 
-def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True):
+def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True, V=None):
     """Fiche de chaque société cotée de l'UE / l'EEE : celles de l'univers des secteurs (≥ 500 M€, chiffres complets)
     et toutes les autres du catalogue (chiffres de base). Cours en devise locale : un an journalier, cinq ans hebdomadaire.
     Écrit 32 petits fichiers (une fiche n'en charge qu'un) et une liste de recherche."""
@@ -1154,6 +1154,8 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
     syms = sorted(set(uni) | set(extra) | set(cat_only))
     # hebdomadaire 5 ans, remis en devise locale (le moteur des secteurs travaille en euros)
     Wl = W.iloc[-262:].copy()
+    # volumes hebdomadaires (62 dernières semaines) : repère « volumes ×2 » du classement (moyenne 10 semaines contre 52)
+    Vl = V.reindex(Wl.index).iloc[-62:].copy() if V is not None and not V.empty else pd.DataFrame(index=Wl.index[-62:])
     for cur, pair in FX_PAIRS.items():
         if pair in Wl.columns:
             cols = [c for c in syms if c in Wl.columns and str((uni.get(c) or extra.get(c) or {}).get("currency") or "").upper() == cur]
@@ -1167,10 +1169,13 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         miss = [x for x in cat_only if x not in Wl.columns]
         if miss:
             t0 = time.time()
-            W2, _ = download_weekly(miss, years=5)  # cours bruts en devise locale
+            W2, V2 = download_weekly(miss, years=5)  # cours bruts en devise locale
             if not W2.empty:
                 W2 = clean_prices(W2.where(W2 > 0))
                 Wl = Wl.join(W2.reindex(Wl.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
+            if V2 is not None and not V2.empty:
+                V2 = V2[[c for c in V2.columns if c not in Vl.columns]]
+                Vl = Vl.join(V2.reindex(Vl.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
             log(f"Cours hebdomadaires du catalogue : {W2.shape[1] if not W2.empty else 0} titres, {time.time() - t0:.0f} s")
     sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
     # fiches Yahoo (valeur comptable) : complétées chaque soir dans la limite de 4 minutes, les plus grosses sociétés d'abord
@@ -1192,6 +1197,8 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             rec["name"] = inf.get("longName") or inf.get("shortName") or sym
         if sym in Wl.columns and Wl[sym].notna().sum() >= 20:
             rec["w"] = [sig(v) for v in Wl[sym].tolist()]
+        if sym in Vl.columns and Vl[sym].notna().sum() >= 52:
+            rec["wv"] = [None if v is None or not np.isfinite(v) else int(round(v)) for v in Vl[sym].tolist()]
         if sym in D.columns and D[sym].notna().sum() >= 20:
             rec["d"] = [sig(v) for v in D[sym].tolist()]
         items[sym] = rec
@@ -1302,7 +1309,7 @@ def dashboard(fetch_daily=True):
                "backtest": {k: bt.get(k) for k in keys} if bt else None}
     write_json(OUT, payload)
     try:
-        companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily)
+        companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily, V)
     except Exception as e:  # la fiche des sociétés ne doit jamais empêcher le classement du jour
         log(f"Fiches sociétés non écrites : {str(e)[:200]}")
     log(f"Secteurs : {len(out_groups)} groupes, {sum(x['trending'] for x in out_groups)} en tendance, {len(themes)} thèmes, {len(picks)} leaders / challengers")

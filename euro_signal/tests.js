@@ -1329,6 +1329,10 @@ t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cou
   const fb = ES.rankFeatures([], base); ok(fb.brk != null && fb.brk <= 3, 'nouveau plus haut après une base : ' + fb.brk);
   ok(ES.rankFeatures([], wk(1.5)).brk == null, 'hausse continue : pas de sortie de base');
   ok(ES.rankFeatures([], base.slice(0, 80)).brk == null, 'pendant la base : pas de signal');
+  const vol = Array.from({ length: 62 }, (_, k) => (k >= 52 ? 300 : 100));
+  const fv = ES.rankFeatures([], wk(1.5), vol); ok(fv.volx >= 2.1 && fv.volx <= 2.3, 'volumes ×3 sur 10 sem. → ×2,2 contre la moyenne annuelle : ' + fv.volx);
+  ok(ES.rankFeatures([], wk(1.5), vol.slice(0, 40)).volx == null, 'moins d\'un an de volumes : pas de repère');
+  ok(ES.rankFeatures([], wk(1.5)).volx == null, 'sans volumes');
   const c3 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   const mk = (key, f) => ({ key, sym: key, name: key, turnoverEur: 5e6, pea: true, f, acc: { key: 'good', f9: 8 } });
   const rows = ES.rankUniverse([mk('S', fs), mk('M', fm), mk('J', fj), mk('X', Object.assign({}, fm, { mom: -0.5 }))], c3), by = {}; rows.forEach((r) => { by[r.key] = r; });
@@ -1370,6 +1374,9 @@ t('Trend Template de Minervini et psychologie du marché (ampleur, régimes)', (
   ok(b && b.now && b.now.up >= 0 && b.now.up <= 100 && ['low', 'mid', 'high'].indexOf(b.now.regime) > -1, JSON.stringify(b && b.now));
   ok(b.cuts[0] <= b.cuts[1] && b.hist.length > 10 && b.regimes.low && b.regimes.high);
   eq(ES.marketBreadth(dates.slice(0, 40), series), null, 'historique trop court');
+  ok(typeof b.now.m52 === 'number', 'variation du marché sur un an : ' + b.now.m52);
+  const crash = {}; for (let s = 0; s < 150; s++) crash['S' + s] = dates.map((_, k) => 20 * Math.pow(0.993, k));
+  ok(ES.marketBreadth(dates, crash).now.m52 < ES.MOM_CRASH_M52, 'baisse continue : alerte krach du momentum');
 });
 
 console.log(results.join('\n'));
