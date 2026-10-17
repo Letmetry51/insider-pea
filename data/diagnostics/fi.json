@@ -1,18 +1,18 @@
 {
  "chunks": [
   [
-   "2026-10-06",
-   "2026-10-12",
-   202
+   "2026-10-07",
+   "2026-10-13",
+   178
   ],
   [
-   "2026-10-13",
+   "2026-10-14",
    "2026-10-17",
-   99
+   88
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n16/10/2026 23:04:42;Transferator AB (publ);52990006UHX52097KI68;Skywall AB;Fredrik Vojbacke;Chief Executive Officer (CEO)/Managing Directory;Yes;;;Yes;;Acquisition;Share;Transferator A;SE0017911233;12/10/2026 00:00:00;4.0;Quantity;1.28;SEK;SPOTLIGHT STOCK MARKET;Current;\r\n",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n17/10/2026 12:07:22;Biovica International AB;549300VADE1VRR555N78;Cornelis Bogerd;Cornelis Bogerd;Member of the Board of Directors;;;;Yes;Yes;Allotment;Option;Biovica PSP 2026/2029:1;;07/10/2026 00:00:00;317700.0;Quantity;0.0;SEK;Outside a trading venue;Current;\r\n17/10/202",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,15 +59,15 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 301,
+ "rowCount": 266,
  "sampleRows": [
   [
-   "12/10/2026 22:19:35",
-   "Gentoo Media Inc.",
-   "529900T8BM49AURSDO55",
-   "Mateusz Juroszek",
-   "Mateusz Juroszek",
-   "Member of the Board of Directors",
+   "13/10/2026 22:47:55",
+   "HEXICON AB",
+   "9845007784687FEF7569",
+   "Henrik Baltscheffsky",
+   "Henrik Baltscheffsky",
+   "Other member of the company's administrative, management or supervisory body",
    "",
    "",
    "",
@@ -75,42 +75,42 @@
    "",
    "Acquisition",
    "Share",
-   "Gentoo Media Inc.",
-   "US36467X2062",
-   "12/10/2026 00:00:00",
-   "131715.0",
+   "Hexicon AB",
+   "SE0004898799",
+   "13/10/2026 00:00:00",
+   "400000.0",
    "Quantity",
-   "5.1726",
+   "0.115",
    "SEK",
-   "NASDAQ STOCKHOLM AB",
+   "FIRST NORTH SWEDEN",
    "Current",
    ""
   ],
   [
-   "12/10/2026 21:03:48",
-   "Prisjakt AB (publ)",
-   "64884611QSN9AD2WC970",
-   "Aida Jammal Holding AB",
-   "Aida Jammal",
-   "Member of the Board of Directors",
+   "13/10/2026 22:43:38",
+   "HEXICON AB",
+   "9845007784687FEF7569",
+   "Henrik Baltscheffsky",
+   "Henrik Baltscheffsky",
+   "Other member of the company's administrative, management or supervisory body",
+   "",
+   "",
+   "",
    "Yes",
    "",
-   "",
-   "Yes",
-   "",
-   "Subscription",
+   "Disposal",
    "Share",
-   "Aktie",
-   "SE0028026757",
-   "07/10/2026 00:00:00",
-   "113286.0",
+   "Hexicon AB",
+   "SE0004898799",
+   "13/10/2026 00:00:00",
+   "400000.0",
    "Quantity",
-   "31.0",
+   "0.115",
    "SEK",
-   "Outside a trading venue",
+   "FIRST NORTH SWEDEN - NORDIC@MID",
    "Current",
    ""
   ]
  ],
- "at": "2026-10-17T07:34:43.486799+00:00"
+ "at": "2026-10-17T10:36:00.228027+00:00"
 }
