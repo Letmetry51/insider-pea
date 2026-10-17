@@ -115,7 +115,7 @@ table{border-collapse:collapse;width:100%}
 .scorecell .big{font:700 1.15rem var(--display);font-variant-numeric:tabular-nums}
 .sbar{display:flex;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin-top:3px;width:110px}
 .sbar i{display:block;height:100%}
-.slbar{margin:6px 0 10px}.slbar .slt{display:block;font-size:.85rem;font-weight:600;margin:0 0 4px}.slbar .fchip small{opacity:.75}
+.slbar{margin:6px 0 10px}.slbar .slt{display:block;font-size:.85rem;font-weight:600;margin:0 0 4px}.slbar .fchip small{opacity:.75}.slbar .slt+.fchips+.slt{margin-top:8px}.brkx{margin:6px 0 0}.rbrk{display:block;font-weight:600;color:var(--good);white-space:nowrap}
 .rslope{font-weight:600;line-height:1.3;margin-top:2px;white-space:normal!important}.rslope span{white-space:nowrap}.rslope.sl-strong{color:var(--good)}.rslope.sl-mid{color:var(--warn)}.rslope.sl-light{color:var(--muted,inherit);font-weight:400}
 .rpills{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .rpill{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:10px;font-size:.8rem;background:var(--sunk);color:var(--ink);white-space:nowrap}
@@ -3719,6 +3719,14 @@ details.pos summary{font-size:1rem}
       var q = W[j] / W[j - 1];
       if (q > ES.RANK_JUMP_UP || q < ES.RANK_JUMP_DOWN) { if (!f.jump || Math.abs(Math.log(q)) > Math.abs(Math.log(f.jump.x))) f.jump = { x: q, ago: W.length - 1 - j }; }
     }
+    // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
+    // son plus haut d'alors il y a 6 mois (sortie de base). Test 5 et 8 ans : 1,6 à 2,2 fois plus souvent suivi de +40 % en 6 mois.
+    if (W.length >= 82) {
+      var mx = function (a, b) { var m = 0; for (var i = a; i <= b; i++) if (W[i] > m) m = W[i]; return m; };
+      for (var t = W.length - 1; t >= W.length - 4; t--) {
+        if (W[t] >= 0.999 * mx(t - 51, t) && W[t - 26] / mx(t - 77, t - 26) < 0.75) { f.brk = W.length - 1 - t; break; }
+      }
+    }
     return f;
   };
   ES.RANK_JUMP_UP = 2.5; ES.RANK_JUMP_DOWN = 0.35;
@@ -3774,6 +3782,7 @@ details.pos summary{font-size:1rem}
       if (f.ratio != null) why.push(f.ratio >= 0.995 ? 'à son plus haut sur un an' : 'à ' + Math.max(1, Math.round((1 - f.ratio) * 100)) + ' % de son plus haut sur un an');
       parts.trend = f.trend === 'up' ? W.trend : f.trend === 'part' ? Math.round(W.trend / 3) : 0;
       if (f.trend) (f.trend === 'up' ? why : warn).push(f.trend === 'up' ? 'tendance de fond haussière (MM50 au-dessus de la MM200)' : f.trend === 'part' ? 'cours au-dessus de sa MM200, sans tendance confirmée' : 'cours sous sa moyenne 200 séances');
+      if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
       var sc = ES.slopeClass(f.slope, f.trend);
       if (sc) (sc.key === 'light' ? warn : why).push('canal haussier en ' + sc.label + ' (rythme de ' + (f.slope >= 0 ? '+' : '') + Math.round((Math.sqrt(1 + f.slope) - 1) * 100) + ' % en 6 mois)');
       // 3. comptes
@@ -3792,7 +3801,7 @@ details.pos summary{font-size:1rem}
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -4830,6 +4839,8 @@ details.pos summary{font-size:1rem}
   function rkF9(r) { if (r.f9 != null) return r.f9; var a = r.isin && S.inst[r.isin] && S.inst[r.isin].accounts; return a && a.fscore && !a.fscore.na ? a.fscore.f9 : null; }
   /** Classe de pente du canal haussier (régression sur 6 mois, rythme annuel), seulement en tendance de fond haussière. */
   function rkSc(r) { return r.sc !== undefined ? r.sc : (ES.slopeClass(r.slope6 != null ? Math.pow(1 + r.slope6 / 100, 2) - 1 : null, r.trend) || {}).key || null; }
+  /** Sortie de base récente (moins de 4 semaines) sur une société classée ou seulement écartée pour sa baisse sur 12 mois. */
+  function rkBrk(r) { return r.brk != null && (!r.out.length || (r.out.length === 1 && /tiers le plus faible/.test(r.out[0]))); }
   var SLOPE_TXT = { strong: ['⬆⬆', 'forte', 'good'], mid: ['⬆', 'moyenne', 'warn'], light: ['↗', 'légère', 'neutral'] };
   function rkVal(r) { return r.isin && S.inst[r.isin] ? S.inst[r.isin].value : null; }
   /** Psychologie du marché : part des sociétés en tendance haussière (ampleur), plus hauts et plus bas de l'année, volatilité, et ce qui a suivi dans le passé. */
@@ -4891,12 +4902,16 @@ details.pos summary{font-size:1rem}
     ['quick', 'figures', 'plans', 'timing', 'slope'].forEach(function (k) { if (!Array.isArray(f[k])) f[k] = []; });
     var Q = rankQuick(), q = ES.norm(f.q || ''), rows = R.rows;
     var shownV = f.v || (q ? '' : 'in');
-    var base = function (r) {
+    // base(r, sans) : filtres de base ; « sans » ignore la pente ou la sortie de base (pour compter ce que donnerait chaque case)
+    var base = function (r, sans) {
+      var useBrk = sans === 'brk' ? true : f.brk && sans !== 'brk0';
       if (q && ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) < 0) return false;
       if (f.country && r.country !== f.country) return false;
       if (f.sector && r.sector !== f.sector) return false;
-      if (f.slope && f.slope.length && f.slope.indexOf(rkSc(r) || 'none') < 0) return false;
-      if (shownV === 'in' && r.out.length) return false;
+      if (sans !== 'slope' && f.slope && f.slope.length && f.slope.indexOf(rkSc(r) || 'none') < 0) return false;
+      if (useBrk && !rkBrk(r)) return false;
+      // la sortie de base arrive souvent quand le cours est encore dans le tiers faible sur 12 mois : on la montre quand même
+      if (shownV === 'in' && r.out.length && !(useBrk && rkBrk(r))) return false;
       if (shownV && shownV !== 'in' && r.v !== shownV) return false;
       return true;
     };
@@ -4928,13 +4943,15 @@ details.pos summary{font-size:1rem}
     var pool = rows.filter(function (r) { return base(r) && plf(r); });
     h += '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q || '') + '" data-rf="q" aria-label="Rechercher"></div>';
     // pente du canal haussier : barre toujours visible, cumulable (forte + moyenne par exemple)
-    var slPool = rows.filter(function (r) { return (!q || ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) > -1) && (!f.country || r.country === f.country) && (!f.sector || r.sector === f.sector) && (shownV !== 'in' || !r.out.length) && (!shownV || shownV === 'in' || r.v === shownV) && qf(r) && plf(r); });
-    var slN = {}; slPool.forEach(function (r) { var k = rkSc(r) || 'none'; slN[k] = (slN[k] || 0) + 1; });
+    var slN = {}; rows.forEach(function (r) { if (base(r, 'slope') && qf(r) && plf(r)) { var k = rkSc(r) || 'none'; slN[k] = (slN[k] || 0) + 1; } });
+    var brkN = rows.filter(function (r) { return base(r, 'brk') && qf(r) && plf(r); }).length;
     h += '<div class="slbar" role="group" aria-label="Pente du canal haussier"><span class="slt">Pente du canal haussier <span class="muted">(rythme sur 6 mois)</span></span><div class="fchips">' +
       [['strong', '⬆⬆ Forte', '≥ +40 %'], ['mid', '⬆ Moyenne', '+15 à +40 %'], ['light', '↗ Légère', '< +15 %']].map(function (o) {
         var on = f.slope.indexOf(o[0]) > -1;
         return '<button class="fchip sl-' + o[0] + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfSlope" data-v="' + o[0] + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + o[1] + ' <small>' + o[2] + '</small> <span class="count">' + (slN[o[0]] || 0) + '</span></button>';
-      }).join('') + (f.slope.length ? '<button class="fchip" data-a="rfSlope" data-v="all">Toutes</button>' : '') + '</div></div>' +
+      }).join('') + (f.slope.length ? '<button class="fchip" data-a="rfSlope" data-v="all">Toutes</button>' : '') + '</div>' +
+      '<span class="slt">Signal précoce <span class="muted">(à surveiller, hors note)</span></span><div class="fchips"><button class="fchip brk' + (f.brk ? ' on' : '') + '" aria-pressed="' + !!f.brk + '" data-a="rfBrk" title="Nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut il y a 6 mois"><span aria-hidden="true">' + (f.brk ? '☑' : '☐') + '</span> 🚀 Nouveau plus haut après une base <span class="count">' + brkN + '</span></button></div>' +
+      (f.brk ? '<p class="small muted brkx">Depuis 2018, ce signal a été suivi d\'une hausse d\'au moins 40 % en 6 mois 1,6 à 2,2 fois plus souvent que la moyenne (environ 1 fois sur 6), avec moins de chutes. Mais 4 fois sur 5 la hausse reste modeste : à surveiller, pas à acheter les yeux fermés. Les sociétés encore « écartées » pour une baisse sur 12 mois sont montrées en fin de liste.</p>' : '') + '</div>' +
       '<details class="card fold ffold" data-k="rquick"' + (f.quick.length ? ' open' : '') + '><summary>🔎 Filtres' + (f.quick.length ? ' <span class="chip good">' + f.quick.length + '</span>' : ' <span class="muted">· dirigeants, repli, secteur, cycle, comptes, valeur…</span>') + '</summary>' +
       '<div class="segs wrapq" role="group" aria-label="Filtres rapides">' + Object.keys(Q).map(function (k) {
         var on = f.quick.indexOf(k) > -1, n = pool.filter(function (r) { return Q[k][1](r) && qf(r, k); }).length;
@@ -4961,6 +4978,7 @@ details.pos summary{font-size:1rem}
       '<li><b>Note /100</b> et ses pastilles : <span class="rpill t-good">📈 <b>70<small>/75</small></b></span> tendance (dont la force sur 12 mois, le critère le plus fiable), <span class="rpill t-good">📊 <b>20<small>/20</small></b></span> comptes, <span class="rpill t-good">👔 <b>+3</b></span> dirigeants. Vert : bon, orange : moyen, rouge : faible.</li>' +
       '<li><b>12 mois</b> : hausse ou baisse sur un an (hors dernier mois) et rang parmi les sociétés liquides.</li>' +
       '<li><b>Pente</b> (sous les 12 mois) : rythme de la droite de tendance du canal haussier sur les 6 derniers mois (moins sensible aux à-coups que la simple hausse). ⬆⬆ forte : au moins +40 %, ⬆ moyenne : +15 à +40 %, ↗ légère : moins de +15 %. Sur 5 et 8 ans, les pentes fortes ont fait environ 4 points de mieux que la société moyenne à 6 mois, les pentes légères pas mieux que la moyenne. Une pente qui retombe pendant une consolidation n\'annonce pas la fin de la hausse : c\'est une mesure du rythme passé.</li><li><b>Plus haut</b> : écart avec le plus haut des 52 dernières semaines. Les premières sociétés sont souvent près de leur plus haut : c\'est ce qui marche le mieux dans nos données. Pour attendre un meilleur prix, utilisez le plan d\'entrée de la fiche ou le filtre « ↘️ En repli ».</li>' +
+      '<li><b>🚀 Sortie de base</b> : nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut 6 mois plus tôt. C\'est le seul signal de début de hausse qui a tenu dans nos tests (1,6 à 2,2 fois plus de hausses d\'au moins 40 % en 6 mois), mais il se trompe souvent : à surveiller, il ne compte pas dans la note.</li>' +
       '<li><b>Écartées</b> : peu liquides, comptes en dégradation, dernier exercice en perte, bilan en détresse, ou cours parmi le tiers le plus faible du marché.</li></ul></details>';
     // barre de tri visible : critère + sens ; en-têtes du tableau cliquables sur grand écran
     h += '<div class="rsort" role="group" aria-label="Trier"><label for="r-sort">Trier par</label><select id="r-sort" data-rf="sort">' + Object.keys(RSORT).map(function (k) { return '<option value="' + k + '"' + (k === sk ? ' selected' : '') + '>' + RSORT[k][0] + '</option>'; }).join('') + '</select>' +
@@ -4972,7 +4990,7 @@ details.pos summary{font-size:1rem}
       h += '<tr class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><td class="c-name"><b>' + flag(r.country) + esc(r.name) + '</b><small>' + esc([r.sym, r.sector].filter(Boolean).join(' · ')) + '</small>' +
         '<small class="rwhy1">' + esc(r.out.length ? '⛔ ' + cap1r(r.out[0]) : (r.why || []).slice(0, 2).map(cap1r).join(' · ')) + '</small>' + (r.out.length ? '' : rankPills(r)) + '</td>' +
         '<td class="num scorecell" data-l="Note"><span class="big">' + r.note + '</span><small>/100</small></td>' +
-        '<td class="num" data-l="12 mois">' + (r.mom != null ? '<span class="' + (r.mom >= 0 ? 'pos' : 'neg') + '">' + pct(r.mom) + '</span>' + (r.momPct != null ? '<small>mieux que ' + r.momPct + ' %</small>' : '') : '<span class="muted">n.d.</span>') + (rkSc(r) && r.slope6 != null ? '<small class="rslope sl-' + rkSc(r) + '" title="Pente du canal haussier : rythme de la droite de tendance sur les 6 derniers mois">' + '<span>' + SLOPE_TXT[rkSc(r)][0] + ' pente ' + SLOPE_TXT[rkSc(r)][1] + '</span> <span>' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' %/6 mois</span></small>' : '') + '</td>' +
+        '<td class="num" data-l="12 mois">' + (r.mom != null ? '<span class="' + (r.mom >= 0 ? 'pos' : 'neg') + '">' + pct(r.mom) + '</span>' + (r.momPct != null ? '<small>mieux que ' + r.momPct + ' %</small>' : '') : '<span class="muted">n.d.</span>') + (rkBrk(r) ? '<small class="rbrk" title="Nouveau plus haut sur un an après 6 mois de base">🚀 sortie de base' + (r.brk ? ' (' + r.brk + ' sem.)' : '') + '</small>' : '') + (rkSc(r) && r.slope6 != null ? '<small class="rslope sl-' + rkSc(r) + '" title="Pente du canal haussier : rythme de la droite de tendance sur les 6 derniers mois">' + '<span>' + SLOPE_TXT[rkSc(r)][0] + ' pente ' + SLOPE_TXT[rkSc(r)][1] + '</span> <span>' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' %/6 mois</span></small>' : '') + '</td>' +
         '<td class="num" data-l="Plus haut">' + (r.ratio != null ? (r.ratio >= 99.5 ? '<span class="pos">au plus haut</span>' : '<span>' + pct(r.ratio - 100) + '</span>') : '<span class="muted">n.d.</span>') + '</td>' +
         '<td data-l="Avis">' + rankChip(r) + (P ? '<small class="rplan">' + esc(P[1]) + (F ? ' · ' + F[0] + ' ' + esc(F[1]) : '') + '</small>' : '') + '</td></tr>';
     });
@@ -6464,6 +6482,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'rankMode') { S.rankMode = el.dataset.v === 'ins' ? 'ins' : 'rank'; S.limit = 50; try { localStorage.setItem('es-rankmode', S.rankMode); } catch (e) { } render(); }
     else if (a === 'rfDir') { S.rf = S.rf || {}; var dsk = RSORT[S.rf.sort] ? S.rf.sort : 'note', cur0 = S.rf.dir || (dsk === 'name' ? 'asc' : 'desc'); S.rf.dir = cur0 === 'asc' ? 'desc' : 'asc'; S.limit = 50; var yd = window.scrollY; render(); window.scrollTo(0, yd); }
     else if (a === 'rfSort') { S.rf = S.rf || {}; var nk = el.dataset.v, ck = RSORT[S.rf.sort] ? S.rf.sort : 'note'; if (nk === ck) { var c1 = S.rf.dir || (ck === 'name' ? 'asc' : 'desc'); S.rf.dir = c1 === 'asc' ? 'desc' : 'asc'; } else { S.rf.sort = nk; S.rf.dir = nk === 'name' ? 'asc' : 'desc'; } S.limit = 50; var ys = window.scrollY; render(); window.scrollTo(0, ys); }
+    else if (a === 'rfBrk') { S.rf = S.rf || {}; S.rf.brk = !S.rf.brk; S.limit = 50; var ybk = window.scrollY; render(); window.scrollTo(0, ybk); }
     else if (a === 'rfSlope') { S.rf = S.rf || {}; var cs = Array.isArray(S.rf.slope) ? S.rf.slope : [], vs = el.dataset.v; S.rf.slope = vs === 'all' ? [] : cs.indexOf(vs) > -1 ? cs.filter(function (x) { return x !== vs; }) : cs.concat([vs]); S.limit = 50; var ysl = window.scrollY; render(); window.scrollTo(0, ysl); }
     else if (a === 'rfQuick') { S.rf = S.rf || {}; var cq = Array.isArray(S.rf.quick) ? S.rf.quick : [], vq = el.dataset.v; S.rf.quick = vq === 'all' ? [] : cq.indexOf(vq) > -1 ? cq.filter(function (x) { return x !== vq; }) : cq.concat([vq]); S.limit = 50; var yk = window.scrollY; render(); window.scrollTo(0, yk); }
     else if (a === 'rfFig' || a === 'rfPlan' || a === 'rfTim') { S.rf = S.rf || {}; var kk = a === 'rfFig' ? 'figures' : a === 'rfPlan' ? 'plans' : 'timing', ar = Array.isArray(S.rf[kk]) ? S.rf[kk].slice() : [], ix2 = ar.indexOf(el.dataset.v); if (ix2 > -1) ar.splice(ix2, 1); else ar.push(el.dataset.v); S.rf[kk] = ar; S.limit = 50; var yr2 = window.scrollY; render(); window.scrollTo(0, yr2); }
