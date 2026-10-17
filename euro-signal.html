@@ -116,6 +116,7 @@ table{border-collapse:collapse;width:100%}
 .sbar{display:flex;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin-top:3px;width:110px}
 .sbar i{display:block;height:100%}
 .slbar{margin:6px 0 10px}.slbar .slt{display:block;font-size:.85rem;font-weight:600;margin:0 0 4px}.slbar .fchip small{opacity:.75}.slbar .slt+.fchips+.slt{margin-top:8px}.brkx{margin:6px 0 0}.brkx p{margin:4px 0}.brk-good{color:var(--good)}.brk-bad{color:var(--bad)}.rbrk{display:block;font-weight:600;color:var(--good);white-space:nowrap}
+.comore>section.card{border:0;box-shadow:none;background:none;padding:0;margin:14px 0 0}
 .rslope{font-weight:600;line-height:1.3;margin-top:2px;white-space:normal!important}.rslope span{white-space:nowrap}.rslope.sl-strong{color:var(--good)}.rslope.sl-mid{color:var(--warn)}.rslope.sl-light{color:var(--muted,inherit);font-weight:400}
 .rpills{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .rpill{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:10px;font-size:.8rem;background:var(--sunk);color:var(--ink);white-space:nowrap}
@@ -4874,21 +4875,11 @@ details.pos summary{font-size:1rem}
       '<p class="small"><b>Six mois plus tard</b>, une société moyenne a fait :</p><p class="psyg">' + [['low', '😟 pessimiste'], ['mid', '😐 neutre'], ['high', '😃 euphorique']].map(function (o) { return '<span class="psyc' + (o[0] === N.regime ? ' on' : '') + '">' + o[1] + ' <b>' + g6(o[0]) + '</b></span>'; }).join('') + '</p>' +
       xpi('Quand peu de sociétés sont en tendance haussière, la peur domine et les cours sont bas : historiquement, les six mois suivants ont été meilleurs que quand tout le monde est euphorique. C\'est une information sur le moment d\'investir (entrer franchement quand le marché est pessimiste, étaler ses achats quand il est euphorique), pas sur le choix des sociétés. Mesuré sur ' + esc(b.source || 'les sociétés cotées') + ' : peu de cycles complets, donc un ordre de grandeur, pas une certitude. Les recherches Google ne sont pas utilisées : Google bloque leur lecture automatique et, dans les études, elles annoncent surtout des emballements de courte durée suivis d\'un retour en arrière.') + '</section>';
   }
+  /** Autres filtres gardés (version allégée) : comptes solides et repli, les seuls utiles une fois la note et la pente appliquées. */
   function rankQuick() {
-    var liq5 = 5e6;
     return {
-      ins: ['👔 Achats de dirigeants', function (r) { return (r.parts || {}).insiders > 0; }],
-      dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (r) { var g = r.isin && S.inst[r.isin] ? dgInfo(r.isin) : null; return !!(g && g.recent); }],
-      tmpl: ['✅ Trend Template (Minervini)', function (r) { return r.tmpl === 1; }],
-      pull: ['↘️ En repli de 5 à 25 %', function (r) { return r.ratio != null && r.ratio <= 95 && r.ratio >= 75; }],
-      conv3: ['Convergence ≥ 3 sur 5', function (r) { var v = r.isin && S.inst[r.isin] ? convOf(r.isin) : null; return !!(v && v.n >= 3); }],
-      secTrend: ['🔥 Secteur en tendance', rkSec],
-      cycUp: ['🔄 Porté par le cycle', function (r) { var se = rkSecEn(r), f = S.cycle && se ? ES.cycleFit(S.cycle, se) : null; return !!(f && f.fit === 'up'); }],
       acc: ['📊 Comptes solides', function (r) { return r.acc === 'good'; }],
-      fs8: ['F-score 8 ou 9', function (r) { var f9 = rkF9(r); return f9 != null && f9 >= 8; }],
-      liq: ['💧 Très liquide (≥ 5 M€/jour)', function (r) { return (r.liq || 0) >= liq5; }],
-      ivCheap: ['💎 Sous sa valeur intrinsèque', function (r) { return !!r.iv || ES.valueCheap(rkVal(r)); }],
-      belowBook: ['📘 Sous sa valeur comptable', function (r) { var v = rkVal(r), pb = r.pb != null ? r.pb : v && !v.na && !v.negEquity ? v.pb : null; return pb != null && pb > 0 && pb < 1; }]
+      pull: ['↘️ En repli de 5 à 25 %', function (r) { return r.ratio != null && r.ratio <= 95 && r.ratio >= 75; }]
     };
   }
   /** Critères de tri du classement : [libellé, valeur] (valeur absente = en fin de liste). */
@@ -4896,19 +4887,19 @@ details.pos summary{font-size:1rem}
     note: ['Note', function (r) { return r.note; }],
     trend: ['📈 Points de tendance', function (r) { var p = r.parts || {}; return (p.mom || 0) + (p.high || 0) + (p.trend || 0); }],
     acc: ['📊 Points de comptes', function (r) { return (r.parts || {}).accounts; }],
-    ins: ['👔 Points des dirigeants', function (r) { return (r.parts || {}).insiders; }],
     mom: ['Hausse sur 12 mois', function (r) { return r.mom; }],
     high: ['Écart au plus haut', function (r) { return r.ratio == null ? null : r.ratio - 100; }],
     slope: ['Pente du canal (6 mois)', function (r) { return r.slope6; }],
     liq: ['Liquidité (échanges par jour)', function (r) { return r.liq; }],
-    f9: ['F-score', function (r) { return rkF9(r); }],
     name: ['Nom', function (r) { return r.name || ''; }]
   };
   function vClassement() {
-    if ((S.rankMode || 'rank') === 'ins' || !rankData()) return (rankData() ? modeSeg() : '') + vInsRank();
+    if (!rankData()) return vInsRank();
     if (!S.cycle && !S.secLoaded) loadSectors();
     var R = rankData(), f = S.rf = S.rf || {};
     ['quick', 'figures', 'plans', 'timing', 'slope'].forEach(function (k) { if (!Array.isArray(f[k])) f[k] = []; });
+    f.figures = []; f.timing = []; // filtres retirés (version allégée) : ne pas garder un ancien choix invisible
+    var Q0 = rankQuick(); f.quick = f.quick.filter(function (k) { return Q0[k]; });
     var Q = rankQuick(), q = ES.norm(f.q || ''), rows = R.rows;
     var shownV = f.v || (q ? '' : 'in');
     // base(r, sans) : filtres de base ; « sans » ignore la pente ou la sortie de base (pour compter ce que donnerait chaque case)
@@ -4944,10 +4935,10 @@ details.pos summary{font-size:1rem}
     });
     var ctry = {}, secs = {}, cv = {}; rows.forEach(function (r) { if (r.country) ctry[r.country] = 1; if (r.sector) secs[r.sector] = 1; cv[r.v] = (cv[r.v] || 0) + 1; });
     var C = R.counts || {}, RC = S.cfg.rank || {};
-    var h = modeSeg() + '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
+    var h = '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
     var rstat = function (label, big, small, v, kind) { var on = f.v === v; return '<button class="stat ' + (kind || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfV" data-v="' + v + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; };
     h += '<section class="summary">' + rstat('En tête 🟢', String(cv.top || 0), 'note ≥ ' + (RC.top || 80), 'top', cv.top ? 'good' : '') + rstat('Solides 🟡', String(cv.good || 0), 'note ' + (RC.good || 65) + ' à ' + ((RC.top || 80) - 1), 'good', 'warn') + '</section>';
-    h += psyCard() + cycleCard(true) + rankSelCard();
+    h += psyCard() + rankSelCard();
     // filtres rapides, avec le nombre de résultats si l'on coche ce filtre en plus des autres
     var pool = rows.filter(function (r) { return base(r) && plf(r); });
     h += '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q || '') + '" data-rf="q" aria-label="Rechercher"></div>';
@@ -4960,12 +4951,11 @@ details.pos summary{font-size:1rem}
         return '<button class="fchip sl-' + o[0] + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfSlope" data-v="' + o[0] + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + o[1] + ' <small>' + o[2] + '</small> <span class="count">' + (slN[o[0]] || 0) + '</span></button>';
       }).join('') + (f.slope.length ? '<button class="fchip" data-a="rfSlope" data-v="all">Toutes</button>' : '') + '</div>' +
       '<span class="slt">Signal précoce <span class="muted">(à surveiller, hors note)</span></span><div class="fchips"><button class="fchip brk' + (f.brk ? ' on' : '') + '" aria-pressed="' + !!f.brk + '" data-a="rfBrk" title="Nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut il y a 6 mois"><span aria-hidden="true">' + (f.brk ? '☑' : '☐') + '</span> 🚀 Nouveau plus haut après une base <span class="count">' + brkN + '</span></button></div>' +
-      (f.brk ? brkNote() : '') + '</div>' +
-      '<details class="card fold ffold" data-k="rquick"' + (f.quick.length ? ' open' : '') + '><summary>🔎 Filtres' + (f.quick.length ? ' <span class="chip good">' + f.quick.length + '</span>' : ' <span class="muted">· dirigeants, repli, secteur, cycle, comptes, valeur…</span>') + '</summary>' +
-      '<div class="segs wrapq" role="group" aria-label="Filtres rapides">' + Object.keys(Q).map(function (k) {
+      (f.brk ? brkNote() : '') +
+      '<span class="slt">Autres filtres</span><div class="fchips">' + Object.keys(Q).map(function (k) {
         var on = f.quick.indexOf(k) > -1, n = pool.filter(function (r) { return Q[k][1](r) && qf(r, k); }).length;
-        return '<button class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '" data-a="rfQuick" data-v="' + k + '"><span class="box" aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + Q[k][0] + ' <span class="count">' + n + '</span></button>';
-      }).join('') + (f.quick.length ? '<button data-a="rfQuick" data-v="all">Tout décocher</button>' : '') + '</div></details>';
+        return '<button class="fchip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfQuick" data-v="' + k + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + Q[k][0] + ' <span class="count">' + n + '</span></button>';
+      }).join('') + '</div></div>';
     var nSel = (f.country ? 1 : 0) + (f.sector ? 1 : 0) + (f.v ? 1 : 0);
     h += '<details class="card fold ffold" data-k="rsel"' + (nSel ? ' open' : '') + '><summary>Pays, secteur, avis' + (nSel ? ' <span class="chip good">' + nSel + '</span>' : '') + '</summary><div class="toolbar">' +
       '<select data-rf="country" aria-label="Pays"><option value="">Tous les pays</option>' + Object.keys(ctry).sort().map(function (c) { return '<option value="' + c + '"' + (f.country === c ? ' selected' : '') + '>' + flagTxt(c) + (COUNTRIES[c] || c) + '</option>'; }).join('') + '</select>' +
@@ -4977,11 +4967,9 @@ details.pos summary{font-size:1rem}
     pool2.forEach(function (r) { var p = r.plan; if (!p) return; cf[p.f || 'none'] = (cf[p.f || 'none'] || 0) + 1; cp[p.v] = (cp[p.v] || 0) + 1; (p.t || []).forEach(function (k) { ct[k] = (ct[k] || 0) + 1; }); });
     var chip = function (act, k, txt, n, on, tone) { return '<button class="fchip ' + (tone || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="' + act + '" data-v="' + k + '"><span aria-hidden="true">' + (on ? '☑' : '☐') + '</span> ' + txt + ' <span class="count">' + (n || 0) + '</span></button>'; };
     var nf = f.figures.length + f.plans.length + f.timing.length;
-    h += '<details class="card fold ffold" data-k="rfilters"' + (nf ? ' open' : '') + '><summary>Figure et plan d\'entrée' + (nf ? ' <span class="chip good">' + nf + ' filtre' + (nf > 1 ? 's' : '') + '</span>' : '') + '</summary>' +
-      '<div class="fchips">' + Object.keys(ES.FIGURES).map(function (k) { var F = ES.FIGURES[k]; return chip('rfFig', k, F[0] + ' ' + F[1], cf[k], f.figures.indexOf(k) > -1, F[2]); }).join('') + '</div>' +
+    h += '<details class="card fold ffold" data-k="rfilters"' + (nf ? ' open' : '') + '><summary>Plan d\'entrée' + (nf ? ' <span class="chip good">' + nf + ' filtre' + (nf > 1 ? 's' : '') + '</span>' : '') + '</summary>' +
       '<div class="fchips">' + PLANS.map(function (o) { return chip('rfPlan', o[0], o[1], cp[o[0]], f.plans.indexOf(o[0]) > -1); }).join('') + '</div>' +
-      '<p class="small fgrp">⏱️ Repères de timing <span class="muted">(cumulables : tous doivent être vrais)</span></p><div class="fchips">' + TIMING.map(function (t) { return chip('rfTim', t[0], t[1], ct[t[0]], f.timing.indexOf(t[0]) > -1, 'good').replace('<button ', '<button title="' + esc(t[3]) + '" '); }).join('') + '</div>' +
-      xpi('Pour entrer sur une société en tendance sans l\'acheter à son plus haut : cochez « ↘️ En repli », « ⏳ Attendre un rebond sur support » ou « 🧱 Près du support ».') +
+      xpi('Pour entrer sur une société en tendance sans l\'acheter à son plus haut : cochez « ⏳ Attendre un rebond sur support », ou « ↘️ En repli » dans les filtres.') +
       (nf ? '<button class="link" data-a="rfFClear">Tout décocher</button>' : '') + '</details>';
     h += '<details class="help"><summary>Comment lire ce tableau ?</summary><ul class="plain">' +
       '<li><b>Note /100</b> et ses pastilles : <span class="rpill t-good">📈 <b>70<small>/75</small></b></span> tendance (dont la force sur 12 mois, le critère le plus fiable), <span class="rpill t-good">📊 <b>20<small>/20</small></b></span> comptes, <span class="rpill t-good">👔 <b>+3</b></span> dirigeants. Vert : bon, orange : moyen, rouge : faible.</li>' +
@@ -5152,9 +5140,11 @@ details.pos summary{font-size:1rem}
     h += missingLine(i);
     if (x.secondary && S.inst[x.secondary]) h += '<p class="liqw">ℹ️ <b>Ligne secondaire sans cours</b> (options, droits ou actions nouvelles) de la société : <button class="link" data-a="open" data-i="' + esc(x.secondary) + '">fiche de la ligne principale (' + esc(S.inst[x.secondary].name) + ')</button>.</p>';
     h += rankCard(rankOf(i, x.ticker));
-    h += adviceCard(i, c);
-    h += adviceSection(i, c);
-    h += '<section class="card"><h3>Cours et achats des dirigeants</h3>' + chart(i) + '</section>';
+    // version allégée : la note tendance + comptes, le cours avec le plan d'entrée et « Je l'ai acheté » en haut ; la lecture « dirigeants » est repliée plus bas
+    var newM = !!rankData(), advS = adviceSection(i, c), cutB = advS.indexOf('<section class="card buybox">'), advHow = cutB > -1 ? advS.slice(0, cutB) : advS, advBuy = cutB > -1 ? advS.slice(cutB) : '';
+    if (!newM) h += adviceCard(i, c) + advS;
+    h += '<section class="card"><h3>' + (newM ? 'Cours et plan d\'entrée' : 'Cours et achats des dirigeants') + '</h3>' + chart(i) + '</section>';
+    if (newM) h += advBuy;
     var nDet = 0, det = function (title, body, open) { return '<details class="card fold" data-k="fiche' + (nDet++) + '"' + (open ? ' open' : '') + '><summary>' + title + '</summary>' + body + '</details>'; };
     h += det('🔎 Tous les faits', brief(i, c));
     var acc = x.accounts, TI = { good: '🟢', mixed: '🟡', bad: '🔴', na: '⚪' }, ft = acc && acc.fscoreTrend ? { up: ' ↗', down: ' ↘', flat: '' }[acc.fscoreTrend.key] || '' : '';
@@ -5177,7 +5167,7 @@ details.pos summary{font-size:1rem}
       '<div><h4>Qualité des données</h4><ul class="checks">' + c.q.items.map(function (it) { return '<li class="' + (it.ok ? 'ok' : 'ko') + '"><span>' + esc(it.label) + '</span><b>' + it.points + '/' + it.max + '</b></li>'; }).join('') + '</ul>' +
       '<h4 class="mt">Surchauffe <span class="chip neutral">expérimental</span></h4>' + (c.oh.items.length ? '<ul class="checks">' + c.oh.items.map(function (it) { return '<li class="ko"><span>' + esc(it.label) + '</span><b>+' + it.points + '</b></li>'; }).join('') + '</ul>' : '<p class="muted">Aucun signe de surchauffe.</p>') +
       xpi('Non disponibles : ' + c.oh.unavailable.map(esc).join(' ; ') + '.') + '</div></div>';
-    h += det(rankData() ? '🧮 Détail de l\'ancienne note (dirigeants)' : '🧮 Détail de la note', noteBody);
+    h += newM ? det('👔 Lecture « dirigeants » <span class="muted">· ancienne méthode, pour information</span>', adviceCard(i, c) + advHow + '<h4 class="mt">Détail de l\'ancienne note</h4>' + noteBody) : det('🧮 Détail de la note', noteBody);
     var nTx = (S.tx[i] || []).filter(function (t) { return ES.availDate(t) >= sc.windowFrom; }).length;
     h += det('📝 Déclarations des dirigeants <span class="muted">· ' + nTx + '</span>', txSection(i, sc));
     h += '<p class="rep">' + reportBtn(x.name || i, i, x.ticker) + '</p>';
@@ -5772,9 +5762,10 @@ details.pos summary{font-size:1rem}
       (/^REIT\b/i.test(String(x.industry || '')) ? '<span class="chip bad">hors PEA (foncière cotée)</span> ' : x.pea === false ? '<span class="chip bad">hors PEA</span> ' : x.pea ? '<span class="chip good">' + (x.basic ? 'PEA probable (cotée dans l\'UE ou l\'EEE)' : 'PEA (siège dans l\'UE ou l\'EEE)') + '</span> ' : '') + roles + '</p></div></header>' + partH +
       (x.basic ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>' : '');
     h += rankCard(rankOf(es, sym));
-    if (es) h += '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' + esc(es) + '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
+    var more = '';
+    if (es) more += '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' + esc(es) + '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
     // secteur
-    if (x.group) h += '<section class="card"><h3>Secteur</h3><p><b>' + esc(secName(x.group)) + '</b>' + (x.groupRank ? ' : ' + x.groupRank + 'e sur ' + nG + ' groupes' : '') + (x.groupTrending ? ' <span class="chip good">En tendance</span>' : '') + (x.groupEmerging ? ' <span class="chip warn">Émergent</span>' : '') + '</p>' +
+    if (x.group) more += '<section class="card"><h3>Secteur</h3><p><b>' + esc(secName(x.group)) + '</b>' + (x.groupRank ? ' : ' + x.groupRank + 'e sur ' + nG + ' groupes' : '') + (x.groupTrending ? ' <span class="chip good">En tendance</span>' : '') + (x.groupEmerging ? ' <span class="chip warn">Émergent</span>' : '') + '</p>' +
       '<p class="small">Force sur 6 mois ' + pc100(x.rs6) + ' et sur 3 mois ' + pc100(x.rs3) + ' par rapport au STOXX 600' + (x.volume != null ? ' · volumes : ' + (x.volume > 0.05 ? 'achats dominants' : x.volume < -0.05 ? 'ventes dominantes' : 'équilibrés') : '') + '.</p></section>';
     // chiffres clés
     var reco = x.reco == null ? null : x.reco <= 1.5 ? 'achat fort' : x.reco <= 2.5 ? 'achat' : x.reco <= 3.5 ? 'conserver' : x.reco <= 4.5 ? 'sous-performance' : 'vente';
@@ -5790,11 +5781,11 @@ details.pos summary{font-size:1rem}
       ['Derniers résultats', x.lastSurprise ? (x.lastSurprise[1] >= 0 ? 'au-dessus' : 'en dessous') + ' du consensus (' + pct(x.lastSurprise[1]) + ', ' + shortDate(x.lastSurprise[0]) + ')' : null],
       ['Cours / valeur comptable', x.pb != null ? fmtN(x.pb, 2) + '×' + (x.pb < 1 ? ' (sous l\'actif net)' : '') : null], ['Rentabilité des fonds propres', x.roe != null ? fmtN(x.roe * 100, 1) + ' % sur 12 mois' : null],
       ['Institutionnels', x.instPct != null ? fmtN(x.instPct * 100, 0) + ' % du capital' : null], ['Dirigeants et proches', x.insiderPct != null ? fmtN(x.insiderPct * 100, 1) + ' % du capital' : null]].filter(function (r) { return r[1]; });
-    h += secValueCard(x, es) + '<section class="card"><h3>En un coup d\'œil</h3><div class="mts">' + mini('Force 6 mois', pc100(x.rs6), x.rs6, -0.5, 0.5, true, 'Par rapport au STOXX 600') + mini('Force 3 mois', pc100(x.rs3), x.rs3, -0.5, 0.5, true, 'Par rapport au STOXX 600') +
+    more += secValueCard(x, es) + '<section class="card"><h3>En un coup d\'œil</h3><div class="mts">' + mini('Force 6 mois', pc100(x.rs6), x.rs6, -0.5, 0.5, true, 'Par rapport au STOXX 600') + mini('Force 3 mois', pc100(x.rs3), x.rs3, -0.5, 0.5, true, 'Par rapport au STOXX 600') +
       mini('Croissance', pc100(x.revGrowth), x.revGrowth, -0.5, 0.5, true, 'Chiffre d\'affaires sur un an') + mini('Marge opérationnelle', x.opMargin != null ? fmtN(x.opMargin * 100, 0) + ' %' : '', x.opMargin, -0.2, 0.5, true) +
       mini('Objectif', pc100(x.upside), x.upside, -0.5, 0.5, true, 'Objectif de cours moyen par rapport au cours') + mini('Institutionnels', x.instPct != null ? fmtN(x.instPct * 100, 0) + ' %' : '', x.instPct, 0, 1, false) + '</div>' +
       (x.reco != null ? '<p class="small"><b>Avis moyen des analystes</b> (' + (x.analysts || '?') + ')</p>' + scaleLine(x.reco, 1, 5, [[1, 2.5, 'good'], [2.5, 3.5, 'neu'], [3.5, 5, 'bad']], [[1, 'achat fort'], [3, 'conserver'], [5, 'vente']], 'Avis moyen ' + fmtN(x.reco, 1) + ' sur 5') : '') + '</section>';
-    h += '<section class="card"><h3>Chiffres clés</h3><table class="kv">' + rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('') + '</table><p class="small muted">Source Yahoo Finance, relevé du ' + shortDate(String(((S.secCo || S.sec || {}).generatedAt) || '').slice(0, 10)) + '.</p>' + '<p class="rep">' + reportBtn(x.name || sym, x.isin || null, sym) + '</p></section>';
+    more += '<section class="card"><h3>Chiffres clés</h3><table class="kv">' + rows.map(function (r) { return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; }).join('') + '</table><p class="small muted">Source Yahoo Finance, relevé du ' + shortDate(String(((S.secCo || S.sec || {}).generatedAt) || '').slice(0, 10)) + '.</p>' + '<p class="rep">' + reportBtn(x.name || sym, x.isin || null, sym) + '</p></section>';
     // cours
     var D = (S.secCo && S.secCo.dDates) || [], Wd = (S.secCo && S.secCo.wDates) || [];
     var dser = (x.d || []).map(function (v, k) { return [D[k], v]; }).filter(function (r) { return r[0] && r[1] > 0; });
@@ -5818,6 +5809,7 @@ details.pos summary{font-size:1rem}
       try { var adj = ES.normalizeSeries(dser.map(function (r) { return [r[0], null, null, null, r[1], null]; })), esJ = esIsinOfSym(sym, x.isin), pl = (esJ && planFor(esJ)) || ES.entryPlan(adj); h += pl ? planCard(esJ || sym, pl, adj) : ''; } catch (e) { h += '<p class="muted small">Plan d\'entrée non calculable.</p>'; }
     } else h += '<p class="muted small">Plan d\'entrée : pas assez de cours journaliers (6 mois au moins).</p>';
     if (!es && x.pea !== false && dser.length) h += catBuyBox(sym, dser[dser.length - 1][1]);
+    if (more) h += '<details class="card fold comore" data-k="comore"><summary>➕ Plus de détails <span class="muted">· ' + (es ? 'dossier Euro Signal, ' : '') + 'secteur, valeur, chiffres clés</span></summary>' + more + '</details>';
     var yurl = ES.safeUrl('https://finance.yahoo.com/quote/' + encodeURIComponent(sym));
     if (yurl) h += '<p class="small"><a href="' + esc(yurl) + '" target="_blank" rel="noopener">Voir sur Yahoo Finance ↗</a></p>';
     return h;
