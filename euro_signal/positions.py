@@ -324,11 +324,17 @@ def main():
                 (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Revente — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # Plans d'entrée surveillés
+    rank_by_sym = {r.get("sym"): r for r in ((dash.get("rank") or {}).get("rows") or []) if isinstance(r, dict) and r.get("sym")}
     for w in watches:
         isin = w["isin"]
         p = prices.get(isin)
         inst = (dash.get("inst") or {}).get((dash.get("aliases") or {}).get(isin, isin)) or {}  # ancien ISIN réuni à un autre dossier
         rows = [r for r in (p or {}).get("rows") or [] if r and r[4]]
+        if not ISIN_RE.fullmatch(isin):  # société du catalogue : cours du catalogue, plan calculé le soir dans le classement
+            rk = rank_by_sym.get(isin) or {}
+            pw = rk.get("pw")
+            rows = catalogue_rows(isin)
+            inst = {"name": rk.get("name"), "plan": {"verdict": pw.get("v"), "label": pw.get("label"), "primary": pw.get("p") or {}, "wedge": pw.get("w") or {}}} if pw else {}
         if not rows or not inst.get("plan"):
             continue
         last = rows[-1][4]  # dernier cours brut = dernier cours ajusté (aucun ajustement après la dernière séance)
@@ -339,7 +345,7 @@ def main():
                 continue
             body = ("%s %s.\n\nDernier cours : %s. Plan du soir : %s.\n%s\n"
                     "Ce n'est pas un ordre : vérifiez la fiche avant d'agir.\nPour arrêter : bouton « Ne plus surveiller » dans la fiche%s.") % (
-                name, label, ("%.2f" % last).replace(".", ","), inst["plan"].get("label") or "", "Convergence : %s signaux sur 5." % (inst.get("convergence") or {}).get("n", "?"),
+                name, label, ("%.2f" % last).replace(".", ","), inst["plan"].get("label") or "", ("Convergence : %s signaux sur 5." % inst["convergence"].get("n", "?")) if inst.get("convergence") else "",
                 (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Plan — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # Diversification : une fois par semaine au plus, seulement si une concentration apparaît
