@@ -20,13 +20,13 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Variantes
+      - name: Pente
         continue-on-error: true
         timeout-minutes: 45
         run: |
           mkdir -p rep
           python scrapers/sectors.py --prices > rep/1-prices.txt 2>&1 || true
-          python scrapers/_variantes.py > rep/2-variantes.txt 2>&1 || true
+          python scrapers/_pente.py > rep/2-pente.txt 2>&1 || true
       - name: Résultats
         if: always()
         run: |
@@ -34,4 +34,4 @@ jobs:
           git checkout -B secteurs-resultats
           git rm -r -q --cached . > /dev/null
           git add -f rep
-          git commit -q -m "Variantes $(date -u +%H:%M)" && git push -f origin secteurs-resultats
+          git commit -q -m "Pente $(date -u +%H:%M)" && git push -f origin secteurs-resultats
