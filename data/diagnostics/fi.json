@@ -8,11 +8,11 @@
   [
    "2026-10-14",
    "2026-10-17",
-   88
+   89
   ]
  ],
  "encoding": "utf-16",
- "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n17/10/2026 12:07:22;Biovica International AB;549300VADE1VRR555N78;Cornelis Bogerd;Cornelis Bogerd;Member of the Board of Directors;;;;Yes;Yes;Allotment;Option;Biovica PSP 2026/2029:1;;07/10/2026 00:00:00;317700.0;Quantity;0.0;SEK;Outside a trading venue;Current;\r\n17/10/202",
+ "head": "Publication date;Issuer;LEI-code;Notifier;Person discharging managerial responsibilities;Position;Closely associated;Amendment;Details of amendment;Initial notification;Linked to share option programme;Nature of transaction;Intrument type;Instrument name;ISIN;Transaction date;Volume;Unit;Price;Currency;Trading venue;Status;\r\n17/10/2026 13:00:28;Sehlhall Fastigheter AB;549300570R011QZC7505;Dan Sehlberg;Dan Sehlberg;Chief Executive Officer (CEO)/Managing Directory;;;;Yes;;Subscription;Share;Sehlhall Fastigheter AB C;SE0030285623;17/10/2026 00:00:00;45.0;Quantity;10000.0;SEK;Outside a trading ven",
  "delimiter": ";",
  "headers": [
   "Publication date",
@@ -59,7 +59,7 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 266,
+ "rowCount": 267,
  "sampleRows": [
   [
    "13/10/2026 22:47:55",
@@ -112,5 +112,5 @@
    ""
   ]
  ],
- "at": "2026-10-17T10:36:00.228027+00:00"
+ "at": "2026-10-17T11:15:55.983655+00:00"
 }

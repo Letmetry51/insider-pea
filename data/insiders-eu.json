@@ -112193,6 +112193,29 @@
    "numberLocale": "auto",
    "linkedTo": null,
    "collectedAt": "2026-10-17"
+  },
+  "FI:2026-10-17-sehlhall_fastigheter_ab-dan_sehlberg-SE0030285623-10000.0-45.0-2026-10-17": {
+   "registry": "FI",
+   "country": "SE",
+   "id": "2026-10-17-sehlhall_fastigheter_ab-dan_sehlberg-SE0030285623-10000.0-45.0-2026-10-17",
+   "url": "https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=Sehlhall%20Fastigheter%20AB&PersonILedandeSt%C3%A4llningNamn=Dan%20Sehlberg&Transaktionsdatum.From=2026-10-17&Transaktionsdatum.To=2026-10-17",
+   "via": "fi.se",
+   "published": "2026-10-17",
+   "issuer": "Sehlhall Fastigheter AB",
+   "person": "Dan Sehlberg",
+   "role": "Chief Executive Officer (CEO)/Managing Directory",
+   "isin": "SE0030285623",
+   "instrument": "Share",
+   "nature": "Subscription",
+   "txDate": "2026-10-17",
+   "currency": "SEK",
+   "quantity": "45.0",
+   "price": "10000.0",
+   "amount": null,
+   "place": "Outside a trading venue",
+   "numberLocale": "auto",
+   "linkedTo": null,
+   "collectedAt": "2026-10-17"
   }
  },
  "sources": {
@@ -112234,8 +112257,8 @@
    "via": "fi.se (export CSV officiel, registre Insynshandel)",
    "lastAttempt": "2026-10-17",
    "status": "ok",
-   "rows": 266,
-   "kept": 249,
+   "rows": 267,
+   "kept": 250,
    "note": null,
    "lastSuccess": "2026-10-17",
    "backfilled": true
@@ -112332,5 +112355,5 @@
    "https://www.fsma.be/en/manager-transaction/xior-2"
   ]
  },
- "generated_at": "2026-10-17T10:36:00.230156+00:00"
+ "generated_at": "2026-10-17T11:15:55.985961+00:00"
 }

@@ -46,7 +46,7 @@ OK     graphiques (cours 1 an) : 687
 OK     comptes annuels : 668
 OK     valeur comptable : 642
 OK     secteur : 668
-OK     liquidité : 679 (+1 depuis le calcul précédent)
+OK     liquidité : 679
 OK     plan d'entrée : 665
 OK     déclarations (3 mois) : 3296
 OK     sources à jour : 4
