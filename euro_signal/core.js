@@ -638,8 +638,8 @@
     sizing: { riskPct: 1, stopMinPct: 10, stopMaxPct: 30, maxPct: 8 },
     selection: { enabled: true, size: 5, minScore: 30, recentDays: 30, weekday: 1, peaOnly: true, requireCeoCfo: false },
     // Classement principal depuis le 17/10/2026 : tendance + comptes sur toutes les sociétés liquides du catalogue, dirigeants en bonus
-    rank: { version: '3.0.0', since: '2026-10-17', minTurnoverEur: 1000000, highFloor: 0.6, insFloor: -15, top: 80, good: 65, selMin: 70, selSize: 5,
-      w: { mom: 30, high: 20, trend: 15, accounts: 20, calm: 10, insiders: 5 } },
+    rank: { version: '3.1.0', since: '2026-10-17', minTurnoverEur: 1000000, highFloor: 0.6, insFloor: -15, top: 80, good: 65, selMin: 70, selSize: 5,
+      w: { mom: 50, high: 10, trend: 15, accounts: 20, calm: 0, insiders: 5 } }, // 3.1 : pondération qui tient sur 5 ans (toutes sociétés) et sur 8 ans (> 500 M€)
     exits: { enabled: true, followDays: 365, belowInsiderPricePct: 10, drawdownFromPeakPct: 20 },
     rules: { frozenUntil: '', reviewMinCases: 50, review: { date: '', fixedOn: '', minCases: 50, maxUnderperfPts: 3, waitCostPct: 1 } },
     learning: { mode: 'auto', minCases: 60, minT: 2.7, maxStep: 1, horizon: 60, minNew: 20 },
@@ -3194,7 +3194,7 @@
    * l'univers la même semaine, la tendance (force relative 12 mois hors dernier mois, proximité du plus haut 52 semaines,
    * MM50 > MM200) fait +3 à +3,6 points à 6 mois (t de 4 à 5) ; des comptes dégradés, une perte ou un bilan en détresse
    * font −2 à −4 points ; un achat de dirigeant publié ne fait pas mieux que le hasard (+0,3 à 3 mois, 48 % de gagnants).
-   * Ordre de décision : 1. exclusions, 2. tendance, 3. comptes, 4. calme du cours, 5. dirigeants en bonus ou malus.
+   * Ordre de décision : 1. exclusions, 2. tendance (force relative surtout, barème 3.1), 3. comptes, 4. dirigeants en bonus ou malus.
    */
   /** Repères de tendance d'une société : clôtures journalières (1 an) et hebdomadaires (5 ans), valeurs nulles tolérées. */
   ES.rankFeatures = function (daily, weekly) {
@@ -3263,7 +3263,7 @@
       else warn.push(!acc ? 'comptes pas encore lus' : acc.fin ? 'banque ou assurance : F-score non applicable' : acc.key === 'mixed' ? 'comptes mitigés' + (acc.f9 != null ? ' (F-score ' + acc.f9 + '/9)' : '') : acc.key === 'bad' ? 'comptes en dégradation' : 'comptes insuffisants pour conclure');
       // 4. calme du cours
       parts.calm = vp == null ? Math.round(W.calm / 2) : vp < 1 / 3 ? W.calm : vp < 2 / 3 ? Math.round(W.calm / 2) : 0;
-      if (vp != null && vp < 1 / 3) why.push('cours calme'); else if (vp != null && vp >= 2 / 3) warn.push('cours agité');
+      if (W.calm) { if (vp != null && vp < 1 / 3) why.push('cours calme'); else if (vp != null && vp >= 2 / 3) warn.push('cours agité'); }
       // 5. dirigeants
       var ins = ES.rankInsiders(x.ins, cfg);
       parts.insiders = ins.pts;
@@ -3414,7 +3414,7 @@
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track) {
     var n = items.length, R = cfg.rank;
     var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + ' en tête du classement' : 'aucune société au-dessus du seuil');
-    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, aux comptes lus, sans comptes dégradés ni perte, notées sur la force relative, la proximité du plus haut, la tendance de fond, les comptes et le calme du cours ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
+    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, aux comptes lus, sans comptes dégradés ni perte, notées sur la force relative (le critère le plus fiable), la proximité du plus haut, la tendance de fond et les comptes ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
     var pcs = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
     var tr = track && track.n ? 'Sélections précédentes (' + track.n + ' dossiers) : ' + pcs(track.avg) + ' en moyenne depuis l\'envoi' + (track.bench != null ? ', indice ' + pcs(track.bench) : '') + '.' : null;
     var warnOf = function (x) { var w = (x.warn || []).slice(0, 2); if (x.nextEarnings && today && x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 21) w.unshift('résultats le ' + ES.frDate(x.nextEarnings)); return w; };

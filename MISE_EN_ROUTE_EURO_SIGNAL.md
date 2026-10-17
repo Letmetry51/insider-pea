@@ -12,7 +12,7 @@ Après cette mise en route, **tout est automatique**. Chaque soir de semaine, Gi
 
 Depuis le 17/10/2026, le **classement principal** porte sur toutes les sociétés liquides éligibles au PEA du catalogue :
 exclusions (liquidité, comptes dégradés ou en perte, bilan en détresse, cours parmi les plus faibles), puis note sur la
-tendance (force relative 12 mois, proximité du plus haut, MM50 > MM200), les comptes et le calme du cours ; les achats de
+tendance (surtout la force relative sur 12 mois, puis la proximité du plus haut et MM50 > MM200) et les comptes ; les achats de
 dirigeants ne comptent plus qu'en petit bonus (leurs ventes en malus). La sélection du lundi en est tirée. L'ancien
 classement par les dirigeants reste consultable pour comparaison jusqu'à la revue du 31/01/2027.
 
