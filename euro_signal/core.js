@@ -3227,7 +3227,8 @@
       if (q > ES.RANK_JUMP_UP || q < ES.RANK_JUMP_DOWN) { if (!f.jump || Math.abs(Math.log(q)) > Math.abs(Math.log(f.jump.x))) f.jump = { x: q, ago: W.length - 1 - j }; }
     }
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
-    // son plus haut d'alors il y a 6 mois (sortie de base). Test 5 et 8 ans : 1,6 à 2,2 fois plus souvent suivi de +40 % en 6 mois.
+    // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
+    // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
     if (W.length >= 82) {
       var mx = function (a, b) { var m = 0; for (var i = a; i <= b; i++) if (W[i] > m) m = W[i]; return m; };
       for (var t = W.length - 1; t >= W.length - 4; t--) {
