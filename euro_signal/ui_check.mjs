@@ -78,7 +78,7 @@ await Promise.all(Array.from({ length: PAGES }, async () => {
 {
   const p = await newPage();
   // chaque onglet doit montrer son contenu (une erreur rattrapée par la page laisserait sinon un onglet vide sans bruit)
-  const EXPECT = { classement: 'tr.rowlink', secteurs: '#sec-q', inities: 'table.ops tr.rowlink', alertes: 'h2', aide: '[data-k="aide-guide"]' };
+  const EXPECT = { classement: 'tr.rowlink', secteurs: '#sec-q', inities: 'table.ops tr.rowlink', alertes: 'h2', aide: '#logique' };
   for (const v of ['classement', 'secteurs', 'inities', 'alertes', 'aide']) {
     p.__where = 'onglet ' + v;
     await p.goto(URL0); await p.waitForTimeout(2500);

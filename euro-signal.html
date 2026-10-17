@@ -6571,7 +6571,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'pfCore') { S.pfCore = el.dataset.v === '1'; var yy = window.scrollY; render(); window.scrollTo(0, yy); }
     else if (a === 'methH') { S.methH = +el.dataset.v; var ym = window.scrollY; render(); window.scrollTo(0, ym); }
     else if (a === 'proofH') { S.proofH = +el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); }
-    else if (a === 'guide') { S.view = 'aide'; S.openDet = S.openDet || {}; S.openDet['aide-guide'] = true; render(); var gd = document.querySelector('details[data-k="aide-guide"]'); if (gd) gd.scrollIntoView(); }
+    else if (a === 'guide') { S.view = 'aide'; render(); var gd = document.getElementById('logique'); if (gd) gd.scrollIntoView(); }
     else if (a === 'goto') {
       var tg = el.dataset.v, node = tg.charAt(0) === '.' ? document.querySelector(tg) : [].slice.call(document.querySelectorAll('details.fold > summary')).filter(function (sm) { return sm.textContent.indexOf(tg) > -1; }).map(function (sm) { return sm.parentNode; })[0];
       if (node) { if (node.tagName === 'DETAILS') node.open = true; node.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }
