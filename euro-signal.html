@@ -125,6 +125,12 @@ table{border-collapse:collapse;width:100%}
 .rg-t{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}.rg-t i{display:block;height:100%;border-radius:5px;background:var(--muted)}
 .rg.t-good .rg-t i{background:var(--good)}.rg.t-mid .rg-t i{background:var(--warn)}.rg.t-bad .rg-t i{background:var(--bad)}
 .rg-v{font:600 .9rem var(--mono);text-align:right;white-space:nowrap}.rg-v small{font-weight:400;color:var(--muted)}
+.psy .psyh{margin:4px 0 6px}.psy .psyi{font-size:1.3rem;margin-right:4px}
+.psyline{width:100%;height:56px;display:block;margin:6px 0 0;background:var(--sunk);border-radius:4px}
+.psyline .psy-l{stroke:var(--ink);stroke-width:1.6;vector-effect:non-scaling-stroke}.psyline .psy-dot{fill:var(--accent)}
+.psyline .psy-low{fill:var(--good-soft)}.psyline .psy-high{fill:var(--bad-soft)}
+.psyax{display:flex;justify-content:space-between;gap:6px;margin:2px 0 8px;font-size:.72rem}
+.psyg{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.psyc{padding:3px 9px;border-radius:12px;background:var(--sunk);font-size:.85rem;white-space:nowrap}.psyc b{font-family:var(--mono)}.psyc.on{background:var(--accent);color:var(--accent-ink)}
 .rtab .rplan{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}
 .rcard .rhead{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin:4px 0 0}
 .rcard .rnote{font:700 2rem/1 var(--display)}
@@ -3761,6 +3767,53 @@ details.pos summary{font-size:1rem}
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
     return rows;
   };
+
+  /**
+   * Trend Template de Minervini (clôtures journalières, un an au moins) : cours au-dessus des moyennes 50, 150 et 200 séances,
+   * MM50 > MM150 > MM200, MM200 en hausse sur un mois, cours au moins 30 % au-dessus du plus bas et à moins de 25 % du plus haut sur un an.
+   */
+  ES.trendTemplate = function (daily) {
+    var D = (daily || []).filter(function (v) { return v > 0; }), n = D.length;
+    if (n < 222) return null;
+    var avg = function (k, L) { var t = 0; for (var j = k - L + 1; j <= k; j++) t += D[j]; return t / L; };
+    var c = D[n - 1], m50 = avg(n - 1, 50), m150 = avg(n - 1, 150), m200 = avg(n - 1, 200), m200b = avg(n - 21, 200);
+    var y = D.slice(-252), hi = Math.max.apply(null, y), lo = Math.min.apply(null, y);
+    var rules = [c > m150 && c > m200, m150 > m200, m200 > m200b, m50 > m150 && m50 > m200, c > m50, c >= 1.3 * lo, c >= 0.75 * hi];
+    return { ok: rules.every(Boolean), n: rules.filter(Boolean).length, of: 7 };
+  };
+  /**
+   * Psychologie du marché, à partir des clôtures hebdomadaires de toutes les sociétés cotées (dates communes) :
+   * ampleur = part des sociétés en tendance de fond haussière (MM10 > MM40 semaines et cours > MM40), part au plus haut et au plus bas
+   * de l'année ; historique de l'ampleur et résultat moyen d'une société 3 et 6 mois plus tard selon le tiers d'ampleur.
+   */
+  ES.marketBreadth = function (dates, series, opts) {
+    opts = opts || {};
+    var keys = Object.keys(series || {}), nD = (dates || []).length, rows = [], H = [13, 26];
+    for (var t = 52; t < nD; t++) {
+      var up = 0, n = 0, hi = 0, lo = 0, fw = { 13: [], 26: [] };
+      keys.forEach(function (k) {
+        var p = series[k]; if (!(p[t] > 0)) return;
+        var w = []; for (var j = t - 51; j <= t; j++) if (p[j] > 0) w.push(p[j]);
+        if (w.length < 45) return;
+        var m40 = mean(w.slice(-40)), m10 = mean(w.slice(-10)), mx = Math.max.apply(null, w), mn = Math.min.apply(null, w);
+        n++; if (m10 > m40 && p[t] > m40) up++; if (p[t] >= mx * 0.98) hi++; if (p[t] <= mn * 1.02) lo++;
+        H.forEach(function (h) { if (t + h < nD && p[t + h] > 0) fw[h].push(clamp(p[t + h] / p[t] - 1, -0.6, 1.5)); });
+      });
+      if (n < (opts.minCross || 100)) continue;
+      rows.push({ d: dates[t], up: up / n, hi: hi / n, lo: lo / n, n: n, f13: fw[13].length > 50 ? mean(fw[13]) : null, f26: fw[26].length > 50 ? mean(fw[26]) : null });
+    }
+    if (!rows.length) return null;
+    var srt = rows.map(function (r) { return r.up; }).sort(function (a, b) { return a - b; }), c1 = srt[Math.floor(srt.length / 3)], c2 = srt[Math.floor(2 * srt.length / 3)];
+    var reg = function (r) { return r.up < c1 ? 'low' : r.up > c2 ? 'high' : 'mid'; }, out = { low: {}, mid: {}, high: {} };
+    ['low', 'mid', 'high'].forEach(function (g) {
+      var rr = rows.filter(function (r) { return reg(r) === g; });
+      H.forEach(function (h) { var v = rr.map(function (r) { return r['f' + h]; }).filter(function (x) { return x != null; }); out[g]['h' + h] = v.length ? { mean: +(mean(v) * 100).toFixed(1), weeks: v.length, pos: Math.round(v.filter(function (x) { return x > 0; }).length / v.length * 100) } : null; });
+    });
+    var last = rows[rows.length - 1], below = srt.filter(function (v) { return v < last.up; }).length;
+    return { now: { date: last.d, up: +(last.up * 100).toFixed(1), hi: +(last.hi * 100).toFixed(1), lo: +(last.lo * 100).toFixed(1), n: last.n, regime: reg(last), pct: Math.round(below / srt.length * 100) },
+      cuts: [+(c1 * 100).toFixed(1), +(c2 * 100).toFixed(1)], regimes: out, from: rows[0].d, to: last.d,
+      hist: rows.filter(function (r, k) { return k % 2 === 0 || k === rows.length - 1; }).map(function (r) { return [r.d, +(r.up * 100).toFixed(1), +(r.hi * 100).toFixed(1), +(r.lo * 100).toFixed(1)]; }) };
+  };
   /** Sélection de la semaine du classement : les N premières sociétés non écartées, aux comptes lus, dont la note atteint le seuil. */
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
@@ -4745,11 +4798,34 @@ details.pos summary{font-size:1rem}
   function rkSecEn(r) { var x = r.isin && S.inst[r.isin]; return r.secEn || (x && ((x.fund && x.fund.sector) || x.sector)) || null; }
   function rkF9(r) { if (r.f9 != null) return r.f9; var a = r.isin && S.inst[r.isin] && S.inst[r.isin].accounts; return a && a.fscore && !a.fscore.na ? a.fscore.f9 : null; }
   function rkVal(r) { return r.isin && S.inst[r.isin] ? S.inst[r.isin].value : null; }
+  /** Psychologie du marché : part des sociétés en tendance haussière (ampleur), plus hauts et plus bas de l'année, volatilité, et ce qui a suivi dans le passé. */
+  function psyCard() {
+    var R = rankData(), b = R && R.breadth; if (!b || !b.now) return '';
+    var N = b.now, G = b.regimes || {}, mood = S.snapshot && S.snapshot.market && S.snapshot.market.mood;
+    var L = { low: ['😟', 'Marché pessimiste', 'peu de sociétés en tendance haussière'], mid: ['😐', 'Marché neutre', 'ni peur ni euphorie'], high: ['😃', 'Marché euphorique', 'beaucoup de sociétés en tendance haussière'] }[N.regime];
+    var g6 = function (k) { var o = G[k] && G[k].h26; return o ? (o.mean >= 0 ? '+' : '') + fmtN(o.mean, 1) + ' %' : 'n.d.'; };
+    // petite courbe de l'ampleur avec les deux seuils
+    var H = b.hist || [], svg = '';
+    if (H.length > 10) {
+      var vals = H.map(function (r) { return r[1]; }).concat(b.cuts), y0 = Math.max(0, Math.min.apply(null, vals) - 3), y1 = Math.min(100, Math.max.apply(null, vals) + 3);
+      var w = 320, hgt = 56, x = function (k) { return (k / (H.length - 1) * w).toFixed(1); }, y = function (v) { return (hgt - (v - y0) / (y1 - y0) * hgt).toFixed(1); };
+      svg = '<svg class="psyline" viewBox="0 0 ' + w + ' ' + hgt + '" preserveAspectRatio="none" role="img" aria-label="Part des sociétés en tendance haussière depuis ' + esc(shortDate(b.from)) + '">' +
+        '<rect x="0" y="' + y(b.cuts[0]) + '" width="' + w + '" height="' + (hgt - y(b.cuts[0])).toFixed(1) + '" class="psy-low"/><rect x="0" y="0" width="' + w + '" height="' + y(b.cuts[1]) + '" class="psy-high"/>' +
+        '<polyline fill="none" class="psy-l" points="' + H.map(function (r, k) { return x(k) + ',' + y(r[1]); }).join(' ') + '"/><circle cx="' + x(H.length - 1) + '" cy="' + y(H[H.length - 1][1]) + '" r="3.5" class="psy-dot"/></svg>' +
+        '<p class="small muted psyax"><span>' + esc(shortDate(b.from)) + '</span><span>vert : peur · rouge : euphorie</span><span>' + esc(shortDate(b.to)) + '</span></p>';
+    }
+    return '<section class="card psy psy-' + N.regime + '"><h3>🧠 Psychologie du marché</h3>' +
+      '<p class="psyh"><span class="psyi" aria-hidden="true">' + L[0] + '</span><b>' + L[1] + '</b> : ' + fmtN(N.up, 0) + ' % des sociétés en tendance haussière (' + L[2] + ' ; ' + (N.pct <= 50 ? 'plus bas que ' + (100 - N.pct) : 'plus haut que ' + N.pct) + ' % des semaines depuis ' + esc(String(b.from).slice(0, 4)) + ').</p>' +
+      '<p class="small">Plus hauts de l\'année : <b>' + fmtN(N.hi, 0) + ' %</b> des sociétés · plus bas de l\'année : <b>' + fmtN(N.lo, 0) + ' %</b>' + (mood && mood.label ? ' · volatilité : ' + esc(mood.icon || '') + ' ' + esc(mood.label) : '') + '.</p>' + svg +
+      '<p class="small"><b>Six mois plus tard</b>, une société moyenne a fait :</p><p class="psyg">' + [['low', '😟 pessimiste'], ['mid', '😐 neutre'], ['high', '😃 euphorique']].map(function (o) { return '<span class="psyc' + (o[0] === N.regime ? ' on' : '') + '">' + o[1] + ' <b>' + g6(o[0]) + '</b></span>'; }).join('') + '</p>' +
+      xpi('Quand peu de sociétés sont en tendance haussière, la peur domine et les cours sont bas : historiquement, les six mois suivants ont été meilleurs que quand tout le monde est euphorique. C\'est une information sur le moment d\'investir (entrer franchement quand le marché est pessimiste, étaler ses achats quand il est euphorique), pas sur le choix des sociétés. Mesuré sur ' + esc(b.source || 'les sociétés cotées') + ' : peu de cycles complets, donc un ordre de grandeur, pas une certitude. Les recherches Google ne sont pas utilisées : Google bloque leur lecture automatique et, dans les études, elles annoncent surtout des emballements de courte durée suivis d\'un retour en arrière.') + '</section>';
+  }
   function rankQuick() {
     var liq5 = 5e6;
     return {
       ins: ['👔 Achats de dirigeants', function (r) { return (r.parts || {}).insiders > 0; }],
       dg30: ['DG/DAF < ' + ((S.cfg.selection || {}).recentDays || 30) + ' jours', function (r) { var g = r.isin && S.inst[r.isin] ? dgInfo(r.isin) : null; return !!(g && g.recent); }],
+      tmpl: ['✅ Trend Template (Minervini)', function (r) { return r.tmpl === 1; }],
       pull: ['↘️ En repli de 5 à 25 %', function (r) { return r.ratio != null && r.ratio <= 95 && r.ratio >= 75; }],
       conv3: ['Convergence ≥ 3 sur 5', function (r) { var v = r.isin && S.inst[r.isin] ? convOf(r.isin) : null; return !!(v && v.n >= 3); }],
       secTrend: ['🔥 Secteur en tendance', rkSec],
@@ -4793,7 +4869,7 @@ details.pos summary{font-size:1rem}
     var h = modeSeg() + '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
     var rstat = function (label, big, small, v, kind) { var on = f.v === v; return '<button class="stat ' + (kind || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfV" data-v="' + v + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; };
     h += '<section class="summary">' + rstat('En tête 🟢', String(cv.top || 0), 'note ≥ ' + (RC.top || 80), 'top', cv.top ? 'good' : '') + rstat('Solides 🟡', String(cv.good || 0), 'note ' + (RC.good || 65) + ' à ' + ((RC.top || 80) - 1), 'good', 'warn') + '</section>';
-    h += cycleCard(true) + rankSelCard();
+    h += psyCard() + cycleCard(true) + rankSelCard();
     // filtres rapides, avec le nombre de résultats si l'on coche ce filtre en plus des autres
     var pool = rows.filter(function (r) { return base(r) && plf(r); });
     h += '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' + esc(f.q || '') + '" data-rf="q" aria-label="Rechercher"></div>' +
@@ -6231,7 +6307,7 @@ details.pos summary{font-size:1rem}
     if (!R) return '';
     var st = R.study, H = S.methH || 26;
     var h = '<section class="card proof" id="methode"><h3>Méthode : tendance + comptes</h3>' +
-      '<p><b>L\'idée.</b> Les sociétés dont le cours monte déjà, près de leur plus haut, avec des comptes sains, continuent en moyenne de faire mieux que les autres pendant plusieurs mois. Les achats de dirigeants, eux, ne font pas mieux que le hasard une fois publiés : ils ne comptent plus qu\'en bonus.</p>' +
+      '<p><b>L\'idée.</b> Les sociétés dont le cours monte déjà, près de leur plus haut, avec des comptes sains, continuent en moyenne de faire mieux que les autres pendant plusieurs mois. Les achats de dirigeants, eux, ne font pas mieux que le hasard une fois publiés : ils ne comptent plus qu\'en bonus.</p><p class="small"><b>À savoir :</b> l\'avantage varie selon les périodes. Sur 8 ans, il a été faible de 2018 à 2023 (krach de 2020, baisse de 2022) et net depuis ; il est plus fort quand le marché est porteur. Les signaux de « départ de tendance » (croisement récent des moyennes, accélération sur 3 mois, premier plus haut après une base) et le volume ont été testés : rien de net, ils ne sont pas dans la note.</p>' +
       '<ol class="steps">' + step('Écarter', 'Moins de ' + ES.fmtEur(c.minTurnoverEur) + ' échangés par jour, hors PEA, comptes en dégradation (F-score ≤ 3), dernier exercice en perte, bilan en détresse, ou cours parmi le tiers le plus faible du marché sur 12 mois.') +
       step('Classer sur la tendance (' + (w.mom + w.high + w.trend) + ' points)', 'Force relative sur 12 mois hors dernier mois (' + w.mom + '), proximité du plus haut sur un an (' + w.high + '), tendance de fond : moyenne 50 séances au-dessus de la 200 (' + w.trend + ').') +
       step('Départager (' + (w.accounts + w.calm) + ' points)', 'Comptes solides (' + w.accounts + ' ; mitigés ' + Math.round(w.accounts / 2) + ', pas encore lus ' + Math.round(w.accounts * 0.4) + '), cours calme (' + w.calm + ').') +
@@ -6239,7 +6315,7 @@ details.pos summary{font-size:1rem}
       step('Sélection du lundi', 'Les ' + c.selSize + ' premières sociétés dont les comptes ont été lus, avec au moins ' + c.selMin + '/100, envoyées par email.') + '</ol>';
     if (st && st['h' + H]) {
       var g = st['h' + H];
-      h += '<h4 class="mt">Étude de contrôle, recalculée chaque soir</h4><p class="small">' + fmtInt(st.companies) + ' sociétés cotées, chaque semaine du ' + shortDate(st.from) + ' au ' + shortDate(st.to) + ' : résultat ' + (H === 13 ? '3' : '6') + ' mois plus tard, comparé au titre moyen de la même semaine.</p>' +
+      h += '<h4 class="mt">Étude de contrôle, recalculée chaque soir</h4><p class="small">' + fmtInt(st.companies) + ' sociétés (' + esc(st.source || 'cotées') + '), chaque semaine du ' + shortDate(st.from) + ' au ' + shortDate(st.to) + ' : résultat ' + (H === 13 ? '3' : '6') + ' mois plus tard, comparé au titre moyen de la même semaine.</p>' +
         '<div class="segs" role="group" aria-label="Horizon">' + [[13, 'à 3 mois'], [26, 'à 6 mois']].map(function (x) { return '<button class="' + (H === x[0] ? 'on' : '') + '" data-a="methH" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
         '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Groupe</th><th class="num">Écart moyen</th><th class="num">Battent la moyenne</th><th class="num">Fiabilité</th></tr></thead><tbody>' +
         st.groups.map(function (gr) {

@@ -1328,6 +1328,18 @@ t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le fu
   ok(st2.weeks < st.weeks && st2.h13.momTop.n > 0);
 });
 
+t('Trend Template de Minervini et psychologie du marché (ampleur, régimes)', () => {
+  const up = Array.from({ length: 260 }, (_, k) => 100 * Math.exp(k * 0.003));
+  eq(ES.trendTemplate(up).ok, true); eq(ES.trendTemplate(up.slice().reverse()).n, 0); eq(ES.trendTemplate(up.slice(0, 100)), null, 'moins de 222 séances');
+  const nW = 160, dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)), series = {};
+  // marché qui alterne : la moitié des semaines en baisse générale puis rebond
+  for (let s = 0; s < 150; s++) series['S' + s] = dates.map((_, k) => 20 * Math.exp(0.3 * Math.sin(k / 12) + 0.02 * Math.sin(k + s)));
+  const b = ES.marketBreadth(dates, series);
+  ok(b && b.now && b.now.up >= 0 && b.now.up <= 100 && ['low', 'mid', 'high'].indexOf(b.now.regime) > -1, JSON.stringify(b && b.now));
+  ok(b.cuts[0] <= b.cuts[1] && b.hist.length > 10 && b.regimes.low && b.regimes.high);
+  eq(ES.marketBreadth(dates.slice(0, 40), series), null, 'historique trop court');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

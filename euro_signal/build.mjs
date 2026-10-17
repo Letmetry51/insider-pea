@@ -58,6 +58,20 @@ function mainRegistry(list) {
 }
 
 /** Historique long des dirigeants (collecteur séparé, data/history) : déclarations normalisées, début par registre, résultats des achats. */
+/** Cours hebdomadaires du module secteurs (CSV compressé : une colonne par symbole, en euros) → { dates, series } ; null si absent. */
+function readWeeklyCsv(file, universe) {
+  try {
+    const lines = zlib.gunzipSync(fs.readFileSync(file)).toString('utf8').split(/\r?\n/).filter(Boolean);
+    const head = lines[0].split(','), keep = [];
+    head.forEach((h, k) => { if (k > 0 && universe && universe[h]) keep.push([k, h]); });
+    const dates = [], series = {}; keep.forEach(([, h]) => { series[h] = []; });
+    for (let r = 1; r < lines.length; r++) {
+      const c = lines[r].split(','); dates.push(String(c[0]).slice(0, 10));
+      keep.forEach(([k, h]) => { const v = parseFloat(c[k]); series[h].push(v > 0 ? v : null); });
+    }
+    return { dates, series };
+  } catch (e) { return null; }
+}
 function readGz(file, fallback) { try { return JSON.parse(zlib.gunzipSync(fs.readFileSync(file)).toString('utf8')); } catch (e) { return fallback; } }
 function loadHistory(today, live) {
   const out = { tx: {}, cov: {}, outcomes: readGz(path.join(F.history, 'outcomes.json.gz'), {}), n: {}, from: {}, cut: {} };
@@ -893,7 +907,7 @@ export function build(opts = {}) {
     const rows = ES.rankUniverse(items, cfg);
     const nextE = {}; items.forEach((x) => { if (x.nextEarnings) nextE[x.key] = x.nextEarnings; });
     // Étude de contrôle sur 4 ans de cours hebdomadaires (même méthode que l'étude qui a fondé le barème)
-    let study = null;
+    let study = null, breadth = null;
     try {
       const series = {}, insM = {}, accM = {};
       Object.keys(co).forEach((sym) => { if (Array.isArray(co[sym].w) && co[sym].w.length === wDates.length) series[sym] = co[sym].w; });
@@ -904,7 +918,14 @@ export function build(opts = {}) {
         const x = co[sym], ds = [...new Set(fin.years.map((y) => y && y.date ? ES.addDays(y.date, 120) : null).filter(Boolean))].sort();
         accM[sym] = ds.map((d) => { let a = null; try { a = ES.accountsAnalysis(fin, { asOf: d, sector: x.sector, industry: x.industry }); } catch (e) { a = null; } const sm = accSummary(a); return sm ? Object.assign({ from: d }, sm) : null; }).filter(Boolean);
       });
-      study = ES.factorStudy(wDates, series, { cfg, insiders: insM, accounts: accM });
+      // Historique long (8 ans, sociétés de plus de 500 M€, module secteurs) quand il est disponible : étude plus exigeante,
+      // qui couvre le krach de 2020 et la baisse de 2022 ; sinon les 5 ans du catalogue
+      const long = readWeeklyCsv(path.join(DATA, 'sectors', 'weekly.csv.gz'), readJSON(path.join(DATA, 'sectors', 'universe.json'), {}).items || {});
+      const useLong = long && long.dates.length >= 300 && Object.keys(long.series).length >= 300;
+      const SD = useLong ? long.dates : wDates, SS = useLong ? long.series : series;
+      study = ES.factorStudy(SD, SS, { cfg, insiders: insM, accounts: accM });
+      study.source = useLong ? 'sociétés de plus de 500 M€, 8 ans' : 'toutes les sociétés cotées, 5 ans';
+      try { const t1 = Date.now(); breadth = ES.marketBreadth(SD, SS); if (breadth) breadth.source = study.source; if (breadth) breadth.ms = Date.now() - t1; } catch (e) { console.warn('  Psychologie du marché indisponible : ' + e.message); }
       study.withAccounts = Object.keys(accM).length; study.withInsiders = Object.keys(insM).length;
     } catch (e) { console.warn('  Étude de contrôle du classement indisponible : ' + e.message); }
     // Sélection de la semaine : les premières sociétés non écartées au-dessus du seuil ; suivi depuis l'envoi
@@ -924,7 +945,7 @@ export function build(opts = {}) {
     const slimRow = (r) => ({ key: r.key, isin: r.isin, sym: r.sym, name: r.name, country: r.country, sector: r.sector, note: r.note, parts: r.parts, v: r.verdict.key, out: r.out, why: r.why, warn: r.warn,
       mom: r.mom != null ? +(r.mom * 100).toFixed(1) : null, momPct: r.momPct != null ? Math.round(r.momPct * 100) : null, ratio: r.ratio != null ? +(r.ratio * 100).toFixed(1) : null, trend: r.trend,
       ret6m: r.ret6m != null ? +(r.ret6m * 100).toFixed(1) : null, liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : null, pos: r.pos || null, acc: r.acc,
-      plan: r.plan || null, sec: r.sec || null, secEn: r.secEn || null, f9: r.f9 != null ? r.f9 : null, pb: r.pb != null ? r.pb : null, iv: r.iv || undefined });
+      plan: r.plan || null, tmpl: r.tmpl, sec: r.sec || null, secEn: r.secEn || null, f9: r.f9 != null ? r.f9 : null, pb: r.pb != null ? r.pb : null, iv: r.iv || undefined });
     // Liste publiée : sociétés liquides (classées ou écartées pour une raison de fond) ; les autres sont trouvables par la recherche du catalogue
     const shown = rows.filter((r) => (r.turnoverEur || 0) >= cfg.rank.minTurnoverEur || r.isin);
     // Repères des filtres (mêmes que l'ancien classement) : plan d'entrée et figure, secteur, cycle, valeur, F-score
@@ -940,9 +961,10 @@ export function build(opts = {}) {
       r.f9 = accF9[r.key] != null ? accF9[r.key] : null;
       const pb = i && i.value && i.value.pb != null ? i.value.pb : x.pb; r.pb = pb != null && isFinite(pb) ? +(+pb).toFixed(2) : null;
       r.iv = !!(i && ES.valueCheap(i.value));
+      if (Array.isArray(x.d)) { const tt = ES.trendTemplate(x.d); if (tt) r.tmpl = tt.ok ? 1 : 0; }
     });
     rank = { version: R.version, since: R.since, today, coDate, coFresh: !!(coDate && ES.daysBetween(coDate, today) <= 3), generatedAt: new Date().toISOString(), counts: { catalogue: rows.length, liquid: rows.filter((r) => (r.turnoverEur || 0) >= R.minTurnoverEur).length, ranked: rows.filter((r) => !r.out.length).length, top: rows.filter((r) => r.verdict.key === 'top').length },
-      bench: mRef ? mRef.ticker : null, selection: { week, items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })), track: trackSum, weeks: track }, rows: shown.map(slimRow), study };
+      bench: mRef ? mRef.ticker : null, selection: { week, items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })), track: trackSum, weeks: track }, rows: shown.map(slimRow), study, breadth };
     rank.ms = Date.now() - t0;
     console.log('  Classement tendance + comptes : ' + rank.counts.ranked + ' sociétés classées sur ' + rank.counts.liquid + ' liquides (' + rank.counts.catalogue + ' au catalogue), ' + rank.counts.top + ' en tête ; sélection : ' + sel.length + ' (' + (rank.ms / 1000).toFixed(0) + ' s)');
     rank._sel = sel; rank._b0 = mLast;
