@@ -923,9 +923,24 @@ export function build(opts = {}) {
     const trackSum = perfs.length ? { n: perfs.length, avg: perfs.reduce((a, b) => a + b, 0) / perfs.length, bench: benches.length ? benches.reduce((a, b) => a + b, 0) / benches.length : null, beat: track.reduce((a, w) => a + w.items.filter((x) => x.perf != null && w.bench != null && x.perf > w.bench).length, 0) } : null;
     const slimRow = (r) => ({ key: r.key, isin: r.isin, sym: r.sym, name: r.name, country: r.country, sector: r.sector, note: r.note, parts: r.parts, v: r.verdict.key, out: r.out, why: r.why, warn: r.warn,
       mom: r.mom != null ? +(r.mom * 100).toFixed(1) : null, momPct: r.momPct != null ? Math.round(r.momPct * 100) : null, ratio: r.ratio != null ? +(r.ratio * 100).toFixed(1) : null, trend: r.trend,
-      ret6m: r.ret6m != null ? +(r.ret6m * 100).toFixed(1) : null, liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : null, pos: r.pos || null, acc: r.acc });
+      ret6m: r.ret6m != null ? +(r.ret6m * 100).toFixed(1) : null, liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : null, pos: r.pos || null, acc: r.acc,
+      plan: r.plan || null, sec: r.sec || null, secEn: r.secEn || null, f9: r.f9 != null ? r.f9 : null, pb: r.pb != null ? r.pb : null, iv: r.iv || undefined });
     // Liste publiée : sociétés liquides (classées ou écartées pour une raison de fond) ; les autres sont trouvables par la recherche du catalogue
     const shown = rows.filter((r) => (r.turnoverEur || 0) >= cfg.rank.minTurnoverEur || r.isin);
+    // Repères des filtres (mêmes que l'ancien classement) : plan d'entrée et figure, secteur, cycle, valeur, F-score
+    const accF9 = {}; items.forEach((x) => { if (x.acc && x.acc.f9 != null) accF9[x.key] = x.acc.f9; });
+    shown.forEach((r) => {
+      const x = co[r.sym] || {}, i = r.isin ? inst[r.isin] : null;
+      let pl = i && i.plan ? i.plan : null;
+      if (!pl && Array.isArray(x.d) && dDates.length === x.d.length) {
+        try { const a = ES.normalizeSeries(x.d.map((v, k) => [dDates[k], null, null, null, v, null]).filter((q) => q[0] && q[4] > 0)); if (a.length >= 120) pl = ES.entryPlan(a.slice(-260)); } catch (e) { pl = null; }
+      }
+      if (pl && pl.verdict) r.plan = { v: pl.verdict, f: ES.figureKey(pl.wedge) || null, t: ES.timingKeys(pl) };
+      r.sec = x.groupTrending ? 't' : x.groupEmerging ? 'e' : null; r.secEn = x.sector || (i && i.fund && i.fund.sector) || null;
+      r.f9 = accF9[r.key] != null ? accF9[r.key] : null;
+      const pb = i && i.value && i.value.pb != null ? i.value.pb : x.pb; r.pb = pb != null && isFinite(pb) ? +(+pb).toFixed(2) : null;
+      r.iv = !!(i && ES.valueCheap(i.value));
+    });
     rank = { version: R.version, since: R.since, today, coDate, coFresh: !!(coDate && ES.daysBetween(coDate, today) <= 3), generatedAt: new Date().toISOString(), counts: { catalogue: rows.length, liquid: rows.filter((r) => (r.turnoverEur || 0) >= R.minTurnoverEur).length, ranked: rows.filter((r) => !r.out.length).length, top: rows.filter((r) => r.verdict.key === 'top').length },
       bench: mRef ? mRef.ticker : null, selection: { week, items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })), track: trackSum, weeks: track }, rows: shown.map(slimRow), study };
     rank.ms = Date.now() - t0;
