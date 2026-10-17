@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir -p rep
           python scrapers/sectors.py --prices > rep/1-prices.txt 2>&1 || true
-          python -W ignore scrapers/_premices.py > rep/3-premices.txt 2>&1 || true
+          python -W ignore scrapers/_croise.py > rep/4-croise.txt 2>&1 || true
       - name: Résultats
         if: always()
         run: |
@@ -34,4 +34,4 @@ jobs:
           git checkout -B secteurs-resultats
           git rm -r -q --cached . > /dev/null
           git add -f rep
-          git commit -q -m "Prémices $(date -u +%H:%M)" && git push -f origin secteurs-resultats
+          git commit -q -m "Croisement $(date -u +%H:%M)" && git push -f origin secteurs-resultats
