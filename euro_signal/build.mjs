@@ -983,6 +983,26 @@ export function build(opts = {}) {
     });
     rank = { version: R.version, since: R.since, today, coDate, coFresh: !!(coDate && ES.daysBetween(coDate, today) <= 3), generatedAt: new Date().toISOString(), counts: { catalogue: rows.length, liquid: rows.filter((r) => (r.turnoverEur || 0) >= R.minTurnoverEur).length, ranked: rows.filter((r) => !r.out.length).length, top: rows.filter((r) => r.verdict.key === 'top').length },
       bench: mRef ? mRef.ticker : null, selection: { week, items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })), track: trackSum, weeks: track }, rows: shown.map(slimRow), study, breadth };
+    // suivi réel du 🎯 : les 10 sociétés proposées, notées une fois par semaine (cours du catalogue à jour), résultat figé à 3 et 6 mois
+    try {
+      state.pickLog = isObj(state.pickLog) ? state.pickLog : {};
+      Object.keys(state.pickLog).forEach((w) => {
+        const L = state.pickLog[w]; if (!isObj(L) || !Array.isArray(L.items)) { delete state.pickLog[w]; return; }
+        const a = ES.daysBetween(L.date, today);
+        [[91, 'p3', 'b3'], [182, 'p6', 'b6']].forEach(([dd, pk, bk]) => {
+          if (a < dd || L[pk + 'Done']) return;
+          if (mLast > 0) L[bk] = mLast;
+          L.items.forEach((x) => { if (x[pk] == null && lastOf[x.key] > 0) x[pk] = lastOf[x.key]; });
+          L[pk + 'Done'] = today;
+        });
+      });
+      if (!state.pickLog[week] && rank.coFresh) {
+        const P10 = ES.pickN(rank.rows, { n: 10 }).picks;
+        if (P10.length) state.pickLog[week] = { date: today, b0: mLast || null, items: P10.map((r) => ({ key: r.key, name: r.name, note: r.note, tier: r.pickTier, hot: r.pickHot ? 1 : 0, p0: lastOf[r.key] || null })) };
+      }
+      Object.keys(state.pickLog).sort().slice(0, -130).forEach((w) => { delete state.pickLog[w]; });
+      rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mLast);
+    } catch (e) { console.warn('  Suivi du 🎯 indisponible : ' + e.message); }
     rank.ms = Date.now() - t0;
     console.log('  Classement tendance + comptes : ' + rank.counts.ranked + ' sociétés classées sur ' + rank.counts.liquid + ' liquides (' + rank.counts.catalogue + ' au catalogue), ' + rank.counts.top + ' en tête ; sélection : ' + sel.length + ' (' + (rank.ms / 1000).toFixed(0) + ' s)');
     rank._sel = sel; rank._b0 = mLast;
