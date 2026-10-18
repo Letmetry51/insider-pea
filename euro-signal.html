@@ -4177,6 +4177,8 @@ details.pos summary{font-size:1rem}
       render();
     }).catch(function () { S.detailLoading = false; Object.keys(S.inst).forEach(function (i) { if (!S.prices[i]) S.prices[i] = { rows: [], missing: true }; }); S.detailLoaded = true; render(); });
   }
+  /** Actualiser la page ramène toujours à l'accueil : l'adresse d'une fiche (#ISIN, #co=…) ne sert qu'aux liens des emails. */
+  (function () { try { var nv = performance.getEntriesByType && performance.getEntriesByType('navigation')[0]; if (nv && nv.type === 'reload' && location.hash && location.hash !== '#aide') history.replaceState(null, '', location.pathname + location.search); } catch (e) { } })();
   function openFromHash() {
     var m = (location.hash || '').match(/^#([A-Z]{2}[A-Z0-9]{9}[0-9])$/);
     var al = m && !S.inst[m[1]] && S.aliases && S.aliases[m[1]]; // ancien ISIN réuni à un autre dossier
@@ -4195,7 +4197,7 @@ details.pos summary{font-size:1rem}
   function restoreBack() {
     var b = S.back; if (!b) { window.scrollTo(0, 0); return; }
     window.scrollTo(0, b.y || 0);
-    var els = [].slice.call(document.querySelectorAll('[data-a="open"][data-i="' + b.i + '"]')), best = null, d0 = Infinity;
+    var els = [].slice.call(document.querySelectorAll('[data-a="open"][data-i="' + b.i + '"], [data-a="secCo"][data-v="' + b.i + '"]')), best = null, d0 = Infinity;
     els.forEach(function (e) { var y = e.getBoundingClientRect().top + window.scrollY, d = Math.abs(y - (b.y + window.innerHeight / 2)); if (d < d0) { d0 = d; best = e; } }); // la ligne la plus proche de l'endroit quitté
     if (best) {
       var r = best.getBoundingClientRect();
@@ -6620,7 +6622,7 @@ details.pos summary{font-size:1rem}
     var a = el.dataset.a, i = el.dataset.i;
     if (el.tagName === 'A') return;
     ev.preventDefault();
-    if (a === 'view') { var ret = S.view === 'fiche' && S.back && S.back.view === el.dataset.v;
+    if (a === 'view') { var ret = (S.view === 'fiche' || S.view === 'secco') && S.back && S.back.view === el.dataset.v; // onglet depuis une fiche : retour à la liste, au même endroit
       if (ret && S.pushed && location.hash) { S.pushed = false; history.back(); return; } // l'écouteur hashchange rétablit la liste
       S.view = el.dataset.v; S.limit = ret ? Math.max(50, S.back.limit || 50) : 50; if (location.hash) history.replaceState(null, '', location.pathname + location.search); render(); if (ret) restoreBack(); else window.scrollTo(0, 0); }
     else if (a === 'secPlan') { S.secOpen = S.secOpen || {}; S.secOpen[el.dataset.v] = !S.secOpen[el.dataset.v]; var ys2 = window.scrollY; render(); window.scrollTo(0, ys2); }
