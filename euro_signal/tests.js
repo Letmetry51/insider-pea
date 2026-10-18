@@ -1348,6 +1348,8 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   const w = {}; p.rejected.forEach((x) => { w[x.r.key] = x.why; });
   ok(/même secteur/.test(w.B) && /moyenne/.test(w.D) && /200/.test(w.E) && /comptes/.test(w.G) && /M€/.test(w.H) && /premières/.test(w.J) && !w.I, JSON.stringify(w));
   eq(ES.pickThree([]).picks.length, 0);
+  const pv = ES.pickThree(rows.map((x) => x.key === 'J' ? Object.assign({}, x, { vx: 1.8 }) : x));
+  eq(pv.picks.map((x) => x.key).join(), 'J,A,C', 'volumes en hausse d\'abord, puis la note');
 });
 t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le futur)', () => {
   const nW = 160, dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)), series = {};
