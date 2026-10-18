@@ -1378,6 +1378,13 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   { const rr = [r('A', 95), r('B', 94, { secEn: 'Industrials' }), r('M', 70, { sc: 'mid', secEn: 'Media', bp: 1 }), r('L', 60, { mom: 40, secEn: 'Tech', bp: 3, m10: -2 })];
     const pk = ES.pickN(rr, { n: 10 }).picks, m = pk.find((x) => x.key === 'M'), l = pk.find((x) => x.key === 'L');
     ok(pk[0].key === 'M' && m.pickTier === 0 && m.pickPromo && /repêchée/.test(m.pickWhy) && l.pickTier === 1 && !l.pickPromo, '📣 repêche la règle assouplie, sauf sous la moyenne 10 semaines (' + pk.map((x) => x.key + x.pickTier).join() + ')'); }
+  { const log = { w1: { date: '2026-01-05', b0: 100, b6: 110, items: [{ key: 'A', p0: 10, p6: 15, hot: 1, bp: 1, wait: 0 }, { key: 'B', p0: 10, p6: 9, hot: 0, bp: 0, wait: 1 }, { key: 'C', p0: 10, p6: 12 }] } };
+    const sg = ES.signalTrack(log, {}, null, 1), by = {}; sg.forEach((x) => { by[x.k] = x; });
+    ok(by.hot.gap === 60 && by.hot.ok === true && by.wait.ok === true && by.bp.yes.m6.n === 1 && ES.signalTrack(log, {}, null, 30)[0].ok === null, 'auto-contrôle des règles en réel : avec / sans, verdict seulement avec assez de lignes');
+    const snaps = []; for (let w = 0; w < 45; w++) { const it = {}; for (let k = 0; k < 12; k++) { it['U' + k] = [0, 0, 3, 0]; it['D' + k] = [0, 0, 0, 3]; } snaps.push({ date: '2026-w' + w, items: it }); }
+    let sd = 7; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+    const rt = ES.revisionTest(snaps, (sym) => (sym[0] === 'U' ? 0.03 : -0.01) + (rnd() - 0.5) * 0.2), rt0 = ES.revisionTest(snaps.slice(0, 20), () => 0.01);
+    ok(rt.ready && rt.verdict === 'confirmee' && rt.gap > 2 && rt0.verdict === 'attente' && rt0.weeks === 20, 'révisions d\'analystes : test automatique, verdict après 39 semaines (' + rt.gap + ', t ' + rt.t + ')'); }
   { const W = []; for (let k = 0; k < 70; k++) W.push(100 + k * 0.3); W[66] = W[65] * 1.12; for (let k = 67; k < 70; k++) W[k] = W[66] * (1 + (k - 66) * 0.002);
     const V = []; for (let k = 0; k < 62; k++) V.push(1000); V[62 - 1 - 3] = 4000;
     const fb = ES.rankFeatures(null, W, V); ok(fb.bump === 3, 'bond sur gros volume repéré il y a 3 semaines (' + fb.bump + ')'); }

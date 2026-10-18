@@ -371,7 +371,7 @@ details.fold>summary{font:700 1.02rem var(--display);color:var(--ink)}
 details.fold[open]>summary{margin-bottom:10px}
 details.fold .vt{display:none}
 details.fold{padding:12px 16px}details.fold>summary{cursor:pointer;list-style-position:inside}details.fold>summary .muted{font:400 .85rem var(--body)}
-details.fold>section.card,details.fold>.cols>section.card,details.fold .accounts{border:0;padding:0;margin:8px 0;background:none}details.fold>section.card+section.card{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}details.fold details.grpf,details.fold details.thf{padding:10px 0;margin:0;border-top:1px solid var(--line);border-radius:0}details.fold details.grpf>summary,details.fold details.thf>summary{font-size:.95rem}details.grpf details.fold,details.thf details.fold{padding:6px 0}details.grpf details.fold>summary,details.thf details.fold>summary{font-size:.9rem}details.fold details.grpf .rk{display:inline-block;min-width:1.6em;color:var(--muted,#6b7570);font-weight:600}
+details.fold>section.card,details.fold>.cols>section.card,details.fold .accounts{border:0;padding:0;margin:8px 0;background:none}details.fold>section.card+section.card{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}details.fold details.grpf,details.fold details.thf{padding:10px 0;margin:0;border-top:1px solid var(--line);border-radius:0}details.fold details.grpf>summary,details.fold details.thf>summary{font-size:.95rem}.dash2{grid-template-columns:1fr 1fr}details.grpf details.fold,details.thf details.fold{padding:6px 0}details.grpf details.fold>summary,details.thf details.fold>summary{font-size:.9rem}details.fold details.grpf .rk{display:inline-block;min-width:1.6em;color:var(--muted,#6b7570);font-weight:600}
 details.fold>section.card>h3:first-child,details.fold .accounts>h3:first-child{display:none}
 details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .fsub{margin:2px 0 0;color:var(--muted);font-size:.9rem}
@@ -1599,7 +1599,7 @@ details.pos summary{font-size:1rem}
    * à 3 mois puis à 6 mois, leur cours et celui de l'indice sont figés. log : { semaine: { date, b0, b3, b6, items: [{ key, name, p0, p3, p6 }] } }.
    * Renvoie { since, weeks, open, m3, m6 } avec pour chaque horizon : n, moyenne, indice, part battant l'indice, part en hausse.
    */
-  ES.pickTrack = function (log, lastOf, benchNow) {
+  ES.pickTrack = function (log, lastOf, benchNow, pred) {
     var ws = Object.keys(log || {}).sort(); if (!ws.length) return null;
     var agg = function () { return { n: 0, s: 0, sb: 0, nb: 0, beat: 0, win: 0 }; };
     var A = { open: agg(), m3: agg(), m6: agg() };
@@ -1607,7 +1607,7 @@ details.pos summary{font-size:1rem}
     ws.forEach(function (w) {
       var L = log[w]; if (!L || !Array.isArray(L.items)) return;
       (L.items || []).forEach(function (x) {
-        if (!(x.p0 > 0)) return;
+        if (!(x.p0 > 0) || (pred && !pred(x))) return;
         if (x.p6 > 0) add(A.m6, (x.p6 / x.p0 - 1) * 100, L.b6 > 0 && L.b0 > 0 ? (L.b6 / L.b0 - 1) * 100 : null);
         if (x.p3 > 0) add(A.m3, (x.p3 / x.p0 - 1) * 100, L.b3 > 0 && L.b0 > 0 ? (L.b3 / L.b0 - 1) * 100 : null);
         if (!(x.p6 > 0) && lastOf && lastOf[x.key] > 0) add(A.open, (lastOf[x.key] / x.p0 - 1) * 100, benchNow > 0 && L.b0 > 0 ? (benchNow / L.b0 - 1) * 100 : null);
@@ -1615,6 +1615,50 @@ details.pos summary{font-size:1rem}
     });
     var fin = function (g) { return g.n ? { n: g.n, avg: +(g.s / g.n).toFixed(1), bench: g.nb ? +(g.sb / g.nb).toFixed(1) : null, beat: g.nb ? Math.round(g.beat / g.nb * 100) : null, win: Math.round(g.win / g.n * 100) } : null; };
     return { since: log[ws[0]].date, weeks: ws.length, open: fin(A.open), m3: fin(A.m3), m6: fin(A.m6) };
+  };
+  /**
+   * Auto-contrôle des règles sur les vraies sélections (18/10/2026) : pour chaque signal du 🎯, résultat des lignes avec et sans.
+   * L'outil ne change pas ses règles seul : un signal qui ne se confirme pas (au moins minN lignes de chaque côté à 6 mois)
+   * déclenche l'email d'auto-surveillance, pour décider à la revue. want : 1 = doit faire mieux, −1 = doit faire moins bien.
+   */
+  ES.SIGNALS = [
+    { k: 'hot', icon: '🔊', label: 'volumes en hausse', want: 1 },
+    { k: 'bp', icon: '📣', label: 'bond sur gros volume', want: 1 },
+    { k: 'wait', icon: '⏸️', label: 'attente sous la moyenne 10 semaines', want: -1 }
+  ];
+  ES.signalTrack = function (log, lastOf, benchNow, minN) {
+    var m = minN || 30;
+    return ES.SIGNALS.map(function (sg) {
+      var y = ES.pickTrack(log, lastOf, benchNow, function (x) { return x[sg.k] != null && !!x[sg.k]; });
+      var n = ES.pickTrack(log, lastOf, benchNow, function (x) { return x[sg.k] != null && !x[sg.k]; });
+      var ok6 = y && n && y.m6 && n.m6 && y.m6.n >= m && n.m6.n >= m, gap = ok6 ? +(y.m6.avg - n.m6.avg).toFixed(1) : null;
+      return { k: sg.k, icon: sg.icon, label: sg.label, want: sg.want, yes: y ? { m3: y.m3, m6: y.m6 } : null, no: n ? { m3: n.m3, m6: n.m6 } : null, gap: gap, ok: gap == null ? null : sg.want > 0 ? gap > 0 : gap < 0 };
+    });
+  };
+  /**
+   * Test automatique des révisions d'analystes sur l'archive hebdomadaire par société (data/history/estimates.json.gz, depuis le 18/10/2026).
+   * snaps : [{ date, items: { sym: [up7, down7, up30, down30, ...] } }] ; fwd(sym, date, semaines) → rendement (0,1 = +10 %) ou null.
+   * Chaque semaine : hausse à 13 semaines des sociétés aux prévisions surtout relevées sur 30 jours, moins celles surtout abaissées.
+   * Semaines qui se chevauchent : fiabilité t divisée par √13 (prudence). Verdict seulement après 39 semaines mesurées (≈ 1 an).
+   */
+  ES.revisionTest = function (snaps, fwd, opt) {
+    var o = Object.assign({ weeks: 13, ready: 39, minGroup: 10 }, opt || {}), diffs = [], nUp = 0, nDn = 0;
+    (snaps || []).forEach(function (sn) {
+      var up = [], dn = [];
+      Object.keys(sn.items || {}).forEach(function (sym) {
+        var r = sn.items[sym]; if (!Array.isArray(r) || r[2] == null || r[3] == null || r[2] === r[3]) return;
+        var f = fwd(sym, sn.date, o.weeks); if (f == null || !isFinite(f)) return;
+        (r[2] > r[3] ? up : dn).push(f);
+      });
+      if (up.length >= o.minGroup && dn.length >= o.minGroup) { diffs.push(mean(up) - mean(dn)); nUp += up.length; nDn += dn.length; }
+    });
+    var n = diffs.length, res = { weeks: n, need: o.ready, ready: n >= o.ready, snaps: (snaps || []).length, from: snaps && snaps.length ? snaps[0].date : null };
+    if (n >= 2) {
+      var mu = mean(diffs), sd = Math.sqrt(diffs.reduce(function (a, d) { return a + (d - mu) * (d - mu); }, 0) / (n - 1));
+      res.gap = +(mu * 100).toFixed(1); res.t = sd > 0 ? +(mu / (sd / Math.sqrt(n)) / Math.sqrt(o.weeks)).toFixed(1) : null; res.nUp = nUp; res.nDn = nDn;
+    }
+    res.verdict = !res.ready ? 'attente' : res.t != null && res.t >= 2 && res.gap > 0 ? 'confirmee' : res.t != null && res.t <= -2 ? 'inverse' : 'non';
+    return res;
   };
   ES.selectionTrackSummary = function (track) {
     var items = [], beat = 0, nb = 0, sb = 0, weeks = 0;
@@ -5358,6 +5402,17 @@ details.pos summary{font-size:1rem}
       xpi(V.pool + ' société' + (V.pool > 1 ? 's passent' : ' passe') + ' les règles ce soir' + (peaOnly ? ' (PEA seulement)' : ' (hors PEA compris)') + '. Méthode de Piotroski (2000) : parmi les sociétés bon marché, celles aux comptes les plus solides font nettement mieux que les autres. Tri : meilleur F-score, puis prix le plus bas. Les comptes passés manquent pour la tester sur nos 29 ans : la preuve vient des études publiées et du facteur valeur européen de Kenneth French. Pas de règle de moyenne 10 semaines ici : la valeur s\'achète justement quand le cours a déçu.');
     return h + '</details>';
   }
+  /** Auto-contrôle : chaque règle du 🎯 vérifiée sur les vraies sélections, et les pistes testées seules (révisions d'analystes). */
+  function sigBox() {
+    var R = rankData(); if (!R || !R.signalTrack) return '';
+    var sg = function (v) { return v == null ? 'n.d.' : (v >= 0 ? '+' : '−') + fmtN(Math.abs(v), 1) + ' %'; };
+    var li = R.signalTrack.map(function (x) {
+      var y = x.yes && (x.yes.m6 || x.yes.m3), n = x.no && (x.no.m6 || x.no.m3), six = x.yes && x.yes.m6 && x.no && x.no.m6;
+      return '<li>' + x.icon + ' <b>' + esc(x.label) + '</b> : ' + (y && n ? sg(y.avg) + ' avec, ' + sg(n.avg) + ' sans (' + y.n + ' / ' + n.n + ' lignes, ' + (six ? '6' : '3') + ' mois)' + (x.ok === true ? ' ✅' : x.ok === false ? ' ✗' : '') : '<span class="muted">pas encore de recul</span>') + '</li>';
+    }).join('');
+    var T = R.revTest, rv = T ? (T.ready ? (T.verdict === 'confirmee' ? '✅ confirmées (' + sg(T.gap) + ' à 3 mois)' : 'pas d\'effet net, piste écartée') : T.weeks + ' semaine' + (T.weeks > 1 ? 's' : '') + ' mesurée' + (T.weeks > 1 ? 's' : '') + ' sur ' + T.need) : 'archive en cours (depuis le 18/10/2026)';
+    return '<p class="small"><b>🧪 Les règles en réel</b> <span class="muted">· verdict à 30 lignes de chaque côté à 6 mois</span></p><ul class="plain small">' + li + '<li>💡 <b>Révisions des analystes</b> (test automatique) : ' + rv + '</li></ul>';
+  }
   function trackBox(which) {
     var R = rankData(), T = R && (which === 'value' ? R.valueTrack : R.pickTrack); if (!T) return '';
     var sg = function (v) { return v == null ? 'n.d.' : (v >= 0 ? '+' : '−') + fmtN(Math.abs(v), 1) + ' %'; };
@@ -6484,7 +6539,6 @@ details.pos summary{font-size:1rem}
     Object.keys(S.tx).forEach(function (isin) {
       (S.tx[isin] || []).forEach(function (t) {
         if (ES.availDate(t) < from) return;
-        if (f.type && (f.type === 'achat' ? !(t.type === 'achat') : f.type === 'nonvol' ? ['attribution', 'option', 'souscription', 'transfert', 'don', 'nantissement'].indexOf(t.type) < 0 : t.type !== f.type)) return;
         if (f.registry && t.registry !== f.registry) return;
         var inst = S.inst[isin] || {};
         if (f.country && inst.country !== f.country) return;
@@ -6503,27 +6557,38 @@ details.pos summary{font-size:1rem}
     rows = grouped;
     var regs = {}; Object.keys(S.tx).forEach(function (i) { S.tx[i].forEach(function (t) { regs[t.registry] = 1; }); });
     var clusterIsins = Object.keys(S.computed).filter(function (i) { return S.computed[i].score.families.insiders.items.some(function (it) { return /^cluster/.test(it.label); }); });
-    var h = '<h2 class="vt">Achats et ventes des dirigeants</h2><p class="lead">Déclarations publiées depuis le ' + shortDate(from) + '. Touchez une ligne pour ouvrir la fiche.' + (clusterIsins.length ? ' ' + clusterIsins.length + ' société' + (clusterIsins.length > 1 ? 's' : '') + ' où plusieurs dirigeants achètent en même temps.' : '') + '</p>';
-    h += '<div class="toolbar"><input id="t-q" type="search" placeholder="Société ou dirigeant" value="' + esc(f.q || '') + '" data-tf="q" aria-label="Rechercher une société ou un dirigeant"><select id="t-type" data-tf="type" aria-label="Nature"><option value="">Toutes natures</option>' + [['achat', 'Achats'], ['vente', 'Ventes'], ['nonvol', 'Non volontaires'], ['autre', 'Ambiguës']].map(function (o) { return '<option value="' + o[0] + '"' + (f.type === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+    var buys = rows.filter(function (r) { return r.t.type === 'achat'; }), sells = rows.filter(function (r) { return r.t.type === 'vente'; }), others = rows.filter(function (r) { return r.t.type !== 'achat' && r.t.type !== 'vente'; });
+    var nCo = function (L) { var o = {}; L.forEach(function (r) { o[r.isin] = 1; }); return Object.keys(o).length; };
+    var h = '<h2 class="vt">Achats et ventes des dirigeants</h2><p class="muted small">Déclarations publiées depuis le ' + shortDate(from) + ' · touchez une ligne pour la fiche</p>';
+    var tl = function (cls, ic, t, sub, k) { return '<button class="dtile ' + cls + '" data-a="secOpen" data-v="' + k + '"><span class="dti" aria-hidden="true">' + ic + '</span><b>' + t + '</b><small>' + sub + '</small></button>'; };
+    h += '<div class="dash dash2">' + tl('t-good', '🟢', buys.length + ' achat' + (buys.length > 1 ? 's' : ''), nCo(buys) + ' société' + (nCo(buys) > 1 ? 's' : '') + (clusterIsins.length ? ' · 👥 ' + clusterIsins.length + ' achat' + (clusterIsins.length > 1 ? 's' : '') + ' groupé' + (clusterIsins.length > 1 ? 's' : '') : ''), 'ins-buy') +
+      tl('t-bad', '🔴', sells.length + ' vente' + (sells.length > 1 ? 's' : ''), nCo(sells) + ' société' + (nCo(sells) > 1 ? 's' : ''), 'ins-sell') + '</div>';
+    h += '<div class="toolbar"><input id="t-q" type="search" placeholder="Société ou dirigeant" value="' + esc(f.q || '') + '" data-tf="q" aria-label="Rechercher une société ou un dirigeant">' +
       '<select id="t-c" data-tf="country" aria-label="Pays"><option value="">Tous pays</option>' + Object.keys(COUNTRIES).map(function (c) { return '<option value="' + c + '"' + (f.country === c ? ' selected' : '') + '>' + COUNTRIES[c] + '</option>'; }).join('') + '</select>' +
       '<select id="t-reg" data-tf="registry" aria-label="Registre"><option value="">Tous registres</option>' + Object.keys(regs).sort().map(function (r) { return '<option' + (f.registry === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>';
-    if (!rows.length) return h + '<p class="muted pad">Aucune opération ne correspond.</p>';
-    var lim = Math.min(S.limit, 400);
-    h += '<div class="tablewrap"><table class="grid cards ops"><thead><tr><th>Société</th><th>Publié</th><th>Dirigeant</th><th>Nature</th><th class="num">Montant</th><th class="num" title="Prix payé par rapport au plus haut des 52 semaines">Décote</th><th class="num">Depuis l\'achat</th></tr></thead><tbody>';
-    rows.slice(0, lim).forEach(function (r) {
-      var t = r.t, ref = (S.refs[r.isin] || {})[t.id], key = (t.type === 'achat' || t.type === 'vente') && S.snapshot && S.snapshot.history && (ES.buyerKey(t) || t.personKey);
-      var ok = ref && ref.available && !ref.outOfRange;
-      h += '<tr class="rowlink" data-a="open" data-i="' + r.isin + '" tabindex="0"><td class="c-name" data-l="Société"><b>' + flag(r.inst.country) + esc(r.inst.name || r.isin) + '</b></td>' +
-        '<td data-l="Publié">' + (t.pubDate ? shortDate(t.pubDate) : '<span class="muted">tx ' + shortDate(t.txDate) + '</span>') + '</td>' +
-        '<td data-l="Dirigeant">' + esc(t.person || 'n.d.') + (key ? ' <button class="link small" data-a="person" data-k="' + esc(key) + '" title="Tout l\'historique de ce dirigeant">historique →</button>' : '') + '<small>' + esc(frRole(t.role)) + ((t.ceo || t.cfo) && !ES.isLegalEntity(t.person, t.issuer) ? ' · DG/DAF' : '') + '</small></td>' +
-        '<td data-l="Nature">' + ES.TX_TYPES[t.type] + (t.status === 'annulee' ? ' <span class="chip bad">annulée</span>' : '') + '</td>' +
-        '<td class="num" data-l="Montant">' + fmtMoney(r.n > 1 ? r.amount : t.amount, t.currency) + (r.n > 1 ? '<small>' + r.n + ' déclarations le même jour</small>' : '') + '</td>' +
-        '<td class="num" data-l="Sous le plus haut">' + (t.type === 'achat' && ok && ref.atPurchase && ref.atPurchase.paidVsHigh52Pct != null ? discPill({ pct: -ref.atPurchase.paidVsHigh52Pct }) : '<span class="muted">—</span>') + '</td>' +
-        '<td class="num" data-l="Depuis l\'achat">' + (ok ? '<span class="' + (ref.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(ref.currentVsPaidPct) + '</span>' : '<span class="muted">—</span>') + '</td></tr>';
-    });
-    h += '</tbody></table></div>';
-    if (rows.length > lim && lim < 400) h += '<p class="pad"><button class="ghost" data-a="more">Afficher ' + Math.min(100, Math.min(rows.length, 400) - lim) + ' de plus (' + rows.length + ' au total)</button></p>';
-    else if (rows.length > 400) h += '<p class="muted pad">400 lignes affichées sur ' + rows.length + ' : affinez avec la recherche.</p>';
+    var lim = Math.min(S.limit, 400), opened = fq || f.country || f.registry ? ' open' : '';
+    var table = function (L, kind) {
+      if (!L.length) return '<p class="muted small">Aucune opération ne correspond.</p>';
+      var isBuy = kind === 'buy', h2 = '<div class="tablewrap"><table class="grid cards ops"><thead><tr><th>Société</th><th>Publié</th><th>Dirigeant</th>' + (kind === 'other' ? '<th>Nature</th>' : '') + '<th class="num">Montant</th>' + (isBuy ? '<th class="num" title="Prix payé par rapport au plus haut des 52 semaines">Décote</th>' : '') + '<th class="num">' + (kind === 'sell' ? 'Depuis la vente' : 'Depuis l\'achat') + '</th></tr></thead><tbody>';
+      L.slice(0, lim).forEach(function (r) {
+        var t = r.t, ref = (S.refs[r.isin] || {})[t.id], key = (t.type === 'achat' || t.type === 'vente') && S.snapshot && S.snapshot.history && (ES.buyerKey(t) || t.personKey);
+        var ok = ref && ref.available && !ref.outOfRange;
+        h2 += '<tr class="rowlink" data-a="open" data-i="' + r.isin + '" tabindex="0"><td class="c-name" data-l="Société"><b>' + flag(r.inst.country) + esc(r.inst.name || r.isin) + '</b></td>' +
+          '<td data-l="Publié">' + (t.pubDate ? shortDate(t.pubDate) : '<span class="muted">tx ' + shortDate(t.txDate) + '</span>') + '</td>' +
+          '<td data-l="Dirigeant">' + esc(t.person || 'n.d.') + (key ? ' <button class="link small" data-a="person" data-k="' + esc(key) + '" title="Tout l\'historique de ce dirigeant">historique →</button>' : '') + '<small>' + esc(frRole(t.role)) + ((t.ceo || t.cfo) && !ES.isLegalEntity(t.person, t.issuer) ? ' · DG/DAF' : '') + '</small></td>' +
+          (kind === 'other' ? '<td data-l="Nature">' + ES.TX_TYPES[t.type] + (t.status === 'annulee' ? ' <span class="chip bad">annulée</span>' : '') + '</td>' : '') +
+          '<td class="num" data-l="Montant">' + fmtMoney(r.n > 1 ? r.amount : t.amount, t.currency) + (r.n > 1 ? '<small>' + r.n + ' déclarations le même jour</small>' : '') + (kind !== 'other' && t.status === 'annulee' ? ' <span class="chip bad">annulée</span>' : '') + '</td>' +
+          (isBuy ? '<td class="num" data-l="Sous le plus haut">' + (ok && ref.atPurchase && ref.atPurchase.paidVsHigh52Pct != null ? discPill({ pct: -ref.atPurchase.paidVsHigh52Pct }) : '<span class="muted">—</span>') + '</td>' : '') +
+          '<td class="num" data-l="' + (kind === 'sell' ? 'Depuis la vente' : 'Depuis l\'achat') + '">' + (ok ? '<span class="' + (ref.currentVsPaidPct >= 0 ? 'pos' : 'neg') + '">' + pct(ref.currentVsPaidPct) + '</span>' : '<span class="muted">—</span>') + '</td></tr>';
+      });
+      h2 += '</tbody></table></div>';
+      if (L.length > lim && lim < 400) h2 += '<p class="pad"><button class="ghost" data-a="more">Afficher ' + Math.min(100, Math.min(L.length, 400) - lim) + ' de plus (' + L.length + ' au total)</button></p>';
+      else if (L.length > 400) h2 += '<p class="muted pad">400 lignes affichées sur ' + L.length + ' : affinez avec la recherche.</p>';
+      return h2;
+    };
+    var fold = function (k, title, n, body) { return '<details class="card fold" data-k="' + k + '"' + opened + '><summary>' + title + ' <span class="muted small">· ' + n + '</span></summary>' + body + '</details>'; };
+    h += fold('ins-buy', '🟢 Achats', buys.length, table(buys, 'buy')) + fold('ins-sell', '🔴 Ventes', sells.length, table(sells, 'sell')) +
+      (others.length ? fold('ins-other', '⚪ Autres opérations', others.length + ' · attributions, options, transferts', '<p class="muted small">Opérations non volontaires ou ambiguës : peu informatives sur l\'avis du dirigeant.</p>' + table(others, 'other')) : '');
     return h;
   }
 
@@ -6560,7 +6625,7 @@ details.pos summary{font-size:1rem}
     var ready = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; });
     var mailReady = S.snapshot && S.snapshot.mail && S.snapshot.mail.ready;
     var a = S.cfg.alerts, det = function (title, body, k) { return '<details class="fsscale more" data-k="' + k + '"><summary>' + title + '</summary>' + body + '</details>'; };
-    var h = '<h2 class="vt">Alertes</h2>' + mySuivis() + (function () { var t1 = trackBox(), t2 = trackBox('value'); return t1 || t2 ? '<section class="card"><h3>📬 Que sont devenues les sélections ?</h3>' + (t1 ? '<p class="small"><b>🎯 Momentum</b></p>' + t1 : '') + (t2 ? '<p class="small"><b>💎 Valeur</b></p>' + t2 : '') + '<p class="foot">Résultat réel des sociétés proposées chaque semaine, comparé à l\'indice, figé à 3 et 6 mois.</p></section>' : ''; })() + followSection((S.snapshot && S.snapshot.followups) || []);
+    var h = '<h2 class="vt">Alertes</h2>' + mySuivis() + (function () { var t1 = trackBox(), t2 = trackBox('value'); return t1 || t2 ? '<section class="card"><h3>📬 Que sont devenues les sélections ?</h3>' + (t1 ? '<p class="small"><b>🎯 Momentum</b></p>' + t1 : '') + (t2 ? '<p class="small"><b>💎 Valeur</b></p>' + t2 : '') + sigBox() + '<p class="foot">Résultat réel des sociétés proposées chaque semaine, comparé à l\'indice, figé à 3 et 6 mois.</p></section>' : ''; })() + followSection((S.snapshot && S.snapshot.followups) || []);
     h += '<section class="card"><h3>Emails envoyés</h3>' + (mailReady ? '' : '<p class="note warn">Gmail n\'est pas configuré : rien ne part, les alertes sont seulement simulées.</p>') +
       '<ul class="plain"><li>📬 <b>Lundi</b> : la sélection de la semaine.</li><li>🔔 <b>Plan d\'entrée</b> : pour les sociétés que vous surveillez, quand le cours entre dans la zone d\'achat, casse la résistance ou passe sous le stop.</li><li>🎯 <b>Revente</b> et 🛑 <b>signaux de sortie</b> : seulement pour les titres marqués « Je l\'ai acheté ».</li>' + (a.buyEmails === false ? '' : '<li>⚡ <b>Dossier très fort</b> (note ≥ ' + ES.note(a.minScore, S.cfg) + ') : email immédiat.</li>') + '</ul>' +
       det('Conditions d\'un dossier « très fort »', '<p class="foot">Titre retenu ; qualité ≥ ' + S.cfg.quality.minForAlert + ' ; note ≥ ' + ES.note(a.minScore, S.cfg) + ' ; au moins ' + a.minFamilies + ' familles de signaux dont un événement de moins de ' + a.recentEventDays + ' jours ; aucune déclaration ambiguë ; pas déjà signalé' + (S.cfg.pea.strict ? ' ; PEA confirmé' : '') + '.' + (a.buyEmails === false ? ' Ces dossiers sont repris dans la sélection du lundi (pas d\'email séparé).' : '') + '</p>' +
@@ -6968,8 +7033,8 @@ details.pos summary{font-size:1rem}
       '<div class="lgkeys">' + kn('+10 pts', 'à 6 mois : 🎯 + 🔊 volumes, sur 29 ans') + kn('62 %', 'positions gagnantes à 6 mois') + kn('+15 à 20 pts', 'par an de mieux que le hasard') + '</div>' +
       '<p class="small lgw">🎲 <b>6 mois après l\'achat</b> (29 ans) : 2 fois sur 3 en hausse · 1 sur 3 à +20 % · 1 sur 8 à +50 % · 1 sur 14 à −25 % ou pire (toutes sociétés : 61 %, 1 sur 4, 1 sur 16, 1 sur 12).</p>' +
       trackBox() +
-      '<p class="small lgw">📧 <b>Automatique</b> : le lundi, la sélection avec ✅ acheter ou ⏸️ attendre pour chaque société ; dès qu\'une société ⏸️ du 🎯 repasse au-dessus de sa moyenne 10 semaines, un email « feu vert » ; après « Je l\'ai acheté » : un email à chaque palier de −10 %, à la protection de −30 % et au rappel des 6 mois (garder si encore dans le 🎯, sinon vendre) ; un email quand l\'alerte krach s\'allume ou s\'éteint.</p>' +
-      (function () { var W = (rankData() || {}).watchdog; return '<p class="small lgw">🔎 <b>Auto-surveillance</b> : chaque soir, l\'outil vérifie que la méthode garde son avantage (suivi réel 📒 et étude du soir) ; il ne change jamais ses règles seul, mais envoie un email de revue si l\'avantage se dégrade.' + (W ? ' État : ' + (W.status === 'ok' ? '✅ avantage intact' : '⚠️ ' + esc(W.reasons.join(' ; '))) + ' (' + shortDate(W.checked) + ').' : '') + '</p>'; })() +
+      '<p class="small lgw">📧 <b>Automatique</b> : le lundi, la sélection avec ✅ acheter ou ⏸️ attendre pour chaque société ; dès qu\'une société ⏸️ du 🎯 repasse au-dessus de sa moyenne 10 semaines, un email « feu vert » ; après « Je l\'ai acheté » : un email à chaque palier de −10 %, à la protection de −30 % et au rappel des 6 mois (garder si encore dans le 🎯, sinon vendre) ; un email quand l\'alerte krach s\'allume ou s\'éteint ; 📊 un bilan chaque trimestre (suivi réel, règles en réel, pistes) et le point de revue le 31/01/2027.</p>' +
+      (function () { var W = (rankData() || {}).watchdog; return '<p class="small lgw">🔎 <b>Auto-surveillance</b> : chaque soir, l\'outil vérifie que la méthode garde son avantage (suivi réel 📒 et étude du soir) ; il ne change jamais ses règles seul, mais envoie un email de revue si l\'avantage se dégrade. Chaque règle (🔊 📣 ⏸️) est aussi vérifiée sur les vraies sélections, et les révisions des analystes sont testées seules dès qu\'il y a un an d\'archive (💡 email si la piste se confirme).' + (W ? ' État : ' + (W.status === 'ok' ? '✅ avantage intact' : '⚠️ ' + esc(W.reasons.join(' ; '))) + ' (' + shortDate(W.checked) + ').' : '') + '</p>'; })() +
       '<p class="small lgw">⚠️ Si le marché perd 20 % en un an, la méthode souffre (−12,5 pts) : une alerte rouge s\'affiche en haut. 🇪🇺 Hors PEA (Suisse, Royaume-Uni, foncières) : compte-titres seulement.</p>';
     h += '<details class="fsscale more" data-k="lg-tests"><summary>📊 Chiffres détaillés des tests</summary><p class="small">Écart de performance à 6 mois avec la société moyenne de la même semaine. Trois échantillons : 5 ans (≈ 760 sociétés liquides, 2021–2026), 8 ans (≈ 900 sociétés de plus de 500 M€, 2018–2026) et tout l\'historique disponible chez Yahoo (1 067 sociétés, 1997–2026, avec la bulle internet et le krach de 2008).</p>' +
       tbl(['Repère', '5 ans', '8 ans', '29 ans'], [
