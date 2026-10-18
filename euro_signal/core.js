@@ -3588,15 +3588,17 @@
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track) {
     var n = items.length, R = cfg.rank;
-    var subject = '[Euro Signal] Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + ' en tête du classement' : 'aucune société au-dessus du seuil');
-    var intro = 'Classement tendance + comptes : sociétés liquides éligibles au PEA, aux comptes lus, sans comptes dégradés ni perte, notées sur la force relative (le critère le plus fiable), la proximité du plus haut, la tendance de fond et les comptes ; les achats de dirigeants comptent en bonus. Seuil de la sélection : ' + R.selMin + '/100.';
+    var ent = function (x) { return ES.pickEntry({ m10: x.ma10 != null ? x.ma10 : x.m10 }); };
+    var nBuy = items.filter(function (x) { var e = ent(x); return !e || e.k === 'buy'; }).length;
+    var subject = '[Euro Signal] 🎯 Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + (nBuy < n ? ', ' + nBuy + ' à acheter maintenant' : '') : 'aucune société ne passe les règles');
+    var intro = 'Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois, volumes en hausse d\'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.';
     var pcs = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
     var tr = track && track.n ? 'Sélections précédentes (' + track.n + ' dossiers) : ' + pcs(track.avg) + ' en moyenne depuis l\'envoi' + (track.bench != null ? ', indice ' + pcs(track.bench) : '') + '.' : null;
     var warnOf = function (x) { var w = (x.warn || []).slice(0, 2); if (x.nextEarnings && today && x.nextEarnings >= today && ES.daysBetween(today, x.nextEarnings) <= 21) w.unshift('résultats le ' + ES.frDate(x.nextEarnings)); return w; };
     var cap = function (t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; };
     var text = (tr ? tr + '\n\n' : '') + (n ? items.map(function (x, k) {
       var w = warnOf(x);
-      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — ' + x.note + '/100 · ' + x.verdict.icon + ' ' + x.verdict.label +
+      return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — ' + x.note + '/100' + (ent(x) ? '\n   ' + ent(x).icon + ' ' + ent(x).label : '') +
         '\n   Pourquoi : ' + x.why.slice(0, 4).map(cap).join(' · ') + (w.length ? '\n   Attention : ' + w.map(cap).join(' · ') : '') + (x.link ? '\n   Fiche : ' + x.link : '');
     }).join('\n\n') : 'Aucune société ne dépasse le seuil cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
       '\n\n' + intro + '\nÀ étudier, pas un ordre d\'achat. Éligibilité PEA à vérifier chez votre courtier.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
@@ -3608,7 +3610,8 @@
         return '<div style="border:1px solid #dfe5e1;border-radius:8px;padding:12px 14px;margin:0 0 10px"><div style="font-size:16px;font-weight:bold">' + (k + 1) + '. ' + esc(x.name) +
           (x.isNew ? ' <span style="background:#B0281F;color:#ffffff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle">NOUVEAU</span>' : '') + '</div>' +
           '<div style="color:#55615c;font-size:13px">' + esc([x.country, x.sector].filter(Boolean).join(' · ')) + '</div>' +
-          '<div style="margin:6px 0"><b style="font-size:18px">' + x.note + '</b>/100 · ' + x.verdict.icon + ' ' + esc(x.verdict.label) + '</div>' +
+          '<div style="margin:6px 0"><b style="font-size:18px">' + x.note + '</b>/100</div>' +
+          (ent(x) ? '<div style="margin:6px 0;padding:6px 10px;border-radius:6px;font-weight:bold;background:' + (ent(x).k === 'buy' ? '#DCEFE1;color:#1F7A3E' : '#F6E8CF;color:#9A5B00') + '">' + ent(x).icon + ' ' + esc(ent(x).label) + '</div>' : '') +
           '<div style="margin:6px 0 0"><b>Pourquoi</b><ul style="margin:2px 0 0 18px;padding:0">' + x.why.slice(0, 4).map(function (t) { return '<li>' + esc(cap(t)) + '</li>'; }).join('') + '</ul></div>' +
           (w.length ? '<div style="margin:6px 0 0;color:#8a3a00"><b>Attention</b><ul style="margin:2px 0 0 18px;padding:0">' + w.map(function (t) { return '<li>' + esc(cap(t)) + '</li>'; }).join('') + '</ul></div>' : '') +
           (x.link ? '<div style="margin-top:10px">' + btn(x.link, 'Voir la fiche') + '</div>' : '') + '</div>';

@@ -1032,6 +1032,32 @@ export function build(opts = {}) {
     }
   }
 
+  /* 6e. 🎯 Feu vert : une société du 🎯 en attente (⏸️ sous sa moyenne 10 semaines) repasse au-dessus : un email le soir même */
+  try {
+    state.pickWaitSeen = isObj(state.pickWaitSeen) ? state.pickWaitSeen : {};
+    if (rank && rank.coFresh && Array.isArray(rank.rows)) {
+      const pk = ES.pickN(rank.rows, { n: 10 }).picks, now = new Set(pk.map((p) => p.key));
+      pk.forEach((p) => {
+        if (p.m10 == null) return;
+        if (p.m10 < 0) { if (!state.pickWaitSeen[p.key]) state.pickWaitSeen[p.key] = today; return; }
+        if (!state.pickWaitSeen[p.key]) return;
+        const since = state.pickWaitSeen[p.key]; delete state.pickWaitSeen[p.key];
+        const link = dashUrl ? dashUrl + '#' + (p.isin || 'co=' + p.sym) : null;
+        const lines = [p.name + (p.sector ? ' (' + p.sector + ')' : '') + ' — ' + p.note + '/100, rang ' + (pk.indexOf(p) + 1) + ' du 🎯',
+          'Repasse au-dessus de sa moyenne 10 semaines (+' + String(p.m10).replace('.', ',') + ' %), en attente depuis le ' + ES.frDate(since) + ' : achat possible selon la règle testée.',
+          '12 mois : ' + (p.mom >= 0 ? '+' : '') + Math.round(p.mom) + ' %' + (p.ratio != null ? ' · ' + (p.ratio >= 99.5 ? 'au plus haut' : Math.round(100 - p.ratio) + ' % sous le plus haut') : '') + (p.sh ? ' · 🐻 ' + String(p.sh).replace('.', ',') + ' % vendu à découvert' : ''),
+          'Ensuite : ligne de taille égale, garder 6 mois, protection à −30 %. « Je l\'ai acheté » sur la fiche pour le rappel.'];
+        outbox.push({ id: 'feuvert-' + p.key + '-' + today, kind: 'feuvert', isin: p.isin || null, name: p.name, subject: '[Euro Signal] 🎯 Feu vert : ' + p.name + ' — achat possible',
+          text: lines.join('\n') + (link ? '\nFiche : ' + link : '') + '\nÀ étudier, pas un ordre d\'achat.',
+          html: '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">🎯 ✅ Feu vert : ' + ES.esc(p.name) + '</h2>' + lines.map((l) => '<p style="margin:0 0 8px">' + ES.esc(l) + '</p>').join('') +
+            (link ? '<p><a href="' + ES.esc(link) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Voir la fiche</a></p>' : '') + '<p style="color:#55615c;font-size:12px">À étudier, pas un ordre d\'achat.</p></div>',
+          eventIds: ['feuvert:' + p.key + ':' + today], score: null, version: cfg.rank.version });
+        console.log('  🎯 Feu vert : ' + p.name + ' (en attente depuis le ' + since + ')');
+      });
+      Object.keys(state.pickWaitSeen).forEach((k) => { if (!now.has(k) || ES.daysBetween(state.pickWaitSeen[k], today) > 90) delete state.pickWaitSeen[k]; });
+    }
+  } catch (e) { console.warn('  Feu vert du 🎯 indisponible : ' + e.message); }
+
   /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
   outbox.forEach((m) => {
     if (m.kind) return; // emails de sortie et d'information : pas d'argumentaire
