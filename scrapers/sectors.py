@@ -44,6 +44,7 @@ UNIVERSE = SEC / "universe.json"
 INFO_CACHE = SEC / "info_cache.json"
 ESTIMATES = SEC / "estimates.json"
 REV_HIST = SEC / "revisions_history.json"
+EST_HIST = ROOT / "data" / "history" / "estimates.json.gz"  # archive par société, chaque semaine, jamais effacée : tester plus tard les révisions
 WEEKLY = SEC / "weekly.csv.gz"
 WEEKLY_VOL = SEC / "weekly_volume.csv.gz"
 BACKTEST = SEC / "backtest.json"
@@ -542,9 +543,47 @@ def refresh_estimates():
     hist = read_json(REV_HIST, {})
     hist[date.today().isoformat()] = snap
     write_json(REV_HIST, dict(sorted(hist.items())[-260:]))
+    archive_estimates(est)
     n_rev = sum(1 for v in est.values() if v.get("rev"))
     n_sur = sum(1 for v in est.values() if v.get("surprises"))
     log(f"Révisions : {n_rev} sociétés avec révisions, {n_sur} avec surprises de résultats ({time.time() - t0:.0f} s)")
+
+
+def archive_estimates(est):
+    """Archive hebdomadaire par société : prévisions relevées/abaissées (7 et 30 jours), potentiel de l'objectif moyen,
+    recommandation et nombre d'analystes. Permettra de tester dans quelques mois si les révisions annoncent la hausse."""
+    import gzip
+    try:
+        cat = (read_json(CATALOG, {}) or {}).get("items") or {}
+        info = read_json(INFO_CACHE, {}) or {}
+        snap = {}
+        for s, e in est.items():
+            r = e.get("rev") or {}
+            c = cat.get(s) or {}
+            i = (info.get(s) or {}) if isinstance(info, dict) else {}
+            i = i.get("info", i) if isinstance(i, dict) else {}
+            up = c.get("upside")
+            px = i.get("currentPrice") or i.get("regularMarketPrice") or i.get("previousClose")
+            if up is None and i.get("targetMeanPrice") and px:
+                up = i["targetMeanPrice"] / px - 1
+            row = [r.get("up7"), r.get("down7"), r.get("up30"), r.get("down30"),
+                   round(up, 4) if isinstance(up, (int, float)) else None, c.get("reco") if c.get("reco") is not None else i.get("recommendationMean"),
+                   c.get("analysts") if c.get("analysts") is not None else i.get("numberOfAnalystOpinions")]
+            if any(v is not None for v in row):
+                snap[s] = row
+        try:
+            with gzip.open(EST_HIST, "rt", encoding="utf-8") as f:
+                hist = json.load(f)
+        except Exception:
+            hist = {}
+        hist.setdefault("fields", ["up7", "down7", "up30", "down30", "upside", "reco", "analysts"])
+        hist.setdefault("weeks", {})[date.today().isoformat()] = snap
+        EST_HIST.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(EST_HIST, "wt", encoding="utf-8") as f:
+            json.dump(hist, f, separators=(",", ":"))
+        log(f"Révisions : archive hebdomadaire, {len(snap)} sociétés, {len(hist['weeks'])} semaine(s)")
+    except Exception as ex:
+        log(f"Révisions : archive non écrite ({ex})")
 
 
 def revision_breadth(est, groups):
