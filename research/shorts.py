@@ -23,20 +23,28 @@ def col(df, *keys, avoid=()):
         if all(k in n for k in keys) and not any(a in n for a in avoid): return c
     raise KeyError(f'colonne {keys} introuvable dans {list(df.columns)}')
 
+def spans(d):
+    """Déclarations (détenteur, code, pct, date de position, date de publication, fin éventuelle) → périodes où la position est publique.
+    Chaque déclaration vaut de sa publication à la publication suivante du même détenteur ; sous 0,5 % la position cesse d'être publique."""
+    d = d.dropna(subset=['pct', 'pub']).sort_values(['holder', 'code', 'pos', 'pub']).drop_duplicates(['holder', 'code', 'pos'], keep='last')
+    nxt = d.groupby(['holder', 'code'])['pub'].shift(-1)
+    end = nxt.where(nxt.notna(), d['fin'] if 'fin' in d else pd.NaT)
+    out = pd.DataFrame({'code': d['code'], 'pct': d['pct'], 'start': d['pub'], 'end': end})
+    out = out[(out['pct'] >= 0.5) & ~(out['end'].notna() & (out['end'] <= out['start']))]
+    return out
+
 def amf():
     r = requests.get(AMF_URL, headers=UA, timeout=120); r.raise_for_status()
-    raw = r.content.decode('utf-8-sig', errors='replace')
-    df = pd.read_csv(io.StringIO(raw), sep=None, engine='python')
-    log('AMF colonnes :', list(df.columns)); log(df.head(3).to_string())
-    ci, cr = col(df, 'isin'), next(c for c in df.columns if re.search(r'ratio|position courte nette|net short', str(c), re.I) and 'date' not in str(c).lower() and 'détenteur' not in str(c).lower() and 'holder' not in str(c).lower())
-    cs = next(c for c in df.columns if re.search(r'd[ée]but.*publi|publi.*start|start.*publi', str(c), re.I))
-    ce = next(c for c in df.columns if re.search(r'fin.*publi|publi.*end|end.*publi', str(c), re.I))
-    v = pd.to_numeric(df[cr].astype(str).str.replace(',', '.').str.replace('%', ''), errors='coerce')
+    df = pd.read_csv(io.StringIO(r.content.decode('utf-8-sig', errors='replace')), sep=None, engine='python')
+    log('AMF colonnes :', list(df.columns))
+    v = pd.to_numeric(df['Ratio'].astype(str).str.replace(',', '.').str.replace('%', ''), errors='coerce')
     if v.median() < 0.1: v = v * 100
-    out = pd.DataFrame({'isin': df[ci].astype(str).str.strip().str.upper(), 'pct': v,
-                        'start': pd.to_datetime(df[cs], dayfirst=True, errors='coerce'), 'end': pd.to_datetime(df[ce], dayfirst=True, errors='coerce'), 'src': 'AMF'})
-    log('AMF :', len(out), 'lignes,', out.isin.nunique(), 'sociétés, de', out.start.min(), 'à', out.start.max(), '| % médian', out.pct.median())
-    return out.dropna(subset=['pct', 'start'])
+    d = pd.DataFrame({'holder': df['Detenteur de la position courte nette'].astype(str), 'code': df['code ISIN'].astype(str).str.strip().str.upper(), 'pct': v,
+                      'pos': pd.to_datetime(df['Date de debut position'], errors='coerce'), 'pub': pd.to_datetime(df['Date de debut de publication position'], errors='coerce'),
+                      'fin': pd.to_datetime(df['Date de fin de publication position'], errors='coerce')})
+    out = spans(d).assign(src='AMF')
+    log('AMF :', len(out), 'périodes publiques,', out['code'].nunique(), 'sociétés, de', out['start'].min(), 'à', out['start'].max(), '| % médian', out['pct'].median())
+    return out
 
 def fca():
     r = requests.get(FCA_URL, headers=UA, timeout=120); r.raise_for_status()
@@ -46,14 +54,11 @@ def fca():
         log('FCA feuille', name, list(df.columns)[:8], len(df))
         try: ch, ci, cp, cd = col(df, 'holder'), col(df, 'isin'), col(df, 'net short'), col(df, 'date')
         except KeyError: continue
-        rows.append(pd.DataFrame({'holder': df[ch].astype(str), 'isin': df[ci].astype(str).str.strip().str.upper(), 'pct': pd.to_numeric(df[cp], errors='coerce'), 'date': pd.to_datetime(df[cd], errors='coerce')}))
-    d = pd.concat(rows).dropna(subset=['pct', 'date']).drop_duplicates().sort_values(['holder', 'isin', 'date'])
-    # chaque déclaration vaut jusqu'à la suivante du même détenteur ; sous 0,5 % la position cesse d'être publique
-    d['start'] = d['date'] + pd.Timedelta(days=1)
-    d['end'] = d.groupby(['holder', 'isin'])['start'].shift(-1)
-    d = d[d.pct >= 0.5]
-    log('FCA :', len(d), 'positions publiques,', d.isin.nunique(), 'sociétés, de', d.start.min(), 'à', d.start.max())
-    return d[['isin', 'pct', 'start', 'end']].assign(src='FCA')
+        dt = pd.to_datetime(df[cd], errors='coerce')
+        rows.append(pd.DataFrame({'holder': df[ch].astype(str), 'code': df[ci].astype(str).str.strip().str.upper(), 'pct': pd.to_numeric(df[cp], errors='coerce'), 'pos': dt, 'pub': dt + pd.Timedelta(days=1)}))
+    out = spans(pd.concat(rows)).assign(src='FCA')
+    log('FCA :', len(out), 'périodes publiques,', out['code'].nunique(), 'sociétés, de', out['start'].min(), 'à', out['start'].max())
+    return out
 
 def resolve(isins, cache_path):
     """ISIN → symbole Yahoo (Paris pour FR, Londres sinon), recherche Yahoo, en cache."""
@@ -78,15 +83,15 @@ def resolve(isins, cache_path):
 
 def main():
     S = pd.concat([amf(), fca()], ignore_index=True)
-    S = S[S.isin.str.match(r'^[A-Z]{2}[A-Z0-9]{9}\d$')]
-    m = resolve(sorted(S.isin.unique()), OUT / 'isin_yahoo.json')
-    S['sym'] = S.isin.map(m); log('ISIN résolus :', S.drop_duplicates('isin').sym.notna().sum(), '/', S.isin.nunique())
+    S = S[S['code'].str.match(r'^[A-Z]{2}[A-Z0-9]{9}\d$')]
+    m = resolve(sorted(S['code'].unique()), OUT / 'isin_yahoo.json')
+    S['sym'] = S['code'].map(m); log('ISIN résolus :', S.drop_duplicates('code')['sym'].notna().sum(), '/', S['code'].nunique())
     # univers témoin : sociétés liquides de Paris et Londres du catalogue (non vendues à découvert = 0)
     uni = set()
     for f in glob.glob(str(ROOT / 'data' / 'societes' / '*.json')):
         for k, x in json.load(open(f))['items'].items():
             if k.endswith(('.PA', '.L')) and (x.get('turnoverEur') or 0) >= 1e6: uni.add(k)
-    uni |= set(S.sym.dropna()); uni = sorted(uni); log('titres à télécharger :', len(uni))
+    uni |= set(S['sym'].dropna()); uni = sorted(uni); log('titres à télécharger :', len(uni))
     import yahoo
     fr = yahoo.download(uni, 'research', start='2011-06-01', interval='1wk', fields=('Close',))
     W = fr['Close'].resample('W-FRI').last().loc['2011-06-01':]
