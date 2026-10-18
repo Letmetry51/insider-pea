@@ -273,7 +273,7 @@ ul.plain li{margin:3px 0}
   .gauge .val{font-size:1.6rem}
 }
 /* Opportunités : version lisible */
-.selc h3{margin-bottom:2px}.selc .foot{margin:0 0 8px}ol.sel{margin:0;padding-left:1.4em}ol.sel li{padding:7px 4px;border-top:1px solid var(--line);cursor:pointer}ol.sel li:first-child{border-top:0}ol.sel li small{display:block;color:var(--muted)}ol.sel li:hover{background:var(--sunk)}
+.subf{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}.subf>summary{cursor:pointer;font-weight:600;padding:4px 0}.subf[open]>summary{margin-bottom:6px}.selc h3{margin-bottom:2px}.selc .foot{margin:0 0 8px}ol.sel{margin:0;padding-left:1.4em}ol.sel li{padding:7px 4px;border-top:1px solid var(--line);cursor:pointer}ol.sel li:first-child{border-top:0}ol.sel li small{display:block;color:var(--muted)}ol.sel li:hover{background:var(--sunk)}
 .tabs .ts{display:none}@media (max-width:560px){.tabs .tl{display:none}.tabs .ts{display:inline}.tabs button{padding:8px 4px;flex:1 1 auto;font-size:.86rem}.tabs{gap:0}}
 /* Carte « Je l'ai acheté » : bien détachée du conseil */
 .buybox{border:2px solid var(--bad);background:color-mix(in srgb,var(--bad) 7%,var(--surface))}
@@ -5240,16 +5240,18 @@ details.pos summary{font-size:1rem}
   }
   /** 🛒 La liste de la semaine : 5 🎯 (celles de l'email du lundi) + 2 💎, soit 70/30, avec l'action pour chacune. */
   function rankSelCard() {
-    var R = rankData(); if (!R || !R.selection) return '';
-    var sel = R.selection, t = sel.track, V = ES.pickValue(R.rows || [], { n: 2, peaOnly: true }).picks;
+    var R = rankData(); if (!R) return '';
+    var sel = R.selection || { items: [], week: '' }, t = sel.track, V = ES.pickValue(R.rows || [], { n: 2, peaOnly: true }).picks;
     var li = function (r, tag, act, sub) { return '<li class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><span class="seltag">' + tag + '</span><b>' + flag(r.country) + esc(r.name) + '</b>' + (r.isNew ? ' <span class="chip newc">Nouveau</span>' : '') + '<span class="selact">' + act + '</span><small>' + esc(sub) + '</small></li>'; };
     var h = '<details class="card fold selc" data-k="buy"><summary>🛒 À acheter <span class="muted small">· ' + sel.items.length + ' 🎯 + ' + V.length + ' 💎</span></summary><p class="selrule small muted">PEA · lignes égales (≈ 70/30) · envoyée par email le lundi · ' + esc(sel.week) + '</p>';
-    if (!sel.items.length && !V.length) return h + '<p class="muted">Rien ne passe les règles cette semaine : mieux vaut attendre.</p></details>';
+    var subs = pick3Card(sel.items) + valueCard(V);
+    if (R.breadth && R.breadth.now && R.breadth.now.regime === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
+    if (!sel.items.length && !V.length) return h + '<p class="muted">Rien ne passe les règles cette semaine : mieux vaut attendre.</p>' + subs + '</details>';
     h += '<ol class="sel sel2">' + sel.items.map(function (r) {
       var E = ES.pickEntry(r); return li(r, '🎯', E ? E.icon + ' ' + (E.k === 'buy' ? 'Acheter' : 'Attendre') : '✅ Acheter', [r.sector, 'note ' + r.note, r.mom != null ? '12 m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + ' %' : null, bumpOf(r) != null ? '📣 bond' : null, E && E.k === 'wait' ? 'sous sa moyenne 10 sem.' : null].filter(Boolean).join(' · '));
     }).join('') + V.map(function (r) { return li(r, '💎', '✅ Acheter', [r.sector, 'F-score ' + r.f9 + '/9', 'cours / fonds propres ' + fmtN(r.pb, 2)].filter(Boolean).join(' · ')); }).join('') + '</ol>' +
-      (t && t.n ? '<p class="foot">Sélections précédentes : ' + pct(t.avg) + ' en moyenne depuis l\'envoi' + (t.bench != null ? ' (indice ' + pct(t.bench) + ')' : '') + '.</p>' : '<p class="foot">Puis : garder 6 mois, protection à −30 %. Les emails préviennent du reste.</p>');
-    return h + '</details>';
+      '<p class="foot">Puis : garder 6 mois, protection à −30 %. Les emails préviennent du reste.' + (t && t.n ? ' Sélections précédentes : ' + pct(t.avg) + ' en moyenne' + (t.bench != null ? ' (indice ' + pct(t.bench) + ')' : '') + ', détail dans Alertes.' : '') + '</p>';
+    return h + subs + '</details>';
   }
   function modeSeg() {
     var m = S.rankMode || 'rank';
@@ -5302,7 +5304,7 @@ details.pos summary{font-size:1rem}
     var mk = crash ? ['⚠️', 'Marché en chute', fmtN(N.m52, 0) + ' % en un an : achetez par petites touches', 'bad'] : rg === 'high' ? ['😃', 'Marché euphorique', 'étalez vos achats', 'warn'] : rg === 'low' ? ['😟', 'Marché pessimiste', 'bon moment pour entrer', 'good'] : ['😐', 'Marché neutre', (N ? fmtN(N.up, 0) + ' % des sociétés en hausse' : 'conditions normales'), 'good'];
     var brkS = rows.filter(function (r) { return rkBrk(r) && rkSc(r) === 'strong'; }).length;
     var VV = ES.pickValue(rows, { n: 10 });
-    var P = ES.pickN(rows, { n: 10 }), nHot = P.picks.filter(function (r) { return r.pickHot; }).length;
+    var P = ES.pickN(rows, { n: 10, peaOnly: true }), nHot = P.picks.filter(function (r) { return r.pickHot; }).length;
     var tile = function (cls, ic, t, sub, act) { return '<button class="dtile ' + cls + '"' + (act ? ' data-a="' + act + '"' : ' disabled') + '><span class="dti" aria-hidden="true">' + ic + '</span><b>' + t + '</b><small>' + sub + '</small></button>'; };
     return '<div class="dash">' + tile('t-' + mk[3], mk[0], mk[1], esc(mk[2]), 'psyOpen') +
       tile('t-good', '🎯', P.pool + ' société' + (P.pool > 1 ? 's' : '') + '', 'toutes les règles réunies' + (nHot ? ' · 🔊 ' + nHot : ''), 'pick3') +
@@ -5311,47 +5313,46 @@ details.pos summary{font-size:1rem}
       '<p class="dashl small muted">' + fmtInt(C.ranked || 0) + ' sociétés classées sur ' + fmtInt(C.catalogue || 0) + (brkS ? ' · <button type="button" class="linkbtn" data-a="weekBrk">🚀 ' + brkS + ' sortie' + (brkS > 1 ? 's' : '') + ' de base en ⬆⬆</button>' : '') + ' · <button type="button" class="linkbtn" data-a="rankWhy">la méthode →</button></p>';
   }
   /** Bouton « Choisir 3 sociétés » : les règles testées appliquées au classement du soir (ES.pickThree). */
-  function pick3Card() {
+  /** Pli intérieur de 🛒 : les 🎯 suivants (remplaçants), règles et probabilités. */
+  function pick3Card(inSel) {
     var R = rankData(); if (!R) return '';
-    var qk = (S.rf || {}).quick || [], peaOnly = qk.indexOf('pea') > -1, near = qk.indexOf('near') > -1, nP = +lsGet('pickN', '10') || 10, P = ES.pickN(R.rows || [], { n: nP, peaOnly: peaOnly, near: near }), rg = R.breadth && R.breadth.now ? R.breadth.now.regime : null;
+    var taken = {}; (inSel || []).forEach(function (r) { taken[r.key] = 1; });
+    var P = ES.pickN(R.rows || [], { n: 10, peaOnly: true }), rg = R.breadth && R.breadth.now ? R.breadth.now.regime : null;
     var plan = function (r) { var o = r.plan && PLANS.filter(function (x) { return x[0] === r.plan.v; })[0]; return o ? o[1] : null; };
-    var h = '<details class="card fold pick3" data-k="pick3"><summary>🎯 Momentum <span class="muted small">· choix et règles</span></summary>';
-    h += '<div class="segs" role="group" aria-label="Nombre de sociétés">' + [3, 5, 10].map(function (k) { return '<button class="' + (k === nP ? 'on' : '') + '" aria-pressed="' + (k === nP) + '" data-a="pickN" data-v="' + k + '">' + k + ' sociétés</button>'; }).join('') + '</div>';
-    h += '<div class="fchips p3opt"><button class="fchip' + (near ? ' on' : '') + '" aria-pressed="' + near + '" data-a="rfQuick" data-v="near" title="Sur 29 ans, parmi ces sociétés : aussi bon qu\'au plus haut (+5 à +10 points à 6 mois), mêmes risques">' + (near ? '☑' : '☐') + ' ↘️ Seulement 2 à 10 % sous le plus haut</button><button class="fchip' + (peaOnly ? ' on' : '') + '" aria-pressed="' + peaOnly + '" data-a="rfQuick" data-v="pea">' + (peaOnly ? '☑' : '☐') + ' 🇪🇺 PEA seulement</button></div>';
-    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord (📣 repêche pente moyenne ou +30 %) · 2 par secteur · sans ⚡ ni 🐻</p>' +
-      xpi(P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir (au moins 3 M€ échangés par jour' + (peaOnly ? ', PEA seulement' : ', hors PEA compris') + (near ? ', 2 à 10 % sous le plus haut' : '') + '). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l\'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse.');
-    if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
-    if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
-    else h += '<ol class="pick3l">' + P.picks.map(function (r, k) {
-      var pl = plan(r), sep = r.pickTier > 0 && (k === 0 || P.picks[k - 1].pickTier !== r.pickTier) ? '<li class="pick3sep">' + (r.pickTier === 1 ? 'Règles assouplies : pente moyenne ou +30 à +60 % sur 12 mois' : 'Règles assouplies : comptes mitigés ou pas lus') + '</li>' : '';
+    var rest = P.picks.filter(function (r) { return !taken[r.key]; });
+    var h = '<details class="subf pick3" data-k="pick3"><summary>🎯 Remplaçants et règles <span class="muted small">· ' + rest.length + '</span></summary>';
+    if (!rest.length) h += '<p class="muted small">Pas d\'autre société 🎯 ce soir.</p>';
+    else h += '<p class="small muted">Si une société de la liste ne vous convient pas, prendre la suivante :</p><ol class="pick3l">' + rest.map(function (r, k) {
+      var pl = plan(r), sep = r.pickTier > 0 && (k === 0 || rest[k - 1].pickTier !== r.pickTier) ? '<li class="pick3sep">' + (r.pickTier === 1 ? 'Règles assouplies : pente moyenne ou +30 à +60 % sur 12 mois' : 'Règles assouplies : comptes mitigés ou pas lus') + '</li>' : '';
       return sep + '<li value="' + (k + 1) + '" class="rowlink' + (r.pickTier ? ' pick3x' : '') + '" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· ' + r.note + '/100</span>' + (r.vx >= 1.5 ? ' <span class="chip good">🔊 volumes ×' + String(r.vx).replace('.', ',') + '</span>' : '') + (bumpOf(r) != null ? ' <span class="chip good" title="Semaine à +8 % ou plus avec 3 fois le volume habituel">📣 bond ' + bumpTxt(bumpOf(r)) + '</span>' : '') +
         '<small>' + esc([r.sector, '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', r.ratio != null ? (r.ratio >= 99.5 ? 'au plus haut' : 'haut ' + Math.round(r.ratio - 100) + '\u00a0%') : null, (function () { var E = ES.pickEntry(r); return E ? E.icon + ' ' + E.short : pl ? pl.split(' : ')[0].replace(/Attendre une? /, 'attendre ') : null; })(), (r.liq || 0) < 5e6 ? '💧 ordres limités' : null, r.pickNotPea ? 'hors PEA' : null].filter(Boolean).join(' · ')) + '</small></li>';
     }).join('') + '</ol>';
+    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord (📣 repêche pente moyenne ou +30 %) · 2 par secteur · sans ⚡ ni 🐻</p>' +
+      xpi(P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir (au moins 3 M€ échangés par jour, PEA seulement). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l\'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse.');
     h += '<div class="probs"><small>Sur 29 ans, 6 mois après l\'achat (sociétés 🎯 au-dessus de leur moyenne 10 semaines) :</small><div class="pbs">' +
       [['2 sur 3', 'en hausse', '65 %'], ['1 sur 3', 'à +20 % ou plus', '36 %'], ['1 sur 8', 'à +50 % ou plus', '12 %'], ['1 sur 14', 'à −25 % ou pire', '7 %']].map(function (x, k) { return '<span class="pb' + (k === 3 ? ' neg' : '') + '"><b>' + x[0] + '</b><small>' + x[1] + '</small></span>'; }).join('') +
       '</div><small class="muted">Toutes sociétés : 61 % en hausse, 1 sur 4 à +20 %, 1 sur 16 à +50 %, 1 sur 12 à −25 %. Médiane +10 % contre +6 %.</small></div>';
-    h += '<p class="small p3next">⏳ <b>Ensuite</b> : lignes égales · garder 6 mois · protection −30 % · « Je l\'ai acheté » sur la fiche</p>';
-    h += trackBox();
     if (P.rejected.length) h += '<details class="xpi"><summary>Pourquoi pas les autres ?</summary><ul class="plain small">' + P.rejected.slice(0, 10).map(function (x) { return '<li><b>' + esc(x.r.name) + '</b> (' + x.r.note + ') : ' + esc(x.why) + '</li>'; }).join('') + '</ul></details>';
-    return h + '<p class="foot">Application automatique de règles testées, pas un conseil en investissement.</p></details>';
+    return h + '</details>';
   }
   /** Suivi réel du 🎯 : les 10 sociétés proposées chaque semaine, résultat à 3 et 6 mois comparé à l'indice (pas un test sur le passé). */
   /** 💎 Valeur : complément du 🎯 (sens inverse du momentum), règles de Piotroski appliquées aux lignes publiées (ES.pickValue). */
-  function valueCard() {
+  /** Pli intérieur de 🛒 : les 💎 suivants, règles et dosage. */
+  function valueCard(inSel) {
     var R = rankData(); if (!R) return '';
-    var qk = (S.rf || {}).quick || [], peaOnly = qk.indexOf('pea') > -1, V = ES.pickValue(R.rows || [], { peaOnly: peaOnly });
-    var h = '<details class="card fold pick3 vcard" data-k="value"><summary>💎 Valeur <span class="muted small">· choix et règles</span></summary>';
+    var taken = {}; (inSel || []).forEach(function (r) { taken[r.key] = 1; });
+    var peaOnly = true, V = ES.pickValue(R.rows || [], { peaOnly: true }), rest = V.picks.filter(function (r) { return !taken[r.key]; });
+    var h = '<details class="subf vcard" data-k="value"><summary>💎 Remplaçants et règles <span class="muted small">· ' + rest.length + '</span></summary>';
+    if (!rest.length) h += '<p class="muted small">Pas d\'autre société 💎 ce soir.</p>';
+    else h += '<ol class="pick3l">' + rest.map(function (r, k) {
+      return '<li value="' + (k + 1) + '" class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· F-score ' + r.f9 + '/9</span>' +
+        '<small>' + esc([r.sector, 'cours / fonds propres ' + fmtN(r.pb, 2), '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', (r.liq || 0) < 5e6 ? '💧 ordres limités' : null, r.pea === false ? 'hors PEA' : null, r.sh ? '🐻 ' + String(r.sh).replace('.', ',') + ' %' : null].filter(Boolean).join(' · ')) + '</small></li>';
+    }).join('') + '</ol>';
     h += '<p class="p3rules">💰 tiers le moins cher (cours / fonds propres' + (V.cut ? ' < ' + fmtN(V.cut, 2) : '') + ') · 📊 F-score ≥ 7 · sans perte ni chute de plus de 40 % · 2 par secteur · sans ⚡ ni 🐻</p>' +
       '<div class="probs"><small>Dosage conseillé du PEA (facteurs européens, toutes sociétés, 1990-2026) :</small><div class="pbs pbs3">' +
       [['70 % 🎯 + 30 % 💎', 'plus grosse perte −30 % au lieu de −46 %'], ['+8,5 %/an', 'd\'avantage au lieu de +10,3'], ['−0,32', 'corrélation : ils gagnent à des moments différents']].map(function (x) { return '<span class="pb"><b>' + x[0] + '</b><small>' + x[1] + '</small></span>'; }).join('') + '</div></div>' +
       xpi(V.pool + ' société' + (V.pool > 1 ? 's passent' : ' passe') + ' les règles ce soir' + (peaOnly ? ' (PEA seulement)' : ' (hors PEA compris)') + '. Méthode de Piotroski (2000) : parmi les sociétés bon marché, celles aux comptes les plus solides font nettement mieux que les autres. Tri : meilleur F-score, puis prix le plus bas. Les comptes passés manquent pour la tester sur nos 29 ans : la preuve vient des études publiées et du facteur valeur européen de Kenneth French. Pas de règle de moyenne 10 semaines ici : la valeur s\'achète justement quand le cours a déçu.');
-    if (!V.picks.length) h += '<p class="muted">Aucune société ne passe les règles ce soir.</p>';
-    else h += '<ol class="pick3l">' + V.picks.map(function (r, k) {
-      return '<li value="' + (k + 1) + '" class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· F-score ' + r.f9 + '/9</span>' +
-        '<small>' + esc([r.sector, 'cours / fonds propres ' + fmtN(r.pb, 2), '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', (r.liq || 0) < 5e6 ? '💧 ordres limités' : null, r.pea === false ? 'hors PEA' : null, r.sh ? '🐻 ' + String(r.sh).replace('.', ',') + ' %' : null].filter(Boolean).join(' · ')) + '</small></li>';
-    }).join('') + '</ol>';
-    h += '<p class="small p3next">⏳ <b>Ensuite</b> : lignes égales · garder 6 mois (plus si encore dans le 💎) · protection −30 % · « Je l\'ai acheté » sur la fiche</p>' + trackBox('value');
-    return h + '<p class="foot">Application automatique de règles publiées, pas un conseil en investissement.</p></details>';
+    return h + '</details>';
   }
   function trackBox(which) {
     var R = rankData(), T = R && (which === 'value' ? R.valueTrack : R.pickTrack); if (!T) return '';
@@ -5431,7 +5432,7 @@ details.pos summary{font-size:1rem}
     var ctry = {}, secs = {}, cv = {}; rows.forEach(function (r) { if (r.country) ctry[r.country] = 1; if (r.sector) secs[r.sector] = 1; cv[r.v] = (cv[r.v] || 0) + 1; });
     var C = R.counts || {}, RC = S.cfg.rank || {};
     var h = dashTiles(R, rows);
-    h += rankSelCard() + pick3Card() + valueCard();
+    h += rankSelCard();
     var psy = psyCard(); if (psy) h += '<details class="card fold psyfold" data-k="psy"><summary>🧠 Marché <span class="muted small">· historique</span></summary>' + psy + '</details>';
     // « Toutes les sociétés » : un seul pli ; ouvert d'office si une recherche ou un filtre est actif
     var allOn = !!(f.q || f.slope.length || f.vol || f.brk || f.quick.length || f.country || f.sector || f.v || f.figures.length || f.plans.length || f.timing.length);
@@ -7075,8 +7076,8 @@ details.pos summary{font-size:1rem}
     else if (a === 'rfBrk') { S.rf = S.rf || {}; S.rf.brk = !S.rf.brk; S.limit = 50; var ybk = window.scrollY; render(); window.scrollTo(0, ybk); }
     else if (a === 'psyOpen') { S.openDet = S.openDet || {}; S.openDet.psy = true; render(); var pf = document.querySelector('.psyfold'); if (pf) pf.scrollIntoView({ block: 'start' }); }
     else if (a === 'pickN') { lsSet('pickN', el.dataset.v); S.openDet = S.openDet || {}; S.openDet.pick3 = true; var ypn = window.scrollY; render(); window.scrollTo(0, ypn); }
-    else if (a === 'valueOpen') { S.openDet = S.openDet || {}; S.openDet.value = true; render(); var vc = document.querySelector('.vcard'); if (vc) vc.scrollIntoView({ block: 'start' }); }
-    else if (a === 'pick3') { S.openDet = S.openDet || {}; S.openDet.pick3 = true; render(); var pc3 = document.querySelector('.pick3'); if (pc3) pc3.scrollIntoView({ block: 'start' }); }
+    else if (a === 'valueOpen') { S.openDet = S.openDet || {}; S.openDet.buy = true; render(); var vc = document.querySelector('.selc'); if (vc) vc.scrollIntoView({ block: 'start' }); }
+    else if (a === 'pick3') { S.openDet = S.openDet || {}; S.openDet.buy = true; render(); var pc3 = document.querySelector('.selc'); if (pc3) pc3.scrollIntoView({ block: 'start' }); }
     else if (a === 'weekBrk') { S.rf = S.rf || {}; S.rf.brk = true; S.rf.slope = ['strong']; S.limit = 50; render(); var sb = document.querySelector('.slbar'); if (sb) sb.scrollIntoView({ block: 'start' }); }
     else if (a === 'rfSlope') { S.rf = S.rf || {}; var cs = Array.isArray(S.rf.slope) ? S.rf.slope : [], vs = el.dataset.v; S.rf.slope = vs === 'all' ? [] : cs.indexOf(vs) > -1 ? cs.filter(function (x) { return x !== vs; }) : cs.concat([vs]); S.limit = 50; var ysl = window.scrollY; render(); window.scrollTo(0, ysl); }
     else if (a === 'rfQuick') { S.rf = S.rf || {}; var cq = Array.isArray(S.rf.quick) ? S.rf.quick : [], vq = el.dataset.v; S.rf.quick = vq === 'all' ? [] : cq.indexOf(vq) > -1 ? cq.filter(function (x) { return x !== vq; }) : cq.concat([vq]); S.limit = 50; var yk = window.scrollY; render(); window.scrollTo(0, yk); }
