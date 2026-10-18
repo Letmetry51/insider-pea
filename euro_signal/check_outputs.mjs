@@ -134,6 +134,12 @@ if (RK) {
   const selRows = ((RK.selection && RK.selection.items) || []).map((x) => (RK.rows || []).find((r) => r.key === x.key)).filter(Boolean);
   check(selRows.every((r) => r.pea !== false && r.acc === 'good' && (r.sc === 'strong' || r.sc === 'mid') && r.mom <= 200), `sélection du lundi dans les règles (PEA, comptes solides, pente, hausse ≤ +200 %) : ${selRows.map((r) => r.name).join(', ') || 'aucune'}`);
   check(RK.rows.every((r) => r.note >= 0 && r.note <= 100 && r.name), 'notes du classement entre 0 et 100, chaque société nommée');
+  // garde-fous des données Yahoo : devises sans taux de change, cours figés, variations d'un jour à vérifier
+  const fxm = main.fx || {}, noFx = [...new Set((RK.rows || []).map((r) => r.cur).filter((c) => c && c !== 'EUR' && !(fxm[c] > 0)))];
+  check(!noFx.length, `taux de change disponibles pour toutes les devises du classement${noFx.length ? ' (manquent : ' + noFx.join(', ') + ')' : ''}`);
+  const stale = (RK.rows || []).filter((r) => (r.out || []).some((t) => /cours figé/.test(t))).length, djn = (RK.rows || []).filter((r) => r.dj != null).length;
+  check(stale <= 20, `cours figés écartés : ${stale}`, true);
+  check(djn <= 15, `variations de plus de 40 % sur la dernière séance (à vérifier, jamais proposées par 🎯) : ${djn}`, true);
 }
 
 // 5c. Lien avec Yahoo Finance : titres demandés, reçus, récupérés en 2e passe, repris de la veille (scrapers/yahoo.py)
