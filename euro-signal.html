@@ -6435,11 +6435,13 @@ details.pos summary{font-size:1rem}
     h += '<details class="card fold" data-k="sec-help"><summary>ℹ️ Comment lire ces indicateurs</summary><ul class="small">' +
       '<li><b>Force 6 mois / 3 mois</b> : hausse du secteur par rapport au STOXX 600. Barre verte vers la droite = il fait mieux que le marché.</li>' +
       '<li><b>En tendance</b> : part des sociétés du secteur au-dessus de leur moyenne des 40 dernières semaines. Plus de 60 % : la hausse est large, pas portée par une ou deux valeurs.</li>' +
-      '<li><b>Près des sommets</b> : part des sociétés à moins de 10 % de leur plus haut annuel.</li>' +
+      '<li><b>Près des sommets</b> : part des sociétés à moins de 5 % de leur plus haut annuel.</li>' +
       '<li><b>Analystes</b> : prévisions relevées moins prévisions abaissées sur 30 jours. Positif = les analystes deviennent plus optimistes.</li>' +
       '<li><b>Résultats</b> : résultats au-dessus du consensus moins résultats en dessous.</li>' +
       '<li><b>Volumes</b> : échanges plus forts les semaines de hausse (achats) ou de baisse (ventes).</li>' +
-      '<li><b>▲ / ▼</b> à côté du rang : places gagnées ou perdues en 8 semaines. <b>Émergent</b> : forte remontée récente.</li>' +
+      '<li><b>Rang</b> : moyenne des classements en force 6 mois, force 3 mois, part en tendance et part près des sommets. <b>▲ / ▼</b> : places gagnées ou perdues en 8 semaines.</li>' +
+      '<li>🌱 <b>Émergent</b> : au moins ' + Math.max(5, Math.floor(G.length / 6)) + ' places gagnées en 8 semaines, et plus fort que le STOXX 600 sur 3 mois. 📈 <b>En tendance</b> : parmi les 20 % premiers, plus fort que le STOXX 600 sur 6 mois, et au moins la moitié de ses sociétés au-dessus de leur moyenne 40 semaines.</li>' +
+      '<li>🧭 <b>Comment s\'en servir</b> : comme un radar, pas comme un signal d\'achat. Acheter les secteurs émergents a fait −10,8 % par an face au marché, et même croisé avec 🔊 ils n\'apportent rien de plus (test sur 29 ans). Le 🎯 prend d\'office les sociétés d\'un secteur qui monte quand leur propre hausse le justifie : rien à faire de plus. Pour une société qui vous intéresse, touchez « Surveiller » sur son plan d\'entrée : un email part quand le cours entre dans la zone d\'achat.</li>' +
       '<li>🔎 <b>Recherche</b> : toutes les actions cotées des bourses de l\'UE et de l\'EEE, même petites et sans achat de dirigeant.</li>' +
       '<li>🏆 <b>Leader</b> : plus grosse capitalisation du secteur. 🚀 <b>Challenger</b> : la plus forte des 2e à 4e capitalisations. Touchez un nom pour sa fiche complète.</li></ul></details>';
     var hHelp = h, hCyc = cycleCard(); h = '';
@@ -6473,7 +6475,7 @@ details.pos summary{font-size:1rem}
         g.volume != null ? (g.volume > 0.15 ? 'volumes : achats dominants' : g.volume < -0.15 ? 'volumes : ventes dominantes' : 'volumes : équilibrés') : null].filter(Boolean).join(' · ');
       var line = '<p class="small muted">' + g.n + ' sociétés</p><div class="mts">' +
         mini('Force 6 mois', pc100(g.rs6), g.rs6, -0.3, 0.3, true, 'Hausse du secteur sur 6 mois par rapport au STOXX 600') + mini('Force 3 mois', pc100(g.rs3), g.rs3, -0.3, 0.3, true, 'Hausse du secteur sur 3 mois par rapport au STOXX 600') +
-        mini('En tendance', Math.round(g.breadth * 100) + ' %', g.breadth, 0, 1, false, 'Part des sociétés au-dessus de leur moyenne 40 semaines') + mini('Près des sommets', Math.round(g.highs * 100) + ' %', g.highs, 0, 1, false, 'Part des sociétés à moins de 10 % de leur plus haut annuel') +
+        mini('En tendance', Math.round(g.breadth * 100) + ' %', g.breadth, 0, 1, false, 'Part des sociétés au-dessus de leur moyenne 40 semaines') + mini('Près des sommets', Math.round(g.highs * 100) + ' %', g.highs, 0, 1, false, 'Part des sociétés à moins de 5 % de leur plus haut annuel') +
         (g.revisions != null ? mini('Analystes', (g.revisions >= 0 ? '+' : '') + Math.round(g.revisions * 100) + ' %', g.revisions, -1, 1, true, 'Révisions de prévisions nettes à la hausse sur 30 jours') : '') +
         (g.surprise != null ? mini('Résultats', (g.surprise >= 0 ? '+' : '') + Math.round(g.surprise * 100) + ' %', g.surprise, -1, 1, true, 'Surprises de résultats nettes : au-dessus moins en dessous du consensus') : '') +
         (g.volume != null ? '<div class="mt"><span class="mt-l">Volumes</span><b class="mt-v ' + (g.volume > 0.15 ? 'pos' : g.volume < -0.15 ? 'neg' : '') + '">' + (g.volume > 0.15 ? '▲ achats' : g.volume < -0.15 ? '▼ ventes' : '= équilibrés') + '</b></div>' : '') + '</div>';
