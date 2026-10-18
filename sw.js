@@ -1,5 +1,6 @@
-/* Euro Signal : réseau d'abord (toujours les données du soir), copie locale si pas de connexion ou réseau trop lent. */
-const CACHE = 'euro-signal-v3';
+/* Euro Signal : réseau d'abord (toujours la dernière version et les données du soir, sans attendre le cache de GitHub Pages),
+   copie locale si pas de connexion ou réseau trop lent. */
+const CACHE = 'euro-signal-v4';
 const TIMEOUT_MS = 8000;
 self.addEventListener('install', () => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
@@ -9,7 +10,10 @@ self.addEventListener('fetch', (e) => {
   const key = e.request.url.split('?')[0].split('#')[0];
   const net = new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('délai')), TIMEOUT_MS);
-    fetch(e.request, { cache: 'no-cache' }).then((r) => { clearTimeout(t); resolve(r); }, (err) => { clearTimeout(t); reject(err); });
+    // page et données : adresse rendue unique pour passer le cache de GitHub Pages (jusqu'à 10 minutes de retard sinon)
+    const fresh = /\.(html|json)$/.test(u.pathname) || u.pathname.endsWith('/');
+    const req = fresh ? new Request(key + (key.indexOf('?') > -1 ? '&' : '?') + '_=' + Date.now(), { credentials: 'same-origin' }) : e.request;
+    fetch(req, { cache: 'no-store' }).then((r) => { clearTimeout(t); resolve(r); }, (err) => { clearTimeout(t); reject(err); });
   });
   e.respondWith(net.then((r) => {
     if (r.ok) { const c = r.clone(); e.waitUntil(caches.open(CACHE).then((ca) => ca.put(key, c))); }
