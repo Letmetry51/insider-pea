@@ -1,14 +1,14 @@
 {
  "chunks": [
   [
-   "2026-10-07",
-   "2026-10-13",
-   178
+   "2026-10-08",
+   "2026-10-14",
+   154
   ],
   [
-   "2026-10-14",
+   "2026-10-15",
    "2026-10-18",
-   91
+   68
   ]
  ],
  "encoding": "utf-16",
@@ -59,15 +59,15 @@
   "place": "Trading venue",
   "status": "Status"
  },
- "rowCount": 269,
+ "rowCount": 222,
  "sampleRows": [
   [
-   "13/10/2026 22:47:55",
-   "HEXICON AB",
-   "9845007784687FEF7569",
-   "Henrik Baltscheffsky",
-   "Henrik Baltscheffsky",
-   "Other member of the company's administrative, management or supervisory body",
+   "14/10/2026 22:33:57",
+   "Gentoo Media Inc.",
+   "529900T8BM49AURSDO55",
+   "Mateusz Juroszek",
+   "Mateusz Juroszek",
+   "Member of the Board of Directors",
    "",
    "",
    "",
@@ -75,42 +75,42 @@
    "",
    "Acquisition",
    "Share",
-   "Hexicon AB",
-   "SE0004898799",
-   "13/10/2026 00:00:00",
-   "400000.0",
+   "Gentoo Media Inc.",
+   "US36467X2062",
+   "14/10/2026 00:00:00",
+   "50000.0",
    "Quantity",
-   "0.115",
+   "5.20",
    "SEK",
-   "FIRST NORTH SWEDEN",
+   "NASDAQ STOCKHOLM AB",
    "Current",
    ""
   ],
   [
-   "13/10/2026 22:43:38",
-   "HEXICON AB",
-   "9845007784687FEF7569",
-   "Henrik Baltscheffsky",
-   "Henrik Baltscheffsky",
-   "Other member of the company's administrative, management or supervisory body",
-   "",
+   "14/10/2026 20:08:01",
+   "Krona Public Real Estate AB",
+   "549300MWRB00KNKEUY58",
+   "Krona BidCo AB",
+   "Tomas Georgiadis",
+   "Member of the Board of Directors",
+   "Yes",
    "",
    "",
    "Yes",
    "",
-   "Disposal",
+   "Acquisition",
    "Share",
-   "Hexicon AB",
-   "SE0004898799",
-   "13/10/2026 00:00:00",
-   "400000.0",
+   "Krona Public Real Estate",
+   "SE0015657895",
+   "14/10/2026 00:00:00",
+   "15140.0",
    "Quantity",
-   "0.115",
+   "44.0",
    "SEK",
-   "FIRST NORTH SWEDEN - NORDIC@MID",
+   "SPOTLIGHT STOCK MARKET",
    "Current",
    ""
   ]
  ],
- "at": "2026-10-18T06:09:35.202190+00:00"
+ "at": "2026-10-18T07:14:21.964990+00:00"
 }
