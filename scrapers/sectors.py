@@ -247,6 +247,7 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
                    "name": inf.get("longName") or inf.get("shortName") or it.get("name")})
         kept[sym] = it
     write_json(CATALOG, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": min_cap, "items": kept,
+                         "places": sorted(set(COUNTRY.values()) | set(NONPEA_COUNTRY.values())),
                          "pending": len(out) - len(kept) - foreign})
     log(f"Catalogue : {len(out)} cotations sur {len(REGIONS) + len(NONPEA_REGIONS)} places → {len(kept)} sociétés (UE, EEE, Suisse, Royaume-Uni) "
         f"({foreign} étrangères écartées, {unknown} fiches Yahoo pas encore lues ; {n} lues ce soir en {time.time() - t0:.0f} s)")
@@ -269,6 +270,8 @@ def catalog_age():
     try:
         c = read_json(CATALOG, {})
         if c.get("pending"):  # fiches Yahoo encore à lire : on continue chaque soir jusqu'à ce que le catalogue soit complet
+            return 10 ** 6
+        if not {"CH", "GB"} <= set(c.get("places") or []):  # Suisse et Royaume-Uni ajoutés le 18/10/2026 : catalogue à refaire
             return 10 ** 6
         return (datetime.now(timezone.utc) - datetime.fromisoformat(c["generatedAt"])).days
     except Exception:
