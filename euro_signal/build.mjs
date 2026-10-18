@@ -1003,6 +1003,23 @@ export function build(opts = {}) {
       Object.keys(state.pickLog).sort().slice(0, -130).forEach((w) => { delete state.pickLog[w]; });
       rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mLast);
       rank.pick10 = ES.pickN(rank.rows, { n: 10 }).picks.map((p) => p.isin || p.sym); // lu par positions.py pour le rappel à 6 mois
+      // 💎 valeur : même suivi réel que le 🎯
+      const V10 = ES.pickValue(rank.rows, { n: 10 }).picks;
+      rank.value10 = V10.map((p) => p.isin || p.sym);
+      state.valueLog = isObj(state.valueLog) ? state.valueLog : {};
+      Object.keys(state.valueLog).forEach((w) => {
+        const L = state.valueLog[w]; if (!isObj(L) || !Array.isArray(L.items)) { delete state.valueLog[w]; return; }
+        const a = ES.daysBetween(L.date, today);
+        [[91, 'p3', 'b3'], [182, 'p6', 'b6']].forEach(([dd, pk, bk]) => {
+          if (a < dd || L[pk + 'Done']) return;
+          if (mLast > 0) L[bk] = mLast;
+          L.items.forEach((x) => { if (x[pk] == null && lastOf[x.key] > 0) x[pk] = lastOf[x.key]; });
+          L[pk + 'Done'] = today;
+        });
+      });
+      if (!state.valueLog[week] && rank.coFresh && V10.length) state.valueLog[week] = { date: today, b0: mLast || null, items: V10.map((r) => ({ key: r.key, name: r.name, f9: r.f9, pb: r.pb, p0: lastOf[r.key] || null })) };
+      Object.keys(state.valueLog).sort().slice(0, -130).forEach((w) => { delete state.valueLog[w]; });
+      rank.valueTrack = ES.pickTrack(state.valueLog, lastOf, mLast);
     } catch (e) { console.warn('  Suivi du 🎯 indisponible : ' + e.message); }
     rank.ms = Date.now() - t0;
     console.log('  Classement tendance + comptes : ' + rank.counts.ranked + ' sociétés classées sur ' + rank.counts.liquid + ' liquides (' + rank.counts.catalogue + ' au catalogue), ' + rank.counts.top + ' en tête ; sélection : ' + sel.length + ' (' + (rank.ms / 1000).toFixed(0) + ' s)');
@@ -1022,7 +1039,7 @@ export function build(opts = {}) {
     if ((resend && coOk) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && coOk)) {
       // Depuis le barème 3.0 : la sélection envoyée est celle du classement tendance + comptes (l'ancienne, fondée sur les dirigeants,
       // reste calculée et affichée pour comparaison jusqu'à la revue du 31/01/2027)
-      const mail = rank ? ES.buildRankEmail(rank._sel, week, cfg, dashUrl, today, rank.selection.track) : null;
+      const mail = rank ? ES.buildRankEmail(rank._sel, week, cfg, dashUrl, today, rank.selection.track, ES.pickValue(rank.rows, { n: 5, peaOnly: true }).picks) : null;
       if (!mail) { console.warn('  Sélection de la semaine non envoyée : classement indisponible'); }
       if (rank) state.rankSelections[week] = { date: today, b0: rank._b0, items: rank._sel.map((x) => ({ key: x.key, name: x.name, note: x.note, p0: x.last })) };
       Object.keys(state.rankSelections || {}).sort().slice(0, -60).forEach((w) => { delete state.rankSelections[w]; });

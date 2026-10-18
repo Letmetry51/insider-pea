@@ -228,9 +228,9 @@ def evaluate(pos, rows, stats, txs, today, in_pick=None):
         held = 0
     if held >= HOLD_DAYS:
         if in_pick is True:
-            nxt = "elle est encore dans le 🎯 cette semaine : vous pouvez la garder comme une nouvelle ligne de 6 mois (dans un PEA, garder revient à vendre puis racheter, sans frais)"
+            nxt = "elle est encore dans le 🎯 ou le 💎 cette semaine : vous pouvez la garder comme une nouvelle ligne de 6 mois (dans un PEA, garder revient à vendre puis racheter, sans frais)"
         elif in_pick is False:
-            nxt = "elle n'est plus dans le 🎯 : la règle testée est de vendre et de réinvestir dans une société du 🎯"
+            nxt = "elle n'est plus dans le 🎯 ni le 💎 : la règle est de vendre et de réinvestir dans une société proposée"
         else:
             nxt = "vendre, puis racheter seulement si elle figure encore dans le 🎯"
         ev.append(("6mois", "6 mois depuis votre achat (%s) : c'est l'horizon testé (62 %% de gagnants sur 29 ans) ; %s" % (pc(perf), nxt)))
@@ -309,7 +309,8 @@ def main():
         state = {}
     dash_url = ((dash.get("cfg") or {}).get("dashboardUrl")) or ""
     pk = (dash.get("rank") or {}).get("pick10")
-    picks = set(pk) if isinstance(pk, list) else None  # sociétés proposées ce soir par le 🎯 (ISIN ou symbole)
+    vk = (dash.get("rank") or {}).get("value10")
+    picks = (set(pk) | set(vk if isinstance(vk, list) else [])) if isinstance(pk, list) else None  # 🎯 et 💎 de ce soir (ISIN ou symbole)
     today = date.today().isoformat()
     try:
         imap = imaplib.IMAP4_SSL("imap.gmail.com", 993, ssl_context=ssl.create_default_context())
