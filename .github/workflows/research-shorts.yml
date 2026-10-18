@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -25,9 +25,16 @@ jobs:
           pip install --upgrade yfinance pandas numpy openpyxl requests
       - name: Test
         timeout-minutes: 100
-        run: python research/shorts.py
-      - uses: actions/upload-artifact@v4
+        run: |
+          set -o pipefail
+          mkdir -p research/out
+          python research/shorts.py 2>&1 | tee research/out/journal.txt
+      - name: Résultats sur la branche recherche-resultats (lisibles sans télécharger les journaux)
         if: always()
-        with:
-          name: ventes-a-decouvert
-          path: research/out/
+        run: |
+          git config user.name "euro-signal-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout -B recherche-resultats
+          git add -f research/out
+          git commit -m "Résultats de la recherche ventes à découvert" || true
+          git push -f origin recherche-resultats
