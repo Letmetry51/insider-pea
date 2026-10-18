@@ -136,6 +136,17 @@ if (RK) {
   check(RK.rows.every((r) => r.note >= 0 && r.note <= 100 && r.name), 'notes du classement entre 0 et 100, chaque société nommée');
 }
 
+// 5c. Lien avec Yahoo Finance : titres demandés, reçus, récupérés en 2e passe, repris de la veille (scrapers/yahoo.py)
+const YH = read('diagnostics/yahoo.json');
+if (YH && YH.sections) {
+  Object.keys(YH.sections).forEach((k) => {
+    const s = YH.sections[k], req = s.requested || 0, miss = s.missing || 0, pctMiss = req ? miss / req : 0;
+    if (!req && !s.carried) return;
+    check(pctMiss <= 0.3, `Yahoo (${k}) : ${req - miss}/${req} reçus, ${s.recovered || 0} récupérés en 2e passe, ${s.carried || 0} repris de la veille, ${s.errors || 0} erreurs passagères`, pctMiss <= 0.3 ? undefined : false);
+    if (pctMiss > 0.05 && pctMiss <= 0.3) warn(`Yahoo (${k}) : ${Math.round(pctMiss * 100)} % des titres manquants ce soir`);
+  });
+} else warn('Yahoo : compteurs du soir absents (diagnostics/yahoo.json)');
+
 // 6. Couverture rubrique par rubrique, comparée au calcul précédent : une baisse brutale (Yahoo qui répond vide, fichier
 // abîmé) est signalée le soir même, avant qu'un lecteur ne la découvre
 const COV = {};

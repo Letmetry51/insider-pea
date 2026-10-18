@@ -66,16 +66,40 @@ jobs:
         run: python scrapers/shorts.py
         continue-on-error: true
 
+      # Cours de la veille (non publiés dans le dépôt) : repris pour les titres où Yahoo ne répond pas ce soir
+      - name: 2d. Cours de la veille (cache)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/prices.json
+            data/sectors/weekly.csv.gz
+            data/sectors/weekly_volume.csv.gz
+          key: yahoo-${{ github.run_id }}
+          restore-keys: yahoo-
+        continue-on-error: true
+
       - name: 3. Cours Yahoo Finance
         timeout-minutes: 25
         run: python scrapers/prices.py
         continue-on-error: true
 
       - name: 3b. Secteurs et thèmes (cours hebdomadaires, test historique, classement du jour)
-        timeout-minutes: 35
+        timeout-minutes: 50
         run: |
           python scrapers/test_sectors.py > /tmp/test_sectors.txt || { cat /tmp/test_sectors.txt; exit 1; }
+          python scrapers/test_yahoo.py > /tmp/test_yahoo.txt || { cat /tmp/test_yahoo.txt; exit 1; }
           python scrapers/sectors.py --prices --dashboard
+        continue-on-error: true
+
+      - name: 3c. Garder les cours pour demain (cache)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/prices.json
+            data/sectors/weekly.csv.gz
+            data/sectors/weekly_volume.csv.gz
+          key: yahoo-${{ github.run_id }}
         continue-on-error: true
 
       - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
