@@ -3252,15 +3252,29 @@
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
    * au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (10 semaines ≥ 1,5 fois la moyenne de l'année), puis
-   * par note décroissante, une seule par secteur. Renvoie { picks, rejected, pool }.
+   * par note décroissante, une seule par secteur. Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur
+   * chaque société (pickWhy), puis 2 sociétés par secteur au plus. Renvoie { picks, rejected, pool, pools }.
    * Test 1997-2026 (filtres sans les comptes) : +6,7 points à 6 mois ; avec volumes ≥ ×1,5 : +10,2 (positif dans chaque période).
    */
   ES.pickThree = function (rows, opt) {
     var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5 }, opt || {});
     var hot = function (r) { return r.vx != null && r.vx >= o.volMin ? 1 : 0; };
     var secOf = function (r) { return r.secEn || r.sector || '?'; };
+    var notPea = function (r) { return r.pea === false || (r.out || []).some(function (t) { return /PEA/.test(t); }); };
+    // niveaux : 0 toutes les règles ; 1 pente moyenne acceptée, hausse dès +30 % ; 2 comptes mitigés ou pas encore lus, 1 M€/jour
+    var tierOf = function (r) {
+      var outs = (r.out || []).filter(function (t) { return !/PEA/.test(t); });
+      if (outs.length || (o.peaOnly && notPea(r))) return null;
+      var m = r.mom, l = r.liq || 0;
+      if (m == null || m > o.momMax) return null;
+      if (r.acc === 'good' && r.sc === 'strong' && m >= o.momMin && l >= o.liqMin) return 0;
+      if (r.acc === 'good' && (r.sc === 'strong' || r.sc === 'mid') && m >= 30 && l >= o.liqMin) return 1;
+      if (r.acc !== 'bad' && (r.sc === 'strong' || r.sc === 'mid') && m >= 30 && l >= 1e6) return 2;
+      return null;
+    };
     var why = function (r) {
-      if (r.out && r.out.length) return 'écartée';
+      if (r.out && r.out.filter(function (t) { return !/PEA/.test(t); }).length) return 'écartée';
+      if (o.peaOnly && notPea(r)) return 'hors PEA';
       if (r.acc !== 'good') return 'comptes pas solides ou pas encore lus';
       if (r.sc !== 'strong') return r.sc === 'mid' ? 'pente seulement moyenne' : 'pente légère ou pas de tendance';
       if (r.mom == null || r.mom < o.momMin) return 'hausse sur 12 mois inférieure à +' + o.momMin + ' %';
@@ -3268,14 +3282,25 @@
       if ((r.liq || 0) < o.liqMin) return 'moins de ' + o.liqMin / 1e6 + ' M€ échangés par jour';
       return null;
     };
-    var pool = [], rejected = [];
-    (rows || []).forEach(function (r) { var w = why(r); if (w) { if (!r.out || !r.out.length) rejected.push({ r: r, why: w }); } else pool.push(r); });
-    pool.sort(function (a, b) { return hot(b) - hot(a) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); });
-    var picks = [], seen = {};
-    pool.forEach(function (r) { if (picks.length < o.n && !seen[secOf(r)]) { seen[secOf(r)] = 1; picks.push(r); } else if (picks.indexOf(r) < 0) rejected.push({ r: r, why: seen[secOf(r)] ? 'même secteur qu\'une société mieux notée' : 'au-delà des ' + o.n + ' premières' + (hot(r) ? '' : ' (volumes sans hausse marquée)') }); });
+    var TL = ['toutes les règles', 'règle assouplie : pente moyenne ou hausse de +30 à +60 %', 'règle assouplie : comptes mitigés ou pas encore lus'];
+    var cand = [[], [], []], rejected = [];
+    (rows || []).forEach(function (r) { var t = tierOf(r); if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
+    var ord = function (a, b) { return hot(b) - hot(a) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
+    cand.forEach(function (c) { c.sort(ord); });
+    var picks = [], used = {}, seen = {};
+    var take = function (maxPerSec) {
+      for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
+        if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
+        used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (maxPerSec > 1 && seen[secOf(r)] > 1 ? ' ; 2e société du secteur' : ''), pickHot: !!hot(r), pickNotPea: notPea(r) }));
+      });
+    };
+    take(1); if (picks.length < o.n) take(2);
+    cand.forEach(function (c, t) { c.forEach(function (r) { if (!used[r.key]) rejected.push({ r: r, why: t === 0 ? (seen[secOf(r)] ? 'même secteur qu\'une société mieux placée' : 'au-delà des ' + o.n + ' premières') : (why(r) || TL[t]) }); }); });
     rejected.sort(function (a, b) { return b.r.note - a.r.note; });
-    return { picks: picks, rejected: rejected, pool: pool.length };
+    return { picks: picks, rejected: rejected, pool: cand[0].length, pools: cand.map(function (c) { return c.length; }) };
   };
+  ES.pickN = ES.pickThree;
   /**
    * Classe de pente d'un canal haussier (rythme annuel de la régression sur 6 mois), seulement si la tendance de fond est haussière.
    * Seuils : +100 %/an (soit +41 % en 6 mois) et +30 %/an (+14 % en 6 mois).

@@ -1350,6 +1350,9 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   eq(ES.pickThree([]).picks.length, 0);
   const pv = ES.pickThree(rows.map((x) => x.key === 'J' ? Object.assign({}, x, { vx: 1.8 }) : x));
   eq(pv.picks.map((x) => x.key).join(), 'J,A,C', 'volumes en hausse d\'abord, puis la note');
+  const p10 = ES.pickN(rows, { n: 10 });
+  ok(p10.picks.length >= 6 && p10.picks[0].pickTier === 0 && p10.picks.some((x) => x.key === 'D' && x.pickTier === 1) && p10.picks.some((x) => x.key === 'G' && x.pickTier === 2), p10.picks.map((x) => x.key + x.pickTier).join());
+  ok(p10.picks.some((x) => /2e société/.test(x.pickWhy)) && !p10.picks.some((x) => x.key === 'E' || x.key === 'I'), 'paliers et 2e du secteur, jamais les exclues');
 });
 t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le futur)', () => {
   const nW = 160, dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)), series = {};
