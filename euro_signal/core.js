@@ -3251,10 +3251,13 @@
   /**
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
-   * au moins 3 M€ échangés par jour ; par note décroissante, une seule par secteur. Renvoie { picks, rejected, pool }.
+   * au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (10 semaines ≥ 1,5 fois la moyenne de l'année), puis
+   * par note décroissante, une seule par secteur. Renvoie { picks, rejected, pool }.
+   * Test 1997-2026 (filtres sans les comptes) : +6,7 points à 6 mois ; avec volumes ≥ ×1,5 : +10,2 (positif dans chaque période).
    */
   ES.pickThree = function (rows, opt) {
-    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6 }, opt || {});
+    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5 }, opt || {});
+    var hot = function (r) { return r.vx != null && r.vx >= o.volMin ? 1 : 0; };
     var secOf = function (r) { return r.secEn || r.sector || '?'; };
     var why = function (r) {
       if (r.out && r.out.length) return 'écartée';
@@ -3267,9 +3270,9 @@
     };
     var pool = [], rejected = [];
     (rows || []).forEach(function (r) { var w = why(r); if (w) { if (!r.out || !r.out.length) rejected.push({ r: r, why: w }); } else pool.push(r); });
-    pool.sort(function (a, b) { return b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); });
+    pool.sort(function (a, b) { return hot(b) - hot(a) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); });
     var picks = [], seen = {};
-    pool.forEach(function (r) { if (picks.length < o.n && !seen[secOf(r)]) { seen[secOf(r)] = 1; picks.push(r); } else if (picks.indexOf(r) < 0) rejected.push({ r: r, why: seen[secOf(r)] ? 'même secteur qu\'une société mieux notée' : 'au-delà des ' + o.n + ' premières' }); });
+    pool.forEach(function (r) { if (picks.length < o.n && !seen[secOf(r)]) { seen[secOf(r)] = 1; picks.push(r); } else if (picks.indexOf(r) < 0) rejected.push({ r: r, why: seen[secOf(r)] ? 'même secteur qu\'une société mieux notée' : 'au-delà des ' + o.n + ' premières' + (hot(r) ? '' : ' (volumes sans hausse marquée)') }); });
     rejected.sort(function (a, b) { return b.r.note - a.r.note; });
     return { picks: picks, rejected: rejected, pool: pool.length };
   };
