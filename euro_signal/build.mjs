@@ -998,10 +998,11 @@ export function build(opts = {}) {
       });
       if (!state.pickLog[week] && rank.coFresh) {
         const P10 = ES.pickN(rank.rows, { n: 10 }).picks;
-        if (P10.length) state.pickLog[week] = { date: today, b0: mLast || null, items: P10.map((r) => ({ key: r.key, name: r.name, note: r.note, tier: r.pickTier, hot: r.pickHot ? 1 : 0, p0: lastOf[r.key] || null })) };
+        if (P10.length) state.pickLog[week] = { date: today, b0: mLast || null, items: P10.map((r) => ({ key: r.key, name: r.name, note: r.note, tier: r.pickTier, hot: r.pickHot ? 1 : 0, bp: r.pickBump ? 1 : 0, wait: r.pickWait ? 1 : 0, promo: r.pickPromo ? 1 : 0, p0: lastOf[r.key] || null })) };
       }
       Object.keys(state.pickLog).sort().slice(0, -130).forEach((w) => { delete state.pickLog[w]; });
       rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mLast);
+      rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mLast, 30); // auto-contrôle 🔊 📣 ⏸️ sur les vraies sélections
       rank.pick10 = ES.pickN(rank.rows, { n: 10 }).picks.map((p) => p.isin || p.sym); // lu par positions.py pour le rappel à 6 mois
       // 💎 valeur : même suivi réel que le 🎯
       const V10 = ES.pickValue(rank.rows, { n: 10 }).picks;
@@ -1021,6 +1022,22 @@ export function build(opts = {}) {
       Object.keys(state.valueLog).sort().slice(0, -130).forEach((w) => { delete state.valueLog[w]; });
       rank.valueTrack = ES.pickTrack(state.valueLog, lastOf, mLast);
     } catch (e) { console.warn('  Suivi du 🎯 indisponible : ' + e.message); }
+    // 💡 test automatique des révisions d'analystes : se déclenche seul quand l'archive hebdomadaire a assez de recul (≈ 1 an)
+    try {
+      const EH = readGz(path.join(F.history, 'estimates.json.gz'), null);
+      if (EH && isObj(EH.weeks) && wDates.length) {
+        const snaps = Object.keys(EH.weeks).sort().map((d) => ({ date: d, items: EH.weeks[d] }));
+        const fwd = (sym, d, wk) => {
+          const x = co[sym]; if (!x || !Array.isArray(x.w)) return null;
+          const i = wDates.findIndex((w) => w >= d); if (i < 0) return null;
+          const off = wDates.length - x.w.length, a = i - off, b = a + wk;
+          if (a < 0 || b >= x.w.length) return null;
+          const p0 = x.w[a], p1 = x.w[b]; return p0 > 0 && p1 > 0 ? p1 / p0 - 1 : null;
+        };
+        rank.revTest = ES.revisionTest(snaps, fwd);
+        console.log('  Révisions d\'analystes : ' + snaps.length + ' semaine(s) archivée(s), ' + rank.revTest.weeks + ' mesurée(s), verdict ' + rank.revTest.verdict);
+      }
+    } catch (e) { console.warn('  Test des révisions indisponible : ' + e.message); }
     rank.ms = Date.now() - t0;
     console.log('  Classement tendance + comptes : ' + rank.counts.ranked + ' sociétés classées sur ' + rank.counts.liquid + ' liquides (' + rank.counts.catalogue + ' au catalogue), ' + rank.counts.top + ' en tête ; sélection : ' + sel.length + ' (' + (rank.ms / 1000).toFixed(0) + ' s)');
     rank._sel = sel; rank._b0 = mLast;
@@ -1099,6 +1116,7 @@ export function build(opts = {}) {
     const pts = (v) => (v >= 0 ? '+' : '') + String(Math.round(v * 10) / 10).replace('.', ',') + ' pts';
     if (PT && PT.m6 && PT.m6.n >= 30 && PT.m6.bench != null && PT.m6.avg - PT.m6.bench < 0) why.push('suivi réel à 6 mois : ' + pts(PT.m6.avg - PT.m6.bench) + ' face à l\'indice sur ' + PT.m6.n + ' lignes (attendu : nettement positif)');
     if (PT && PT.m3 && PT.m3.n >= 30 && PT.m3.bench != null && PT.m3.avg - PT.m3.bench < -5) why.push('suivi réel à 3 mois : ' + pts(PT.m3.avg - PT.m3.bench) + ' face à l\'indice sur ' + PT.m3.n + ' lignes');
+    (rank && rank.signalTrack || []).forEach((sg) => { if (sg.ok === false) why.push(sg.icon + ' ' + sg.label + ' : en réel, ' + pts(sg.gap) + ' à 6 mois face aux autres sélections (' + sg.yes.m6.n + ' lignes contre ' + sg.no.m6.n + ') — la règle ne se confirme pas'); });
     if (g && g.weeks >= 100 && (g.mean < 0 || g.t < 1)) why.push('étude du soir (' + g.weeks + ' semaines) : les sociétés les mieux notées ne font plus que ' + pts(g.mean) + ' à 6 mois (fiabilité ' + String(g.t).replace('.', ',') + ', attendu au moins 2)');
     state.watchdog = isObj(state.watchdog) ? state.watchdog : {};
     const month = today.slice(0, 7);
@@ -1113,6 +1131,51 @@ export function build(opts = {}) {
     if (rank) rank.watchdog = { status: state.watchdog.status, checked: today, reasons: why };
     console.log('  Auto-surveillance : ' + (why.length ? why.length + ' signal(s) de dégradation' : 'avantage intact'));
   } catch (e) { console.warn('  Auto-surveillance indisponible : ' + e.message); }
+
+  /* 6h. 💡 Piste confirmée sur nos propres données (révisions d'analystes) : un seul email ; rien n'est intégré sans revue */
+  const sgn = (v) => v == null ? 'n.d.' : (v >= 0 ? '+' : '−') + String(Math.abs(Math.round(v * 10) / 10)).replace('.', ',') + ' %';
+  const mailHtml = (title, lines) => '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">' + ES.esc(title) + '</h2>' +
+    lines.map((l) => l.startsWith('## ') ? '<h3 style="margin:14px 0 4px;font-size:15px">' + ES.esc(l.slice(3)) + '</h3>' : '<p style="margin:0 0 6px">' + ES.esc(l) + '</p>').join('') + (dashUrl ? '<p><a href="' + ES.esc(dashUrl) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Ouvrir Euro Signal</a></p>' : '') + '</div>';
+  const mailText = (lines) => lines.map((l) => l.startsWith('## ') ? '\n' + l.slice(3).toUpperCase() : l).join('\n') + (dashUrl ? '\n\nTableau de bord : ' + dashUrl : '');
+  try {
+    const RT = rank && rank.revTest;
+    state.pistes = isObj(state.pistes) ? state.pistes : {};
+    if (RT && RT.verdict === 'confirmee' && !state.pistes.revisions) {
+      const L = ['Euro Signal a testé seul, sur ' + RT.weeks + ' semaines de sa propre archive, si les révisions des analystes annoncent la hausse.',
+        'Sociétés aux prévisions surtout relevées sur 30 jours : ' + sgn(RT.gap) + ' de mieux à 3 mois que celles aux prévisions surtout abaissées (fiabilité ' + String(RT.t).replace('.', ',') + ', 2 exigé, chevauchement des semaines déjà pris en compte).',
+        'Rien n\'a été changé : la piste sera proposée à la prochaine revue de la méthode, pour l\'ajouter comme priorité du 🎯 si elle tient aussi dans le classement.'];
+      outbox.push({ id: 'piste-revisions-' + today, kind: 'piste', isin: null, name: 'Méthode', subject: '[Euro Signal] 💡 Piste confirmée : les révisions des analystes', text: mailText(L), html: mailHtml('💡 Piste confirmée : les révisions des analystes', L),
+        eventIds: ['piste:revisions'], score: null, version: cfg.rank.version });
+      state.pistes.revisions = today;
+    }
+  } catch (e) { console.warn('  Piste des révisions indisponible : ' + e.message); }
+
+  /* 6i. 📊 Bilan trimestriel automatique (premier soir de janvier, avril, juillet, octobre) et point de revue de la méthode (rules.review.date) */
+  try {
+    state.bilan = isObj(state.bilan) ? state.bilan : {};
+    const q = today.slice(0, 4) + '-T' + (Math.floor((+today.slice(5, 7) - 1) / 3) + 1);
+    const reviewDate = (cfg.rules && cfg.rules.review && cfg.rules.review.date) || null;
+    if (!state.bilan.lastQ) state.bilan.lastQ = q; // premier passage : pas de bilan à vide, le premier part au trimestre suivant
+    const isReview = !!(reviewDate && today >= reviewDate && !state.bilan.reviewSent);
+    if (rank && rank.coFresh && (state.bilan.lastQ !== q || isReview)) {
+      const tr = (g) => g ? sgn(g.avg) + ' (indice ' + sgn(g.bench) + (g.beat != null ? ', ' + g.beat + ' % le battent' : '') + ', ' + g.n + ' lignes)' : 'pas encore de recul';
+      const PT = rank.pickTrack, VT = rank.valueTrack, RT = rank.revTest, W = state.watchdog || {};
+      const L = ['## 🎯 Momentum : suivi réel' + (PT ? ' depuis le ' + ES.frDate(PT.since) : ''), PT ? 'En cours : ' + tr(PT.open) : 'Pas encore de sélection notée.', PT ? 'À 3 mois : ' + tr(PT.m3) : null, PT ? 'À 6 mois : ' + tr(PT.m6) : null,
+        '## 💎 Valeur : suivi réel', VT ? 'En cours : ' + tr(VT.open) + ' · à 6 mois : ' + tr(VT.m6) : 'Pas encore de sélection notée.',
+        '## Les règles en réel (avec / sans, à 6 mois)'].concat((rank.signalTrack || []).map((sg) => {
+        const y = sg.yes && (sg.yes.m6 || sg.yes.m3), n = sg.no && (sg.no.m6 || sg.no.m3), hz = sg.yes && sg.yes.m6 && sg.no && sg.no.m6 ? '6 mois' : '3 mois';
+        return sg.icon + ' ' + sg.label + ' : ' + (y && n ? sgn(y.avg) + ' avec (' + y.n + ') contre ' + sgn(n.avg) + ' sans (' + n.n + '), à ' + hz + (sg.ok === true ? ' ✅ confirmé' : sg.ok === false ? ' ✗ pas confirmé' : ' (trop tôt pour conclure : 30 lignes de chaque côté à 6 mois)') : 'pas encore de recul');
+      })).concat(['## Auto-surveillance', W.status === 'alerte' ? '⚠️ ' + (W.reasons || []).join(' ; ') : '✅ Avantage intact (' + (W.checked ? ES.frDate(W.checked) : 'ce soir') + ').',
+        state.crashOn ? '⚠️ Alerte krach du momentum en cours : acheter par petites touches.' : 'Pas d\'alerte krach.',
+        '## 💡 Pistes en test automatique', RT ? (RT.ready ? 'Révisions des analystes : ' + (RT.verdict === 'confirmee' ? 'confirmées (' + sgn(RT.gap) + ' à 3 mois, fiabilité ' + String(RT.t).replace('.', ',') + ')' : RT.verdict === 'inverse' ? 'effet inverse, piste écartée' : 'pas d\'effet net (' + sgn(RT.gap) + '), piste écartée') : 'Révisions des analystes : ' + RT.weeks + ' semaine(s) mesurée(s) sur ' + RT.need + ' nécessaires (archive depuis le ' + ES.frDate(RT.from) + ').') : 'Révisions des analystes : archive en cours de constitution.']);
+      if (isReview) L.push('## Point de revue du ' + ES.frDate(reviewDate), 'Garder les règles si le 🎯 bat l\'indice à 6 mois. Retirer une règle marquée ✗. Sinon : prolonger 6 mois sans rien changer (changer sur trop peu de recul suivrait le hasard).');
+      const title = isReview ? '🧭 Point de revue de la méthode' : '📊 Bilan du trimestre (' + q.replace('-', ' ') + ')';
+      outbox.push({ id: (isReview ? 'revue-' : 'bilan-') + q + '-' + today, kind: 'bilan', isin: null, name: 'Méthode', subject: '[Euro Signal] ' + title, text: mailText(L.filter(Boolean)), html: mailHtml(title, L.filter(Boolean)),
+        eventIds: [(isReview ? 'revue:' : 'bilan:') + q], score: null, version: cfg.rank.version });
+      state.bilan.lastQ = q; if (isReview) state.bilan.reviewSent = today;
+      console.log('  ' + title + ' : email préparé');
+    }
+  } catch (e) { console.warn('  Bilan trimestriel indisponible : ' + e.message); }
 
   /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
   outbox.forEach((m) => {

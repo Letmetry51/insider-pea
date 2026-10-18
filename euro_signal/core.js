@@ -1098,7 +1098,7 @@
    * à 3 mois puis à 6 mois, leur cours et celui de l'indice sont figés. log : { semaine: { date, b0, b3, b6, items: [{ key, name, p0, p3, p6 }] } }.
    * Renvoie { since, weeks, open, m3, m6 } avec pour chaque horizon : n, moyenne, indice, part battant l'indice, part en hausse.
    */
-  ES.pickTrack = function (log, lastOf, benchNow) {
+  ES.pickTrack = function (log, lastOf, benchNow, pred) {
     var ws = Object.keys(log || {}).sort(); if (!ws.length) return null;
     var agg = function () { return { n: 0, s: 0, sb: 0, nb: 0, beat: 0, win: 0 }; };
     var A = { open: agg(), m3: agg(), m6: agg() };
@@ -1106,7 +1106,7 @@
     ws.forEach(function (w) {
       var L = log[w]; if (!L || !Array.isArray(L.items)) return;
       (L.items || []).forEach(function (x) {
-        if (!(x.p0 > 0)) return;
+        if (!(x.p0 > 0) || (pred && !pred(x))) return;
         if (x.p6 > 0) add(A.m6, (x.p6 / x.p0 - 1) * 100, L.b6 > 0 && L.b0 > 0 ? (L.b6 / L.b0 - 1) * 100 : null);
         if (x.p3 > 0) add(A.m3, (x.p3 / x.p0 - 1) * 100, L.b3 > 0 && L.b0 > 0 ? (L.b3 / L.b0 - 1) * 100 : null);
         if (!(x.p6 > 0) && lastOf && lastOf[x.key] > 0) add(A.open, (lastOf[x.key] / x.p0 - 1) * 100, benchNow > 0 && L.b0 > 0 ? (benchNow / L.b0 - 1) * 100 : null);
@@ -1114,6 +1114,50 @@
     });
     var fin = function (g) { return g.n ? { n: g.n, avg: +(g.s / g.n).toFixed(1), bench: g.nb ? +(g.sb / g.nb).toFixed(1) : null, beat: g.nb ? Math.round(g.beat / g.nb * 100) : null, win: Math.round(g.win / g.n * 100) } : null; };
     return { since: log[ws[0]].date, weeks: ws.length, open: fin(A.open), m3: fin(A.m3), m6: fin(A.m6) };
+  };
+  /**
+   * Auto-contrôle des règles sur les vraies sélections (18/10/2026) : pour chaque signal du 🎯, résultat des lignes avec et sans.
+   * L'outil ne change pas ses règles seul : un signal qui ne se confirme pas (au moins minN lignes de chaque côté à 6 mois)
+   * déclenche l'email d'auto-surveillance, pour décider à la revue. want : 1 = doit faire mieux, −1 = doit faire moins bien.
+   */
+  ES.SIGNALS = [
+    { k: 'hot', icon: '🔊', label: 'volumes en hausse', want: 1 },
+    { k: 'bp', icon: '📣', label: 'bond sur gros volume', want: 1 },
+    { k: 'wait', icon: '⏸️', label: 'attente sous la moyenne 10 semaines', want: -1 }
+  ];
+  ES.signalTrack = function (log, lastOf, benchNow, minN) {
+    var m = minN || 30;
+    return ES.SIGNALS.map(function (sg) {
+      var y = ES.pickTrack(log, lastOf, benchNow, function (x) { return x[sg.k] != null && !!x[sg.k]; });
+      var n = ES.pickTrack(log, lastOf, benchNow, function (x) { return x[sg.k] != null && !x[sg.k]; });
+      var ok6 = y && n && y.m6 && n.m6 && y.m6.n >= m && n.m6.n >= m, gap = ok6 ? +(y.m6.avg - n.m6.avg).toFixed(1) : null;
+      return { k: sg.k, icon: sg.icon, label: sg.label, want: sg.want, yes: y ? { m3: y.m3, m6: y.m6 } : null, no: n ? { m3: n.m3, m6: n.m6 } : null, gap: gap, ok: gap == null ? null : sg.want > 0 ? gap > 0 : gap < 0 };
+    });
+  };
+  /**
+   * Test automatique des révisions d'analystes sur l'archive hebdomadaire par société (data/history/estimates.json.gz, depuis le 18/10/2026).
+   * snaps : [{ date, items: { sym: [up7, down7, up30, down30, ...] } }] ; fwd(sym, date, semaines) → rendement (0,1 = +10 %) ou null.
+   * Chaque semaine : hausse à 13 semaines des sociétés aux prévisions surtout relevées sur 30 jours, moins celles surtout abaissées.
+   * Semaines qui se chevauchent : fiabilité t divisée par √13 (prudence). Verdict seulement après 39 semaines mesurées (≈ 1 an).
+   */
+  ES.revisionTest = function (snaps, fwd, opt) {
+    var o = Object.assign({ weeks: 13, ready: 39, minGroup: 10 }, opt || {}), diffs = [], nUp = 0, nDn = 0;
+    (snaps || []).forEach(function (sn) {
+      var up = [], dn = [];
+      Object.keys(sn.items || {}).forEach(function (sym) {
+        var r = sn.items[sym]; if (!Array.isArray(r) || r[2] == null || r[3] == null || r[2] === r[3]) return;
+        var f = fwd(sym, sn.date, o.weeks); if (f == null || !isFinite(f)) return;
+        (r[2] > r[3] ? up : dn).push(f);
+      });
+      if (up.length >= o.minGroup && dn.length >= o.minGroup) { diffs.push(mean(up) - mean(dn)); nUp += up.length; nDn += dn.length; }
+    });
+    var n = diffs.length, res = { weeks: n, need: o.ready, ready: n >= o.ready, snaps: (snaps || []).length, from: snaps && snaps.length ? snaps[0].date : null };
+    if (n >= 2) {
+      var mu = mean(diffs), sd = Math.sqrt(diffs.reduce(function (a, d) { return a + (d - mu) * (d - mu); }, 0) / (n - 1));
+      res.gap = +(mu * 100).toFixed(1); res.t = sd > 0 ? +(mu / (sd / Math.sqrt(n)) / Math.sqrt(o.weeks)).toFixed(1) : null; res.nUp = nUp; res.nDn = nDn;
+    }
+    res.verdict = !res.ready ? 'attente' : res.t != null && res.t >= 2 && res.gap > 0 ? 'confirmee' : res.t != null && res.t <= -2 ? 'inverse' : 'non';
+    return res;
   };
   ES.selectionTrackSummary = function (track) {
     var items = [], beat = 0, nb = 0, sb = 0, weeks = 0;
