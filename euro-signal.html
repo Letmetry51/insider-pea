@@ -367,11 +367,11 @@ details.help .disc{font-size:.78rem}
 .brief>div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
 .brief>div:first-child{border-left:4px solid var(--good)}.brief>div:last-child{border-left:4px solid var(--warn)}
 .brief ul{margin:0;padding-left:18px;font-size:.92rem}.brief li{margin:4px 0}
-details.fold summary{font:700 1.02rem var(--display);color:var(--ink)}
-details.fold[open] summary{margin-bottom:10px}
+details.fold>summary{font:700 1.02rem var(--display);color:var(--ink)}
+details.fold[open]>summary{margin-bottom:10px}
 details.fold .vt{display:none}
-details.fold{padding:12px 16px}details.fold summary{cursor:pointer;list-style-position:inside}details.fold summary .muted{font:400 .85rem var(--sans,inherit)}
-details.fold>section.card,details.fold>.cols>section.card,details.fold .accounts{border:0;padding:0;margin:8px 0;background:none}
+details.fold{padding:12px 16px}details.fold>summary{cursor:pointer;list-style-position:inside}details.fold>summary .muted{font:400 .85rem var(--body)}
+details.fold>section.card,details.fold>.cols>section.card,details.fold .accounts{border:0;padding:0;margin:8px 0;background:none}details.fold>section.card+section.card{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}details.fold details.grpf,details.fold details.thf{padding:10px 0;margin:0;border-top:1px solid var(--line);border-radius:0}details.fold details.grpf>summary,details.fold details.thf>summary{font-size:.95rem}details.grpf details.fold,details.thf details.fold{padding:6px 0}details.grpf details.fold>summary,details.thf details.fold>summary{font-size:.9rem}details.fold details.grpf .rk{display:inline-block;min-width:1.6em;color:var(--muted,#6b7570);font-weight:600}
 details.fold>section.card>h3:first-child,details.fold .accounts>h3:first-child{display:none}
 details.fold>.cols{gap:0 24px}details.fold .brief{margin:4px 0}
 .fsub{margin:2px 0 0;color:var(--muted);font-size:.9rem}
@@ -6375,7 +6375,8 @@ details.pos summary{font-size:1rem}
     var X = S.sec, G = X.groups || [], h = '';
     h += '<div class="toolbar"><input id="sec-q" type="search" placeholder="Rechercher une société cotée (TotalEnergies, Vusion…)" value="' + esc(S.secQ || '') + '" data-sq="q" aria-label="Rechercher une société cotée"></div>';
     if (S.secQ && S.secQ.trim().length >= 2) h += coSearch(S.secQ, null, 30);
-    h += '<section class="card"><h2>Thèmes et secteurs en tendance</h2><p class="muted small">' + X.universe.n + ' sociétés européennes ≥ ' + fmtN(X.universe.minCapEur / 1e6, 0) + ' M€ · cours au ' + shortDate(X.asOf) + '</p>' + xpi('Toutes les sociétés, avec ou sans achats de dirigeants. Les sociétés américaines servent seulement de baromètre : elles ne sont pas éligibles au PEA.') + '</section>';
+    h += '<h2 class="vt">Secteurs et thèmes</h2><p class="muted small">' + X.universe.n + ' sociétés européennes ≥ ' + fmtN(X.universe.minCapEur / 1e6, 0) + ' M€ · cours au ' + shortDate(X.asOf) + ' · un radar, pas une règle d\'achat</p>';
+    var hTop = h; h = '';
     h += '<details class="card fold" data-k="sec-help"><summary>ℹ️ Comment lire ces indicateurs</summary><ul class="small">' +
       '<li><b>Force 6 mois / 3 mois</b> : hausse du secteur par rapport au STOXX 600. Barre verte vers la droite = il fait mieux que le marché.</li>' +
       '<li><b>En tendance</b> : part des sociétés du secteur au-dessus de leur moyenne des 40 dernières semaines. Plus de 60 % : la hausse est large, pas portée par une ou deux valeurs.</li>' +
@@ -6386,12 +6387,13 @@ details.pos summary{font-size:1rem}
       '<li><b>▲ / ▼</b> à côté du rang : places gagnées ou perdues en 8 semaines. <b>Émergent</b> : forte remontée récente.</li>' +
       '<li>🔎 <b>Recherche</b> : toutes les actions cotées des bourses de l\'UE et de l\'EEE, même petites et sans achat de dirigeant.</li>' +
       '<li>🏆 <b>Leader</b> : plus grosse capitalisation du secteur. 🚀 <b>Challenger</b> : la plus forte des 2e à 4e capitalisations. Touchez un nom pour sa fiche complète.</li></ul></details>';
-    h += cycleCard();
+    var hHelp = h, hCyc = cycleCard(); h = '';
     // thèmes
-    h += '<h3 class="sech">🧭 Thèmes</h3>';
-    (X.themes || []).forEach(function (t) {
+
+    var thRank = function (t) { return ['🟢', '🔭', '🟡'].indexOf(themeVerdict(t)[1]) + 1 || 4; };
+    (X.themes || []).slice().sort(function (a, b) { return thRank(a) - thRank(b); }).forEach(function (t) {
       var v = themeVerdict(t);
-      h += '<section class="card theme ' + v[0] + '"><h3>' + esc(t.name) + '</h3><p class="verdict">' + v[1] + ' <b>' + v[2] + '</b></p>' +
+      h += '<details class="fold thf" data-k="thf-' + esc(t.key) + '"><summary>' + v[1] + ' ' + esc(t.name) + ' <span class="muted small">· ' + esc(v[2]) + '</span></summary><section class="card theme ' + v[0] + '">' +
         '<div class="mts">' + mini('🇺🇸 3 mois', pc100(t.usRs13), t.usRs13, -0.3, 0.3, true, 'Sociétés américaines du thème (' + t.us.join(', ') + ') face au S&P 500') + mini('🇺🇸 6 mois', pc100(t.usRs26), t.usRs26, -0.3, 0.3, true, 'Face au S&P 500') +
           mini('🇪🇺 3 mois', pc100(t.euRs13), t.euRs13, -0.3, 0.3, true, 'Chaîne européenne du thème face au STOXX 600') + mini('🇪🇺 6 mois', pc100(t.euRs26), t.euRs26, -0.3, 0.3, true, 'Face au STOXX 600') +
           (t.revisions != null ? mini('Analystes', (t.revisions >= 0 ? '+' : '') + Math.round(t.revisions * 100) + ' %', t.revisions, -1, 1, true, 'Révisions de prévisions nettes à la hausse en 30 jours') : '') + '</div>' +
@@ -6401,11 +6403,12 @@ details.pos summary{font-size:1rem}
             (c1 >= 0.2 ? ', avec un mois de retard exploitable (' + fmtN(c1, 2) + ').' : ', mais sans retard exploitable le mois suivant (' + fmtN(c1, 2) + ').') +
             (R.cagr != null && A.cagr != null ? ' Ne la détenir que quand le baromètre monte : ' + pc100(R.cagr) + ' par an, pire baisse ' + pc100(R.maxdd) + ', contre ' + pc100(A.cagr) + ' et ' + pc100(A.maxdd) + ' en la gardant toujours.' : '') + '</p>'; })(), 'Détail') +
         secStock(t.leader, 'leader') + secStock(t.challenger, 'challenger') +
-        '<details class="fold" data-k="th-' + esc(t.key) + '"><summary>Toute la chaîne (' + (t.members || []).length + ' sociétés)</summary><ul class="seclist">' + (t.members || []).map(function (x) { return '<li>' + coName(x) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section>';
+        '<details class="fold" data-k="th-' + esc(t.key) + '"><summary>Toute la chaîne (' + (t.members || []).length + ' sociétés)</summary><ul class="seclist">' + (t.members || []).map(function (x) { return '<li>' + coName(x) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section></details>';
     });
+    var hTh = h; h = '';
     // secteurs
     var trend = G.filter(function (g) { return g.trending; }), emer = G.filter(function (g) { return g.emerging && !g.trending; });
-    h += '<h3 class="sech">📈 Secteurs en tendance <span class="muted small">(' + trend.length + ')</span></h3>';
+
     var grpCard = function (g, full) {
       var mv = g.rank8w != null ? g.rank8w - g.rank : null;
       var head = '<span class="rk">' + g.rank + '</span> <b>' + esc(secName(g.key)) + '</b> ' + (g.trending ? '<span class="chip good">En tendance</span> ' : '') + (g.emerging ? '<span class="chip warn">Émergent</span> ' : '') +
@@ -6423,14 +6426,23 @@ details.pos summary{font-size:1rem}
       return '<section class="card grpc">' + '<p class="grp-h">' + head + '</p>' + line + secStock(g.leader, 'leader') + secStock(g.challenger, 'challenger') +
         '<details class="fold" data-k="g-' + esc(g.key) + '"><summary>Les 5 plus fortes du secteur</summary><ul class="seclist">' + (g.top || []).map(function (x) { return '<li>' + coName(x) + ' <span class="muted">· ' + pc100(x.rs6) + ' sur 6 mois</span></li>'; }).join('') + '</ul></details></section>';
     };
-    h += trend.length ? trend.slice(0, 6).map(function (g) { return grpCard(g, true); }).join('') + (trend.length > 6 ? '<section class="card"><h3>Autres secteurs en tendance</h3><ul class="grplist">' + trend.slice(6).map(function (g) { return grpCard(g, false); }).join('') + '</ul></section>' : '') : '<p class="muted">Aucun secteur ne remplit les trois conditions aujourd\'hui (parmi les 20 % meilleurs, plus fort que le marché sur 6 mois, la moitié des sociétés en hausse).</p>';
-    if (emer.length) h += '<h3 class="sech">🌱 Secteurs émergents <span class="muted small">(forte remontée en 8 semaines)</span></h3><section class="card"><ul class="grplist">' + emer.map(function (g) { return grpCard(g, false); }).join('') + '</ul></section>';
-    h += '<details class="card fold" data-k="sec-all"><summary>Classement complet des ' + G.length + ' groupes</summary><ul class="grplist">' + G.map(function (g) { return grpCard(g, false); }).join('') + '</ul></details>';
+    // un pli par secteur : rang, nom, force 6 mois et progression en 8 semaines ; le détail s'ouvre au toucher
+    var grpFold = function (g, ctx) {
+      var mv = g.rank8w != null ? g.rank8w - g.rank : null;
+      var body = grpCard(g, true).replace(/<p class="grp-h">[\s\S]*?<\/p>/, '').replace('data-k="g-', 'data-k="g' + ctx + '-');
+      return '<details class="fold grpf" data-k="gf' + ctx + '-' + esc(g.key) + '"><summary><span class="rk">' + g.rank + '</span> ' + esc(secName(g.key)) + ' <span class="muted small">· <span class="nw">6\u00a0mois ' + String(pc100(g.rs6)).replace(/ /g, '\u00a0') + '</span>' + (mv ? ' · <span class="nw">' + (mv > 0 ? '▲\u00a0' : '▼\u00a0') + Math.abs(mv) + '</span>' : '') + (g.trending && ctx === 'a' ? ' · en tendance' : '') + '</span></summary>' + body + '</details>';
+    };
+    h += trend.length ? trend.map(function (g) { return grpFold(g, 't'); }).join('') : '<p class="muted">Aucun secteur ne remplit les trois conditions aujourd\'hui (parmi les 20 % meilleurs, plus fort que le marché sur 6 mois, la moitié des sociétés en hausse).</p>';
+    var hTr = h; h = '';
+    if (emer.length) h += emer.map(function (g) { return grpFold(g, 'e'); }).join('');
+    var hEm = h; h = '';
+    h += '<details class="card fold" data-k="sec-all"><summary>📋 Tous les secteurs <span class="muted small">· ' + G.length + '</span></summary>' + G.map(function (g) { return grpFold(g, 'a'); }).join('') + '</details>';
+    var hAll = h; h = '';
     // preuves
     var B = X.backtest;
     if (B && B.vsUniverse) {
       var row = function (lbl, v, vs) { if (!v || v.t == null) return ''; var ok = v.t >= 2, bad = v.t <= -2; return '<li><b>' + lbl + '</b> : ' + pct(v.meanPerPeriod * 100) + ' par période de 4 semaines ' + (vs || 'face à l\'ensemble des sociétés') + ' (t = ' + fmtN(v.t, 1) + ') → ' + (ok ? '<span class="pos">avantage mesuré</span>' : bad ? '<span class="neg">désavantage</span>' : 'pas d\'écart net') + '</li>'; };
-      h += '<section class="card"><h3>📏 Ce que dit le test historique</h3><p class="small muted">' + B.periods + ' périodes de 4 semaines, du ' + shortDate(B.from) + ' au ' + shortDate(B.to) + ', frais inclus. Comparaison avec l\'ensemble des sociétés à poids égaux, qui a le même biais (univers d\'aujourd\'hui appliqué au passé).</p><ul>' +
+      h += '<div><p class="small muted">' + B.periods + ' périodes de 4 semaines, du ' + shortDate(B.from) + ' au ' + shortDate(B.to) + ', frais inclus. Comparaison avec l\'ensemble des sociétés à poids égaux, qui a le même biais (univers d\'aujourd\'hui appliqué au passé).</p><ul>' +
         row('Les 3 meilleurs secteurs', B.vsUniverse.top) + row('Leurs leaders', B.vsUniverse.leaders) + row('Leurs challengers', B.vsUniverse.challengers) + row('Challenger plutôt que leader', B.challengerVsLeader, 'de plus que le leader') + '</ul>';
       var any = ['top', 'leaders', 'challengers'].some(function (k) { return B.vsUniverse[k] && B.vsUniverse[k].t >= 2; });
       h += '<p class="small"><b>Conclusion :</b> ' + (any ? 'le classement a apporté un avantage mesurable sur la période.' : 'acheter mécaniquement les secteurs en tête n\'a pas fait mieux que l\'ensemble des sociétés. Ce classement sert de radar pour repérer les thèmes et les sociétés à étudier, pas de règle d\'achat automatique ; la décision se prend avec le plan d\'entrée et les achats des dirigeants.') + '</p>';
@@ -6448,10 +6460,24 @@ details.pos summary{font-size:1rem}
       if (TR && TR.themes) h += '<details class="fold" data-k="trends"><summary>🔎 Recherches Google (test du ' + shortDate(TR.at) + ')</summary><ul class="small">' + TR.themes.map(function (r) { return '<li><b>' + esc(r.keyword) + '</b> : ' + (r.corrNext != null ? 'hausse des recherches et chaîne européenne le mois suivant : corrélation ' + fmtN(r.corrNext, 2) + ' (même mois ' + fmtN(r.corrSame, 2) + ')' : 'données indisponibles (Google limite les accès automatiques)') + '</li>'; }).join('') + '</ul></details>';
       var A = B.aiCase;
       if (A && A.groups) h += '<p class="small"><b>Cas de l\'IA</b> (ChatGPT le 30/11/2022) : ' + A.groups.filter(function (g) { return g.firstTrending; }).map(function (g) { return esc(secName(g.group)) + ' détecté le ' + shortDate(g.firstTrending) + ' (' + g.weeksAfterChatGPT + ' semaine' + (g.weeksAfterChatGPT > 1 ? 's' : '') + ' après), puis leader ' + pc100(g.leader12m) + ' et challenger ' + pc100(g.challenger12m) + ' sur 12 mois contre ' + pc100(g.stoxx12m) + ' pour le STOXX 600'; }).join(' ; ') + '.</p>';
-      h += '</section>';
+      h += '</div>';
     }
+    var hBt = h; h = '';
     h += '<p class="muted small pad">Méthode fixée à l\'avance, sans paramètre ajusté sur le passé : force relative sectorielle (Moskowitz et Grinblatt, 1999), avance des clients sur leurs fournisseurs (Cohen et Frazzini, 2008), révisions des analystes et surprises de résultats (Chan, Jegadeesh et Lakonishok, 1996). Révisions des analystes : historique constitué chaque semaine depuis le lancement, pas encore testable. Les tendances se détectent après leur démarrage, jamais avant. Ce n\'est pas un conseil en investissement.</p>';
-    return h;
+    var hFoot = h, cy = S.cycle, cyn = cy ? (cy.second ? cy.label + ' ou ' + cy.second.toLowerCase() : cy.label) : null;
+    var nGood = (X.themes || []).filter(function (t) { return themeVerdict(t)[0] === 'good'; }).length, nSoon = (X.themes || []).filter(function (t) { return themeVerdict(t)[0] === 'warn'; }).length;
+    var names = function (A) { return A.slice(0, 3).map(function (g) { return secName(g.key); }).join(', '); };
+    var fold = function (k, title, sub, body) { return body ? '<details class="card fold" data-k="' + k + '"><summary>' + title + (sub ? ' <span class="muted small">· ' + sub + '</span>' : '') + '</summary>' + body + '</details>' : ''; };
+    var tl = function (cls, ic, t, sub, k) { return '<button class="dtile ' + cls + '" data-a="secOpen" data-v="' + k + '"><span class="dti" aria-hidden="true">' + ic + '</span><b>' + t + '</b><small>' + esc(sub) + '</small></button>'; };
+    var out = hTop + '<div class="dash">' + tl('t-good', '📈', trend.length + ' en tendance', trend.length ? names(trend) : 'aucun aujourd\'hui', 'sec-trend') +
+      tl(emer.length ? 't-warn' : '', '🌱', emer.length + ' émergent' + (emer.length > 1 ? 's' : ''), emer.length ? names(emer) : 'forte remontée en 8 sem.', 'sec-emer') +
+      tl('t-val', '🔄', cyn ? cy.label : 'Cycle', cyn ? 'phase du cycle' + (cy.second ? ' (incertaine)' : '') : 'non calculé', 'sec-cyc') + '</div>' +
+      fold('sec-trend', '📈 Secteurs en tendance', String(trend.length), hTr) +
+      fold('sec-emer', '🌱 Secteurs émergents', String(emer.length), emer.length ? hEm : '') +
+      fold('sec-cyc', '🔄 Cycle économique', '', hCyc) +
+      fold('sec-th', '🧭 Thèmes', (X.themes || []).length + ' suivis' + (nGood ? ' · 🟢 ' + nGood + ' porteur' + (nGood > 1 ? 's' : '') : '') + (nSoon ? ' · 🔭 ' + nSoon : ''), hTh) +
+      hAll + fold('sec-bt', '📏 Le test historique et la méthode', '', hBt + hFoot) + hHelp;
+    return out;
   }
   function vInities() {
     var f = S.txFilter, from = ES.windowStart(S.today, S.cfg.insiders.windowMonths), rows = [], fq = ES.norm(f.q || '');
@@ -7080,6 +7106,7 @@ details.pos summary{font-size:1rem}
     else if (a === 'rfSort') { S.rf = S.rf || {}; var nk = el.dataset.v, ck = RSORT[S.rf.sort] ? S.rf.sort : 'note'; if (nk === ck) { var c1 = S.rf.dir || (ck === 'name' ? 'asc' : 'desc'); S.rf.dir = c1 === 'asc' ? 'desc' : 'asc'; } else { S.rf.sort = nk; S.rf.dir = nk === 'name' ? 'asc' : 'desc'; } S.limit = 50; var ys = window.scrollY; render(); window.scrollTo(0, ys); }
     else if (a === 'rfVol') { S.rf = S.rf || {}; S.rf.vol = !S.rf.vol; S.limit = 50; var yvo = window.scrollY; render(); window.scrollTo(0, yvo); }
     else if (a === 'rfBrk') { S.rf = S.rf || {}; S.rf.brk = !S.rf.brk; S.limit = 50; var ybk = window.scrollY; render(); window.scrollTo(0, ybk); }
+    else if (a === 'secOpen') { S.openDet = S.openDet || {}; S.openDet[el.dataset.v] = true; render(); var so = document.querySelector('details[data-k="' + el.dataset.v + '"]'); if (so) so.scrollIntoView({ block: 'start' }); }
     else if (a === 'psyOpen') { S.openDet = S.openDet || {}; S.openDet.psy = true; render(); var pf = document.querySelector('.psyfold'); if (pf) pf.scrollIntoView({ block: 'start' }); }
     else if (a === 'pickN') { lsSet('pickN', el.dataset.v); S.openDet = S.openDet || {}; S.openDet.pick3 = true; var ypn = window.scrollY; render(); window.scrollTo(0, ypn); }
     else if (a === 'valueOpen') { S.openDet = S.openDet || {}; S.openDet.buy = true; render(); var vc = document.querySelector('.selc'); if (vc) vc.scrollIntoView({ block: 'start' }); }
