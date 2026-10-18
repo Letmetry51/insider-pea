@@ -13,22 +13,22 @@ OK     plus gros fichier de fiches : 0.9 Mo (3 au plus, pour un téléphone)
 OK     cours journaliers (vue 1 an) publiés
 OK     le tableau de bord pointe vers le fichier 5 ans (longFile)
 OK     euro-signal-long.json lisible
-OK     vue 5 ans disponible pour 667 titres sur 687 (80 % au moins)
+OK     vue 5 ans disponible pour 666 titres sur 687 (80 % au moins)
 OK     vue 1 an : 1.03 an de cours (médiane)
 OK     vue 5 ans : 4.98 ans de cours (médiane, 4,5 au moins)
-OK     605 titres sur 667 ont au moins 4,5 ans de cours hebdomadaires
+OK     604 titres sur 666 ont au moins 4,5 ans de cours hebdomadaires
 OK     42 titres dont la vue 5 ans ne remonte pas plus loin que la vue 1 an (20 % au plus)
 OK     0 titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)
 OK     34 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, signalé sur la fiche (6 % au plus ; souvent réel : augmentation de capital, regroupement, scission)
-OK     plans d'entrée calculés : 665 sur 781 titres
-OK     plans complets (verdict, scénario, figure, RSI/MACD) : 663 sur 665
+OK     plans d'entrée calculés : 664 sur 781 titres
+OK     plans complets (verdict, scénario, figure, RSI/MACD) : 662 sur 664
 OK     0 plan(s) avec un rapport gain / risque absurde
-OK     répartition des verdicts : waitSupport 283, waitBreakout 317, buyNow 29, avoid 36
+OK     répartition des verdicts : waitSupport 282, waitBreakout 317, buyNow 29, avoid 36
 OK     convergence notée pour 781 titres
 OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 671 titres sur 781 (50 % au moins)
 OK     valeur comptable et intrinsèque pour 664 titres sur 781 (50 % au moins)
 OK     tendance du secteur rattachée pour 667 titres
-OK     étude historique du plan : 44863 relevés
+OK     étude historique du plan : 44795 relevés
 OK     journal de bord : 993 relevés
 OK     toutes les sociétés cotées : 3832 dans la liste de recherche (1 500 au moins)
 OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : 
@@ -40,7 +40,7 @@ OK     cours du catalogue à jour pour le classement (2026-10-18)
 OK     étude de contrôle du classement : 366 semaines
 OK     comptes lus pour 453 des 689 sociétés classées (50 % au moins)
 OK     classement : note égale à la somme des points (0 écart)
-OK     sélection du lundi dans les règles (PEA, comptes solides, pente, hausse ≤ +200 %) : Wallenius Wilhelmsen ASA, Repsol, S.A., JCDecaux SE, thyssenkrupp AG, Cirsa Enterprises, S.A.
+OK     sélection du lundi dans les règles (PEA, comptes solides, pente, hausse ≤ +200 %) : Cirsa Enterprises, S.A., Wallenius Wilhelmsen ASA, Repsol, S.A., JCDecaux SE, thyssenkrupp AG
 OK     notes du classement entre 0 et 100, chaque société nommée
 OK     taux de change disponibles pour toutes les devises du classement
 OK     cours figés écartés : 0
@@ -57,8 +57,8 @@ OK     graphiques (cours 1 an) : 687
 OK     comptes annuels : 671
 OK     valeur comptable : 645
 OK     secteur : 667
-OK     liquidité : 678 (-1 depuis le calcul précédent)
-OK     plan d'entrée : 665
+OK     liquidité : 678
+OK     plan d'entrée : 664 (-1 depuis le calcul précédent)
 OK     déclarations (3 mois) : 3279
 OK     sources à jour : 4
 OK     catalogue des sociétés cotées : 3832
