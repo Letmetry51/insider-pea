@@ -3203,6 +3203,8 @@
     // et la dernière clôture hebdomadaire est alignée sur la dernière clôture journalière si elles divergent de plus de 15 %
     for (var z = 1; z < W.length - 1; z++) { var up0 = W[z] / W[z - 1], dn0 = W[z + 1] / W[z]; if ((up0 > 2.5 && dn0 < 0.4) || (up0 < 0.4 && dn0 > 2.5)) W[z] = (W[z - 1] + W[z + 1]) / 2; }
     if (D.length && W.length) { var dl = D[D.length - 1], q0 = W[W.length - 1] / dl; if (q0 > 1.15 || q0 < 0.87) W[W.length - 1] = dl; }
+    // garde-fou : variation de plus de 40 % sur la dernière séance (erreur de cours possible, ou nouvelle majeure) : à vérifier avant d'acheter
+    if (D.length >= 2) { var dq = D[D.length - 1] / D[D.length - 2]; if (dq > 1.4 || dq < 0.6) var dayJump = Math.round((dq - 1) * 100); }
     var last = D.length ? D[D.length - 1] : W.length ? W[W.length - 1] : null;
     if (!last) return null;
     var avg = function (a, n) { if (a.length < n) return null; var t = 0; for (var k = a.length - n; k < a.length; k++) t += a[k]; return t / n; };
@@ -3246,6 +3248,7 @@
         if (W[t] >= 0.999 * mx(t - 51, t) && W[t - 26] / mx(t - 77, t - 26) < 0.75) { f.brk = W.length - 1 - t; break; }
       }
     }
+    if (typeof dayJump !== 'undefined') f.dayJump = dayJump;
     return f;
   };
   ES.RANK_JUMP_UP = 2.5; ES.VOL_SURGE = 2;
@@ -3269,6 +3272,8 @@
     var tierOf = function (r) {
       var outs = (r.out || []).filter(function (t) { return !/PEA/.test(t); });
       if (outs.length || (o.peaOnly && notPea(r))) return null;
+      if (r.dj != null || r.dayJump != null) return null; // variation d'un jour à vérifier : jamais proposée automatiquement
+      if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return null;
       var m = r.mom, l = r.liq || 0;
       if (m == null || m > o.momMax) return null;
       if (r.acc === 'good' && r.sc === 'strong' && m >= o.momMin && l >= o.liqMin) return 0;
@@ -3279,6 +3284,8 @@
     var why = function (r) {
       if (r.out && r.out.filter(function (t) { return !/PEA/.test(t); }).length) return 'écartée';
       if (o.peaOnly && notPea(r)) return 'hors PEA';
+      if (r.dj != null || r.dayJump != null) return 'variation de plus de 40 % sur la dernière séance, à vérifier';
+      if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return r.ratio >= 98 ? 'au plus haut (filtre « 2 à 10 % sous le plus haut »)' : 'plus de 10 % sous son plus haut';
       if (r.acc !== 'good') return 'comptes pas solides ou pas encore lus';
       if (r.sc !== 'strong') return r.sc === 'mid' ? 'pente seulement moyenne' : 'pente légère ou pas de tendance';
       if (r.mom == null || r.mom < o.momMin) return 'hausse sur 12 mois inférieure à +' + o.momMin + ' %';
@@ -3334,7 +3341,8 @@
    *   acc : null (comptes non lus) ou { key: good | mixed | bad | na, f9, loss, alt, fin } ; ins : voir ES.rankInsiders.
    * Rangs centiles (force relative, volatilité) calculés parmi les sociétés liquides et éligibles au PEA.
    */
-  ES.rankUniverse = function (items, cfg) {
+  ES.rankUniverse = function (items, cfg, ctx) {
+    var today = ctx && ctx.today;
     var R = cfg.rank, W = R.w, pool = (items || []).filter(function (x) { return x && x.f && x.f.mom != null && (x.turnoverEur || 0) >= R.minTurnoverEur; }); // hors PEA compris depuis le 18/10/2026 (Suisse, Royaume-Uni, foncières)
     var pctOf = function (vals) { var srt = vals.slice().sort(function (a, b) { return a - b; }), n = srt.length; return function (v) { if (!n || v == null) return null; var lo = 0, hi = n; while (lo < hi) { var m = (lo + hi) >> 1; if (srt[m] < v) lo = m + 1; else hi = m; } var lo2 = lo; while (lo2 < n && srt[lo2] === v) lo2++; return (lo + (lo2 - lo) / 2) / n; }; };
     var momP = pctOf(pool.map(function (x) { return x.f.mom; })), volP = pctOf(pool.filter(function (x) { return x.f.vol != null; }).map(function (x) { return x.f.vol; }));
@@ -3349,6 +3357,8 @@
       if (acc && acc.key === 'bad') out.push('comptes en dégradation' + (acc.f9 != null ? ' (F-score ' + acc.f9 + '/9)' : ''));
       if (acc && acc.loss) out.push('dernier exercice en perte');
       if (acc && acc.alt === 'distress') out.push('bilan en zone de détresse (score d\'Altman)');
+      // garde-fou : cours journalier figé (Yahoo ne met plus le titre à jour) : écarté tant qu'il n'est pas frais
+      if (today && x.lastDay && ES.daysBetween(x.lastDay, today) > 7) out.push('cours figé depuis le ' + x.lastDay + ' (Yahoo ne met plus ce titre à jour) : à vérifier');
       if (f.jump) out.push('saut de cours anormal (' + (f.jump.x >= 1 ? '×' + f.jump.x.toFixed(1).replace('.', ',') : '−' + Math.round((1 - f.jump.x) * 100) + ' %') + ' en une semaine, il y a ' + (f.jump.ago ? f.jump.ago + ' sem.' : 'moins d\'une semaine') + ') : regroupement d\'actions non ajusté ou événement exceptionnel, à vérifier');
       // 2. tendance
       parts.mom = mp != null ? Math.round(W.mom * mp) : 0;
@@ -3357,6 +3367,7 @@
       if (f.ratio != null) why.push(f.ratio >= 0.995 ? 'à son plus haut sur un an' : 'à ' + Math.max(1, Math.round((1 - f.ratio) * 100)) + ' % de son plus haut sur un an');
       parts.trend = f.trend === 'up' ? W.trend : f.trend === 'part' ? Math.round(W.trend / 3) : 0;
       if (f.trend) (f.trend === 'up' ? why : warn).push(f.trend === 'up' ? 'tendance de fond haussière (MM50 au-dessus de la MM200)' : f.trend === 'part' ? 'cours au-dessus de sa MM200, sans tendance confirmée' : 'cours sous sa moyenne 200 séances');
+      if (f.dayJump != null) warn.push('variation de ' + (f.dayJump > 0 ? '+' : '') + f.dayJump + ' % sur la dernière séance : vérifier l\'information (ou une erreur de cours) avant d\'acheter');
       if (f.volx != null && f.volx >= ES.VOL_SURGE) why.push('volumes ×' + String(f.volx).replace('.', ',') + ' sur 10 semaines par rapport à l\'année : des acheteurs s\'accumulent');
       if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
       var sc = ES.slopeClass(f.slope, f.trend);
@@ -3377,7 +3388,7 @@
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, currency: x.currency || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3443,7 +3454,7 @@
     var slim = (rows || []).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, _r: r };
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, _r: r };
     });
     return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };

@@ -1341,6 +1341,10 @@ t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cou
   const rows = ES.rankUniverse([mk('S', fs), mk('M', fm), mk('J', fj), mk('X', Object.assign({}, fm, { mom: -0.5 }))], c3), by = {}; rows.forEach((r) => { by[r.key] = r; });
   eq(by.S.slopeCls, 'strong'); ok(by.S.why.some((w) => /pente forte/.test(w)), by.S.why.join(' | '));
   ok(/saut de cours anormal/.test(by.J.out.join()) && /×10/.test(by.J.out.join()), by.J.out.join());
+  const dj = Array.from({ length: 250 }, (_, k) => 10 + k * 0.01); dj[249] = dj[248] * 1.6;
+  eq(ES.rankFeatures(dj, wk(0.5)).dayJump, 60, 'variation d\'un jour repérée');
+  const st = ES.rankUniverse([Object.assign(mk('Z', fm), { lastDay: '2026-09-01' }), mk('Y', fm)], c3, { today: '2026-10-18' });
+  ok(/cours figé/.test(st.find((r) => r.key === 'Z').out.join()) && !st.find((r) => r.key === 'Y').out.length, 'cours figé depuis plus de 7 jours : écarté');
 });
 t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées', () => {
   const r = (name, note, o) => Object.assign({ key: name, name, note, out: [], acc: 'good', sc: 'strong', mom: 100, liq: 1e7, secEn: 'Energy' }, o);
@@ -1352,6 +1356,9 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   const w = {}; p.rejected.forEach((x) => { w[x.r.key] = x.why; });
   ok(/même secteur/.test(w.B) && /moyenne/.test(w.D) && /200/.test(w.E) && /comptes/.test(w.G) && /M€/.test(w.H) && /premières/.test(w.J) && !w.I, JSON.stringify(w));
   eq(ES.pickThree([]).picks.length, 0);
+  const pn = ES.pickN(rows.map((x) => Object.assign({}, x, { ratio: x.key === 'C' ? 95 : 100 })), { near: true, n: 5 });
+  ok(pn.picks.length === 1 && pn.picks[0].key === 'C', '2 à 10 % sous le plus haut : ' + pn.picks.map((x) => x.key));
+  ok(!ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { dj: 55 }) : x)).picks.some((x) => x.key === 'A'), 'saut d\'un jour : jamais proposé');
   const pv = ES.pickThree(rows.map((x) => x.key === 'J' ? Object.assign({}, x, { vx: 1.8 }) : x), { perSec: 1 });
   eq(pv.picks.map((x) => x.key).join(), 'J,A,C', 'volumes en hausse d\'abord, puis la note');
   const p10 = ES.pickN(rows, { n: 10 });
