@@ -675,7 +675,9 @@ export function build(opts = {}) {
   const frozen = !!(cfg.rules && cfg.rules.frozenUntil && today <= cfg.rules.frozenUntil);
   learning.frozenUntil = frozen ? cfg.rules.frozenUntil : null;
   if (frozen && learning.changed.length) { learning.changed = []; learning.weights = (learnPrev && learnPrev.weights) || {}; learning.version = (learnPrev && learnPrev.version) || 0; }
-  if (learning.changed.length && cfg.learning.mode === 'auto') {
+  // email « barème ajusté » de l'ancienne méthode (dirigeants) : coupé depuis le 18/10/2026 (learning.email = false), l'ajustement reste enregistré
+  if (cfg.learning.email === false && state.pendingInfo) Object.keys(state.pendingInfo).forEach((k) => { if (/^apprentissage-/.test(k)) delete state.pendingInfo[k]; });
+  if (learning.changed.length && cfg.learning.mode === 'auto' && cfg.learning.email !== false) {
     state.pendingInfo = state.pendingInfo || {};
     const lines = learning.changed.map((e) => e.label + ' : ' + e.from + ' → ' + e.to + ' point(s) (écart mesuré ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt sur ' + e.nWith + ' cas, t = ' + e.t + ')');
     state.pendingInfo['apprentissage-' + learning.month] = ({ id: 'apprentissage-' + learning.month, kind: 'info', isin: null, name: 'Barème', subject: '[Euro Signal] Barème ajusté automatiquement (' + learning.month + ')',
@@ -714,7 +716,7 @@ export function build(opts = {}) {
       if (last / peak - 1 <= -cfg.exits.drawdownFromPeakPct / 100) signals.push({ type: 'repli', label: 'le cours a reculé de ' + Math.round((1 - last / peak) * 100) + ' % depuis son plus haut atteint après l\'alerte' });
       const perf = (last / p0 - 1) * 100;
       followups.push({ alertId: a.id, isin: a.isin, name: i.name, sentAt: d0, status: a.status, priceAtAlert: p0, last, perfPct: perf, benchPct, fromPeakPct: (last / peak - 1) * 100, signals: signals.map((x) => x.label) });
-      if (a.status === 'simulee') return; // pas d'email de sortie pour une alerte jamais envoyée
+      if (a.status === 'simulee' || cfg.exits.emails === false) return; // pas d'email de sortie pour une alerte jamais envoyée, ni depuis l'arrêt des alertes « dirigeants » (18/10/2026)
       signals.forEach((sg) => {
         const id = a.id + '-sortie-' + sg.type;
         if (state.alerts[id] && ['envoyee', 'incertain', 'en_cours'].indexOf(state.alerts[id].status) > -1) return;
