@@ -21,6 +21,8 @@ ms = sorted(k for k in m if k in f3 and "WML" in m[k] and "HML" in f3[k])
 log("Mois en commun : %d (%s → %s)" % (len(ms), ms[0], ms[-1]))
 S = {"Momentum (gagnants − perdants)": np.array([m[k]["WML"] for k in ms]), "Valeur (bon marché − chères)": np.array([f3[k]["HML"] for k in ms])}
 S["50 % momentum + 50 % valeur"] = (S["Momentum (gagnants − perdants)"] + S["Valeur (bon marché − chères)"]) / 2
+for w in (0.7, 0.6):
+    S["%d %% momentum + %d %% valeur" % (w * 100, (1 - w) * 100)] = w * S["Momentum (gagnants − perdants)"] + (1 - w) * S["Valeur (bon marché − chères)"]
 S["Marché européen (au-delà du taux sans risque)"] = np.array([f3[k]["Mkt-RF"] for k in ms])
 log("Corrélation momentum / valeur : %.2f" % np.corrcoef(S["Momentum (gagnants − perdants)"], S["Valeur (bon marché − chères)"])[0, 1])
 yrs = np.array([int(k[:4]) for k in ms])
