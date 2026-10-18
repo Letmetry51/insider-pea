@@ -1075,6 +1075,28 @@ export function build(opts = {}) {
     }
   } catch (e) { console.warn('  Alerte krach indisponible : ' + e.message); }
 
+  /* 6g. Auto-surveillance : la méthode n'est jamais modifiée seule ; si l'avantage mesuré se dégrade nettement, un email
+     (au plus un par mois tant que la situation dure) demande une revue. Mesures : suivi réel du 🎯 (📒) et étude de contrôle du soir. */
+  try {
+    const why = [], PT = rank && rank.pickTrack, st = rank && rank.study, g = st && st.h26 && st.h26.rankTop;
+    const pts = (v) => (v >= 0 ? '+' : '') + String(Math.round(v * 10) / 10).replace('.', ',') + ' pts';
+    if (PT && PT.m6 && PT.m6.n >= 30 && PT.m6.bench != null && PT.m6.avg - PT.m6.bench < 0) why.push('suivi réel à 6 mois : ' + pts(PT.m6.avg - PT.m6.bench) + ' face à l\'indice sur ' + PT.m6.n + ' lignes (attendu : nettement positif)');
+    if (PT && PT.m3 && PT.m3.n >= 30 && PT.m3.bench != null && PT.m3.avg - PT.m3.bench < -5) why.push('suivi réel à 3 mois : ' + pts(PT.m3.avg - PT.m3.bench) + ' face à l\'indice sur ' + PT.m3.n + ' lignes');
+    if (g && g.weeks >= 100 && (g.mean < 0 || g.t < 1)) why.push('étude du soir (' + g.weeks + ' semaines) : les sociétés les mieux notées ne font plus que ' + pts(g.mean) + ' à 6 mois (fiabilité ' + String(g.t).replace('.', ',') + ', attendu au moins 2)');
+    state.watchdog = isObj(state.watchdog) ? state.watchdog : {};
+    const month = today.slice(0, 7);
+    if (why.length && state.watchdog.lastSent !== month) {
+      const txt = 'Auto-surveillance d\'Euro Signal : l\'avantage de la méthode se dégrade.\n- ' + why.join('\n- ') + '\n\nL\'outil ne change pas ses règles seul (un ajustement automatique suivrait le bruit). Ce message demande une revue : vérifier si la baisse dure, si le marché est en « krach du momentum », et comparer aux périodes difficiles déjà connues (2009, 2016, 2022).';
+      outbox.push({ id: 'surveillance-' + month, kind: 'surveillance', isin: null, name: 'Méthode', subject: '[Euro Signal] 🔎 Auto-surveillance : revue de la méthode conseillée',
+        text: txt + (dashUrl ? '\nTableau de bord : ' + dashUrl + '#aide' : ''), html: '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px"><h2 style="margin:0 0 8px">🔎 Revue de la méthode conseillée</h2><ul>' + why.map((w) => '<li>' + ES.esc(w) + '</li>').join('') + '</ul><p>L\'outil ne change pas ses règles seul (un ajustement automatique suivrait le bruit). Vérifier si la baisse dure, si le marché est en « krach du momentum », et comparer aux périodes difficiles déjà connues (2009, 2016, 2022).</p></div>',
+        eventIds: ['surveillance:' + month], score: null, version: cfg.rank.version });
+      state.watchdog.lastSent = month;
+    }
+    state.watchdog.status = why.length ? 'alerte' : 'ok'; state.watchdog.checked = today; state.watchdog.reasons = why;
+    if (rank) rank.watchdog = { status: state.watchdog.status, checked: today, reasons: why };
+    console.log('  Auto-surveillance : ' + (why.length ? why.length + ' signal(s) de dégradation' : 'avantage intact'));
+  } catch (e) { console.warn('  Auto-surveillance indisponible : ' + e.message); }
+
   /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
   outbox.forEach((m) => {
     if (m.kind) return; // emails de sortie et d'information : pas d'argumentaire
