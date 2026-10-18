@@ -41,6 +41,7 @@ ISIN_RE = re.compile(r"\b([A-Z]{2}[A-Z0-9]{9}[0-9])\b")
 SYM_RE = re.compile(r"\]\s*(?:Position|Vente|Surveiller|Ne plus surveiller)\s+([A-Z0-9][A-Z0-9&-]{0,20}\.[A-Z]{1,3})\b")
 DRAWDOWN_PCT = 20  # plus utilisé pour les alertes (voir l'en-tête)
 HOLD_DAYS = 182
+STOP_DEFAULT = 30
 
 
 def pc(v):
@@ -197,7 +198,7 @@ def death_cross(rows, since):
     return None
 
 
-def evaluate(pos, rows, stats, txs, today):
+def evaluate(pos, rows, stats, txs, today, in_pick=None):
     """Événements de revente pour une position. rows : [[date, o, h, l, close, v], …] (cours bruts suffisent ici)."""
     closes = [(r[0], r[4]) for r in rows if r and r[4]]
     after = [c for d, c in closes if d >= pos["date"]]
@@ -208,8 +209,15 @@ def evaluate(pos, rows, stats, txs, today):
     ev = []
     if pos.get("target") and perf >= pos["target"]:
         ev.append(("obj" + str(int(pos["target"])), "objectif de +%d %% atteint (%s depuis votre achat)" % (pos["target"], pc(perf))))
-    if pos.get("stop") and perf <= -abs(pos["stop"]):
-        ev.append(("stop" + str(int(abs(pos["stop"]))), "seuil de protection de -%d %% franchi (%s depuis votre achat)" % (abs(pos["stop"]), pc(perf))))
+    stop = abs(pos.get("stop") or STOP_DEFAULT)  # règle testée : protection à −30 % si rien n'a été indiqué
+    if perf <= -stop:
+        ev.append(("stop" + str(int(stop)), "seuil de protection de -%d %% franchi (%s depuis votre achat) : la règle testée est de vendre" % (stop, pc(perf))))
+    # paliers de baisse de 10 % : un seul email par palier, le plus profond franchi ce soir
+    lvl = int(-perf // 10) * 10 if perf <= -10 else 0
+    if lvl and lvl != int(stop):
+        ev.append(("baisse%d" % lvl, ("baisse de %d %% depuis votre achat (%s) : %s" % (lvl, pc(perf),
+                   "la règle testée est de garder jusqu'à la protection à -%d %% ; sur 29 ans, 2 lignes 🎯 sur 3 finissaient en hausse à 6 mois malgré des replis" % stop
+                   if lvl < stop else "sous la protection de -%d %%, la règle testée était de vendre" % stop))))
     sells = [t for t in (txs or []) if t.get("type") == "vente" and t.get("status") != "annulee" and (t.get("pubDate") or t.get("txDate") or "") > pos["date"]]
     if sells:
         ev.append(("vente" + max((t.get("pubDate") or t.get("txDate")) for t in sells).replace("-", ""),
@@ -219,8 +227,13 @@ def evaluate(pos, rows, stats, txs, today):
     except (TypeError, ValueError):
         held = 0
     if held >= HOLD_DAYS:
-        ev.append(("6mois", "6 mois depuis votre achat (%s) : c'est l'horizon testé. Sur 8 ans, revendre à 6 mois a donné 64 %% de gagnants ; "
-                            "garder plus longtemps reste possible si la société est toujours en tête du classement" % pc(perf)))
+        if in_pick is True:
+            nxt = "elle est encore dans le 🎯 cette semaine : vous pouvez la garder comme une nouvelle ligne de 6 mois (dans un PEA, garder revient à vendre puis racheter, sans frais)"
+        elif in_pick is False:
+            nxt = "elle n'est plus dans le 🎯 : la règle testée est de vendre et de réinvestir dans une société du 🎯"
+        else:
+            nxt = "vendre, puis racheter seulement si elle figure encore dans le 🎯"
+        ev.append(("6mois", "6 mois depuis votre achat (%s) : c'est l'horizon testé (62 %% de gagnants sur 29 ans) ; %s" % (pc(perf), nxt)))
     return ev, {"last": last, "perf": perf, "peak": peak}
 
 
@@ -295,6 +308,8 @@ def main():
     except Exception:
         state = {}
     dash_url = ((dash.get("cfg") or {}).get("dashboardUrl")) or ""
+    pk = (dash.get("rank") or {}).get("pick10")
+    picks = set(pk) if isinstance(pk, list) else None  # sociétés proposées ce soir par le 🎯 (ISIN ou symbole)
     today = date.today().isoformat()
     try:
         imap = imaplib.IMAP4_SSL("imap.gmail.com", 993, ssl_context=ssl.create_default_context())
@@ -318,13 +333,14 @@ def main():
             stats = inst.get("stats") or {}
         if not p:
             continue
-        evs, info = evaluate(pos, p.get("rows") or [], stats, (state.get("txArchive") or {}).get(isin) or [], today)
+        evs, info = evaluate(pos, p.get("rows") or [], stats, (state.get("txArchive") or {}).get(isin) or [], today,
+                             (isin in picks) if picks is not None else None)
         for key, label in evs:
             ref = "%s:%s:%s" % (isin, pos["date"].replace("-", ""), key)
             if ref in refs:
                 continue
             body = ("%s — %s.\n\nVotre achat : %s le %s. Dernier cours : %s (%s).\n"
-                    "Ce n'est pas un ordre de vente : à décider selon votre stratégie (vendre tout, une partie, ou relever l'objectif).\n"
+                    "Règles testées : garder 6 mois, vendre sous -30 %%. Ce n'est pas un ordre : à décider selon votre stratégie.\n"
                     "Pour arrêter le suivi : bouton « Je l'ai vendu » dans la fiche%s.") % (
                 name, label, ("%.2f" % pos["price"]).replace(".", ","), pos["date"], ("%.2f" % info["last"]).replace(".", ","), pc(info["perf"]),
                 (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")

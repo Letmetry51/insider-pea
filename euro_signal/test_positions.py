@@ -90,6 +90,22 @@ def _():
     assert P.evaluate(pos, [], {}, [], date(2026, 10, 2)) == ([], None)
 
 
+@case("Paliers de baisse de 10 %, protection à −30 % par défaut, rappel à 6 mois selon le 🎯")
+def _():
+    pos = {"isin": "FR0000054470", "price": 10.0, "date": "2026-09-01"}  # ni objectif ni protection indiqués
+    rows = lambda v: [["2026-09-02", 0, 0, 0, 10.0, 0], ["2026-09-03", 0, 0, 0, v, 0]]
+    k = lambda v, d=date(2026, 9, 4), pk=None: {x for x, _ in P.evaluate(pos, rows(v), {}, [], d, pk)[0]}
+    assert k(9.5) == set(), k(9.5)
+    assert k(8.9) == {"baisse10"}, k(8.9)
+    assert k(7.5) == {"baisse20"}, k(7.5)  # seul le palier le plus profond
+    assert k(6.9) == {"stop30"}, k(6.9)     # −31 % : protection, pas de palier 30 en double
+    assert k(5.5) == {"stop30", "baisse40"}, k(5.5)
+    ev = dict(P.evaluate(pos, rows(11), {}, [], date(2027, 3, 5), True)[0])
+    assert "encore dans le 🎯" in ev["6mois"], ev
+    ev = dict(P.evaluate(pos, rows(11), {}, [], date(2027, 3, 5), False)[0])
+    assert "n'est plus dans le 🎯" in ev["6mois"], ev
+
+
 @case("Société du catalogue (symbole Yahoo, sans ISIN) : position lue, MM50 sous MM200 recalculée")
 def _():
     p = P.parse_position("[Euro Signal] Position VOLV-B.ST", "Société : Volvo\nSymbole : VOLV-B.ST\nPrix d'achat : 250\nDate d'achat : 2026-10-20", "2026-10-20T20:00:00+00:00")
