@@ -3759,6 +3759,11 @@ details.pos summary{font-size:1rem}
     return f;
   };
   ES.RANK_JUMP_UP = 2.5; ES.VOL_SURGE = 2; ES.VOL_WILD = 0.8;
+  /** 🐻 Ventes à découvert publiées (≥ 0,5 % du capital). Test 2013-2026 (AMF, FCA), filtres 🎯 : sans position publiée +8,6 points à 6 mois,
+   *  avec −2,1 (18 % de chutes de 25 % ou plus contre 10,7 %) ; à Paris −11,6 points et 28 % de chutes, dans les deux périodes ;
+   *  à Londres effet faible et irrégulier. Écartée du 🎯 pour les positions publiées par l'AMF ; ailleurs seulement signalée. */
+  ES.SHORT_MIN = 0.5; ES.SHORT_EXCLUDE = { FR: true };
+  ES.shortBlocks = function (r) { return r && r.sh != null && r.sh >= ES.SHORT_MIN && !!ES.SHORT_EXCLUDE[r.shc]; };
   /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
    *  ont fait 12,5 points de moins que la moyenne à 6 mois (1997-2026 : 2001-2003, 2009, 2012, 2022-2023). */
   ES.MOM_CRASH_M52 = -20; ES.RANK_JUMP_DOWN = 0.35;
@@ -3781,6 +3786,7 @@ details.pos summary{font-size:1rem}
       if (outs.length || (o.peaOnly && notPea(r))) return null;
       if (r.dj != null || r.dayJump != null) return null; // variation d'un jour à vérifier : jamais proposée automatiquement
       if (r.vo != null && r.vo >= ES.VOL_WILD * 100) return null; // ⚡ cours très volatil : deux fois plus de chutes, sans gain
+      if (ES.shortBlocks(r)) return null; // 🐻 vendue à découvert (Paris) : −11,6 points à 6 mois sur 2013-2026
       if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return null;
       var m = r.mom, l = r.liq || 0;
       if (m == null || m > o.momMax) return null;
@@ -3794,6 +3800,7 @@ details.pos summary{font-size:1rem}
       if (o.peaOnly && notPea(r)) return 'hors PEA';
       if (r.dj != null || r.dayJump != null) return 'variation de plus de 40 % sur la dernière séance, à vérifier';
       if (r.vo != null && r.vo >= ES.VOL_WILD * 100) return '⚡ cours très volatil (' + r.vo + ' % par an) : deux fois plus de chutes, sans gain';
+      if (ES.shortBlocks(r)) return '🐻 ' + String(r.sh).replace('.', ',') + ' % du capital vendu à découvert (' + r.shn + ' fonds) : à Paris, −11,6 points à 6 mois et 28 % de chutes sur 2013-2026';
       if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return r.ratio >= 98 ? 'au plus haut (filtre « 2 à 10 % sous le plus haut »)' : 'plus de 10 % sous son plus haut';
       if (r.acc !== 'good') return 'comptes pas solides ou pas encore lus';
       if (r.sc !== 'strong') return r.sc === 'mid' ? 'pente seulement moyenne' : 'pente légère ou pas de tendance';
@@ -3877,6 +3884,7 @@ details.pos summary{font-size:1rem}
       parts.trend = f.trend === 'up' ? W.trend : f.trend === 'part' ? Math.round(W.trend / 3) : 0;
       if (f.trend) (f.trend === 'up' ? why : warn).push(f.trend === 'up' ? 'tendance de fond haussière (MM50 au-dessus de la MM200)' : f.trend === 'part' ? 'cours au-dessus de sa MM200, sans tendance confirmée' : 'cours sous sa moyenne 200 séances');
       if (f.dayJump != null) warn.push('variation de ' + (f.dayJump > 0 ? '+' : '') + f.dayJump + ' % sur la dernière séance : vérifier l\'information (ou une erreur de cours) avant d\'acheter');
+      if (x.short && x.short.pct >= ES.SHORT_MIN) warn.push('🐻 ' + String(x.short.pct).replace('.', ',') + ' % du capital vendu à découvert par ' + x.short.n + ' fonds : les sociétés en tendance ainsi visées ont fait moins bien que les autres (2013-2026)');
       if (f.vol52 != null && f.vol52 >= ES.VOL_WILD) warn.push('⚡ cours très volatil (' + Math.round(f.vol52 * 100) + ' % par an) : sur 29 ans, deux fois plus de chutes de 25 % pour aucun gain');
       if (f.volx != null && f.volx >= ES.VOL_SURGE) why.push('volumes ×' + String(f.volx).replace('.', ',') + ' sur 10 semaines par rapport à l\'année : des acheteurs s\'accumulent');
       if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
@@ -3898,7 +3906,7 @@ details.pos summary{font-size:1rem}
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, currency: x.currency || null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, short: x.short || null, currency: x.currency || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3964,7 +3972,7 @@ details.pos summary{font-size:1rem}
     var slim = (rows || []).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, _r: r };
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
     });
     return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };
@@ -5004,14 +5012,14 @@ details.pos summary{font-size:1rem}
     var h = '<details class="card pick3" data-k="pick3"><summary class="pick3b">🎯 Choisir des sociétés selon les règles testées</summary>';
     h += '<div class="segs" role="group" aria-label="Nombre de sociétés">' + [3, 5, 10].map(function (k) { return '<button class="' + (k === nP ? 'on' : '') + '" aria-pressed="' + (k === nP) + '" data-a="pickN" data-v="' + k + '">' + k + ' sociétés</button>'; }).join('') + '</div>';
     h += '<div class="fchips p3opt"><button class="fchip' + (near ? ' on' : '') + '" aria-pressed="' + near + '" data-a="rfQuick" data-v="near" title="Sur 29 ans, parmi ces sociétés : aussi bon qu\'au plus haut (+5 à +10 points à 6 mois), mêmes risques">' + (near ? '☑' : '☐') + ' ↘️ Seulement 2 à 10 % sous le plus haut</button><button class="fchip' + (peaOnly ? ' on' : '') + '" aria-pressed="' + peaOnly + '" data-a="rfQuick" data-v="pea">' + (peaOnly ? '☑' : '☐') + ' 🇪🇺 PEA seulement</button></div>';
-    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes d\'abord · 2 par secteur · sans ⚡</p>' +
+    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes d\'abord · 2 par secteur · sans ⚡ ni 🐻</p>' +
       xpi(P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir (au moins 3 M€ échangés par jour' + (peaOnly ? ', PEA seulement' : ', hors PEA compris') + (near ? ', 2 à 10 % sous le plus haut' : '') + '). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l\'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse.');
     if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
     if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
     else h += '<ol class="pick3l">' + P.picks.map(function (r, k) {
       var pl = plan(r), sep = r.pickTier > 0 && (k === 0 || P.picks[k - 1].pickTier !== r.pickTier) ? '<li class="pick3sep">' + (r.pickTier === 1 ? 'Règles assouplies : pente moyenne ou +30 à +60 % sur 12 mois' : 'Règles assouplies : comptes mitigés ou pas lus') + '</li>' : '';
       return sep + '<li value="' + (k + 1) + '" class="rowlink' + (r.pickTier ? ' pick3x' : '') + '" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· ' + r.note + '/100</span>' + (r.vx >= 1.5 ? ' <span class="chip good">🔊 volumes ×' + String(r.vx).replace('.', ',') + '</span>' : '') +
-        '<small>' + esc([r.sector, '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', r.ratio != null ? (r.ratio >= 99.5 ? 'au plus haut' : 'haut ' + Math.round(r.ratio - 100) + '\u00a0%') : null, pl ? pl.split(' : ')[0].replace('Attendre un', 'attendre').replace('Attendre une', 'attendre') : null, (r.liq || 0) < 5e6 ? '💧 ordres limités' : null, r.pickNotPea ? 'hors PEA' : null].filter(Boolean).join(' · ')) + '</small></li>';
+        '<small>' + esc([r.sector, '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', r.ratio != null ? (r.ratio >= 99.5 ? 'au plus haut' : 'haut ' + Math.round(r.ratio - 100) + '\u00a0%') : null, pl ? pl.split(' : ')[0].replace(/Attendre une? /, 'attendre ') : null, (r.liq || 0) < 5e6 ? '💧 ordres limités' : null, r.pickNotPea ? 'hors PEA' : null].filter(Boolean).join(' · ')) + '</small></li>';
     }).join('') + '</ol>';
     h += '<p class="small p3next">⏳ <b>Ensuite</b> : lignes égales · garder 6 mois · protection −30 % · « Je l\'ai acheté » sur la fiche</p>';
     if (P.rejected.length) h += '<details class="xpi"><summary>Pourquoi pas les autres ?</summary><ul class="plain small">' + P.rejected.slice(0, 10).map(function (x) { return '<li><b>' + esc(x.r.name) + '</b> (' + x.r.note + ') : ' + esc(x.why) + '</li>'; }).join('') + '</ul></details>';
@@ -5120,6 +5128,7 @@ details.pos summary{font-size:1rem}
       '<li><span class="rb sl-strong">⬆⬆ +45 %</span> pente du canal sur 6 mois : ⬆⬆ forte (≥ +40 %), ⬆ moyenne, ↗ légère</li>' +
       '<li><span class="rb t-good">🔊 ×2,1</span> volumes des 10 dernières semaines / moyenne de l\'année</li>' +
       '<li><span class="rb t-good">🚀</span> nouveau plus haut après 6 mois de base (signal, hors note)</li>' +
+      '<li><span class="rb t-bad">🐻 1,4 %</span> capital vendu à découvert par des fonds : à Paris, écartée du 🎯 (−11,6 pts à 6 mois sur 2013-2026) ; ailleurs signalée</li>' +
       '<li><span class="rb t-warn">⚡ 85 %/an</span> cours très volatil (≥ 80 % par an) : deux fois plus de chutes, écarté du 🎯</li>' +
       '<li><b>12 mois</b> hausse sur un an · <b>Plus haut</b> écart avec le plus haut d\'un an</li>' +
       '<li>✅ achat possible · ⏳ attendre un rebond ou une cassure · ⛔ ne pas acheter</li></ul></details>';
@@ -5139,6 +5148,7 @@ details.pos summary{font-size:1rem}
       if (r.vx >= ES.VOL_SURGE) bd.push('<span class="rb t-good" title="Volumes des 10 dernières semaines / moyenne de l\'année">🔊 ×' + String(r.vx).replace('.', ',') + '</span>');
       if (rkBrk(r)) bd.push('<span class="rb t-good" title="Nouveau plus haut sur un an après 6 mois de base">🚀' + (r.brk ? ' ' + r.brk + ' sem.' : '') + '</span>');
       if (r.vo != null && r.vo >= ES.VOL_WILD * 100) bd.push('<span class="rb t-warn" title="Cours très volatil : deux fois plus de chutes, écarté du bouton 🎯">⚡ ' + r.vo + ' %/an</span>');
+      if (r.sh != null && r.sh >= ES.SHORT_MIN) bd.push('<span class="rb ' + (ES.shortBlocks(r) ? 't-bad' : 't-warn') + '" title="Part du capital vendue à découvert par des fonds (positions publiées)">🐻 ' + String(r.sh).replace('.', ',') + ' %</span>');
       if (r.pea === false) bd.push('<span class="rb t-warn">hors PEA</span>');
       if (r.dj != null) bd.push('<span class="rb t-warn" title="Plus de 40 % sur la dernière séance : à vérifier">⚠️ ' + (r.dj > 0 ? '+' : '') + r.dj + ' % hier</span>');
       var V = RV[r.v] || RV.mid;
@@ -6564,7 +6574,7 @@ details.pos summary{font-size:1rem}
     var h = '<section class="card proof" id="logique"><h3>📘 La logique en 1 minute</h3>' +
       '<p class="lgone">Acheter ce qui monte déjà le plus, avec des comptes sains, et le garder 6 mois.</p>' +
       '<ol class="lgflow">' +
-      fl('🧹', 'Écarter', 'peu liquides, pertes, comptes fragiles, en baisse sur 12 mois ; ⚡ très volatiles hors du 🎯') +
+      fl('🧹', 'Écarter', 'peu liquides, pertes, comptes fragiles, en baisse sur 12 mois ; ⚡ très volatiles et 🐻 vendues à découvert (Paris) hors du 🎯') +
       fl('💯', 'Noter /100', 'force sur 12 mois 50 · plus haut 10 · tendance 15 · comptes 20 · dirigeants ±') +
       fl('⬆⬆', 'Pente forte', 'canal haussier ≥ +40 % sur 6 mois') +
       fl('🎯', 'Choisir', '+60 à +200 % sur 12 mois · 🔊 volumes d\'abord · 2 par secteur') +
@@ -6582,6 +6592,9 @@ details.pos summary{font-size:1rem}
         ['<b>… avec 🔊 volumes ≥ ×1,5</b> (positif dans chaque période ; sans hausse de volume : +5,8)', '—', '—', '<b>+10,2</b>'],
         ['<b>Classement + 🔊 volumes ×2</b> (positif dans chaque période ; sans volumes en hausse : +2,3)', '—', '—', '<b>+7,7</b>'],
         ['Classement après une baisse du marché de 20 % sur un an (krach du momentum)', '—', '—', '−12,5'],
+        ['Filtres 🎯 vendues à découvert, 🐻 ≥ 0,5 % (2013-2026, Paris et Londres ; sans : +8,6)', '—', '—', '−2,1'],
+        ['… dont Paris (28 % de chutes ≥ 25 %, négatif dans les deux périodes)', '—', '—', '−11,6'],
+        ['Filtres 🎯 près du plus haut : 1er nouveau plus haut de l\'année / 2e à 4e / 5e ou plus', '—', '—', '+4,9 / +7 / +4,6'],
         ['Filtres 🎯 avec un cours ⚡ très volatil (≥ 80 %/an, 3 % des cas ; 17 % de chutes ≥ 25 % au lieu de 7,5 %)', '—', '—', '0,0'],
         ['🚀 + pente forte + marché non euphorique (5 et 8 ans : hausse ≥ 40 % 1 fois sur 4 à 5)', '—', '—', '+8,1'],
         ['Au creux (12 mois négatif, sous la moyenne 40 semaines) : écartées', '−3,4', '−2,9', '−3,3']]) +
@@ -6606,6 +6619,7 @@ details.pos summary{font-size:1rem}
       '<li><b>Doublons</b> : Trend Template de Minervini, secteur fort, RSI, F-score 8–9, convergence : rien de plus que le classement.</li>' +
       '<li><b>Saisonnalité des secteurs</b> : les bons mois de 2018–2021 ne l\'étaient plus en 2022–2026 ; acheter les secteurs « saisonniers » n\'a rien rapporté.</li>' +
       '<li><b>Peur du marché (VIX, volatilité)</b> : sur 29 ans, l\'avantage reste de +4 à +5 points que le marché soit calme ou agité ; seule une baisse de 20 % sur un an est dangereuse (alerte rouge déjà en place).</li>' +
+      '<li><b>Plus hauts à répétition</b> : une société qui fait son 2e, 3e ou 4e nouveau plus haut de l\'année continue aussi bien (+7 points) ; dès le 5e, un peu moins et plus de chutes (10 % au lieu de 6,5 %), mais trop rare (3 % des cas) pour une règle.</li>' +
       '<li><b>Variantes du momentum</b> (hausse hors effet marché, hausse « en petits pas », part des mois en hausse) : rien de mieux que la hausse sur 12 mois. Seul garde-fou retenu : ⚡ cours très volatil.</li>' +
       '<li><b>Rattrapage</b> : les sociétés en retard dans un secteur qui démarre ne rattrapent pas.</li>' +
       '<li><b>Attendre le bon moment du marché</b> pour entrer : pas de gain mesurable.</li>' +

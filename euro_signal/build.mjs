@@ -883,6 +883,14 @@ export function build(opts = {}) {
       Object.assign(co, sh.items);
     });
     const isinOfSym = {}; Object.keys(inst).forEach((isin) => { const t = inst[isin].ticker; if (t && !isinOfSym[t]) isinOfSym[t] = isin; });
+    // ventes à découvert publiées : ISIN → symbole du catalogue (résolu chaque nuit par scrapers/shorts.py)
+    const shortIsinOfSym = {}; { const m = readJSON(path.join(DATA, 'shorts-symbols.json'), {}); Object.keys(isObj(m) ? m : {}).forEach((is) => { const t = m[is]; if (typeof t === 'string' && !shortIsinOfSym[t]) shortIsinOfSym[t] = is; }); }
+    const shortOf = (sym, isin) => {
+      const is = isin || shortIsinOfSym[sym]; if (!is || !shortsList[is]) return null;
+      const s0 = ES.shortInfo(shortsList[is], today); if (!s0) return null;
+      const cur = shortsList[is].filter((p) => p.pct >= 0.5 && (!p.from || p.from <= today) && (!p.to || p.to > today));
+      return { pct: s0.totalPct, n: s0.holders, cc: (cur[0] && cur[0].country) || is.slice(0, 2) };
+    };
     const histTk = readJSON(path.join(F.history, 'tickers.json'), {});
     const symOfIsin = {}; Object.keys(isObj(histTk) ? histTk : {}).forEach((i) => { const t = histTk[i] && histTk[i].ticker; if (t && co[t]) symOfIsin[i] = t; });
     Object.keys(isinOfSym).forEach((t) => { if (co[t]) symOfIsin[isinOfSym[t]] = t; });
@@ -902,7 +910,7 @@ export function build(opts = {}) {
       const ins = sc ? { buys: sc.buys.length, ceo: sc.buys.some((t) => t.ceo || t.cfo), multi: sc.cluster && sc.cluster.count >= 2 ? sc.cluster.count : 0,
         netSeller: sc.sellEur > sc.buyEur && sc.sellEur > 0, ceoSale: ES.activeTx(tx[isin] || []).some((t) => t.type === 'vente' && (t.ceo || t.cfo) && ES.availDate(t) >= winFrom && ES.availDate(t) <= today) } : null;
       return { key: isin || sym, isin, sym, name: (i && i.name) || x.name || sym, country: x.country || (i && i.country) || null, sector: ES.sectorFr(x.sector) || null,
-        lastDay: (() => { const d = x.d || []; for (let k = d.length - 1; k >= 0; k--) if (d[k] > 0) return dDates[k] || null; return null; })(), currency: x.currency || null, turnoverEur: x.turnoverEur, pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) ? false : x.pea, f: ES.rankFeatures(x.d, x.w, x.wv), acc, ins, nextEarnings: i ? i.nextEarnings || null : null };
+        lastDay: (() => { const d = x.d || []; for (let k = d.length - 1; k >= 0; k--) if (d[k] > 0) return dDates[k] || null; return null; })(), currency: x.currency || null, turnoverEur: x.turnoverEur, pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) ? false : x.pea, f: ES.rankFeatures(x.d, x.w, x.wv), short: shortOf(sym, isin), acc, ins, nextEarnings: i ? i.nextEarnings || null : null };
     });
     const rows = ES.rankUniverse(items, cfg, { today });
     const nextE = {}; items.forEach((x) => { if (x.nextEarnings) nextE[x.key] = x.nextEarnings; });
@@ -945,7 +953,7 @@ export function build(opts = {}) {
     const slimRow = (r) => ({ key: r.key, isin: r.isin, sym: r.sym, name: r.name, country: r.country, sector: r.sector, note: r.note, parts: r.parts, v: r.verdict.key, out: r.out, why: r.why, warn: r.warn,
       mom: r.mom != null ? +(r.mom * 100).toFixed(1) : null, momPct: r.momPct != null ? Math.round(r.momPct * 100) : null, ratio: r.ratio != null ? +(r.ratio * 100).toFixed(1) : null, trend: r.trend,
       ret6m: r.ret6m != null ? +(r.ret6m * 100).toFixed(1) : null, liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : null, pos: r.pos || null, acc: r.acc,
-      slope6: r.slope != null ? Math.round((Math.sqrt(1 + r.slope) - 1) * 100) : null, sc: r.slopeCls || null, brk: r.brk != null ? r.brk : undefined, vx: r.volx != null ? r.volx : undefined, dj: r.dayJump != null ? r.dayJump : undefined, vo: r.vola != null ? r.vola : undefined, cur: r.currency || undefined, pea: r.pea === false ? false : undefined,
+      slope6: r.slope != null ? Math.round((Math.sqrt(1 + r.slope) - 1) * 100) : null, sc: r.slopeCls || null, brk: r.brk != null ? r.brk : undefined, vx: r.volx != null ? r.volx : undefined, dj: r.dayJump != null ? r.dayJump : undefined, vo: r.vola != null ? r.vola : undefined, sh: r.short ? r.short.pct : undefined, shn: r.short ? r.short.n : undefined, shc: r.short ? r.short.cc : undefined, cur: r.currency || undefined, pea: r.pea === false ? false : undefined,
       plan: r.plan || null, pw: r.pw || undefined, tmpl: r.tmpl, sec: r.sec || null, secEn: r.secEn || null, f9: r.f9 != null ? r.f9 : null, pb: r.pb != null ? r.pb : null, iv: r.iv || undefined });
     // Liste publiée : sociétés liquides (classées ou écartées pour une raison de fond) ; les autres sont trouvables par la recherche du catalogue
     const shown = rows.filter((r) => (r.turnoverEur || 0) >= cfg.rank.minTurnoverEur || r.isin);

@@ -3258,6 +3258,11 @@
     return f;
   };
   ES.RANK_JUMP_UP = 2.5; ES.VOL_SURGE = 2; ES.VOL_WILD = 0.8;
+  /** 🐻 Ventes à découvert publiées (≥ 0,5 % du capital). Test 2013-2026 (AMF, FCA), filtres 🎯 : sans position publiée +8,6 points à 6 mois,
+   *  avec −2,1 (18 % de chutes de 25 % ou plus contre 10,7 %) ; à Paris −11,6 points et 28 % de chutes, dans les deux périodes ;
+   *  à Londres effet faible et irrégulier. Écartée du 🎯 pour les positions publiées par l'AMF ; ailleurs seulement signalée. */
+  ES.SHORT_MIN = 0.5; ES.SHORT_EXCLUDE = { FR: true };
+  ES.shortBlocks = function (r) { return r && r.sh != null && r.sh >= ES.SHORT_MIN && !!ES.SHORT_EXCLUDE[r.shc]; };
   /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
    *  ont fait 12,5 points de moins que la moyenne à 6 mois (1997-2026 : 2001-2003, 2009, 2012, 2022-2023). */
   ES.MOM_CRASH_M52 = -20; ES.RANK_JUMP_DOWN = 0.35;
@@ -3280,6 +3285,7 @@
       if (outs.length || (o.peaOnly && notPea(r))) return null;
       if (r.dj != null || r.dayJump != null) return null; // variation d'un jour à vérifier : jamais proposée automatiquement
       if (r.vo != null && r.vo >= ES.VOL_WILD * 100) return null; // ⚡ cours très volatil : deux fois plus de chutes, sans gain
+      if (ES.shortBlocks(r)) return null; // 🐻 vendue à découvert (Paris) : −11,6 points à 6 mois sur 2013-2026
       if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return null;
       var m = r.mom, l = r.liq || 0;
       if (m == null || m > o.momMax) return null;
@@ -3293,6 +3299,7 @@
       if (o.peaOnly && notPea(r)) return 'hors PEA';
       if (r.dj != null || r.dayJump != null) return 'variation de plus de 40 % sur la dernière séance, à vérifier';
       if (r.vo != null && r.vo >= ES.VOL_WILD * 100) return '⚡ cours très volatil (' + r.vo + ' % par an) : deux fois plus de chutes, sans gain';
+      if (ES.shortBlocks(r)) return '🐻 ' + String(r.sh).replace('.', ',') + ' % du capital vendu à découvert (' + r.shn + ' fonds) : à Paris, −11,6 points à 6 mois et 28 % de chutes sur 2013-2026';
       if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return r.ratio >= 98 ? 'au plus haut (filtre « 2 à 10 % sous le plus haut »)' : 'plus de 10 % sous son plus haut';
       if (r.acc !== 'good') return 'comptes pas solides ou pas encore lus';
       if (r.sc !== 'strong') return r.sc === 'mid' ? 'pente seulement moyenne' : 'pente légère ou pas de tendance';
@@ -3376,6 +3383,7 @@
       parts.trend = f.trend === 'up' ? W.trend : f.trend === 'part' ? Math.round(W.trend / 3) : 0;
       if (f.trend) (f.trend === 'up' ? why : warn).push(f.trend === 'up' ? 'tendance de fond haussière (MM50 au-dessus de la MM200)' : f.trend === 'part' ? 'cours au-dessus de sa MM200, sans tendance confirmée' : 'cours sous sa moyenne 200 séances');
       if (f.dayJump != null) warn.push('variation de ' + (f.dayJump > 0 ? '+' : '') + f.dayJump + ' % sur la dernière séance : vérifier l\'information (ou une erreur de cours) avant d\'acheter');
+      if (x.short && x.short.pct >= ES.SHORT_MIN) warn.push('🐻 ' + String(x.short.pct).replace('.', ',') + ' % du capital vendu à découvert par ' + x.short.n + ' fonds : les sociétés en tendance ainsi visées ont fait moins bien que les autres (2013-2026)');
       if (f.vol52 != null && f.vol52 >= ES.VOL_WILD) warn.push('⚡ cours très volatil (' + Math.round(f.vol52 * 100) + ' % par an) : sur 29 ans, deux fois plus de chutes de 25 % pour aucun gain');
       if (f.volx != null && f.volx >= ES.VOL_SURGE) why.push('volumes ×' + String(f.volx).replace('.', ',') + ' sur 10 semaines par rapport à l\'année : des acheteurs s\'accumulent');
       if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
@@ -3397,7 +3405,7 @@
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, currency: x.currency || null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, short: x.short || null, currency: x.currency || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3463,7 +3471,7 @@
     var slim = (rows || []).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, _r: r };
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
     });
     return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };
