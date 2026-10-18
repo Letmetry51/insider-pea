@@ -40,7 +40,7 @@ POS = [r"remporte", r"\bwins?\b", r"d[ée]croche", r"nouveau contrat", r"new con
        r"acquisition", r"acquiert", r"acquires?", r"offre publique", r"takeover", r"beats? (estimates|expectations|consensus)", r"dépasse (les )?(attentes|consensus)", r"\bsurges?\b", r"bondit", r"s'envole"]
 # vocabulaire financier : un titre qui n'en contient aucun parle sans doute d'un homonyme (« Liga Endesa », « Monster Hunter »)
 FIN_RE = re.compile(r"bourse|\baction|cours|objectif|r[ée]sultat|chiffre d.affaires|contrat|commande|dividende|rachat|analyste|recommandation|b[ée]n[ée]fice|perte|"
-                    r"pr[ée]vision|trimestre|semestre|investisseur|capital|\\bfusion|acquisition|acqui|cession|c[èe]de|participation|\boffre|[ée]mission|obligat|notation|\bpdg\b|"
+                    r"pr[ée]vision|trimestre|semestre|investisseur|capital|\bfusion|acquisition|acqui|cession|c[èe]de|participation|\boffre|[ée]mission|obligat|notation|\bpdg\b|"
                     r"directeur|dirigeant|\bceo\b|\bcfo\b|stock|\bshares?\b|earnings|revenue|profit|results?|quarter|outlook|forecast|guidance|analyst|price target|upgrade|"
                     r"downgrade|\bdeal\b|merger|\border|contract|dividend|buy.?back|investor|\bipo\b|placement|financ|march[ée]|client|usine|plant|production|marge|margin|"
                     r"enqu[êe]te|amende|plainte|lawsuit|d[ée]mission|resign|faillite|insolv|avertissement|warning|cotation|cot[ée]e|valeur|titre|secteur|croissance|growth|sales|ventes",
