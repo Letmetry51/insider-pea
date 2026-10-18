@@ -99,6 +99,8 @@ COLS = {
     "pct": [r"net short position", r"posizione netta", r"position courte nette", r"posicion corta", r"posicion neta", r"netto short", r"^position$", r"^ratio$", r"positie", r"%", r"pourcentage"],
     "date": [r"position date", r"data della posizione", r"date de debut", r"date de la position", r"fecha", r"positiedatum", r"^datum$", r"date de position", r"^date$"],
     "end": [r"date de fin", r"end date", r"fin de publication"],
+    # nom de la société (facultatif) : sert à relier l'ISIN au catalogue quand la recherche Yahoo ne trouve rien
+    "issuer": [r"issuer", r"emetteur", r"emittente", r"emisor", r"emittent", r"uitgevende", r"name of company", r"denominazione", r"nombre de la"],
 }
 
 
@@ -161,7 +163,8 @@ def rows_to_records(rows, country, diag):
         e = day_of(r[idx["end"]]) if "end" in idx and idx["end"] < len(r) else None
         if p is None or p < 0 or p > 50:
             continue
-        out.append({"isin": isin, "holder": str(r[idx["holder"]] or "").strip()[:80], "pct": round(p, 2), "date": d, "end": e, "country": country})
+        iss = str(r[idx["issuer"]] or "").strip()[:80] if "issuer" in idx and idx["issuer"] < len(r) else ""
+        out.append({"isin": isin, "holder": str(r[idx["holder"]] or "").strip()[:80], "pct": round(p, 2), "date": d, "end": e, "country": country, "issuer": iss})
     return out
 
 
@@ -288,15 +291,16 @@ def fca_aggregated(src, diag):
     for k, r in enumerate(rows[:20]):
         h = [norm(c) for c in r]
         ci = next((j for j, c in enumerate(h) if "isin" in c), None)
+        cn = next((j for j, c in enumerate(h) if "name" in c or "company" in c), None)
         cp = next((j for j, c in enumerate(h) if ("short" in c or "%" in c or "position" in c) and "date" not in c and "isin" not in c and "name" not in c), None)
         cd = next((j for j, c in enumerate(h) if "date" in c), None)
         if ci is not None and cp is not None:
-            hdr = (k, ci, cp, cd)
+            hdr = (k, ci, cp, cd, cn)
             break
     diag.append({"country": "GB", "header": rows[hdr[0]] if hdr else (rows[0] if rows else None), "lines": len(rows)})
     if not hdr:
         raise RuntimeError("colonnes FCA non reconnues")
-    k0, ci, cp, cd = hdr
+    k0, ci, cp, cd, cn = hdr
     today = date.today().isoformat()
     recs = []
     for r in rows[k0 + 1:]:
@@ -306,28 +310,60 @@ def fca_aggregated(src, diag):
         pct = pct_of(r[cp])
         if not ISIN_RE.match(isin) or pct is None:
             continue
-        recs.append({"isin": isin, "holder": "Total publié par la FCA", "pct": pct, "date": (day_of(r[cd]) if cd is not None else None) or today, "country": "GB"})
+        recs.append({"isin": isin, "holder": "Total publié par la FCA", "pct": pct, "date": (day_of(r[cd]) if cd is not None else None) or today, "country": "GB",
+                     "issuer": str(r[cn]).strip()[:80] if cn is not None and cn < len(r) else ""})
     return recs
 
 
-def resolve_symbols(items, limit=900):
+LEGAL = {"sa", "se", "ag", "nv", "plc", "spa", "s", "p", "a", "kgaa", "co", "gmbh", "ab", "publ", "oyj", "asa", "as", "bv", "ltd", "limited", "inc", "the",
+         "societe", "anonyme", "aktiengesellschaft", "group", "groupe", "holding", "holdings", "sca", "cie", "et", "and", "de", "ord", "shs", "npv"}
+
+
+def name_key(s):
+    t = [w for w in norm(s).replace("%", " ").split() if w not in LEGAL]
+    return " ".join(t)
+
+
+def match_by_name(isin, name, catn):
+    """Repli quand Yahoo ne trouve pas l'ISIN : même nom (formes juridiques retirées), bourse du pays de l'ISIN de préférence."""
+    k = name_key(name)
+    if len(k) < 4:
+        return None
+    pref = {"FR": ".PA", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "DE": ".DE", "GB": ".L", "IE": ".L", "JE": ".L", "IM": ".L", "CH": ".SW", "LU": ".PA", "AT": ".VI", "FI": ".HE", "SE": ".ST", "DK": ".CO", "NO": ".OL", "PT": ".LS"}.get(isin[:2])
+    hits = [sym for sym, (ck, turn) in catn.items() if ck == k or (len(k) >= 8 and ck.startswith(k + " ")) or (len(ck) >= 8 and k.startswith(ck + " "))]
+    if not hits:
+        return None
+    hits.sort(key=lambda sym: (not (pref and sym.endswith(pref)), -(catn[sym][1] or 0)))
+    return hits[0]
+
+
+def resolve_symbols(items, limit=900, names=None):
     """ISIN des positions en vigueur → symbole Yahoo présent dans le catalogue (recherche Yahoo, résultats gardés en cache)."""
     try:
         cache = json.loads(SYMS.read_text(encoding="utf-8")) if SYMS.exists() else {}
     except Exception:
         cache = {}
-    cat = set()
+    cat, catn = set(), {}
     for f in (DATA / "societes").glob("*.json"):
         try:
-            cat |= set(json.loads(f.read_text(encoding="utf-8")).get("items", {}).keys())
+            for sym, x in json.loads(f.read_text(encoding="utf-8")).get("items", {}).items():
+                cat.add(sym)
+                catn[sym] = (name_key(x.get("name")), x.get("turnoverEur"))
         except Exception:
             pass
+    names = names or {}
     today = date.today().isoformat()
     live = sorted((i for i, l in items.items() if any(not p.get("to") or p["to"] > today for p in l) and i[:2] not in ("US", "CA", "JP", "AU", "ZA", "TH", "KY", "BM")),
                   key=lambda i: (i[:2] != "FR", i))  # Paris d'abord : seules ses positions écartent une société du 🎯
     # nouvelle recherche pour les ISIN restés sans symbole depuis plus d'une semaine (Yahoo peut avoir échoué ce soir-là)
     todo = [i for i in live if i not in cache or (cache.get(i) is None and cache.get("_tried", {}).get(i, "") < (date.today() - timedelta(days=7)).isoformat())][:limit]
+    for isin in live:  # repli par le nom pour les ISIN restés sans symbole (sans nouvel appel à Yahoo)
+        if cache.get(isin) is None and isin in cache and names.get(isin):
+            sym = match_by_name(isin, names[isin], catn)
+            if sym:
+                cache[isin] = sym
     if not todo:
+        SYMS.write_text(json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8")
         return cache
     try:
         import yfinance as yf
@@ -345,6 +381,8 @@ def resolve_symbols(items, limit=900):
                 q = []
         eq = [x.get("symbol") for x in q if x.get("quoteType") == "EQUITY" and x.get("symbol")]
         sym = next((s for s in eq if s in cat), None) or next((s for s in eq if s.endswith(pref.get(isin[:2], "§"))), None)
+        if not sym and names.get(isin):
+            sym = match_by_name(isin, names[isin], catn)
         cache[isin] = sym
         if not sym:
             cache.setdefault("_tried", {})[isin] = today
@@ -362,7 +400,7 @@ def main():
             prev = {}
     except Exception:
         pass
-    diag, all_items, sources = [], {}, {}
+    diag, all_items, sources, names = [], {}, {}, {}
     for cc, src in SOURCES.items():
         recs, note = [], None
         try:
@@ -390,6 +428,9 @@ def main():
                     raise RuntimeError("/".join(errors))
             if not recs:
                 raise RuntimeError("fichier vide ou colonnes non reconnues")
+            for r in recs:
+                if r.get("issuer"):
+                    names[r["isin"]] = r["issuer"]
             it = intervals(recs)
             if cc in ("DE", "GB"):  # fichier des positions en vigueur seulement : une position disparue est close à la date du jour
                 today = date.today().isoformat()
@@ -422,7 +463,7 @@ def main():
     out = {"generated_at": datetime.now(timezone.utc).isoformat(), "sources": sources, "items": all_items}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     try:
-        resolve_symbols(all_items)
+        resolve_symbols(all_items, names=names)
     except Exception as e:
         print("Positions vendeuses : symboles non résolus (%s)" % str(e)[:100])
     try:
