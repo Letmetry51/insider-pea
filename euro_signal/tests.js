@@ -1375,6 +1375,9 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
     const b = ks(rr.map((x) => x.key === 'F' ? Object.assign({}, x, { bp: 2 }) : x.key === 'B' ? Object.assign({}, x, { vx: 1.8 }) : x));
     const h = ks(rr.map((x) => x.key === 'F' ? Object.assign({}, x, { bp: 2, vx: 1.8 }) : x.key === 'A' ? Object.assign({}, x, { vx: 1.8 }) : x));
     ok(b === 'B,F,A,C' && h === 'F,A,B,C', '📣 bond sur gros volume : après 🔊, avant les autres ; 🔊 + 📣 en tête (' + b + ' / ' + h + ')'); }
+  { const rr = [r('A', 95), r('B', 94, { secEn: 'Industrials' }), r('M', 70, { sc: 'mid', secEn: 'Media', bp: 1 }), r('L', 60, { mom: 40, secEn: 'Tech', bp: 3, m10: -2 })];
+    const pk = ES.pickN(rr, { n: 10 }).picks, m = pk.find((x) => x.key === 'M'), l = pk.find((x) => x.key === 'L');
+    ok(pk[0].key === 'M' && m.pickTier === 0 && m.pickPromo && /repêchée/.test(m.pickWhy) && l.pickTier === 1 && !l.pickPromo, '📣 repêche la règle assouplie, sauf sous la moyenne 10 semaines (' + pk.map((x) => x.key + x.pickTier).join() + ')'); }
   { const W = []; for (let k = 0; k < 70; k++) W.push(100 + k * 0.3); W[66] = W[65] * 1.12; for (let k = 67; k < 70; k++) W[k] = W[66] * (1 + (k - 66) * 0.002);
     const V = []; for (let k = 0; k < 62; k++) V.push(1000); V[62 - 1 - 3] = 4000;
     const fb = ES.rankFeatures(null, W, V); ok(fb.bump === 3, 'bond sur gros volume repéré il y a 3 semaines (' + fb.bump + ')'); }

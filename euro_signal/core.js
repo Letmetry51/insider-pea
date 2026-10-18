@@ -3372,11 +3372,13 @@
       return null;
     };
     var TL = ['toutes les règles', 'règle assouplie : pente moyenne ou hausse de +30 à +60 %', 'règle assouplie : comptes mitigés ou pas encore lus'];
-    var cand = [[], [], []], rejected = [];
-    (rows || []).forEach(function (r) { var t = tierOf(r); if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
-    // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
-    var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
+    var cand = [[], [], []], rejected = [], promo = {};
     var bump = function (r) { return r.bp != null ? 1 : 0; };
+    var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
+    // 📣 repêche la règle assouplie (pente moyenne ou +30 à +60 %) : 1997-2026, au-dessus de la moyenne 10 semaines,
+    // assouplie avec 📣 +10,0 points à 6 mois contre +7,4 pour les règles strictes sans 📣, mieux dans chaque période (18/10/2026)
+    (rows || []).forEach(function (r) { var t = tierOf(r); if (t === 1 && bump(r) && !wait(r)) { t = 0; promo[r.key] = 1; } if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
+    // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
     // priorité : 🔊 avec 📣, puis 🔊, puis 📣 seul, puis les autres
     var pri = function (r) { return 2 * hot(r) + bump(r); };
     var ord = function (a, b) { return pri(b) - pri(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
@@ -3386,7 +3388,7 @@
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickBump: !!bump(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: (promo[r.key] ? TL[1] + ', repêchée par le 📣 bond sur gros volume' : TL[t]) + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickBump: !!bump(r), pickPromo: !!promo[r.key], pickWait: !!wait(r), pickNotPea: notPea(r) }));
       });
     };
     take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);

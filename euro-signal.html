@@ -3873,11 +3873,13 @@ details.pos summary{font-size:1rem}
       return null;
     };
     var TL = ['toutes les règles', 'règle assouplie : pente moyenne ou hausse de +30 à +60 %', 'règle assouplie : comptes mitigés ou pas encore lus'];
-    var cand = [[], [], []], rejected = [];
-    (rows || []).forEach(function (r) { var t = tierOf(r); if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
-    // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
-    var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
+    var cand = [[], [], []], rejected = [], promo = {};
     var bump = function (r) { return r.bp != null ? 1 : 0; };
+    var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
+    // 📣 repêche la règle assouplie (pente moyenne ou +30 à +60 %) : 1997-2026, au-dessus de la moyenne 10 semaines,
+    // assouplie avec 📣 +10,0 points à 6 mois contre +7,4 pour les règles strictes sans 📣, mieux dans chaque période (18/10/2026)
+    (rows || []).forEach(function (r) { var t = tierOf(r); if (t === 1 && bump(r) && !wait(r)) { t = 0; promo[r.key] = 1; } if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
+    // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
     // priorité : 🔊 avec 📣, puis 🔊, puis 📣 seul, puis les autres
     var pri = function (r) { return 2 * hot(r) + bump(r); };
     var ord = function (a, b) { return pri(b) - pri(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
@@ -3887,7 +3889,7 @@ details.pos summary{font-size:1rem}
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickBump: !!bump(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: (promo[r.key] ? TL[1] + ', repêchée par le 📣 bond sur gros volume' : TL[t]) + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickBump: !!bump(r), pickPromo: !!promo[r.key], pickWait: !!wait(r), pickNotPea: notPea(r) }));
       });
     };
     take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);
@@ -5316,7 +5318,7 @@ details.pos summary{font-size:1rem}
     var h = '<details class="card fold pick3" data-k="pick3"><summary>🎯 Momentum <span class="muted small">· choix et règles</span></summary>';
     h += '<div class="segs" role="group" aria-label="Nombre de sociétés">' + [3, 5, 10].map(function (k) { return '<button class="' + (k === nP ? 'on' : '') + '" aria-pressed="' + (k === nP) + '" data-a="pickN" data-v="' + k + '">' + k + ' sociétés</button>'; }).join('') + '</div>';
     h += '<div class="fchips p3opt"><button class="fchip' + (near ? ' on' : '') + '" aria-pressed="' + near + '" data-a="rfQuick" data-v="near" title="Sur 29 ans, parmi ces sociétés : aussi bon qu\'au plus haut (+5 à +10 points à 6 mois), mêmes risques">' + (near ? '☑' : '☐') + ' ↘️ Seulement 2 à 10 % sous le plus haut</button><button class="fchip' + (peaOnly ? ' on' : '') + '" aria-pressed="' + peaOnly + '" data-a="rfQuick" data-v="pea">' + (peaOnly ? '☑' : '☐') + ' 🇪🇺 PEA seulement</button></div>';
-    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord · 2 par secteur · sans ⚡ ni 🐻</p>' +
+    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord (📣 repêche pente moyenne ou +30 %) · 2 par secteur · sans ⚡ ni 🐻</p>' +
       xpi(P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir (au moins 3 M€ échangés par jour' + (peaOnly ? ', PEA seulement' : ', hors PEA compris') + (near ? ', 2 à 10 % sous le plus haut' : '') + '). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l\'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse.');
     if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
     if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
@@ -6948,6 +6950,7 @@ details.pos summary{font-size:1rem}
         ['Filtres du bouton 🎯, sans les comptes (positif dans chaque période)', '—', '—', '+6,7'],
         ['<b>… avec 🔊 volumes ≥ ×1,5</b> (positif dans chaque période ; sans hausse de volume : +5,8)', '—', '—', '<b>+10,2</b>'],
         ['<b>… 🔊 + 📣 bond sur gros volume</b> (semaine ≥ +8 % à 3× le volume ; 🔊 sans bond : +9,2 ; net depuis 2009, nul avant)', '—', '—', '<b>+13,2</b>'],
+        ['<b>… pente moyenne ou +30-60 % mais 📣</b> (repêchée ; sans 📣 : +4,7 ; règles strictes sans 📣 : +7,4 ; mieux dans chaque période)', '—', '—', '<b>+10,0</b>'],
         ['<b>Classement + 🔊 volumes ×2</b> (positif dans chaque période ; sans volumes en hausse : +2,3)', '—', '—', '<b>+7,7</b>'],
         ['Classement après une baisse du marché de 20 % sur un an (krach du momentum)', '—', '—', '−12,5'],
         ['Filtres 🎯 vendues à découvert, 🐻 ≥ 0,5 % (2013-2026, Paris et Londres ; sans : +8,6)', '—', '—', '−2,1'],
