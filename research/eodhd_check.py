@@ -16,6 +16,18 @@ lines = []
 def log(s): print(s, flush=True); lines.append(s)
 if not KEY:
     log("Secret EODHD_API_KEY absent : rien à vérifier."); (OUT / "eodhd.txt").write_text("\n".join(lines)); sys.exit(0)
+# 1. la clé est-elle valide ? (compte : formule et limite d'appels, jamais la clé)
+try:
+    u = requests.get("https://eodhd.com/api/user", params={"api_token": KEY, "fmt": "json"}, timeout=60)
+    if u.status_code == 200:
+        j = u.json(); log("Clé valide : formule « %s », %s appels par jour, %s utilisés aujourd'hui" % (j.get("subscriptionType"), j.get("dailyRateLimit"), j.get("apiRequests")))
+    else:
+        log("Compte : refusé (HTTP %d) — clé incorrecte (espace, guillemets, clé de démonstration ?)" % u.status_code)
+    e = requests.get("https://eodhd.com/api/eod/AAPL.US", params={"api_token": KEY, "fmt": "json", "from": "2026-10-01"}, timeout=60)
+    log("Essai de cours simple (AAPL.US) : %s" % ("ok, %d séances" % len(e.json()) if e.status_code == 200 else "refusé (HTTP %d)" % e.status_code))
+    k = KEY.strip(); log("Longueur de la clé : %d caractères%s" % (len(k), " (espaces autour retirés)" if k != os.environ.get("EODHD_API_KEY", "") else ""))
+except Exception as ex:
+    log("Contrôle du compte : erreur %s" % type(ex).__name__)
 tot = 0; sample = None
 for code, name in EX.items():
     try:
