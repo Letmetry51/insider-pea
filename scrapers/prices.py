@@ -21,6 +21,11 @@ from pathlib import Path
 import requests
 import yfinance as yf
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import yahoo  # noqa: E402  (lien Yahoo robuste : nouvelles tentatives, compteurs)
+
+yahoo.configure()
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 LATEST = DATA / "latest.json"
@@ -295,6 +300,8 @@ def main():
         print("data/latest.json absent : aucun cours collecté")
         return 0
     isins, names, paid = set(), {}, {}
+    prev_items = (load(OUT, {}) or {}).get("items") or {}
+    carried_n = 0
 
     def num(v, loc=None):
         if isinstance(v, (int, float)):
@@ -381,11 +388,17 @@ def main():
                 time.sleep(0.2)
                 continue
         try:
-            h = history(info["ticker"], "5y")
+            h = yahoo.call(lambda: history(info["ticker"], "5y"), tries=3, section="cours Euro Signal")
         except Exception as e:
             print(f"  [{n}] {isin} {info['ticker']} : erreur {str(e)[:80]}")
             h = None
         if not h:
+            # Yahoo muet ce soir pour ce titre : cours de la veille s'ils datent de moins de 10 jours (fichier gardé par le cache GitHub)
+            old = prev_items.get(isin)
+            if old and old.get("rows") and old["rows"][-1][0] >= (today - timedelta(days=10)).isoformat():
+                items[isin] = dict(old, stale=True)
+                carried_n += 1
+                continue
             unresolved.append(isin)
             continue
         items[isin] = {"ticker": info["ticker"], "exchange": info.get("exchange"), "name": info.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "weekly": h.get("weekly") or [], "method": info.get("method")}
@@ -422,7 +435,10 @@ def main():
     print(f"Taux de change : {len(fx)} devises")
     OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "fx": fx, "unresolved": unresolved}), encoding="utf-8")
     TICKERS.write_text(json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
-    print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours")
+    print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours, {carried_n} repris de la veille")
+    yahoo.carried("cours Euro Signal", carried_n)
+    yahoo._stat("cours Euro Signal", requested=len(isins), received=len(items) - carried_n, missing=len(unresolved))
+    yahoo.write_diag()
     return 0
 
 

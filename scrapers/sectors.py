@@ -549,41 +549,13 @@ def revision_breadth(est, groups):
 
 
 # --------------------------------------------------------------------------- cours
-def download_weekly(tickers, years=8):
-    import yfinance as yf
-    closes, vols = [], []
-    tick = sorted(set(tickers))
-    for i in range(0, len(tick), 80):
-        batch = tick[i:i + 80]
-        df = None
-        for attempt in range(3):
-            try:
-                df = yf.download(batch, period=f"{years}y", interval="1wk", auto_adjust=True, progress=False, threads=True, group_by="column")
-                break
-            except Exception as e:
-                log(f"  lot {i}: erreur {str(e)[:80]}, nouvel essai")
-                time.sleep(5)
-        if df is None or df.empty:
-            continue
-        if isinstance(df.columns, pd.MultiIndex):
-            closes.append(df["Close"])
-            if "Volume" in df.columns.get_level_values(0):
-                vols.append(df["Volume"])
-        else:
-            closes.append(df[["Close"]].rename(columns={"Close": batch[0]}))
-            if "Volume" in df.columns:
-                vols.append(df[["Volume"]].rename(columns={"Volume": batch[0]}))
-        time.sleep(1)
-    def tidy(frames):
-        if not frames:
-            return pd.DataFrame()
-        X = pd.concat(frames, axis=1)
-        X = X.loc[:, ~X.columns.duplicated()]
-        X.index = pd.to_datetime(X.index).tz_localize(None).normalize()
-        return X.sort_index()
-    W, V = tidy(closes), tidy(vols)
+def download_weekly(tickers, years=8, section="hebdomadaire"):
+    """Cours hebdomadaires (clôture et volume) : téléchargement robuste (scrapers/yahoo.py), une ligne par vendredi."""
+    import yahoo
+    fr = yahoo.download(tickers, section, period=f"{years}y", interval="1wk")
+    W, V = fr["Close"], fr["Volume"]
     # une ligne par semaine (vendredi), quelle que soit la date de la barre renvoyée par chaque place
-    return W.resample("W-FRI").last(), (V.resample("W-FRI").sum(min_count=1) if not V.empty else V)
+    return (W.resample("W-FRI").last() if not W.empty else W), (V.resample("W-FRI").sum(min_count=1) if not V.empty else V)
 
 
 def to_eur(W, uni):
@@ -608,6 +580,21 @@ def fetch_prices():
     t0 = time.time()
     W, V = download_weekly(list(allu) + us + [BENCH, US_BENCH] + list(FX_PAIRS.values()))
     W = to_eur(W, allu)
+    # titres absents ce soir : séries de la veille (fichier gardé d'un soir à l'autre par le cache GitHub), réalignées
+    if WEEKLY.exists():
+        try:
+            W0 = pd.read_csv(WEEKLY, index_col=0, parse_dates=True, compression="gzip").sort_index()
+            lost = [c for c in W0.columns if c not in W.columns or W[c].notna().sum() < 30]
+            if lost and not W.empty:
+                W = W.drop(columns=[c for c in lost if c in W.columns]).join(W0[lost].reindex(W.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
+                import yahoo
+                yahoo.carried("hebdomadaire", len(lost))
+                log(f"Cours hebdomadaires : {len(lost)} séries reprises de la veille (absentes de Yahoo ce soir)")
+            elif W.empty:
+                W = W0
+                log("Cours hebdomadaires : Yahoo indisponible, fichier de la veille conservé")
+        except Exception as e:
+            log(f"Cours hebdomadaires de la veille illisibles : {str(e)[:80]}")
     miss = [s for s in list(uni) + us + [BENCH] if s not in W.columns or W[s].notna().sum() < 30]
     W.to_csv(WEEKLY, compression="gzip", float_format="%.5g")
     if not V.empty:
@@ -1114,30 +1101,11 @@ def report(res):
 
 # --------------------------------------------------------------------------- tableau de bord (classement du jour)
 def daily_closes(tickers):
-    """Clôtures journalières sur un an, en devise locale, ajustées (lots de 80 titres) : DataFrame dates × titres."""
-    import yfinance as yf
-    frames = []
-    tick = sorted(set(tickers))
-    for i in range(0, len(tick), 80):
-        batch = tick[i:i + 80]
-        for attempt in range(3):
-            try:
-                df = yf.download(batch, period="1y", interval="1d", auto_adjust=True, progress=False, threads=True, group_by="column")
-                break
-            except Exception as e:
-                log(f"  cours journaliers, lot {i} : erreur {str(e)[:80]}, nouvel essai")
-                df = None
-                time.sleep(5)
-        if df is None or df.empty:
-            continue
-        frames.append(df["Close"] if isinstance(df.columns, pd.MultiIndex) else df[["Close"]].rename(columns={"Close": batch[0]}))
-        time.sleep(1)
-    if not frames:
-        return pd.DataFrame()
-    X = pd.concat(frames, axis=1, sort=True)
-    X = X.loc[:, ~X.columns.duplicated()]
-    X.index = pd.to_datetime(X.index).tz_localize(None).normalize()
-    X = X[~X.index.duplicated(keep="last")].sort_index()
+    """Clôtures journalières sur un an, en devise locale, ajustées : DataFrame dates × titres (téléchargement robuste)."""
+    import yahoo
+    X = yahoo.download(tickers, "journalier", period="1y", interval="1d", fields=("Close",))["Close"]
+    if X.empty:
+        return X
     return X.where(X > 0)
 
 
@@ -1187,7 +1155,7 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         miss = [x for x in cat_only if x not in Wl.columns]
         if miss:
             t0 = time.time()
-            W2, V2 = download_weekly(miss, years=5)  # cours bruts en devise locale
+            W2, V2 = download_weekly(miss, years=5, section="hebdo catalogue")  # cours bruts en devise locale
             if not W2.empty:
                 W2 = clean_prices(W2.where(W2 > 0))
                 Wl = Wl.join(W2.reindex(Wl.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
@@ -1224,8 +1192,52 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         index.append([sym, rec.get("name"), rec.get("country"), round(cap / 1e6) if cap else None, rec.get("sector"), g,
                       "t" if gi.get("trending") else "e" if gi.get("emerging") else "", 1 if rec.get("pea") else 0, rec.get("isin")])
     gen = datetime.now(timezone.utc).isoformat()
+    wd_new = [min(d.date(), date.today()).isoformat() for d in Wl.index]
+    dd_new = [d.strftime("%Y-%m-%d") for d in D.index]
+    # Yahoo défaillant pour certains titres ce soir : on reprend leurs cours de la veille (réalignés sur les nouvelles dates)
+    prev = {}
+    for f in sorted(CO_DIR.glob("*.json")) if CO_DIR.exists() else []:
+        sh = read_json(f, {})
+        for sym, rec in (sh.get("items") or {}).items():
+            prev[sym] = (rec, sh.get("wDates") or [], sh.get("dDates") or [])
+    def realign(vals, old_dates, new_dates):
+        m = {d: v for d, v in zip(old_dates, vals or [])}
+        out = [m.get(d) for d in new_dates]
+        return out if sum(v is not None for v in out) >= 20 else None
+    carried = 0
+    for sym, rec in items.items():
+        if sym not in prev:
+            continue
+        old, owd, odd = prev[sym]
+        took = False
+        if "w" not in rec and old.get("w"):
+            v = realign(old["w"], owd, wd_new)
+            if v:
+                rec["w"] = v; took = True
+        if fetch_daily and "d" not in rec and old.get("d") and dd_new:
+            v = realign(old["d"], odd, dd_new)
+            if v:
+                rec["d"] = v; took = True
+        if "wv" not in rec and old.get("wv"):
+            rec["wv"] = old["wv"]
+        if took:
+            rec["stale"] = True
+            carried += 1
+    if carried:
+        log(f"Fiches sociétés : cours de la veille repris pour {carried} titres absents de Yahoo ce soir")
+    try:
+        import yahoo
+        yahoo.carried("fiches sociétés", carried)
+    except Exception:
+        pass
+    # garde-fou : si Yahoo a répondu pour moins de 60 % des titres qui avaient des cours la veille, on garde les fiches de la veille
+    n_prev = sum(1 for r, _, _ in prev.values() if r.get("d"))
+    n_new = sum(1 for r in items.values() if r.get("d") and not r.get("stale"))
+    if fetch_daily and n_prev >= 200 and n_new < 0.6 * n_prev:
+        log(f"Fiches sociétés NON écrites : Yahoo n'a renvoyé de cours journaliers que pour {n_new} titres (veille : {n_prev}) ; fiches de la veille conservées")
+        return
     common = {"format": "euro-signal-sector-companies", "generatedAt": gen, "groups": len(out_groups),
-              "wDates": [min(d.date(), date.today()).isoformat() for d in Wl.index], "dDates": [d.strftime("%Y-%m-%d") for d in D.index]}
+              "wDates": wd_new, "dDates": dd_new}
     CO_DIR.mkdir(parents=True, exist_ok=True)
     shards = [dict(common, shard=k, items={}) for k in range(CO_SHARDS)]
     for sym, rec in items.items():
@@ -1416,6 +1428,11 @@ def main():
             except Exception as e:  # le classement du jour ne dépend pas du catalogue
                 log(f"Catalogue non mis à jour : {str(e)[:160]}")
         dashboard(fetch_daily=not a.no_daily and not a.synthetic)
+    try:
+        import yahoo
+        yahoo.write_diag()
+    except Exception:
+        pass
     return 0
 
 
