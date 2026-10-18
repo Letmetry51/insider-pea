@@ -887,8 +887,11 @@ export function build(opts = {}) {
     const shortIsinOfSym = {}; { const m = readJSON(path.join(DATA, 'shorts-symbols.json'), {}); Object.keys(isObj(m) ? m : {}).forEach((is) => { const t = m[is]; if (typeof t === 'string' && !shortIsinOfSym[t]) shortIsinOfSym[t] = is; }); }
     const shortOf = (sym, isin) => {
       const is = isin || shortIsinOfSym[sym]; if (!is || !shortsList[is]) return null;
-      const s0 = ES.shortInfo(shortsList[is], today); if (!s0) return null;
-      const cur = shortsList[is].filter((p) => p.pct >= 0.5 && (!p.from || p.from <= today) && (!p.to || p.to > today));
+      // le total de la FCA (Royaume-Uni) recoupe les déclarations nominatives des autres régulateurs : il ne sert que s'il est seul
+      const live = (l) => l.filter((p) => p.pct >= 0.5 && (!p.from || p.from <= today) && (!p.to || p.to > today));
+      const all = shortsList[is], eu = all.filter((p) => p.country !== 'GB'), lst = live(eu).length ? eu : all;
+      const s0 = ES.shortInfo(lst, today); if (!s0) return null;
+      const cur = live(lst);
       return { pct: s0.totalPct, n: s0.holders, cc: (cur[0] && cur[0].country) || is.slice(0, 2) };
     };
     const histTk = readJSON(path.join(F.history, 'tickers.json'), {});
