@@ -1365,6 +1365,11 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   { const rr = rows.map((x) => x.key === 'A' ? Object.assign({}, x, { m10: -3.2 }) : Object.assign({}, x, { m10: 4 })); const pw = ES.pickN(rr, { n: 10 });
     const ia = pw.picks.findIndex((x) => x.key === 'A');
     ok(ia > -1 && pw.picks[ia].pickWait && pw.picks.slice(ia + 1).every((x) => x.pickTier > pw.picks[ia].pickTier || x.pickWait || x.pickHot) && ES.pickEntry({ m10: -3.2 }).k === 'wait' && ES.pickEntry({ m10: 4 }).k === 'buy', '⏸ sous la moyenne 10 semaines : placée après les autres du même palier, conseil « attendre »'); }
+  { const mk = (k, pb, f9, extra) => Object.assign({ key: k, name: k, liq: 2e6, pb, f9, out: [], mom: 5, sector: 'S' + k }, extra || {});
+    const rr = []; for (let k = 0; k < 40; k++) rr.push(mk('X' + k, 3 + k / 10, 5));
+    rr.push(mk('V1', 0.6, 8), mk('V2', 0.9, 9), mk('V3', 0.7, 6), mk('V4', 0.5, 8, { out: ['dernier exercice en perte'] }), mk('V5', 0.8, 8, { mom: -55 }), mk('V6', 0.8, 8, { out: ['cours parmi le tiers le plus faible du marché sur 12 mois'] }));
+    const pv = ES.pickValue(rr).picks.map((x) => x.key);
+    ok(pv.join() === 'V2,V1,V6', '💎 valeur : prix bas, F-score ≥ 7 (le meilleur d\'abord), sans perte ni chute de plus de 40 %, momentum faible accepté (' + pv.join() + ')'); }
   const pvw = ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x));
   ok(!pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)), '⚡ cours très volatil (≥ 80 %/an) : jamais proposé, raison donnée');
   ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 60 }) : x)).picks.some((x) => x.key === 'A'), 'volatilité de 60 %/an : acceptée');

@@ -3290,6 +3290,32 @@
     return r.m10 < 0 ? { k: 'wait', icon: '⏸️', label: 'Attendre qu\'elle repasse au-dessus de sa moyenne 10 semaines (' + String(r.m10).replace('.', ',') + ' %)', short: 'attendre (sous sa moy. 10 sem.)' }
       : { k: 'buy', icon: '✅', label: 'Achat possible : au-dessus de sa moyenne 10 semaines (+' + String(r.m10).replace('.', ',') + ' %)', short: 'achat possible' };
   };
+  /**
+   * 💎 Valeur (18/10/2026) : complément du 🎯. Momentum et valeur évoluent en sens inverse (corrélation −0,32, facteurs européens de
+   * Kenneth French 1990-2026) : 70 % momentum + 30 % valeur a gardé +8,5 % par an d'avantage (contre +10,3) en ramenant la plus grosse
+   * perte de −46 % à −30 %. Règles (Piotroski 2000) : prix bas par rapport aux fonds propres (tiers le moins cher des sociétés liquides),
+   * comptes solides (F-score ≥ 7), pas de perte ni de bilan en détresse, pas de chute de plus de 40 % sur un an, ni ⚡ ni 🐻 (Paris),
+   * au moins 1 M€ échangés par jour ; meilleur F-score puis prix le plus bas, 2 par secteur. Lignes publiées (mom en %, pb, f9, liq).
+   */
+  ES.pickValue = function (rows, opt) {
+    var o = Object.assign({ n: 10, perSec: 2, fMin: 7, liqMin: 1e6, momMin: -40 }, opt || {});
+    var liq = (rows || []).filter(function (r) { return (r.liq || 0) >= o.liqMin && r.pb > 0; });
+    var pbs = liq.map(function (r) { return r.pb; }).sort(function (a, b) { return a - b; });
+    if (pbs.length < 30) return { picks: [], cut: null, pool: 0 };
+    var cut = pbs[Math.floor(pbs.length / 3)];
+    var bad = /perte|détresse|dégradation|saut de cours|moins d'un an|cours figé|peu liquide/;
+    var pool = liq.filter(function (r) {
+      if (r.pb > cut || r.f9 == null || r.f9 < o.fMin) return false;
+      if ((r.out || []).some(function (t) { return bad.test(t); })) return false;
+      if (o.peaOnly && r.pea === false) return false;
+      if (r.mom != null && r.mom < o.momMin) return false;
+      if (r.dj != null || (r.vo != null && r.vo >= ES.VOL_WILD * 100) || ES.shortBlocks(r)) return false;
+      return true;
+    }).sort(function (a, b) { return b.f9 - a.f9 || a.pb - b.pb; });
+    var picks = [], seen = {};
+    pool.forEach(function (r) { var sc = r.secEn || r.sector || '?'; if (picks.length >= o.n || (seen[sc] || 0) >= o.perSec) return; seen[sc] = (seen[sc] || 0) + 1; picks.push(r); });
+    return { picks: picks, cut: cut, pool: pool.length };
+  };
   ES.SHORT_MIN = 0.5; ES.SHORT_EXCLUDE = { FR: true };
   ES.shortBlocks = function (r) { return r && r.sh != null && r.sh >= ES.SHORT_MIN && !!ES.SHORT_EXCLUDE[r.shc]; };
   /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
@@ -3586,7 +3612,9 @@
     return res;
   };
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
-  ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track) {
+  ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track, values) {
+    values = values || [];
+    var vtxt = values.length ? '💎 Complément Valeur (bon marché, comptes solides ; dosage conseillé 70 % 🎯 / 30 % 💎) : ' + values.map(function (v) { return v.name + ' (F-score ' + v.f9 + ', cours/fonds propres ' + String(v.pb).replace('.', ',') + ')'; }).join(' · ') + '.' : '';
     var n = items.length, R = cfg.rank;
     var ent = function (x) { return ES.pickEntry({ m10: x.ma10 != null ? x.ma10 : x.m10 }); };
     var nBuy = items.filter(function (x) { var e = ent(x); return !e || e.k === 'buy'; }).length;
@@ -3601,7 +3629,7 @@
       return (k + 1) + '. ' + (x.isNew ? '[NOUVEAU] ' : '') + x.name + (x.sector ? ' (' + x.sector + ')' : '') + ' — ' + x.note + '/100' + (ent(x) ? '\n   ' + ent(x).icon + ' ' + ent(x).label : '') +
         '\n   Pourquoi : ' + x.why.slice(0, 4).map(cap).join(' · ') + (w.length ? '\n   Attention : ' + w.map(cap).join(' · ') : '') + (x.link ? '\n   Fiche : ' + x.link : '');
     }).join('\n\n') : 'Aucune société ne dépasse le seuil cette semaine. Mieux vaut ne rien faire que forcer un choix.') +
-      '\n\n' + intro + '\nÀ étudier, pas un ordre d\'achat. Éligibilité PEA à vérifier chez votre courtier.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
+      (vtxt ? '\n\n' + vtxt : '') + '\n\n' + intro + '\nÀ étudier, pas un ordre d\'achat. Éligibilité PEA à vérifier chez votre courtier.' + (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
     var btn = function (href, label) { return '<a href="' + esc(href) + '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">' + label + '</a>'; };
     var html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">Sélection de la semaine</h2>' +
       (tr ? '<p style="margin:0 0 12px;font-size:13px;color:#3D4641">📈 ' + esc(tr) + '</p>' : '') +
@@ -3616,6 +3644,7 @@
           (w.length ? '<div style="margin:6px 0 0;color:#8a3a00"><b>Attention</b><ul style="margin:2px 0 0 18px;padding:0">' + w.map(function (t) { return '<li>' + esc(cap(t)) + '</li>'; }).join('') + '</ul></div>' : '') +
           (x.link ? '<div style="margin-top:10px">' + btn(x.link, 'Voir la fiche') + '</div>' : '') + '</div>';
       }).join('') : '<p><b>Aucune société ne dépasse le seuil cette semaine.</b> Mieux vaut ne rien faire que forcer un choix.</p>') +
+      (vtxt ? '<div style="border:1px solid #d9d2ee;background:#f4f1fb;border-radius:8px;padding:10px 14px;margin:10px 0"><b>💎 Complément Valeur</b> <span style="color:#55615c;font-size:12px">(dosage conseillé 70 % 🎯 / 30 % 💎)</span><ul style="margin:4px 0 0 18px;padding:0">' + values.map(function (v) { return '<li>' + esc(v.name) + ' — F-score ' + v.f9 + '/9, cours/fonds propres ' + esc(String(v.pb).replace('.', ',')) + '</li>'; }).join('') + '</ul></div>' : '') +
       '<p style="color:#55615c;font-size:12px;margin-top:14px">' + esc(intro) + '<br>À étudier, pas un ordre d\'achat. Éligibilité PEA à vérifier chez votre courtier.</p>' +
       (dashUrl ? '<p>' + btn(dashUrl, 'Ouvrir le tableau de bord') + ' &nbsp;<a href="' + esc(dashUrl) + '#aide" style="color:#0D6A56;font-size:13px">Méthode et preuves</a></p>' : '') + '</div>';
     return { subject: subject, text: text, html: html };
