@@ -310,7 +310,7 @@ def fca_aggregated(src, diag):
     return recs
 
 
-def resolve_symbols(items, limit=200):
+def resolve_symbols(items, limit=900):
     """ISIN des positions en vigueur → symbole Yahoo présent dans le catalogue (recherche Yahoo, résultats gardés en cache)."""
     try:
         cache = json.loads(SYMS.read_text(encoding="utf-8")) if SYMS.exists() else {}
@@ -323,8 +323,10 @@ def resolve_symbols(items, limit=200):
         except Exception:
             pass
     today = date.today().isoformat()
-    live = sorted(i for i, l in items.items() if any(not p.get("to") or p["to"] > today for p in l) and i[:2] not in ("US", "CA", "JP", "AU", "ZA", "TH", "KY", "BM"))
-    todo = [i for i in live if i not in cache][:limit]
+    live = sorted((i for i, l in items.items() if any(not p.get("to") or p["to"] > today for p in l) and i[:2] not in ("US", "CA", "JP", "AU", "ZA", "TH", "KY", "BM")),
+                  key=lambda i: (i[:2] != "FR", i))  # Paris d'abord : seules ses positions écartent une société du 🎯
+    # nouvelle recherche pour les ISIN restés sans symbole depuis plus d'une semaine (Yahoo peut avoir échoué ce soir-là)
+    todo = [i for i in live if i not in cache or (cache.get(i) is None and cache.get("_tried", {}).get(i, "") < (date.today() - timedelta(days=7)).isoformat())][:limit]
     if not todo:
         return cache
     try:
@@ -344,6 +346,8 @@ def resolve_symbols(items, limit=200):
         eq = [x.get("symbol") for x in q if x.get("quoteType") == "EQUITY" and x.get("symbol")]
         sym = next((s for s in eq if s in cat), None) or next((s for s in eq if s.endswith(pref.get(isin[:2], "§"))), None)
         cache[isin] = sym
+        if not sym:
+            cache.setdefault("_tried", {})[isin] = today
         found += 1 if sym else 0
     SYMS.write_text(json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8")
     print("Positions vendeuses : %d ISIN recherchés sur Yahoo, %d reliés au catalogue (cache : %d)" % (len(todo), found, len(cache)))
