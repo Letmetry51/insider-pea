@@ -1362,6 +1362,9 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   { const log = { '2026-W30': { date: '2026-07-20', b0: 100, b3: 105, b6: 110, items: [{ key: 'A', p0: 10, p3: 12, p6: 13 }, { key: 'B', p0: 20, p3: 18, p6: 22 }] }, '2026-W42': { date: '2026-10-12', b0: 110, items: [{ key: 'A', p0: 13 }] } };
     const tr = ES.pickTrack(log, { A: 14.3, B: 22 }, 121);
     ok(tr.m6.n === 2 && tr.m6.avg === 20 && tr.m6.bench === 10 && tr.m6.beat === 50 && tr.m3.avg === 5 && tr.open.n === 1 && tr.open.avg === 10 && tr.open.bench === 10 && tr.since === '2026-07-20', 'suivi réel du 🎯 : moyennes à 3 et 6 mois, indice, part gagnante'); }
+  { const rr = rows.map((x) => x.key === 'A' ? Object.assign({}, x, { m10: -3.2 }) : Object.assign({}, x, { m10: 4 })); const pw = ES.pickN(rr, { n: 10 });
+    const ia = pw.picks.findIndex((x) => x.key === 'A');
+    ok(ia > -1 && pw.picks[ia].pickWait && pw.picks.slice(ia + 1).every((x) => x.pickTier > pw.picks[ia].pickTier || x.pickWait || x.pickHot) && ES.pickEntry({ m10: -3.2 }).k === 'wait' && ES.pickEntry({ m10: 4 }).k === 'buy', '⏸ sous la moyenne 10 semaines : placée après les autres du même palier, conseil « attendre »'); }
   const pvw = ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x));
   ok(!pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)), '⚡ cours très volatil (≥ 80 %/an) : jamais proposé, raison donnée');
   ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 60 }) : x)).picks.some((x) => x.key === 'A'), 'volatilité de 60 %/an : acceptée');
