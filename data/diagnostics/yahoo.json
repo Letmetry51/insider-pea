@@ -1,6 +1,6 @@
 {
  "date": "2026-10-18",
- "at": "2026-10-18T10:57:55.754704+00:00",
+ "at": "2026-10-18T11:41:08.235180+00:00",
  "yfinance": "1.7.0",
  "sections": {
   "cours Euro Signal": {
@@ -22,7 +22,7 @@
   "journalier": {
    "requested": 3832,
    "received": 3832,
-   "recovered": 0,
+   "recovered": 1,
    "missing": 0,
    "errors": 0,
    "carried": 0

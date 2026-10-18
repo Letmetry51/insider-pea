@@ -48,7 +48,7 @@ OK     variations de plus de 40 % sur la dernière séance (à vérifier, jamais
 OK     Yahoo (cours Euro Signal) : 750/815 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
 ALERTE Yahoo (cours Euro Signal) : 8 % des titres manquants ce soir
 OK     Yahoo (hebdomadaire) : 1003/1003 reçus, 0 récupérés en 2e passe, 13 repris de la veille, 0 erreurs passagères
-OK     Yahoo (journalier) : 3832/3832 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (journalier) : 3832/3832 reçus, 1 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
 OK     Yahoo (hebdo catalogue) : 2845/2863 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
 OK     sociétés suivies : 749
 OK     cours : 687
@@ -56,12 +56,12 @@ OK     graphiques (cours 1 an) : 687
 OK     comptes annuels : 671
 OK     valeur comptable : 645
 OK     secteur : 667
-OK     liquidité : 679 (+1 depuis le calcul précédent)
+OK     liquidité : 679
 OK     plan d'entrée : 665
 OK     déclarations (3 mois) : 3279
 OK     sources à jour : 4
-OK     catalogue des sociétés cotées : 3832 (-15 depuis le calcul précédent)
-OK     classement (sociétés classées) : 689 (-10 depuis le calcul précédent)
-OK     classement (comptes lus) : 1142 (-2 depuis le calcul précédent)
+OK     catalogue des sociétés cotées : 3832
+OK     classement (sociétés classées) : 689
+OK     classement (comptes lus) : 1142
 
 0 échec(s), 1 alerte(s)
