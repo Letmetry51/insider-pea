@@ -3614,7 +3614,7 @@
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track, values) {
     values = values || [];
-    var vtxt = values.length ? '💎 Complément Valeur (bon marché, comptes solides ; dosage conseillé 70 % 🎯 / 30 % 💎) : ' + values.map(function (v) { return v.name + ' (F-score ' + v.f9 + ', cours/fonds propres ' + String(v.pb).replace('.', ',') + ')'; }).join(' · ') + '.' : '';
+    var vtxt = values.length ? '💎 Et 2 sociétés Valeur (bon marché, comptes solides ; 5 🎯 + 2 💎 ≈ 70/30) : ' + values.map(function (v) { return v.name + ' (F-score ' + v.f9 + ', cours/fonds propres ' + String(v.pb).replace('.', ',') + ')'; }).join(' · ') + '.' : '';
     var n = items.length, R = cfg.rank;
     var ent = function (x) { return ES.pickEntry({ m10: x.ma10 != null ? x.ma10 : x.m10 }); };
     var nBuy = items.filter(function (x) { var e = ent(x); return !e || e.k === 'buy'; }).length;
