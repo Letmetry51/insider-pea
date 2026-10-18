@@ -1289,7 +1289,7 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
   const c3 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
   eq(ES.validateConfig(c3), []);
   ok(ES.validateConfig(ES.mergeConfig(c3, { rank: { w: { mom: 40 } } })).some((e) => /tendance \+ comptes/.test(e)), 'somme des poids contrôlée');
-  const mk = (key, mom, extra) => Object.assign({ key, sym: key, name: key, turnoverEur: 5e6, pea: true, f: { mom, ratio: 0.95, trend: 'up', vol: 0.2 + mom / 10 }, acc: { key: 'good', f9: 8 } }, extra || {});
+  const mk = (key, mom, extra) => Object.assign({ key, sym: key, name: key, turnoverEur: 5e6, pea: true, f: { mom, ratio: 0.95, trend: 'up', vol: 0.2 + mom / 10, slope: 1.2 }, acc: { key: 'good', f9: 8 } }, extra || {});
   const items = [mk('A', 0.9), mk('B', 0.6), mk('C', 0.5, { acc: { key: 'good', f9: 7, loss: true } }), mk('D', 0.4, { turnoverEur: 2e5 }), mk('E', 0.35, { acc: { key: 'bad', f9: 2 } }),
     mk('F', 0.3, { acc: { key: 'mixed', f9: 5, alt: 'distress' } }), mk('G', 0.2, { pea: false }), mk('H', 0.1, { ins: { buys: 2, ceo: true, multi: 2 } }), mk('I', 0.0, { acc: null }), mk('J', -0.3), mk('K', -0.5), mk('L', -0.6, { f: { mom: null } })];
   const rows = ES.rankUniverse(items, c3), by = {}; rows.forEach((r) => { by[r.key] = r; });
@@ -1324,6 +1324,8 @@ t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cou
   const j = wk(0.2); for (let k = 100; k < 120; k++) j[k] *= 10; // regroupement d'actions non ajusté
   const fj = ES.rankFeatures([], j); ok(fj.jump && fj.jump.x > 9 && fj.jump.ago === 19, JSON.stringify(fj.jump));
   const old = wk(0.2); for (let k = 30; k < 120; k++) old[k] *= 10; ok(!ES.rankFeatures([], old).jump, 'saut de plus d\'un an : ignoré');
+  const spike = wk(0.2); spike[110] *= 8; ok(!ES.rankFeatures([], spike).jump, 'semaine aberrante isolée réparée');
+  const lastBad = wk(0.2); const dly = Array.from({ length: 250 }, () => lastBad[118]); lastBad[119] *= 8; ok(!ES.rankFeatures(dly, lastBad).jump, 'dernière semaine alignée sur le cours journalier');
   // sortie de base : 60 semaines de baisse, 26 semaines à plat, puis nouveau plus haut sur un an
   const base = []; for (let k = 0; k < 60; k++) base.push(20 * Math.pow(0.99, k)); for (let k = 0; k < 26; k++) base.push(base[59] * (1 + 0.01 * Math.sin(k)));
   for (let k = 0; k < 10; k++) base.push(base[base.length - 1] * 1.06);
@@ -1344,12 +1346,13 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   const r = (name, note, o) => Object.assign({ key: name, name, note, out: [], acc: 'good', sc: 'strong', mom: 100, liq: 1e7, secEn: 'Energy' }, o);
   const rows = [r('A', 95), r('B', 94), r('C', 93, { secEn: 'Industrials' }), r('D', 92, { sc: 'mid', secEn: 'Tech' }), r('E', 91, { mom: 900, secEn: 'Tech' }),
     r('F', 90, { secEn: 'Media' }), r('G', 89, { acc: null, secEn: 'Health' }), r('H', 88, { liq: 1e6, secEn: 'Health' }), r('I', 99, { out: ['x'] }), r('J', 80, { secEn: 'Utilities' })];
-  const p = ES.pickThree(rows);
+  const p = ES.pickThree(rows, { perSec: 1 });
   eq(p.picks.map((x) => x.key).join(), 'A,C,F', 'une par secteur, par note');
+  eq(ES.pickThree(rows).picks.map((x) => x.key).join(), 'A,B,C', 'par défaut : 2 sociétés par secteur au plus');
   const w = {}; p.rejected.forEach((x) => { w[x.r.key] = x.why; });
   ok(/même secteur/.test(w.B) && /moyenne/.test(w.D) && /200/.test(w.E) && /comptes/.test(w.G) && /M€/.test(w.H) && /premières/.test(w.J) && !w.I, JSON.stringify(w));
   eq(ES.pickThree([]).picks.length, 0);
-  const pv = ES.pickThree(rows.map((x) => x.key === 'J' ? Object.assign({}, x, { vx: 1.8 }) : x));
+  const pv = ES.pickThree(rows.map((x) => x.key === 'J' ? Object.assign({}, x, { vx: 1.8 }) : x), { perSec: 1 });
   eq(pv.picks.map((x) => x.key).join(), 'J,A,C', 'volumes en hausse d\'abord, puis la note');
   const p10 = ES.pickN(rows, { n: 10 });
   ok(p10.picks.length >= 6 && p10.picks[0].pickTier === 0 && p10.picks.some((x) => x.key === 'D' && x.pickTier === 1) && p10.picks.some((x) => x.key === 'G' && x.pickTier === 2), p10.picks.map((x) => x.key + x.pickTier).join());

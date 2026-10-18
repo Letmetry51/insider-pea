@@ -202,7 +202,7 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
                 cap, px, vol = x.get("marketCap"), x.get("regularMarketPrice"), x.get("averageDailyVolume3Month")
                 out[sym] = {"symbol": sym, "name": x.get("longName") or x.get("shortName"), "exchange": x.get("exchange"),
                             "country": places.get(x.get("exchange"), region.upper()), "currency": cur,
-                            "capEur": cap / unit / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
+                            "capEur": cap / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
                             "sector": x.get("sector"), "industry": x.get("industry")}
             off += 250
             if not quotes:
@@ -403,7 +403,7 @@ def make_item(s, base, inf, fx_now):
     hq = HQ.get(inf.get("country"))
     return {"symbol": s, "name": inf.get("longName") or inf.get("shortName") or base.get("name"), "exchange": base.get("exchange"),
             "country": country, "hq": hq, "currency": cur, "sector": inf.get("sector"), "industry": inf.get("industry"),
-            "capEur": cap / unit / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
+            "capEur": cap / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
             "revGrowth": inf.get("revenueGrowth"), "opMargin": inf.get("operatingMargins"), "grossMargin": inf.get("grossMargins"),
             "revenue": inf.get("totalRevenue"), "fwdPE": inf.get("forwardPE"), "isin": inf.get("isin"),
             "analysts": inf.get("numberOfAnalystOpinions"), "reco": inf.get("recommendationMean"),

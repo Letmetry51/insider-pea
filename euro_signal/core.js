@@ -3199,6 +3199,10 @@
   /** Repères de tendance d'une société : clôtures journalières (1 an) et hebdomadaires (5 ans), valeurs nulles tolérées. */
   ES.rankFeatures = function (daily, weekly, wvol) {
     var D = (daily || []).filter(function (v) { return v > 0; }), W = (weekly || []).filter(function (v) { return v > 0; });
+    // réparation des erreurs isolées de Yahoo : une semaine aberrante (×2,5 puis retour) est remplacée par la moyenne de ses voisines,
+    // et la dernière clôture hebdomadaire est alignée sur la dernière clôture journalière si elles divergent de plus de 15 %
+    for (var z = 1; z < W.length - 1; z++) { var up0 = W[z] / W[z - 1], dn0 = W[z + 1] / W[z]; if ((up0 > 2.5 && dn0 < 0.4) || (up0 < 0.4 && dn0 > 2.5)) W[z] = (W[z - 1] + W[z + 1]) / 2; }
+    if (D.length && W.length) { var dl = D[D.length - 1], q0 = W[W.length - 1] / dl; if (q0 > 1.15 || q0 < 0.87) W[W.length - 1] = dl; }
     var last = D.length ? D[D.length - 1] : W.length ? W[W.length - 1] : null;
     if (!last) return null;
     var avg = function (a, n) { if (a.length < n) return null; var t = 0; for (var k = a.length - n; k < a.length; k++) t += a[k]; return t / n; };
@@ -3252,12 +3256,12 @@
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
    * au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (10 semaines ≥ 1,5 fois la moyenne de l'année), puis
-   * par note décroissante, une seule par secteur. Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur
-   * chaque société (pickWhy), puis 2 sociétés par secteur au plus. Renvoie { picks, rejected, pool, pools }.
+   * par note décroissante, 2 sociétés par secteur au plus (simulation 1997-2026 : mieux qu'une seule dans 2 périodes sur 3, perte
+   * maximale identique). Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur chaque société (pickWhy). Renvoie { picks, rejected, pool, pools }.
    * Test 1997-2026 (filtres sans les comptes) : +6,7 points à 6 mois ; avec volumes ≥ ×1,5 : +10,2 (positif dans chaque période).
    */
   ES.pickThree = function (rows, opt) {
-    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5 }, opt || {});
+    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5, perSec: 2 }, opt || {});
     var hot = function (r) { return r.vx != null && r.vx >= o.volMin ? 1 : 0; };
     var secOf = function (r) { return r.secEn || r.sector || '?'; };
     var notPea = function (r) { return r.pea === false || (r.out || []).some(function (t) { return /PEA/.test(t); }); };
@@ -3292,11 +3296,11 @@
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (maxPerSec > 1 && seen[secOf(r)] > 1 ? ' ; 2e société du secteur' : ''), pickHot: !!hot(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickNotPea: notPea(r) }));
       });
     };
-    take(1); if (picks.length < o.n) take(2);
-    cand.forEach(function (c, t) { c.forEach(function (r) { if (!used[r.key]) rejected.push({ r: r, why: t === 0 ? (seen[secOf(r)] ? 'même secteur qu\'une société mieux placée' : 'au-delà des ' + o.n + ' premières') : (why(r) || TL[t]) }); }); });
+    take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);
+    cand.forEach(function (c, t) { c.forEach(function (r) { if (!used[r.key]) rejected.push({ r: r, why: t === 0 ? ((seen[secOf(r)] || 0) >= o.perSec ? (o.perSec === 1 ? 'même secteur qu\'une société mieux placée' : 'déjà ' + o.perSec + ' sociétés de ce secteur, mieux placées') : 'au-delà des ' + o.n + ' premières') : (why(r) || TL[t]) }); }); });
     rejected.sort(function (a, b) { return b.r.note - a.r.note; });
     return { picks: picks, rejected: rejected, pool: cand[0].length, pools: cand.map(function (c) { return c.length; }) };
   };
@@ -3434,8 +3438,14 @@
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
     // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
-    // l'email du lundi reste réservé au PEA
-    return (rows || []).filter(function (r) { return !r.out.length && r.pea !== false && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
+    // l'email du lundi suit les règles du bouton 🎯 (17-18/10/2026) : PEA seulement, comptes solides, pente forte ou moyenne,
+    // hausse sur 12 mois de +30 à +200 %, volumes en hausse d'abord, 2 sociétés par secteur au plus ; note minimale gardée
+    var slim = (rows || []).map(function (r) {
+      var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
+      return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, _r: r };
+    });
+    return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };
   /**
    * Étude de contrôle, recalculée chaque soir : clôtures hebdomadaires de toutes les sociétés (dates communes), chaque

@@ -3698,6 +3698,10 @@ details.pos summary{font-size:1rem}
   /** Repères de tendance d'une société : clôtures journalières (1 an) et hebdomadaires (5 ans), valeurs nulles tolérées. */
   ES.rankFeatures = function (daily, weekly, wvol) {
     var D = (daily || []).filter(function (v) { return v > 0; }), W = (weekly || []).filter(function (v) { return v > 0; });
+    // réparation des erreurs isolées de Yahoo : une semaine aberrante (×2,5 puis retour) est remplacée par la moyenne de ses voisines,
+    // et la dernière clôture hebdomadaire est alignée sur la dernière clôture journalière si elles divergent de plus de 15 %
+    for (var z = 1; z < W.length - 1; z++) { var up0 = W[z] / W[z - 1], dn0 = W[z + 1] / W[z]; if ((up0 > 2.5 && dn0 < 0.4) || (up0 < 0.4 && dn0 > 2.5)) W[z] = (W[z - 1] + W[z + 1]) / 2; }
+    if (D.length && W.length) { var dl = D[D.length - 1], q0 = W[W.length - 1] / dl; if (q0 > 1.15 || q0 < 0.87) W[W.length - 1] = dl; }
     var last = D.length ? D[D.length - 1] : W.length ? W[W.length - 1] : null;
     if (!last) return null;
     var avg = function (a, n) { if (a.length < n) return null; var t = 0; for (var k = a.length - n; k < a.length; k++) t += a[k]; return t / n; };
@@ -3751,12 +3755,12 @@ details.pos summary{font-size:1rem}
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
    * au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (10 semaines ≥ 1,5 fois la moyenne de l'année), puis
-   * par note décroissante, une seule par secteur. Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur
-   * chaque société (pickWhy), puis 2 sociétés par secteur au plus. Renvoie { picks, rejected, pool, pools }.
+   * par note décroissante, 2 sociétés par secteur au plus (simulation 1997-2026 : mieux qu'une seule dans 2 périodes sur 3, perte
+   * maximale identique). Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur chaque société (pickWhy). Renvoie { picks, rejected, pool, pools }.
    * Test 1997-2026 (filtres sans les comptes) : +6,7 points à 6 mois ; avec volumes ≥ ×1,5 : +10,2 (positif dans chaque période).
    */
   ES.pickThree = function (rows, opt) {
-    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5 }, opt || {});
+    var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5, perSec: 2 }, opt || {});
     var hot = function (r) { return r.vx != null && r.vx >= o.volMin ? 1 : 0; };
     var secOf = function (r) { return r.secEn || r.sector || '?'; };
     var notPea = function (r) { return r.pea === false || (r.out || []).some(function (t) { return /PEA/.test(t); }); };
@@ -3791,11 +3795,11 @@ details.pos summary{font-size:1rem}
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (maxPerSec > 1 && seen[secOf(r)] > 1 ? ' ; 2e société du secteur' : ''), pickHot: !!hot(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickNotPea: notPea(r) }));
       });
     };
-    take(1); if (picks.length < o.n) take(2);
-    cand.forEach(function (c, t) { c.forEach(function (r) { if (!used[r.key]) rejected.push({ r: r, why: t === 0 ? (seen[secOf(r)] ? 'même secteur qu\'une société mieux placée' : 'au-delà des ' + o.n + ' premières') : (why(r) || TL[t]) }); }); });
+    take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);
+    cand.forEach(function (c, t) { c.forEach(function (r) { if (!used[r.key]) rejected.push({ r: r, why: t === 0 ? ((seen[secOf(r)] || 0) >= o.perSec ? (o.perSec === 1 ? 'même secteur qu\'une société mieux placée' : 'déjà ' + o.perSec + ' sociétés de ce secteur, mieux placées') : 'au-delà des ' + o.n + ' premières') : (why(r) || TL[t]) }); }); });
     rejected.sort(function (a, b) { return b.r.note - a.r.note; });
     return { picks: picks, rejected: rejected, pool: cand[0].length, pools: cand.map(function (c) { return c.length; }) };
   };
@@ -3933,8 +3937,14 @@ details.pos summary{font-size:1rem}
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
     // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
-    // l'email du lundi reste réservé au PEA
-    return (rows || []).filter(function (r) { return !r.out.length && r.pea !== false && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
+    // l'email du lundi suit les règles du bouton 🎯 (17-18/10/2026) : PEA seulement, comptes solides, pente forte ou moyenne,
+    // hausse sur 12 mois de +30 à +200 %, volumes en hausse d'abord, 2 sociétés par secteur au plus ; note minimale gardée
+    var slim = (rows || []).map(function (r) {
+      var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
+      return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, _r: r };
+    });
+    return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };
   /**
    * Étude de contrôle, recalculée chaque soir : clôtures hebdomadaires de toutes les sociétés (dates communes), chaque
@@ -4898,7 +4908,7 @@ details.pos summary{font-size:1rem}
   function rankSelCard() {
     var R = rankData(); if (!R || !R.selection) return '';
     var sel = R.selection, t = sel.track;
-    var h = '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="selrule">Les premières sociétés du classement, comptes lus, avec au moins ' + ((S.cfg.rank || {}).selMin || 70) + '/100. Envoyée par email le lundi.</p>';
+    var h = '<section class="card selc"><h3>Sélection de la semaine <span class="chip neutral">' + esc(sel.week) + '</span></h3><p class="selrule">Les 5 premières du bouton 🎯, PEA seulement, comptes solides, sans règle assouplie au-delà de la pente moyenne. Envoyée par email le lundi.</p>';
     if (!sel.items.length) return h + '<p class="muted">Aucune société ne dépasse le seuil en ce moment. Mieux vaut ne rien faire que forcer un choix.</p></section>';
     h += '<ol class="sel">' + sel.items.map(function (r) {
       return '<li class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b>' + (r.isNew ? ' <span class="chip newc">Nouveau</span>' : '') +
@@ -4971,7 +4981,7 @@ details.pos summary{font-size:1rem}
     var plan = function (r) { var o = r.plan && PLANS.filter(function (x) { return x[0] === r.plan.v; })[0]; return o ? o[1] : null; };
     var h = '<details class="card pick3" data-k="pick3"><summary class="pick3b">🎯 Choisir des sociétés selon les règles testées</summary>';
     h += '<div class="segs" role="group" aria-label="Nombre de sociétés">' + [3, 5, 10].map(function (k) { return '<button class="' + (k === nP ? 'on' : '') + '" aria-pressed="' + (k === nP) + '" data-a="pickN" data-v="' + k + '">' + k + ' sociétés</button>'; }).join('') + '</div>';
-    h += '<p class="small">Classées, comptes solides, ⬆⬆ pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; <b>priorité aux 🔊 volumes en hausse</b> (10 semaines ≥ 1,5 fois la moyenne de l\'année), puis les meilleures notes, <b>une seule par secteur</b>. ' + P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir' + (peaOnly ? ' (PEA seulement, d\'après le filtre)' : ' (hors PEA compris : cochez « PEA seulement » pour les écarter)') + (P.picks.length > P.pool ? ' ; au-delà, les règles sont assouplies par paliers, signalés sur chaque société' : '') + '.</p>';
+    h += '<p class="small">Classées, comptes solides, ⬆⬆ pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; <b>priorité aux 🔊 volumes en hausse</b> (10 semaines ≥ 1,5 fois la moyenne de l\'année), puis les meilleures notes, <b>2 au plus par secteur</b>. ' + P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir' + (peaOnly ? ' (PEA seulement, d\'après le filtre)' : ' (hors PEA compris : cochez « PEA seulement » pour les écarter)') + (P.picks.length > P.pool ? ' ; au-delà, les règles sont assouplies par paliers, signalés sur chaque société' : '') + '.</p>';
     if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
     if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
     else h += '<ol class="pick3l">' + P.picks.map(function (r, k) {
@@ -6507,13 +6517,13 @@ details.pos summary{font-size:1rem}
     var tr = function (cells, head) { return '<tr>' + cells.map(function (c, k) { return (head ? '<th' : '<td') + (k ? ' class="num"' : '') + '>' + c + (head ? '</th>' : '</td>'); }).join('') + '</tr>'; };
     var tbl = function (head, rows) { return '<div class="tablewrap"><table class="grid small lgt"><thead>' + tr(head, true) + '</thead><tbody>' + rows.map(function (r) { return tr(r); }).join('') + '</tbody></table></div>'; };
     var h = '<section class="card proof" id="logique"><h3>📘 La logique de l\'outil</h3>' +
-      '<p class="lgone"><b>En une phrase :</b> acheter les sociétés qui montent déjà le plus, avec des comptes sains et un canal haussier raide, une par secteur, et les garder 6 mois.</p>' +
+      '<p class="lgone"><b>En une phrase :</b> acheter les sociétés qui montent déjà le plus, avec des comptes sains et un canal haussier raide, deux au plus par secteur, et les garder 6 mois.</p>' +
       '<ol class="steps">' +
       step('1. Écarter', 'Moins de 1 M€ échangés par jour, comptes en dégradation, dernier exercice en perte, bilan en détresse, saut de cours anormal, ou cours parmi le tiers le plus faible sur 12 mois (les sociétés « au creux » ont fait 3 points de moins que la moyenne, sur toutes les périodes).') +
       step('Hors PEA', 'Les sociétés suisses, britanniques et les foncières (compte-titres) sont classées comme les autres et marquées « hors PEA ». Le filtre « 🇪🇺 PEA seulement » les retire ; l\'email du lundi reste réservé au PEA.') +
       step('2. Noter sur 100', 'Force sur 12 mois hors dernier mois 50, proximité du plus haut 10, tendance de fond (MM50 au-dessus de la MM200) 15, comptes 20 ; achats de dirigeants en petit bonus (+5 au plus), ventes en malus.') +
       step('3. Regarder la pente', 'Rythme de la droite de tendance sur 6 mois : ⬆⬆ forte (≥ +40 %), ⬆ moyenne (+15 à +40 %), ↗ légère (< +15 %). C\'est ce qui sépare le mieux les hausses qui continuent.') +
-      step('4. 🎯 Choisir 3, 5 ou 10 sociétés', 'Classées, comptes solides, pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (×1,5 ou plus sur 10 semaines), puis les meilleures notes, une seule par secteur. Au-delà de ce qui passe toutes les règles, assouplissement par paliers signalés (pente moyenne, puis comptes pas encore lus), puis 2 sociétés par secteur.') +
+      step('4. 🎯 Choisir 3, 5 ou 10 sociétés', 'Classées, comptes solides, pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (×1,5 ou plus sur 10 semaines), puis les meilleures notes, 2 au plus par secteur. Au-delà de ce qui passe toutes les règles, assouplissement par paliers signalés (pente moyenne, puis comptes pas encore lus).') +
       step('5. Après l\'achat', 'Garder 6 mois avec une protection à −30 %, puis refaire le point. « Je l\'ai acheté » sur la fiche envoie le rappel par email.') +
       step('À surveiller : 🔊 et 🚀', '🔊 volumes des 10 dernières semaines au moins doublés par rapport à l\'année : des acheteurs s\'accumulent ; c\'est le meilleur repère complémentaire testé. 🚀 nouveau plus haut sur un an après 6 mois de base : seul il apporte peu, mieux avec une pente forte et un marché qui n\'est pas euphorique. Aucun des deux ne compte dans la note (revue du 31/01/2027).') +
       step('Prudence : krach du momentum', 'Quand le marché a perdu 20 % ou plus en un an, les plus fortes hausses passées rebondissent moins que les autres (−12,5 points à 6 mois). La carte « Cette semaine » prévient alors.') + '</ol>';
@@ -6538,7 +6548,14 @@ details.pos summary{font-size:1rem}
         ['Stop suiveur −20 %', '49 %', '46 %', '53 %'],
         ['Vendre sous la moyenne 40 semaines (≈ 200 séances)', '48 %', '46 %', '50 %']]) +
       xpi('Un stop serré limite les pertes (le pire dixième des positions perd environ 20 % au lieu de 25 %) mais coupe trop tôt des sociétés qui repartent : moins de positions gagnantes, pour un rendement annuel voisin. La protection à −30 % ne sert qu\'en cas d\'accident.');
-    h += '<details class="fsscale more" data-k="lg-out"><summary>Ce qui a été testé et retiré</summary><ul class="plain small">' +
+    h += '<details class="fsscale more" data-k="lg-stress"><summary>Stress test du 18/10/2026 : « toujours au plus haut ? », portefeuille simulé, seuils</summary>' +
+      '<p class="small"><b>Au plus haut ?</b> Parmi les sociétés qui passent les filtres 🎯, celles à leur plus haut et celles 2 à 10 % en dessous ont fait aussi bien (+5 à +10 points à 6 mois selon la période) ; celles à plus de 10 % sous leur plus haut ont fait un peu moins bien, avec deux fois plus de chutes de 25 %. Être près du plus haut n\'est donc pas un défaut : c\'est le signe que la hausse continue. Le plan d\'entrée de la fiche sert seulement à ne pas acheter sur un pic d\'une journée.</p>' +
+      tbl(['Portefeuille simulé (10 sociétés, gardées 6 mois, frais déduits)', '1997–2008', '2009–2017', '2018–2026'], [
+        ['Règles 🎯 (sans les comptes)', '+31 %/an', '+40 %/an', '+33 %/an'],
+        ['10 sociétés au hasard', '+14 %/an', '+19 %/an', '+11 %/an'],
+        ['Perte maximale de la stratégie (marché)', '−51 % (−54 %)', '−27 % (−26 %)', '−39 % (−34 %)']]) +
+      '<p class="small">Les deux premières périodes n\'ont pas servi à régler les seuils : ce sont de vrais tests. L\'écart avec le hasard (environ 15 à 20 points par an) est le chiffre à retenir ; les rendements eux-mêmes sont gonflés, car seules les sociétés encore cotées aujourd\'hui sont dans l\'historique. Les seuils changent peu le résultat (de +29 à +31 %/an en faisant varier hausse mini, hausse maxi et pente) : la méthode ne tient pas à un réglage fin. Elle ne protège pas des krachs : les pertes maximales sont celles du marché.</p></details>' +
+      '<details class="fsscale more" data-k="lg-out"><summary>Ce qui a été testé et retiré</summary><ul class="plain small">' +
       '<li><b>Achats de dirigeants</b> comme critère principal : environ 4 000 achats en France et en Suède n\'ont pas fait mieux qu\'un titre pris au hasard une fois publiés (+0,3 point, 48 % de gagnants). Gardés en petit bonus, consultables dans l\'onglet Achats.</li>' +
       '<li><b>Signaux de début de hausse</b> : tendance qui vient de tourner, sortie de creux, compression de volatilité, base serrée, accélération sur 3 mois, croisement de moyennes, recherches Google : pas mieux que la moyenne.</li>' +
       '<li><b>Doublons</b> : Trend Template de Minervini, secteur fort, RSI, F-score 8–9, convergence : rien de plus que le classement.</li>' +

@@ -127,6 +127,12 @@ if (RK) {
   check(RK.study && RK.study.weeks >= 100, `étude de contrôle du classement : ${RK.study ? RK.study.weeks : 0} semaines`, true);
   const nAccR = (RK.rows || []).filter((r) => !r.out.length && r.acc && r.acc !== 'na').length;
   check(nAccR >= 0.5 * (RK.counts.ranked || 1), `comptes lus pour ${nAccR} des ${RK.counts.ranked} sociétés classées (50 % au moins)`, true);
+  // cohérence : note = somme des points, email du lundi PEA seulement et dans les règles du bouton 🎯
+  const rowsOk = (RK.rows || []).filter((r) => !r.out.length);
+  const badSum = rowsOk.filter((r) => r.note !== Math.max(0, Math.min(100, Object.values(r.parts || {}).reduce((a, b) => a + b, 0)))).length;
+  check(badSum === 0, `classement : note égale à la somme des points (${badSum} écart)`);
+  const selRows = ((RK.selection && RK.selection.items) || []).map((x) => (RK.rows || []).find((r) => r.key === x.key)).filter(Boolean);
+  check(selRows.every((r) => r.pea !== false && r.acc === 'good' && (r.sc === 'strong' || r.sc === 'mid') && r.mom <= 200), `sélection du lundi dans les règles (PEA, comptes solides, pente, hausse ≤ +200 %) : ${selRows.map((r) => r.name).join(', ') || 'aucune'}`);
   check(RK.rows.every((r) => r.note >= 0 && r.note <= 100 && r.name), 'notes du classement entre 0 et 100, chaque société nommée');
 }
 
