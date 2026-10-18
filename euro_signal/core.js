@@ -3331,14 +3331,14 @@
    * Rangs centiles (force relative, volatilité) calculés parmi les sociétés liquides et éligibles au PEA.
    */
   ES.rankUniverse = function (items, cfg) {
-    var R = cfg.rank, W = R.w, pool = (items || []).filter(function (x) { return x && x.f && x.f.mom != null && (x.turnoverEur || 0) >= R.minTurnoverEur && x.pea !== false; });
+    var R = cfg.rank, W = R.w, pool = (items || []).filter(function (x) { return x && x.f && x.f.mom != null && (x.turnoverEur || 0) >= R.minTurnoverEur; }); // hors PEA compris depuis le 18/10/2026 (Suisse, Royaume-Uni, foncières)
     var pctOf = function (vals) { var srt = vals.slice().sort(function (a, b) { return a - b; }), n = srt.length; return function (v) { if (!n || v == null) return null; var lo = 0, hi = n; while (lo < hi) { var m = (lo + hi) >> 1; if (srt[m] < v) lo = m + 1; else hi = m; } var lo2 = lo; while (lo2 < n && srt[lo2] === v) lo2++; return (lo + (lo2 - lo) / 2) / n; }; };
     var momP = pctOf(pool.map(function (x) { return x.f.mom; })), volP = pctOf(pool.filter(function (x) { return x.f.vol != null; }).map(function (x) { return x.f.vol; }));
     var pc = function (v) { return Math.round(v * 100); };
     var rows = (items || []).map(function (x) {
       var f = x.f || {}, out = [], parts = {}, why = [], warn = [], acc = x.acc;
       if ((x.turnoverEur || 0) < R.minTurnoverEur) out.push('peu liquide : ' + (x.turnoverEur != null ? fmtEur(x.turnoverEur) : 'volume inconnu') + ' échangés par jour (minimum ' + fmtEur(R.minTurnoverEur) + ')');
-      if (x.pea === false) out.push('non éligible au PEA');
+      if (x.pea === false) warn.push('hors PEA : compte-titres seulement');
       if (f.mom == null) out.push('moins d\'un an de cours : tendance incalculable');
       var mp = f.mom != null ? momP(f.mom) : null, vp = f.vol != null ? volP(f.vol) : null;
       if (mp != null && mp < 1 / 3) out.push('cours parmi le tiers le plus faible du marché sur 12 mois');
@@ -3373,7 +3373,7 @@
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3434,7 +3434,8 @@
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
     // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
-    return (rows || []).filter(function (r) { return !r.out.length && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
+    // l'email du lundi reste réservé au PEA
+    return (rows || []).filter(function (r) { return !r.out.length && r.pea !== false && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
   };
   /**
    * Étude de contrôle, recalculée chaque soir : clôtures hebdomadaires de toutes les sociétés (dates communes), chaque

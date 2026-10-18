@@ -61,7 +61,7 @@ COST = 0.003              # frais par aller simple (courtage + écart achat-vent
 PLACEBO_N = 500           # tirages au hasard du placebo
 INFO_MAX_AGE = 30         # jours avant de relire la fiche Yahoo d'une cotation
 THREADS = 4
-FX_PAIRS = {"SEK": "EURSEK=X", "DKK": "EURDKK=X", "NOK": "EURNOK=X", "PLN": "EURPLN=X", "USD": "EURUSD=X"}
+FX_PAIRS = {"SEK": "EURSEK=X", "DKK": "EURDKK=X", "NOK": "EURNOK=X", "PLN": "EURPLN=X", "USD": "EURUSD=X", "CHF": "EURCHF=X", "GBP": "EURGBP=X"}
 REGIONS = {"fr": ["PAR"], "de": ["GER"], "nl": ["AMS"], "it": ["MIL"], "es": ["MCE"], "be": ["BRU"], "pt": ["LIS"],
            "fi": ["HEL"], "ie": ["ISE"], "at": ["VIE"], "se": ["STO"], "dk": ["CPH"], "no": ["OSL"]}
 COUNTRY = {"PAR": "FR", "GER": "DE", "AMS": "NL", "MIL": "IT", "MCE": "ES", "BRU": "BE", "LIS": "PT", "HEL": "FI",
@@ -73,7 +73,14 @@ HQ = {"France": "FR", "Germany": "DE", "Netherlands": "NL", "Italy": "IT", "Spai
       "Finland": "FI", "Ireland": "IE", "Austria": "AT", "Sweden": "SE", "Denmark": "DK", "Norway": "NO", "Luxembourg": "LU",
       "Greece": "GR", "Poland": "PL", "Czech Republic": "CZ", "Czechia": "CZ", "Hungary": "HU", "Romania": "RO", "Iceland": "IS",
       "Liechtenstein": "LI", "Cyprus": "CY", "Malta": "MT", "Estonia": "EE", "Latvia": "LV", "Lithuania": "LT", "Slovenia": "SI",
-      "Slovakia": "SK", "Croatia": "HR", "Bulgaria": "BG"}
+      "Slovakia": "SK", "Croatia": "HR", "Bulgaria": "BG", "Switzerland": "CH", "United Kingdom": "GB"}
+# Europe hors PEA (catalogue seulement, compte-titres) : Suisse et Royaume-Uni. Le filtre Yahoo plafonne la Suisse à 250 réponses :
+# requêtes par tranches de capitalisation. Fonds fermés et coquilles vides écartés (pas des sociétés opérationnelles).
+NONPEA_REGIONS = {"ch": ["EBS"], "gb": ["LSE"]}
+NONPEA_COUNTRY = {"EBS": "CH", "LSE": "GB"}
+NONPEA_HQ = {"CH", "GB"}
+NONPEA_SKIP_INDUSTRY = {"Asset Management", "Shell Companies", "Closed-End Fund - Equity", "Closed-End Fund - Debt", "Closed-End Fund - Foreign"}
+CAP_BANDS = [(1e6, 5e7), (5e7, 2e8), (2e8, 1e9), (1e9, 5e9), (5e9, 3e10), (3e10, 1e14)]
 LEGAL = {"n.v.", "nv", "s.a.", "sa", "se", "ag", "spa", "s.p.a.", "plc", "ab", "asa", "a/s", "oyj", "publ", "(publ)", "kgaa",
          "&", "co.", "inc.", "ltd", "group", "holding", "holdings", "aktiengesellschaft"}
 
@@ -169,15 +176,19 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
                 if "Crumb" in str(e) or "401" in str(e):
                     reset_yahoo_session()  # jeton Yahoo expiré après de nombreuses requêtes : nouvelle session
                 time.sleep(5 * (attempt + 1))
-    for region, exchs in REGIONS.items():
-        q = Q("and", [Q("eq", ["region", region]), Q("eq", ["exchange", exchs[0]]), Q("gt", ["intradaymarketcap", min_cap])])
+    queries = [(region, exchs[0], Q("and", [Q("eq", ["region", region]), Q("eq", ["exchange", exchs[0]]), Q("gt", ["intradaymarketcap", min_cap])]))
+               for region, exchs in REGIONS.items()]
+    queries += [(region, exchs[0], Q("and", [Q("eq", ["region", region]), Q("eq", ["exchange", exchs[0]]), Q("btwn", ["intradaymarketcap", max(lo, min_cap), hi])]))
+                for region, exchs in NONPEA_REGIONS.items() for lo, hi in CAP_BANDS]
+    places = {**COUNTRY, **NONPEA_COUNTRY}
+    for region, exch, q in queries:
         off, total = 0, None
         while total is None or off < total:
             try:
                 r = screen_page(q, off)
             except Exception as e:
                 log(f"  catalogue {region} : erreur {str(e)[:100]}")
-                failed.add(COUNTRY.get(exchs[0], region.upper()))
+                failed.add(places.get(exch, region.upper()))
                 break
             quotes = r.get("quotes") or []
             total = r.get("total") or len(quotes)
@@ -190,7 +201,7 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
                 rate = 1.0 if cur.upper() == "EUR" else fx.get(cur.upper())
                 cap, px, vol = x.get("marketCap"), x.get("regularMarketPrice"), x.get("averageDailyVolume3Month")
                 out[sym] = {"symbol": sym, "name": x.get("longName") or x.get("shortName"), "exchange": x.get("exchange"),
-                            "country": COUNTRY.get(x.get("exchange"), region.upper()), "currency": cur,
+                            "country": places.get(x.get("exchange"), region.upper()), "currency": cur,
                             "capEur": cap / unit / rate if cap and rate else None, "turnoverEur": px * vol / unit / rate if px and vol and rate else None,
                             "sector": x.get("sector"), "industry": x.get("industry")}
             off += 250
@@ -225,7 +236,11 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
             unknown += 1
             continue
         hq = HQ.get(inf.get("country"))
-        if hq not in EU_EEA:
+        # UE / EEE (PEA) partout ; Suisse et Royaume-Uni seulement sur leur propre place (pas les cotations croisées de Francfort)
+        if not (hq in EU_EEA or (hq in NONPEA_HQ and hq == it.get("country"))):
+            foreign += 1
+            continue
+        if hq in NONPEA_HQ and inf.get("industry") in NONPEA_SKIP_INDUSTRY:
             foreign += 1
             continue
         it.update({"hq": hq, "sector": inf.get("sector"), "industry": inf.get("industry"), "isin": inf.get("isin"),
@@ -233,7 +248,7 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
         kept[sym] = it
     write_json(CATALOG, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": min_cap, "items": kept,
                          "pending": len(out) - len(kept) - foreign})
-    log(f"Catalogue : {len(out)} cotations sur {len(REGIONS)} places → {len(kept)} sociétés avec siège dans l'UE ou l'EEE "
+    log(f"Catalogue : {len(out)} cotations sur {len(REGIONS) + len(NONPEA_REGIONS)} places → {len(kept)} sociétés (UE, EEE, Suisse, Royaume-Uni) "
         f"({foreign} étrangères écartées, {unknown} fiches Yahoo pas encore lues ; {n} lues ce soir en {time.time() - t0:.0f} s)")
     return kept
 

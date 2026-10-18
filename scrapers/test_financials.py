@@ -95,7 +95,7 @@ def _():
     (F.DATA / "societes" / "0.json").write_text(json.dumps({"items": {"OMV.VI": {"pea": True, "turnoverEur": 5e7}, "T0.PA": {"pea": True, "turnoverEur": 9e7},
                                                                       "TINY.ST": {"pea": True, "turnoverEur": 2e4}, "UK.L": {"pea": False, "turnoverEur": 9e7}}}))
     got = F.catalogue_pairs({"T0.PA"})
-    assert got == {"@OMV.VI": "OMV.VI"}, got
+    assert got == {"@OMV.VI": "OMV.VI", "@UK.L": "UK.L"}, got  # hors PEA compris depuis le 18/10/2026
 
 
 @case("Liste des titres réduite (pays plus suivis) : le fichier est quand même mis à jour")
