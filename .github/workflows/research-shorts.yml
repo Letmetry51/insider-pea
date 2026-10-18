@@ -1,0 +1,33 @@
+name: Recherche - ventes à découvert
+
+# Test ponctuel à la demande : positions courtes publiées (AMF, FCA) et performance des sociétés en tendance.
+# Ne modifie ni les données ni le tableau de bord ; rapport dans les journaux et en pièce jointe du lancement.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Dépendances
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install --upgrade yfinance pandas numpy openpyxl requests
+      - name: Test
+        timeout-minutes: 100
+        run: python research/shorts.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ventes-a-decouvert
+          path: research/out/
