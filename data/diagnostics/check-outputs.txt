@@ -38,7 +38,7 @@ OK     secteurs à jour (2026-10-18)
 OK     classement tendance + comptes : 689 sociétés classées (200 au moins)
 OK     cours du catalogue à jour pour le classement (2026-10-18)
 OK     étude de contrôle du classement : 366 semaines
-OK     comptes lus pour 452 des 689 sociétés classées (50 % au moins)
+OK     comptes lus pour 453 des 689 sociétés classées (50 % au moins)
 OK     classement : note égale à la somme des points (0 écart)
 OK     sélection du lundi dans les règles (PEA, comptes solides, pente, hausse ≤ +200 %) : Wallenius Wilhelmsen ASA, Repsol, S.A., JCDecaux SE, thyssenkrupp AG, Cirsa Enterprises, S.A.
 OK     notes du classement entre 0 et 100, chaque société nommée
@@ -48,15 +48,16 @@ OK     variations de plus de 40 % sur la dernière séance (à vérifier, jamais
 OK     Yahoo (cours Euro Signal) : 750/815 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
 ALERTE Yahoo (cours Euro Signal) : 8 % des titres manquants ce soir
 OK     Yahoo (hebdomadaire) : 1003/1003 reçus, 0 récupérés en 2e passe, 13 repris de la veille, 0 erreurs passagères
-OK     Yahoo (journalier) : 3832/3832 reçus, 1 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
-OK     Yahoo (hebdo catalogue) : 2845/2863 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (journalier) : 3832/3832 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (hebdo catalogue) : 2844/2863 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (fiches sociétés) : 0/0 reçus, 0 récupérés en 2e passe, 2 repris de la veille, 0 erreurs passagères
 OK     sociétés suivies : 749
 OK     cours : 687
 OK     graphiques (cours 1 an) : 687
 OK     comptes annuels : 671
 OK     valeur comptable : 645
 OK     secteur : 667
-OK     liquidité : 679
+OK     liquidité : 678 (-1 depuis le calcul précédent)
 OK     plan d'entrée : 665
 OK     déclarations (3 mois) : 3279
 OK     sources à jour : 4

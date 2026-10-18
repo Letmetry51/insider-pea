@@ -1,5 +1,11 @@
 Contrôle du tableau de bord du 2026-10-18 (téléphone 390 px, panneaux dépliés)
 
 781 fiches, 30 fiches du classement, 40 fiches du catalogue, 5 onglets ouverts
-0 problème(s) d'affichage, 0 erreur(s) JavaScript
+4 problème(s) d'affichage, 0 erreur(s) JavaScript
 
+  débordement de l'écran : 2
+  débordement avec une police plus large : 2
+- débordement de l'écran · onglet classement · 471 px pour 390
+- débordement avec une police plus large · onglet classement · 513 px pour 390
+- débordement de l'écran · onglet aide · 471 px pour 390
+- débordement avec une police plus large · onglet aide · 513 px pour 390
