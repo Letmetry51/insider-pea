@@ -1093,6 +1093,28 @@
     return { key: 'low', label: 'faible', hint: 'note inférieure à ' + N(Math.round(s / 2)) };
   };
   /** Bilan des sélections passées : performance moyenne de chaque dossier depuis l'envoi, comparée au CAC 40. */
+  /**
+   * Suivi réel du bouton 🎯 (depuis le 18/10/2026) : chaque semaine, les 10 sociétés proposées sont notées avec leur cours ;
+   * à 3 mois puis à 6 mois, leur cours et celui de l'indice sont figés. log : { semaine: { date, b0, b3, b6, items: [{ key, name, p0, p3, p6 }] } }.
+   * Renvoie { since, weeks, open, m3, m6 } avec pour chaque horizon : n, moyenne, indice, part battant l'indice, part en hausse.
+   */
+  ES.pickTrack = function (log, lastOf, benchNow) {
+    var ws = Object.keys(log || {}).sort(); if (!ws.length) return null;
+    var agg = function () { return { n: 0, s: 0, sb: 0, nb: 0, beat: 0, win: 0 }; };
+    var A = { open: agg(), m3: agg(), m6: agg() };
+    var add = function (g, perf, bench) { g.n++; g.s += perf; if (perf > 0) g.win++; if (bench != null) { g.sb += bench; g.nb++; if (perf > bench) g.beat++; } };
+    ws.forEach(function (w) {
+      var L = log[w]; if (!L || !Array.isArray(L.items)) return;
+      (L.items || []).forEach(function (x) {
+        if (!(x.p0 > 0)) return;
+        if (x.p6 > 0) add(A.m6, (x.p6 / x.p0 - 1) * 100, L.b6 > 0 && L.b0 > 0 ? (L.b6 / L.b0 - 1) * 100 : null);
+        if (x.p3 > 0) add(A.m3, (x.p3 / x.p0 - 1) * 100, L.b3 > 0 && L.b0 > 0 ? (L.b3 / L.b0 - 1) * 100 : null);
+        if (!(x.p6 > 0) && lastOf && lastOf[x.key] > 0) add(A.open, (lastOf[x.key] / x.p0 - 1) * 100, benchNow > 0 && L.b0 > 0 ? (benchNow / L.b0 - 1) * 100 : null);
+      });
+    });
+    var fin = function (g) { return g.n ? { n: g.n, avg: +(g.s / g.n).toFixed(1), bench: g.nb ? +(g.sb / g.nb).toFixed(1) : null, beat: g.nb ? Math.round(g.beat / g.nb * 100) : null, win: Math.round(g.win / g.n * 100) } : null; };
+    return { since: log[ws[0]].date, weeks: ws.length, open: fin(A.open), m3: fin(A.m3), m6: fin(A.m6) };
+  };
   ES.selectionTrackSummary = function (track) {
     var items = [], beat = 0, nb = 0, sb = 0, weeks = 0;
     (track || []).forEach(function (w) {
