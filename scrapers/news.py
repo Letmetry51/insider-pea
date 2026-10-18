@@ -30,14 +30,21 @@ DAYS = 30
 
 NEG = [r"perte d[eu']? ?(son |un |une |sa |ses )?(principal |gros |plus gros )?(client|contrat|march[ée])", r"perd (son|un|une|sa) (principal |gros )?(client|contrat)", r"avertissement",
        r"profit warning", r"abaisse (ses|son|sa)", r"revoit (à la baisse|en baisse)", r"r[ée]vis\w* (à la baisse|en baisse)", r"lowers? (its |full.year )?(guidance|outlook|forecast)",
-       r"cuts? (its |full.year )?(guidance|outlook|forecast)", r"enqu[êe]te", r"investigation", r"probe", r"amende", r"\bfined?\b", r"plainte", r"lawsuit", r"fraude", r"fraud",
-       r"d[ée]mission", r"resigns?", r"d[ée]part (du|de son) (pdg|directeur|dg|ceo|cfo)", r"steps down", r"downgrade", r"d[ée]grad", r"rappel (de|des) produits", r"recall",
+       r"cuts? (its |full.year )?(guidance|outlook|forecast)", r"enqu[êe]te", r"investigation", r"\bprobe\b", r"amende", r"\bfined?\b", r"plainte", r"lawsuit", r"fraude", r"\bfraud\b",
+       r"d[ée]mission", r"resigns?", r"d[ée]part (du|de son) (pdg|directeur|dg|ceo|cfo)", r"steps down", r"downgrade", r"d[ée]grad", r"rappel (de|des) produits", r"\brecall\b",
        r"cyberattaque", r"cyber.?attack", r"gr[èe]ve", r"\bstrike\b", r"faillite", r"insolv", r"redressement judiciaire", r"augmentation de capital", r"capital increase", r"dilution",
        r"vente à découvert", r"short seller", r"short report", r"chute", r"plonge", r"plunges?", r"s'effondre", r"tumbles?", r"sinks?", r"loses? (a |its )?(major |key |biggest )?(customer|client|contract)",
        r"non.renouvel", r"résili", r"terminat"]
 POS = [r"remporte", r"\bwins?\b", r"d[ée]croche", r"nouveau contrat", r"new contract", r"commande", r"\border(s)?\b", r"rel[èe]ve (ses|son|sa)", r"raises? (its |full.year )?(guidance|outlook|forecast)",
        r"upgrade", r"relèvement", r"\brecord\b", r"rachat d'actions", r"buy.?back", r"share repurchase", r"partenariat", r"partnership", r"approbation", r"approval", r"\bfeu vert\b",
-       r"acquisition", r"acquiert", r"acquires?", r"offre publique", r"takeover", r"beats? (estimates|expectations|consensus)", r"dépasse (les )?(attentes|consensus)", r"surge", r"bondit", r"s'envole"]
+       r"acquisition", r"acquiert", r"acquires?", r"offre publique", r"takeover", r"beats? (estimates|expectations|consensus)", r"dépasse (les )?(attentes|consensus)", r"\bsurges?\b", r"bondit", r"s'envole"]
+# vocabulaire financier : un titre qui n'en contient aucun parle sans doute d'un homonyme (« Liga Endesa », « Monster Hunter »)
+FIN_RE = re.compile(r"bourse|\baction|cours|objectif|r[ée]sultat|chiffre d.affaires|contrat|commande|dividende|rachat|analyste|recommandation|b[ée]n[ée]fice|perte|"
+                    r"pr[ée]vision|trimestre|semestre|investisseur|capital|fusion|acquisition|acqui|cession|c[èe]de|participation|\boffre|[ée]mission|obligat|notation|\bpdg\b|"
+                    r"directeur|dirigeant|\bceo\b|\bcfo\b|stock|\bshares?\b|earnings|revenue|profit|results?|quarter|outlook|forecast|guidance|analyst|price target|upgrade|"
+                    r"downgrade|\bdeal\b|merger|\border|contract|dividend|buy.?back|investor|\bipo\b|placement|financ|march[ée]|client|usine|plant|production|marge|margin|"
+                    r"enqu[êe]te|amende|plainte|lawsuit|d[ée]mission|resign|faillite|insolv|avertissement|warning|cotation|cot[ée]e|valeur|titre|secteur|croissance|growth|sales|ventes",
+                    re.I)
 NEG_RE = re.compile("|".join(NEG), re.I)
 POS_RE = re.compile("|".join(POS), re.I)
 LEGAL = {"sa", "se", "ag", "nv", "plc", "spa", "s", "p", "a", "kgaa", "co", "gmbh", "ab", "publ", "oyj", "asa", "as", "bv", "ltd", "limited", "inc", "group", "groupe", "holding", "sca", "the"}
@@ -76,6 +83,8 @@ def google(name, lang):
             t = t[: -len(src) - 3]
         if key and key not in plain(t):
             continue  # le titre doit citer la société (évite les homonymes et les listes de marché)
+        if not FIN_RE.search(t):
+            continue  # pas de vocabulaire financier : homonyme probable
         try:
             d = parsedate_to_datetime(it.findtext("pubDate")).date().isoformat()
         except Exception:
