@@ -1039,7 +1039,7 @@ export function build(opts = {}) {
     if ((resend && coOk) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && coOk)) {
       // Depuis le barème 3.0 : la sélection envoyée est celle du classement tendance + comptes (l'ancienne, fondée sur les dirigeants,
       // reste calculée et affichée pour comparaison jusqu'à la revue du 31/01/2027)
-      const mail = rank ? ES.buildRankEmail(rank._sel, week, cfg, dashUrl, today, rank.selection.track, ES.pickValue(rank.rows, { n: 5, peaOnly: true }).picks) : null;
+      const mail = rank ? ES.buildRankEmail(rank._sel, week, cfg, dashUrl, today, rank.selection.track, ES.pickValue(rank.rows, { n: 2, peaOnly: true }).picks) : null;
       if (!mail) { console.warn('  Sélection de la semaine non envoyée : classement indisponible'); }
       if (rank) state.rankSelections[week] = { date: today, b0: rank._b0, items: rank._sel.map((x) => ({ key: x.key, name: x.name, note: x.note, p0: x.last })) };
       Object.keys(state.rankSelections || {}).sort().slice(0, -60).forEach((w) => { delete state.rankSelections[w]; });
