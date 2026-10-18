@@ -1,6 +1,6 @@
 {
  "date": "2026-10-18",
- "at": "2026-10-18T08:37:30.355724+00:00",
+ "at": "2026-10-18T10:57:55.754704+00:00",
  "yfinance": "1.7.0",
  "sections": {
   "cours Euro Signal": {
@@ -17,21 +17,21 @@
    "recovered": 0,
    "missing": 0,
    "errors": 0,
-   "carried": 0
+   "carried": 13
   },
   "journalier": {
-   "requested": 3847,
-   "received": 3847,
+   "requested": 3832,
+   "received": 3832,
    "recovered": 0,
    "missing": 0,
    "errors": 0,
    "carried": 0
   },
   "hebdo catalogue": {
-   "requested": 2878,
-   "received": 2865,
+   "requested": 2863,
+   "received": 2845,
    "recovered": 0,
-   "missing": 13,
+   "missing": 18,
    "errors": 0,
    "carried": 0
   },
