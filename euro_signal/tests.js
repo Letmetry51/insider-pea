@@ -1359,6 +1359,12 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   const pn = ES.pickN(rows.map((x) => Object.assign({}, x, { ratio: x.key === 'C' ? 95 : 100 })), { near: true, n: 5 });
   ok(pn.picks.length === 1 && pn.picks[0].key === 'C', '2 à 10 % sous le plus haut : ' + pn.picks.map((x) => x.key));
   ok(!ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { dj: 55 }) : x)).picks.some((x) => x.key === 'A'), 'saut d\'un jour : jamais proposé');
+  const pvw = ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x));
+  ok(!pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)), '⚡ cours très volatil (≥ 80 %/an) : jamais proposé, raison donnée');
+  ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 60 }) : x)).picks.some((x) => x.key === 'A'), 'volatilité de 60 %/an : acceptée');
+  { const calm = []; for (let k = 0; k < 60; k++) calm.push(100 * Math.pow(1.01, k)); const wild = calm.map((v, k) => v * (k % 2 ? 1.25 : 0.8));
+    const fc = ES.rankFeatures(null, calm), fw = ES.rankFeatures(null, wild);
+    ok(fc.vol52 != null && fc.vol52 < 0.05 && fw.vol52 > ES.VOL_WILD, 'volatilité sur 52 semaines calculée (calme ' + (fc.vol52 * 100).toFixed(1) + ' %, agitée ' + Math.round(fw.vol52 * 100) + ' %)'); }
   const pv = ES.pickThree(rows.map((x) => x.key === 'J' ? Object.assign({}, x, { vx: 1.8 }) : x), { perSec: 1 });
   eq(pv.picks.map((x) => x.key).join(), 'J,A,C', 'volumes en hausse d\'abord, puis la note');
   const p10 = ES.pickN(rows, { n: 10 });
