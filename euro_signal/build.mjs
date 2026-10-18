@@ -1002,6 +1002,7 @@ export function build(opts = {}) {
       }
       Object.keys(state.pickLog).sort().slice(0, -130).forEach((w) => { delete state.pickLog[w]; });
       rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mLast);
+      rank.pick10 = ES.pickN(rank.rows, { n: 10 }).picks.map((p) => p.isin || p.sym); // lu par positions.py pour le rappel à 6 mois
     } catch (e) { console.warn('  Suivi du 🎯 indisponible : ' + e.message); }
     rank.ms = Date.now() - t0;
     console.log('  Classement tendance + comptes : ' + rank.counts.ranked + ' sociétés classées sur ' + rank.counts.liquid + ' liquides (' + rank.counts.catalogue + ' au catalogue), ' + rank.counts.top + ' en tête ; sélection : ' + sel.length + ' (' + (rank.ms / 1000).toFixed(0) + ' s)');
@@ -1057,6 +1058,22 @@ export function build(opts = {}) {
       Object.keys(state.pickWaitSeen).forEach((k) => { if (!now.has(k) || ES.daysBetween(state.pickWaitSeen[k], today) > 90) delete state.pickWaitSeen[k]; });
     }
   } catch (e) { console.warn('  Feu vert du 🎯 indisponible : ' + e.message); }
+
+  /* 6f. Alerte « krach du momentum » (marché −20 % ou pire sur un an) : un email quand elle s'allume, un quand elle s'éteint */
+  try {
+    const NB = rank && rank.breadth && rank.breadth.now;
+    if (NB && NB.m52 != null) {
+      const on = NB.m52 <= ES.MOM_CRASH_M52, was = !!state.crashOn;
+      if (on !== was) {
+        const txt = on ? 'Le marché a perdu ' + Math.round(-NB.m52) + ' % en un an. Dans ce cas (2001-2003, 2009, 2022), les plus fortes hausses passées ont fait 12,5 points de moins que la moyenne les 6 mois suivants. Règle : acheter par petites touches ; une pause des achats a réduit la perte maximale de 57 % à 51 % pour environ 1 point de rendement par an en moins. Les positions en cours suivent leurs règles (6 mois, protection à −30 %).'
+          : 'Le marché est revenu au-dessus de −20 % sur un an (' + (NB.m52 >= 0 ? '+' : '') + Math.round(NB.m52) + ' %). Fin de l\'alerte : le 🎯 reprend normalement.';
+        outbox.push({ id: 'krach-' + (on ? 'debut' : 'fin') + '-' + today, kind: 'krach', isin: null, name: 'Marché', subject: '[Euro Signal] ' + (on ? '⚠️ Alerte krach du momentum' : '✅ Fin de l\'alerte krach du momentum'),
+          text: txt + (dashUrl ? '\nTableau de bord : ' + dashUrl : ''), html: '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px"><h2 style="margin:0 0 8px">' + (on ? '⚠️ Alerte krach du momentum' : '✅ Fin de l\'alerte') + '</h2><p>' + ES.esc(txt) + '</p></div>',
+          eventIds: ['krach:' + (on ? 'on' : 'off') + ':' + today], score: null, version: cfg.rank.version });
+        state.crashOn = on;
+      }
+    }
+  } catch (e) { console.warn('  Alerte krach indisponible : ' + e.message); }
 
   /* 6b. Argumentaire chiffré en tête de chaque email (profil de signal le plus proche, mesuré sur nos données) */
   outbox.forEach((m) => {
