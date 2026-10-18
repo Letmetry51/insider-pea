@@ -45,7 +45,10 @@ SOURCES = {
     "BE": {"name": "FSMA", "urls": ["https://www.fsma.be/en/de-shortselling?page&_format=csv",
                                     "https://www.fsma.be/en/de-shortselling-history?page&_format=csv"]},
     "DE": {"name": "Bundesanzeiger", "page": "https://www.bundesanzeiger.de/pub/de/nlp"},
+    # Royaume-Uni : depuis le 13/07/2026, la FCA ne publie plus que le total vendu à découvert par société (positions ≥ 0,2 % agrégées)
+    "GB": {"name": "FCA", "urls": ["https://www.fca.org.uk/publication/documents/aggregated-current-net-short-positions.csv"]},
 }
+SYMS = DATA / "shorts-symbols.json"  # ISIN → symbole Yahoo du catalogue, en cache (résolu par la recherche Yahoo)
 
 
 def norm(s):
@@ -277,6 +280,76 @@ def intervals(recs):
     return items
 
 
+def fca_aggregated(src, diag):
+    """Fichier agrégé de la FCA : une ligne par société (ISIN, total vendu à découvert en %, date). Colonnes repérées par leur nom."""
+    b = fetch(src["urls"][0], headers=BROWSER)
+    rows = list(csv.reader(io.StringIO(decode(b))))
+    hdr = None
+    for k, r in enumerate(rows[:20]):
+        h = [norm(c) for c in r]
+        ci = next((j for j, c in enumerate(h) if "isin" in c), None)
+        cp = next((j for j, c in enumerate(h) if ("short" in c or "%" in c or "position" in c) and "date" not in c and "isin" not in c and "name" not in c), None)
+        cd = next((j for j, c in enumerate(h) if "date" in c), None)
+        if ci is not None and cp is not None:
+            hdr = (k, ci, cp, cd)
+            break
+    diag.append({"country": "GB", "header": rows[hdr[0]] if hdr else (rows[0] if rows else None), "lines": len(rows)})
+    if not hdr:
+        raise RuntimeError("colonnes FCA non reconnues")
+    k0, ci, cp, cd = hdr
+    today = date.today().isoformat()
+    recs = []
+    for r in rows[k0 + 1:]:
+        if len(r) <= max(ci, cp):
+            continue
+        isin = str(r[ci]).strip().upper()
+        pct = pct_of(r[cp])
+        if not ISIN_RE.match(isin) or pct is None:
+            continue
+        recs.append({"isin": isin, "holder": "Total publié par la FCA", "pct": pct, "date": (day_of(r[cd]) if cd is not None else None) or today, "country": "GB"})
+    return recs
+
+
+def resolve_symbols(items, limit=200):
+    """ISIN des positions en vigueur → symbole Yahoo présent dans le catalogue (recherche Yahoo, résultats gardés en cache)."""
+    try:
+        cache = json.loads(SYMS.read_text(encoding="utf-8")) if SYMS.exists() else {}
+    except Exception:
+        cache = {}
+    cat = set()
+    for f in (DATA / "societes").glob("*.json"):
+        try:
+            cat |= set(json.loads(f.read_text(encoding="utf-8")).get("items", {}).keys())
+        except Exception:
+            pass
+    today = date.today().isoformat()
+    live = sorted(i for i, l in items.items() if any(not p.get("to") or p["to"] > today for p in l) and i[:2] not in ("US", "CA", "JP", "AU", "ZA", "TH", "KY", "BM"))
+    todo = [i for i in live if i not in cache][:limit]
+    if not todo:
+        return cache
+    try:
+        import yfinance as yf
+    except Exception:
+        return cache
+    pref = {"FR": ".PA", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "DE": ".DE", "GB": ".L", "IE": ".L", "JE": ".L", "LU": ".PA"}
+    found = 0
+    for isin in todo:
+        q = []
+        for a in range(2):
+            try:
+                q = yf.Search(isin, max_results=8, news_count=0).quotes
+                break
+            except Exception:
+                q = []
+        eq = [x.get("symbol") for x in q if x.get("quoteType") == "EQUITY" and x.get("symbol")]
+        sym = next((s for s in eq if s in cat), None) or next((s for s in eq if s.endswith(pref.get(isin[:2], "§"))), None)
+        cache[isin] = sym
+        found += 1 if sym else 0
+    SYMS.write_text(json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8")
+    print("Positions vendeuses : %d ISIN recherchés sur Yahoo, %d reliés au catalogue (cache : %d)" % (len(todo), found, len(cache)))
+    return cache
+
+
 def main():
     prev = {}
     try:
@@ -291,6 +364,8 @@ def main():
         try:
             if cc == "DE":
                 recs = bundesanzeiger(src, diag)
+            elif cc == "GB":
+                recs = fca_aggregated(src, diag)
             else:
                 urls = consob_urls(src) if cc == "IT" else amf_urls(src) if cc == "FR" else src["urls"]
                 errors = []
@@ -312,12 +387,12 @@ def main():
             if not recs:
                 raise RuntimeError("fichier vide ou colonnes non reconnues")
             it = intervals(recs)
-            if cc == "DE":  # fichier des positions en vigueur seulement : une position disparue est close à la date du jour
+            if cc in ("DE", "GB"):  # fichier des positions en vigueur seulement : une position disparue est close à la date du jour
                 today = date.today().isoformat()
                 now = {(isin, norm(p["holder"]), p["from"]) for isin, lst in it.items() for p in lst}
                 for isin, lst in (prev.get("items") or {}).items():
                     for p in lst if isinstance(lst, list) else []:
-                        if not isinstance(p, dict) or p.get("country") != "DE":
+                        if not isinstance(p, dict) or p.get("country") != cc:
                             continue
                         if (isin, norm(p.get("holder")), p.get("from")) in now:
                             continue
@@ -342,6 +417,10 @@ def main():
     DATA.mkdir(exist_ok=True)
     out = {"generated_at": datetime.now(timezone.utc).isoformat(), "sources": sources, "items": all_items}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    try:
+        resolve_symbols(all_items)
+    except Exception as e:
+        print("Positions vendeuses : symboles non résolus (%s)" % str(e)[:100])
     try:
         DIAG.parent.mkdir(parents=True, exist_ok=True)
         DIAG.write_text(json.dumps(diag[:40], ensure_ascii=False, indent=1, default=str), encoding="utf-8")

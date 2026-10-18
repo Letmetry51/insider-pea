@@ -1362,6 +1362,10 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   const pvw = ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x));
   ok(!pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)), '⚡ cours très volatil (≥ 80 %/an) : jamais proposé, raison donnée');
   ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 60 }) : x)).picks.some((x) => x.key === 'A'), 'volatilité de 60 %/an : acceptée');
+  const psh = ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { sh: 1.4, shn: 2, shc: 'FR' }) : x));
+  ok(!psh.picks.some((x) => x.key === 'A') && psh.rejected.some((x) => x.r.key === 'A' && /vendu à découvert/.test(x.why)), '🐻 vendue à découvert (AMF) : jamais proposée, raison donnée');
+  ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { sh: 1.4, shn: 2, shc: 'GB' }) : x)).picks.some((x) => x.key === 'A'), '🐻 vendue à découvert à Londres : seulement signalée');
+  ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { sh: 0.3, shc: 'FR' }) : x)).picks.some((x) => x.key === 'A'), 'position sous 0,5 % : ignorée');
   { const calm = []; for (let k = 0; k < 60; k++) calm.push(100 * Math.pow(1.01, k)); const wild = calm.map((v, k) => v * (k % 2 ? 1.25 : 0.8));
     const fc = ES.rankFeatures(null, calm), fw = ES.rankFeatures(null, wild);
     ok(fc.vol52 != null && fc.vol52 < 0.05 && fw.vol52 > ES.VOL_WILD, 'volatilité sur 52 semaines calculée (calme ' + (fc.vol52 * 100).toFixed(1) + ' %, agitée ' + Math.round(fw.vol52 * 100) + ' %)'); }
