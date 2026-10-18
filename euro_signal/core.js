@@ -3267,6 +3267,14 @@
       var v10 = VV.slice(-10).filter(function (v) { return v > 0; });
       if (v10.length >= 8) f.volx = Math.round(mean(v10) / mean(vok) * 10) / 10;
     }
+    // 📣 bond sur gros volume : une semaine à +8 % ou plus avec au moins 3 fois le volume moyen de l'année, dans les 8 dernières
+    // semaines (dérive après une bonne nouvelle). 1997-2026, filtres 🎯 : avec 🔊 et bond +13,2 points à 6 mois contre +9,2 sans bond,
+    // moins de chutes ; net depuis 2009, nul avant (test du 18/10/2026). Sert d'ordre de priorité, n'écarte rien.
+    var WV = wvol || [];
+    for (var kb = 0; kb < 8 && WV.length - 1 - kb >= 52 && W.length - 2 - kb >= 0; kb++) {
+      var vi = WV.length - 1 - kb, wi = W.length - 1 - kb, base = WV.slice(vi - 52, vi).filter(function (v) { return v > 0; });
+      if (base.length >= 40 && WV[vi] > 0 && W[wi] / W[wi - 1] - 1 >= 0.08 && WV[vi] >= 3 * mean(base)) { f.bump = kb; break; }
+    }
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
     // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
     // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
@@ -3368,14 +3376,17 @@
     (rows || []).forEach(function (r) { var t = tierOf(r); if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
     // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
     var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
-    var ord = function (a, b) { return hot(b) - hot(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
+    var bump = function (r) { return r.bp != null ? 1 : 0; };
+    // priorité : 🔊 avec 📣, puis 🔊, puis 📣 seul, puis les autres
+    var pri = function (r) { return 2 * hot(r) + bump(r); };
+    var ord = function (a, b) { return pri(b) - pri(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
     cand.forEach(function (c) { c.sort(ord); });
     var picks = [], used = {}, seen = {};
     var take = function (maxPerSec) {
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickBump: !!bump(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
       });
     };
     take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);
@@ -3442,6 +3453,7 @@
       if (f.dayJump != null) warn.push('variation de ' + (f.dayJump > 0 ? '+' : '') + f.dayJump + ' % sur la dernière séance : vérifier l\'information (ou une erreur de cours) avant d\'acheter');
       if (x.short && x.short.pct >= ES.SHORT_MIN) warn.push('🐻 ' + String(x.short.pct).replace('.', ',') + ' % du capital vendu à découvert par ' + x.short.n + ' fonds : les sociétés en tendance ainsi visées ont fait moins bien que les autres (2013-2026)');
       if (f.vol52 != null && f.vol52 >= ES.VOL_WILD) warn.push('⚡ cours très volatil (' + Math.round(f.vol52 * 100) + ' % par an) : sur 29 ans, deux fois plus de chutes de 25 % pour aucun gain');
+      if (f.bump != null) why.push('📣 bond sur gros volume ' + (f.bump ? 'il y a ' + f.bump + ' semaine' + (f.bump > 1 ? 's' : '') : 'cette semaine') + ' : les marchés digèrent souvent lentement une bonne nouvelle');
       if (f.volx != null && f.volx >= ES.VOL_SURGE) why.push('volumes ×' + String(f.volx).replace('.', ',') + ' sur 10 semaines par rapport à l\'année : des acheteurs s\'accumulent');
       if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
       var sc = ES.slopeClass(f.slope, f.trend);
@@ -3462,7 +3474,7 @@
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null, short: x.short || null, currency: x.currency || null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, bump: f.bump != null ? f.bump : null, ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null, short: x.short || null, currency: x.currency || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3528,7 +3540,7 @@
     var slim = (rows || []).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, m10: r.ma10 !== undefined ? r.ma10 : r.m10, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, m10: r.ma10 !== undefined ? r.ma10 : r.m10, bp: r.bump !== undefined ? r.bump : r.bp, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
     });
     return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };

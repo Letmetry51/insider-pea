@@ -3768,6 +3768,14 @@ details.pos summary{font-size:1rem}
       var v10 = VV.slice(-10).filter(function (v) { return v > 0; });
       if (v10.length >= 8) f.volx = Math.round(mean(v10) / mean(vok) * 10) / 10;
     }
+    // 📣 bond sur gros volume : une semaine à +8 % ou plus avec au moins 3 fois le volume moyen de l'année, dans les 8 dernières
+    // semaines (dérive après une bonne nouvelle). 1997-2026, filtres 🎯 : avec 🔊 et bond +13,2 points à 6 mois contre +9,2 sans bond,
+    // moins de chutes ; net depuis 2009, nul avant (test du 18/10/2026). Sert d'ordre de priorité, n'écarte rien.
+    var WV = wvol || [];
+    for (var kb = 0; kb < 8 && WV.length - 1 - kb >= 52 && W.length - 2 - kb >= 0; kb++) {
+      var vi = WV.length - 1 - kb, wi = W.length - 1 - kb, base = WV.slice(vi - 52, vi).filter(function (v) { return v > 0; });
+      if (base.length >= 40 && WV[vi] > 0 && W[wi] / W[wi - 1] - 1 >= 0.08 && WV[vi] >= 3 * mean(base)) { f.bump = kb; break; }
+    }
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
     // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
     // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
@@ -3869,14 +3877,17 @@ details.pos summary{font-size:1rem}
     (rows || []).forEach(function (r) { var t = tierOf(r); if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
     // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
     var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
-    var ord = function (a, b) { return hot(b) - hot(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
+    var bump = function (r) { return r.bp != null ? 1 : 0; };
+    // priorité : 🔊 avec 📣, puis 🔊, puis 📣 seul, puis les autres
+    var pri = function (r) { return 2 * hot(r) + bump(r); };
+    var ord = function (a, b) { return pri(b) - pri(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
     cand.forEach(function (c) { c.sort(ord); });
     var picks = [], used = {}, seen = {};
     var take = function (maxPerSec) {
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickBump: !!bump(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
       });
     };
     take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);
@@ -3943,6 +3954,7 @@ details.pos summary{font-size:1rem}
       if (f.dayJump != null) warn.push('variation de ' + (f.dayJump > 0 ? '+' : '') + f.dayJump + ' % sur la dernière séance : vérifier l\'information (ou une erreur de cours) avant d\'acheter');
       if (x.short && x.short.pct >= ES.SHORT_MIN) warn.push('🐻 ' + String(x.short.pct).replace('.', ',') + ' % du capital vendu à découvert par ' + x.short.n + ' fonds : les sociétés en tendance ainsi visées ont fait moins bien que les autres (2013-2026)');
       if (f.vol52 != null && f.vol52 >= ES.VOL_WILD) warn.push('⚡ cours très volatil (' + Math.round(f.vol52 * 100) + ' % par an) : sur 29 ans, deux fois plus de chutes de 25 % pour aucun gain');
+      if (f.bump != null) why.push('📣 bond sur gros volume ' + (f.bump ? 'il y a ' + f.bump + ' semaine' + (f.bump > 1 ? 's' : '') : 'cette semaine') + ' : les marchés digèrent souvent lentement une bonne nouvelle');
       if (f.volx != null && f.volx >= ES.VOL_SURGE) why.push('volumes ×' + String(f.volx).replace('.', ',') + ' sur 10 semaines par rapport à l\'année : des acheteurs s\'accumulent');
       if (f.brk != null) why.push('signal précoce : nouveau plus haut sur un an après 6 mois de base (' + (f.brk ? 'il y a ' + f.brk + ' sem.' : 'cette semaine') + ')');
       var sc = ES.slopeClass(f.slope, f.trend);
@@ -3963,7 +3975,7 @@ details.pos summary{font-size:1rem}
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null, short: x.short || null, currency: x.currency || null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, bump: f.bump != null ? f.bump : null, ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null, short: x.short || null, currency: x.currency || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -4029,7 +4041,7 @@ details.pos summary{font-size:1rem}
     var slim = (rows || []).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, m10: r.ma10 !== undefined ? r.ma10 : r.m10, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, m10: r.ma10 !== undefined ? r.ma10 : r.m10, bp: r.bump !== undefined ? r.bump : r.bp, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
     });
     return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };
@@ -5079,6 +5091,8 @@ details.pos summary{font-size:1rem}
     if (ag.length) h += '<h4>Agenda</h4><ul class="plain small anlist">' + ag.sort(function (a, b) { return a[0] < b[0] ? 1 : -1; }).map(function (z) { return '<li><b>' + shortDate(z[0]) + '</b> · ' + esc(z[1]) + '</li>'; }).join('') + '</ul>';
     return h;
   }
+  function bumpOf(r) { var b = r ? (r.bp != null ? r.bp : r.bump) : null; return b == null ? null : b; }
+  function bumpTxt(b) { return b ? 'il y a ' + b + ' sem.' : 'cette semaine'; }
   function analysisCard(isin, sym) {
     var o = anCtx(isin, sym), r = o.r, cl = function (v) { return Math.max(0, Math.min(10, v)); };
     if (!o.last) return '';
@@ -5099,6 +5113,7 @@ details.pos summary{font-size:1rem}
     var NW = newsOf(o), nNeg = NW.filter(function (n) { return n.k === 'neg'; }), nPos = NW.filter(function (n) { return n.k === 'pos'; });
     var K = 5 + (nPos.length ? 1 : 0) - (nNeg.length ? 1.5 : 0);
     if (r.vx >= 1.5) K += 1.5;
+    if (bumpOf(r) != null) K += 1;
     if (o.rev != null) K += o.rev > 0 ? 1.5 : o.rev < 0 ? -1.5 : 0;
     if (o.surprise != null) K += o.surprise >= 0 ? 1 : -1;
     if (r.brk != null) K += 1;
@@ -5120,6 +5135,7 @@ details.pos summary{font-size:1rem}
     // 2. pour et contre
     if (r.trend === 'up') add(pros, 3, 'tendance de fond haussière' + (r.slope6 != null && r.sc ? ', pente ' + (r.sc === 'strong' ? 'forte' : r.sc === 'mid' ? 'moyenne' : 'légère') + ' (' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' % en 6 mois)' : ''));
     if (r.mom != null && r.mom > 0 && r.momPct != null && r.momPct >= 67) add(pros, 3, '+' + Math.round(r.mom) + ' % sur 12 mois, mieux que ' + r.momPct + ' % des sociétés');
+    if (bumpOf(r) != null) add(pros, 2.2, '📣 bond sur gros volume ' + bumpTxt(bumpOf(r)) + ' : souvent suivi d\'une hausse prolongée');
     if (r.vx >= 1.5) add(pros, 2, 'volumes en hausse (×' + String(r.vx).replace('.', ',') + ' sur 10 semaines)');
     if (o.acc && o.acc.tone === 'good') add(pros, 2.5, o.acc.label.toLowerCase() + (o.f9 != null ? ' (F-score ' + o.f9 + '/9)' : ''));
     if (o.margin != null && o.margin > 0.1) add(pros, 1.5, 'marge nette de ' + Math.round(o.margin * 100) + ' %');
@@ -5228,7 +5244,7 @@ details.pos summary{font-size:1rem}
     var h = '<details class="card fold selc" data-k="buy"><summary>🛒 À acheter <span class="muted small">· ' + sel.items.length + ' 🎯 + ' + V.length + ' 💎</span></summary><p class="selrule small muted">PEA · lignes égales (≈ 70/30) · envoyée par email le lundi · ' + esc(sel.week) + '</p>';
     if (!sel.items.length && !V.length) return h + '<p class="muted">Rien ne passe les règles cette semaine : mieux vaut attendre.</p></details>';
     h += '<ol class="sel sel2">' + sel.items.map(function (r) {
-      var E = ES.pickEntry(r); return li(r, '🎯', E ? E.icon + ' ' + (E.k === 'buy' ? 'Acheter' : 'Attendre') : '✅ Acheter', [r.sector, 'note ' + r.note, r.mom != null ? '12 m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + ' %' : null, E && E.k === 'wait' ? 'sous sa moyenne 10 sem.' : null].filter(Boolean).join(' · '));
+      var E = ES.pickEntry(r); return li(r, '🎯', E ? E.icon + ' ' + (E.k === 'buy' ? 'Acheter' : 'Attendre') : '✅ Acheter', [r.sector, 'note ' + r.note, r.mom != null ? '12 m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + ' %' : null, bumpOf(r) != null ? '📣 bond' : null, E && E.k === 'wait' ? 'sous sa moyenne 10 sem.' : null].filter(Boolean).join(' · '));
     }).join('') + V.map(function (r) { return li(r, '💎', '✅ Acheter', [r.sector, 'F-score ' + r.f9 + '/9', 'cours / fonds propres ' + fmtN(r.pb, 2)].filter(Boolean).join(' · ')); }).join('') + '</ol>' +
       (t && t.n ? '<p class="foot">Sélections précédentes : ' + pct(t.avg) + ' en moyenne depuis l\'envoi' + (t.bench != null ? ' (indice ' + pct(t.bench) + ')' : '') + '.</p>' : '<p class="foot">Puis : garder 6 mois, protection à −30 %. Les emails préviennent du reste.</p>');
     return h + '</details>';
@@ -5300,13 +5316,13 @@ details.pos summary{font-size:1rem}
     var h = '<details class="card fold pick3" data-k="pick3"><summary>🎯 Momentum <span class="muted small">· choix et règles</span></summary>';
     h += '<div class="segs" role="group" aria-label="Nombre de sociétés">' + [3, 5, 10].map(function (k) { return '<button class="' + (k === nP ? 'on' : '') + '" aria-pressed="' + (k === nP) + '" data-a="pickN" data-v="' + k + '">' + k + ' sociétés</button>'; }).join('') + '</div>';
     h += '<div class="fchips p3opt"><button class="fchip' + (near ? ' on' : '') + '" aria-pressed="' + near + '" data-a="rfQuick" data-v="near" title="Sur 29 ans, parmi ces sociétés : aussi bon qu\'au plus haut (+5 à +10 points à 6 mois), mêmes risques">' + (near ? '☑' : '☐') + ' ↘️ Seulement 2 à 10 % sous le plus haut</button><button class="fchip' + (peaOnly ? ' on' : '') + '" aria-pressed="' + peaOnly + '" data-a="rfQuick" data-v="pea">' + (peaOnly ? '☑' : '☐') + ' 🇪🇺 PEA seulement</button></div>';
-    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes d\'abord · 2 par secteur · sans ⚡ ni 🐻</p>' +
+    h += '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord · 2 par secteur · sans ⚡ ni 🐻</p>' +
       xpi(P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir (au moins 3 M€ échangés par jour' + (peaOnly ? ', PEA seulement' : ', hors PEA compris') + (near ? ', 2 à 10 % sous le plus haut' : '') + '). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l\'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse.');
     if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
     if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
     else h += '<ol class="pick3l">' + P.picks.map(function (r, k) {
       var pl = plan(r), sep = r.pickTier > 0 && (k === 0 || P.picks[k - 1].pickTier !== r.pickTier) ? '<li class="pick3sep">' + (r.pickTier === 1 ? 'Règles assouplies : pente moyenne ou +30 à +60 % sur 12 mois' : 'Règles assouplies : comptes mitigés ou pas lus') + '</li>' : '';
-      return sep + '<li value="' + (k + 1) + '" class="rowlink' + (r.pickTier ? ' pick3x' : '') + '" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· ' + r.note + '/100</span>' + (r.vx >= 1.5 ? ' <span class="chip good">🔊 volumes ×' + String(r.vx).replace('.', ',') + '</span>' : '') +
+      return sep + '<li value="' + (k + 1) + '" class="rowlink' + (r.pickTier ? ' pick3x' : '') + '" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><b>' + flag(r.country) + esc(r.name) + '</b> <span class="muted">· ' + r.note + '/100</span>' + (r.vx >= 1.5 ? ' <span class="chip good">🔊 volumes ×' + String(r.vx).replace('.', ',') + '</span>' : '') + (bumpOf(r) != null ? ' <span class="chip good" title="Semaine à +8 % ou plus avec 3 fois le volume habituel">📣 bond ' + bumpTxt(bumpOf(r)) + '</span>' : '') +
         '<small>' + esc([r.sector, '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%', r.ratio != null ? (r.ratio >= 99.5 ? 'au plus haut' : 'haut ' + Math.round(r.ratio - 100) + '\u00a0%') : null, (function () { var E = ES.pickEntry(r); return E ? E.icon + ' ' + E.short : pl ? pl.split(' : ')[0].replace(/Attendre une? /, 'attendre ') : null; })(), (r.liq || 0) < 5e6 ? '💧 ordres limités' : null, r.pickNotPea ? 'hors PEA' : null].filter(Boolean).join(' · ')) + '</small></li>';
     }).join('') + '</ol>';
     h += '<div class="probs"><small>Sur 29 ans, 6 mois après l\'achat (sociétés 🎯 au-dessus de leur moyenne 10 semaines) :</small><div class="pbs">' +
@@ -5458,6 +5474,7 @@ details.pos summary{font-size:1rem}
       '<li><b class="big">78</b> note /100 : 🟢 en tête, 🟡 solide, ⚪ moyenne, ⛔ écartée</li>' +
       '<li><span class="rb sl-strong">⬆⬆ +45 %</span> pente du canal sur 6 mois : ⬆⬆ forte (≥ +40 %), ⬆ moyenne, ↗ légère</li>' +
       '<li><span class="rb t-good">🔊 ×2,1</span> volumes des 10 dernières semaines / moyenne de l\'année</li>' +
+      '<li><span class="rb t-good">📣 bond</span> semaine à +8 % ou plus avec 3 fois le volume habituel (8 dernières semaines)</li>' +
       '<li><span class="rb t-good">🚀</span> nouveau plus haut après 6 mois de base (signal, hors note)</li>' +
       '<li><span class="rb t-bad">🐻 1,4 %</span> capital vendu à découvert par des fonds : à Paris, écartée du 🎯 (−11,6 pts à 6 mois sur 2013-2026) ; ailleurs signalée</li>' +
       '<li><span class="rb t-warn">⚡ 85 %/an</span> cours très volatil (≥ 80 % par an) : deux fois plus de chutes, écarté du 🎯</li>' +
@@ -5477,6 +5494,7 @@ details.pos summary{font-size:1rem}
         if (sc && r.slope6 != null) bd.push('<span class="rb sl-' + sc + '" title="Pente du canal haussier sur 6 mois">' + SLOPE_TXT[sc][0] + ' ' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' %</span>');
         if (r.acc === 'good') bd.push('<span class="rb t-good" title="Comptes solides">📊</span>');
       }
+      if (bumpOf(r) != null) bd.push('<span class="rb t-good" title="Semaine à +8 % ou plus avec 3 fois le volume habituel, ' + bumpTxt(bumpOf(r)) + '">📣 bond</span>');
       if (r.vx >= ES.VOL_SURGE) bd.push('<span class="rb t-good" title="Volumes des 10 dernières semaines / moyenne de l\'année">🔊 ×' + String(r.vx).replace('.', ',') + '</span>');
       if (rkBrk(r)) bd.push('<span class="rb t-good" title="Nouveau plus haut sur un an après 6 mois de base">🚀' + (r.brk ? ' ' + r.brk + ' sem.' : '') + '</span>');
       if (r.vo != null && r.vo >= ES.VOL_WILD * 100) bd.push('<span class="rb t-warn" title="Cours très volatil : deux fois plus de chutes, écarté du bouton 🎯">⚡ ' + r.vo + ' %/an</span>');
@@ -6910,7 +6928,7 @@ details.pos summary{font-size:1rem}
       fl('🧹', 'Écarter', 'peu liquides, pertes, comptes fragiles, en baisse sur 12 mois ; ⚡ très volatiles et 🐻 vendues à découvert (Paris) hors du 🎯') +
       fl('💯', 'Noter /100', 'force sur 12 mois 50 · plus haut 10 · tendance 15 · comptes 20 · dirigeants ±') +
       fl('⬆⬆', 'Pente forte', 'canal haussier ≥ +40 % sur 6 mois') +
-      fl('🎯', 'Choisir', '+60 à +200 % sur 12 mois · 🔊 volumes d\'abord · ⏸️ sous la moyenne 10 sem. en dernier · 2 par secteur') +
+      fl('🎯', 'Choisir', '+60 à +200 % sur 12 mois · 🔊 volumes puis 📣 bond d\'abord · ⏸️ sous la moyenne 10 sem. en dernier · 2 par secteur') +
       fl('⏱️', 'Acheter', 'au-dessus de la moyenne 10 semaines, sans attendre de repli') +
       fl('⏳', 'Garder 6 mois', 'protection à −30 % ; emails à chaque −10 %, à −30 % et à 6 mois') + '</ol>' +
       '<p class="small lgw">💎 <b>Complément Valeur</b> : sociétés bon marché aux comptes solides (Piotroski). Momentum et valeur gagnent à des moments différents : 70 % 🎯 + 30 % 💎 a ramené la plus grosse perte de −46 % à −30 % sur 1990-2026 (facteurs européens de Kenneth French), pour un peu moins de gain.</p>' +
@@ -6929,6 +6947,7 @@ details.pos summary{font-size:1rem}
         ['Déjà plus de +200 % : part des chutes de 25 % ou plus', '23 %', '16 %', '16 %'],
         ['Filtres du bouton 🎯, sans les comptes (positif dans chaque période)', '—', '—', '+6,7'],
         ['<b>… avec 🔊 volumes ≥ ×1,5</b> (positif dans chaque période ; sans hausse de volume : +5,8)', '—', '—', '<b>+10,2</b>'],
+        ['<b>… 🔊 + 📣 bond sur gros volume</b> (semaine ≥ +8 % à 3× le volume ; 🔊 sans bond : +9,2 ; net depuis 2009, nul avant)', '—', '—', '<b>+13,2</b>'],
         ['<b>Classement + 🔊 volumes ×2</b> (positif dans chaque période ; sans volumes en hausse : +2,3)', '—', '—', '<b>+7,7</b>'],
         ['Classement après une baisse du marché de 20 % sur un an (krach du momentum)', '—', '—', '−12,5'],
         ['Filtres 🎯 vendues à découvert, 🐻 ≥ 0,5 % (2013-2026, Paris et Londres ; sans : +8,6)', '—', '—', '−2,1'],

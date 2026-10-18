@@ -1370,6 +1370,14 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
     rr.push(mk('V1', 0.6, 8), mk('V2', 0.9, 9), mk('V3', 0.7, 6), mk('V4', 0.5, 8, { out: ['dernier exercice en perte'] }), mk('V5', 0.8, 8, { mom: -55 }), mk('V6', 0.8, 8, { out: ['cours parmi le tiers le plus faible du marché sur 12 mois'] }));
     const pv = ES.pickValue(rr).picks.map((x) => x.key);
     ok(pv.join() === 'V2,V1,V6', '💎 valeur : prix bas, F-score ≥ 7 (le meilleur d\'abord), sans perte ni chute de plus de 40 %, momentum faible accepté (' + pv.join() + ')'); }
+  { const rr = [r('A', 95), r('B', 94), r('C', 93, { secEn: 'Industrials' }), r('F', 90, { secEn: 'Media' })];
+    const ks = (q) => ES.pickN(q, { n: 10 }).picks.map((x) => x.key).join();
+    const b = ks(rr.map((x) => x.key === 'F' ? Object.assign({}, x, { bp: 2 }) : x.key === 'B' ? Object.assign({}, x, { vx: 1.8 }) : x));
+    const h = ks(rr.map((x) => x.key === 'F' ? Object.assign({}, x, { bp: 2, vx: 1.8 }) : x.key === 'A' ? Object.assign({}, x, { vx: 1.8 }) : x));
+    ok(b === 'B,F,A,C' && h === 'F,A,B,C', '📣 bond sur gros volume : après 🔊, avant les autres ; 🔊 + 📣 en tête (' + b + ' / ' + h + ')'); }
+  { const W = []; for (let k = 0; k < 70; k++) W.push(100 + k * 0.3); W[66] = W[65] * 1.12; for (let k = 67; k < 70; k++) W[k] = W[66] * (1 + (k - 66) * 0.002);
+    const V = []; for (let k = 0; k < 62; k++) V.push(1000); V[62 - 1 - 3] = 4000;
+    const fb = ES.rankFeatures(null, W, V); ok(fb.bump === 3, 'bond sur gros volume repéré il y a 3 semaines (' + fb.bump + ')'); }
   const pvw = ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x));
   ok(!pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)), '⚡ cours très volatil (≥ 80 %/an) : jamais proposé, raison donnée');
   ok(ES.pickN(rows.map((x) => x.key === 'A' ? Object.assign({}, x, { vo: 60 }) : x)).picks.some((x) => x.key === 'A'), 'volatilité de 60 %/an : acceptée');
