@@ -84,7 +84,7 @@ jobs:
         continue-on-error: true
 
       - name: 3b. Secteurs et thèmes (cours hebdomadaires, test historique, classement du jour)
-        timeout-minutes: 35
+        timeout-minutes: 50
         run: |
           python scrapers/test_sectors.py > /tmp/test_sectors.txt || { cat /tmp/test_sectors.txt; exit 1; }
           python scrapers/test_yahoo.py > /tmp/test_yahoo.txt || { cat /tmp/test_yahoo.txt; exit 1; }

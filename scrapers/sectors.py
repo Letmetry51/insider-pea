@@ -220,14 +220,10 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
     limit = (date.today() - timedelta(days=60)).isoformat()
     todo = sorted([sym for sym in out if info_stale(cache.get(sym), limit)], key=lambda x: -(out[x].get("capEur") or 0))
     t0, n = time.time(), 0
-    with ThreadPoolExecutor(THREADS) as ex:
-        for k in range(0, len(todo), 40):
-            if time.time() - t0 > info_minutes * 60:
-                break
-            for sym, inf in ex.map(fetch_info, todo[k:k + 40]):
-                n += 1
-                if inf:
-                    cache[sym] = inf
+    try:
+        n = fetch_infos(todo, info_minutes, cache)
+    except Exception as e:  # noqa: BLE001
+        log(f"  catalogue : fiches Yahoo interrompues ({str(e)[:80]})")
     write_json(INFO_CACHE, cache)
     kept, foreign, unknown = {}, 0, 0
     for sym, it in out.items():
@@ -337,32 +333,50 @@ def book_fields(inf):
     return out
 
 
+def fetch_infos(todo, minutes, cache):
+    """Fiches Yahoo par paquets de 40, dans la limite du temps donné. Yahoo bloque parfois ce service un moment (jeton refusé,
+    « unable to access this feature ») : pause d'une minute, nouvelle session, essai sur un petit paquet sans parallélisme,
+    et arrêt pour ce soir seulement si le blocage persiste. Une fiche vide ne remplace jamais l'ancienne. Renvoie le nombre lu."""
+    t0, n, empty, threads, pauses = time.time(), 0, 0, THREADS, 0
+    k = 0
+    while k < len(todo) and time.time() - t0 <= minutes * 60:
+        pack = todo[k:k + (40 if threads > 1 else 10)]
+        with ThreadPoolExecutor(threads) as ex:
+            res = list(ex.map(fetch_info, pack))
+        got = 0
+        for sym, inf in res:
+            if inf and (inf.get("longName") or inf.get("shortName") or inf.get("marketCap")):
+                cache[sym] = inf
+                n += 1
+                got += 1
+        if got:
+            empty = 0
+            k += len(pack)
+            continue
+        empty += 1
+        reset_yahoo_session()
+        if empty < 2:
+            k += len(pack)
+            continue
+        if pauses >= 2:
+            log(f"  fiches Yahoo : service bloqué par Yahoo, relecture arrêtée pour ce soir ({n} lues, anciennes fiches conservées)")
+            break
+        pauses += 1
+        threads = 1
+        log("  fiches Yahoo : réponses vides, pause d'une minute puis reprise prudente (une fiche à la fois)")
+        time.sleep(60)
+        empty = 1
+    return n
+
+
 def refresh_infos(syms, minutes=4):
     """Relit, dans la limite du temps donné et les plus grosses d'abord, les fiches Yahoo anciennes ou d'une version précédente."""
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=60)).isoformat()
     todo = [x for x in syms if info_stale(cache.get(x), limit)]
-    t0, n, empty = time.time(), 0, 0
+    t0, n = time.time(), 0
     try:
-        with ThreadPoolExecutor(THREADS) as ex:
-            for k in range(0, len(todo), 40):
-                if time.time() - t0 > minutes * 60:
-                    break
-                got = 0
-                for sym, inf in ex.map(fetch_info, todo[k:k + 40]):
-                    # fiche vide (Yahoo qui refuse le jeton ou bloque) : l'ancienne fiche est conservée, jamais remplacée par du vide
-                    if inf and (inf.get("longName") or inf.get("shortName") or inf.get("marketCap")):
-                        cache[sym] = inf
-                        n += 1
-                        got += 1
-                if not got:
-                    empty += 1
-                    reset_yahoo_session()
-                    if empty >= 2:  # deux paquets de 40 fiches vides de suite : Yahoo ne répond plus, arrêt pour ce soir
-                        log("  fiches Yahoo : réponses vides, relecture arrêtée (anciennes fiches conservées)")
-                        break
-                else:
-                    empty = 0
+        n = fetch_infos(todo, minutes, cache)
     except Exception as e:  # noqa: BLE001
         log(f"  fiches Yahoo : relecture interrompue ({e})")
     if n:
