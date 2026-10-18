@@ -3283,6 +3283,13 @@
   /** 🐻 Ventes à découvert publiées (≥ 0,5 % du capital). Test 2013-2026 (AMF, FCA), filtres 🎯 : sans position publiée +8,6 points à 6 mois,
    *  avec −2,1 (18 % de chutes de 25 % ou plus contre 10,7 %) ; à Paris −11,6 points et 28 % de chutes, dans les deux périodes ;
    *  à Londres effet faible et irrégulier. Écartée du 🎯 pour les positions publiées par l'AMF ; ailleurs seulement signalée. */
+  /** Moment d'entrée d'une société du 🎯 (test 1997-2026) : au-dessus de sa moyenne 10 semaines, acheter sans attendre de repli
+   *  (un repli de plus de 5 % sur le mois a fait moins bien, +5,8 points contre +7,3) ; en dessous, attendre qu'elle repasse au-dessus. */
+  ES.pickEntry = function (r) {
+    if (!r || r.m10 == null) return null;
+    return r.m10 < 0 ? { k: 'wait', icon: '⏸️', label: 'Attendre qu\'elle repasse au-dessus de sa moyenne 10 semaines (' + String(r.m10).replace('.', ',') + ' %)', short: 'attendre (sous sa moy. 10 sem.)' }
+      : { k: 'buy', icon: '✅', label: 'Achat possible : au-dessus de sa moyenne 10 semaines (+' + String(r.m10).replace('.', ',') + ' %)', short: 'achat possible' };
+  };
   ES.SHORT_MIN = 0.5; ES.SHORT_EXCLUDE = { FR: true };
   ES.shortBlocks = function (r) { return r && r.sh != null && r.sh >= ES.SHORT_MIN && !!ES.SHORT_EXCLUDE[r.shc]; };
   /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
@@ -3333,14 +3340,16 @@
     var TL = ['toutes les règles', 'règle assouplie : pente moyenne ou hausse de +30 à +60 %', 'règle assouplie : comptes mitigés ou pas encore lus'];
     var cand = [[], [], []], rejected = [];
     (rows || []).forEach(function (r) { var t = tierOf(r); if (t == null) { if (!(r.out || []).filter(function (x) { return !/PEA/.test(x); }).length) rejected.push({ r: r, why: why(r) || 'hors des règles' }); } else cand[t].push(r); });
-    var ord = function (a, b) { return hot(b) - hot(a) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
+    // ⏸ sous sa moyenne 10 semaines : élan cassé, placée après les autres (1997-2026 : +4,9 points à 6 mois contre +7,3, chaque période)
+    var wait = function (r) { return r.m10 != null && r.m10 < 0 ? 1 : 0; };
+    var ord = function (a, b) { return hot(b) - hot(a) || wait(a) - wait(b) || b.note - a.note || (b.slope6 || 0) - (a.slope6 || 0); };
     cand.forEach(function (c) { c.sort(ord); });
     var picks = [], used = {}, seen = {};
     var take = function (maxPerSec) {
       for (var t = 0; t < 3 && picks.length < o.n; t++) cand[t].forEach(function (r) {
         if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
         used[r.key] = 1; seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
-        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickNotPea: notPea(r) }));
+        picks.push(Object.assign({}, r, { pickTier: t, pickWhy: TL[t] + (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''), pickHot: !!hot(r), pickWait: !!wait(r), pickNotPea: notPea(r) }));
       });
     };
     take(o.perSec); if (picks.length < o.n) take(o.perSec + 1);
@@ -3427,7 +3436,7 @@
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, short: x.short || null, currency: x.currency || null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false, dayJump: f.dayJump != null ? f.dayJump : null, vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null, ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null, short: x.short || null, currency: x.currency || null };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3493,7 +3502,7 @@
     var slim = (rows || []).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return { key: r.key, note: r.note, out: r.out, acc: r.acc, pea: r.pea, secEn: r.secEn || r.sector, sector: r.sector, sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
+        mom: r.mom != null && eng ? r.mom * 100 : r.mom, ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio, dj: r.dayJump != null ? r.dayJump : r.dj, liq: r.turnoverEur != null ? r.turnoverEur : r.liq, vx: r.volx !== undefined ? r.volx : r.vx, vo: r.vola !== undefined ? r.vola : r.vo, m10: r.ma10 !== undefined ? r.ma10 : r.m10, sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh, shn: r.short ? r.short.n : r.shn, shc: r.short ? r.short.cc : r.shc, _r: r };
     });
     return ES.pickN(slim, { n: R.selSize, peaOnly: true }).picks.filter(function (p) { return p.pickTier < 2 && p.note >= R.selMin; }).map(function (p) { return p._r; });
   };
