@@ -113,7 +113,7 @@ def catalogue_pairs(known, min_turnover=CAT_MIN_TURNOVER_EUR):
     for f in sorted((DATA / "societes").glob("*.json")):
         items = load(f, {}).get("items")
         for sym, x in (items if isinstance(items, dict) else {}).items():
-            if not isinstance(x, dict) or sym in known or x.get("pea") is False:
+            if not isinstance(x, dict) or sym in known:  # hors PEA compris (Suisse, Royaume-Uni, foncières) : classés aussi
                 continue
             if (x.get("turnoverEur") or 0) >= min_turnover:
                 out["@" + sym] = sym

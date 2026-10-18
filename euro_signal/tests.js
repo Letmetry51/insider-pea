@@ -1296,7 +1296,7 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
   ok(!by.A.out.length && by.A.pos <= 2 && by.A.note >= c3.rank.good && by.A.verdict.key === (by.A.note >= c3.rank.top ? 'top' : 'good'), 'A en tête : ' + by.A.note);
   eq(by.A.parts.calm, 0, 'cours le plus agité : 0 point de calme');
   ok(/perte/.test(by.C.out.join()), 'perte'); ok(/peu liquide/.test(by.D.out.join()), 'liquidité'); ok(/dégradation/.test(by.E.out.join()), 'F-score ≤ 3');
-  ok(/détresse/.test(by.F.out.join()), 'Altman'); ok(/PEA/.test(by.G.out.join()), 'PEA'); ok(/tiers le plus faible/.test(by.K.out.join()), 'tiers faible');
+  ok(/détresse/.test(by.F.out.join()), 'Altman'); ok(!by.G.out.length && by.G.warn.some((w) => /hors PEA/.test(w)) && by.G.pea === false, 'hors PEA : classée, signalée'); ok(/tiers le plus faible/.test(by.K.out.join()), 'tiers faible');
   ok(/moins d'un an/.test(by.L.out.join()), 'historique court');
   eq(by.H.parts.insiders, 5, 'bonus plafonné à 5'); ok(by.H.why.some((w) => /DG ou le DAF/.test(w)));
   eq(by.I.parts.accounts, 8, 'comptes pas encore lus : 8 points'); ok(by.I.warn.indexOf('comptes pas encore lus') > -1);
@@ -1309,6 +1309,7 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
   // sélection : seuil et taille
   const sel = ES.rankSelection(rows, c3); ok(sel.every((r) => !r.out.length && r.note >= c3.rank.selMin) && sel.length <= c3.rank.selSize, 'sélection ' + sel.map((r) => r.key + ':' + r.note));
   ok(!ES.rankSelection([Object.assign({}, by.A, { acc: null })], c3).length, 'comptes non lus : pas dans la sélection');
+  ok(!ES.rankSelection([Object.assign({}, by.A, { pea: false })], c3).length, 'hors PEA : pas dans l\'email du lundi');
   const mail = ES.buildRankEmail(sel.map((r) => Object.assign({}, r, { link: 'https://x/#co=' + r.sym, isNew: true })), '2026-W43', c3, 'https://x/', '2026-10-19', { n: 4, avg: 2.5, bench: 1 });
   ok(/Sélection de la semaine/.test(mail.subject) && /#co=A/.test(mail.text) && !/undefined|null|NaN/.test(mail.text + mail.html), 'email lisible');
   const none = ES.buildRankEmail([], '2026-W43', c3, null, '2026-10-19', null); ok(/aucune société/.test(none.subject));

@@ -3830,14 +3830,14 @@ details.pos summary{font-size:1rem}
    * Rangs centiles (force relative, volatilité) calculés parmi les sociétés liquides et éligibles au PEA.
    */
   ES.rankUniverse = function (items, cfg) {
-    var R = cfg.rank, W = R.w, pool = (items || []).filter(function (x) { return x && x.f && x.f.mom != null && (x.turnoverEur || 0) >= R.minTurnoverEur && x.pea !== false; });
+    var R = cfg.rank, W = R.w, pool = (items || []).filter(function (x) { return x && x.f && x.f.mom != null && (x.turnoverEur || 0) >= R.minTurnoverEur; }); // hors PEA compris depuis le 18/10/2026 (Suisse, Royaume-Uni, foncières)
     var pctOf = function (vals) { var srt = vals.slice().sort(function (a, b) { return a - b; }), n = srt.length; return function (v) { if (!n || v == null) return null; var lo = 0, hi = n; while (lo < hi) { var m = (lo + hi) >> 1; if (srt[m] < v) lo = m + 1; else hi = m; } var lo2 = lo; while (lo2 < n && srt[lo2] === v) lo2++; return (lo + (lo2 - lo) / 2) / n; }; };
     var momP = pctOf(pool.map(function (x) { return x.f.mom; })), volP = pctOf(pool.filter(function (x) { return x.f.vol != null; }).map(function (x) { return x.f.vol; }));
     var pc = function (v) { return Math.round(v * 100); };
     var rows = (items || []).map(function (x) {
       var f = x.f || {}, out = [], parts = {}, why = [], warn = [], acc = x.acc;
       if ((x.turnoverEur || 0) < R.minTurnoverEur) out.push('peu liquide : ' + (x.turnoverEur != null ? fmtEur(x.turnoverEur) : 'volume inconnu') + ' échangés par jour (minimum ' + fmtEur(R.minTurnoverEur) + ')');
-      if (x.pea === false) out.push('non éligible au PEA');
+      if (x.pea === false) warn.push('hors PEA : compte-titres seulement');
       if (f.mom == null) out.push('moins d\'un an de cours : tendance incalculable');
       var mp = f.mom != null ? momP(f.mom) : null, vp = f.vol != null ? volP(f.vol) : null;
       if (mp != null && mp < 1 / 3) out.push('cours parmi le tiers le plus faible du marché sur 12 mois');
@@ -3872,7 +3872,7 @@ details.pos summary{font-size:1rem}
       var v = out.length ? { key: 'out', icon: '⛔', label: 'Écartée' } : note >= R.top ? { key: 'top', icon: '🟢', label: 'En tête' } : note >= R.good ? { key: 'good', icon: '🟡', label: 'Solide' } : { key: 'mid', icon: '⚪', label: 'Sans plus' };
       return { key: x.key, isin: x.isin || null, sym: x.sym || null, name: x.name, country: x.country || null, sector: x.sector || null, turnoverEur: x.turnoverEur, note: note, parts: parts, verdict: v, out: out, why: why, warn: warn,
         momPct: mp, volPct: vp, mom: f.mom, ratio: f.ratio, trend: f.trend || null, ret6m: f.ret6m, last: f.last, insItems: ins.items, acc: acc ? (acc.fin ? 'fin' : acc.key) : null,
-        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null };
+        slope: f.slope != null ? Math.round(f.slope * 1000) / 1000 : null, r2: f.r2 != null ? Math.round(f.r2 * 100) / 100 : null, slopeCls: (ES.slopeClass(f.slope, f.trend) || {}).key || null, brk: f.brk != null ? f.brk : null, volx: f.volx != null ? f.volx : null, pea: x.pea !== false };
     });
     rows.sort(function (a, b) { return (a.out.length ? 1 : 0) - (b.out.length ? 1 : 0) || b.note - a.note || (b.momPct || 0) - (a.momPct || 0); });
     var k = 0; rows.forEach(function (r) { if (!r.out.length) r.pos = ++k; });
@@ -3933,7 +3933,8 @@ details.pos summary{font-size:1rem}
   ES.rankSelection = function (rows, cfg) {
     var R = cfg.rank;
     // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
-    return (rows || []).filter(function (r) { return !r.out.length && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
+    // l'email du lundi reste réservé au PEA
+    return (rows || []).filter(function (r) { return !r.out.length && r.pea !== false && r.note >= R.selMin && r.acc && r.acc !== 'na'; }).slice(0, R.selSize);
   };
   /**
    * Étude de contrôle, recalculée chaque soir : clôtures hebdomadaires de toutes les sociétés (dates communes), chaque
@@ -4964,11 +4965,11 @@ details.pos summary{font-size:1rem}
   /** Bouton « Choisir 3 sociétés » : les règles testées appliquées au classement du soir (ES.pickThree). */
   function pick3Card() {
     var R = rankData(); if (!R) return '';
-    var nP = +lsGet('pickN', '10') || 10, P = ES.pickN(R.rows || [], { n: nP }), rg = R.breadth && R.breadth.now ? R.breadth.now.regime : null;
+    var peaOnly = ((S.rf || {}).quick || []).indexOf('pea') > -1, nP = +lsGet('pickN', '10') || 10, P = ES.pickN(R.rows || [], { n: nP, peaOnly: peaOnly }), rg = R.breadth && R.breadth.now ? R.breadth.now.regime : null;
     var plan = function (r) { var o = r.plan && PLANS.filter(function (x) { return x[0] === r.plan.v; })[0]; return o ? o[1] : null; };
     var h = '<details class="card pick3" data-k="pick3"><summary class="pick3b">🎯 Choisir des sociétés selon les règles testées</summary>';
     h += '<div class="segs" role="group" aria-label="Nombre de sociétés">' + [3, 5, 10].map(function (k) { return '<button class="' + (k === nP ? 'on' : '') + '" aria-pressed="' + (k === nP) + '" data-a="pickN" data-v="' + k + '">' + k + ' sociétés</button>'; }).join('') + '</div>';
-    h += '<p class="small">Classées, comptes solides, ⬆⬆ pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; <b>priorité aux 🔊 volumes en hausse</b> (10 semaines ≥ 1,5 fois la moyenne de l\'année), puis les meilleures notes, <b>une seule par secteur</b>. ' + P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir' + (P.picks.length > P.pool ? ' ; au-delà, les règles sont assouplies par paliers, signalés sur chaque société' : '') + '.</p>';
+    h += '<p class="small">Classées, comptes solides, ⬆⬆ pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; <b>priorité aux 🔊 volumes en hausse</b> (10 semaines ≥ 1,5 fois la moyenne de l\'année), puis les meilleures notes, <b>une seule par secteur</b>. ' + P.pool + ' société' + (P.pool > 1 ? 's passent' : ' passe') + ' toutes les règles ce soir' + (peaOnly ? ' (PEA seulement, d\'après le filtre)' : ' (hors PEA compris : cochez « PEA seulement » pour les écarter)') + (P.picks.length > P.pool ? ' ; au-delà, les règles sont assouplies par paliers, signalés sur chaque société' : '') + '.</p>';
     if (rg === 'high') h += '<p class="note warn">😃 Marché euphorique : historiquement moins favorable. Achetez en plusieurs fois.</p>';
     if (!P.picks.length) h += '<p class="muted">Aucune société ne passe tous les filtres ce soir. Mieux vaut attendre que forcer un choix.</p>';
     else h += '<ol class="pick3l">' + P.picks.map(function (r, k) {
@@ -4983,6 +4984,7 @@ details.pos summary{font-size:1rem}
   }
   function rankQuick() {
     return {
+      pea: ['🇪🇺 PEA seulement', function (r) { return r.pea !== false; }],
       acc: ['📊 Comptes solides', function (r) { return r.acc === 'good'; }],
       pull: ['↘️ En repli de 5 à 25 %', function (r) { return r.ratio != null && r.ratio <= 95 && r.ratio >= 75; }]
     };
@@ -5041,7 +5043,7 @@ details.pos summary{font-size:1rem}
     });
     var ctry = {}, secs = {}, cv = {}; rows.forEach(function (r) { if (r.country) ctry[r.country] = 1; if (r.sector) secs[r.sector] = 1; cv[r.v] = (cv[r.v] || 0) + 1; });
     var C = R.counts || {}, RC = S.cfg.rank || {};
-    var h = '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides et éligibles au PEA classées sur ' + (C.catalogue || 0) + ' cotées. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
+    var h = '<section class="hero"><h2>Les plus fortes tendances, comptes vérifiés</h2><p>' + (C.ranked || 0) + ' sociétés liquides classées sur ' + (C.catalogue || 0) + ' cotées' + (function () { var n = rows.filter(function (r) { return r.pea === false && !r.out.length; }).length; return n ? ' (dont ' + n + ' hors PEA : Suisse, Royaume-Uni, foncières)' : ''; })() + '. <button type="button" class="linkbtn" data-a="rankWhy">Pourquoi cette méthode →</button></p></section>';
     var rstat = function (label, big, small, v, kind) { var on = f.v === v; return '<button class="stat ' + (kind || '') + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-a="rfV" data-v="' + v + '"><span class="lbl">' + label + '</span><span class="val">' + big + '</span><span class="sub">' + small + '</span></button>'; };
     h += '<section class="summary">' + rstat('En tête 🟢', String(cv.top || 0), 'note ≥ ' + (RC.top || 80), 'top', cv.top ? 'good' : '') + rstat('Solides 🟡', String(cv.good || 0), 'note ' + (RC.good || 65) + ' à ' + ((RC.top || 80) - 1), 'good', 'warn') + '</section>';
     h += weekCard() + pick3Card() + rankSelCard();
@@ -5094,7 +5096,7 @@ details.pos summary{font-size:1rem}
     h += '<div class="tablewrap"><table class="grid cards rtab"><thead><tr>' + th('name', 'Société') + th('note', 'Note', 'num') + th('mom', '12 mois', 'num') + th('high', 'Plus haut', 'num') + '<th>Avis</th></tr></thead><tbody>';
     list.slice(0, S.limit).forEach(function (r) {
       var pl = r.plan, P = pl ? PLANS.filter(function (o) { return o[0] === pl.v; })[0] : null, F = pl && pl.f && ES.FIGURES[pl.f];
-      h += '<tr class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><td class="c-name"><b>' + flag(r.country) + esc(r.name) + '</b><small>' + esc([r.sym, r.sector].filter(Boolean).join(' · ')) + '</small>' +
+      h += '<tr class="rowlink" ' + rankOpenAttr(r) + ' data-from="rank" tabindex="0"><td class="c-name"><b>' + flag(r.country) + esc(r.name) + '</b>' + (r.pea === false ? ' <span class="chip warn">hors PEA</span>' : '') + '<small>' + esc([r.sym, r.sector].filter(Boolean).join(' · ')) + '</small>' +
         '<small class="rwhy1">' + esc(r.out.length ? '⛔ ' + cap1r(r.out[0]) : (r.why || []).slice(0, 2).map(cap1r).join(' · ')) + '</small>' + (r.out.length ? '' : rankPills(r)) + '</td>' +
         '<td class="num scorecell" data-l="Note"><span class="big">' + r.note + '</span><small>/100</small></td>' +
         '<td class="num" data-l="12 mois">' + (r.mom != null ? '<span class="' + (r.mom >= 0 ? 'pos' : 'neg') + '">' + pct(r.mom) + '</span>' + (r.momPct != null ? '<small>mieux que ' + r.momPct + ' %</small>' : '') : '<span class="muted">n.d.</span>') + (r.vx >= ES.VOL_SURGE ? '<small class="rbrk" title="Volumes des 10 dernières semaines rapportés à la moyenne de l\'année">🔊 volumes ×' + String(r.vx).replace('.', ',') + '</small>' : '') + (rkBrk(r) ? '<small class="rbrk" title="Nouveau plus haut sur un an après 6 mois de base">🚀 sortie de base' + (r.brk ? ' (' + r.brk + ' sem.)' : '') + '</small>' : '') + (rkSc(r) && r.slope6 != null ? '<small class="rslope sl-' + rkSc(r) + '" title="Pente du canal haussier : rythme de la droite de tendance sur les 6 derniers mois">' + '<span>' + SLOPE_TXT[rkSc(r)][0] + ' pente ' + SLOPE_TXT[rkSc(r)][1] + '</span> <span>' + (r.slope6 >= 0 ? '+' : '') + r.slope6 + ' %/6 mois</span></small>' : '') + '</td>' +
@@ -5918,7 +5920,7 @@ details.pos summary{font-size:1rem}
     if (dser.length >= 120) {
       try { var adj = ES.normalizeSeries(dser.map(function (r) { return [r[0], null, null, null, r[1], null]; })), esJ = esIsinOfSym(sym, x.isin), pl = (esJ && planFor(esJ)) || ES.entryPlan(adj); h += pl ? planCard(esJ || sym, pl, adj) : ''; } catch (e) { h += '<p class="muted small">Plan d\'entrée non calculable.</p>'; }
     } else h += '<p class="muted small">Plan d\'entrée : pas assez de cours journaliers (6 mois au moins).</p>';
-    if (!es && x.pea !== false && dser.length) h += catBuyBox(sym, dser[dser.length - 1][1]);
+    if (!es && dser.length) h += catBuyBox(sym, dser[dser.length - 1][1]);
     if (more) h += '<details class="card fold comore" data-k="comore"><summary>➕ Plus de détails <span class="muted">· ' + (es ? 'dossier Euro Signal, ' : '') + 'secteur, valeur, chiffres clés</span></summary>' + more + '</details>';
     var yurl = ES.safeUrl('https://finance.yahoo.com/quote/' + encodeURIComponent(sym));
     if (yurl) h += '<p class="small"><a href="' + esc(yurl) + '" target="_blank" rel="noopener">Voir sur Yahoo Finance ↗</a></p>';
@@ -6505,7 +6507,8 @@ details.pos summary{font-size:1rem}
     var h = '<section class="card proof" id="logique"><h3>📘 La logique de l\'outil</h3>' +
       '<p class="lgone"><b>En une phrase :</b> acheter les sociétés qui montent déjà le plus, avec des comptes sains et un canal haussier raide, une par secteur, et les garder 6 mois.</p>' +
       '<ol class="steps">' +
-      step('1. Écarter', 'Moins de 1 M€ échangés par jour, hors PEA, comptes en dégradation, dernier exercice en perte, bilan en détresse, saut de cours anormal, ou cours parmi le tiers le plus faible sur 12 mois (les sociétés « au creux » ont fait 3 points de moins que la moyenne, sur toutes les périodes).') +
+      step('1. Écarter', 'Moins de 1 M€ échangés par jour, comptes en dégradation, dernier exercice en perte, bilan en détresse, saut de cours anormal, ou cours parmi le tiers le plus faible sur 12 mois (les sociétés « au creux » ont fait 3 points de moins que la moyenne, sur toutes les périodes).') +
+      step('Hors PEA', 'Les sociétés suisses, britanniques et les foncières (compte-titres) sont classées comme les autres et marquées « hors PEA ». Le filtre « 🇪🇺 PEA seulement » les retire ; l\'email du lundi reste réservé au PEA.') +
       step('2. Noter sur 100', 'Force sur 12 mois hors dernier mois 50, proximité du plus haut 10, tendance de fond (MM50 au-dessus de la MM200) 15, comptes 20 ; achats de dirigeants en petit bonus (+5 au plus), ventes en malus.') +
       step('3. Regarder la pente', 'Rythme de la droite de tendance sur 6 mois : ⬆⬆ forte (≥ +40 %), ⬆ moyenne (+15 à +40 %), ↗ légère (< +15 %). C\'est ce qui sépare le mieux les hausses qui continuent.') +
       step('4. 🎯 Choisir 3, 5 ou 10 sociétés', 'Classées, comptes solides, pente forte, +60 à +200 % sur 12 mois, au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (×1,5 ou plus sur 10 semaines), puis les meilleures notes, une seule par secteur. Au-delà de ce qui passe toutes les règles, assouplissement par paliers signalés (pente moyenne, puis comptes pas encore lus), puis 2 sociétés par secteur.') +
