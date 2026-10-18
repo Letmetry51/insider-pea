@@ -114,6 +114,11 @@ jobs:
         run: python scrapers/test_financials.py && python scrapers/financials.py  # tests d'abord : une panne de Yahoo n'efface jamais les comptes
         continue-on-error: true
 
+      - name: 4c. Actualité qualitative (titres de presse des sociétés à acheter ou à surveiller)
+        timeout-minutes: 10
+        run: python scrapers/news.py
+        continue-on-error: true
+
       - name: 5a. Tests du moteur Euro Signal
         run: node euro_signal/tests.js && python scrapers/test_prices.py && python euro_signal/test_health.py
 
