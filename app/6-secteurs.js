@@ -345,9 +345,15 @@ function lineChart(ser, five, lv) {
     .sort(function (a, b) {
       return a.y - b.y;
     });
-  lab.forEach(function (o, k) {
-    o.ty = Math.max(T + 9, o.y - 3);
-    if (k && o.ty - lab[k - 1].ty < 10) o.ty = lab[k - 1].ty + 10;
+  // étiquettes : résistances à droite, supports à gauche (deux fois moins serrées), écartées d'une ligne si besoin
+  [true, false].forEach(function (sup) {
+    var prev = null;
+    lab.forEach(function (o) {
+      if (!!o.v.s !== sup) return;
+      o.ty = Math.max(T + 9, o.y - 3);
+      if (prev && o.ty - prev.ty < 11) o.ty = prev.ty + 11;
+      prev = o;
+    });
   });
   var lvSvg = lab
     .map(function (o) {
@@ -368,10 +374,12 @@ function lineChart(ser, five, lv) {
         (v.s ? 'Support ' : 'Résistance ') +
         f(v.p) +
         '</title></line><text x="' +
-        (L + 4) +
+        (v.s ? L + 4 : W - R - 4) +
         '" y="' +
         o.ty.toFixed(1) +
-        '" class="ax lv-t ' +
+        '"' +
+        (v.s ? '' : ' text-anchor="end"') +
+        ' class="ax lv-t ' +
         (v.s ? 'lv-ts' : 'lv-tr') +
         '">' +
         (v.s ? 'Support ' : 'Résistance ') +
@@ -675,39 +683,33 @@ function vSecCo() {
       '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' +
       esc(es) +
       '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
-  // secteur
+  // secteur, valeur et chiffres clés : chacun dans son pli (même présentation que les fiches Euro Signal)
   if (x.group)
-    more +=
+    more += asFold(
       '<section class="card"><h3>Secteur</h3><p><b>' +
-      esc(secName(x.group)) +
-      '</b>' +
-      (x.groupRank ? ' : ' + x.groupRank + 'e sur ' + nG + ' groupes' : '') +
-      (x.groupTrending ? ' <span class="chip good">En tendance</span>' : '') +
-      (x.groupEmerging ? ' <span class="chip warn">Émergent</span>' : '') +
-      '</p>' +
-      '<p class="small">Force sur 6 mois ' +
-      pc100(x.rs6) +
-      ' et sur 3 mois ' +
-      pc100(x.rs3) +
-      ' par rapport au STOXX 600' +
-      (x.volume != null
-        ? ' · volumes : ' +
-          (x.volume > 0.05 ? 'achats dominants' : x.volume < -0.05 ? 'ventes dominantes' : 'équilibrés')
-        : '') +
-      '.</p></section>';
+        esc(secName(x.group)) +
+        '</b>' +
+        (x.groupRank ? ' : ' + x.groupRank + 'e sur ' + nG + ' groupes' : '') +
+        (x.groupTrending ? ' <span class="chip good">En tendance</span>' : '') +
+        (x.groupEmerging ? ' <span class="chip warn">Émergent</span>' : '') +
+        '</p>' +
+        '<p class="small">Force sur 6 mois ' +
+        pc100(x.rs6) +
+        ' et sur 3 mois ' +
+        pc100(x.rs3) +
+        ' par rapport au STOXX 600' +
+        (x.volume != null
+          ? ' · volumes : ' +
+            (x.volume > 0.05 ? 'achats dominants' : x.volume < -0.05 ? 'ventes dominantes' : 'équilibrés')
+          : '') +
+        '.</p></section>',
+      'co-sec',
+      '🧭 Secteur <span class="muted">· ' +
+        esc(secName(x.group)) +
+        (x.groupRank ? ', ' + x.groupRank + 'e sur ' + nG : '') +
+        '</span>'
+    );
   // chiffres clés
-  var reco =
-    x.reco == null
-      ? null
-      : x.reco <= 1.5
-        ? 'achat fort'
-        : x.reco <= 2.5
-          ? 'achat'
-          : x.reco <= 3.5
-            ? 'conserver'
-            : x.reco <= 4.5
-              ? 'sous-performance'
-              : 'vente';
   var big = function (v) {
     return v == null
       ? null
@@ -748,49 +750,35 @@ function vSecCo() {
     ['Marge brute', x.grossMargin ? fmtN(x.grossMargin * 100, 0) + ' %' : null],
     ['Marge opérationnelle', x.opMargin != null ? fmtN(x.opMargin * 100, 0) + ' %' : null],
     ['PER attendu (12 mois)', x.fwdPE != null && x.fwdPE > 0 ? fmtN(x.fwdPE, 1) : null],
-    [
-      'Analystes',
-      x.analysts ? x.analysts + (reco ? ' · avis moyen : ' + reco + ' (' + fmtN(x.reco, 1) + ' sur 5)' : '') : null,
-    ],
-    ['Objectif de cours moyen', x.upside != null ? pc100(x.upside) + ' par rapport au cours' : null],
-    [
-      'Prévisions sur 30 jours',
-      x.revUp30 != null && x.revDown30 != null
-        ? 'relevées ' + x.revUp30 + ' fois, abaissées ' + x.revDown30 + ' fois'
-        : null,
-    ],
-    [
-      'Derniers résultats',
-      x.lastSurprise
-        ? (x.lastSurprise[1] >= 0 ? 'au-dessus' : 'en dessous') +
-          ' du consensus (' +
-          pct(x.lastSurprise[1]) +
-          ', ' +
-          shortDate(x.lastSurprise[0]) +
-          ')'
-        : null,
-    ],
+    // analystes, résultats et actionnariat : dans le pli 🔬 Analyse (pas de doublon)
     ['Cours / valeur comptable', x.pb != null ? fmtN(x.pb, 2) + '×' + (x.pb < 1 ? " (sous l'actif net)" : '') : null],
     ['Rentabilité des fonds propres', x.roe != null ? fmtN(x.roe * 100, 1) + ' % sur 12 mois' : null],
-    ['Institutionnels', x.instPct != null ? fmtN(x.instPct * 100, 0) + ' % du capital' : null],
-    ['Dirigeants et proches', x.insiderPct != null ? fmtN(x.insiderPct * 100, 1) + ' % du capital' : null],
   ].filter(function (r) {
     return r[1];
   });
-  more += secValueCard(x, es) + '';
-  more +=
+  more += asFold(
+    secValueCard(x, es),
+    'co-val',
+    '💎 Valeur <span class="muted">· cours / valeur comptable ' +
+      (x.pb != null ? fmtN(x.pb, 2) + '×' : 'n.d.') +
+      '</span>'
+  );
+  more += asFold(
     '<section class="card"><h3>Chiffres clés</h3><table class="kv">' +
-    rows
-      .map(function (r) {
-        return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
-      })
-      .join('') +
-    '</table><p class="small muted">Source Yahoo Finance, relevé du ' +
-    shortDate(String((S.secCo || S.sec || {}).generatedAt || '').slice(0, 10)) +
-    '.</p>' +
-    '<p class="rep">' +
-    reportBtn(x.name || sym, x.isin || null, sym) +
-    '</p></section>';
+      rows
+        .map(function (r) {
+          return '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>';
+        })
+        .join('') +
+      '</table><p class="small muted">Source Yahoo Finance, relevé du ' +
+      shortDate(String((S.secCo || S.sec || {}).generatedAt || '').slice(0, 10)) +
+      '.</p>' +
+      '<p class="rep">' +
+      reportBtn(x.name || sym, x.isin || null, sym) +
+      '</p></section>',
+    'co-kpi',
+    '🧾 Chiffres clés <span class="muted">· Yahoo, 12 derniers mois</span>'
+  );
   // cours
   var D = (S.secCo && S.secCo.dDates) || [],
     Wd = (S.secCo && S.secCo.wDates) || [];

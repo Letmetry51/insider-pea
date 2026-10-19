@@ -53,6 +53,7 @@ OUT_CO = DATA / "sectors-companies.json"  # ancien fichier unique (remplacé par
 CATALOG = SEC / "catalog.json"            # toutes les sociétés cotées des places de l'UE / l'EEE (filtre Yahoo, chaque semaine)
 CO_DIR = DATA / "societes"                # fiche de chaque société cotée, en 32 fichiers (lus à la demande)
 CO_INDEX = DATA / "societes-index.json"   # liste de recherche : symbole, nom, pays, capitalisation, secteur, tendance
+FINANCIALS = DATA / "financials.json"     # comptes annuels (scrapers/financials.py) : trajectoire sur 4 ans des fiches
 CO_SHARDS = 32
 
 MIN_CAP_EUR = 500e6
@@ -500,6 +501,18 @@ def universe_age():
 
 
 # --------------------------------------------------------------------------- révisions et surprises (une fois par semaine)
+def next_earnings(ed, today=None):
+    """Prochaine publication de résultats annoncée par Yahoo (dates à venir de get_earnings_dates) : AAAA-MM-JJ, ou None."""
+    if ed is None or getattr(ed, "empty", True):
+        return None
+    t0 = pd.Timestamp(today or date.today()).normalize()
+    idx = pd.to_datetime(ed.index)
+    if getattr(idx, "tz", None) is not None:
+        idx = idx.tz_localize(None)  # heure locale de la publication, sans fuseau : seule la date compte
+    fut = sorted(d for d in idx.normalize() if d >= t0)
+    return fut[0].strftime("%Y-%m-%d") if fut else None
+
+
 def fetch_estimates(s):
     import yfinance as yf
     t = yf.Ticker(s)
@@ -516,6 +529,9 @@ def fetch_estimates(s):
         ed = with_retry(lambda: t.get_earnings_dates(limit=16), tries=2)
         if ed is not None and not ed.empty and "Surprise(%)" in ed.columns:
             out["surprises"] = sorted([[i.strftime("%Y-%m-%d"), float(v)] for i, v in ed["Surprise(%)"].items() if pd.notna(v)])
+        nx = next_earnings(ed)
+        if nx:
+            out["next"] = nx
     except Exception:
         pass
     return s, out
@@ -535,6 +551,9 @@ def refresh_estimates():
             merged = {d: v for d, v in prev}
             merged.update({d: v for d, v in (e.get("surprises") or [])})  # historique des surprises conservé au-delà de 16 trimestres
             e["surprises"] = sorted([[d, v] for d, v in merged.items()])
+            pn = (old.get(s) or {}).get("next")
+            if not e.get("next") and pn and pn >= date.today().isoformat():
+                e["next"] = pn  # Yahoo muet cette semaine : la date annoncée reste valable tant qu'elle est à venir
             est[s] = e
     write_json(ESTIMATES, est)
     # instantané hebdomadaire de la largeur des révisions par groupe : constitue l'historique qui permettra de valider ce signal
@@ -1167,6 +1186,36 @@ def daily_closes(tickers):
     return X.where(X > 0)
 
 
+def fin_by_symbol(items):
+    """Comptes annuels par symbole Yahoo : sociétés suivies par Euro Signal (clé ISIN, champ ticker) et celles du catalogue
+    (clé « @SYMBOLE »)."""
+    out = {}
+    rank = lambda v: (len(v.get("years") or []), max((str(y.get("date") or "") for y in v.get("years") or [] if isinstance(y, dict)), default=""))
+    for k, v in (items or {}).items():
+        if not isinstance(v, dict):
+            continue
+        sym = k[1:] if k.startswith("@") else v.get("ticker")
+        if sym and (sym not in out or rank(v) > rank(out[sym])):  # deux dossiers pour un même titre : le plus complet
+            out[sym] = v
+    return out
+
+
+FIN_KEYS = ("revenue", "operatingIncome", "netIncome", "ebitda", "cash", "totalDebt", "shares", "equity")
+
+
+def fin_compact(f, currency=None):
+    """Quatre derniers exercices pour l'analyse des fiches : [clôture, chiffre d'affaires, résultat d'exploitation, résultat net,
+    EBITDA, trésorerie, dette, nombre d'actions, fonds propres], à 4 chiffres significatifs ; None sans chiffre utile."""
+    def sig4(v):
+        return float(f"{v:.4g}") if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else None
+    ys = sorted([y for y in (f or {}).get("years") or [] if isinstance(y, dict) and y.get("date")], key=lambda y: y["date"])[-4:]
+    rows = [[str(y["date"])[:10], *(sig4(y.get(k)) for k in FIN_KEYS)] for y in ys]
+    rows = [r for r in rows if r[1] is not None or r[3] is not None]
+    if not rows:
+        return None
+    return {"c": (f or {}).get("currency") or currency or None, "y": rows}
+
+
 def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True, V=None):
     """Fiche de chaque société cotée de l'UE / l'EEE : celles de l'univers des secteurs (≥ 500 M€, chiffres complets)
     et toutes les autres du catalogue (chiffres de base). Cours en devise locale : un an journalier, cinq ans hebdomadaire.
@@ -1224,6 +1273,10 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
     sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
     # fiches Yahoo (valeur comptable) : complétées chaque soir dans la limite de 4 minutes, les plus grosses sociétés d'abord
     info = refresh_infos(sorted(syms, key=lambda x: -((uni.get(x) or extra.get(x) or cat_only.get(x) or {}).get("capEur") or 0))) if fetch_daily else read_json(INFO_CACHE, {})
+    # analyse des fiches : comptes sur 4 ans, prochaine publication de résultats, actionnariat
+    fins = fin_by_symbol((read_json(FINANCIALS, {}) or {}).get("items"))
+    est = read_json(ESTIMATES, {}) or {}
+    today_s = date.today().isoformat()
     items, index = {}, []
     for sym in syms:
         it = uni.get(sym) or extra.get(sym) or cat_only.get(sym) or {}
@@ -1236,9 +1289,18 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
                    grossMargin=it.get("grossMargin"), revenue=it.get("revenue"), reco=it.get("reco"), insiderPct=it.get("insiderPct"),
                    turnoverEur=it.get("turnoverEur"), group=g, groupRank=gi.get("rank"), groupTrending=gi.get("trending"), groupEmerging=gi.get("emerging"),
                    roles=roles.get(sym) or [], basic=sym in cat_only, **book_fields(info.get(sym)))
+        inf = info.get(sym) or {}
         if not rec.get("name"):  # nom absent du catalogue Yahoo : fiche de la société, à défaut le symbole
-            inf = info.get(sym) or {}
             rec["name"] = inf.get("longName") or inf.get("shortName") or sym
+        fc = fin_compact(fins.get(sym), inf.get("financialCurrency"))
+        if fc:
+            rec["fin"] = fc
+        nx = (est.get(sym) or {}).get("next")
+        if isinstance(nx, str) and nx >= today_s:
+            rec["nextEarnings"] = nx
+        for k, ik in (("instPct", "heldPercentInstitutions"), ("insiderPct", "heldPercentInsiders")):
+            if rec.get(k) is None and isinstance(inf.get(ik), (int, float)) and 0 <= inf[ik] <= 1:
+                rec[k] = round(float(inf[ik]), 4)
         if sym in Wl.columns and Wl[sym].notna().sum() >= 20:
             rec["w"] = [sig(v) for v in Wl[sym].tolist()]
         if sym in Vl.columns and Vl[sym].notna().sum() >= 52:
