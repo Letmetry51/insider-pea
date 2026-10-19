@@ -3873,7 +3873,7 @@ details.pos summary{font-size:1rem}
   ES.shortBlocks = function (r) { return r && r.sh != null && r.sh >= ES.SHORT_MIN && !!ES.SHORT_EXCLUDE[r.shc]; };
   /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
    *  ont fait 12,5 points de moins que la moyenne à 6 mois (1997-2026 : 2001-2003, 2009, 2012, 2022-2023). */
-  ES.MOM_CRASH_M52 = -20; ES.RANK_JUMP_DOWN = 0.35;
+  ES.MOM_CRASH_M52 = -20; ES.MOM_CRASH_OFF = -15; ES.RANK_JUMP_DOWN = 0.35; // alerte krach : allumée à −20 %, éteinte au-dessus de −15 % (pas de va-et-vient)
   /**
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
@@ -4178,7 +4178,7 @@ details.pos summary{font-size:1rem}
     var ent = function (x) { return ES.pickEntry({ m10: x.ma10 != null ? x.ma10 : x.m10 }); };
     var nBuy = items.filter(function (x) { var e = ent(x); return !e || e.k === 'buy'; }).length;
     var subject = '[Euro Signal] 🎯 Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + (nBuy < n ? ', ' + nBuy + ' à acheter maintenant' : '') : 'aucune société ne passe les règles');
-    var intro = 'Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois, volumes en hausse d\'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.';
+    var intro = 'Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois, volumes en hausse puis 📣 bond sur gros volume d\'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.';
     var pcs = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
     var tr = track && track.n ? 'Sélections précédentes (' + track.n + ' dossiers) : ' + pcs(track.avg) + ' en moyenne depuis l\'envoi' + (track.bench != null ? ', indice ' + pcs(track.bench) : '') + '.' : null;
     var warnOf = function (x) { return (x.warn || []).slice(0, 2); };
@@ -4424,10 +4424,6 @@ details.pos summary{font-size:1rem}
   }
   function alertBadge() { var n = Object.keys(S.computed).filter(function (i) { return S.computed[i].dec.send; }).length; return n ? ' <span class="count">' + n + '</span>' : ''; }
 
-  function scoreBar(sc) {
-    var f = sc.families, seg = function (k) { var p = Math.max(0, f[k].points); return p ? '<i class="f-' + k + '" style="width:' + Math.min(100, p * 100 / ((S.cfg.display || {}).scoreCeiling || 60)) + '%" title="' + esc(f[k].label) + ' : ' + p + '/' + f[k].cap + '"></i>' : ''; };
-    return '<div class="sbar" role="img" aria-label="Note ' + ES.note(sc.total, S.cfg) + ' sur 100">' + seg('insiders') + seg('buyback') + seg('results') + seg('market') + '</div>';
-  }
   function uniChip(u) {
     if (u.status === 'rejete') { var why = (u.reasons || []).join(' ; '), short = /liquidit/.test(why) ? 'peu liquide' : /séances|historique/.test(why) ? 'historique trop court' : /cours|figé|suspen/.test(why) ? 'cotation suspendue' : null;
       return '<span class="chip bad" title="' + esc(why) + '">Hors univers' + (short ? ' : ' + short : '') + '</span>'; }
@@ -4507,12 +4503,6 @@ details.pos summary{font-size:1rem}
     return (c.adv = ES.advice(S.inst[i], c.score, S.cfg, { histKey: h && h.key, today: S.today, universe: c.uni, mood: S.snapshot && S.snapshot.market && S.snapshot.market.mood }));
   }
   function advBadge(a, big) { return a ? '<span class="adv adv-' + a.key + (big ? ' big' : '') + '" title="' + esc(a.why.join(' ; ')) + '">' + a.icon + ' ' + esc(a.label) + '</span>' : ''; }
-  function sigIcons(sig, max) {
-    var l = (sig || []).filter(function (g) { return g.tone !== 'info'; });
-    var bad = l.filter(function (g) { return g.tone === 'bad'; }), rest = l.filter(function (g) { return g.tone !== 'bad'; });
-    l = bad.concat(rest).slice(0, max || 8); // les alertes rouges d'abord
-    return l.length ? '<span class="sigs">' + l.map(function (g) { return '<span class="sg sg-' + g.tone + '" title="' + esc(g.text) + '">' + g.icon + '</span>'; }).join('') + '</span>' : '';
-  }
   /** Synthèse en tête de fiche : étoiles, note, avis, 3 raisons, 2 points d'attention, fiabilité mesurée des dossiers comparables. */
   function adviceCard(i, c) {
     var a = adviceOf(i), sc = c.score, sm = ES.adviceSummary(a), sel = (S.snapshot && S.snapshot.selection && S.snapshot.selection.items) || [], k = -1;
@@ -4909,20 +4899,8 @@ details.pos summary{font-size:1rem}
     var f = x.fund || {}, g = (f.industry && S.gByKey[f.industry]) || (f.sector && S.gByKey['Autres : ' + f.sector]) || null;
     return g ? { trending: !!g.trending, emerging: !!g.emerging, rank: g.rank, of: S.sec.groups.length, key: g.key } : null;
   }
-  /** Repère de valeur dans les listes : décote nette sur la valeur intrinsèque, ou cours sous la valeur comptable d'une société rentable. */
-  function valChip(i) {
-    var v = (S.inst[i] || {}).value; if (!v || v.na || v.negEquity) return '';
-    if (ES.valueCheap(v)) return ' <span class="fig good" title="Valeur intrinsèque estimée ' + esc(ivNum(v.mid)) + ' : cours ' + v.marginPct + ' % en dessous (onglet Valeur de la fiche)">💎 ' + v.marginPct + ' % sous sa valeur</span>';
-    if (v.pb != null && v.pb < 1 && !v.lossMaking && v.roe != null && v.roe >= v.r * 100 - 1) return ' <span class="fig" title="Cours ' + esc(fmtN(v.pb, 2)) + ' fois la valeur comptable (actif net par action ' + esc(ivNum(v.bvps)) + ')">📘 sous sa valeur comptable</span>';
-    return '';
-  }
   /** Phase du cycle et place du secteur d'une société dans cette phase (lecture de la rotation des secteurs, sans poids dans la note). */
   function cycOf(i) { var x = S.inst[i] || {}; return S.cycle ? ES.cycleFit(S.cycle, (x.fund && x.fund.sector) || x.sector) : null; }
-  function cycChip(i, full) {
-    var f = cycOf(i); if (!f) return '';
-    if (!full) return f.fit === 'up' ? ' <span class="fig good" title="Secteur porté par la phase du cycle (' + esc(f.phase) + ')">🔄 Porté par le cycle</span>' : '';
-    return ' <span class="chip ' + (f.fit === 'up' ? 'good' : f.fit === 'down' ? 'warn' : '') + '" title="Phase du cycle : ' + esc(f.phase) + '">🔄 ' + (f.cyclical ? 'Cyclique' : 'Défensif') + ' · ' + (f.fit === 'up' ? 'porté par le cycle' : f.fit === 'down' ? 'à contre-cycle' : 'neutre dans le cycle') + '</span>';
-  }
   /** Carte « phase du cycle » : frise des 4 phases, phase actuelle, secteurs portés et à contre-cycle. compact : une ligne (Opportunités). */
   function cycleCard(compact) {
     var c = S.cycle; if (!c) return '';
@@ -5002,9 +4980,6 @@ details.pos summary{font-size:1rem}
       return '<button class="fxb-i t-' + f.tone + '"' + (f.go ? ' data-a="goto" data-v="' + esc(f.go) + '"' : ' disabled') + ' title="' + esc(f.tip) + '"><span class="fxb-ic" aria-hidden="true">' + f.icon + '</span><b>' + esc(f.txt) + '</b><small>' + f.label + '</small></button>'; }).join('') +
       '</div><p class="fxb-sum"><span class="t-good">●</span> ' + n.good + ' favorable' + (n.good > 1 ? 's' : '') + ' · <span class="t-mid">●</span> ' + n.mid + ' à surveiller · <span class="t-bad">●</span> ' + n.bad + ' défavorable' + (n.bad > 1 ? 's' : '') + '</p>';
   }
-  function secChip(i) { var t = secTrendOf(i); if (!t || !(t.trending || t.emerging)) return ''; return ' <span class="fig good" title="Secteur ' + (t.trending ? 'en tendance' : 'émergent') + ' : ' + t.rank + 'e sur ' + t.of + ' (onglet Secteurs)">🔥 ' + (t.trending ? 'Secteur en tendance' : 'Secteur émergent') + '</span>'; }
-  function convChip(i) { var c = convOf(i); if (!c || c.n < 2) return ''; return ' <span class="fig conv c' + Math.min(c.n, 4) + '" title="' + esc(c.items.filter(function (x) { return x.ok; }).map(function (x) { return x.label; }).join(' · ')) + '">🎯 ' + c.n + '/' + c.of + '</span>'; }
-  function figChip(i) { var k = figOf(i); if (!k || k === 'none') return ''; var F = ES.FIGURES[k]; return ' <span class="fig ' + F[2] + '" title="Figure des 3 derniers mois">' + F[0] + ' ' + F[1] + '</span>'; }
   /* ----- Classement tendance + comptes (barème 3.0) ----- */
   var RV = { top: ['🟢', 'En tête', 'good'], good: ['🟡', 'Solide', 'warn'], mid: ['⚪', 'Sans plus', 'neutral'], out: ['⛔', 'Écartée', 'bad'] };
   function rankData() { return S.snapshot && S.snapshot.rank && Array.isArray(S.snapshot.rank.rows) ? S.snapshot.rank : null; }
@@ -5025,13 +5000,6 @@ details.pos summary{font-size:1rem}
     ].filter(function (f) { return f.max > 0; });
   }
   function famTone(f) { return f.signed ? (f.v > 0 ? 'good' : f.v < 0 ? 'bad' : 'na') : f.v >= 0.75 * f.max ? 'good' : f.v >= 0.4 * f.max ? 'mid' : 'bad'; }
-  /** Une ligne de pastilles « 📈 58/65 · 📊 20/20 · 🌊 5/10 · 👔 +3 » (couleur = bon, moyen, faible). */
-  function rankPills(r) {
-    return '<span class="rpills">' + rankFam(r).map(function (f) {
-      if (f.signed && !f.v) return '';
-      return '<span class="rpill t-' + famTone(f) + '" title="' + esc(f.label + ' : ' + f.tip) + '">' + f.icon + ' <b>' + (f.signed ? (f.v > 0 ? '+' : '') + f.v : f.v + '<small>/' + f.max + '</small>') + '</b></span>';
-    }).join('') + '</span>';
-  }
   /** Jauges nommées (fiche et guide) : une barre par famille, avec son score. */
   function rankGauges(r) {
     return '<div class="rgauges">' + rankFam(r).map(function (f) {
@@ -5087,7 +5055,7 @@ details.pos summary{font-size:1rem}
     if (o.f9 == null && r && r.f9 != null) o.f9 = r.f9;
     var pk = pickSet(); o.inPick = !!(r && pk[r.key]);
     var R = rankData(); o.inVal = !!(R && r && ES.pickValue(R.rows || [], { n: 10 }).picks.some(function (v) { return v.key === r.key; }));
-    var N = R && R.breadth && R.breadth.now; o.crash = !!(N && N.m52 != null && N.m52 <= ES.MOM_CRASH_M52);
+    var N = R && R.breadth && R.breadth.now; o.crash = R && R.crashOn != null ? !!R.crashOn : !!(N && N.m52 != null && N.m52 <= ES.MOM_CRASH_M52);
     return o;
   }
   function loadNews() {
@@ -5301,15 +5269,6 @@ details.pos summary{font-size:1rem}
       '<p class="foot">Puis : garder 6 mois, protection à −30 %. Les emails préviennent du reste.' + (t && t.n ? ' Sélections précédentes : ' + pct(t.avg) + ' en moyenne' + (t.bench != null ? ' (indice ' + pct(t.bench) + ')' : '') + ', détail dans Alertes.' : '') + '</p>';
     return h + subs + '</details>';
   }
-  function modeSeg() {
-    var m = S.rankMode || 'rank';
-    return '<div class="segs" role="group" aria-label="Classement"><button class="' + (m === 'rank' ? 'on' : '') + '" aria-pressed="' + (m === 'rank') + '" data-a="rankMode" data-v="rank">📈 Classement</button><button class="' + (m === 'ins' ? 'on' : '') + '" aria-pressed="' + (m === 'ins') + '" data-a="rankMode" data-v="ins">👔 Ancien (dirigeants)</button></div>';
-  }
-  /** Filtres rapides du classement : les mêmes que l'ancien classement, appliqués à toutes les sociétés classées. */
-  /** Repères d'une ligne du classement : calculés le soir, sinon repris du dossier Euro Signal de la société (même règle). */
-  function rkSec(r) { if (r.sec) return true; var t = r.isin && S.inst[r.isin] ? secTrendOf(r.isin) : null; return !!(t && (t.trending || t.emerging)); }
-  function rkSecEn(r) { var x = r.isin && S.inst[r.isin]; return r.secEn || (x && ((x.fund && x.fund.sector) || x.sector)) || null; }
-  function rkF9(r) { if (r.f9 != null) return r.f9; var a = r.isin && S.inst[r.isin] && S.inst[r.isin].accounts; return a && a.fscore && !a.fscore.na ? a.fscore.f9 : null; }
   /** Classe de pente du canal haussier (régression sur 6 mois, rythme annuel), seulement en tendance de fond haussière. */
   function rkSc(r) { return r.sc !== undefined ? r.sc : (ES.slopeClass(r.slope6 != null ? Math.pow(1 + r.slope6 / 100, 2) - 1 : null, r.trend) || {}).key || null; }
   /** Sortie de base récente (moins de 4 semaines) sur une société classée ou seulement écartée pour sa baisse sur 12 mois. */
@@ -5321,7 +5280,6 @@ details.pos summary{font-size:1rem}
     return '<p class="small brkx">🚀 seul apporte peu (1 sur 9 font +40 % en 6 mois, contre 1 sur 10). Avec ⬆⬆ et un marché non euphorique : 1 sur 4 à 5. Marché actuel : ' + mk + '.</p>';
   }
   var SLOPE_TXT = { strong: ['⬆⬆', 'forte', 'good'], mid: ['⬆', 'moyenne', 'warn'], light: ['↗', 'légère', 'neutral'] };
-  function rkVal(r) { return r.isin && S.inst[r.isin] ? S.inst[r.isin].value : null; }
   /** Psychologie du marché : part des sociétés en tendance haussière (ampleur), plus hauts et plus bas de l'année, volatilité, et ce qui a suivi dans le passé. */
   function psyCard() {
     var R = rankData(), b = R && R.breadth; if (!b || !b.now) return '';
@@ -5348,7 +5306,7 @@ details.pos summary{font-size:1rem}
   /** Tableau de bord : marché, règles 🎯, règle de revente ; une ligne de chiffres en dessous. */
   function dashTiles(R, rows) {
     var N = R.breadth && R.breadth.now, rg = N ? N.regime : null, C = R.counts || {};
-    var crash = N && N.m52 != null && N.m52 <= ES.MOM_CRASH_M52;
+    var crash = !!(N && N.m52 != null) && (R.crashOn != null ? !!R.crashOn : N.m52 <= ES.MOM_CRASH_M52);
     var mk = crash ? ['⚠️', 'Marché en chute', fmtN(N.m52, 0) + ' % en un an : achetez par petites touches', 'bad'] : rg === 'high' ? ['😃', 'Marché euphorique', 'étalez vos achats', 'warn'] : rg === 'low' ? ['😟', 'Marché pessimiste', 'bon moment pour entrer', 'good'] : ['😐', 'Marché neutre', (N ? fmtN(N.up, 0) + ' % des sociétés en hausse' : 'conditions normales'), 'good'];
     var brkS = rows.filter(function (r) { return rkBrk(r) && rkSc(r) === 'strong'; }).length;
     var VV = ES.pickValue(rows, { n: 10 });
@@ -6486,8 +6444,9 @@ details.pos summary{font-size:1rem}
     // un pli par secteur : rang, nom, force 6 mois et progression en 8 semaines ; le détail s'ouvre au toucher
     var grpFold = function (g, ctx) {
       var mv = g.rank8w != null ? g.rank8w - g.rank : null;
-      var body = grpCard(g, true).replace(/<p class="grp-h">[\s\S]*?<\/p>/, '').replace('data-k="g-', 'data-k="g' + ctx + '-');
-      return '<details class="fold grpf" data-k="gf' + ctx + '-' + esc(g.key) + '"><summary><span class="rk">' + g.rank + '</span> ' + esc(secName(g.key)) + ' <span class="muted small">· <span class="nw">6\u00a0mois ' + String(pc100(g.rs6)).replace(/ /g, '\u00a0') + '</span>' + (mv ? ' · <span class="nw">' + (mv > 0 ? '▲\u00a0' : '▼\u00a0') + Math.abs(mv) + '</span>' : '') + (g.trending && ctx === 'a' ? ' · en tendance' : '') + '</span></summary>' + body + '</details>';
+      var k = 'gf' + ctx + '-' + g.key, open = !!(S.openDet && S.openDet[k]);
+      var body = open ? grpCard(g, true).replace(/<p class="grp-h">[\s\S]*?<\/p>/, '').replace('data-k="g-', 'data-k="g' + ctx + '-') : '';
+      return '<details class="fold grpf' + (open ? '' : ' lazy') + '" data-k="' + esc(k) + '"><summary><span class="rk">' + g.rank + '</span> ' + esc(secName(g.key)) + ' <span class="muted small">· <span class="nw">6\u00a0mois ' + String(pc100(g.rs6)).replace(/ /g, '\u00a0') + '</span>' + (mv ? ' · <span class="nw">' + (mv > 0 ? '▲\u00a0' : '▼\u00a0') + Math.abs(mv) + '</span>' : '') + (g.trending && ctx === 'a' ? ' · en tendance' : '') + '</span></summary>' + body + '</details>';
     };
     h += trend.length ? trend.map(function (g) { return grpFold(g, 't'); }).join('') : '<p class="muted">Aucun secteur ne remplit les trois conditions aujourd\'hui (parmi les 20 % meilleurs, plus fort que le marché sur 6 mois, la moitié des sociétés en hausse).</p>';
     var hTr = h; h = '';
@@ -6630,10 +6589,10 @@ details.pos summary{font-size:1rem}
     var h = '<h2 class="vt">Alertes</h2>' + mySuivis() + (function () { var t1 = trackBox(), t2 = trackBox('value'); return t1 || t2 ? '<section class="card"><h3>📬 Que sont devenues les sélections ?</h3>' + (t1 ? '<p class="small"><b>🎯 Momentum</b></p>' + t1 : '') + (t2 ? '<p class="small"><b>💎 Valeur</b></p>' + t2 : '') + sigBox() + '<p class="foot">Résultat réel des sociétés proposées chaque semaine, comparé à l\'indice, figé à 3 et 6 mois.</p></section>' : ''; })();
     h += '<section class="card"><h3>📧 Emails automatiques</h3>' + (mailReady ? '' : '<p class="note warn">Gmail n\'est pas configuré : rien ne part, les emails sont seulement simulés.</p>') +
       '<ul class="plain"><li>🛒 <b>Lundi</b> : la liste à acheter (5 🎯 + 2 💎, ✅ acheter ou ⏸️ attendre).</li>' +
-      '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable.</li>' +
+      '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
       '<li>📉 <b>Après « Je l\'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>' +
       '<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d\'achat, casse sa résistance ou passe sous le stop.</li>' +
-      '<li>⚠️ <b>Krach</b> : quand l\'alerte s\'allume, puis quand elle s\'éteint.</li>' +
+      '<li>⚠️ <b>Krach</b> : quand l\'alerte s\'allume (marché à −20 % sur un an), puis quand elle s\'éteint (retour au-dessus de −15 %).</li>' +
       '<li>🔎 <b>Auto-surveillance</b> : si la méthode ou une règle perd son avantage (un email par mois au plus).</li>' +
       '<li>📊 <b>Bilan</b> chaque trimestre · 🧭 <b>point de revue</b> le 31/01/2027 · 💡 <b>piste confirmée</b> (révisions des analystes).</li>' +
       '<li>🛠️ <b>Technique</b> : seulement si un contrôle du soir échoue.</li></ul>' +
@@ -6641,40 +6600,6 @@ details.pos summary{font-size:1rem}
     var log = Object.keys(S.alerts).map(function (k) { return S.alerts[k]; }).sort(function (x, y) { return (x.createdAt || '') < (y.createdAt || '') ? 1 : -1; });
     h += '<section class="card"><h3>Journal des emails <span class="muted">· ' + log.length + '</span></h3>' + det('Voir le journal', log.length ? '<div class="tablewrap"><table class="grid"><thead><tr><th>Date</th><th class="hide-s">Société</th><th>Objet</th><th>Statut</th></tr></thead><tbody>' + log.slice(0, 200).map(function (x) { var st = ALERT_STATUS[x.status] || [x.status, 'neutral']; return '<tr><td>' + esc(shortDate(String(x.createdAt || '').slice(0, 10))) + '</td><td class="hide-s">' + esc(x.name || x.isin) + '</td><td>' + esc(String(x.subject || '').replace(/^\[Euro Signal\] /, '')) + (x.error ? '<small class="neg">' + esc(x.error) + '</small>' : '') + '</td><td><span class="chip ' + st[1] + '">' + st[0] + '</span></td></tr>'; }).join('') + '</tbody></table></div><p class="foot">« Non confirmé » : peut-être parti, jamais renvoyé automatiquement (vérifiez vos Envoyés). « Échec » : rien n\'est parti, nouvel essai au prochain calcul.</p>' : '<p class="muted">Aucun email pour l\'instant.</p>', 'al-log') + '</section>';
     return h;
-  }
-  /** Suivi des sélections passées : la méthode marche-t-elle ? */
-  function selTrackSection(tr) {
-    var h = '<section class="card"><h3>📬 Que sont devenues les sélections ?</h3>';
-    var weeks = tr.filter(function (w) { return w.items.some(function (x) { return x.perf != null; }); });
-    if (!weeks.length) return h + '<p class="muted">Le suivi démarre avec la première sélection du lundi.</p></section>';
-    var sum = ES.selectionTrackSummary(tr);
-    h += '<p>En moyenne <b class="' + (sum.avg >= 0 ? 'pos' : 'neg') + '">' + pct(sum.avg) + '</b> depuis la sélection' + (sum.bench != null ? ', contre ' + pct(sum.bench) + ' pour le CAC 40 ; ' + Math.round(sum.beatPct) + ' % des dossiers ont fait mieux que l\'indice' : '') + ' (' + sum.n + ' dossiers, ' + sum.weeks + ' semaine' + (sum.weeks > 1 ? 's' : '') + ').</p>';
-    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Semaine</th><th>Sociétés (performance depuis la sélection)</th><th class="num">CAC 40</th></tr></thead><tbody>' +
-      weeks.slice().reverse().map(function (w) {
-        return '<tr><td data-l="Semaine"><b>' + esc(w.week) + '</b><small>' + shortDate(w.date) + '</small></td><td data-l="Sociétés">' + w.items.map(function (x) { return '<span class="rowlink tk" data-a="open" data-i="' + esc(x.isin) + '" tabindex="0">' + esc(String(x.name || x.isin).replace(/,? (S\.?A\.?|SE|AG|N\.?V\.?|S\.p\.A\.|SpA)$/i, '').slice(0, 28)) + ' <span class="' + (x.perf >= 0 ? 'pos' : 'neg') + '">' + (x.perf == null ? 'n.d.' : pct(x.perf)) + '</span></span>'; }).join(' · ') + '</td><td class="num" data-l="CAC 40">' + (w.bench == null ? 'n.d.' : pct(w.bench)) + '</td></tr>';
-      }).join('') + '</tbody></table></div><p class="foot">Cours depuis le jour de la sélection, hors dividendes et frais. Quelques semaines ne prouvent rien : il faut plusieurs mois.</p></section>';
-    return h;
-  }
-  /** Suivi de chaque alerte après envoi : performance, comparaison au CAC 40, signaux de sortie. */
-  function followSection(fu) {
-    var h = '<section class="card"><h3>🔔 Suivi des alertes <span class="muted">· ' + fu.length + '</span></h3>';
-    if (!fu.length) return h + '<p class="muted">Aucune alerte à suivre. Chaque alerte est suivie un an, avec un email si un signal de sortie apparaît.</p></section>';
-    h += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Alerte du</th><th class="num">Depuis l\'alerte</th><th class="num">CAC 40</th><th>Signaux de sortie</th></tr></thead><tbody>';
-    fu.slice().sort(function (a, b) { return a.sentAt < b.sentAt ? 1 : -1; }).forEach(function (f) {
-      h += '<tr class="rowlink" data-a="open" data-i="' + esc(f.isin) + '" tabindex="0"><td class="c-name"><b>' + esc(f.name || f.isin) + '</b>' + (f.status === 'simulee' ? '<small>alerte simulée (non envoyée)</small>' : '') + '</td><td data-l="Alerte du">' + shortDate(f.sentAt) + '</td>' +
-        '<td class="num" data-l="Depuis l\'alerte"><span class="' + (f.perfPct >= 0 ? 'pos' : 'neg') + '">' + pct(f.perfPct) + '</span></td><td class="num" data-l="CAC 40">' + (f.benchPct != null ? pct(f.benchPct) : 'n.d.') + '</td>' +
-        '<td data-l="Signaux de sortie">' + (f.signals.length ? f.signals.map(function (x) { return '<span class="chip warn">' + esc(x) + '</span>'; }).join(' ') : '<span class="chip good">aucun</span>') + '</td></tr>';
-    });
-    return h + '</tbody></table></div><p class="foot">Signaux : un dirigeant vend, tendance cassée (MM50 sous MM200), cours ' + S.cfg.exits.belowInsiderPricePct + ' % sous le prix des dirigeants, ou −' + S.cfg.exits.drawdownFromPeakPct + ' % depuis le plus haut. Des alertes, pas des ordres.</p></section>';
-  }
-  /** Auto-apprentissage : ce que l'outil a mesuré et ajusté. */
-  function learningSection(L) {
-    var Lc = S.cfg.learning, fz = L.frozenUntil;
-    var h = '<section class="card"><h3>Auto-apprentissage du barème <span class="chip ' + (fz ? 'warn' : L.mode === 'auto' ? 'good' : 'neutral') + '">' + (fz ? 'en pause jusqu\'au ' + esc(ES.frDate(fz)) : L.mode === 'auto' ? 'actif' : 'désactivé') + '</span></h3>' +
-      '<p class="lead">Chaque mois, Euro Signal compare chaque composante du score aux résultats réels : achats avec ou sans cette composante, écart avec le CAC 40 à ' + Lc.horizon + ' séances. Un poids ne bouge que d\'un point par mois et reste entre 0 et 2 fois sa valeur d\'origine, à quatre conditions : un écart net (t ≥ ' + fmtN(Lc.minT, 1) + ', seuil relevé parce que 7 composantes sont testées chaque mois) sur au moins ' + Lc.minCases + ' cas de chaque côté ; le même sens sur la première et la seconde moitié de la période ; au moins ' + (Lc.minNew || 20) + ' cas nouveaux depuis le dernier ajustement ; pas de contradiction avec l\'historique long quand il tranche. ' + (L.withOutcome || 0) + ' achats ont déjà un résultat à ' + Lc.horizon + ' séances sur ' + (L.samples || 0) + ' suivis.' + (fz ? ' Les mesures continuent, mais aucun poids ne change avant la revue.' : '') + '</p>';
-    h += '<ul class="plain">' + (L.stats || []).map(function (s) { return '<li><b>' + esc(s.label) + '</b> — ' + s.nWith + ' cas avec' + (s.meanWith != null ? ' : ' + pct(s.meanWith) + ' vs CAC 40' : '') + (s.meanWithout != null ? ', contre ' + pct(s.meanWithout) + ' sans' : '') + (s.t != null ? ' (t = ' + fmtN(s.t, 1) + ')' : '') + '<br><small class="muted">' + esc(s.action) + '</small></li>'; }).join('') + '</ul>';
-    h += (L.log && L.log.length ? '<h4 class="mt">Historique des ajustements</h4><ul class="plain">' + L.log.slice().reverse().map(function (e) { return '<li>' + esc(e.month) + ' · ' + esc(e.label) + ' : ' + e.from + ' → ' + e.to + ' (écart ' + (e.effect >= 0 ? '+' : '') + e.effect + ' pt, ' + e.nWith + ' cas, t = ' + e.t + ')</li>'; }).join('') + '</ul>' : '<p class="foot">Aucun ajustement pour l\'instant : il faut plusieurs mois de résultats avant que les écarts soient nets.</p>');
-    return h + '</section>';
   }
   /* ----- Sources ----- */
   function srcState(s) {
@@ -6704,121 +6629,8 @@ details.pos summary{font-size:1rem}
   }
 
   /* ----- Validation ----- */
-  function vValidation() {
-    var bt = S.bt || { res: null };
-    var h = '<h2 class="vt">Validation statistique</h2><p class="lead">Étude d\'événements sur les achats déclarés collectés automatiquement : entrée à l\'ouverture de la première séance après la publication, sortie à la clôture N séances plus tard, coûts aller-retour déduits, comparaison à un indice de référence, et séparation entre échantillon et période hors échantillon.</p>';
-    if (bt.meta) h += '<p class="note">Étude recalculée chaque soir sur l\'archive des déclarations : ' + (bt.meta.events || 0) + ' événements, indice ' + esc(bt.meta.bench || 'aucun') + ', coûts ' + String(bt.meta.cost).replace('.', ',') + ' %, horizons ' + (bt.meta.horizons || []).join(' et ') + ' séances, hors échantillon depuis le ' + esc(bt.meta.oosStart || '?') + '.</p>';
-    if (bt.res) {
-      if (!bt.res.length) h += '<p class="note warn">Aucun événement exploitable : il faut des achats publiés et assez de séances de cours après la publication.</p>';
-      else {
-        h += '<div class="tablewrap"><table class="grid"><thead><tr><th>Signal</th><th class="num">Horizon</th><th>Période</th><th class="num">N</th><th class="num">Moyenne nette</th><th class="num">Médiane</th><th class="num">% positifs</th><th class="num">Excès vs indice</th><th class="num">% battant l\'indice</th></tr></thead><tbody>' +
-          bt.res.map(function (r) { return '<tr><td>' + esc(r.group) + '</td><td class="num">' + r.horizon + '</td><td>' + r.sample + '</td><td class="num">' + r.n + (r.n < 30 ? ' <span class="chip warn">faible</span>' : '') + '</td><td class="num">' + pct(r.mean) + '</td><td class="num">' + pct(r.median) + '</td><td class="num">' + fmtN(r.hit, 0) + ' %</td><td class="num">' + (r.meanExcess == null ? 'n.d.' : pct(r.meanExcess)) + '</td><td class="num">' + (r.hitExcess == null ? 'n.d.' : fmtN(r.hitExcess, 0) + ' %') + '</td></tr>'; }).join('') + '</tbody></table></div>';
-      }
-      h += '<section class="card"><h3>Limites de cette étude</h3><ul class="plain"><li>Biais de survivance : seuls les titres présents dans votre univers actuel sont testés ; les sociétés radiées ou rachetées manquent.</li><li>Les événements d\'un même titre se chevauchent : ils ne sont pas indépendants, et les moyennes surestiment la précision.</li><li>Les dates de publication inconnues sont remplacées par la date de transaction, ce qui avance l\'entrée : ces cas sont optimistes.</li><li>En dessous d\'une trentaine d\'événements par ligne, les résultats ne permettent aucune conclusion.</li><li>Un bon résultat passé n\'autorise pas à présenter le score comme une probabilité de hausse. Les facteurs de sentiment restent dans l\'indicateur expérimental tant qu\'ils n\'ont pas montré de valeur ajoutée hors échantillon.</li></ul></section>';
-    }
-    if (S.snapshot && S.snapshot.learning) h += learningSection(S.snapshot.learning);
-    var ob = S.snapshot && S.snapshot.learning && S.snapshot.learning.observe;
-    if (ob && ob.length) h += '<section class="card"><h3>Critères en observation <span class="chip neutral">sans effet sur la note</span></h3><p class="lead">Mesurés chaque soir sur nos données, comme les composantes du score : écart avec le CAC 40 à ' + S.cfg.learning.horizon + ' séances, avec et sans le critère. Un critère n\'entre dans la note que s\'il montre un avantage net sur au moins ' + S.cfg.learning.minCases + ' cas (revue de janvier).</p><ul class="plain">' +
-      ob.map(function (o) { return '<li><b>' + esc(o.label) + '</b> — ' + o.nWith + ' cas avec' + (o.meanWith != null ? ' : ' + pct(o.meanWith) + ' vs CAC 40' : '') + (o.meanWithout != null ? ', contre ' + pct(o.meanWithout) + ' sans' : '') + (o.t != null ? ' (t = ' + fmtN(o.t, 1) + ')' : '') + '<br><small class="muted">' + esc(o.action) + '</small></li>'; }).join('') + '</ul></section>';
-    return h;
-  }
-  /** Portefeuille simulé : la méthode complète appliquée jour après jour aux sélections passées, comparée au STOXX Europe 600. */
-  function paperCard(P) {
-    var R = P && P.rule, A = P && P.all, K = P && P.core, coreOn = !!(S.pfCore !== false && K && K.curve);
-    var h = '<h4>Portefeuille simulé</h4>';
-    if (!R || !R.curve || R.curve.length < 3) return h + '<p class="muted">Pas encore assez d\'historique pour simuler le portefeuille.</p>';
-    if (K) h += '<div class="segs" role="group" aria-label="Part non investie">' + [[0, 'Liquidités dormantes'], [1, 'Cœur indiciel + Euro Signal']].map(function (x) { return '<button class="' + (!!x[0] === coreOn ? 'on' : '') + '" data-a="pfCore" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
-    if (coreOn) {
-      // La part non investie suit le STOXX 600 (fonds indiciel, 0,2 % de frais par an) : la vraie question pour un épargnant
-      var bOf = {}; R.curve.forEach(function (p) { bOf[p[0]] = p[2]; });
-      var mk = function (src, base) { return Object.assign({}, base, { ret: src.ret, maxDD: src.maxDD, curve: src.curve.map(function (p) { return [p[0], p[1], bOf[p[0]] != null ? bOf[p[0]] : null]; }) }); };
-      R = mk(K, R); A = K.coreAll && A ? mk(K.coreAll, A) : null;
-      var gap = K.ret - (K.bench || 0);
-      h += '<p class="note">' + (gap >= 0 ? '✅ Avec la part non investie placée dans l\'indice, la méthode fait <b>' + pct(gap) + '</b> de mieux que l\'indice seul sur la période.' : '⚠️ Avec la part non investie placée dans l\'indice, la méthode fait <b>' + pct(gap) + '</b> de moins que l\'indice seul sur la période : pour l\'instant, elle coûte au lieu de rapporter.') + ' C\'est la comparaison qui compte pour un PEA : « indice + Euro Signal » contre « indice seul ».</p>';
-    }
-    var pc = function (v) { return v == null ? 'n.d.' : '<span class="' + (v >= 0 ? 'pos' : 'neg') + '">' + pct(v) + '</span>'; };
-    h += '<p class="foot">Ce que la méthode aurait donné, appliquée à la lettre depuis le ' + esc(ES.frDate(R.from)) + ' : achat de chaque société sélectionnée le lundi, à l\'ouverture du lendemain, avec la taille suggérée (1 % de risque, seuil de protection adapté à la volatilité, 8 % au plus par ligne) ; vente au seuil de protection, après un recul de 20 % depuis le plus haut, à la vente du DG ou du DAF ou au bout de 6 mois ; frais déduits ; la part non investie reste en liquidités. Point de départ : 100.</p>';
-    h += '<div class="pfstats">' + [[coreOn ? 'Indice + règle actuelle' : 'Règle actuelle (DG/DAF)', R], [coreOn ? 'Indice + tout dirigeant' : 'Tout dirigeant', A]].filter(function (x) { return x[1]; }).map(function (x) {
-      var r = x[1];
-      return '<div class="pfs"><span class="lbl">' + esc(x[0]) + '</span><span class="val">' + pc(r.ret) + '</span><span class="sub">STOXX 600 : ' + pc(r.bench) + ' · pire baisse ' + pc(r.maxDD) + ' (indice ' + pct(r.benchMaxDD) + ') · ' + r.trades + ' vente' + (r.trades > 1 ? 's' : '') + (r.winPct != null ? ', ' + r.winPct + ' % gagnantes' : '') + ' · investi en moyenne à ' + Math.round(r.exposure) + ' %' + (!coreOn && r.bench != null && r.exposure < 90 ? ' (à exposition égale, le STOXX 600 aurait rapporté environ ' + pct(r.bench * r.exposure / 100) + ')' : '') + '</span></div>';
-    }).join('') + '</div>';
-    // Courbes indexées à 100 : un seul axe, deux portefeuilles et l'indice en référence (pointillés)
-    var C = R.curve, a2 = {}; (A && A.curve || []).forEach(function (p) { a2[p[0]] = p[1]; });
-    var pts = C.map(function (p) { return { d: p[0], r: p[1], a: a2[p[0]] != null ? a2[p[0]] : null, b: p[2] }; });
-    S.pfPts = pts;
-    var narrow = window.innerWidth < 560, W = narrow ? 380 : 720, H = 230, L = 40, Rm = narrow ? 34 : 110, T = 12, B = 24;
-    var vals = []; pts.forEach(function (p) { [p.r, p.a, p.b].forEach(function (v) { if (v != null) vals.push(v); }); });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
-    var xs = function (k) { return L + (W - L - Rm) * (pts.length === 1 ? 0.5 : k / (pts.length - 1)); }, ys = function (v) { return T + (H - T - B) * (1 - (v - lo) / (hi - lo)); };
-    var path = function (key) { var d = '', on = false; pts.forEach(function (p, k) { var v = p[key]; if (v == null) { on = false; return; } d += (on ? 'L' : 'M') + xs(k).toFixed(1) + ' ' + ys(v).toFixed(1); on = true; }); return d; };
-    var lastOf = function (key) { for (var k = pts.length - 1; k >= 0; k--) if (pts[k][key] != null) return { k: k, v: pts[k][key] }; return null; };
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart pfchart" role="img" aria-label="Valeur du portefeuille simulé (base 100) comparée au STOXX Europe 600">';
-    [lo + pad, 100, hi - pad].forEach(function (v) { svg += '<line x1="' + L + '" x2="' + (W - Rm) + '" y1="' + ys(v).toFixed(1) + '" y2="' + ys(v).toFixed(1) + '" class="grid"' + (v === 100 ? ' style="stroke-dasharray:2 3"' : '') + '/><text x="' + (L - 6) + '" y="' + (ys(v) + 4).toFixed(1) + '" text-anchor="end" class="ax">' + fmtN(v, 0) + '</text>'; });
-    svg += '<text x="' + L + '" y="' + (H - 6) + '" class="ax">' + shortDate(pts[0].d) + '</text><text x="' + (W - Rm) + '" y="' + (H - 6) + '" text-anchor="end" class="ax">' + shortDate(pts[pts.length - 1].d) + '</text>';
-    svg += '<path d="' + path('b') + '" class="pf-b"/>' + (A ? '<path d="' + path('a') + '" class="pf-a"/>' : '') + '<path d="' + path('r') + '" class="pf-r"/>';
-    [['r', 'Règle actuelle', 'pf-r'], ['a', 'Tout dirigeant', 'pf-a'], ['b', 'STOXX 600', 'pf-b']].forEach(function (s0) { var e = lastOf(s0[0]); if (!e || (s0[0] === 'a' && !A)) return; svg += '<circle cx="' + xs(e.k).toFixed(1) + '" cy="' + ys(e.v).toFixed(1) + '" r="4" class="' + s0[2] + '-dot"/><text x="' + (xs(e.k) + 8).toFixed(1) + '" y="' + (ys(e.v) + 4).toFixed(1) + '" class="pf-lbl">' + (narrow ? '' : s0[1] + ' ') + fmtN(e.v, 0) + '</text>'; });
-    svg += '<line class="pf-x" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" style="display:none"/><rect class="pf-hit" x="' + L + '" y="0" width="' + (W - L - Rm) + '" height="' + H + '" fill="transparent" data-w="' + W + '" data-l="' + L + '" data-r="' + Rm + '"/></svg>';
-    h += '<div class="chartwrap pfwrap">' + svg + '<div class="pftip" hidden></div></div><p class="legend2"><span><i class="lg pf-r-k"></i>Règle actuelle (DG/DAF)</span>' + (A ? '<span><i class="lg pf-a-k"></i>Tout dirigeant</span>' : '') + '<span><i class="lg pf-b-k"></i>STOXX Europe 600 (référence)</span></p>';
-    var rows = (R.open || []).map(function (t) { return '<tr><td class="c-name" data-l="Société">' + esc(t.name || t.isin) + '</td><td data-l="Achat">' + shortDate(t.from) + '</td><td data-l="Vente"><span class="chip neutral">en cours</span></td><td class="num" data-l="Taille">' + fmtN(t.size, 1) + ' %</td><td class="num" data-l="Résultat">' + pc(t.ret * 100) + '</td><td data-l="Motif">—</td></tr>'; })
-      .concat((R.list || []).slice(0, 12).map(function (t) { return '<tr><td class="c-name" data-l="Société">' + esc(t.name || t.isin) + '</td><td data-l="Achat">' + shortDate(t.from) + '</td><td data-l="Vente">' + shortDate(t.to) + '</td><td class="num" data-l="Taille">' + fmtN(t.size, 1) + ' %</td><td class="num" data-l="Résultat">' + pc(t.ret * 100) + '</td><td data-l="Motif">' + esc(t.why) + '</td></tr>'; }));
-    if (rows.length) h += '<details class="fsscale"><summary>Opérations du portefeuille simulé (règle actuelle)</summary><div class="tablewrap"><table class="grid cards"><thead><tr><th>Société</th><th>Achat</th><th>Vente</th><th class="num">Taille</th><th class="num">Résultat</th><th>Motif</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div></details>';
-    h += '<p class="foot">Limites : les tailles ne tiennent pas compte des réductions de l\'avis (levier, duel…) faute d\'historique de ces données, et la période est encore courte. C\'est le juge de paix de la méthode : il se précisera semaine après semaine.</p>';
-    return h;
-  }
   /** Marge d'erreur d'un pourcentage (intervalle de Wilson à 95 %). */
   function ci(p, n) { var w = ES.wilson(p, n); return w ? '<small class="ci" title="Marge d\'erreur à 95 % : la vraie valeur se situe très probablement dans cette fourchette">' + w[0] + '–' + w[1] + ' %</small>' : ''; }
-  /** Revue de la méthode : critères écrits à l'avance, état du soir, décision qu'ils donneraient aujourd'hui. */
-  function reviewCard() {
-    var r = ES.reviewStatus(S.snapshot || {}, S.cfg);
-    if (!r.date) return '';
-    var wcA = S.snapshot && S.snapshot.selection && S.snapshot.selection.waitCost && S.snapshot.selection.waitCost.all;
-    return '<h4>Revue du ' + esc(ES.frDate(r.date)) + ' : critères fixés à l\'avance' + (r.fixedOn ? ' (le ' + esc(ES.frDate(r.fixedOn)) + ')' : '') + '</h4>' +
-      '<ul class="checks">' + r.items.map(function (x) { return '<li class="' + (x.ok ? 'ok' : 'ko') + '"><span>' + esc(x.label) + (x.optional ? ' <span class="muted">(décision séparée)</span>' : '') + '<small>Aujourd\'hui : ' + esc(x.now) + '</small></span><b>' + (x.ok ? 'oui' : 'pas encore') + '</b></li>'; }).join('') + '</ul>' +
-      '<p class="note">Si la revue avait lieu ce soir : <b>' + esc(r.decision.text) + '</b></p>' +
-      (wcA ? '<p class="foot">Pour comparaison, tous achats de dirigeants confondus, attendre le lundi a coûté ' + pct(wcA.mean) + ' en moyenne sur ' + wcA.n + ' cas (environ ' + fmtN(wcA.avgDays, 1) + ' séances d\'attente), indice déduit.</p>' : '') +
-      '<p class="foot">Règle de décision : on garde si les trois premiers critères sont remplis ; on abandonne si, avec assez de cas, la méthode fait nettement moins bien que l\'indice (marge d\'erreur sous 50 % ou portefeuille plus de ' + ((S.cfg.rules.review || {}).maxUnderperfPts || 3) + ' points sous l\'indice seul) ; sinon on prolonge l\'observation de 6 mois. Écrite à l\'avance pour ne pas réinterpréter les chiffres après coup.</p>';
-  }
-  function freezeNote() {
-    var r = S.cfg.rules || {}, L = S.snapshot && S.snapshot.learning;
-    var until = (L && L.frozenUntil) || (r.frozenUntil && S.today <= r.frozenUntil ? r.frozenUntil : null);
-    return until ? '<p class="selrule">🔒 <b>Règles figées jusqu\'au ' + esc(ES.frDate(until)) + '</b> : les mesures continuent, les règles ne changent qu\'à la revue, pour ne pas se fier à des résultats dus au hasard.</p>' : '';
-  }
-  /** Fiabilité de la sélection : sélections du lundi rejouées sur 2 ans avec les seules données connues à chaque date, résultat 3 mois plus tard. */
-  function relBlock(rs) {
-    var h = '<h4>Fiabilité de la sélection</h4>';
-    var six = function (o) { return o && o.n ? o.n + ' dossier' + (o.n > 1 ? 's' : '') + ', ' + o.upPct + ' % en hausse, gain médian ' + pct(o.median) + (o.beatPct != null ? ', ' + o.beatPct + ' % ont battu le CAC 40' : '') : 'pas encore mesurable'; };
-    var h6 = rs && rs.h120 ? '<p class="mt"><b>À 6 mois</b> (120 séances) : règle actuelle — ' + six(rs.h120.all) + ' ; tout dirigeant — ' + six(rs.h120.current) + '.</p>' : '';
-    var extra = h6 + variantsBlock(rs && rs.variants) + piotroskiBlock(S.snapshot && S.snapshot.selection && S.snapshot.selection.piotroski);
-    if (!rs || !rs.all || !rs.all.n) return h + '<p class="muted">Pas encore de sélection passée mesurable à 3 mois.</p>' + extra;
-    var T = ES.note(S.cfg.alerts.minScore, S.cfg), F = ES.note(S.cfg.selection.minScore, S.cfg);
-    var pc = function (v) { return '<span class="' + (v >= 0 ? 'pos' : 'neg') + '">' + pct(v) + '</span>'; };
-    var rows = [['★★★★ Très fort (note ' + T + '+)', rs.top], ['★★★ Fort (' + F + ' à ' + (T - 1) + ')', rs.strong], ['Toutes les sélections', rs.all]].filter(function (r) { return r[1] && r[1].n; });
-    return h + '<p class="foot">Chaque lundi passé, la sélection a été recalculée avec les seules informations connues ce jour-là, puis suivie 3 mois (60 séances), frais de 0,5 % déduits.' + (rs.from ? ' Sélections du ' + esc(ES.frDate(rs.from)) + ' au ' + esc(ES.frDate(rs.to)) + '.' : '') + '</p>' +
-      '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Note</th><th class="num">Dossiers</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Moitié des cas entre</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Note">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b>' + ci(o.upPct, o.n) + '</td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Fourchette">' + pct(o.p25) + ' à ' + pct(o.p75) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' + ci(o.beatPct, o.n) : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-      '<p class="note">' + esc(ES.reliabilityText(rs) || ('Seulement ' + rs.all.n + ' dossier' + (rs.all.n > 1 ? 's' : '') + ' passé' + (rs.all.n > 1 ? 's' : '') + ' mesurable' + (rs.all.n > 1 ? 's' : '') + ' avec la règle actuelle : trop peu pour conclure, les chiffres se précisent chaque semaine.')) + '</p>' + extra;
-  }
-  /** F-score seul (Piotroski) : toutes les sociétés liquides suivies, avec ou sans achat de dirigeant, 120 jours après chaque clôture. */
-  function piotroskiBlock(p) {
-    if (!p || !p.n) return '';
-    var pc = function (x) { return '<span class="' + (x >= 0 ? 'pos' : 'neg') + '">' + pct(x) + '</span>'; }, G = S.cfg.accounts.fscoreGood;
-    var rows = [['F-score 0 à 3 (fragile)', p.low], ['F-score 4 à 6 (intermédiaire)', p.mid], ['F-score ' + G + ' à 9 (solide)', p.high], ['F-score 8 ou 9', p.top], ['F-score ' + G + ' à 9 avec achat de dirigeant (6 mois)', p.highIns], ['F-score ' + G + ' à 9 sans achat de dirigeant', p.highNoIns]].filter(function (r) { return r[1] && r[1].n; });
-    var q = p.h120 || {}, s6 = function (o) { return o && o.n ? o.upPct + ' % en hausse, ' + (o.beatPct != null ? o.beatPct + ' % battent le CAC 40' : '') + ' (' + o.n + ' cas)' : 'n.d.'; };
-    var six = q.high || q.low ? '<p class="foot"><b>À 6 mois :</b> F-score ' + G + ' à 9 — ' + s6(q.high) + ' ; 4 à 6 — ' + s6(q.mid) + ' ; 0 à 3 — ' + s6(q.low) + '.</p>' : '';
-    return '<h4 class="mt">Et le F-score seul ?</h4><p class="foot">Toutes les sociétés liquides suivies, notées sur chaque exercice disponible, achetées 120 jours après la clôture (comptes publiés) et gardées 3 mois, frais déduits' + (p.from ? ', depuis le ' + esc(ES.frDate(p.from)) : '') + '.</p>' +
-      '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Groupe</th><th class="num">Cas</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Écart moyen vs CAC 40</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Groupe">' + esc(r[0]) + '</td><td class="num" data-l="Cas">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b>' + ci(o.upPct, o.n) + '</td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Écart vs CAC">' + (o.meanExcess != null ? pc(o.meanExcess) : 'n.d.') + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' + ci(o.beatPct, o.n) : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' + six +
-      '<p class="foot">Achats d\'initiés d\'abord ou F-score d\'abord ? Les deux ordres donnent la même liste : les sociétés qui remplissent les deux conditions. Le F-score ne change qu\'une fois par an et dit si l\'entreprise va mieux ; l\'achat du dirigeant arrive à un moment précis et sert de déclencheur. D\'où notre choix : l\'achat du DG ou du DAF déclenche, le F-score écarte les comptes en forte dégradation et signale les comptes solides. Pour l\'approche inverse, le filtre « F-score 8 ou 9 » de la page Opportunités liste les sociétés aux comptes les plus solides.</p>';
-  }
-  /** Et si la règle était plus stricte ? Mêmes semaines rejouées, en ne gardant que certains acheteurs. */
-  function variantsBlock(v) {
-    if (!v || !v.current) return '';
-    var pc = function (x) { return '<span class="' + (x >= 0 ? 'pos' : 'neg') + '">' + pct(x) + '</span>'; };
-    var rows = [['Tout dirigeant' + (S.cfg.selection.requireCeoCfo ? ' (ancienne règle)' : ' (règle actuelle)'), v.current], ['DG ou DAF seulement' + (S.cfg.selection.requireCeoCfo ? ' (règle actuelle)' : ''), v.dg], ['DG, DAF ou ≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants', v.dgCluster], ['≥ ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants seulement', v.cluster], ['Tout dirigeant, F-score ≥ ' + S.cfg.accounts.fscoreGood, v.f7], ['DG ou DAF et F-score ≥ ' + S.cfg.accounts.fscoreGood, v.dgF7]].filter(function (r) { return r[1] && r[1].n; });
-    return '<h4 class="mt">Et avec une règle plus stricte ?</h4><p class="foot">Mêmes lundis rejoués, en ne retenant que certains acheteurs (au plus ' + S.cfg.selection.size + ' dossiers par semaine).</p>' +
-      '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Règle</th><th class="num">Dossiers</th><th class="num">Par semaine</th><th class="num">En hausse à 3 mois</th><th class="num">Gain médian</th><th class="num">Bat le CAC 40</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r[1]; return '<tr><td class="c-name" data-l="Règle">' + esc(r[0]) + '</td><td class="num" data-l="Dossiers">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="Par semaine">' + fmtN(o.perWeek, 1) + '</td><td class="num" data-l="En hausse"><b>' + o.upPct + ' %</b>' + ci(o.upPct, o.n) + '</td><td class="num" data-l="Gain médian">' + pc(o.median) + '</td><td class="num" data-l="Bat le CAC">' + (o.beatPct != null ? o.beatPct + ' %' + ci(o.beatPct, o.n) : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>';
-  }
   /* ----- Fiche dirigeant : tout l'historique connu d'une personne (fichier lu à la demande) ----- */
   function loadInsiders() {
     var f = S.snapshot && S.snapshot.history && S.snapshot.history.insidersFile;
@@ -6877,125 +6689,7 @@ details.pos summary{font-size:1rem}
       '<p class="foot">Résultat d\'un achat : variation du cours en euros entre la première séance qui suit la publication et 60 séances (3 mois) ou 120 séances (6 mois) plus tard, moins la variation du STOXX Europe 600 sur les mêmes dates (dividendes exclus des deux côtés). « — » : pas encore assez de recul, ou cours introuvable (société sortie de la cote). Achats faits par sa holding ou ses proches regroupés sous son nom. Sources : registres officiels (AMF, Finansinspektionen…).</p></section>';
     return h;
   }
-  /** Étude sur l'historique long : plusieurs milliers d'achats, chacun jugé avec ce qu'on savait ce jour-là. */
-  function historyCard(H) {
-    if (!H || !H.study) return '';
-    var g = {}; H.study.forEach(function (r) { g[r.key] = r; });
-    var cov = H.cov || {}, since = [['AMF', 'France'], ['FI', 'Suède']].filter(function (x) { return cov[x[0]]; }).map(function (x) { return x[1] + ' depuis le ' + ES.frDate(cov[x[0]]); }).join(', ');
-    if (!H.events) return '<h4 class="mt">Étude sur l\'historique long</h4><p class="muted">Rattrapage de l\'historique en cours (France depuis 2021, Suède depuis 2016) : les résultats apparaîtront ici dès que les cours auront été relevés.</p>';
-    var pc = function (o) { return o && o.n ? '<span class="' + (o.mean >= 0 ? 'pos' : 'neg') + '">' + pct(o.mean) + '</span>' : 'n.d.'; };
-    var order = ['all', 'dg', 'other', 'cohenOpp', 'cohenRoutine', 'cohenNone', 'looseOpp', 'looseRoutine', 'trackGood', 'trackPoor', 'record', 'dgOpp', 'dgTrack', 'fr', 'se'];
-    var rows = order.map(function (k) { return g[k]; }).filter(function (r) { return r && r.h120 && r.h120.n; });
-    var cmp = function (a, b) { var A = g[a] && g[a].h120, B = g[b] && g[b].h120; return A && B && A.n >= 30 && B.n >= 30 ? { d: A.mean - B.mean, sep: A.ci && B.ci && (A.ci[0] > B.ci[1] || B.ci[0] > A.ci[1]) } : null; };
-    var concl = [], c1 = cmp('cohenOpp', 'cohenRoutine'), c2 = cmp('dg', 'other'), c3 = cmp('trackGood', 'trackPoor'), al = g.all && g.all.h120;
-    if (al && al.n) concl.push('Tous achats confondus : ' + pct(al.mean) + ' en moyenne contre le STOXX 600 à 6 mois, ' + al.beatPct + ' % des achats battent l\'indice (' + (al.ci && al.ci[0] > 50 ? 'avantage établi' : al.ci && al.ci[1] < 50 ? 'désavantage établi' : 'pas d\'avantage établi') + ').');
-    if (c1) concl.push('Opportunistes contre routiniers : ' + (c1.d >= 0 ? '+' : '') + fmtN(c1.d, 1) + ' point' + (Math.abs(c1.d) >= 2 ? 's' : '') + ' d\'écart moyen' + (c1.sep ? ', écart net' : ', écart pas encore net (marges qui se recouvrent)') + '.');
-    if (c2) concl.push('DG/DAF contre autres dirigeants : ' + (c2.d >= 0 ? '+' : '') + fmtN(c2.d, 1) + ' point' + (Math.abs(c2.d) >= 2 ? 's' : '') + (c2.sep ? ', écart net' : ', écart pas encore net') + '.');
-    if (c3) concl.push('Main heureuse contre main malheureuse : ' + (c3.d >= 0 ? '+' : '') + fmtN(c3.d, 1) + ' point' + (Math.abs(c3.d) >= 2 ? 's' : '') + (c3.sep ? ', écart net' : ', écart pas encore net') + '.');
-    return '<h4 class="mt">Étude sur l\'historique long</h4><p class="foot">' + esc(since) + ' (registres officiels) : ' + fmtInt(H.events) + ' achats de dirigeants dont le résultat est connu. Chaque achat est classé avec les seules informations disponibles le jour de sa publication (opérations passées du dirigeant) ; achats d\'au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ' (comme la règle d\'Euro Signal), mesurés en euros contre le STOXX Europe 600 et, en devise nationale, contre l\'indice de leur pays (OMX Stockholm, CAC 40), frais de ' + fmtN(S.cfg.backtest.costRoundTripPct, 1) + ' % déduits. Étude indépendante de la règle de sélection, qui reste figée jusqu\'à la revue.</p>' +
-      '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Profil de l\'achat</th><th class="num">Cas (6 mois)</th><th class="num">Écart moyen à 3 mois</th><th class="num">Écart moyen à 6 mois</th><th class="num">Écart médian à 6 mois</th><th class="num">Bat le STOXX 600 à 6 mois</th><th class="num">Bat son marché national à 6 mois</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r.h120, L = o.local; return '<tr><td class="c-name" data-l="Profil">' + esc(r.label) + '</td><td class="num" data-l="Cas">' + fmtInt(o.n) + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="3 mois">' + pc(r.h60) + '</td><td class="num" data-l="6 mois"><b>' + pc(o) + '</b></td><td class="num" data-l="Médiane">' + (o.median != null ? '<span class="' + (o.median >= 0 ? 'pos' : 'neg') + '">' + pct(o.median) + '</span>' : 'n.d.') + '</td><td class="num" data-l="Bat le STOXX">' + o.beatPct + ' %' + ci(o.beatPct, o.n) + '</td><td class="num" data-l="Bat son marché">' + (L && L.n ? L.beatPct + ' %' + ci(L.beatPct, L.n) + '<small class="' + (L.mean >= 0 ? 'pos' : 'neg') + '">' + pct(L.mean) + '</small>' : 'n.d.') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-      (concl.length ? '<p class="note">' + concl.map(esc).join(' ') + '</p>' : '') +
-      '<p class="foot">Limites : les sociétés sorties de la cote (faillites, rachats) n\'ont plus de cours et ne sont pas mesurées, ce qui flatte un peu les résultats ; les achats d\'un même mois se chevauchent et ne sont pas tout à fait indépendants, les marges d\'erreur sont donc un peu trop étroites. La moyenne est tirée par quelques gros gains : la médiane dit ce qui arrive à l\'achat typique.</p>';
-  }
-  /** Méthode et preuves : la logique en bref et ce que mesurent nos propres données (chiffres réels, recalculés chaque soir). */
-  function proofCard() {
-    var c = S.cfg, snap = S.snapshot || {}, res = (snap.backtest && snap.backtest.results) || [], H = S.proofH || 60;
-    var groups = [['Achat volontaire', 'Tout achat de dirigeant ≥ ' + ES.fmtEur(c.insiders.minBuyerEur)], ['Décote ≥ ' + c.weights.insiders.discountMediumPct + ' %', 'Payé ≥ ' + c.weights.insiders.discountMediumPct + ' % sous le plus haut 52 semaines'], ['Achat DG ou DAF', 'Achat du DG ou du DAF'], ['Achat dans la panique', 'Achat pendant une vente panique'], ['Cluster ≥ ' + c.insiders.clusterMinBuyers + ' dirigeants', c.insiders.clusterMinBuyers + ' dirigeants ou plus en ' + c.insiders.clusterWindowDays + ' jours'], ['Décote ≥ ' + c.weights.insiders.discountMediumPct + ' % + MM50 > MM200', 'Décote et tendance de fond haussière']];
-    var rows = groups.map(function (g) { var o = ES.groupOutcome(res, g[0], H); return { label: g[1], o: o }; }).filter(function (r) { return r.o.n; });
-    var best = rows.reduce(function (m, r) { return r.o.nEx >= 30 ? Math.max(m, r.o.beat) : m; }, 0), total = rows.length ? rows[0].o.n : 0;
-    var tr = snap.selectionTrack ? ES.selectionTrackSummary(snap.selectionTrack) : null;
-    var concl = !rows.length ? 'Pas encore assez de recul pour mesurer.' : best >= 55 ? 'Sur nos données, au moins un signal bat le CAC 40 plus d\'une fois sur deux (sur 30 cas ou plus). C\'est encourageant, sans garantie pour l\'avenir.' : 'Honnêtement : sur nos données, aucun signal ne bat encore nettement le CAC 40. La méthode sert à repérer des dossiers à étudier, pas à acheter les yeux fermés. Les chiffres se précisent chaque soir.';
-    var fold = function (k, title, body) { return '<details class="fsscale more" data-k="' + k + '"><summary>' + title + '</summary>' + body + '</details>'; };
-    var rv = ES.reviewStatus(snap, c), core = snap.selection && snap.selection.paper && snap.selection.paper.core;
-    var rule = (c.selection.requireCeoCfo ? 'le DG ou le DAF' : 'un dirigeant') + ' achète au moins ' + ES.fmtEur(c.insiders.minBuyerEur) + ', la société est solide' + (c.selection.peaOnly !== false ? ' et éligible au PEA' : '');
-    var h = '<section class="card proof" id="preuves"><h3>' + (rankData() ? 'Ancienne méthode (achats de dirigeants) : preuves' : 'Méthode et preuves') + '</h3>' +
-      '<p><b>L\'idée.</b> Un dirigeant qui achète avec son argent connaît sa société mieux que personne. Les études mesurent environ +0,4 % par mois de mieux que le marché après ces achats.</p>' +
-      '<p><b>La règle.</b> Un dossier est retenu quand ' + rule + '. Il reçoit une note (force du signal), un avis (risques) et une taille de position.</p>' +
-      '<p class="note"><b>Où on en est.</b> ' + (core && core.ret != null && core.bench != null ? 'Portefeuille simulé « indice + Euro Signal » : ' + pct(core.ret) + ', contre ' + pct(core.bench) + ' pour le STOXX 600 seul. ' : '') + esc(rv.decision ? rv.decision.text : concl) + '</p>' +
-      freezeNote() + paperCard(snap.selection && snap.selection.paper) + reviewCard();
-    var tbl = '<div class="segs" role="group" aria-label="Horizon">' + [[60, 'à 3 mois'], [120, 'à 6 mois']].map(function (x) { return '<button class="' + (H === x[0] ? 'on' : '') + '" data-a="proofH" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-      '<p class="foot">Résultat ' + (H >= 120 ? '6' : '3') + ' mois après la publication, frais déduits, comparé au CAC 40, au STOXX 600 et au secteur.</p>';
-    if (rows.length) tbl += '<div class="tablewrap"><table class="grid cards"><thead><tr><th>Type d\'achat</th><th class="num">Cas</th><th class="num">Cours en hausse</th><th class="num">Variation moyenne</th><th class="num">Bat le CAC 40</th><th class="num">Bat le STOXX 600</th><th class="num">Bat son secteur</th></tr></thead><tbody>' +
-      rows.map(function (r) { var o = r.o, cell = function (n, beat, m) { return n ? Math.round(beat) + ' %' + ci(beat, n) + '<small class="' + (m >= 0 ? 'pos' : 'neg') + '">' + pct(m) + '</small>' : 'n.d.'; };
-        return '<tr><td class="c-name" data-l="Type">' + esc(r.label) + '</td><td class="num" data-l="Cas">' + o.n + (o.n < 30 ? ' <span class="chip warn">peu</span>' : '') + '</td><td class="num" data-l="En hausse">' + Math.round(o.up) + ' %</td><td class="num" data-l="Moyenne"><span class="' + (o.mean >= 0 ? 'pos' : 'neg') + '">' + pct(o.mean) + '</span></td><td class="num" data-l="Bat le CAC 40">' + cell(o.nEx, o.beat, o.meanEx) + '</td><td class="num" data-l="Bat le STOXX 600">' + cell(o.nEx2, o.beat2, o.meanEx2) + '</td><td class="num" data-l="Bat son secteur">' + cell(o.nSec, o.beatSec, o.meanSec) + '</td></tr>'; }).join('') + '</tbody></table></div><p class="foot">Part des cas qui font mieux, avec sa marge d\'erreur : une fourchette qui contient 50 % veut dire « pas encore de preuve ».</p>';
-    else tbl += '<p class="muted">Pas encore assez de recul pour mesurer.</p>';
-    if (tr) tbl += '<p class="mt"><b>Sélections déjà envoyées</b> : ' + pct(tr.avg) + ' en moyenne depuis l\'envoi' + (tr.bench != null ? ', contre ' + pct(tr.bench) + ' pour le CAC 40' : '') + ' (' + tr.n + ' dossiers).</p>';
-    tbl += '<p class="note">' + esc(concl) + '</p>';
-    var hs = snap.history, hsAll = hs && hs.study && hs.study.find(function (r) { return r.key === 'all'; });
-    h += fold('m-rel', 'Fiabilité de la sélection rejouée <span class="muted">· chaque lundi passé recalculé</span>', relBlock(snap.selection && snap.selection.replayStats)) +
-      fold('m-hist', 'Étude sur l\'historique long <span class="muted">· ' + (hs && hs.events ? fmtInt(hs.events) + ' achats français et suédois' + (hsAll && hsAll.h120 && hsAll.h120.n ? ', ' + pct(hsAll.h120.mean) + ' contre le STOXX 600 à 6 mois' : '') : 'en cours') + '</span>', historyCard(hs)) +
-      fold('m-types', 'Ce que mesure chaque type d\'achat <span class="muted">· décote, DG/DAF, panique, cluster…</span>', tbl) +
-      fold('m-sym', 'Lire l\'avis et les symboles', '<p>' + ['priority', 'watch', 'wait', 'avoid'].map(function (k) { return advBadge({ key: k, icon: { priority: '🟢', watch: '🟡', wait: '⚪', avoid: '🔴' }[k], label: { priority: 'À étudier en priorité', watch: 'À surveiller', wait: 'Attendre', avoid: 'Éviter pour l\'instant' }[k], why: [] }); }).join(' ') + '</p>' +
-        '<p class="foot">👔 DG ou DAF · 👥 plusieurs dirigeants · 🏷️ forte décote · 😱 achat dans la panique · 🧭 achat inhabituel · 🔁 achat habituel · 🏅 palmarès du dirigeant · 💪 achat record · 📊 F-score · 🛡️ bilan (Altman, Beneish) · 🔮 prévisions des analystes · 📐 support et résistance · 💶 / 💸 moins chère / plus chère que ses pairs · 🏛️ société contrôlée · <b class="neg">⚠️ ventes à découvert</b> · ⚡ duel avec les vendeurs à découvert · 🔻 cours en repli · 📈 tendance haussière · 🩺 fragile · 🚫 hors PEA · 📅 résultats. Les étoiles mesurent la force du signal ; l\'avis tient compte des risques.</p>');
-    return h + '</section>';
-  }
-  function vJournal() {
-    var PS = S.snapshot && S.snapshot.planStudy, J = S.snapshot && S.snapshot.journal, h = '';
-    var VL = { buyNow: '✅ Achat possible', waitSupport: '⏳ Attendre un rebond', waitBreakout: '⏳ Attendre une cassure', avoid: '⛔ Ne pas acheter' }; TIMING.forEach(function (t) { VL[t[0]] = t[1]; });
-    var tbl = function (obj, label) {
-      return '<table class="cmp st"><thead><tr><th>' + label + '</th><th>Cas</th><th>20 séances</th><th>60 séances</th><th>vs ensemble (t)</th></tr></thead><tbody>' + Object.keys(obj).sort(function (a, b) { return ((obj[b].h60 || {}).vsAll || -99) - ((obj[a].h60 || {}).vsAll || -99); }).map(function (k) {
-        var a = obj[k].h20 || {}, b = obj[k].h60 || {};
-        return '<tr><th>' + esc(label === 'Figure' ? (ES.FIGURES[k] ? ES.FIGURES[k][0] + ' ' + ES.FIGURES[k][1] : k) : (VL[k] || k)) + '</th><td>' + (b.n || a.n || 0) + '</td><td>' + (a.mean != null ? pct(a.mean) : 'n.d.') + '</td><td>' + (b.mean != null ? pct(b.mean) : 'n.d.') + '</td><td><span class="' + ((b.vsAll || 0) >= 0 ? 'pos' : 'neg') + '">' + (b.vsAll != null ? pct(b.vsAll) : 'n.d.') + '</span>' + (b.t != null ? '<small>t ' + fmtN(b.t, 1) + '</small>' : '') + '</td></tr>';
-      }).join('') + '</tbody></table>';
-    };
-    if (PS && PS.byVerdict) {
-      h += '<p class="small">Le plan d\'entrée et la figure sont recalculés chaque semaine du ' + shortDate(PS.from) + ' au ' + shortDate(PS.to) + ' avec les seuls cours connus ce jour-là (' + PS.obs + ' relevés), puis comparés à l\'indice européen 20 et 60 séances plus tard, frais inclus. « vs ensemble » : écart avec la moyenne de toutes les sociétés aux mêmes dates ; t corrigé du recouvrement des périodes (|t| ≥ 2 : écart net).</p>' +
-        tbl(PS.byVerdict, 'Plan') + tbl(PS.byFigure, 'Figure') + (PS.byTiming && Object.keys(PS.byTiming).length ? tbl(PS.byTiming, 'Repère') : '');
-    } else h += '<p class="muted small">Étude disponible après la mise à jour du soir.</p>';
-    if (J) {
-      var ks = Object.keys(J.byConv || {});
-      h += '<h4>Convergence (relevé chaque semaine depuis le ' + shortDate(J.since) + ')</h4>' + (ks.length ? '<table class="cmp st"><thead><tr><th>Signaux</th><th>Cas</th><th>20 séances</th><th>60 séances</th></tr></thead><tbody>' + ks.sort().reverse().map(function (k) { var a = J.byConv[k].h20 || {}, b = J.byConv[k].h60 || {}; return '<tr><th>' + esc(k) + ' sur 5</th><td>' + (a.n || 0) + '</td><td>' + (a.mean != null ? pct(a.mean) + ' · ' + a.beatPct + ' %' : 'en cours') + '</td><td>' + (b.mean != null ? pct(b.mean) + ' · ' + b.beatPct + ' %' : 'en cours') + '</td></tr>'; }).join('') + '</tbody></table>'
-        : '<p class="small muted">' + J.entries + ' relevés enregistrés ; premiers résultats 20 séances (un mois) après le premier relevé.</p>');
-    }
-    return h;
-  }
   /* Saisonnalité sur 30 ans d'indices (data/seasonality.json, recalculé chaque mois) */
-  function loadSeason() {
-    if (S.seaLoading || S.seaLoaded) return;
-    S.seaLoading = true;
-    fetch('data/seasonality.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
-      if (!d || d.format !== 'euro-signal-seasonality') throw new Error('format');
-      S.sea = defang(d); S.seaLoaded = true; S.seaLoading = false; if (S.view === 'aide') render();
-    }).catch(function () { S.seaLoaded = true; S.seaLoading = false; S.sea = null; if (S.view === 'aide') render(); });
-  }
-  function vSeason() {
-    if (!S.seaLoaded) { loadSeason(); return '<p class="muted small">Chargement…</p>'; }
-    var d = S.sea; if (!d || !d.indices || !d.indices.length) return '<p class="muted small">Étude disponible après le prochain calcul de nuit.</p>';
-    var R = d.rule || {}, f2 = function (v) { return v == null ? 'n.d.' : String(v.toFixed(2)).replace('.', ','); }, cl = function (v) { return v == null ? '' : v >= 0 ? 'pos' : 'neg'; };
-    var h = '<p class="small">Règle testée, fixée à l\'avance : investi à <b>' + Math.round((R.septOct || 0.4) * 100) + ' %</b> en septembre-octobre, <b>' + Math.round((R.novJan || 1) * 100) + ' %</b> de novembre à janvier, <b>' + Math.round((R.other || 0.8) * 100) + ' %</b> le reste de l\'année, frais inclus. ' +
-      'Comparaison juste : face à une exposition <b>constante</b> de même moyenne (une règle moins investie a forcément moins de risque), et face aux 11 autres positions possibles du même profil dans le calendrier.</p>' +
-      '<div class="convbox small">' + esc(d.verdict || '') + '</div>';
-    h += '<table class="cmp st"><thead><tr><th>Indice</th><th>Sept.-oct. / autres mois</th><th>Sharpe règle / constante</th><th>Écart par an (t)</th></tr></thead><tbody>' +
-      d.indices.map(function (x) { var a = x.last30; if (!a) return ''; var so = a.septOct || {}, rv = a.ruleVsConstant || {};
-        return '<tr><th>' + esc(x.name) + '<small>' + esc(a.from.slice(0, 4)) + '-' + esc(a.to.slice(0, 4)) + '</small></th><td><span class="' + cl(so.mean) + '">' + pc100(so.mean) + '</span> / <span class="' + cl(so.rest) + '">' + pc100(so.rest) + '</span><small>t ' + f2(so.t) + '</small></td>' +
-          '<td><b>' + f2(a.rule && a.rule.sharpe) + '</b> / ' + f2(a.constant && a.constant.sharpe) + (a.placebo && a.placebo.rank != null ? '<small>rang ' + a.placebo.rank + ' / ' + a.placebo.of + '</small>' : '') + '</td><td><span class="' + cl(rv.meanPerYear) + '">' + pc100(rv.meanPerYear) + '</span><small>t ' + f2(rv.t) + '</small></td></tr>'; }).join('') + '</tbody></table>' +
-      '<p class="small muted">Sharpe : rendement annuel divisé par la volatilité. « Écart par an » : gain de la règle sur l\'exposition constante ; |t| < 2 = pas net. « Rang » : place du vrai calendrier parmi les 12 décalages possibles du même profil.</p>';
-    var M = d.indices[0].last30 && d.indices[0].last30.byMonth;
-    if (M) h += '<p class="small whyh">Rendement moyen par mois (30 ans ; en gras si |t| ≥ 2,9, seuil corrigé pour 12 mois testés)</p><table class="cmp st"><thead><tr><th>Mois</th>' + d.indices.map(function (x) { return '<th>' + esc(x.name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-      M.map(function (m, k) { return '<tr><th>' + esc(m.label) + '</th>' + d.indices.map(function (x) { var c = x.last30 && x.last30.byMonth[k]; if (!c) return '<td>n.d.</td>'; var v = pc100(c.mean); return '<td class="' + cl(c.mean) + '">' + (Math.abs(c.t || 0) >= 2.9 ? '<b>' + v + '</b>' : v) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
-    h += '<p class="small muted">Indices ' + d.indices.map(function (x) { return esc(x.name) + ' : ' + esc(x.note); }).join(' ; ') + '. La partie non investie ne rapporte rien. Recalculé chaque mois ; dernier calcul le ' + shortDate(String(d.generatedAt || '').slice(0, 10)) + '.</p>';
-    return h;
-  }
-  /** Guide visuel : chaque critère avec un exemple, pour lire une fiche en quelques secondes. */
-  function vGuide() {
-    var h = '<p class="small">Chaque repère suit la même règle : <span class="fsc fs-good">vert</span> favorable à l\'achat, <span class="fsc fs-neu">gris</span> neutre, <span class="fsc fs-mid">orange</span> à surveiller, <span class="fsc fs-bad">rouge</span> défavorable. Le rond blanc montre où se trouve la société sur l\'échelle.</p><div class="crits">';
-    var NA = ES.note(S.cfg.alerts.minScore, S.cfg), NS = ES.note(S.cfg.selection.minScore, S.cfg), NM = ES.note(Math.round(S.cfg.selection.minScore / 2), S.cfg);
-    h += critBox('📈', 'Note du classement', '81', 'good', 'Sur 100 : tendance et comptes ; dirigeants en petit bonus', rankGauges({ note: 81, acc: 'mixed', parts: { mom: 47, high: 9, trend: 15, accounts: 10, calm: 0, insiders: 4 } }), 'Une barre par famille, avec son score : vert bon, orange moyen, rouge faible. La tendance (force sur 12 mois, proximité du plus haut, moyennes 50 et 200 séances) pèse le plus. En tête à partir de ' + ((S.cfg.rank || {}).top || 80) + ', solide à partir de ' + ((S.cfg.rank || {}).good || 65) + '. Une société aux comptes dégradés, en perte ou au cours parmi les plus faibles est écartée, quelle que soit sa note.');
-    h += critBox('⭐', 'Ancienne note (dirigeants)', '78', 'good', 'Sur 100 : force du signal d\'achat des dirigeants', scaleLine(78, 0, 100, [[0, NM, 'neu'], [NM, NS, 'mid'], [NS, 100, 'good']], [[NM, 'moyen'], [NS, 'fort'], [NA, 'très fort']], 'Exemple de note'), 'Combine l\'achat des dirigeants (montant, fonction, plusieurs acheteurs), les rachats d\'actions, les résultats et le marché. L\'avis (🟢 🟡 🔴) ajoute la solidité de la société et les risques.');
-    h += critBox('🎯', 'Convergence', '3/5', 'good', '<span class="cdots"><i class="ok"></i><i class="ok"></i><i class="ok"></i><i class="ko"></i><i class="na"></i></span>', '', 'Cinq signaux indépendants : achat récent du DG ou du DAF, secteur en tendance, analystes qui relèvent leurs prévisions, plan d\'entrée favorable, figure de cours favorable. Gris : information manquante. À partir de 3, plusieurs raisons vont dans le même sens.');
-    h += critBox('📶', 'RSI 14 jours', '25', 'good', 'Survendu : un rebond est fréquent', scaleLine(25, 0, 100, [[0, 30, 'good'], [30, 70, 'neu'], [70, 100, 'bad']], [[0, '0'], [30, '30'], [70, '70'], [100, '100']], 'Exemple RSI'), 'Sous 30, le titre a beaucoup baissé en peu de temps ; au-dessus de 70, il a beaucoup monté. Sert à choisir le moment, pas la société.');
-    h += critBox('〽️', 'MACD', '▲ haussier', 'good', 'Au-dessus de sa ligne de signal', scaleLine(0.4, -1, 1, [[-1, 0, 'bad'], [0, 1, 'good']], [[-1, 'baisse forte'], [0, 'signal'], [1, 'hausse forte']], 'Exemple MACD') + sparkBars([-0.5, -0.4, -0.35, -0.2, -0.1, -0.05, 0.05, 0.15, 0.25, 0.3, 0.35, 0.4], 'Exemple d\'histogramme'), 'Le passage des barres rouges aux barres vertes (croisement haussier) marque souvent la fin d\'une baisse.');
-    h += critBox('▽', 'Biseau, triangle ou canal', '110 %', 'good', 'Au-dessus de la droite haute : cassure par le haut', scaleLine(1.1, -0.25, 1.25, [[-0.25, 0, 'bad'], [0, 1, 'neu'], [1, 1.25, 'good']], [[0, 'droite basse'], [1, 'droite haute']], 'Exemple de figure'), 'Les droites relient les sommets et les creux des 3 derniers mois. Dans un canal, on achète près de la droite basse ; un biseau descendant se termine souvent par une sortie par le haut.');
-    h += critBox('🧱', 'Entre support et résistance', '15 %', 'good', 'Près du support : zone d\'achat', scaleLine(0.15, -0.2, 1.2, [[-0.2, 0, 'bad'], [0, 0.3, 'good'], [0.3, 0.8, 'neu'], [0.8, 1, 'mid'], [1, 1.2, 'good']], [[0, 'support'], [1, 'résistance']], 'Exemple support et résistance'), 'Acheter près du support limite la perte possible ; juste sous la résistance, mieux vaut attendre qu\'elle soit franchie.');
-    h += critBox('⚖️', 'Gain / risque', '2,4', 'good', 'Le jeu en vaut la chandelle', scaleLine(2.4, 0, 4, [[0, 1.5, 'bad'], [1.5, 2, 'mid'], [2, 4, 'good']], [[0, '0'], [1.5, '1,5'], [2, '2'], [4, '4+']], 'Exemple gain sur risque'), 'Gain visé divisé par la perte acceptée jusqu\'au stop. Euro Signal exige au moins 1,5 pour dire « achat possible ».');
-    h += critBox('🏭', 'Secteur', '7e', 'good', 'En tendance', '<div class="mts">' + mini('Force 6 mois', '+11,4 %', 0.114, -0.3, 0.3, true) + mini('En tendance', '75 %', 0.75, 0, 1, false) + '</div>', 'Barres vertes vers la droite : le secteur fait mieux que le STOXX 600 ; « en tendance » : part des sociétés au-dessus de leur moyenne 40 semaines.');
-    h += critBox('🔄', 'Phase du cycle', 'Expansion', 'good', 'Secteur porté par le cycle', '<div class="cyc" aria-hidden="true"><span class="cyc-p"><b>Reprise</b></span><span class="cyc-p on"><b>Expansion</b></span><span class="cyc-p"><b>Fin de cycle</b></span><span class="cyc-p"><b>Ralen\u00adtissement</b></span></div>', 'Chaque phase de l\'économie a ses secteurs qui mènent la Bourse (modèle de rotation sectorielle). La phase est lue dans la force des secteurs européens sur 3 et 6 mois : ce que le marché anticipe, pas une prévision. Un secteur « porté » a le vent du cycle dans le dos ; « à contre-cycle », il nage à contre-courant. Sans effet sur la note.');
-    h += critBox('💎', 'Marge de sécurité', '+32 %', 'good', 'Large décote sur la valeur estimée', scaleLine(0.68, 0, 3, [[0, 0.8, 'good'], [0.8, 1.2, 'neu'], [1.2, 2, 'mid'], [2, 3, 'bad']], [[0, '0'], [1, '= valeur'], [2, '×2'], [3, '×3+']], 'Exemple marge de sécurité'), 'Écart entre la valeur intrinsèque estimée d\'après les comptes (fonds propres, rentabilité, trésorerie dégagée, sans croissance) et le cours. À gauche de « = valeur », le cours est sous la valeur ; Graham demandait 30 % de marge. Onglet « 💎 Valeur de l\'entreprise » de chaque fiche.');
-    h += critBox('🔭', 'Croissance que suppose le cours', '+6,4 %/an', 'bad', 'Hypothèse exigeante', scaleLine(6.4, -4, 10, [[-4, 2.5, 'good'], [2.5, 6, 'mid'], [6, 10, 'bad']], [[0, '0'], [2.5, '2,5'], [6, '6'], [10, '10+']], 'Exemple croissance implicite'), 'Pour les sociétés au-dessus de leur valeur sans croissance : croissance annuelle des résultats, pour toujours, que le cours suppose. Jusqu\'à 2,5 % : modeste ; au-delà de 6 % : peu d\'entreprises y parviennent durablement.');
-    h += critBox('🔍', 'Qualité des comptes (Beneish)', '-2,96', 'good', 'Sous le seuil d\'alerte', scaleLine(-2.96, -4, 0, [[-4, -1.78, 'good'], [-1.78, 0, 'bad']], [-1.78], 'Exemple Beneish'), 'Au-dessus de −1,78 : profil semblable aux sociétés qui ont embelli leurs comptes. Même lecture pour Altman (risque de défaillance) et le F-score (solidité, sur 9).');
-    return (h + '</div>').replace(/<details class="xpi">/g, '<details class="xpi" open>'); // dans le guide, les explications sont le sujet
-  }
   function loadQuality() {
     S.qualityLoaded = true;
     var get = function (f) { return fetch('data/diagnostics/' + f, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); };
@@ -7135,17 +6829,6 @@ details.pos summary{font-size:1rem}
     h += det('Titres suivis', vUnivers());
     return h;
   }
-  function baremeTable() {
-    var W = S.cfg.weights, L = {
-      insiders: [['anyBuy', 'Achat de dirigeant (au moins ' + ES.fmtEur(S.cfg.insiders.minBuyerEur) + ')'], ['amountBig', 'Montant cumulé ≥ ' + ES.fmtEur(S.cfg.insiders.bigAmountEur)], ['cluster', 'Cluster : ' + S.cfg.insiders.clusterMinBuyers + ' dirigeants ou plus en ' + S.cfg.insiders.clusterWindowDays + ' jours'], ['pair', '2 dirigeants en ' + S.cfg.insiders.clusterWindowDays + ' jours'], ['coordinatedCluster', 'Programme collectif probable'], ['ceoCfo', 'Achat du DG ou du DAF'], ['repeat', 'Achats répétés'], ['discountBig', 'Décote ≥ ' + W.insiders.discountBigPct + ' % sous le plus haut 52 semaines'], ['discountMedium', 'Décote ≥ ' + W.insiders.discountMediumPct + ' %'], ['panicBuy', 'Achat pendant une vente panique'], ['netSeller', 'Dirigeants vendeurs nets'], ['ceoCfoSale', 'Vente du DG ou du DAF']],
-      buyback: [['announced', 'Programme de rachat annoncé'], ['executing', 'Rachats exécutés'], ['largeSize', 'Rachat ≥ ' + W.buyback.largeSizePct + ' % du capital'], ['suspended', 'Programme suspendu']],
-      results: [['epsStrong', 'BPA nettement au-dessus du consensus'], ['epsMild', 'BPA au-dessus du consensus'], ['epsMiss', 'BPA sous le consensus'], ['revStrong', 'Chiffre d\'affaires nettement au-dessus'], ['revMild', 'Chiffre d\'affaires au-dessus'], ['guidanceRaised', 'Perspectives relevées'], ['guidanceLowered', 'Perspectives abaissées']],
-      market: [['trend', 'Tendance de fond haussière (MM50 > MM200)'], ['goldenCrossAfterBuy', 'Croisement haussier après l\'achat'], ['relStrength', 'Plus fort que le marché européen sur 6 mois'], ['volume', 'Volumes en hausse'], ['liquidity', 'Titre très liquide']]
-    }, N = { insiders: 'Initiés', buyback: 'Rachats d\'actions', results: 'Résultats', market: 'Marché' };
-    return '<div class="tablewrap"><table class="grid small"><tbody>' + Object.keys(L).map(function (k) {
-      return '<tr class="sub"><th>' + N[k] + '</th><th class="num">plafond ' + W[k].cap + '</th></tr>' + L[k].filter(function (x) { return W[k][x[0]] != null; }).map(function (x) { var v = W[k][x[0]]; return '<tr><td>' + esc(x[1]) + '</td><td class="num ' + (v > 0 ? 'pos' : v < 0 ? 'neg' : '') + '">' + (v > 0 ? '+' : '') + v + '</td></tr>'; }).join('');
-    }).join('') + '</tbody></table></div>';
-  }
   function step(t, d) { return '<li><b>' + t + '</b><p>' + d + '</p></li>'; }
 
   /* =========================== Actions =========================== */
@@ -7181,7 +6864,6 @@ details.pos summary{font-size:1rem}
     else if (a === 'rfBrk') { S.rf = S.rf || {}; S.rf.brk = !S.rf.brk; S.limit = 50; var ybk = window.scrollY; render(); window.scrollTo(0, ybk); }
     else if (a === 'secOpen') { S.openDet = S.openDet || {}; S.openDet[el.dataset.v] = true; render(); var so = document.querySelector('details[data-k="' + el.dataset.v + '"]'); if (so) so.scrollIntoView({ block: 'start' }); }
     else if (a === 'psyOpen') { S.openDet = S.openDet || {}; S.openDet.psy = true; render(); var pf = document.querySelector('.psyfold'); if (pf) pf.scrollIntoView({ block: 'start' }); }
-    else if (a === 'pickN') { lsSet('pickN', el.dataset.v); S.openDet = S.openDet || {}; S.openDet.pick3 = true; var ypn = window.scrollY; render(); window.scrollTo(0, ypn); }
     else if (a === 'valueOpen') { S.openDet = S.openDet || {}; S.openDet.buy = true; render(); var vc = document.querySelector('.selc'); if (vc) vc.scrollIntoView({ block: 'start' }); }
     else if (a === 'pick3') { S.openDet = S.openDet || {}; S.openDet.buy = true; render(); var pc3 = document.querySelector('.selc'); if (pc3) pc3.scrollIntoView({ block: 'start' }); }
     else if (a === 'weekBrk') { S.rf = S.rf || {}; S.rf.brk = true; S.rf.slope = ['strong']; S.limit = 50; render(); var sb = document.querySelector('.slbar'); if (sb) sb.scrollIntoView({ block: 'start' }); }
@@ -7219,7 +6901,11 @@ details.pos summary{font-size:1rem}
     else if (a === 'watchOn' || a === 'watchOff') watchMail(i, a === 'watchOn');
     else if (a === 'uni') { S.uniFilter = el.dataset.v; render(); }
   });
-  document.addEventListener('toggle', function (ev) { var d = ev.target; if (d && d.tagName === 'DETAILS' && d.dataset && d.dataset.k) { S.openDet = S.openDet || {}; S.openDet[d.dataset.k] = d.open; } }, true);
+  document.addEventListener('toggle', function (ev) {
+    var d = ev.target; if (!(d && d.tagName === 'DETAILS' && d.dataset && d.dataset.k)) return;
+    S.openDet = S.openDet || {}; S.openDet[d.dataset.k] = d.open;
+    if (d.open && d.classList.contains('lazy')) { var y = window.scrollY; render(); window.scrollTo(0, y); } // contenu construit à la première ouverture
+  }, true);
   document.addEventListener('change', function (ev) {
     var t = ev.target;
     if (t.dataset.f) { S.filters[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; S.limit = 50; render(); return; }

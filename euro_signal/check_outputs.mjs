@@ -112,7 +112,16 @@ if (CI && CI.rows) {
   let bad = 0;
   for (let k = 0; k < (CI.shards || 32); k++) { try { JSON.parse(fs.readFileSync(path.join(DATA, 'societes', k + '.json'), 'utf8')); } catch (e) { bad++; } }
   check(bad === 0, `fiches des sociétés : ${CI.shards || 32} fichiers lisibles`);
+  // chaque fichier de cours du catalogue doit contenir des sociétés : un fichier vide réduit le classement sans autre signe
+  const thin = []; for (let k = 0; k < (CI.shards || 32); k++) { try { const d = JSON.parse(fs.readFileSync(path.join(DATA, 'societes', k + '.json'), 'utf8')); if (Object.keys(d.items || {}).length < 20) thin.push(k); } catch (e) { } }
+  check(!thin.length, `cours du catalogue : chaque fichier contient des sociétés${thin.length ? ' (vides : ' + thin.join(', ') + ')' : ''}`);
 }
+// 4b. Ventes à découvert (🐻 : exclusion à Paris) et actualité : fichiers présents et récents
+const SHS = read('shorts.json'), NWS = read('news.json'), genOf = (x) => (x && (x.generatedAt || x.generated_at)) || null, ageD = (x) => (genOf(x) ? yearsBetween(String(genOf(x)).slice(0, 10), today) * 365 : 99);
+check(SHS && !SHS.__error && Object.keys(SHS.items || {}).length >= 300 && ageD(SHS) <= 4, `ventes à découvert : ${SHS && SHS.items ? Object.keys(SHS.items).length : 0} sociétés, données du ${genOf(SHS) ? String(genOf(SHS)).slice(0, 10) : '?'}`, true);
+const ssrc = main.shortsSrc || {}, ssBad = Object.keys(ssrc).filter((c) => ssrc[c] && ssrc[c].status !== 'ok');
+check(Object.keys(ssrc).length >= 5 && !ssBad.length, `régulateurs des ventes à découvert : ${Object.keys(ssrc).length - ssBad.length}/${Object.keys(ssrc).length} à jour${ssBad.length ? ' (en panne : ' + ssBad.map((c) => ssrc[c].name || c).join(', ') + ')' : ''}`, true);
+check(NWS && !NWS.__error && ageD(NWS) <= 4, `actualité des sociétés : données du ${genOf(NWS) ? String(genOf(NWS)).slice(0, 10) : '?'}`, true);
 
 // 5. Secteurs
 const sec = read('sectors.json');
@@ -143,13 +152,18 @@ if (RK) {
 }
 
 // 5c. Lien avec Yahoo Finance : titres demandés, reçus, récupérés en 2e passe, repris de la veille (scrapers/yahoo.py)
-const YH = read('diagnostics/yahoo.json');
+const YH = read('diagnostics/yahoo.json'), YM = {};
+// part de titres manquants comparée au calcul précédent : les émetteurs sans cotation Yahoo manquent chaque soir (part stable),
+// seule une hausse est une alerte (sinon l'email de contrôle partait chaque soir pour le même constat)
+const ymPrev = (() => { try { const h = JSON.parse(fs.readFileSync(path.join(DATA, 'diagnostics', 'coverage-history.json'), 'utf8')); return (Array.isArray(h) ? h.filter((x) => x && x.ym) : []).slice(-1)[0] || null; } catch (e) { return null; } })();
 if (YH && YH.sections) {
   Object.keys(YH.sections).forEach((k) => {
     const s = YH.sections[k], req = s.requested || 0, miss = s.missing || 0, pctMiss = req ? miss / req : 0;
     if (!req && !s.carried) return;
+    YM[k] = +pctMiss.toFixed(4);
     check(pctMiss <= 0.3, `Yahoo (${k}) : ${req - miss}/${req} reçus, ${s.recovered || 0} récupérés en 2e passe, ${s.carried || 0} repris de la veille, ${s.errors || 0} erreurs passagères`, pctMiss <= 0.3 ? undefined : false);
-    if (pctMiss > 0.05 && pctMiss <= 0.3) warn(`Yahoo (${k}) : ${Math.round(pctMiss * 100)} % des titres manquants ce soir`);
+    const was = ymPrev && ymPrev.ym[k] != null ? ymPrev.ym[k] : null, worse = was == null ? pctMiss > 0.15 : pctMiss - was > 0.02;
+    if (pctMiss > 0.05 && pctMiss <= 0.3 && worse) warn(`Yahoo (${k}) : ${Math.round(pctMiss * 100)} % des titres manquants ce soir` + (was != null ? ` (${Math.round(was * 100)} % au calcul précédent)` : ''));
   });
 } else warn('Yahoo : compteurs du soir absents (diagnostics/yahoo.json)');
 
@@ -187,7 +201,7 @@ Object.keys(COV).forEach((k) => {
   else if (drop > 0.03 && was - now >= 10) warn(`baisse : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
   else ok(`${k} : ${now}` + (now !== was ? ` (${now > was ? '+' : ''}${now - was} depuis le calcul précédent)` : ''));
 });
-hist.push({ at: new Date().toISOString(), date: today, cov: COV });
+hist.push({ at: new Date().toISOString(), date: today, cov: COV, ym: YM });
 fs.mkdirSync(path.join(DATA, 'diagnostics'), { recursive: true });
 fs.writeFileSync(HIST, JSON.stringify(hist.slice(-60)));
 globalThis.__COV = { cov: delta, prevAt: prev ? prev.at : null };

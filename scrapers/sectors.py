@@ -571,11 +571,16 @@ def archive_estimates(est):
                    c.get("analysts") if c.get("analysts") is not None else i.get("numberOfAnalystOpinions")]
             if any(v is not None for v in row):
                 snap[s] = row
-        try:
-            with gzip.open(EST_HIST, "rt", encoding="utf-8") as f:
-                hist = json.load(f)
-        except Exception:
-            hist = {}
+        hist = {}
+        if EST_HIST.exists():
+            try:
+                with gzip.open(EST_HIST, "rt", encoding="utf-8") as f:
+                    hist = json.load(f)
+            except Exception as ex:  # archive abîmée : mise de côté (jamais écrasée), une nouvelle archive repart de cette semaine
+                bad = EST_HIST.with_name(EST_HIST.name + ".illisible-" + date.today().isoformat())
+                EST_HIST.rename(bad)
+                log(f"Révisions : archive illisible ({type(ex).__name__}), mise de côté sous {bad.name}")
+                hist = {}
         hist.setdefault("fields", ["up7", "down7", "up30", "down30", "upside", "reco", "analysts"])
         hist.setdefault("weeks", {})[date.today().isoformat()] = snap
         EST_HIST.parent.mkdir(parents=True, exist_ok=True)
