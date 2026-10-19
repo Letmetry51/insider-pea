@@ -53,14 +53,20 @@ euro_signal/
 scrapers/               collecteurs : déclarations (AMF, FI, FSMA, AFM), ventes à découvert, cours et comptes (Yahoo), secteurs, presse
 research/               scripts des études (voir research/README.md)
 tools/stamp.mjs         empreintes des fichiers de la page (npm run stamp)
-.github/workflows/      update-data.yml (chaque soir), history.yml (chaque jour), tests.yml (chaque modification)
-data/                   données produites chaque soir (non couvertes par la licence)
+.github/workflows/      update-data.yml (chaque soir), history.yml (chaque jour), tests.yml (chaque modification),
+                        publish.yml (republie la page après une modification du code)
+.github/actions/        restore-data (données de la veille), publish-site (publication sur la branche « site »)
+tools/donnees.sh        copie locale des données du dernier calcul
 ```
+
+La branche `main` ne contient que le code. Chaque calcul publie la page et ses données sur la branche **`site`**, en une
+seule version sans historique (le dépôt ne grossit pas) ; GitHub Pages sert cette branche. Les fichiers qu'aucun calcul ne
+peut refaire (journal des alertes, suivi réel, historiques) sont aussi gardés 30 jours en copie de secours (Actions → artefacts).
 
 ## Installer sa propre instance
 
 1. **Forker** ce dépôt (public : GitHub Pages et Actions sont alors gratuits).
-2. **Settings → Pages** : publier depuis la branche `main`, dossier racine. La page est alors à
+2. **Settings → Pages** : publier depuis la branche `site`, dossier racine (elle est créée par le premier calcul). La page est alors à
    `https://<vous>.github.io/<dépôt>/euro-signal.html` ; mettez cette adresse dans `euro_signal/config.json` (`dashboardUrl`).
 3. **Settings → Secrets and variables → Actions** (facultatif, pour les emails) : `GMAIL_USER`, `GMAIL_APP_PASSWORD`
    (mot de passe d'application Google) et `ALERT_TO`. Sans eux, les emails sont seulement simulés.
@@ -80,7 +86,8 @@ npm run format            # mise en forme (Prettier)
 npm run stamp             # après toute modification de app/ ou de core.js
 pip install -r requirements.txt
 python euro_signal/test_positions.py && python scrapers/test_sectors.py   # (et les autres test_*.py)
-python -m http.server     # puis http://localhost:8000/euro-signal.html (nécessite un dossier data/ rempli)
+tools/donnees.sh          # données du dernier calcul (branche site) dans data/
+python -m http.server     # puis http://localhost:8000/euro-signal.html
 ```
 
 Chaque modification poussée sur `main` ou proposée (pull request) passe automatiquement ces contrôles (workflow « Tests »).

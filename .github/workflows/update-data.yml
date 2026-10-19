@@ -34,6 +34,9 @@ jobs:
       - name: Checkout du repo
         uses: actions/checkout@v4
 
+      - name: 0. Données de la veille (branche site)
+        uses: ./.github/actions/restore-data
+
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -172,24 +175,9 @@ jobs:
           ALERT_TO: ${{ secrets.ALERT_TO }}
         run: python euro_signal/send_health.py
 
-      - name: 7. Enregistrement des données
+      - name: 7. Enregistrement des données et publication du site (branche site, une seule version)
         # Toujours exécuté, même après une erreur, pour conserver le journal des alertes déjà envoyées
         if: always()
-        run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions Bot"
-          git add -A data/   # prices.json, events.json et la boîte d'envoi sont exclus par .gitignore
-          if git diff --staged --quiet; then
-            echo "Pas de changement, rien à commiter"
-          else
-            git commit -m "📊 Mise à jour données $(date -u +'%Y-%m-%d %H:%M UTC')"
-            # si le code a été modifié pendant l'exécution, on se remet à jour avant d'envoyer (3 essais)
-            for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done
-          fi
-
-      - name: 8. Publication du site (branche site, une seule version)
-        if: always()
-        continue-on-error: true
         uses: ./.github/actions/publish-site
         with:
           message: "📊 Données du soir"

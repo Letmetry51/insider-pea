@@ -31,6 +31,9 @@ jobs:
     timeout-minutes: 200
     steps:
       - uses: actions/checkout@v4
+
+      - name: Données de la veille (branche site)
+        uses: ./.github/actions/restore-data
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -57,25 +60,8 @@ jobs:
           else
             python scrapers/insider_history.py --minutes "$MINUTES" --skip "$SKIP"
           fi
-      - name: Enregistrement
+      - name: Enregistrement et publication du site (branche site, une seule version)
         if: always()
-        run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions Bot"
-          mkdir -p data/history data/diagnostics && touch data/diagnostics/history-probe.txt
-          git add data/history data/diagnostics/history-probe.txt
-          if [ -d data/sectors ]; then git add data/sectors; fi
-          if [ -f data/seasonality.json ]; then git add data/seasonality.json; fi
-          if git diff --staged --quiet; then
-            echo "Pas de changement"
-          else
-            git commit -m "🗂️ Historique des dirigeants $(date -u +'%Y-%m-%d %H:%M UTC')"
-            for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done
-          fi
-
-      - name: Publication du site (branche site, une seule version)
-        if: always()
-        continue-on-error: true
         uses: ./.github/actions/publish-site
         with:
           message: "🗂️ Historique des dirigeants"
