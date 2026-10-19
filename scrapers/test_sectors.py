@@ -25,7 +25,8 @@ results = []
 def case(name):
     def deco(fn):
         tmp = Path(tempfile.mkdtemp())
-        for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT", "OUT_CO", "CATALOG", "CO_DIR", "CO_INDEX"):
+        for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT", "OUT_CO", "CATALOG", "CO_DIR", "CO_INDEX",
+                  "FINANCIALS"):
             old = getattr(S, k)
             setattr(S, k, tmp / ("sectors" if k == "SEC" else old.name))
         S.SEC.mkdir(parents=True, exist_ok=True)
@@ -198,6 +199,41 @@ def _():
     assert S.book_fields({"priceToBook": 500, "returnOnEquity": 9}) == {} and S.book_fields(None) == {}
     assert S.info_stale({"fetched": "2099-01-01"}, "2026-01-01") and not S.info_stale({"fetched": "2099-01-01", "v": S.INFO_V}, "2026-01-01")
 
+
+
+@case("Analyse des fiches : comptes sur 4 ans, prochaine publication de résultats, actionnariat")
+def _():
+    yrs = [{"date": f"{y}-12-31", "revenue": 1e9 * (y - 2020), "operatingIncome": 2e8, "netIncome": 1.5e8, "ebitda": 3e8, "cash": 5e8,
+            "totalDebt": 2e8, "shares": 1e8, "equity": 2e9} for y in range(2021, 2026)]
+    S.FINANCIALS.write_text(json.dumps({"items": {
+        "NL0010273215": {"ticker": "ASML.AS", "years": []},          # dossier vide : le plus complet l'emporte
+        "@ASML.AS": {"ticker": "ASML.AS", "currency": "EUR", "years": yrs},
+        "@SU.PA": {"years": [{"date": "2025-12-31", "revenue": None, "netIncome": None}]}}}), encoding="utf-8")
+    est = json.loads(S.ESTIMATES.read_text(encoding="utf-8"))
+    est["ASML.AS"]["next"] = "2099-01-28"
+    est["SU.PA"]["next"] = "2001-01-01"  # date passée : ignorée
+    S.write_json(S.ESTIMATES, est)
+    S.write_json(S.INFO_CACHE, {"ASML.AS": {"heldPercentInstitutions": 0.42, "heldPercentInsiders": 7}})
+    check_outputs()
+    item = lambda s: json.loads((S.CO_DIR / f"{S.shard_of(s)}.json").read_text(encoding="utf-8"))["items"][s]
+    a, b = item("ASML.AS"), item("SU.PA")
+    assert a["fin"]["c"] == "EUR" and len(a["fin"]["y"]) == 4 and a["fin"]["y"][0][0] == "2022-12-31", a.get("fin")
+    assert a["fin"]["y"][-1][1:] == [5e9, 2e8, 1.5e8, 3e8, 5e8, 2e8, 1e8, 2e9], a["fin"]["y"][-1]
+    assert a["nextEarnings"] == "2099-01-28" and a["instPct"] == 0.42 and a.get("insiderPct") is None, a
+    assert "fin" not in b and "nextEarnings" not in b, b
+    assert S.fin_compact(None) is None and S.fin_compact({"years": [{"date": "2025-12-31", "revenue": float("nan")}]}) is None
+
+
+@case("Prochaine publication de résultats : dates à venir de Yahoo, avec ou sans fuseau horaire")
+def _():
+    idx = pd.DatetimeIndex(["2026-07-24 07:00", "2026-10-22 07:00", "2027-01-30 07:00"]).tz_localize("Europe/Paris")
+    ed = pd.DataFrame({"EPS Estimate": [1.0, 2.0, 3.0], "Reported EPS": [1.1, None, None], "Surprise(%)": [10.0, None, None]}, index=idx)
+    assert S.next_earnings(ed, "2026-10-19") == "2026-10-22"
+    assert S.next_earnings(ed, "2026-10-22") == "2026-10-22"  # le jour même
+    assert S.next_earnings(ed, "2027-02-01") is None and S.next_earnings(None) is None and S.next_earnings(ed.iloc[:0]) is None
+    naive = ed.copy()
+    naive.index = idx.tz_localize(None)
+    assert S.next_earnings(naive, "2026-10-23") == "2027-01-30"
 
 
 @case("Yahoo renvoie des fiches vides : les anciennes fiches sont conservées, relecture arrêtée")

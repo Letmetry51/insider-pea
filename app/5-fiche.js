@@ -2049,16 +2049,18 @@ function planCard(isin, plan, adj) {
       esc(PE.label) +
       "</b><small>Règle testée sur 1997-2026 pour les sociétés du 🎯 : attendre un repli n'a pas fait mieux. Les niveaux ci-dessous viennent de l'analyse technique classique, non validée.</small></div>"
     : '';
+  // pli à ouvrir : le verdict reste lisible fermé ; ouvert d'office quand le plan est ajusté à la main ou surveillé
   return (
-    '<div class="plan ' +
+    '<details class="plan ' +
     V[0] +
-    '"><h4>🧭 Plan d\'entrée</h4>' +
-    pickH +
-    '<p class="verdict">' +
+    '" data-k="f-plan"' +
+    (man || wd ? ' open' : '') +
+    '><summary><h4>🧭 Plan d\'entrée</h4><span class="verdict">' +
     V[1] +
     ' <b>' +
     esc(plan.label) +
-    '</b></p>' +
+    '</b></span></summary>' +
+    pickH +
     curH +
     liqH +
     planChart(isin, adj, plan) +
@@ -2132,7 +2134,7 @@ function planCard(isin, plan, adj) {
         "), sans prévoir la direction. Ce n'est pas un conseil en investissement.",
       'Méthode'
     ) +
-    '</div>'
+    '</details>'
   );
 }
 

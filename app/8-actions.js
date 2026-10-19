@@ -70,7 +70,8 @@ document.addEventListener('click', function (ev) {
                 return sm.parentNode;
               })[0];
     if (node) {
-      if (node.tagName === 'DETAILS') node.open = true;
+      // ouvre le pli visé et ceux qui le contiennent (le plan d'entrée est dans le pli des cours)
+      for (var pn = node; pn; pn = pn.parentElement) if (pn.tagName === 'DETAILS') pn.open = true;
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   } else if (a === 'proof') {

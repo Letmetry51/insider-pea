@@ -970,15 +970,50 @@ table {
 .ancrit span small {
   display: inline !important;
 }
-.antraj th,
-.antraj td {
+.ancrit .anwhy {
+  grid-column: 1 / -1;
+  margin-top: -2px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+/* 🧭 En bref : verdict, critère fort et faible, repères à surveiller */
+.anbrief {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 4px solid var(--line);
+  background: var(--neutral-soft);
+}
+.anbrief p {
+  margin: 2px 0;
+}
+.anbrief.good {
+  border-left-color: var(--good);
+  background: var(--good-soft);
+}
+.anbrief.warn {
+  border-left-color: var(--warn);
+  background: var(--warn-soft);
+}
+.anbrief.bad {
+  border-left-color: var(--bad);
+  background: var(--bad-soft);
+}
+table.antraj th,
+table.antraj td {
   font-size: 0.78rem;
   padding: 3px 4px;
   text-align: right;
   white-space: nowrap;
+  width: auto; /* pas la colonne de libellé large des tableaux clé/valeur */
 }
-.antraj th:first-child {
+table.antraj th:first-child {
   text-align: left;
+  padding-left: 6px;
+}
+table.antraj tr > :last-child {
+  padding-right: 6px;
 }
 .anlist li {
   margin: 3px 0;
@@ -3900,6 +3935,31 @@ svg .mk-na {
 .plan .verdict {
   margin: 0 0 8px;
   font-size: 0.98rem;
+}
+/* plan d'entrée en pli : titre et verdict dans l'en-tête */
+details.plan > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink);
+  font-weight: 400;
+  font-size: 1rem;
+}
+details.plan > summary::-webkit-details-marker {
+  display: none;
+}
+details.plan > summary h4::before {
+  content: '▸ ';
+  color: var(--accent);
+}
+details.plan[open] > summary h4::before {
+  content: '▾ ';
+}
+details.plan > summary .verdict {
+  display: block;
+  margin: 0;
+}
+details.plan[open] > summary {
+  margin-bottom: 8px;
 }
 .plan ul.sc {
   list-style: none;
