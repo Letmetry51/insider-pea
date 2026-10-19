@@ -3372,7 +3372,7 @@
   ES.shortBlocks = function (r) { return r && r.sh != null && r.sh >= ES.SHORT_MIN && !!ES.SHORT_EXCLUDE[r.shc]; };
   /** Krach du momentum (Daniel et Moskowitz) : après une baisse du marché de 20 % ou plus sur un an, les plus fortes hausses passées
    *  ont fait 12,5 points de moins que la moyenne à 6 mois (1997-2026 : 2001-2003, 2009, 2012, 2022-2023). */
-  ES.MOM_CRASH_M52 = -20; ES.RANK_JUMP_DOWN = 0.35;
+  ES.MOM_CRASH_M52 = -20; ES.MOM_CRASH_OFF = -15; ES.RANK_JUMP_DOWN = 0.35; // alerte krach : allumée à −20 %, éteinte au-dessus de −15 % (pas de va-et-vient)
   /**
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
@@ -3677,7 +3677,7 @@
     var ent = function (x) { return ES.pickEntry({ m10: x.ma10 != null ? x.ma10 : x.m10 }); };
     var nBuy = items.filter(function (x) { var e = ent(x); return !e || e.k === 'buy'; }).length;
     var subject = '[Euro Signal] 🎯 Sélection de la semaine (' + week + ') : ' + (n ? n + ' société' + (n > 1 ? 's' : '') + (nBuy < n ? ', ' + nBuy + ' à acheter maintenant' : '') : 'aucune société ne passe les règles');
-    var intro = 'Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois, volumes en hausse d\'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.';
+    var intro = 'Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois, volumes en hausse puis 📣 bond sur gros volume d\'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.';
     var pcs = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %'; };
     var tr = track && track.n ? 'Sélections précédentes (' + track.n + ' dossiers) : ' + pcs(track.avg) + ' en moyenne depuis l\'envoi' + (track.bench != null ? ', indice ' + pcs(track.bench) : '') + '.' : null;
     var warnOf = function (x) { return (x.warn || []).slice(0, 2); };

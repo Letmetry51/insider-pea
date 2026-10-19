@@ -983,7 +983,7 @@ export function build(opts = {}) {
       r.iv = !!(i && ES.valueCheap(i.value));
       if (Array.isArray(x.d)) { const tt = ES.trendTemplate(x.d); if (tt) r.tmpl = tt.ok ? 1 : 0; }
     });
-    rank = { version: R.version, since: R.since, today, coDate, coFresh: !!(coDate && ES.daysBetween(coDate, today) <= 3), generatedAt: new Date().toISOString(), counts: { catalogue: rows.length, liquid: rows.filter((r) => (r.turnoverEur || 0) >= R.minTurnoverEur).length, ranked: rows.filter((r) => !r.out.length).length, top: rows.filter((r) => r.verdict.key === 'top').length },
+    rank = { version: R.version, since: R.since, today, coDate, coFresh: !!(coDate && ES.daysBetween(coDate, today) <= 3), generatedAt: new Date().toISOString(), counts: { catalogue: rows.length, liquid: rows.filter((r) => (r.turnoverEur || 0) >= R.minTurnoverEur).length, ranked: rows.filter((r) => !r.out.length).length, top: rows.filter((r) => r.verdict.key === 'top').length, accRead: rows.filter((r) => !r.out.length && r.acc && r.acc !== 'na').length },
       bench: mRef ? mRef.ticker : null, selection: { week, items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })), track: trackSum, weeks: track }, rows: shown.map(slimRow), study, breadth };
     // suivi réel du 🎯 : les 10 sociétés proposées, notées une fois par semaine (cours du catalogue à jour), résultat figé à 3 et 6 mois
     try {
@@ -1054,7 +1054,11 @@ export function build(opts = {}) {
     selection.sourcesDown = insBad;
     if (insBad.length && selection.verdict) selection.verdict = { key: 'na', icon: '⚠️', text: 'Données incomplètes : ' + insBad.join(', ') + ' en panne. Les sociétés concernées peuvent manquer à la sélection.' };
     // la sélection vient du classement tendance + comptes : on attend des cours du catalogue à jour, au plus tard le vendredi
-    const coOk = !!(rank && rank.coFresh), wait = !coOk && dow < 5;
+    // garde-fou : comptes annuels illisibles ce soir (fichier tronqué, panne Yahoo) → pas d'email « aucune société » trompeur ;
+    // la sélection attend le soir suivant (contrôle du soir : alerte « comptes lus »)
+    const accOk = !(rank && rank.counts && rank.counts.ranked >= 200 && rank.counts.accRead < 0.4 * rank.counts.ranked);
+    if (rank && !accOk) console.warn('  Sélection reportée : comptes lus pour ' + rank.counts.accRead + ' sociétés classées sur ' + rank.counts.ranked + ' seulement');
+    const coOk = !!(rank && rank.coFresh && accOk), wait = !coOk && dow < 5;
     if ((resend && coOk) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && coOk)) {
       // Depuis le barème 3.0 : la sélection envoyée est celle du classement tendance + comptes (l'ancienne, fondée sur les dirigeants,
       // reste calculée et affichée pour comparaison jusqu'à la revue du 31/01/2027)
@@ -1079,6 +1083,9 @@ export function build(opts = {}) {
         if (p.m10 < 0) { if (!state.pickWaitSeen[p.key]) state.pickWaitSeen[p.key] = today; return; }
         if (!state.pickWaitSeen[p.key]) return;
         const since = state.pickWaitSeen[p.key]; delete state.pickWaitSeen[p.key];
+        state.feuVertSent = isObj(state.feuVertSent) ? state.feuVertSent : {};
+        if (state.feuVertSent[p.key] && ES.daysBetween(state.feuVertSent[p.key], today) < 30) return; // déjà prévenu il y a moins de 30 jours
+        state.feuVertSent[p.key] = today;
         const link = dashUrl ? dashUrl + '#' + (p.isin || 'co=' + p.sym) : null;
         const lines = [p.name + (p.sector ? ' (' + p.sector + ')' : '') + ' — ' + p.note + '/100, rang ' + (pk.indexOf(p) + 1) + ' du 🎯',
           'Repasse au-dessus de sa moyenne 10 semaines (+' + String(p.m10).replace('.', ',') + ' %), en attente depuis le ' + ES.frDate(since) + ' : achat possible selon la règle testée.',
@@ -1092,6 +1099,7 @@ export function build(opts = {}) {
         console.log('  🎯 Feu vert : ' + p.name + ' (en attente depuis le ' + since + ')');
       });
       Object.keys(state.pickWaitSeen).forEach((k) => { if (!now.has(k) || ES.daysBetween(state.pickWaitSeen[k], today) > 90) delete state.pickWaitSeen[k]; });
+      Object.keys(state.feuVertSent || {}).forEach((k) => { if (ES.daysBetween(state.feuVertSent[k], today) > 60) delete state.feuVertSent[k]; });
     }
   } catch (e) { console.warn('  Feu vert du 🎯 indisponible : ' + e.message); }
 
@@ -1099,15 +1107,16 @@ export function build(opts = {}) {
   try {
     const NB = rank && rank.breadth && rank.breadth.now;
     if (NB && NB.m52 != null) {
-      const on = NB.m52 <= ES.MOM_CRASH_M52, was = !!state.crashOn;
+      const was = !!state.crashOn, on = was ? NB.m52 <= ES.MOM_CRASH_OFF : NB.m52 <= ES.MOM_CRASH_M52;
       if (on !== was) {
         const txt = on ? 'Le marché a perdu ' + Math.round(-NB.m52) + ' % en un an. Dans ce cas (2001-2003, 2009, 2022), les plus fortes hausses passées ont fait 12,5 points de moins que la moyenne les 6 mois suivants. Règle : acheter par petites touches ; une pause des achats a réduit la perte maximale de 57 % à 51 % pour environ 1 point de rendement par an en moins. Les positions en cours suivent leurs règles (6 mois, protection à −30 %).'
-          : 'Le marché est revenu au-dessus de −20 % sur un an (' + (NB.m52 >= 0 ? '+' : '') + Math.round(NB.m52) + ' %). Fin de l\'alerte : le 🎯 reprend normalement.';
+          : 'Le marché est revenu au-dessus de ' + ES.MOM_CRASH_OFF + ' % sur un an (' + (NB.m52 >= 0 ? '+' : '') + Math.round(NB.m52) + ' %). Fin de l\'alerte : le 🎯 reprend normalement.';
         outbox.push({ id: 'krach-' + (on ? 'debut' : 'fin') + '-' + today, kind: 'krach', isin: null, name: 'Marché', subject: '[Euro Signal] ' + (on ? '⚠️ Alerte krach du momentum' : '✅ Fin de l\'alerte krach du momentum'),
           text: txt + (dashUrl ? '\nTableau de bord : ' + dashUrl : ''), html: '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px"><h2 style="margin:0 0 8px">' + (on ? '⚠️ Alerte krach du momentum' : '✅ Fin de l\'alerte') + '</h2><p>' + ES.esc(txt) + '</p></div>',
           eventIds: ['krach:' + (on ? 'on' : 'off') + ':' + today], score: null, version: cfg.rank.version });
         state.crashOn = on;
       }
+      if (rank) rank.crashOn = !!state.crashOn; // la page affiche l'alerte selon le même état que les emails
     }
   } catch (e) { console.warn('  Alerte krach indisponible : ' + e.message); }
 
