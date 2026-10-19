@@ -1,0 +1,56 @@
+name: Publier le site
+description: >
+  Publie la page et les données du soir sur la branche « site », en une seule version (sans historique) :
+  le dépôt ne grossit plus avec les données quotidiennes. GitHub Pages sert cette branche.
+inputs:
+  message:
+    description: Message de la version publiée
+    required: true
+  token:
+    description: Jeton GitHub du workflow (secrets.GITHUB_TOKEN)
+    required: true
+runs:
+  using: composite
+  steps:
+    # copie de secours des fichiers qu'aucun calcul ne peut refaire (journal des alertes, suivi réel, historiques, archives) :
+    # la branche « site » ne garde qu'une version, ces copies permettent de revenir jusqu'à 30 jours en arrière
+    - uses: actions/upload-artifact@v4
+      with:
+        name: donnees-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+        retention-days: 30
+        if-no-files-found: warn
+        path: |
+          data/euro-signal-state.json
+          data/euro-signal-learning.json
+          data/history/
+          data/sectors/estimates.json
+          data/sectors/revisions_history.json
+          data/shorts-symbols.json
+          data/tickers.json
+          data/diagnostics/coverage-history.json
+          data/diagnostics/health-sent.json
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        MSG: ${{ inputs.message }}
+      run: |
+        set -euo pipefail
+        test -f data/euro-signal.json || { echo "Pas de données à publier (data/euro-signal.json absent) : arrêt"; exit 1; }
+        SITE="$(mktemp -d)"
+        cp euro-signal.html index.html sw.js euro-signal.webmanifest LICENSE README.md "$SITE"/
+        cp ./*.png "$SITE"/
+        cp -r app "$SITE"/app
+        mkdir -p "$SITE/euro_signal" && cp euro_signal/core.js "$SITE/euro_signal/"
+        # données : tout sauf les fichiers de travail régénérés à chaque calcul (comme le .gitignore du code)
+        cp -r data "$SITE/data"
+        find "$SITE/data" \( -name 'prices.json' -o -name 'euro-signal-outbox.json' -o -name 'events.json' -o -name '*.tmp' \
+          -o -name 'weekly.csv.gz' -o -name 'weekly_volume.csv.gz' -o -name '*.illisible-*' \) -delete
+        touch "$SITE/.nojekyll"
+        cd "$SITE"
+        git init -q -b site
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add -A
+        git commit -q -m "$MSG — $(date -u +'%Y-%m-%d %H:%M UTC')"
+        for i in 1 2 3; do git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site && break; sleep 5; done
+        echo "Site publié : $(du -sh . | cut -f1), $(git ls-files | wc -l) fichiers"

@@ -1,0 +1,29 @@
+# Publie la page (code du dépôt + données du dernier calcul) sur la branche « site » après chaque modification du code.
+name: Publication du site
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['data/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: donnees # update-data, history et publish : jamais deux à la fois sur les données
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Données du dernier calcul
+        uses: ./.github/actions/restore-data
+      - name: Publication
+        uses: ./.github/actions/publish-site
+        with:
+          message: "Site : code ${{ github.sha }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
