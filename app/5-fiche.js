@@ -69,7 +69,7 @@ function vFiche() {
       '">fiche de la ligne principale (' +
       esc(S.inst[x.secondary].name) +
       ')</button>.</p>';
-  h += rankFold(rankOf(i, x.ticker)) + analysisCard(i, x.ticker);
+  h += rankFold(rankOf(i, x.ticker)) + analysisCard(i, x.ticker) + bizCard(x.ticker, true);
   // version allégée : la note tendance + comptes, le cours avec le plan d'entrée et « Je l'ai acheté » en haut ; la lecture « dirigeants » est repliée plus bas
   var newM = !!rankData(),
     advS = adviceSection(i, c),

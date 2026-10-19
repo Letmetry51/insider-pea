@@ -112,7 +112,7 @@ Les collecteurs lisent des sources publiques ; **vérifiez leurs conditions d'ut
 
 | Source | Usage | À savoir |
 |---|---|---|
-| Yahoo Finance (via `yfinance`) | cours, volumes, comptes, résultats, avis d'analystes | usage personnel ; la redistribution des données n'est en principe pas autorisée |
+| Yahoo Finance (via `yfinance`) | cours, volumes, comptes, résultats, avis d'analystes, description d'activité | usage personnel ; la redistribution des données n'est en principe pas autorisée |
 | AMF (France), Finansinspektionen (Suède), FSMA (Belgique), AFM (Pays-Bas) | déclarations des dirigeants | registres publics ; contiennent des noms de personnes (RGPD) |
 | AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA | ventes à découvert déclarées | registres publics |
 | Google News (flux RSS) | titres de presse des sociétés suivies | titres et liens seulement |

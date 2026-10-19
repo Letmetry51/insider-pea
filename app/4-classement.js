@@ -1406,6 +1406,189 @@ function analysisCard(isin, sym) {
     '<p class="foot">Automatique, données du soir. Seules les règles 🎯 et 💎 sont testées. Pas un conseil.</p></details>'
   );
 }
+/** 🏭 Business model : ce que fait la société (description Yahoo Finance, en anglais) et son profil économique, calculé en
+ *  français sur ses comptes annuels (marge brute, investissements, régularité, trésorerie, effectif). Fiches Euro Signal :
+ *  données lues dans le fichier du catalogue, chargé seulement à l'ouverture du pli. */
+function bizCard(sym, lazy) {
+  if (!sym) return '';
+  var ready = !lazy || coReady(sym),
+    open = !!(S.openDet && S.openDet['f-biz']);
+  if (lazy && !ready && open) loadSecCo(sym);
+  var co = ready && S.secCo && S.secCo.items ? S.secCo.items[sym] : null,
+    head =
+      '<details class="card fold' +
+      // « lazy » (redessin à l'ouverture) seulement pli fermé et données absentes : ouvert, le chargement est déjà lancé et
+      // son arrivée redessine la page ; sinon chaque redessin rouvrirait le pli et en relancerait un autre, en boucle
+      (lazy && !ready && !open ? ' lazy' : '') +
+      '" data-k="f-biz"><summary>🏭 Business model <span class="muted small">· ce que fait la société, comment elle gagne de l\'argent</span></summary>';
+  if (lazy && !ready) return head + '<p class="muted small">' + (open ? 'Chargement…' : '') + '</p></details>';
+  if (!co || (!co.about && !(co.fin && co.fin.y && co.fin.y.length) && co.grossMargin == null)) return '';
+  // comptes : [clôture, CA, résultat d'exploitation, résultat net, EBITDA, trésorerie, dette, actions, fonds propres,
+  //            marge brute, investissements (négatifs chez Yahoo), flux d'exploitation]
+  var Y = (co.fin && co.fin.y) || [],
+    L = Y[Y.length - 1] || [],
+    fin = /financial|bank|insurance|banque|assurance|capital markets|asset management|credit services/i.test(
+      String(co.sector || '') + ' ' + String(co.industry || '')
+    ),
+    pc = function (v) {
+      return fmtN(v, Math.abs(v) < 10 ? 1 : 0) + '\u00a0%';
+    },
+    mean = function (a) {
+      return (
+        a.reduce(function (x, y) {
+          return x + y;
+        }, 0) / a.length
+      );
+    },
+    rows = []; // [libellé, verdict, chiffre, explication]
+  if (!fin) {
+    var gm = L[9] != null && L[1] > 0 ? (L[9] / L[1]) * 100 : co.grossMargin != null ? co.grossMargin * 100 : null;
+    if (gm != null && gm > -50 && gm <= 100)
+      rows.push([
+        '💰 Pouvoir de prix',
+        gm >= 50 ? 'élevé' : gm >= 25 ? 'moyen' : 'faible',
+        'marge brute ' + pc(gm),
+        gm >= 50
+          ? 'marque, technologie ou position forte : ventes bien au-dessus du coût direct'
+          : gm >= 25
+            ? ''
+            : 'métier de volume (distribution, négoce, matières premières, sous-traitance) : la marge se fait sur les quantités',
+      ]);
+    var om = Y.filter(function (y) {
+      return y[1] > 0 && y[2] != null;
+    }).map(function (y) {
+      return (y[2] / y[1]) * 100;
+    });
+    if (om.length >= 2) {
+      var omLo = Math.min.apply(null, om),
+        omHi = Math.max.apply(null, om),
+        stable = omHi - omLo < 4;
+      rows.push([
+        "🏭 Marge d'exploitation",
+        stable ? 'stable' : 'variable',
+        'de ' + pc(omLo) + ' à ' + pc(omHi) + ' sur ' + om.length + ' ans',
+        stable ? '' : 'les résultats dépendent de la conjoncture ou des prix',
+      ]);
+    }
+    var cx = Y.filter(function (y) {
+      return y[1] > 0 && y[10] != null;
+    }).map(function (y) {
+      return (Math.abs(y[10]) / y[1]) * 100;
+    });
+    if (cx.length) {
+      var cxA = mean(cx);
+      rows.push([
+        '🔧 Investissements',
+        cxA >= 10 ? 'lourds' : cxA >= 4 ? 'moyens' : 'légers',
+        pc(cxA) + " du chiffre d'affaires par an",
+        cxA >= 10
+          ? 'usines, réseaux, gisements ou flotte à entretenir et renouveler'
+          : cxA >= 4
+            ? ''
+            : "peu d'actifs à entretenir (services, logiciels, marques)",
+      ]);
+    }
+  }
+  var ch = [];
+  for (var k = 1; k < Y.length; k++)
+    if (Y[k - 1][1] > 0 && Y[k][1] > 0) ch.push([String(Y[k][0]).slice(0, 4), Y[k][1] / Y[k - 1][1] - 1]);
+  if (ch.length >= 2) {
+    var worst = ch.slice().sort(function (a, b) {
+      return a[1] - b[1];
+    })[0];
+    rows.push([
+      '🔁 Régularité',
+      worst[1] <= -0.1 ? 'cyclique' : worst[1] >= 0 ? 'régulière' : 'assez régulière',
+      "chiffre d'affaires " +
+        ch
+          .map(function (c) {
+            return (c[1] >= 0 ? '+' : '−') + fmtN(Math.abs(c[1]) * 100, 0) + ' % en ' + c[0];
+          })
+          .join(', '),
+      worst[1] <= -0.1
+        ? 'les ventes suivent le cycle économique ou les prix'
+        : worst[1] >= 0
+          ? 'en hausse chaque année'
+          : '',
+    ]);
+  }
+  if (!fin) {
+    var sF = 0,
+      sN = 0,
+      nY = 0;
+    Y.forEach(function (y) {
+      if (y[11] != null && y[10] != null && y[3] != null) {
+        sF += y[11] + y[10]; // flux d'exploitation + investissements = trésorerie disponible
+        sN += y[3];
+        nY++;
+      }
+    });
+    if (nY >= 2 && sN > 0) {
+      var cv = (sF / sN) * 100;
+      rows.push([
+        '💶 Trésorerie',
+        cv >= 80 ? 'bonne' : cv >= 40 ? 'moyenne' : 'faible',
+        'trésorerie disponible égale à ' + pc(cv) + ' du bénéfice net',
+        cv >= 80 ? '' : 'une partie part en investissements, stocks ou créances',
+      ]);
+    }
+  }
+  if (co.staff) {
+    var rev = L[1] > 0 ? L[1] : co.revenue,
+      cur = (co.fin && co.fin.c) || (co.currency === 'GBp' || co.currency === 'GBX' ? 'GBP' : co.currency) || 'EUR',
+      revE = rev > 0 ? (cur === 'EUR' ? rev : ES.toEur(rev, cur)) : null,
+      rps = revE ? revE / co.staff : null;
+    rows.push([
+      '👥 Effectif',
+      fmtInt(co.staff) + ' salariés',
+      rps
+        ? '≈ ' +
+          (rps >= 1e6 ? fmtN(rps / 1e6, 1) + ' M€' : fmtN(rps / 1000, 0) + ' k€') +
+          " de chiffre d'affaires par salarié"
+        : '',
+      '',
+    ]);
+  }
+  var h = head;
+  if (co.about) {
+    var tr = 'https://translate.google.com/?sl=en&tl=fr&op=translate&text=' + encodeURIComponent(co.about),
+      web = co.web && ES.safeUrl ? ES.safeUrl(co.web) : null;
+    h +=
+      '<p class="small"><b>Activité</b> <span class="muted">· description Yahoo Finance, en anglais</span> · <a href="' +
+      esc(tr) +
+      '" target="_blank" rel="noopener">🇫🇷 Traduire</a>' +
+      (web ? ' · <a href="' + esc(web) + '" target="_blank" rel="noopener">site de la société ↗</a>' : '') +
+      '</p><p class="bizabout" lang="en">' +
+      esc(co.about) +
+      '</p>';
+  }
+  if (rows.length)
+    h +=
+      '<p class="small"><b>Profil économique</b> <span class="muted">· calculé sur les comptes annuels' +
+      (Y.length ? ' ' + String(Y[0][0]).slice(0, 4) + '-' + String(L[0]).slice(0, 4) : '') +
+      '</span></p><ul class="plain small nomax bizp">' +
+      rows
+        .map(function (z) {
+          // libellé : verdict — chiffre ; explication
+          return (
+            '<li><b>' +
+            z[0] +
+            ' : ' +
+            esc(z[1]) +
+            '</b>' +
+            (z[2] ? ' — ' + esc(z[2]) : '') +
+            (z[3] ? '<span class="muted"> ; ' + esc(z[3]) + '</span>' : '') +
+            '</li>'
+          );
+        })
+        .join('') +
+      '</ul>';
+  else if (fin)
+    h += '<p class="small muted">Banque, assurance ou société financière : profil économique non applicable.</p>';
+  h +=
+    '<p class="small muted">Part de chaque activité dans les ventes et les bénéfices, et ce qui fait varier les marges : rapport annuel de la société (« information sectorielle »).</p>';
+  return h + '</details>';
+}
 /** Une carte « <section><h3>titre</h3>… » devient un pli fermé ; le titre court du pli porte l'essentiel. */
 function asFold(html, key, summ) {
   if (!html) return '';

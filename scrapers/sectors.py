@@ -313,7 +313,7 @@ def screen_universe():
     return seen
 
 
-INFO_V = 2  # version des champs lus dans la fiche Yahoo : une fiche plus ancienne est relue (2 : valeur comptable)
+INFO_V = 3  # version des champs lus dans la fiche Yahoo : une fiche plus ancienne est relue (2 : valeur comptable, 3 : activité)
 
 
 def info_stale(inf, limit):
@@ -397,7 +397,8 @@ def fetch_info(s):
             "grossMargins", "totalRevenue", "forwardPE", "isin", "currentPrice", "regularMarketPrice", "previousClose",
             "averageVolume", "averageDailyVolume10Day", "numberOfAnalystOpinions", "recommendationMean", "targetMeanPrice",
             "heldPercentInstitutions", "heldPercentInsiders", "shortPercentOfFloat",
-            "priceToBook", "bookValue", "returnOnEquity", "financialCurrency")  # valeur comptable (v2)
+            "priceToBook", "bookValue", "returnOnEquity", "financialCurrency",  # valeur comptable (v2)
+            "longBusinessSummary", "fullTimeEmployees", "website")  # activité, effectif et site de la société (v3)
     out = {k: inf.get(k) for k in keep if inf.get(k) is not None and not (isinstance(inf.get(k), float) and math.isnan(inf.get(k)))}
     out["fetched"] = date.today().isoformat()
     out["v"] = INFO_V
@@ -1200,12 +1201,14 @@ def fin_by_symbol(items):
     return out
 
 
-FIN_KEYS = ("revenue", "operatingIncome", "netIncome", "ebitda", "cash", "totalDebt", "shares", "equity")
+FIN_KEYS = ("revenue", "operatingIncome", "netIncome", "ebitda", "cash", "totalDebt", "shares", "equity",
+            "grossProfit", "capex", "cfo")  # les trois derniers : profil du business model (marge brute, investissements, trésorerie)
 
 
 def fin_compact(f, currency=None):
     """Quatre derniers exercices pour l'analyse des fiches : [clôture, chiffre d'affaires, résultat d'exploitation, résultat net,
-    EBITDA, trésorerie, dette, nombre d'actions, fonds propres], à 4 chiffres significatifs ; None sans chiffre utile."""
+    EBITDA, trésorerie, dette, nombre d'actions, fonds propres, marge brute, investissements, flux d'exploitation], à 4 chiffres
+    significatifs ; None sans chiffre utile."""
     def sig4(v):
         return float(f"{v:.4g}") if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else None
     ys = sorted([y for y in (f or {}).get("years") or [] if isinstance(y, dict) and y.get("date")], key=lambda y: y["date"])[-4:]
@@ -1214,6 +1217,18 @@ def fin_compact(f, currency=None):
     if not rows:
         return None
     return {"c": (f or {}).get("currency") or currency or None, "y": rows}
+
+
+def about_text(t, n=900):
+    """Description d'activité de Yahoo (« longBusinessSummary ») ramenée à n caractères au plus, coupée en fin de phrase."""
+    t = " ".join(str(t or "").split())
+    if len(t) < 40:
+        return None
+    if len(t) <= n:
+        return t
+    cut = t[:n]
+    k = max(cut.rfind(". "), cut.rfind("; "))
+    return (cut[:k + 1] if k >= n // 3 else cut.rsplit(" ", 1)[0] + "…").strip()
 
 
 def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True, V=None):
@@ -1272,7 +1287,7 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             log(f"Cours hebdomadaires du catalogue : {W2.shape[1] if not W2.empty else 0} titres, {time.time() - t0:.0f} s")
     sig = lambda v: None if v is None or not np.isfinite(v) else float(f"{v:.5g}")
     # fiches Yahoo (valeur comptable) : complétées chaque soir dans la limite de 4 minutes, les plus grosses sociétés d'abord
-    info = refresh_infos(sorted(syms, key=lambda x: -((uni.get(x) or extra.get(x) or cat_only.get(x) or {}).get("capEur") or 0))) if fetch_daily else read_json(INFO_CACHE, {})
+    info = refresh_infos(sorted(syms, key=lambda x: -((uni.get(x) or extra.get(x) or cat_only.get(x) or {}).get("capEur") or 0)), minutes=8) if fetch_daily else read_json(INFO_CACHE, {})
     # analyse des fiches : comptes sur 4 ans, prochaine publication de résultats, actionnariat
     fins = fin_by_symbol((read_json(FINANCIALS, {}) or {}).get("items"))
     est = read_json(ESTIMATES, {}) or {}
@@ -1301,6 +1316,16 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         for k, ik in (("instPct", "heldPercentInstitutions"), ("insiderPct", "heldPercentInsiders")):
             if rec.get(k) is None and isinstance(inf.get(ik), (int, float)) and 0 <= inf[ik] <= 1:
                 rec[k] = round(float(inf[ik]), 4)
+        # 🏭 business model : activité (texte Yahoo, en anglais), effectif, site de la société
+        ab = about_text(inf.get("longBusinessSummary"))
+        if ab:
+            rec["about"] = ab
+        st = inf.get("fullTimeEmployees")
+        if isinstance(st, (int, float)) and not isinstance(st, bool) and 0 < st < 5e6:
+            rec["staff"] = int(st)
+        web = str(inf.get("website") or "")
+        if web.startswith(("https://", "http://")) and len(web) < 120:
+            rec["web"] = web
         if sym in Wl.columns and Wl[sym].notna().sum() >= 20:
             rec["w"] = [sig(v) for v in Wl[sym].tolist()]
         if sym in Vl.columns and Vl[sym].notna().sum() >= 52:

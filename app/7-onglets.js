@@ -737,7 +737,7 @@ function biblioCard() {
         ln('https://finance.yahoo.com', 'Yahoo Finance') +
         ' (bibliothèque ' +
         ln('https://github.com/ranaroussi/yfinance', 'yfinance') +
-        ') : cours journaliers (2 ans) et hebdomadaires (5 à 8 ans), dividendes et divisions, comptes annuels (4 exercices), prévisions, avis et révisions des analystes, surprises et dates de résultats, communiqués des sociétés. Pour les études : cours hebdomadaires de 1 067 sociétés européennes, 1985-2026.'
+        ") : cours journaliers (2 ans) et hebdomadaires (5 à 8 ans), dividendes et divisions, comptes annuels (4 exercices), prévisions, avis et révisions des analystes, surprises et dates de résultats, communiqués des sociétés, description d'activité et effectif (pli 🏭 Business model). Pour les études : cours hebdomadaires de 1 067 sociétés européennes, 1985-2026."
     ),
     li(
       '👔 <b>Déclarations des dirigeants</b> (règlement européen MAR, article 19) : ' +
