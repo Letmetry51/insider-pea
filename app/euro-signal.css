@@ -4567,3 +4567,16 @@ details.pos summary {
   width: 100%;
   min-width: 0;
 }
+/* 🏭 business model */
+.bizabout {
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 4px 0 10px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--line);
+  background: var(--sunk);
+  border-radius: 6px;
+}
+.bizp li {
+  margin: 4px 0;
+}

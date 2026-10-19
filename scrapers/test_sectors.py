@@ -213,15 +213,21 @@ def _():
     est["ASML.AS"]["next"] = "2099-01-28"
     est["SU.PA"]["next"] = "2001-01-01"  # date passée : ignorée
     S.write_json(S.ESTIMATES, est)
-    S.write_json(S.INFO_CACHE, {"ASML.AS": {"heldPercentInstitutions": 0.42, "heldPercentInsiders": 7}})
+    about = "ASML Holding N.V. develops and sells lithography systems for the semiconductor industry. " * 20
+    S.write_json(S.INFO_CACHE, {"ASML.AS": {"heldPercentInstitutions": 0.42, "heldPercentInsiders": 7, "longBusinessSummary": about,
+                                            "fullTimeEmployees": 44027, "website": "https://www.asml.com"},
+                                "SU.PA": {"longBusinessSummary": "court", "fullTimeEmployees": -3, "website": "javascript:alert(1)"}})
     check_outputs()
     item = lambda s: json.loads((S.CO_DIR / f"{S.shard_of(s)}.json").read_text(encoding="utf-8"))["items"][s]
     a, b = item("ASML.AS"), item("SU.PA")
     assert a["fin"]["c"] == "EUR" and len(a["fin"]["y"]) == 4 and a["fin"]["y"][0][0] == "2022-12-31", a.get("fin")
-    assert a["fin"]["y"][-1][1:] == [5e9, 2e8, 1.5e8, 3e8, 5e8, 2e8, 1e8, 2e9], a["fin"]["y"][-1]
+    assert a["fin"]["y"][-1][1:] == [5e9, 2e8, 1.5e8, 3e8, 5e8, 2e8, 1e8, 2e9, None, None, None], a["fin"]["y"][-1]
+    assert a["about"].startswith("ASML Holding") and len(a["about"]) <= 900 and a["about"].endswith(".") and a["staff"] == 44027, a
+    assert a["web"] == "https://www.asml.com" and not any(k in b for k in ("about", "staff", "web")), b
     assert a["nextEarnings"] == "2099-01-28" and a["instPct"] == 0.42 and a.get("insiderPct") is None, a
     assert "fin" not in b and "nextEarnings" not in b, b
     assert S.fin_compact(None) is None and S.fin_compact({"years": [{"date": "2025-12-31", "revenue": float("nan")}]}) is None
+    assert S.about_text("x" * 30) is None and S.about_text("Une phrase. " * 200).endswith(".") and len(S.about_text("mot " * 400)) <= 901
 
 
 @case("Prochaine publication de résultats : dates à venir de Yahoo, avec ou sans fuseau horaire")

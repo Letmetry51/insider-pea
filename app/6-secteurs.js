@@ -172,7 +172,7 @@ function loadSecCo(sym) {
     S.secCo.wDates = d.wDates;
     S.secCo.generatedAt = d.generatedAt;
     S.coShard[k] = true;
-    if (S.view === 'secco') render();
+    if (S.view === 'secco' || S.view === 'fiche') render(); // fiche Euro Signal : pli 🏭 business model
   };
   fetch('data/societes/' + k + '.json', { cache: 'no-store' })
     .then(function (r) {
@@ -190,7 +190,7 @@ function loadSecCo(sym) {
         .then(done)
         .catch(function () {
           S.coShard[k] = true;
-          if (S.view === 'secco') render();
+          if (S.view === 'secco' || S.view === 'fiche') render(); // fiche Euro Signal : pli 🏭 business model
         });
     });
 }
@@ -676,7 +676,7 @@ function vSecCo() {
     (x.basic
       ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>'
       : '');
-  h += rankFold(rankOf(es, sym)) + analysisCard(es && S.inst[es] ? es : null, sym);
+  h += rankFold(rankOf(es, sym)) + analysisCard(es && S.inst[es] ? es : null, sym) + bizCard(sym);
   var more = '';
   if (es)
     more +=
