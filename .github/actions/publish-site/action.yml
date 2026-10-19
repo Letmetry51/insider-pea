@@ -37,7 +37,7 @@ runs:
         set -euo pipefail
         test -f data/euro-signal.json || { echo "Pas de données à publier (data/euro-signal.json absent) : arrêt"; exit 1; }
         SITE="$(mktemp -d)"
-        cp euro-signal.html index.html sw.js euro-signal.webmanifest LICENSE README.md "$SITE"/
+        cp euro-signal.html index.html sw.js euro-signal.webmanifest LICENSE NOTICE.md README.md "$SITE"/
         cp ./*.png "$SITE"/
         cp -r app "$SITE"/app
         mkdir -p "$SITE/euro_signal" && cp euro_signal/core.js "$SITE/euro_signal/"

@@ -106,5 +106,5 @@ Les collecteurs lisent des sources publiques ; **vérifiez leurs conditions d'ut
 
 ## Licence
 
-Code sous licence **MIT** (voir `LICENSE`). Les données du dossier `data/` appartiennent à leurs sources et ne sont pas
+Code sous licence **MIT** (voir `LICENSE` ; portée et avertissement dans `NOTICE.md`). Les données du dossier `data/` appartiennent à leurs sources et ne sont pas
 couvertes par cette licence.
