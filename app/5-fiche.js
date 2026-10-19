@@ -69,7 +69,7 @@ function vFiche() {
       '">fiche de la ligne principale (' +
       esc(S.inst[x.secondary].name) +
       ')</button>.</p>';
-  h += rankCard(rankOf(i, x.ticker)) + analysisCard(i, x.ticker);
+  h += rankFold(rankOf(i, x.ticker)) + analysisCard(i, x.ticker);
   // version allégée : la note tendance + comptes, le cours avec le plan d'entrée et « Je l'ai acheté » en haut ; la lecture « dirigeants » est repliée plus bas
   var newM = !!rankData(),
     advS = adviceSection(i, c),
@@ -78,11 +78,11 @@ function vFiche() {
     advBuy = cutB > -1 ? advS.slice(cutB) : '';
   if (!newM) h += adviceCard(i, c) + advS;
   h +=
-    '<section class="card"><h3>' +
-    (newM ? "Cours et plan d'entrée" : 'Cours et achats des dirigeants') +
-    '</h3>' +
+    '<details class="card fold" data-k="f-cours"><summary>📉 ' +
+    (newM ? 'Cours, supports et résistances' : 'Cours et achats des dirigeants') +
+    ' <span class="muted small">· plan d\'entrée</span></summary>' +
     chart(i) +
-    '</section>';
+    '</details>';
   if (newM) h += advBuy;
   var nDet = 0,
     det = function (title, body, open) {
@@ -351,7 +351,7 @@ function reportBtn(name, isin, ticker) {
     '\n\nCe qui ne va pas (et ce que montre Yahoo ou votre courtier) :\n';
   var url =
     'mailto:' +
-    encodeURIComponent(lsGet('email', '')) +
+    encodeURIComponent(S.email || '') +
     '?subject=' +
     encodeURIComponent('[Euro Signal] Erreur — ' + name) +
     '&body=' +
@@ -647,6 +647,9 @@ function lsGet(k, d) {
     return d;
   }
 }
+try {
+  window.localStorage.removeItem('es.email'); // anciennes versions : l'adresse était gardée sur l'appareil
+} catch (e) {}
 function lsSet(k, v) {
   try {
     window.localStorage.setItem('es.' + k, v);
@@ -768,7 +771,7 @@ function adviceSection(i, c) {
   if (z.stopPct) outs.push('−' + z.stopPct + ' % depuis votre prix');
   if (paid) outs.push('cours sous ' + fmtN(paid * 0.9) + ' (−10 % du prix du dirigeant)');
   if (outs.length && !hasPlan) sell.push('🛑 Sortir si : ' + outs.join(', ou ') + '.');
-  var email = lsGet('email', ''),
+  var email = S.email || '', // adresse jamais gardée sur l'appareil : champ vide à chaque visite
     tgt = lsGet('target', '50'),
     stp = lsGet('stop', '30');
   var h =
@@ -819,15 +822,19 @@ function adviceSection(i, c) {
 function watchMail(i, on) {
   var x = S.inst[i] || (S.secCo && S.secCo.items && S.secCo.items[i]) || null,
     e = document.getElementById('watch-email'),
-    to = e ? String(e.value || '').trim() : lsGet('email', '');
+    to = e ? String(e.value || '').trim() : S.email || '';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     notify('Indiquez votre adresse Gmail (celle configurée dans Euro Signal).', 'warn');
     return;
   }
-  lsSet('email', to);
+  S.email = to; // gardée le temps de la visite seulement
   lsSet('watch.' + i, on ? S.today : '');
   var link = location.origin + location.pathname + '#' + (ES.isValidIsin(i) ? i : 'co=' + encodeURIComponent(i));
-  var subject = '[Euro Signal] ' + (on ? 'Surveiller ' : 'Ne plus surveiller ') + i;
+  var subject = '[Euro Signal] ' + (on ? 'Surveiller ' : 'Ne plus surveiller ') + i,
+    mp = on ? manPlan(i) : null,
+    num2 = function (v) {
+      return String(+(+v).toPrecision(6)).replace('.', ',');
+    };
   var body =
     'Société : ' +
     ((x && x.name) || i) +
@@ -835,6 +842,13 @@ function watchMail(i, on) {
     i +
     '\nDate : ' +
     S.today +
+    (mp
+      ? '\nEntrée ajustée : ' +
+        num2(mp.e) +
+        (mp.s ? '\nStop ajusté : ' + num2(mp.s) : '') +
+        (mp.t ? '\nObjectif ajusté : ' + num2(mp.t) : '') +
+        (mp.ref ? '\nCours à la demande : ' + num2(mp.ref) : '')
+      : '') +
     '\n\n(' +
     (on
       ? "Euro Signal vous préviendra quand le plan d'entrée se déclenche. Pour arrêter : bouton « Ne plus surveiller » dans la fiche ou dans Alertes > Mes suivis : " +
@@ -867,7 +881,7 @@ function posMail(i, kind) {
     notify('Indiquez votre adresse Gmail (celle configurée dans Euro Signal).', 'warn');
     return;
   }
-  lsSet('email', to);
+  S.email = to; // gardée le temps de la visite seulement
   var subject, body;
   if (kind === 'buy') {
     var price = ES.parseNumber(v('pos-price')),
@@ -1150,7 +1164,8 @@ function chart(isin) {
     lo = Math.min(lo, m.p);
     hi = Math.max(hi, m.p);
   });
-  var LV = S.inst[isin] && S.inst[isin].levels,
+  // supports et résistances : ceux du calcul du soir, sinon recalculés ici sur l'année de cours (jamais de graphique sans niveaux)
+  var LV = ES.completeLevels((S.inst[isin] && S.inst[isin].levels) || ES.supportResistance(adj), adj),
     lvl = LV
       ? (LV.supports || [])
           .map(function (x) {
@@ -1165,6 +1180,8 @@ function chart(isin) {
   lvl = lvl.filter(function (v) {
     return v.p > 0 && isFinite(v.p) && v.p >= lo * 0.75 && v.p <= hi * 1.35;
   });
+  if (!lvl.length && adj.length < 10)
+    note += (note ? ' ' : '') + 'ℹ️ Cotation trop récente : supports et résistances après quelques semaines de cours.';
   lvl.forEach(function (v) {
     lo = Math.min(lo, v.p);
     hi = Math.max(hi, v.p);
@@ -1424,16 +1441,17 @@ function planChart(isin, adj, plan) {
       return fmtN(v, v < 10 ? 2 : 1);
     },
     plv = [];
-  if (pr.key === 'support' || pr.key === 'retest')
+  if (pr.key === 'manual') plv.push({ k: 'trig', a: pr.entry, t: 'Entrée ' + f(pr.entry), c: 'pl-tt' });
+  else if (pr.key === 'support' || pr.key === 'retest')
     plv.push({
       k: 'zone',
       a: pr.zoneLo,
       b: pr.zoneHi,
-      t: "Zone d'achat " + f(pr.zoneLo) + '–' + f(pr.zoneHi),
+      t: "Zone d'entrée " + f(pr.zoneLo) + '–' + f(pr.zoneHi),
       c: 'pl-tz',
     });
   else if (pr.key === 'breakout')
-    plv.push({ k: 'trig', a: pr.trigger, t: 'Achat si clôture > ' + f(pr.trigger), c: 'pl-tt' });
+    plv.push({ k: 'trig', a: pr.trigger, t: 'Entrée si clôture > ' + f(pr.trigger), c: 'pl-tt' });
   else
     plv.push({
       k: 'zone',
@@ -1444,6 +1462,39 @@ function planChart(isin, adj, plan) {
     });
   if (pr.stop > 0) plv.push({ k: 'stop', a: pr.stop, t: 'Stop ' + f(pr.stop), c: 'pl-ts' });
   if (pr.target > 0) plv.push({ k: 'tgt', a: pr.target, t: 'Objectif ' + f(pr.target), c: 'pl-tg' });
+  // support et résistance les plus proches, toujours visibles ; s'ils coïncident avec un niveau du plan, celui-ci les nomme
+  var LVp = ES.completeLevels(plan.levels || ES.supportResistance(adj), adj),
+    near = function (p) {
+      return plv.filter(function (v) {
+        return (
+          Math.abs(v.a - p) / p < 0.012 ||
+          (v.b != null && Math.abs(v.b - p) / p < 0.012) ||
+          (v.b != null && p > Math.min(v.a, v.b) && p < Math.max(v.a, v.b))
+        );
+      })[0];
+    };
+  if (LVp) {
+    [
+      [(LVp.supports || [])[0], true],
+      [(LVp.resistances || [])[0], false],
+    ].forEach(function (q) {
+      var x = q[0];
+      if (!x || !(x.price > 0)) return;
+      var hit = near(x.price);
+      if (hit) {
+        // le niveau du plan porte aussi le nom du support ou de la résistance qu'il recouvre
+        if (!/support|résistance/i.test(hit.t)) hit.t += q[1] ? ' (support)' : ' (résistance)';
+        else if (q[1] && !/support/i.test(hit.t)) hit.t = hit.t.replace('(résistance)', '(support et résistance)');
+        else if (!q[1] && !/résistance/i.test(hit.t)) hit.t = hit.t.replace('(support)', '(support et résistance)');
+      } else
+        plv.push({
+          k: q[1] ? 'sup' : 'res',
+          a: x.price,
+          t: (q[1] ? 'Support ' : 'Résistance ') + f(x.price),
+          c: q[1] ? 'lv-ts' : 'lv-tr',
+        });
+    });
+  }
   var lo = Infinity,
     hi = -Infinity,
     inc = function (v) {
@@ -1606,7 +1657,15 @@ function planChart(isin, adj, plan) {
         '" y2="' +
         yy +
         '" class="' +
-        (v.k === 'trig' ? 'pl-trig' : v.k === 'stop' ? 'pl-stop' : 'pl-tgt') +
+        (v.k === 'trig'
+          ? 'pl-trig'
+          : v.k === 'stop'
+            ? 'pl-stop'
+            : v.k === 'sup'
+              ? 'lv-sup'
+              : v.k === 'res'
+                ? 'lv-res'
+                : 'pl-tgt') +
         '"><title>' +
         esc(v.t) +
         '</title></line>';
@@ -1728,8 +1787,54 @@ function eurHint(v, cur) {
 function curName(cur) {
   return cur === 'GBp' || cur === 'GBX' ? 'pence' : cur;
 }
+/** Plan d'entrée ajusté à la main (✏️) : { e: entrée, s: stop, t: objectif, ref: cours le jour du réglage, at: date }, sur l'appareil. */
+function manPlan(id) {
+  try {
+    var m = JSON.parse(lsGet('plan.' + id, '') || 'null');
+    return m && m.e > 0 ? m : null;
+  } catch (e) {
+    return null;
+  }
+}
+function manPrimary(base, m) {
+  var pc = function (v) {
+    return v > 0 ? Math.round((v / m.e - 1) * 1000) / 10 : null; // comme le plan calculé : écart au prix d'entrée
+  };
+  return Object.assign({}, base, {
+    key: 'manual',
+    title: 'Plan ajusté à la main',
+    entry: m.e,
+    zoneLo: m.e,
+    zoneHi: m.e,
+    trigger: null,
+    stop: m.s || null,
+    stopPct: pc(m.s),
+    target: m.t || null,
+    targetPct: pc(m.t),
+    rr: m.s > 0 && m.t > 0 && m.e > m.s ? Math.round(((m.t - m.e) / (m.e - m.s)) * 10) / 10 : null,
+    prob: null, // la probabilité calculée valait pour l'objectif automatique
+    bounced: false,
+    touched: false,
+  });
+}
 function planCard(isin, plan, adj) {
   if (!plan || !plan.primary) return '';
+  var lastC = adj && adj.length ? adj[adj.length - 1][4] : plan.last,
+    auto = plan.primary,
+    man = manPlan(isin);
+  if (man)
+    plan = Object.assign({}, plan, {
+      primary: manPrimary(plan.primary, man),
+      alt: null,
+      // au prix choisi (à 1 % près) : ✅ ; sinon ⏳ en attente du repli ou de la hausse jusqu'à ce prix
+      verdict:
+        lastC > 0 && Math.abs(lastC / man.e - 1) <= 0.01 ? 'buyNow' : lastC > man.e ? 'waitSupport' : 'waitBreakout',
+      label:
+        'Plan ajusté à la main : entrée ' +
+        fmtN(man.e, man.e < 10 ? 2 : 1) +
+        (man.s ? ', stop ' + fmtN(man.s, man.s < 10 ? 2 : 1) : '') +
+        (man.t ? ', objectif ' + fmtN(man.t, man.t < 10 ? 2 : 1) : ''),
+    });
   var pcur = curOfKey(isin);
   var V = { buyNow: ['good', '✅'], waitSupport: ['warn', '⏳'], waitBreakout: ['warn', '⏳'], avoid: ['bad', '⛔'] }[
     plan.verdict
@@ -1758,22 +1863,24 @@ function planCard(isin, plan, adj) {
         '</span>'
       );
     };
-    var en = o.key === 'breakout' ? o.trigger : o.key === 'highs' ? o.entry : o.zoneHi;
+    var en = o.key === 'breakout' ? o.trigger : o.key === 'highs' || o.key === 'manual' ? o.entry : o.zoneHi;
     return (
       '<li' +
       (main ? ' class="main"' : '') +
       '><b>' +
       esc(o.title) +
       '</b><small class="lhow">' +
-      (o.key === 'breakout'
-        ? 'sur clôture au-dessus'
-        : o.key === 'highs'
-          ? 'au cours'
-          : 'zone ' +
-            fmtN(o.zoneLo, o.zoneLo < 10 ? 2 : 1) +
-            ' – ' +
-            fmtN(o.zoneHi, o.zoneHi < 10 ? 2 : 1) +
-            ', sur clôture de rebond') +
+      (o.key === 'manual'
+        ? 'niveaux choisis à la main, gardés sur cet appareil'
+        : o.key === 'breakout'
+          ? 'sur clôture au-dessus'
+          : o.key === 'highs'
+            ? 'au cours'
+            : 'zone ' +
+              fmtN(o.zoneLo, o.zoneLo < 10 ? 2 : 1) +
+              ' – ' +
+              fmtN(o.zoneHi, o.zoneHi < 10 ? 2 : 1) +
+              ', sur clôture de rebond') +
       st +
       '</small>' +
       '<div class="lvls">' +
@@ -1827,7 +1934,7 @@ function planCard(isin, plan, adj) {
   var inEs = !!S.inst[isin];
   var PS = S.snapshot && S.snapshot.planStudy,
     histH = '';
-  if (PS && PS.byVerdict) {
+  if (PS && PS.byVerdict && !man) {
     var hv = PS.byVerdict[plan.verdict] && PS.byVerdict[plan.verdict].h60,
       fk = ES.figureKey(plan.wedge),
       hf = fk && PS.byFigure[fk] && PS.byFigure[fk].h60;
@@ -1885,7 +1992,7 @@ function planCard(isin, plan, adj) {
         ' avec les seuls cours connus ce jour-là, frais inclus. Le trait fin marque zéro ou 50 %.</p>' +
         lines;
   }
-  var em = lsGet('email', '');
+  var em = S.email || ''; // champ vide par défaut (adresse jamais enregistrée)
   var wd = lsGet('watch.' + isin, ''); // fiches Euro Signal (ISIN) et fiches du catalogue (symbole Yahoo)
   var watchH = wd
     ? '<details class="watch" open><summary>🔔 Plan surveillé depuis le ' +
@@ -1893,7 +2000,9 @@ function planCard(isin, plan, adj) {
       '</summary><p class="small">Email : entrée en zone d\'achat, cassure, ou passage sous le stop.</p>' +
       '<div class="row"><input id="watch-email" type="email" autocomplete="email" value="' +
       esc(em) +
-      '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button class="ghost" data-a="watchOff" data-i="' +
+      '" placeholder="vous@gmail.com" aria-label="Votre adresse Gmail"><button data-a="watchOn" data-i="' +
+      esc(isin) +
+      '" title="Renvoie la demande avec le plan affiché (utile après un ajustement)">Mettre à jour</button><button class="ghost" data-a="watchOff" data-i="' +
       esc(isin) +
       '">Ne plus surveiller</button></div></details>'
     : isin
@@ -1958,6 +2067,51 @@ function planCard(isin, plan, adj) {
     (plan.alt ? line(plan.alt, false) : '') +
     '</ul>' +
     '<p class="small muted">Repères pour entrer. Une fois acheté : garder 6 mois, protection à −30 %.</p>' +
+    (function () {
+      var pr0 = plan.primary,
+        e0 =
+          pr0.key === 'breakout' ? pr0.trigger : pr0.key === 'highs' || pr0.key === 'manual' ? pr0.entry : pr0.zoneHi,
+        fv = function (v) {
+          // même arrondi que l'affichage : 1 décimale dès 10, 2 de 1 à 10, 3 chiffres significatifs en dessous
+          return v > 0
+            ? String(+(v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v.toPrecision(3))).replace('.', ',')
+            : '';
+        },
+        inp = function (id, lbl, v) {
+          return (
+            '<label><small>' +
+            lbl +
+            '</small><input data-pl="' +
+            id +
+            '" type="text" inputmode="decimal" value="' +
+            fv(v) +
+            '"></label>'
+          );
+        };
+      return (
+        '<details class="planadj"' +
+        (man ? ' open' : '') +
+        '><summary>✏️ ' +
+        (man ? 'Plan ajusté à la main · modifier' : 'Ajuster ce plan') +
+        '</summary><div class="adjgrid">' +
+        inp('e', '🟢 Entrée', e0) +
+        inp('s', '🛑 Stop', pr0.stop) +
+        inp('t', '🎯 Objectif', pr0.target) +
+        '</div><div class="row"><button data-a="planSave" data-i="' +
+        esc(isin) +
+        '" data-last="' +
+        (lastC > 0 ? lastC : '') +
+        '">Enregistrer</button>' +
+        (man
+          ? '<button class="ghost" data-a="planReset" data-i="' + esc(isin) + '">Revenir au plan calculé</button>'
+          : '') +
+        '</div><p class="small muted">Gardé sur cet appareil : le graphique et les niveaux suivent vos valeurs. Pour que les alertes du soir les utilisent, touchez ensuite «\u00a0' +
+        (wd ? 'Mettre à jour' : 'Surveiller') +
+        '\u00a0» dans 🔔 ci-dessous.' +
+        (man && auto ? ' Plan calculé : ' + esc(String(auto.title || '').toLowerCase() || 'automatique') + '.' : '') +
+        '</p></details>'
+      );
+    })() +
     '<details class="xpi pvis"><summary>📟 Les 5 indicateurs</summary>' +
     planVisuals(plan, adj) +
     '</details>' +

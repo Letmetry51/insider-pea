@@ -356,7 +356,37 @@ document.addEventListener('click', function (ev) {
     window.scrollTo(0, yc);
   } else if (a === 'posBuy' || a === 'posSell') posMail(i, a === 'posBuy' ? 'buy' : 'sell');
   else if (a === 'watchOn' || a === 'watchOff') watchMail(i, a === 'watchOn');
-  else if (a === 'uni') {
+  else if (a === 'planSave' || a === 'planReset') {
+    // ✏️ plan ajusté à la main : entrée, stop, objectif (stop < entrée < objectif), gardé sur l'appareil
+    var watched = !!lsGet('watch.' + i, ''),
+      upd = ' Touchez «\u00a0Mettre à jour\u00a0» (🔔) pour que les alertes du soir suivent.';
+    if (a === 'planReset') {
+      try {
+        window.localStorage.removeItem('es.plan.' + i);
+      } catch (e) {}
+      notify('Retour au plan calculé.' + (watched ? upd : ''), 'ok');
+    } else {
+      var box = el.closest('.planadj'), // plusieurs plans peuvent être ouverts sur la même page (onglet Secteurs)
+        gv = function (k) {
+          var e = box && box.querySelector('[data-pl="' + k + '"]');
+          return e ? ES.parseNumber(String(e.value || '').trim()) : null;
+        },
+        pe = gv('e'),
+        ps = gv('s'),
+        pt = gv('t');
+      if (!(pe > 0)) return notify("Indiquez un prix d'entrée.", 'warn');
+      if (ps != null && !(ps > 0 && ps < pe)) return notify("Le stop doit être sous le prix d'entrée.", 'warn');
+      if (pt != null && !(pt > pe)) return notify("L'objectif doit être au-dessus du prix d'entrée.", 'warn');
+      lsSet(
+        'plan.' + i,
+        JSON.stringify({ e: pe, s: ps || null, t: pt || null, ref: +el.dataset.last || null, at: S.today })
+      );
+      notify('Plan enregistré sur cet appareil.' + (watched ? upd : ''), 'ok');
+    }
+    var ypl = window.scrollY;
+    render();
+    window.scrollTo(0, ypl);
+  } else if (a === 'uni') {
     S.uniFilter = el.dataset.v;
     render();
   }

@@ -29,14 +29,26 @@ email alerts. Not investment advice. Code under the MIT licence; data files belo
 Les règles viennent de tests sur les cours hebdomadaires de 1 067 sociétés européennes de 1997 à 2026 (écart à 6 mois
 avec la société moyenne de la même semaine). Le détail chiffré est dans l'onglet **Aide** de la page.
 
-**Limites à connaître :**
-- **biais du survivant** : seules les sociétés encore cotées aujourd'hui sont dans les tests, les chiffres absolus sont donc
-  embellis (l'effet momentum lui-même est confirmé par le facteur européen de Kenneth French) ;
-- **beaucoup de variantes testées** : certaines règles peuvent devoir leur résultat au hasard. Contrôle hors échantillon
-  (réglages choisis sur 1997-2012, mesurés sur 2013-2026) : +7,1 points contre +7,3 à +7,9 pour les meilleurs réglages ;
-  la priorité 📣 n'y résiste pas, elle reste à confirmer par le suivi réel ;
-- ni frais, ni impôts, ni dividendes dans les tests ; le 💎 n'a pas été testé sur ces données (études publiées) ;
-- le suivi réel des sélections a commencé le 18/10/2026.
+**Du chiffre flatteur au chiffre prudent** (🎯, écart à 6 mois avec la société moyenne de la même semaine, dividendes inclus) :
+
+| Étape | Écart |
+|---|---|
+| tout l'historique, 1997-2026 | +8,1 points |
+| années jamais vues au réglage, 2013-2026 | +7,1 (t = 3,3 : passe le seuil exigeant de 3) |
+| moins 1 % de frais par achat-vente | +6,1 |
+| moins 2 % de sélections supposées en faillite (−100 %) | **+3,8** (≈ +8 par an) |
+
+- **biais du survivant** : les sociétés disparues manquent ; d'où la faillite supposée ci-dessus, et le contrôle par le facteur
+  momentum européen de Kenneth French, calculé avec les disparues : +9,7 % par an contre +10,0 % pour nous (1998-2026) ;
+- **beaucoup de variantes testées** (512 réglages) : chiffre retenu sur des années jamais vues ; la priorité 📣 n'y résiste pas,
+  elle reste à confirmer par le suivi réel ;
+- **frais et impôts** : 0,5 à 2 % par achat-vente selon le courtier ; dans un PEA, 18,6 % de prélèvements sociaux sur les gains
+  à la sortie (taux 2026), comme pour un fonds indiciel ;
+- **💎 valeur** : premier test sur nos données (comptes 2022-2025, départs de mai 2024 à avril 2026) : +5,1 points à 6 mois pour
+  les 10 premières, deux fois moins de chutes, mais 2 ans seulement (t = 1,7) ;
+- **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027).
+
+Tout se recalcule : `research/chiffres_cles.py` (ce tableau), `research/backtest/valeur.py` (💎), détail dans `research/README.md`.
 
 ## Organisation du code
 

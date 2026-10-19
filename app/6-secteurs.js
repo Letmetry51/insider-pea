@@ -282,7 +282,7 @@ function coSearch(q, exclude, max) {
     "<p class=\"foot\">Toutes les actions des bourses de l'UE et de l'EEE (Paris, Francfort, Milan, Madrid, Amsterdam, Bruxelles, Lisbonne, Dublin, Vienne, Helsinki, Stockholm, Copenhague, Oslo). Touchez une société pour sa fiche : chiffres clés, cours sur 1 an et 5 ans, plan d'entrée.</p></section>"
   );
 }
-function lineChart(ser, five) {
+function lineChart(ser, five, lv) {
   var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
   var W = narrow ? 380 : 640,
     H = 220,
@@ -300,6 +300,25 @@ function lineChart(ser, five) {
   if (!(hi > lo)) {
     hi = lo * 1.01 + 0.01;
   }
+  // supports (vert) et résistances (rouge) de l'année de cours, comme sur les fiches Euro Signal
+  var lvl = lv
+    ? (lv.supports || [])
+        .map(function (x) {
+          return { p: x.price, s: true, x: x };
+        })
+        .concat(
+          (lv.resistances || []).map(function (x) {
+            return { p: x.price, s: false, x: x };
+          })
+        )
+        .filter(function (v) {
+          return v.p > 0 && isFinite(v.p) && v.p >= lo * 0.75 && v.p <= hi * 1.35;
+        })
+    : [];
+  lvl.forEach(function (v) {
+    lo = Math.min(lo, v.p);
+    hi = Math.max(hi, v.p);
+  });
   var pad = (hi - lo) * 0.06;
   lo -= pad;
   hi += pad;
@@ -319,6 +338,49 @@ function lineChart(ser, five) {
     },
     last = ser[n - 1][1],
     first = ser[0][1];
+  var lab = lvl
+    .map(function (v) {
+      return { v: v, y: ys(v.p) };
+    })
+    .sort(function (a, b) {
+      return a.y - b.y;
+    });
+  lab.forEach(function (o, k) {
+    o.ty = Math.max(T + 9, o.y - 3);
+    if (k && o.ty - lab[k - 1].ty < 10) o.ty = lab[k - 1].ty + 10;
+  });
+  var lvSvg = lab
+    .map(function (o) {
+      var v = o.v,
+        y = o.y.toFixed(1);
+      return (
+        '<line x1="' +
+        L +
+        '" x2="' +
+        (W - R) +
+        '" y1="' +
+        y +
+        '" y2="' +
+        y +
+        '" class="' +
+        (v.s ? 'lv-sup' : 'lv-res') +
+        '"><title>' +
+        (v.s ? 'Support ' : 'Résistance ') +
+        f(v.p) +
+        '</title></line><text x="' +
+        (L + 4) +
+        '" y="' +
+        o.ty.toFixed(1) +
+        '" class="ax lv-t ' +
+        (v.s ? 'lv-ts' : 'lv-tr') +
+        '">' +
+        (v.s ? 'Support ' : 'Résistance ') +
+        f(v.p) +
+        (v.x && v.x.distPct != null ? ' (' + pct(v.x.distPct) + ')' : '') +
+        '</text>'
+      );
+    })
+    .join('');
   var svg =
     '<svg viewBox="0 0 ' +
     W +
@@ -326,7 +388,7 @@ function lineChart(ser, five) {
     H +
     '" class="chart" role="img" aria-label="Cours de clôture ' +
     (five ? 'sur 5 ans (une clôture par semaine)' : 'sur un an') +
-    '">' +
+    ', supports et résistances">' +
     [hi - pad, (hi + lo) / 2, lo + pad]
       .map(function (v) {
         var y = ys(v).toFixed(1);
@@ -359,7 +421,9 @@ function lineChart(ser, five) {
     L +
     ' ' +
     (H - B) +
-    'Z" class="area"/><path d="' +
+    'Z" class="area"/>' +
+    lvSvg +
+    '<path d="' +
     path +
     '" class="line"/>' +
     '<circle cx="' +
@@ -380,7 +444,7 @@ function lineChart(ser, five) {
     '" text-anchor="end" class="ax">' +
     shortDate(ser[n - 1][0]) +
     '</text></svg>';
-  return { svg: svg, perf: first > 0 ? (last / first - 1) * 100 : null, last: last };
+  return { svg: svg, perf: first > 0 ? (last / first - 1) * 100 : null, last: last, levels: lab.length };
 }
 /** Valeur d'une société du catalogue (fiche Yahoo) : cours / valeur comptable, rentabilité, croissance que suppose le cours. */
 function secValueCard(x, es) {
@@ -604,7 +668,7 @@ function vSecCo() {
     (x.basic
       ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>'
       : '');
-  h += rankCard(rankOf(es, sym)) + analysisCard(es && S.inst[es] ? es : null, sym);
+  h += rankFold(rankOf(es, sym)) + analysisCard(es && S.inst[es] ? es : null, sym);
   var more = '';
   if (es)
     more +=
@@ -763,7 +827,7 @@ function vSecCo() {
   }
   var ser = five ? wser : dser;
   h +=
-    '<section class="card"><h3>Cours</h3><div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' +
+    '<details class="card fold" data-k="f-cours"><summary>📉 Cours, supports et résistances <span class="muted small">· plan d\'entrée</span></summary><div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' +
     (five ? '' : 'on') +
     '" aria-pressed="' +
     !five +
@@ -788,11 +852,17 @@ function vSecCo() {
     }
     if (five && ES.daysBetween(ser[0][0], ser[ser.length - 1][0]) < 1600)
       h += '<p class="small"><b>ℹ️ Cours disponibles depuis le ' + shortDate(ser[0][0]) + ' seulement.</b></p>';
-    var lc = lineChart(ser, five);
+    var lvRows = (dser.length ? dser : wser).map(function (r) {
+        return [r[0], null, null, null, r[1]];
+      }),
+      lvC = ES.completeLevels(dser.length >= 60 ? ES.supportResistance(lvRows) : null, lvRows),
+      lc = lineChart(ser, five, lvC);
     h +=
       '<div class="chartwrap">' +
       lc.svg +
-      '</div><p class="legend2"><span class="muted">' +
+      '</div><p class="legend2">' +
+      (lc.levels ? '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>' : '') +
+      '<span class="muted">' +
       (five ? 'Une clôture par semaine' : 'Clôtures journalières') +
       ', ajustées des dividendes et splits, en ' +
       esc(cur || 'devise locale') +
@@ -804,8 +874,7 @@ function vSecCo() {
       shortDate(ser[0][0]) +
       ' · source Yahoo Finance</span></p>';
   } else h += '<p class="muted">Aucun cours disponible pour ce titre.</p>';
-  h += '</section>';
-  // plan d'entrée sur les cours journaliers
+  // plan d'entrée sur les cours journaliers (dans le même pli que le graphique, comme sur les fiches Euro Signal)
   if (dser.length >= 120) {
     try {
       var adj = ES.normalizeSeries(
@@ -820,6 +889,7 @@ function vSecCo() {
       h += '<p class="muted small">Plan d\'entrée non calculable.</p>';
     }
   } else h += '<p class="muted small">Plan d\'entrée : pas assez de cours journaliers (6 mois au moins).</p>';
+  h += '</details>';
   if (!es && dser.length) h += catBuyBox(sym, dser[dser.length - 1][1]);
   if (more)
     h +=
@@ -835,7 +905,7 @@ function vSecCo() {
 }
 /** « Je l'ai acheté » pour une société du catalogue (sans ISIN) : même email que les fiches Euro Signal, identifiée par son symbole Yahoo. */
 function catBuyBox(sym, last) {
-  var email = lsGet('email', ''),
+  var email = S.email || '', // adresse jamais gardée sur l'appareil : champ vide à chaque visite
     tgt = lsGet('target', '50'),
     stp = lsGet('stop', '30');
   return (

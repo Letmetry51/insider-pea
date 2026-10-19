@@ -1017,6 +1017,70 @@ table {
   cursor: pointer;
   color: var(--accent);
 }
+/* plis du détail de l'analyse : une ligne chacun, ouverts à la demande */
+.ansub {
+  border-top: 1px solid var(--line);
+  padding: 6px 0;
+}
+.ansub:first-of-type {
+  margin-top: 6px;
+}
+.ansub > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.93rem;
+  padding: 2px 0;
+}
+.ansub[open] > summary {
+  margin-bottom: 6px;
+}
+/* supports et résistances en tableau */
+.ansr {
+  width: 100%;
+  margin: 2px 0 6px;
+}
+.ansr td,
+.ansr th {
+  padding: 3px 10px 3px 0 !important;
+  white-space: nowrap;
+}
+.ansr td:last-child {
+  white-space: normal;
+}
+.ansr tr.res th {
+  color: var(--bad);
+}
+.ansr tr.sup th {
+  color: var(--good);
+}
+.ansr tr.now {
+  background: var(--accent-soft);
+}
+/* place du cours entre le scénario baissier et le haussier */
+.anbar {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  margin: 10px 2px 2px;
+  background: linear-gradient(90deg, var(--bad-soft), var(--warn-soft), var(--good-soft));
+}
+.anbar i {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 16px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.anbarl {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 0 6px;
+}
+.ansrc {
+  margin-top: 8px;
+}
 .anavis {
   padding: 8px 10px;
   border-radius: 10px;
@@ -1898,6 +1962,10 @@ ul.small {
   font-size: 0.82rem;
   max-height: 240px;
   overflow: auto;
+}
+ul.small.nomax {
+  max-height: none; /* liste à lire en entier (fiabilité des chiffres) */
+  overflow: visible;
 }
 .segs {
   display: flex;
@@ -4413,4 +4481,29 @@ details.pos summary {
   .summary .stat:last-child:nth-child(odd) {
     grid-column: 1/-1;
   }
+}
+/* ✏️ plan ajusté à la main */
+.planadj {
+  margin: 8px 0;
+}
+.planadj > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+}
+.adjgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.adjgrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.adjgrid input {
+  width: 100%;
+  min-width: 0;
 }

@@ -131,6 +131,26 @@ def _():
     assert any(k.startswith("stop") for k, _ in P.watch_events(plan, 47.0))
 
 
+
+@case("Plan ✏️ ajusté à la main : niveaux lus dans l'email, une alerte par niveau, sens d'entrée respecté")
+def _():
+    body = "Société : Ubisoft\nISIN : FR0000054470\nDate : 2026-10-19\nEntrée ajustée : 12,5\nStop ajusté : 11\nObjectif ajusté : 15\nCours à la demande : 13,2"
+    w = P.parse_position("[Euro Signal] Surveiller FR0000054470", body, "2026-10-19T10:00:00+00:00")
+    c = w["custom"]
+    assert w["kind"] == "surveiller" and c == {"entry": 12.5, "stop": 11.0, "target": 15.0, "ref": 13.2}, w
+    assert P.parse_position("[Euro Signal] Surveiller FR0000054470", "Cours à la demande : 13", "x")["custom"] is None
+    k = lambda cc, last: {x for x, _ in P.custom_events(cc, last)}
+    # cours au-dessus du prix choisi : on attend le repli
+    assert k(c, 13.0) == set(), k(c, 13.0)
+    assert {x for x in k(c, 12.55) if x.startswith("perso-entree")} and k(c, 12.55) == k(c, 12.4), (k(c, 12.55), k(c, 12.4))
+    assert any(x.startswith("perso-stop") for x in k(c, 10.9)) and any(x.startswith("perso-objectif") for x in k(c, 15.1))
+    # cours sous le prix choisi : on attend la hausse jusqu'à ce prix
+    b = dict(c, ref=11.8)
+    assert k(b, 12.4) == set() and any(x.startswith("perso-entree") for x in k(b, 12.6)), (k(b, 12.4), k(b, 12.6))
+    assert P.custom_events(None, 12) == [] and P.custom_events(c, None) == []
+    assert P.plan_txt(c) == "ajusté à la main (entrée 12,50, stop 11,00, objectif 15,00)", P.plan_txt(c)
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

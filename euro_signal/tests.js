@@ -3925,6 +3925,27 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
     'paliers et 2e du secteur, jamais les exclues'
   );
 });
+t('Graphiques : toujours un support et une résistance', () => {
+  const up = Array.from({ length: 80 }, (_, k) => [
+    '2026-01-' + String(k).padStart(3, '0'),
+    null,
+    null,
+    null,
+    10 + k * 0.1,
+  ]);
+  const c1 = ES.completeLevels(null, up),
+    c2 = ES.completeLevels({ supports: [{ price: 12, kind: 'pivot' }], resistances: [] }, up);
+  ok(
+    c1.supports[0].price === 10 &&
+      c1.supports[0].kind === 'low52' &&
+      Math.abs(c1.resistances[0].price - 17.9) < 1e-9 &&
+      c1.resistances[0].kind === 'high52' &&
+      c2.supports[0].price === 12 &&
+      c2.resistances.length === 1 &&
+      ES.completeLevels(null, up.slice(0, 5)) === null,
+    "plus bas / plus haut de l'année à défaut de niveau marqué"
+  );
+});
 t('Classement : étude de contrôle (groupes, horizons, pas de regard vers le futur)', () => {
   const nW = 160,
     dates = Array.from({ length: nW }, (_, k) => ES.addDays('2023-01-06', 7 * k)),

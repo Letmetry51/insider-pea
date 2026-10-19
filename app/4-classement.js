@@ -184,7 +184,13 @@ function anCtx(isin, sym) {
   var r = rankOf(isin, sym),
     x = isin ? S.inst[isin] : null,
     co = sym && S.secCo && S.secCo.items ? S.secCo.items[sym] : null;
-  var o = { r: r || {}, name: (x && x.name) || (co && co.name) || (r && r.name) || isin || sym, closes: [] };
+  var o = {
+    r: r || {},
+    isin: isin || null,
+    sym: sym || null,
+    name: (x && x.name) || (co && co.name) || (r && r.name) || isin || sym,
+    closes: [],
+  };
   if (x) {
     var p = S.prices[isin];
     if (p && p.rows)
@@ -229,6 +235,14 @@ function anCtx(isin, sym) {
     o.rev1 = fc.rev && fc.rev['+1y'] && fc.rev['+1y'].avg ? fc.rev['+1y'] : null;
     o.ev = S.ev[isin] || null;
     o.shares = x.sharesChange && !x.sharesChange.corporate ? x.sharesChange : null;
+    o.pea =
+      x.peaStatus === 'non_eligible'
+        ? false
+        : x.peaStatus === 'eligible' || x.peaStatus === 'probable'
+          ? true
+          : r && r.pea != null
+            ? r.pea
+            : null;
   } else if (co) {
     o.closes = (co.d || [])
       .filter(function (v) {
@@ -237,6 +251,7 @@ function anCtx(isin, sym) {
       .slice(-260);
     o.cur = co.currency;
     o.last = o.closes.length ? o.closes[o.closes.length - 1] : null;
+    o.pea = co.pea != null ? co.pea : null;
     o.cap = co.capEur;
     o.capCur = 'EUR';
     o.margin = co.opMargin;
@@ -377,7 +392,12 @@ function newsBlock(o, list) {
 }
 /** Trajectoire (4 exercices), gestion du capital (dividendes, rachats, nombre d'actions, dette) et agenda : sociétés suivies par Euro Signal. */
 function anExtra(o) {
+  var p = anExtraParts(o);
+  return p.traj + p.cap + p.agenda;
+}
+function anExtraParts(o) {
   var h = '',
+    parts = {},
     big = function (v) {
       return v == null ? '—' : Math.abs(v) >= 1e9 ? fmtN(v / 1e9, 1) + ' Md' : fmtN(v / 1e6, 0) + ' M';
     };
@@ -435,6 +455,8 @@ function anExtra(o) {
         ) +
         '</p>';
   }
+  parts.traj = h;
+  h = '';
   var ev = o.ev,
     items = [],
     since = ES.addDays(S.today, -365);
@@ -495,8 +517,40 @@ function anExtra(o) {
         '</ul>';
     }
   }
+  parts.cap = h;
+  h = '';
   var ag = [];
   if (o.nextE && o.nextE >= S.today) ag.push([o.nextE, '📅 Prochains résultats']);
+  // chronologie de l'année : achats et ventes des dirigeants, bond sur gros volume, actualité marquante
+  var txs = (o.isin && S.tx[o.isin]) || [],
+    byDay = {};
+  txs.forEach(function (t) {
+    var d = t.pubDate || t.txDate;
+    if (!d || d < since || (t.type !== 'achat' && t.type !== 'vente') || t.status === 'annulee') return;
+    var k = d + t.type;
+    if (!byDay[k]) byDay[k] = { d: d, type: t.type, n: 0, eur: 0 };
+    byDay[k].n++;
+    byDay[k].eur += ES.toEur ? ES.toEur(t.amount || 0, t.currency) || 0 : 0;
+  });
+  Object.keys(byDay)
+    .map(function (k) {
+      return byDay[k];
+    })
+    .sort(function (a, b) {
+      return a.d < b.d ? 1 : -1;
+    })
+    .slice(0, 4)
+    .forEach(function (z) {
+      ag.push([
+        z.d,
+        (z.type === 'achat' ? '👔 Achat' : '👔 Vente') +
+          ' de dirigeant' +
+          (z.n > 1 ? 's (' + z.n + ')' : '') +
+          (z.eur >= 1e4 ? ' · ' + fmtN(z.eur / 1e3, 0) + ' k€' : ''),
+      ]);
+    });
+  var bw = bumpOf(o.r);
+  if (bw != null) ag.push([ES.addDays(S.today, -7 * bw), '📣 Bond sur gros volume']);
   var lr =
     ev &&
     (ev.results || []).slice().sort(function (a, b) {
@@ -526,7 +580,7 @@ function anExtra(o) {
   if (ld) ag.push([ld.date, '💶 Dernier dividende détaché (' + fmtN(ld.amount, 2) + ')']);
   if (ag.length)
     h +=
-      '<h4>Agenda</h4><ul class="plain small anlist">' +
+      '<ul class="plain small anlist">' +
       ag
         .sort(function (a, b) {
           return a[0] < b[0] ? 1 : -1;
@@ -536,7 +590,8 @@ function anExtra(o) {
         })
         .join('') +
       '</ul>';
-  return h;
+  parts.agenda = h;
+  return parts;
 }
 function bumpOf(r) {
   var b = r ? (r.bp != null ? r.bp : r.bump) : null;
@@ -544,6 +599,28 @@ function bumpOf(r) {
 }
 function bumpTxt(b) {
   return b ? 'il y a ' + b + ' sem.' : 'cette semaine';
+}
+/** Supports et résistances de l'analyse : les mêmes que le graphique (calcul du soir, sinon recalculés, toujours complétés). */
+function anLevels(o) {
+  var x = o.isin && S.inst[o.isin],
+    p = o.isin && S.prices[o.isin],
+    co = !(p && p.rows && p.rows.length) && o.sym && S.secCo && S.secCo.items ? S.secCo.items[o.sym] : null,
+    D = (S.secCo && S.secCo.dDates) || [],
+    rows =
+      p && p.rows && p.rows.length
+        ? ES.normalizeSeries(p.rows).slice(-260)
+        : co && co.d
+          ? co.d
+              .map(function (v, k) {
+                return [D[k], null, null, null, v];
+              })
+              .filter(function (q) {
+                return q[0] && q[4] > 0;
+              })
+              .slice(-260)
+          : [];
+  if (!rows || rows.length < 10) return null;
+  return ES.completeLevels((x && x.levels) || ES.supportResistance(rows), rows);
 }
 function analysisCard(isin, sym) {
   var o = anCtx(isin, sym),
@@ -709,13 +786,13 @@ function analysisCard(isin, sym) {
   var E = o.inPick ? ES.pickEntry(r) : null;
   var act = o.inPick
     ? E && E.k === 'wait'
-      ? "🎯 ⏸️ Dans le 🎯, mais attendre qu'elle repasse au-dessus de sa moyenne 10 semaines"
+      ? '🎯 ⏸️ Dans le 🎯, en attente : sous sa moyenne 10 semaines'
       : '🎯 ✅ Dans le 🎯 : conditions des règles testées réunies'
     : o.inVal
       ? '💎 ✅ Dans le 💎 : conditions réunies (complément valeur)'
       : r.out && r.out.length
         ? '⛔ Hors des règles : ' + r.out[0]
-        : '👀 Ni dans le 🎯 ni dans le 💎 : à surveiller, pas à acheter selon nos règles';
+        : '👀 Ni dans le 🎯 ni dans le 💎 : hors des sélections de nos règles';
   // 4. régime, technique, scénarios
   var dot = function (k) {
     return k > 0 ? '🟢' : k < 0 ? '🔴' : '🟡';
@@ -863,11 +940,18 @@ function analysisCard(isin, sym) {
     ['Rentabilité (ROE)', o.roe != null ? fmtN(o.roe * 100, 0) + ' %' : null],
     ['Croissance attendue', o.growth != null ? pct(o.growth) : null],
     ['F-score', o.f9 != null ? o.f9 + '/9' : null],
+    // carte d'identité : éligibilité, échanges, ventes à découvert, prochains résultats
+    ['Échanges / jour', r.liq ? (r.liq >= 1e6 ? fmtN(r.liq / 1e6, 1) + ' M€' : fmtN(r.liq / 1e3, 0) + ' k€') : null],
+    [
+      'Vente à découvert',
+      r.sh != null ? String(r.sh).replace('.', ',') + ' %' + (r.shn ? ' · ' + r.shn + ' fonds' : '') : null,
+    ],
+    ['Prochains résultats', o.nextE && o.nextE >= S.today ? shortDate(o.nextE) : null],
   ]
     .filter(function (k) {
       return k[1];
     })
-    .slice(0, 8);
+    .slice(0, 12);
   var h =
     '<details class="card fold anfold" data-k="analyse"><summary>🔬 Analyse · ' + V[0] + ' ' + V[1] + '</summary>';
   h +=
@@ -902,73 +986,135 @@ function analysisCard(isin, sym) {
       : '') +
     '</div>';
   h += newsBlock(o, NW);
-  h +=
-    '<details class="andet"><summary>📊 Le détail <span class="muted">· chiffres, scénarios, conviction ' +
-    fmtN(score, 1) +
-    '/10</span></summary>';
-  h +=
-    '<h4>Régime</h4><table class="kv antab">' +
+  // 📊 Le détail : petits plis, pour ne lire que ce qui intéresse (inspiré d'une analyse complète, en plus court)
+  o.news = NW;
+  var ex = anExtraParts(o),
+    sub = function (title, body) {
+      return body ? '<details class="ansub"><summary>' + title + '</summary>' + body + '</details>' : '';
+    },
+    f2 = function (v) {
+      return fmtN(v, v < 10 ? 2 : 1);
+    };
+  var regH =
+    '<table class="kv antab">' +
     reg
       .map(function (z) {
         return '<tr><th>' + z[0] + '</th><td>' + esc(z[1]) + '</td></tr>';
       })
       .join('') +
     '</table>';
-  h +=
-    '<h4>Chiffres clés</h4><div class="ankpi">' +
+  var kpiH =
+    '<div class="ankpi">' +
     kpis
       .map(function (k) {
         return '<span><small>' + k[0] + '</small><b>' + esc(k[1]) + '</b></span>';
       })
       .join('') +
     '</div>';
-  h +=
-    '<h4>Technique</h4><p class="small">' +
+  // supports et résistances : les mêmes niveaux que sur le graphique, en tableau (du plus haut au plus bas)
+  var LVa = anLevels(o),
+    srH = '';
+  if (LVa) {
+    var lvRow = function (x, sup) {
+      return (
+        '<tr class="' +
+        (sup ? 'sup' : 'res') +
+        '"><th>' +
+        (sup ? '🟢 Support' : '🔴 Résistance') +
+        '</th><td>' +
+        f2(x.price) +
+        '</td><td>' +
+        (x.distPct != null ? pct(x.distPct) : '') +
+        '</td><td class="muted small">' +
+        esc(lvTouch(x)) +
+        '</td></tr>'
+      );
+    };
+    srH =
+      '<table class="kv ansr">' +
+      (LVa.resistances || [])
+        .slice(0, 2)
+        .reverse()
+        .map(function (x) {
+          return lvRow(x, false);
+        })
+        .join('') +
+      '<tr class="now"><th>▶ Cours</th><td><b>' +
+      f2(o.last) +
+      '</b></td><td></td><td></td></tr>' +
+      (LVa.supports || [])
+        .slice(0, 2)
+        .map(function (x) {
+          return lvRow(x, true);
+        })
+        .join('') +
+      '</table>';
+  }
+  var wd = o.plan && o.plan.wedge && o.plan.wedge.type && o.plan.wedge.type !== 'none' ? o.plan.wedge : null;
+  var techH =
+    srH +
+    '<p class="small">' +
     esc(
       [
-        o.rsi != null ? 'RSI 14 : ' + o.rsi : null,
+        o.rsi != null ? 'RSI 14 : ' + o.rsi + (o.rsi >= 70 ? ' (tendu)' : o.rsi <= 30 ? ' (survendu)' : '') : null,
         o.macd ? 'MACD ' + (o.macd.up ? 'au-dessus de son signal (haussier)' : 'sous son signal (baissier)') : null,
-        lv.length ? "supports et résistances : voir le plan d'entrée" : null,
+        wd && wd.label ? 'figure : ' + wd.label : null,
       ]
         .filter(Boolean)
         .join(' · ')
     ) +
     '</p>' +
     (fibH ? '<p class="small muted">' + esc(fibH) + '</p>' : '');
-  if (o.tgt && !scH)
-    h +=
-      '<h4>Consensus</h4><p class="small">' +
-      esc(
-        'Objectif moyen ' +
-          fmtN(o.tgt.mean, o.tgt.mean < 10 ? 2 : 1) +
-          cur +
-          ' (' +
-          pct(up) +
-          ')' +
-          (o.tgt.low > 0 ? ', fourchette ' + fmtN(o.tgt.low, 1) + ' à ' + fmtN(o.tgt.high, 1) : '') +
-          (o.tgt.n ? ', ' + o.tgt.n + ' analystes' : '') +
-          (o.rev != null
-            ? ' · prévisions ' + (o.rev > 0 ? 'relevées' : o.rev < 0 ? 'abaissées' : 'stables') + ' sur 30 jours'
-            : '')
-      ) +
-      '</p>';
-  if (scH)
-    h +=
-      '<h4>Scénarios à 6-12 mois</h4>' +
-      (o.tgt
-        ? '<p class="small muted">' +
-          esc(
-            (o.tgt.n ? o.tgt.n + ' analystes' : 'Analystes') +
-              (o.rev != null
-                ? ', prévisions ' + (o.rev > 0 ? 'relevées' : o.rev < 0 ? 'abaissées' : 'stables') + ' sur 30 jours'
-                : '')
-          ) +
-          '</p>'
-        : '') +
-      scH;
-  h += anExtra(o);
-  h +=
-    '<h4>Score de conviction</h4><div class="ancrit">' +
+  // analystes et scénarios, avec la place du cours entre le scénario baissier et le haussier
+  var RECO = function (v) {
+    return v == null
+      ? null
+      : v <= 1.5
+        ? 'achat fort'
+        : v <= 2.5
+          ? 'achat'
+          : v <= 3.5
+            ? 'conserver'
+            : v <= 4.5
+              ? 'vente'
+              : 'vente forte';
+  };
+  var anaH =
+    (o.tgt
+      ? '<p class="small">' +
+        esc(
+          (o.tgt.n ? o.tgt.n + ' analystes' : 'Analystes') +
+            (o.reco != null ? ' · avis moyen « ' + RECO(o.reco) + ' »' : '') +
+            ' · objectif moyen ' +
+            f2(o.tgt.mean) +
+            cur +
+            ' (' +
+            pct(up) +
+            ')' +
+            (o.tgt.low > 0 && o.tgt.high > 0 ? ', fourchette ' + f2(o.tgt.low) + ' à ' + f2(o.tgt.high) : '') +
+            (o.rev != null
+              ? ' · prévisions ' + (o.rev > 0 ? 'relevées' : o.rev < 0 ? 'abaissées' : 'stables') + ' sur 30 jours'
+              : '')
+        ) +
+        '</p>'
+      : '<p class="small muted">Pas de consensus d\'analystes publié.</p>') + scH;
+  if (sc && sc[2] > sc[0]) {
+    var posP = Math.max(0, Math.min(100, ((o.last - sc[0]) / (sc[2] - sc[0])) * 100));
+    anaH +=
+      '<div class="anbar" role="img" aria-label="Cours à ' +
+      Math.round(posP) +
+      ' % entre le scénario baissier et le haussier"><i style="left:' +
+      posP.toFixed(0) +
+      '%"></i></div><p class="small muted anbarl"><span>🐻 ' +
+      f2(sc[0]) +
+      '</span><span>cours ' +
+      f2(o.last) +
+      '</span><span>🚀 ' +
+      f2(sc[2]) +
+      '</span></p>';
+  }
+  var convH =
+    '<div class="ancrit">' +
     crit
       .map(function (k) {
         return (
@@ -986,19 +1132,62 @@ function analysisCard(isin, sym) {
         );
       })
       .join('') +
-    '</div>';
-  h +=
+    '</div>' +
     '<p class="small"><b>Incertitude</b> : ' +
     (unc || 'n.d.') +
     (o.vol != null ? ' (volatilité ' + Math.round(o.vol) + ' % par an)' : '') +
     ' · <b>Prix / valeur</b> : ' +
     (stars ? '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(0, 5 - stars) : 'n.d.') +
     '</p>';
+  h +=
+    '<details class="andet"><summary>📊 Le détail <span class="muted">· chiffres, supports et résistances, scénarios, conviction ' +
+    fmtN(score, 1) +
+    '/10</span></summary>' +
+    sub('🧭 Régime et chiffres clés', regH + kpiH + ex.traj) +
+    sub('📐 Supports, résistances et technique', techH) +
+    sub('🎯 Analystes et scénarios', anaH) +
+    sub("🗓️ Chronologie de l'année et agenda", ex.agenda) +
+    sub(
+      '🏦 Gestion du capital',
+      ex.cap.replace(/^<h4>Gestion du capital · ([^<]*)<\/h4>/, '<p class="small"><b>$1</b></p>')
+    ) +
+    sub('🧮 Score de conviction · ' + fmtN(score, 1) + '/10', convH) +
+    '<p class="small muted ansrc">Sources : Yahoo Finance (cours, comptes, analystes) · registres AMF, FI, FSMA, AFM (dirigeants) · AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA (ventes à découvert) · Google News (presse) · données du ' +
+    shortDate(S.today) +
+    '.</p>';
   h += '</details>';
   return (
     h +
     '<p class="foot">Automatique, données du soir. Seules les règles 🎯 et 💎 sont testées. Pas un conseil.</p></details>'
   );
+}
+/** Une carte « <section><h3>titre</h3>… » devient un pli fermé ; le titre court du pli porte l'essentiel. */
+function asFold(html, key, summ) {
+  if (!html) return '';
+  var m = html.match(/^<section class="card([^"]*)"><h3>([\s\S]*?)<\/h3>/);
+  if (!m || html.slice(-10) !== '</section>') return html;
+  return (
+    '<details class="card fold' +
+    m[1] +
+    '" data-k="' +
+    key +
+    '"><summary>' +
+    (summ || m[2]) +
+    '</summary>' +
+    html.slice(m[0].length, -10) +
+    '</details>'
+  );
+}
+/** Pli « Classement » d'une fiche : note et verdict dans le titre. */
+function rankFold(r) {
+  var sm = r
+    ? '📈 Classement <span class="muted small">· ' +
+      (r.out && r.out.length
+        ? '⛔ écartée'
+        : r.note + '/100 · ' + ((RV[r.v] || RV.mid)[0] + ' ' + (RV[r.v] || RV.mid)[1])) +
+      '</span>'
+    : '📈 Classement <span class="muted small">· hors classement</span>';
+  return asFold(rankCard(r), 'f-rank', sm);
 }
 function rankCard(r) {
   var R = rankData();
@@ -1479,7 +1668,7 @@ function pick3Card(inSel) {
       P.pool +
         ' société' +
         (P.pool > 1 ? 's passent' : ' passe') +
-        " toutes les règles ce soir (au moins 3 M€ échangés par jour, PEA seulement). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse."
+        " toutes les règles ce soir (au moins 3 M€ échangés par jour, PEA seulement). Au-delà, règles assouplies par paliers, signalés en orange. Volumes : 10 semaines au moins 1,5 fois la moyenne de l'année. Sur 1997-2026 : +6,7 points à 6 mois, +10,2 avec des volumes en hausse. Chiffre prudent (années jamais vues au réglage, frais et faillites supposées déduits) : environ +4, voir Aide."
     );
   h +=
     '<div class="probs"><small>Sur 29 ans, 6 mois après l\'achat (sociétés 🎯 au-dessus de leur moyenne 10 semaines) :</small><div class="pbs">' +
@@ -1581,7 +1770,7 @@ function valueCard(inSel) {
         (V.pool > 1 ? 's passent' : ' passe') +
         ' les règles ce soir' +
         (peaOnly ? ' (PEA seulement)' : ' (hors PEA compris)') +
-        ". Méthode de Piotroski (2000) : parmi les sociétés bon marché, celles aux comptes les plus solides font nettement mieux que les autres. Tri : meilleur F-score, puis prix le plus bas. Les comptes passés manquent pour la tester sur nos 29 ans : la preuve vient des études publiées et du facteur valeur européen de Kenneth French. Pas de règle de moyenne 10 semaines ici : la valeur s'achète justement quand le cours a déçu."
+        ". Méthode de Piotroski (2000) : parmi les sociétés bon marché, celles aux comptes les plus solides font nettement mieux que les autres. Tri : meilleur F-score, puis prix le plus bas. Testée sur nos données de 2024 à 2026 (seuls comptes disponibles) : les 10 premières ont fait +5,1 points à 6 mois face à la société moyenne (+4,1 après frais), avec 2 fois moins de chutes ; 2 ans, c'est trop court pour une preuve, qui vient des études publiées et du facteur valeur européen de Kenneth French. Pas de règle de moyenne 10 semaines ici : la valeur s'achète justement quand le cours a déçu."
     );
   return h + '</details>';
 }
