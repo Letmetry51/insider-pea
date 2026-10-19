@@ -21,7 +21,7 @@ permissions:
 
 # Jamais deux exécutions en même temps : évite les doublons d'alertes et les conflits de commit
 concurrency:
-  group: update-data
+  group: donnees # update-data, history et publish : jamais deux à la fois sur les données
   cancel-in-progress: false
 
 jobs:
@@ -186,3 +186,11 @@ jobs:
             # si le code a été modifié pendant l'exécution, on se remet à jour avant d'envoyer (3 essais)
             for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done
           fi
+
+      - name: 8. Publication du site (branche site, une seule version)
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/publish-site
+        with:
+          message: "📊 Données du soir"
+          token: ${{ secrets.GITHUB_TOKEN }}

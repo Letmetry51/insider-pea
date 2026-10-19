@@ -1,0 +1,18 @@
+name: Données de la veille
+description: >
+  Reprend le dossier data/ publié sur la branche « site » quand le code n'en contient pas.
+  S'arrête plutôt que de calculer sans le journal des alertes (sinon : emails en double).
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -uo pipefail
+        if [ -f data/euro-signal-state.json ]; then echo "Données présentes dans le dépôt : rien à reprendre"; exit 0; fi
+        git ls-remote --exit-code --heads origin site > /dev/null; code=$?
+        if [ "$code" = 2 ]; then echo "Branche site absente et pas de données : premier calcul"; exit 0; fi
+        if [ "$code" != 0 ]; then echo "Branche site injoignable : arrêt (le journal des alertes est nécessaire)"; exit 1; fi
+        git fetch -q --depth 1 origin site || { echo "Lecture de la branche site impossible : arrêt"; exit 1; }
+        rm -rf data && git archive FETCH_HEAD data | tar -x
+        test -f data/euro-signal-state.json || { echo "Journal des alertes absent de la branche site : arrêt"; exit 1; }
+        echo "Données reprises de la branche site ($(git log -1 --format=%cd --date=iso FETCH_HEAD))"

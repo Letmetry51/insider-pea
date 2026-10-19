@@ -22,7 +22,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: history
+  group: donnees # update-data, history et publish : jamais deux à la fois sur les données
   cancel-in-progress: false
 
 jobs:
@@ -72,3 +72,11 @@ jobs:
             git commit -m "🗂️ Historique des dirigeants $(date -u +'%Y-%m-%d %H:%M UTC')"
             for i in 1 2 3; do git pull --rebase --autostash && git push && break; sleep 5; done
           fi
+
+      - name: Publication du site (branche site, une seule version)
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/publish-site
+        with:
+          message: "🗂️ Historique des dirigeants"
+          token: ${{ secrets.GITHUB_TOKEN }}
