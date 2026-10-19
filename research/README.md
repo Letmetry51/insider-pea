@@ -1,0 +1,54 @@
+# Recherche : d'où viennent les chiffres
+
+Ces scripts ont produit les chiffres affichés dans l'onglet **Aide** de la page. Ce sont des scripts d'étude,
+écrits pour explorer (variables courtes, enchaînements par `exec`), pas du code de production : ils ne sont ni testés
+ni contrôlés automatiquement. Ils restent ici pour que chacun puisse refaire les calculs et les critiquer.
+
+## Refaire les calculs
+
+Les données ne sont pas fournies (cours Yahoo : redistribution non autorisée). Il faut les retélécharger :
+
+```
+pip install -r requirements.txt numpy pandas
+cd research/backtest
+python _long.py        # télécharge les cours hebdomadaires depuis 1985 (Yahoo, ~1 000 sociétés) → long.npz (~20 min)
+python _vol.py         # volatilité annuelle → v52.npy (utilisé par d'autres scripts)
+python _moment.py      # épisodes de plus hauts → ep.npy
+python _timing.py      # puis n'importe quel script d'étude
+```
+
+`_long.py` lit la liste des sociétés dans `data/` (produit par le calcul du soir). Les scripts s'enchaînent :
+`_vix.py` → `_detect.py` → `_highs.py` → `_moment.py` → `_timing.py` → `_timing2.py` → `_timing4.py` → études suivantes.
+Mesure commune : écart de rendement à 6 mois (26 semaines) avec la moyenne des sociétés de la même semaine, valeurs
+extrêmes écrêtées à 2 % et 98 %, part des « chutes » (−25 % ou pire), et résultat par période (1997-2008, 2009-2017, 2018-2026).
+
+## Chaque chiffre, son script et sa solidité
+
+Statuts : **testé** = mesuré sur nos données (avec le biais du survivant, voir plus bas) ; **fragile** = ne tient pas
+dans toutes les périodes ou hors échantillon ; **publié** = repris d'études publiées, pas testé ici ; **indépendant** =
+vérifié sur une source extérieure.
+
+| Règle ou chiffre | Script | Statut |
+|---|---|---|
+| Classement 12 mois, pente forte, +60 à +200 % : ≈ +8 points à 6 mois, 2 fois sur 3 en hausse | `_long.py`, `pente2.py`, `_timing.py`, `_acad.py` | testé |
+| Contrôle hors échantillon (réglages choisis sur 1997-2012, mesurés sur 2013-2026) | `_oos.py` | testé |
+| 🔊 volumes en hausse (×1,5 sur 10 semaines) en priorité | `p3vol.py`, `_vol.py`, `_timing2.py` | testé |
+| 📣 bond sur gros volume (+8 % et ×3 le volume) en priorité, repêchage des règles assouplies | `_timing2.py`, `_timing3.py`, `_timing4.py` | **fragile** : nul avant 2009 et hors échantillon |
+| ⏸️ attendre au-dessus de la moyenne 10 semaines | `_timing.py`, `_oos.py` | testé, faible depuis 2013 |
+| ⚡ écarter les cours très volatils (≥ 80 %/an) | `vol_crash.py`, `_oos.py` | testé, faible depuis 2013 |
+| 🐻 écarter les sociétés parisiennes très vendues à découvert (2013-2026) | `../shorts.py` | testé (Paris seulement) |
+| Alerte krach (marché −20 % sur un an) | `_crash.py`, `_vix.py` | testé |
+| Garder 6 mois, protection −30 %, tailles de ligne, pause pendant un krach | `stress2.py`, `_sizing.py`, `_sorties.py`, `_sorties2.py` | testé |
+| Effet momentum confirmé par le facteur européen de Kenneth French (+9,7 %/an contre +10,0 %) | `_wml.py`, `../french_compare.py` | indépendant |
+| 💎 Valeur (Piotroski) et dosage 70 % 🎯 / 30 % 💎 | `../french_combo.py`, `factors.py`, `factors2.py` | publié (Piotroski 2000) + facteurs de Kenneth French |
+| Pistes écartées : VIX, plus hauts répétés, moment d'achat, bêta et pistes académiques, résultats, secteurs émergents, signaux de début de hausse | `_vix.py`, `_highs.py`, `_moment.py`, `_acad.py`, `_beta.py`, `_pead.py`, `_earn.py`, `_emerg.py`, `_premices.py`, `_tard.py`, `_croise.py`, `early.py` | testé, sans effet stable |
+| Achats de dirigeants (≈ 4 000 achats France et Suède : pas mieux qu'un titre pris au hasard) | calcul du soir (`euro_signal/build.mjs`, étude de l'historique long) | testé |
+
+## Limites communes
+
+- **Biais du survivant** : seules les sociétés encore cotées en 2026 sont dans les données ; les sociétés disparues
+  (faillites, rachats) manquent. Les chiffres absolus sont donc embellis ; les comparaisons entre règles le sont moins.
+- **Données Yahoo** : cours ajustés, parfois erronés (sauts non ajustés coupés par `_long.py`), sans dividendes.
+- **Pas de frais, d'impôts ni de contraintes de liquidité** dans la plupart des tests.
+- **Beaucoup de variantes essayées** : une règle qui ne tient que sur une période peut devoir son résultat au hasard ;
+  c'est pourquoi le suivi réel des sélections (depuis le 18/10/2026) est vérifié chaque soir, règle par règle.

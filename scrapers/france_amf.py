@@ -59,7 +59,6 @@ def _extract_transactions_from_soup(soup):
         if len(cells) >= 9:
             try:
                 # Vérifier que la cellule 2 ou 3 contient une date DD/MM/YYYY
-                date_candidate = None
                 company = ""
                 date_pub = ""
                 date_op = ""
@@ -183,7 +182,7 @@ def _extract_transactions_from_soup(soup):
                     "is_sell": is_sell,
                     "reference_url": pdf_url,
                 })
-            except Exception as e:
+            except Exception:
                 pass
         
         i += 1
@@ -238,7 +237,7 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80) -> list[dict]:
             empty_pages += 1
             print(f"  Page {page}: 0 tx parsées (page vide ou format inconnu)")
             if empty_pages >= 3:
-                print(f"  3 pages vides consécutives, arrêt")
+                print("  3 pages vides consécutives, arrêt")
                 break
             continue
         else:
@@ -249,7 +248,7 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80) -> list[dict]:
         
         # Vérifier si c'est la dernière page
         if "Page suivante" not in response.text:
-            print(f"  Dernière page atteinte")
+            print("  Dernière page atteinte")
             break
         
         # Petit délai pour ne pas surcharger le serveur

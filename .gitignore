@@ -16,3 +16,9 @@ data/events.json
 data/sectors/weekly.csv.gz
 data/sectors/weekly_volume.csv.gz
 research/out/
+node_modules/
+
+# Recherche : jeu de données sur 29 ans et fichiers intermédiaires (régénérés par research/backtest/_long.py)
+research/backtest/*.npz
+research/backtest/*.npy
+research/backtest/our_wml.csv

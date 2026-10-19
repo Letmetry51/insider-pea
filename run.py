@@ -3,7 +3,7 @@ Euro Signal — collecte des déclarations de dirigeants publiées par l'AMF (é
 """
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))

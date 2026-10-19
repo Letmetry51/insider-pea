@@ -159,7 +159,7 @@ def watch_events(plan, last, today=None):
         y, wk, _ = (today or date.today()).isocalendar()
         ev.append(("biseau%d%02d" % (y, wk), "sortie par le haut du biseau descendant (droite haute vers %s)" % f(w["upperNow"])))
     if plan.get("verdict") == "buyNow":
-        ev.append(("achat%d" % level_key(lvl), "plan d'entrée : %s" % (plan.get("label") or "achat possible").lower()))
+        ev.append(("achat%d" % level_key(lvl), "plan d'entrée : %s" % (plan.get("label") or "zone d'entrée").lower()))
     if pr.get("stop") and last < pr["stop"]:
         ev.append(("stop%d" % level_key(lvl), "sous le stop du plan (%s) : le scénario est invalidé" % f(pr["stop"])))
     return ev
