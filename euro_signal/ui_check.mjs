@@ -84,11 +84,25 @@ async function inspect(p, where) {
     document.querySelectorAll('details').forEach((d) => {
       d.open = true;
     });
-    const t = document.body.innerText;
+    // texte de la page, sans le rapport du contrôle précédent (il cite les textes fautifs : sinon il se relirait chaque soir)
+    let t = document.body.innerText;
+    document.querySelectorAll('[data-nocheck]').forEach((e) => {
+      const x = e.innerText;
+      if (x) t = t.split(x).join(' ');
+    });
+    // chaque graphique de cours doit montrer au moins un support et une résistance
+    const noLevels = [...document.querySelectorAll('svg.chart')].filter((g) => {
+      const tx = [...g.querySelectorAll('text')].map((x) => x.textContent).join(' ');
+      return (
+        !(g.querySelector('.lv-sup') || /support/i.test(tx)) || !(g.querySelector('.lv-res') || /résistance/i.test(tx))
+      );
+    }).length;
     return {
       t,
       sw: document.documentElement.scrollWidth,
       title: (document.querySelector('.fhead h2') || {}).textContent || '',
+      noLevels,
+      recent: /Cotation trop récente/.test(t),
     };
   });
 }
@@ -97,6 +111,7 @@ function judge(r, where, needTitle) {
   if (m) problem('texte illisible', where, r.t.slice(Math.max(0, m.index - 70), m.index + 30).replace(/\s+/g, ' '));
   if (r.sw > W + 2) problem("débordement de l'écran", where, r.sw + ' px pour ' + W);
   if (needTitle && !r.title) problem('fiche vide', where, '');
+  if (r.noLevels && !r.recent) problem('graphique sans support ou résistance', where, r.noLevels + ' graphique(s)');
   if (/Fiche indisponible|HTTP \d{3}/.test(r.t))
     problem('fiche indisponible', where, (r.t.match(/[^\n]*(Fiche indisponible|HTTP \d{3})[^\n]*/) || [''])[0]);
 }

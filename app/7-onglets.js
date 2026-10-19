@@ -120,7 +120,10 @@ function mySuivis() {
         wat
           .map(function (x) {
             x.btn = ' <button class="small" data-a="watchOff" data-i="' + esc(x[0]) + '">Ne plus surveiller</button>';
-            return row(x, 'surveillé depuis le ' + shortDate(x[1]));
+            return row(
+              x,
+              'surveillé depuis le ' + shortDate(x[1]) + (manPlan(x[0]) ? ' · ✏️ plan ajusté à la main' : '')
+            );
           })
           .join('') +
         '</ul>'
@@ -167,7 +170,7 @@ function vAlertesAuto() {
     '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (5 🎯 + 2 💎, ✅ feu vert ou ⏸️ en attente).</li>' +
     '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
     "<li>📉 <b>Après « Je l'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>" +
-    "<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d'achat, casse sa résistance ou passe sous le stop.</li>" +
+    "<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d'achat, casse sa résistance ou passe sous le stop ; avec un plan ✏️ ajusté à la main, vos propres niveaux.</li>" +
     "<li>⚠️ <b>Krach</b> : quand l'alerte s'allume (marché à −20 % sur un an), puis quand elle s'éteint (retour au-dessus de −15 %).</li>" +
     '<li>🔎 <b>Auto-surveillance</b> : si la méthode ou une règle perd son avantage (un email par mois au plus).</li>' +
     '<li>📊 <b>Bilan</b> chaque trimestre · 🧭 <b>point de revue</b> le 31/01/2027 · 💡 <b>piste confirmée</b> (révisions des analystes).</li>' +
@@ -694,6 +697,13 @@ function vQuality() {
 }
 /** Méthode du classement tendance + comptes et étude de contrôle recalculée chaque soir. */
 /** La logique de l'outil en une page : ce qui est utilisé, les chiffres des tests (5, 8 et 29 ans), ce qui a été retiré, les limites. Tests du 17/10/2026. */
+/** Dépôt GitHub de cette page (https://<compte>.github.io/<dépôt>/ → https://github.com/<compte>/<dépôt>), pour les copies aussi. */
+function repoUrl() {
+  var u =
+    /^https?:\/\/([^.]+)\.github\.io\/([^/]+)/.exec(location.href) ||
+    /^https?:\/\/([^.]+)\.github\.io\/([^/]+)/.exec((S.cfg && S.cfg.dashboardUrl) || '');
+  return u ? 'https://github.com/' + u[1] + '/' + u[2] : 'https://github.com/Letmetry51/insider-pea';
+}
 function logicCard() {
   var tr = function (cells, head) {
     return (
@@ -746,11 +756,11 @@ function logicCard() {
     '</ol>' +
     '<p class="small lgw">💎 <b>Complément Valeur</b> : sociétés bon marché aux comptes solides (Piotroski). Momentum et valeur gagnent à des moments différents : 70 % 🎯 + 30 % 💎 a ramené la plus grosse perte de −46 % à −30 % sur 1990-2026 (facteurs européens de Kenneth French), pour un peu moins de gain.</p>' +
     '<div class="lgkeys">' +
-    kn('+10 pts', 'à 6 mois : 🎯 + 🔊 volumes, sur 29 ans') +
-    kn('62 %', 'positions gagnantes à 6 mois') +
-    kn('+15 à 20 pts', 'par an de mieux que le hasard') +
+    kn('+7 pts', 'à 6 mois face à la société moyenne, sur des années jamais vues au réglage') +
+    kn('+4 pts', 'chiffre prudent : frais et faillites supposées déduits') +
+    kn('53 %', "battent la société moyenne (46 % pour l'ensemble)") +
     '</div>' +
-    '<p class="small lgw">🎲 <b>6 mois après l\'achat</b> (29 ans) : 2 fois sur 3 en hausse · 1 sur 3 à +20 % · 1 sur 8 à +50 % · 1 sur 14 à −25 % ou pire (toutes sociétés : 61 %, 1 sur 4, 1 sur 16, 1 sur 12).</p>' +
+    '<p class="small lgw">🎲 <b>6 mois après l\'achat</b> (29 ans, chiffres bruts) : 2 fois sur 3 en hausse · 1 sur 3 à +20 % · 1 sur 8 à +50 % · 1 sur 14 à −25 % ou pire (toutes sociétés : 61 %, 1 sur 4, 1 sur 16, 1 sur 12).</p>' +
     trackBox() +
     "<p class=\"small lgw\">📧 <b>Automatique</b> : le lundi, la sélection avec ✅ feu vert ou ⏸️ en attente pour chaque société ; dès qu'une société ⏸️ du 🎯 repasse au-dessus de sa moyenne 10 semaines, un email « feu vert » ; après « Je l'ai acheté » : un email à chaque palier de −10 %, à la protection de −30 % et au rappel des 6 mois (garder si encore dans le 🎯, sinon vendre) ; un email quand l'alerte krach s'allume ou s'éteint ; 📊 un bilan chaque trimestre (suivi réel, règles en réel, pistes) et le point de revue le 31/01/2027.</p>" +
     (function () {
@@ -874,15 +884,41 @@ function logicCard() {
     '<li><b>Volumes : variantes</b> (4, 10 ou 20 semaines, ×1,5 à ×3, avec ou sans hausse du cours) : toutes positives ; ×2 sur 10 semaines retenu, le plus simple et le plus stable.</li>' +
     "<li><b>Valeur intrinsèque, cycle, figures chartistes</b> : non testables sur l'historique (données du jour seulement), retirés des filtres, consultables sur les fiches.</li></ul></details>";
   h +=
-    '<details class="fsscale more" data-k="lg-lim"><summary>⚠️ Limites</summary><ul class="plain small">' +
-    "<li>Même avec la meilleure règle, les positions n'ont battu le marché qu'une fois sur deux (52 % sur 29 ans) : la méthode fait surtout gagner plus souvent, et plus fort quand ça marche.</li>" +
-    '<li><b>Contrôle hors échantillon</b> (18/10/2026) : réglages choisis avec les seules années 1997-2012, puis mesurés sur 2013-2026 jamais vues : +7,3 à +7,9 points à 6 mois, contre +7,1 pour les règles actuelles et +2,0 pour un simple classement 12 mois. Les règles actuelles étaient 13<sup>es</sup> sur 512 réglages en 1997-2012 : <b>pas de sur-ajustement</b>. 🔊 tient dans les deux périodes ; <b>📣 non</b> (rien avant 2013, +7,8 points depuis) : à confirmer par le suivi réel.</li>' +
-    "<li>Seules les sociétés encore cotées aujourd'hui sont dans nos tests : les rendements bruts sont donc embellis. <b>Mais l'effet momentum lui-même est confirmé</b> : comparé au facteur momentum européen de Kenneth French (Dartmouth), calculé sur toutes les sociétés y compris disparues, notre écart gagnants − perdants est quasi identique sur 1998-2026 (+9,7 % par an contre +10,0 %, corrélation 0,83 ; 0,88 à 0,91 depuis 2009).</li>" +
-    "<li>Frais de courtage et impôts non déduits. Comptes et valeur connus seulement aujourd'hui : leur effet n'a pas pu être testé sur tout l'historique.</li>" +
-    "<li>Pas de données gratuites fiables avant 1997 pour les actions européennes : 40 ans de recul n'existent que pour quelques indices. Les études académiques sur le momentum couvrent, elles, près d'un siècle aux États-Unis et plusieurs décennies en Europe.</li></ul></details>";
+    '<details class="fsscale more" data-k="lg-lim"><summary>⚖️ Fiabilité des chiffres : du flatteur au prudent</summary>' +
+    '<p class="small">🎯, écart à 6 mois avec la société moyenne de la même semaine, dividendes inclus :</p>' +
+    tbl(
+      ['Étape', 'Écart'],
+      [
+        ["Tout l'historique, 1997-2026", '+8,1 pts'],
+        ['Années jamais vues au réglage, 2013-2026', '+7,1 pts'],
+        ['… moins 1 % de frais par achat-vente', '+6,1 pts'],
+        ['… moins 2 % de sélections supposées en faillite (−100 %)', '<b>+3,8 pts</b>'],
+      ]
+    ) +
+    '<p class="small">À retenir : <b>environ +4 points tous les 6 mois</b> face à la société moyenne (≈ +8 par an), avec des années nulles ou en perte.</p><ul class="plain small nomax">' +
+    '<li>🪦 <b>Biais du survivant</b> (sociétés disparues absentes) : faillites supposées ci-dessus, hypothèse sévère ; et contrôle indépendant par le facteur momentum européen de Kenneth French, calculé avec les sociétés disparues : +9,7 % par an contre +10,0 % pour nous (1998-2026, corrélation 0,83).</li>' +
+    "<li>🎲 <b>Trop d'essais</b> (512 réglages) : chiffre retenu sur les années jamais vues (réglages choisis sur 1997-2012, les nôtres 13<sup>es</sup> sur 512) et seuil exigeant t ≥ 3 au lieu de 2 (Harvey, Liu et Zhu, 2016). Le 🎯 passe (t 3,3) ; 📣 non (rien avant 2013) ; ⏸️ et ⚡ faibles depuis 2013.</li>" +
+    "<li>💶 <b>Frais, impôts, dividendes</b> : dividendes inclus (cours ajustés) ; frais de 0,5 à 2 % par achat-vente selon le courtier (plus 0,4 % de taxe à l'achat des sociétés françaises de plus d'1 Md€) ; dans un PEA, aucun impôt tant que l'argent y reste, puis 18,6 % des gains en prélèvements sociaux après 5 ans (taux 2026), comme pour un fonds indiciel dans le même PEA.</li>" +
+    '<li>💎 <b>Valeur</b> testée sur nos données, 2024-2026 (seuls comptes disponibles, ≈ 520 sociétés liquides par mois) : les 10 premières +5,1 points à 6 mois (+4,1 après frais), 4 % de chutes de 25 % contre 8 % ; t 1,7 : encourageant, pas encore une preuve. Le dosage 70/30 repose sur le facteur valeur européen de Kenneth French.</li>' +
+    '<li>📒 <b>Suivi réel</b> : automatique depuis le ' +
+    (function () {
+      var T0 = (rankData() || {}).pickTrack,
+        d0 = (T0 && T0.since) || '2026-10-18';
+      return (
+        shortDate(d0) +
+        '\u00a0; premiers résultats à 3 mois le ' +
+        shortDate(ES.addDays(d0, 91)) +
+        ', à 6 mois le ' +
+        shortDate(ES.addDays(d0, 182))
+      );
+    })() +
+    " ; chaque règle (🔊 📣 ⏸️) jugée sur 30 sélections de chaque côté, email de revue si l'avantage se dégrade.</li>" +
+    '<li>🧾 <b>Refaire les calculs</b> : scripts publics dans <a href="' +
+    esc(repoUrl()) +
+    '/tree/main/research" target="_blank" rel="noopener">research/</a> ; <code>chiffres_cles.py</code> recalcule ce tableau en une commande.</li>' +
+    '<li>Une position sur deux seulement bat la société moyenne (53 %) : la méthode gagne surtout par ses fortes hausses. Pas de données gratuites fiables avant 1997.</li></ul></details>';
   return (
-    h +
-    '<p class="foot">Tests des 17 et 18/10/2026. Aide à la décision, pas un conseil en investissement.</p></section>'
+    h + '<p class="foot">Tests du 17 au 19/10/2026. Aide à la décision, pas un conseil en investissement.</p></section>'
   );
 }
 function methodCard() {
@@ -981,7 +1017,7 @@ function vAide() {
       (qa
         ? ' <span class="muted">· ' + (qn ? '⚠️ ' + qn + ' point(s) à vérifier' : '✅ aucun problème') + '</span>'
         : ''),
-    vQuality()
+    '<div data-nocheck>' + vQuality() + '</div>' // le rapport cite les textes fautifs : le contrôle suivant ne doit pas s'y relire
   );
   h += det('État des données', vSources());
   h += det('Titres suivis', vUnivers());

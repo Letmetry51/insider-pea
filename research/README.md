@@ -15,6 +15,8 @@ python _long.py        # télécharge les cours hebdomadaires depuis 1985 (Yahoo
 python _vol.py         # volatilité annuelle → v52.npy (utilisé par d'autres scripts)
 python _moment.py      # épisodes de plus hauts → ep.npy
 python _timing.py      # puis n'importe quel script d'étude
+python ../chiffres_cles.py long.npz    # les chiffres clés, du plus flatteur au plus prudent (lisible seul)
+python valeur.py       # 💎 sur nos données (comptes 2022-2025 : ../../data, voir tools/donnees.sh)
 ```
 
 `_long.py` lit la liste des sociétés dans `data/` (produit par le calcul du soir). Les scripts s'enchaînent :
@@ -31,6 +33,7 @@ vérifié sur une source extérieure.
 | Règle ou chiffre | Script | Statut |
 |---|---|---|
 | Classement 12 mois, pente forte, +60 à +200 % : ≈ +8 points à 6 mois, 2 fois sur 3 en hausse | `_long.py`, `pente2.py`, `_timing.py`, `_acad.py` | testé |
+| **Chiffre prudent** : +7,1 sur les années jamais vues (t 3,3), +6,1 après 1 % de frais, +3,8 avec 2 % de faillites supposées | `../chiffres_cles.py` | testé (hypothèses affichées) |
 | Contrôle hors échantillon (réglages choisis sur 1997-2012, mesurés sur 2013-2026) | `_oos.py` | testé |
 | 🔊 volumes en hausse (×1,5 sur 10 semaines) en priorité | `p3vol.py`, `_vol.py`, `_timing2.py` | testé |
 | 📣 bond sur gros volume (+8 % et ×3 le volume) en priorité, repêchage des règles assouplies | `_timing2.py`, `_timing3.py`, `_timing4.py` | **fragile** : nul avant 2009 et hors échantillon |
@@ -40,7 +43,8 @@ vérifié sur une source extérieure.
 | Alerte krach (marché −20 % sur un an) | `_crash.py`, `_vix.py` | testé |
 | Garder 6 mois, protection −30 %, tailles de ligne, pause pendant un krach | `stress2.py`, `_sizing.py`, `_sorties.py`, `_sorties2.py` | testé |
 | Effet momentum confirmé par le facteur européen de Kenneth French (+9,7 %/an contre +10,0 %) | `_wml.py`, `../french_compare.py` | indépendant |
-| 💎 Valeur (Piotroski) et dosage 70 % 🎯 / 30 % 💎 | `../french_combo.py`, `factors.py`, `factors2.py` | publié (Piotroski 2000) + facteurs de Kenneth French |
+| 💎 Valeur (Piotroski) : 10 premières +5,1 points à 6 mois, 2 fois moins de chutes (départs 2024-2026) | `valeur.py` | **fragile** : 2 ans seulement (t 1,7) |
+| Dosage 70 % 🎯 / 30 % 💎 | `../french_combo.py`, `factors.py`, `factors2.py` | publié (Piotroski 2000) + facteurs de Kenneth French |
 | Pistes écartées : VIX, plus hauts répétés, moment d'achat, bêta et pistes académiques, résultats, secteurs émergents, signaux de début de hausse | `_vix.py`, `_highs.py`, `_moment.py`, `_acad.py`, `_beta.py`, `_pead.py`, `_earn.py`, `_emerg.py`, `_premices.py`, `_tard.py`, `_croise.py`, `early.py` | testé, sans effet stable |
 | Achats de dirigeants (≈ 4 000 achats France et Suède : pas mieux qu'un titre pris au hasard) | calcul du soir (`euro_signal/build.mjs`, étude de l'historique long) | testé |
 
@@ -48,7 +52,11 @@ vérifié sur une source extérieure.
 
 - **Biais du survivant** : seules les sociétés encore cotées en 2026 sont dans les données ; les sociétés disparues
   (faillites, rachats) manquent. Les chiffres absolus sont donc embellis ; les comparaisons entre règles le sont moins.
-- **Données Yahoo** : cours ajustés, parfois erronés (sauts non ajustés coupés par `_long.py`), sans dividendes.
-- **Pas de frais, d'impôts ni de contraintes de liquidité** dans la plupart des tests.
-- **Beaucoup de variantes essayées** : une règle qui ne tient que sur une période peut devoir son résultat au hasard ;
-  c'est pourquoi le suivi réel des sélections (depuis le 18/10/2026) est vérifié chaque soir, règle par règle.
+  Garde-fous : faillites supposées dans le chiffre prudent (`../chiffres_cles.py`) et facteur momentum de Kenneth French.
+- **Données Yahoo** : cours ajustés des divisions et des dividendes (dividendes inclus), parfois erronés (sauts non
+  ajustés coupés par `_long.py`).
+- **Frais** : déduits dans le chiffre prudent (1 % par achat-vente) et dans les portefeuilles simulés, pas dans les études
+  de règles (elles comparent des groupes entre eux). Impôts : aucun dans un PEA tant que l'argent y reste.
+- **Beaucoup de variantes essayées** : une règle qui ne tient que sur une période peut devoir son résultat au hasard.
+  Seuil retenu : t ≥ 3 (Harvey, Liu et Zhu, 2016) sur des années jamais vues ; le suivi réel des sélections (depuis le
+  18/10/2026) est vérifié chaque soir, règle par règle.

@@ -4882,6 +4882,57 @@
    * Renvoie { last, atr, supports: [...], resistances: [...] } (deux niveaux au plus de chaque côté, du plus proche au plus lointain),
    * chaque niveau : { price, touches, last (date du dernier contact), distPct (écart au cours, en %), kind: pivot | high52 | low52 }.
    */
+  /**
+   * Toujours au moins un support et une résistance sur un graphique : à défaut de point bas (ou haut) marqué, le plus bas
+   * (ou le plus haut) de l'année de cours sert de niveau (kind low52 / high52). lv : résultat de supportResistance (ou null).
+   */
+  ES.completeLevels = function (lv, rows) {
+    var R = (rows || [])
+      .filter(function (r) {
+        return r && r[4] > 0;
+      })
+      .slice(-250);
+    if (R.length < 10) return lv || null;
+    var last = R[R.length - 1][4],
+      cMin = Infinity,
+      cMax = -Infinity;
+    R.forEach(function (r) {
+      cMin = Math.min(cMin, r[4]);
+      cMax = Math.max(cMax, r[4]);
+    });
+    // niveaux hors de la plage des cours (calculés avant un regroupement d'actions, données d'une autre ligne) : ignorés
+    var sane = function (x) {
+        return x && x.price > 0 && x.price >= cMin * 0.75 && x.price <= cMax * 1.35;
+      },
+      o = Object.assign({}, lv || {}, {
+        last: (lv && lv.last) || last,
+        supports: ((lv && lv.supports) || []).filter(sane),
+        resistances: ((lv && lv.resistances) || []).filter(sane),
+      }),
+      hi = -Infinity,
+      lo = Infinity,
+      dHi = null,
+      dLo = null;
+    R.forEach(function (r) {
+      var h = r[2] > 0 ? r[2] : r[4],
+        l = r[3] > 0 ? r[3] : r[4];
+      if (h >= hi) {
+        hi = h;
+        dHi = r[0];
+      }
+      if (l <= lo) {
+        lo = l;
+        dLo = r[0];
+      }
+    });
+    var dist = function (p) {
+      return +((p / last - 1) * 100).toFixed(1);
+    };
+    if (!o.supports.length) o.supports.push({ price: lo, touches: 1, last: dLo, distPct: dist(lo), kind: 'low52' });
+    if (!o.resistances.length)
+      o.resistances.push({ price: hi, touches: 1, last: dHi, distPct: dist(hi), kind: 'high52' });
+    return o;
+  };
   ES.supportResistance = function (rows, opts) {
     opts = opts || {};
     var R = (rows || [])

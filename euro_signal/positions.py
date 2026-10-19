@@ -91,10 +91,14 @@ def parse_position(subject, body, sent_at):
     buy_date = None
     if dm:
         buy_date = dm.group(1) if len(dm.groups()) == 1 else f"{dm.group(3)}-{dm.group(2)}-{dm.group(1)}"
+    # plan d'entrée ajusté à la main dans la fiche (« ✏️ Ajuster le plan ») : il remplace le plan calculé pour les alertes
+    custom = {k: num(kv.get(lbl)) for k, lbl in (("entry", "entrée ajustée"), ("stop", "stop ajusté"), ("target", "objectif ajusté"), ("ref", "cours à la demande"))}
+    custom = {k: v for k, v in custom.items() if v and v > 0}
     return {
         "kind": kind, "isin": m.group(1), "sentAt": sent_at, "name": kv.get("société"),
         "price": num(kv.get("prix d'achat") or kv.get("prix")), "date": buy_date or sent_at[:10],
         "target": num(kv.get("objectif de hausse") or kv.get("objectif")), "stop": num(kv.get("seuil de protection") or kv.get("protection")),
+        "custom": custom if any(k in custom for k in ("entry", "stop", "target")) else None,
     }
 
 
@@ -163,6 +167,36 @@ def watch_events(plan, last, today=None):
     if pr.get("stop") and last < pr["stop"]:
         ev.append(("stop%d" % level_key(lvl), "sous le stop du plan (%s) : le scénario est invalidé" % f(pr["stop"])))
     return ev
+
+
+def custom_events(c, last):
+    """Plan ajusté à la main : prix d'entrée (franchi dans le sens où il a été fixé), stop et objectif. Une alerte par niveau."""
+    if not c or not last:
+        return []
+    f = lambda v: ("%.2f" % v).replace(".", ",")
+    ev, e, ref = [], c.get("entry"), c.get("ref")
+    if e:
+        if ref and ref > e * 1.005:
+            hit, txt = last <= e * 1.005, "descend à votre prix d'entrée (%s)" % f(e)
+        elif ref and ref < e * 0.995:
+            hit, txt = last >= e, "franchit votre prix d'entrée (%s)" % f(e)
+        else:
+            hit, txt = abs(last / e - 1) <= 0.01, "est à votre prix d'entrée (%s)" % f(e)
+        if hit:
+            ev.append(("perso-entree%d" % level_key(e), txt))
+    if c.get("stop") and last <= c["stop"]:
+        ev.append(("perso-stop%d" % level_key(c["stop"]), "passe sous votre stop (%s)" % f(c["stop"])))
+    if c.get("target") and last >= c["target"]:
+        ev.append(("perso-objectif%d" % level_key(c["target"]), "atteint votre objectif (%s)" % f(c["target"])))
+    return ev
+
+
+def plan_txt(c):
+    """Résumé d'un plan ajusté à la main, pour le corps de l'email."""
+    if not c:
+        return None
+    f = lambda v: ("%.2f" % v).replace(".", ",")
+    return "ajusté à la main (" + ", ".join(lbl + " " + f(c[k]) for k, lbl in (("entry", "entrée"), ("stop", "stop"), ("target", "objectif")) if c.get(k)) + ")"
 
 
 def shard_of(sym, n=32):
@@ -358,17 +392,18 @@ def main():
             pw = rk.get("pw")
             rows = catalogue_rows(isin)
             inst = {"name": rk.get("name"), "plan": {"verdict": pw.get("v"), "label": pw.get("label"), "primary": pw.get("p") or {}, "wedge": pw.get("w") or {}}} if pw else {}
-        if not rows or not inst.get("plan"):
+        if not rows or not (inst.get("plan") or w.get("custom")):
             continue
         last = rows[-1][4]  # dernier cours brut = dernier cours ajusté (aucun ajustement après la dernière séance)
         name = inst.get("name") or w.get("name") or isin
-        for key, label in watch_events(inst["plan"], last):
+        evs = custom_events(w["custom"], last) if w.get("custom") else watch_events(inst["plan"], last)
+        for key, label in evs:
             ref = "plan:%s:%s" % (isin, key)
             if ref in refs:
                 continue
             body = ("%s %s.\n\nDernier cours : %s. Plan du soir : %s.\n%s\n"
                     "Ce n'est pas un ordre : vérifiez la fiche avant d'agir.\nPour arrêter : bouton « Ne plus surveiller » dans la fiche%s.") % (
-                name, label, ("%.2f" % last).replace(".", ","), inst["plan"].get("label") or "", ("Convergence : %s signaux sur 5." % inst["convergence"].get("n", "?")) if inst.get("convergence") else "",
+                name, label, ("%.2f" % last).replace(".", ","), plan_txt(w.get("custom")) or (inst.get("plan") or {}).get("label") or "", ("Convergence : %s signaux sur 5." % inst["convergence"].get("n", "?")) if inst.get("convergence") else "",
                 (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Plan — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # Diversification : une fois par semaine au plus, seulement si une concentration apparaît
