@@ -1017,7 +1017,7 @@ function vAide() {
       (qa
         ? ' <span class="muted">· ' + (qn ? '⚠️ ' + qn + ' point(s) à vérifier' : '✅ aucun problème') + '</span>'
         : ''),
-    vQuality()
+    '<div data-nocheck>' + vQuality() + '</div>' // le rapport cite les textes fautifs : le contrôle suivant ne doit pas s'y relire
   );
   h += det('État des données', vSources());
   h += det('Titres suivis', vUnivers());

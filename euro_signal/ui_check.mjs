@@ -84,7 +84,12 @@ async function inspect(p, where) {
     document.querySelectorAll('details').forEach((d) => {
       d.open = true;
     });
-    const t = document.body.innerText;
+    // texte de la page, sans le rapport du contrôle précédent (il cite les textes fautifs : sinon il se relirait chaque soir)
+    let t = document.body.innerText;
+    document.querySelectorAll('[data-nocheck]').forEach((e) => {
+      const x = e.innerText;
+      if (x) t = t.split(x).join(' ');
+    });
     // chaque graphique de cours doit montrer au moins un support et une résistance
     const noLevels = [...document.querySelectorAll('svg.chart')].filter((g) => {
       const tx = [...g.querySelectorAll('text')].map((x) => x.textContent).join(' ');
