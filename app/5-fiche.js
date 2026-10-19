@@ -2222,9 +2222,7 @@ function opCard(isin, t) {
       'Publication',
       (t.pubDate ? ES.frDate(t.pubDate) : 'inconnue') +
         (t.pubTime ? ' ' + esc(t.pubTime) : '') +
-        ' <span class="muted">(précision : ' +
-        t.pubPrecision +
-        ')</span>'
+        (t.pubPrecision ? ' <span class="muted">(précision : ' + esc(t.pubPrecision) + ')</span>' : '')
     ) +
     mar('4f', 'Lieu', esc(t.venue || 'n.d.')) +
     mar('', 'Vue par Euro Signal', ES.frDate((t.firstSeen || '').slice(0, 10)) || 'n.d.') +
