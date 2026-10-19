@@ -704,6 +704,339 @@ function repoUrl() {
     /^https?:\/\/([^.]+)\.github\.io\/([^/]+)/.exec((S.cfg && S.cfg.dashboardUrl) || '');
   return u ? 'https://github.com/' + u[1] + '/' + u[2] : 'https://github.com/Letmetry51/insider-pea';
 }
+/** 📚 Sources, études et méthodes : tout ce qui a servi à construire l'outil, avec ce qui en a été retenu. */
+function biblioCard() {
+  var ln = function (url, txt) {
+      return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + txt + '</a>';
+    },
+    li = function (t) {
+      return '<li>' + t + '</li>';
+    },
+    ref = function (st, who, title, where, role) {
+      // st : ✅ appliquée dans l'outil · 🧪 testée sur nos données, non retenue · 📖 repère
+      return li(
+        st +
+          ' <b>' +
+          who +
+          '</b>' +
+          (title ? ', « ' + title + ' »' : '') +
+          (where ? ', <i>' + where + '</i>' : '') +
+          ' — ' +
+          role
+      );
+    },
+    sub = function (k, title, body) {
+      return '<details class="fsscale more" data-k="' + k + '"><summary>' + title + '</summary>' + body + '</details>';
+    },
+    ul = function (items) {
+      return '<ul class="plain small nomax biblio">' + items.join('') + '</ul>';
+    };
+  var data = ul([
+    li(
+      '📈 <b>Cours, volumes, comptes, analystes</b> : ' +
+        ln('https://finance.yahoo.com', 'Yahoo Finance') +
+        ' (bibliothèque ' +
+        ln('https://github.com/ranaroussi/yfinance', 'yfinance') +
+        ') : cours journaliers (2 ans) et hebdomadaires (5 à 8 ans), dividendes et divisions, comptes annuels (4 exercices), prévisions, avis et révisions des analystes, surprises et dates de résultats, communiqués des sociétés. Pour les études : cours hebdomadaires de 1 067 sociétés européennes, 1985-2026.'
+    ),
+    li(
+      '👔 <b>Déclarations des dirigeants</b> (règlement européen MAR, article 19) : ' +
+        ln('https://bdif.amf-france.org', 'AMF') +
+        ' (France, base BDIF depuis 2021), ' +
+        ln('https://marknadssok.fi.se/publiceringsklient', 'Finansinspektionen') +
+        ' (Suède, registre Insynshandel depuis 2016), ' +
+        ln('https://www.fsma.be', 'FSMA') +
+        ' (Belgique), ' +
+        ln('https://www.afm.nl/en/sector/registers', 'AFM') +
+        ' (Pays-Bas).'
+    ),
+    li(
+      '🐻 <b>Ventes à découvert</b> (règlement européen 236/2012, positions de 0,5 % du capital et plus) : AMF (' +
+        ln('https://www.data.gouv.fr', 'data.gouv.fr') +
+        '), ' +
+        ln('https://www.consob.it', 'Consob') +
+        ', ' +
+        ln('https://www.cnmv.es', 'CNMV') +
+        ', AFM, FSMA, ' +
+        ln('https://www.bundesanzeiger.de', 'Bundesanzeiger') +
+        ', ' +
+        ln('https://www.fca.org.uk', 'FCA') +
+        '.'
+    ),
+    li(
+      '🌍 <b>Indices et devises</b> : STOXX Europe 600 (référence), CAC 40, S&amp;P 500 et paniers américains (baromètres des thèmes, jamais proposés), taux de change (Yahoo Finance).'
+    ),
+    li(
+      '📰 <b>Presse</b> : ' + ln('https://news.google.com', 'Google News') + ' (flux RSS : titres et liens seulement).'
+    ),
+    li(
+      '🎓 <b>Contrôle indépendant</b> : ' +
+        ln(
+          'https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html',
+          'Kenneth R. French Data Library'
+        ) +
+        ' (Dartmouth) : facteurs européens momentum et valeur depuis 1990, calculés avec toutes les sociétés, disparues comprises.'
+    ),
+    li(
+      "🇪🇺 <b>Éligibilité au PEA</b> : siège dans l'Union européenne ou l'EEE (article L221-31 du Code monétaire et financier), foncières cotées exclues ; à confirmer chez votre courtier."
+    ),
+    li(
+      '🔍 <b>Vérifications ponctuelles</b> : ' +
+        ln('https://eodhd.com', 'EODHD') +
+        ' (sociétés retirées de la cote, pour un futur test sans biais du survivant), Google Trends (essai abandonné : pas mieux que la moyenne).'
+    ),
+  ]);
+  var studies =
+    '<p class="small muted">✅ appliquée dans l\'outil · 🧪 testée sur nos données, non retenue · 📖 repère</p>' +
+    '<p class="small"><b>🎯 Momentum et tendance</b></p>' +
+    ul([
+      ref(
+        '✅',
+        'Jegadeesh et Titman (1993)',
+        'Returns to Buying Winners and Selling Losers',
+        'Journal of Finance',
+        'hausse sur 12 mois sans le dernier mois, cœur du classement.'
+      ),
+      ref(
+        '✅',
+        'George et Hwang (2004)',
+        'The 52-Week High and Momentum Investing',
+        'Journal of Finance',
+        'proximité du plus haut sur un an (note et secteurs).'
+      ),
+      ref(
+        '✅',
+        'Moskowitz et Grinblatt (1999)',
+        'Do Industries Explain Momentum?',
+        'Journal of Finance',
+        'secteurs en tendance.'
+      ),
+      ref(
+        '✅',
+        'Daniel et Moskowitz (2016)',
+        'Momentum Crashes',
+        'Journal of Financial Economics',
+        'alerte krach : marché en baisse de 20 % sur un an.'
+      ),
+      ref(
+        '✅',
+        'Asness, Moskowitz et Pedersen (2013)',
+        'Value and Momentum Everywhere',
+        'Journal of Finance',
+        'dosage 70 % 🎯 et 30 % 💎.'
+      ),
+      ref(
+        '✅',
+        'Fama et French (2012)',
+        'Size, Value, and Momentum in International Stock Returns',
+        'Journal of Financial Economics',
+        'facteurs européens qui servent de contrôle indépendant.'
+      ),
+      ref(
+        '🧪',
+        'Barroso et Santa-Clara (2015)',
+        'Momentum Has Its Moments',
+        'Journal of Financial Economics',
+        'volatilité du momentum : rien de plus.'
+      ),
+      ref(
+        '🧪',
+        'Da, Gurun et Warachka (2014)',
+        'Frog in the Pan',
+        'Review of Financial Studies',
+        'hausse « en petits pas » : rien de plus.'
+      ),
+      ref(
+        '🧪',
+        'Blitz, Huij et Martens (2011)',
+        'Residual Momentum',
+        'Journal of Empirical Finance',
+        'hausse hors effet marché : rien de plus.'
+      ),
+      ref(
+        '🧪',
+        'Bali, Cakici et Whitelaw (2011)',
+        'Maxing Out: Stocks as Lotteries',
+        'Journal of Financial Economics',
+        'effet « loterie » : rien de plus.'
+      ),
+      ref(
+        '🧪',
+        'Frazzini et Pedersen (2014)',
+        'Betting Against Beta',
+        'Journal of Financial Economics',
+        'bêta faible : gain trop faible dans un portefeuille de 10 lignes.'
+      ),
+      ref(
+        '🧪',
+        'Lo et MacKinlay (1988)',
+        'Stock Market Prices Do Not Follow Random Walks',
+        'Review of Financial Studies',
+        'persistance (ratio de variance) : rien de plus.'
+      ),
+      ref(
+        '🧪',
+        'Minervini (2013)',
+        'Trade Like a Stock Market Wizard',
+        '',
+        '« Trend Template » : doublon du classement.'
+      ),
+    ]) +
+    '<p class="small"><b>💎 Valeur et comptes</b></p>' +
+    ul([
+      ref(
+        '✅',
+        'Piotroski (2000)',
+        'Value Investing: The Use of Historical Financial Statement Information to Separate Winners from Losers',
+        'Journal of Accounting Research',
+        'F-score des comptes, sélection 💎.'
+      ),
+      ref(
+        '✅',
+        "Altman (1968), version Z'' (1995)",
+        'Financial Ratios, Discriminant Analysis and the Prediction of Corporate Bankruptcy',
+        'Journal of Finance',
+        'risque de défaillance.'
+      ),
+      ref(
+        '✅',
+        'Beneish (1999)',
+        'The Detection of Earnings Manipulation',
+        'Financial Analysts Journal',
+        'comptes possiblement embellis.'
+      ),
+      ref(
+        '✅',
+        'Edwards et Bell (1961) ; Ohlson (1995)',
+        'Earnings, Book Values, and Dividends in Equity Valuation',
+        'Contemporary Accounting Research',
+        'valeur intrinsèque par le revenu résiduel.'
+      ),
+      ref('📖', 'Graham (1949)', "L'Investisseur intelligent", '', 'marge de sécurité entre le cours et la valeur.'),
+    ]) +
+    '<p class="small"><b>📊 Résultats, analystes, dirigeants</b></p>' +
+    ul([
+      ref(
+        '✅',
+        'Chan, Jegadeesh et Lakonishok (1996)',
+        'Momentum Strategies',
+        'Journal of Finance',
+        'révisions des analystes et surprises de résultats (secteurs, piste en observation).'
+      ),
+      ref(
+        '✅',
+        'Cohen et Frazzini (2008)',
+        'Economic Links and Predictable Returns',
+        'Journal of Finance',
+        'clients en avance sur leurs fournisseurs (thèmes).'
+      ),
+      ref(
+        '🧪',
+        'Bernard et Thomas (1989)',
+        'Post-Earnings-Announcement Drift',
+        'Journal of Accounting Research',
+        "dérive après les résultats : n'aide pas à choisir dans le 🎯."
+      ),
+      ref(
+        '✅',
+        'Cohen, Malloy et Pomorski (2012)',
+        'Decoding Inside Information',
+        'Journal of Finance',
+        'achats de dirigeants « de routine » ou opportunistes.'
+      ),
+      ref(
+        '📖',
+        'Jeng, Metrick et Zeckhauser (2003)',
+        'Estimating the Returns to Insider Trading',
+        'Review of Economics and Statistics',
+        "+0,4 % par mois aux États-Unis ; sur 4 000 achats français et suédois : pas mieux que le hasard, d'où l'abandon de cette méthode."
+      ),
+    ]) +
+    '<p class="small"><b>🎲 Fiabilité statistique et analyse technique</b></p>' +
+    ul([
+      ref(
+        '✅',
+        'Harvey, Liu et Zhu (2016)',
+        '… and the Cross-Section of Expected Returns',
+        'Review of Financial Studies',
+        'seuil t ≥ 3 quand beaucoup de règles ont été essayées.'
+      ),
+      ref(
+        '✅',
+        'Bailey et López de Prado (2014)',
+        'The Deflated Sharpe Ratio',
+        'Journal of Portfolio Management',
+        "ratio de Sharpe corrigé du nombre d'essais (test des secteurs)."
+      ),
+      ref(
+        '✅',
+        'Wilder (1978)',
+        'New Concepts in Technical Trading Systems',
+        '',
+        'RSI 14 et écart moyen journalier (ATR).'
+      ),
+      ref(
+        '✅',
+        'Appel (fin des années 1970)',
+        '',
+        '',
+        'MACD : moyennes exponentielles 12 et 26 jours, signal sur 9 jours.'
+      ),
+    ]);
+  var meth = ul([
+    li(
+      '💯 <b>Note sur 100</b> : force sur 12 mois (rang parmi toutes les sociétés) 50 points, proximité du plus haut 10, tendance 15, comptes 20, dirigeants en bonus ou malus ; sociétés écartées si peu liquides, en perte ou aux comptes fragiles.'
+    ),
+    li(
+      "🎯 <b>Règles</b> : hausse de +60 à +200 % sur 12 mois ; pente du canal mesurée par régression du cours (en logarithme) sur 26 semaines ; 🔊 volumes de 10 semaines au moins 1,5 fois la moyenne de l'année ; 📣 semaine à +8 % ou plus sur 3 fois le volume habituel ; ⏸️ moyenne mobile 10 semaines ; ⚡ volatilité annuelle de 80 % et plus ; 🐻 ventes à découvert de 0,5 % et plus (Paris) ; 2 sociétés par secteur au plus."
+    ),
+    li(
+      '💎 <b>Valeur</b> : tiers le moins cher en cours / fonds propres, F-score de 7 et plus, sans perte ni chute de plus de 40 % sur un an.'
+    ),
+    li(
+      "🧭 <b>Plan d'entrée</b> : supports et résistances aux plus hauts et plus bas touchés plusieurs fois (tolérance de 1,2 ATR ou 1,5 %), complétés par le plus haut et le plus bas de l'année ; figures (canal, biseau, triangle, élargissement) tracées par les sommets et les creux ; cône de volatilité à 68 % et 90 % (loi log-normale, sans tendance supposée) ; retracements de Fibonacci (23,6 à 61,8 %)."
+    ),
+    li(
+      "🏦 <b>Valeur intrinsèque</b> : revenu résiduel et trésorerie disponible capitalisée, sans croissance supposée ; rendement exigé de 8,5 à 11 % selon la taille (taux sans risque européen d'environ 3 % plus la prime de risque des actions)."
+    ),
+    li(
+      "🔬 <b>Analyse des fiches</b> : score de conviction (technique 25 %, comptes 25 %, catalyseurs 15 %, valorisation 15 %, risques 20 %), scénarios tirés des objectifs des analystes et de l'amplitude habituelle du cours, incertitude d'après la volatilité."
+    ),
+    li(
+      '💼 <b>Portefeuille</b> : garder 6 mois, protection à −30 %, 2 lignes par secteur, achats par petites touches pendant une alerte krach ; réglages issus de portefeuilles simulés sur 1997-2026 (frais de 0,3 % par achat et par vente).'
+    ),
+  ]);
+  var tests = ul([
+    li(
+      '📏 <b>Mesure commune</b> : rendement à 6 mois (26 semaines) moins celui de la société moyenne de la même semaine, valeurs extrêmes écrêtées à 2 % et 98 %, part des chutes de 25 % ou plus, résultat par période (1997-2008, 2009-2017, 2018-2026).'
+    ),
+    li(
+      "⏳ <b>Sans regard vers le futur</b> : chaque calcul n'utilise que ce qui était connu à la date (comptes comptés 120 jours après la clôture de l'exercice)."
+    ),
+    li(
+      "🎲 <b>Contre le hasard</b> : réglages choisis sur 1997-2012 puis mesurés sur 2013-2026 ; t corrigé du chevauchement des périodes ; tirages au hasard (placebo) et rééchantillonnage par blocs pour les secteurs ; correction de Bonferroni pour les mois de l'année (seuil |t| ≥ 2,9)."
+    ),
+    li(
+      '📒 <b>Suivi réel</b> : chaque sélection suivie depuis le 18/10/2026 et chaque règle revérifiée chaque soir ; chiffres prudents, frais et biais du survivant : voir « ⚖️ Fiabilité des chiffres ».'
+    ),
+    li(
+      '🧾 <b>Refaire les calculs</b> : scripts publics dans ' +
+        ln(repoUrl() + '/tree/main/research', 'research/') +
+        ', détail de chaque chiffre dans ' +
+        ln(repoUrl() + '/blob/main/research/README.md', 'research/README.md') +
+        '.'
+    ),
+  ]);
+  return (
+    '<details class="card fold" data-k="aide-biblio"><summary>📚 Sources, études et méthodes <span class="muted small">· données, 27 références, calculs et tests</span></summary>' +
+    '<p class="small">Tout ce qui a servi à construire Euro Signal, et ce qui en a été retenu.</p>' +
+    sub('bib-data', "🗂️ Données : d'où viennent les chiffres", data) +
+    sub('bib-acad', '🎓 Études académiques', studies) +
+    sub('bib-meth', '📐 Méthodes de calcul', meth) +
+    sub('bib-test', '🧪 Comment les règles sont testées', tests) +
+    '</details>'
+  );
+}
 function logicCard() {
   var tr = function (cells, head) {
     return (
@@ -996,7 +1329,7 @@ function methodCard() {
   return h + '</details>';
 }
 function vAide() {
-  var h = '<h2 class="vt">Comment ça marche</h2>' + logicCard() + methodCard();
+  var h = '<h2 class="vt">Comment ça marche</h2>' + logicCard() + biblioCard() + methodCard();
   h +=
     "<p class=\"foot pad\">🌙 Mis à jour chaque soir de semaine · 📧 sélection le lundi · 📱 « Ajouter à l'écran d'accueil » pour l'ouvrir comme une application. Aide à la décision, jamais un ordre d'achat.</p>";
   var nD = 0,

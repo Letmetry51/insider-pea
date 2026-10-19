@@ -49,6 +49,8 @@ avec la société moyenne de la même semaine). Le détail chiffré est dans l'o
 - **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027).
 
 Tout se recalcule : `research/chiffres_cles.py` (ce tableau), `research/backtest/valeur.py` (💎), détail dans `research/README.md`.
+Toutes les sources de données, les études académiques (avec ce qui en a été retenu) et les méthodes de calcul sont listées
+dans l'onglet **Comment ça marche** de la page (pli « 📚 Sources, études et méthodes »).
 
 ## Organisation du code
 
