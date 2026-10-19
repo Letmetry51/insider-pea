@@ -5,7 +5,6 @@ le calcul, ni produire de valeurs absurdes dans le fichier lu par le tableau de 
   python scrapers/test_sectors.py
 """
 import json
-import math
 import shutil
 import sys
 import tempfile

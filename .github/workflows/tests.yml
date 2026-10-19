@@ -1,0 +1,62 @@
+# Contrôle automatique de chaque modification du code (et de chaque proposition de modification) :
+# tests du moteur et des collecteurs, erreurs de code (ESLint, ruff), mise en forme (Prettier), versions des fichiers de la page.
+# Les mises à jour de données du soir (dossier data/) ne déclenchent pas ce contrôle.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['data/**']
+  pull_request:
+    paths-ignore: ['data/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  javascript:
+    name: Moteur et page (JavaScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Tests du moteur
+        run: npm test
+      - name: Erreurs de code (ESLint)
+        run: npm run lint
+      - name: Mise en forme (Prettier)
+        run: npm run format:check
+      - name: Versions des fichiers de la page
+        run: node tools/stamp.mjs --check
+
+  python:
+    name: Collecteurs et emails (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt ruff==0.16.8
+      - name: Erreurs de code (ruff)
+        run: ruff check --select F scrapers euro_signal run.py
+      - name: Tests
+        run: |
+          python euro_signal/test_positions.py
+          python euro_signal/test_health.py
+          python scrapers/test_financials.py
+          python scrapers/test_prices.py
+          python scrapers/test_yahoo.py
+          python scrapers/test_sectors.py

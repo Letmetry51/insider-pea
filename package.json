@@ -1,0 +1,20 @@
+{
+  "name": "euro-signal",
+  "private": true,
+  "description": "Euro Signal — momentum et valeur sur les actions européennes, règles testées sur 29 ans",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node euro_signal/tests.js",
+    "lint": "eslint .",
+    "format": "prettier --write \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" sw.js",
+    "format:check": "prettier --check \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" sw.js",
+    "stamp": "node tools/stamp.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "globals": "17.13.0",
+    "prettier": "3.9.10"
+  }
+}

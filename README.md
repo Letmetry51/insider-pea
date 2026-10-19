@@ -1,178 +1,103 @@
-# Insider PEA — Dashboard personnel 🇫🇷
+# Euro Signal
 
-Outil personnel gratuit de suivi des achats d'initiés sur les actions PEA françaises, avec scoring basé sur la recherche académique.
+Tableau de bord gratuit pour les actions européennes éligibles au PEA : chaque soir, il applique des règles
+**testées sur 29 ans de cours** (momentum, plus un complément « valeur »), publie une sélection et envoie
+les emails utiles (sélection du lundi, feu vert, protection −30 %, rappel à 6 mois, alerte krach…).
 
-## 🎯 Ce que fait cet outil
+> **Avertissement.** Euro Signal applique automatiquement des règles statistiques à des données publiques.
+> Ce n'est ni un conseil en investissement, ni une recommandation personnalisée, et les performances passées
+> ne préjugent pas des performances futures. Les chiffres des tests sont optimistes (voir « Limites »).
 
-- **Récupère automatiquement** les déclarations d'achats d'initiés auprès de l'AMF (via lestransactions.fr)
-- **Enrichit les données** avec Yahoo Finance : cours actuels, objectifs analystes 12 mois, RSI, P/E, dividendes
-- **Calcule un score Insider-First** (0-100 + garde technique ±15)
-- **Affiche un dashboard web** avec recommandations triées
-- **Mise à jour quotidienne automatique** via GitHub Actions (gratuit)
-- **Coût total : 0 €**
+*English summary: Euro Signal is a free, self-hosted dashboard for European (PEA-eligible) stocks. Every evening a
+GitHub Actions workflow collects public data, ranks ~3,800 listed companies with momentum rules back-tested on
+1997–2026 weekly prices (plus a small Piotroski-style value sleeve), publishes a static page on GitHub Pages and sends
+email alerts. Not investment advice. Code under the MIT licence; data files belong to their sources.*
 
-## ✅ Prérequis
+## Ce que fait l'outil
 
-Tu as besoin de **trois choses gratuites** :
+| | |
+|---|---|
+| 🎯 **Momentum** | sociétés en forte hausse sur 12 mois (+60 à +200 %), pente forte, comptes solides ; priorité aux volumes en hausse (🔊) et aux bonds sur gros volume (📣) ; 2 par secteur ; écarte les cours très volatils (⚡) et les sociétés parisiennes très vendues à découvert (🐻) |
+| 💎 **Valeur** | complément : sociétés bon marché (cours / fonds propres) aux comptes solides (F-score de Piotroski ≥ 7) |
+| 📋 **Sélection du lundi** | 5 🎯 + 2 💎, avec ✅ feu vert ou ⏸️ en attente (sous la moyenne 10 semaines) |
+| 📧 **Emails** | sélection, feu vert, paliers de −10 %, protection −30 %, rappel à 6 mois, krach, auto-surveillance, bilan trimestriel |
+| 🧭 **Secteurs**, 👔 **dirigeants** | radar des secteurs en tendance ; déclarations d'achats et de ventes des dirigeants (consultation) |
+| 🔎 **Auto-contrôle** | chaque soir : tests, contrôle des fichiers et de l'affichage ; chaque règle est vérifiée sur les vraies sélections |
 
-1. Un compte **GitHub** (5 min à créer : https://github.com/signup)
-2. Un navigateur web (Chrome, Firefox, Safari...)
-3. **Rien d'autre**. Pas besoin d'installer Python, pas besoin de serveur.
+## La méthode en bref, et ses limites
 
----
+Les règles viennent de tests sur les cours hebdomadaires de 1 067 sociétés européennes de 1997 à 2026 (écart à 6 mois
+avec la société moyenne de la même semaine). Le détail chiffré est dans l'onglet **Aide** de la page.
 
-## 📋 Installation pas-à-pas
+**Limites à connaître :**
+- **biais du survivant** : seules les sociétés encore cotées aujourd'hui sont dans les tests, les chiffres absolus sont donc
+  embellis (l'effet momentum lui-même est confirmé par le facteur européen de Kenneth French) ;
+- **beaucoup de variantes testées** : certaines règles peuvent devoir leur résultat au hasard. Contrôle hors échantillon
+  (réglages choisis sur 1997-2012, mesurés sur 2013-2026) : +7,1 points contre +7,3 à +7,9 pour les meilleurs réglages ;
+  la priorité 📣 n'y résiste pas, elle reste à confirmer par le suivi réel ;
+- ni frais, ni impôts, ni dividendes dans les tests ; le 💎 n'a pas été testé sur ces données (études publiées) ;
+- le suivi réel des sélections a commencé le 18/10/2026.
 
-### Étape 1 — Créer ton repo GitHub (2 min)
-
-1. Connecte-toi sur https://github.com
-2. En haut à droite, clique sur le **"+"** puis sur **"New repository"**
-3. Nom du repo : `insider-pea` (ou ce que tu veux)
-4. Coche **"Public"** (important pour avoir GitHub Pages et Actions gratuits)
-5. Coche **"Add a README file"**
-6. Clique **"Create repository"**
-
-### Étape 2 — Uploader les fichiers (5 min)
-
-Dans ton nouveau repo, tu vas uploader tous les fichiers fournis dans le zip.
-
-1. Sur la page du repo, clique sur **"Add file"** → **"Upload files"**
-2. Glisse-dépose **tous les fichiers** du zip (garde la structure des dossiers)
-3. En bas, clique sur **"Commit changes"**
-
-La structure finale doit ressembler à ça :
+## Organisation du code
 
 ```
-insider-pea/
-├── .github/
-│   └── workflows/
-│       └── update-data.yml      ← Le planificateur automatique
-├── scrapers/
-│   ├── france_amf.py             ← Déclarations AMF (France)
-│   ├── europe_insiders.py        ← FSMA (Belgique), AFM (Pays-Bas), Finansinspektionen (Suède)
-│   ├── insider_history.py        ← Historique long France et Suède (workflow history.yml)
-│   ├── shorts.py, prices.py, events.py, financials.py ← ventes à découvert, cours, résultats, comptes
-├── euro_signal/                  ← Moteur (core.js, testé par tests.js) et calcul du soir (build.mjs)
-├── data/                         ← Rempli automatiquement chaque soir
-├── euro-signal.html              ← Le tableau de bord (index.html y renvoie)
-├── run.py                        ← Collecte AMF (étape 1 du workflow)
-├── requirements.txt              ← Dépendances Python
-└── README.md                     ← Ce fichier
+euro-signal.html        coque de la page (charge les fichiers ci-dessous, avec leur empreinte ?v=…)
+app/                    interface : scripts chargés dans l'ordre (1-base … 8-actions) et feuille de style
+euro_signal/
+  core.js               moteur de calcul : fonctions pures, partagé par la page et par Node
+  build.mjs             calcul du soir : classement, sélection, suivi réel, emails à envoyer
+  tests.js              tests du moteur (npm test)
+  check_outputs.mjs     contrôle des fichiers produits ; ui_check.mjs : contrôle de l'affichage (Playwright)
+  send_alerts.py        envoi des emails (Gmail) ; positions.py : alertes sur vos positions ; send_health.py : email technique
+  config.json           réglages (barème, sélection, alertes)
+scrapers/               collecteurs : déclarations (AMF, FI, FSMA, AFM), ventes à découvert, cours et comptes (Yahoo), secteurs, presse
+research/               scripts des études (voir research/README.md)
+tools/stamp.mjs         empreintes des fichiers de la page (npm run stamp)
+.github/workflows/      update-data.yml (chaque soir), history.yml (chaque jour), tests.yml (chaque modification)
+data/                   données produites chaque soir (non couvertes par la licence)
 ```
 
-### Étape 3 — Activer GitHub Actions (1 min)
+## Installer sa propre instance
 
-1. Dans ton repo, clique sur l'onglet **"Actions"** en haut
-2. Si GitHub te demande "I understand my workflows, go ahead and enable them", clique dessus
-3. Dans la liste à gauche, tu dois voir **"Mise à jour quotidienne des données"**
+1. **Forker** ce dépôt (public : GitHub Pages et Actions sont alors gratuits).
+2. **Settings → Pages** : publier depuis la branche `main`, dossier racine. La page est alors à
+   `https://<vous>.github.io/<dépôt>/euro-signal.html` ; mettez cette adresse dans `euro_signal/config.json` (`dashboardUrl`).
+3. **Settings → Secrets and variables → Actions** (facultatif, pour les emails) : `GMAIL_USER`, `GMAIL_APP_PASSWORD`
+   (mot de passe d'application Google) et `ALERT_TO`. Sans eux, les emails sont seulement simulés.
+4. **Actions** : activer les workflows, puis lancer « Update data » une première fois (environ 40 minutes).
 
-### Étape 4 — Lancer le premier scraping manuellement (3 min)
+Vos positions (« Je l'ai acheté ») partent par email vers votre propre boîte et ne sont jamais écrites dans le dépôt.
 
-Le workflow est programmé pour tourner chaque jour à 19h, mais tu peux le lancer tout de suite :
+## Développer
 
-1. Clique sur **"Mise à jour quotidienne des données"** (dans l'onglet Actions)
-2. À droite, clique sur le bouton **"Run workflow"**
-3. Dans le menu déroulant, clique sur **"Run workflow"** (vert)
-4. **Attends 2-3 minutes** : un point orange qui tourne → un ✅ vert
-
-Si ça passe au vert, le fichier `data/latest.json` a été créé dans ton repo !
-
-### Étape 5 — Activer GitHub Pages pour le dashboard (2 min)
-
-1. Dans ton repo, clique sur **"Settings"** (en haut à droite)
-2. Dans la barre latérale gauche, clique sur **"Pages"**
-3. Sous **"Build and deployment"** → **"Source"**, choisis **"Deploy from a branch"**
-4. Sous **"Branch"**, choisis **"main"** et dossier **"/ (root)"**
-5. Clique **"Save"**
-6. Attends 1-2 minutes
-7. Rafraîchis la page — en haut tu vois : **"Your site is live at https://TON_USERNAME.github.io/insider-pea/"**
-
-### Étape 6 — Voir ton dashboard 🎉
-
-Ouvre l'URL dans ton navigateur :
+Node 20 et Python 3.11.
 
 ```
-https://TON_USERNAME.github.io/insider-pea/
+npm ci                    # outils (ESLint, Prettier)
+npm test                  # tests du moteur
+npm run lint              # erreurs de code
+npm run format            # mise en forme (Prettier)
+npm run stamp             # après toute modification de app/ ou de core.js
+pip install -r requirements.txt
+python euro_signal/test_positions.py && python scrapers/test_sectors.py   # (et les autres test_*.py)
+python -m http.server     # puis http://localhost:8000/euro-signal.html (nécessite un dossier data/ rempli)
 ```
 
-Ajoute cette URL à tes favoris.
+Chaque modification poussée sur `main` ou proposée (pull request) passe automatiquement ces contrôles (workflow « Tests »).
 
-**C'est fini.** À partir de maintenant, tout se met à jour automatiquement.
+## Sources de données
 
----
+Les collecteurs lisent des sources publiques ; **vérifiez leurs conditions d'utilisation avant de republier les données**.
 
-## 🔄 Fonctionnement automatique
+| Source | Usage | À savoir |
+|---|---|---|
+| Yahoo Finance (via `yfinance`) | cours, volumes, comptes, résultats, avis d'analystes | usage personnel ; la redistribution des données n'est en principe pas autorisée |
+| AMF (France), Finansinspektionen (Suède), FSMA (Belgique), AFM (Pays-Bas) | déclarations des dirigeants | registres publics ; contiennent des noms de personnes (RGPD) |
+| AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA | ventes à découvert déclarées | registres publics |
+| Google News (flux RSS) | titres de presse des sociétés suivies | titres et liens seulement |
+| Kenneth R. French Data Library | contrôle indépendant du facteur momentum européen | citer la source |
 
-- **Tous les jours du lundi au vendredi à 19h** (heure de Paris), GitHub lance le scraper
-- Les données récupérées sont commitées dans `data/latest.json`
-- GitHub Pages met à jour le dashboard automatiquement en quelques secondes
-- **Tu n'as rien à faire**
+## Licence
 
-## 📊 Ajouter / retirer des entreprises
-
-1. Dans ton repo, ouvre `run.py`
-2. Clique sur l'icône crayon ✏️ en haut à droite pour éditer
-3. Dans la liste `TARGETS`, ajoute ou retire des lignes :
-   ```python
-   {"isin": "FR0000045072", "name": "Crédit Agricole", "ticker": "ACA.PA", "country": "FR", "sector": "Finance"},
-   ```
-4. Trouve l'ISIN sur https://live.euronext.com (chaque action a son ISIN à 12 caractères)
-5. Trouve le ticker Yahoo sur https://finance.yahoo.com (ex : TEP.PA, SAP.DE)
-6. Clique "Commit changes" en bas
-7. Au prochain lancement (19h) les nouvelles entreprises seront incluses
-
-## 🐛 Dépannage
-
-### "Le workflow a échoué"
-
-Va dans l'onglet Actions, clique sur le workflow qui a échoué, puis sur **"update-data"** pour voir les logs. Les causes fréquentes :
-
-- **lestransactions.fr est temporairement down** → ça repartira le lendemain
-- **Yahoo Finance rate limit** → même chose, résolu tout seul
-- **Erreur de syntaxe Python** → si tu as modifié du code, reviens en arrière
-
-### "Mon dashboard affiche 'Erreur: Fichier introuvable'"
-
-Le premier scraping n'a pas encore tourné. Retourne à l'**Étape 4** et lance-le manuellement.
-
-### "Pas de nouvelles données"
-
-Les déclarations d'initiés sont **publiées avec délai** par l'AMF (3-4 jours ouvrés après la transaction). Pendant les vacances ou les périodes calmes, il n'y a parfois aucun nouvel achat pendant plusieurs jours. C'est normal.
-
-## 📚 Sources de données
-
-- **Achats d'initiés France** : [LesTransactions.fr](https://lestransactions.fr) (API gratuite documentée, agrégateur de la base BDIF de l'AMF)
-- **Prix et analystes** : [Yahoo Finance](https://finance.yahoo.com) via la librairie Python [yfinance](https://github.com/ranaroussi/yfinance)
-
-## ⚙️ Extensions futures possibles
-
-- **Ajouter l'Allemagne** : scraper `portal.mvp.bafin.de` (export CSV quotidien)
-- **Ajouter les alertes email** : utiliser un nouveau workflow GitHub Actions avec `smtplib`
-- **Ajouter le backtest** : comparer les rendements passés aux scores
-
-## 📖 Méthodologie de scoring
-
-### Score Insider (0-100 pts — 70% du poids)
-
-- **Cluster d'achats** (40 pts max) : plus il y a d'achats sur peu de temps, plus le signal est fort. Basé sur Kang, Kim, Wang (2018) qui montrent que les cluster buys génèrent +3.8% sur 90j vs +2% pour les achats isolés.
-- **Volume cumulé** (30 pts max) : la conviction se mesure au montant engagé.
-- **Qualité des insiders** (20 pts max) : un CEO vaut plus qu'un administrateur indépendant. Harvard 2022 montre que les achats de C-level génèrent +6% annualisé sur 3 ans.
-- **Récence** (10 pts max) : les achats récents sont plus informatifs.
-
-### Garde Technique (±15 pts max)
-
-Ne peut **jamais** faire descendre le score en dessous du score insider pur. Elle sert uniquement à :
-- **Confirmer** un signal : RSI survendu ou proche du bas 52 semaines = meilleur point d'entrée
-- **Alerter** sur un timing moins favorable : RSI suracheté
-
-**Règle absolue** : `Score final = max(insider, insider + tech)`. Un bon signal insider n'est jamais annulé.
-
-## ⚠️ Avertissement
-
-Cet outil est une **aide à la décision** basée sur des données publiques. Ce n'est **pas un conseil en investissement**. Les performances passées (académiques ou autres) ne préjugent pas des performances futures. Les dirigeants peuvent aussi se tromper, et leurs achats ne garantissent rien. Fais toujours tes propres recherches avant tout investissement.
-
-## 📄 Licence
-
-Usage personnel uniquement. Respecte les conditions d'utilisation des sources :
-- lestransactions.fr : données publiques AMF
-- Yahoo Finance : [Terms of Service](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html) — usage personnel autorisé
+Code sous licence **MIT** (voir `LICENSE`). Les données du dossier `data/` appartiennent à leurs sources et ne sont pas
+couvertes par cette licence.
