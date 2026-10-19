@@ -12,13 +12,16 @@ const PAGE = path.join(ROOT, 'euro-signal.html');
 const check = process.argv.includes('--check');
 const html = fs.readFileSync(PAGE, 'utf8');
 const stale = [];
-const out = html.replace(/(<(?:script src|link rel="stylesheet" href)=")((?:app|euro_signal)\/[^"?]+)(?:\?v=([0-9a-f]+))?"/g, (m, pre, file, v) => {
-  const full = path.join(ROOT, file);
-  if (!fs.existsSync(full)) throw new Error('fichier introuvable : ' + file);
-  const h = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex').slice(0, 10);
-  if (h !== v) stale.push(file);
-  return pre + file + '?v=' + h + '"';
-});
+const out = html.replace(
+  /(<(?:script src|link rel="stylesheet" href)=")((?:app|euro_signal)\/[^"?]+)(?:\?v=([0-9a-f]+))?"/g,
+  (m, pre, file, v) => {
+    const full = path.join(ROOT, file);
+    if (!fs.existsSync(full)) throw new Error('fichier introuvable : ' + file);
+    const h = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex').slice(0, 10);
+    if (h !== v) stale.push(file);
+    return pre + file + '?v=' + h + '"';
+  }
+);
 if (check) {
   if (stale.length) {
     console.error('Empreintes à mettre à jour (npm run stamp) : ' + stale.join(', '));

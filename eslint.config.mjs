@@ -45,7 +45,11 @@ export default [
   },
   {
     files: ['app/**/*.js'],
-    languageOptions: { ecmaVersion: 2022, sourceType: 'script', globals: { ...globals.browser, ES: 'readonly', ...shared } },
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: { ...globals.browser, ES: 'readonly', ...shared },
+    },
     rules: { ...bugs, 'no-redeclare': ['error', { builtinGlobals: false }] },
   },
   {
