@@ -228,22 +228,22 @@
    "2026DD1144758",
    "2026DD1144763"
   ],
-  "lastRun": "2026-10-18",
+  "lastRun": "2026-10-19",
   "pdfFail": 0,
   "records": 31478,
   "upToDate": true
  },
  "FI": {
   "cursor": "2026-10-09",
-  "lastRun": "2026-10-18",
+  "lastRun": "2026-10-19",
   "records": 124046,
   "upToDate": true
  },
- "generated_at": "2026-10-18T07:26:20.299368+00:00",
+ "generated_at": "2026-10-19T08:09:30.566174+00:00",
  "outcomes": {
   "buys": 51360,
-  "known": 36945,
-  "lastRun": "2026-10-18",
+  "known": 36959,
+  "lastRun": "2026-10-19",
   "local": {
    "FR": "^FCHI",
    "SE": "^OMXSPI"
