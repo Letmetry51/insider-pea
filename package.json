@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "test": "node euro_signal/tests.js",
-    "lint": "node tools/lint.mjs",
+    "lint": "eslint .",
     "format": "prettier --write \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" sw.js",
     "format:check": "prettier --check \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" sw.js",
     "stamp": "node tools/stamp.mjs"
