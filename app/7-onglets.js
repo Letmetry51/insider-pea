@@ -1084,7 +1084,7 @@ function compareCard() {
     '<li>🌙 Données mises à jour une fois par soir de semaine : pas de cours en séance.</li>' +
     '<li>📰 Actualités : titres seulement, repérés par mots-clés.</li>' +
     '<li>👤 Outil personnel et gratuit, sans support ni garantie de service.</li></ul>' +
-    '<p class="small"><b>En pratique</b> : Euro Signal pour décider, TradingView gratuit pour le graphique en séance, Boursorama ou Zonebourse pour l\'actualité.</p>' +
+    '<p class="small"><b>En pratique</b> : Euro Signal pour décider, TradingView gratuit pour le graphique en séance, Boursorama ou Zonebourse pour l\'actualité, et un courtier aux frais bas (voir « ⚖️ Fiabilité des chiffres »).</p>' +
     '<p class="foot">Comparaison du 20/10/2026, les offres gratuites changent : ' +
     a('https://help.yahoo.com/kb/SLN29276.html', 'formules Yahoo Finance') +
     ' · ' +
@@ -1291,7 +1291,7 @@ function logicCard() {
     '<p class="small">À retenir : <b>environ +4 points tous les 6 mois</b> face à la société moyenne (≈ +8 par an), avec des années nulles ou en perte.</p><ul class="plain small nomax">' +
     '<li>🪦 <b>Biais du survivant</b> (sociétés disparues absentes) : faillites supposées ci-dessus, hypothèse sévère ; et contrôle indépendant par le facteur momentum européen de Kenneth French, calculé avec les sociétés disparues : +9,7 % par an contre +10,0 % pour nous (1998-2026, corrélation 0,83).</li>' +
     "<li>🎲 <b>Trop d'essais</b> (512 réglages) : chiffre retenu sur les années jamais vues (réglages choisis sur 1997-2012, les nôtres 13<sup>es</sup> sur 512) et seuil exigeant t ≥ 3 au lieu de 2 (Harvey, Liu et Zhu, 2016). Le 🎯 passe (t 3,3) ; 📣 non (rien avant 2013) ; ⏸️ et ⚡ faibles depuis 2013.</li>" +
-    "<li>💶 <b>Frais, impôts, dividendes</b> : dividendes inclus (cours ajustés) ; frais de 0,5 à 2 % par achat-vente selon le courtier (plus 0,4 % de taxe à l'achat des sociétés françaises de plus d'1 Md€) ; dans un PEA, aucun impôt tant que l'argent y reste, puis 18,6 % des gains en prélèvements sociaux après 5 ans (taux 2026), comme pour un fonds indiciel dans le même PEA.</li>" +
+    "<li>💶 <b>Frais, impôts, dividendes</b> : dividendes inclus (cours ajustés) ; frais de 0,5 à 2 % par achat-vente selon le courtier (plus 0,4 % de taxe à l'achat des sociétés françaises de plus d'1 Md€) ; chaque ligne fait environ 2 achats-ventes par an : à 1 % l'aller-retour, 2 % par an partent en frais, à 0,2 % seulement 0,4 % ; le choix du courtier pèse donc autant qu'une règle ; dans un PEA, aucun impôt tant que l'argent y reste, puis 18,6 % des gains en prélèvements sociaux après 5 ans (taux 2026), comme pour un fonds indiciel dans le même PEA.</li>" +
     '<li>💎 <b>Valeur</b> testée sur nos données, 2024-2026 (seuls comptes disponibles, ≈ 520 sociétés liquides par mois) : les 10 premières +5,1 points à 6 mois (+4,1 après frais), 4 % de chutes de 25 % contre 8 % ; t 1,7 : encourageant, pas encore une preuve. Le dosage 70/30 repose sur le facteur valeur européen de Kenneth French.</li>' +
     '<li>📒 <b>Suivi réel</b> : automatique depuis le ' +
     (function () {
