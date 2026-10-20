@@ -246,7 +246,8 @@ CHART_ABB = {"data": {"charts": {"rows": [{"dateTime": "2026-10-16", "close": "9
 def _():
     rows = B.parse_nordic_list(LIST_STO, "ST")
     assert set(rows) == {"INVE-A.ST", "ABB.ST", "CALME.ST"}
-    assert rows["INVE-A.ST"] == {"close": 412.6, "change": -1.2, "volume": 1197856.0, "turnover": 5e8, "currency": "SEK", "oid": "TX75"}
+    assert rows["INVE-A.ST"] == {"close": 412.6, "change": -1.2, "volume": 1197856.0, "turnover": 5e8, "currency": "SEK", "oid": "TX75",
+                                 "isin": None}
     assert rows["CALME.ST"]["volume"] is None and rows["CALME.ST"]["change"] is None
     assert B.snum("+0.004") == 0.004 and B.snum("-1,234.50") == -1234.5 and B.snum("") is None and B.snum(None) is None
     for bad in (None, {}, {"data": None}, {"data": {"instrumentListing": None}}, {"data": {"instrumentListing": {"rows": [None, 1]}}}):
@@ -353,7 +354,7 @@ def _():
     (d / "societes" / "1.json").write_text(json.dumps(shard({"INVE-A.ST": {"currency": "SEK", "d": [400, 405, 410, None, None]}})))
     (d / "prices.json").write_text(json.dumps({"items": {"FR0000120271": {"ticker": "TTE.PA", "currency": "EUR",
                                                                             "rows": [["2026-10-16", 80, 81, 79, 80.7, 10]]}}}))
-    old = B.DATA, B.euronext_quotes, B.http_get, B.datetime
+    old = B.DATA, B.euronext_lists, B.http_get, B.datetime
     calls = []
 
     class FakeDT(B.datetime):
@@ -362,12 +363,13 @@ def _():
             return B.datetime(2026, 10, 19, 22, 30, tzinfo=tz)
     try:
         B.DATA = d
-        B.euronext_quotes = lambda: dict({f"X{k}.PA": B.quote("2026-10-19", 1.0) for k in range(40)}, **B.parse_euronext(CSV))
+        B.euronext_lists = lambda: (dict({f"X{k}.PA": B.quote("2026-10-19", 1.0) for k in range(40)}, **B.parse_euronext(CSV)),
+                                    B.parse_euronext_isins(CSV))
         B.http_get = fake_get(lambda u, p: SEARCH if u.endswith("/search") else CHART, calls)
         B.datetime = FakeDT
         assert B.main() == 0
     finally:
-        B.DATA, B.euronext_quotes, B.http_get, B.datetime = old
+        B.DATA, B.euronext_lists, B.http_get, B.datetime = old
     s0 = json.loads((d / "societes" / "0.json").read_text())
     s1 = json.loads((d / "societes" / "1.json").read_text())
     assert s0["items"]["TTE.PA"]["d"][-1] == 80.53
@@ -376,6 +378,8 @@ def _():
     assert json.loads((d / "backup-ids.json").read_text())["INVE-A.ST"][0] == "TX75"
     diag = json.loads((d / "diagnostics" / "backup.json").read_text())
     assert diag["session"] == "2026-10-19" and diag["catalogue"]["filled"] == 2 and diag["prices"]["filled"] == 1, diag
+    assert "catalogue" in diag["complete"] and diag["corrections"]["catalogue"]["corrected"] == 0
+    assert not (d / "backup-isins.json").exists()  # table trop courte (liste tronquée ?) : non écrite
 
 
 @case("Calcul du soir avec les listes nordiques retenues : clôtures prises dans la liste, aucun titre demandé un par un")
@@ -392,7 +396,7 @@ def _():
         if url.endswith("/screener/shares"):
             return LIST_STO if params["market"] == "STO" and params["category"] == "MAIN_MARKET" else {}
         return CHART_ABB if "/TX291/" in url else CHART
-    old = B.DATA, B.euronext_quotes, B.http_get, B.datetime
+    old = B.DATA, B.euronext_lists, B.http_get, B.datetime
 
     class FakeDT(B.datetime):
         @classmethod
@@ -400,17 +404,83 @@ def _():
             return B.datetime(2026, 10, 19, 22, 30, tzinfo=tz)
     try:
         B.DATA = d
-        B.euronext_quotes = lambda: {f"X{k}.PA": B.quote("2026-10-19", 1.0) for k in range(40)}
+        B.euronext_lists = lambda: ({f"X{k}.PA": B.quote("2026-10-19", 1.0) for k in range(40)}, {})
         B.http_get = fake_get(resp, calls)
         B.datetime = FakeDT
         assert B.main() == 0
     finally:
-        B.DATA, B.euronext_quotes, B.http_get, B.datetime = old
+        B.DATA, B.euronext_lists, B.http_get, B.datetime = old
     it = json.loads((d / "societes" / "0.json").read_text())["items"]
     assert it["INVE-A.ST"]["d"][-1] == 412.6 and it["CALME.ST"]["d"][-1] is None
     assert not [u for u in calls if u.endswith("/search")] and len([u for u in calls if "/chart/" in u]) == 2, calls
     diag = json.loads((d / "diagnostics" / "backup.json").read_text())
     assert diag["nordic"]["lists"]["STO"]["used"] is True and diag["nordic"]["asked"] == 0 and diag["catalogue"]["byMarket"] == {"ST": 1}
+
+
+@case("Table ISIN → symbole Yahoo : toutes les lignes Euronext, place du pays de l'ISIN d'abord, ISIN invalides ignorés")
+def _():
+    t = B.parse_euronext_isins(CSV)
+    assert t["FR0000120271"] == ["TTE.PA", "EUR"] and t["NL0010273215"] == ["ASML.AS", "EUR"]
+    assert t["FR0000000003"] == ["NONE.PA", "EUR"]  # sans clôture du jour : gardée pour la table
+    assert t["BE0000000002"] == ["DUAL.BR", "EUR"]  # cotée à Bruxelles et Paris, ISIN belge : Bruxelles
+    out = {}
+    B.put_isin(out, "FR0000000002", "X.BR", "EUR")
+    B.put_isin(out, "FR0000000002", "X.PA", "EUR")
+    B.put_isin(out, "FR0000000002", "X.AS", "EUR")
+    B.put_isin(out, "PAS-UN-ISIN", "Y.PA", "EUR")
+    assert out == {"FR0000000002": ["X.PA", "EUR"]}
+
+
+@case("Clôture Yahoo aberrante corrigée par la clôture officielle ; simple écart ou grosse variation confirmée : rien")
+def _():
+    items = {
+        "ADV.MI": {"currency": "EUR", "d": [4.9, 4.95, 5.0, 5.0, 40.0], "w": [4.6, 4.75, 4.9, 5.0, 40.0]},  # erreur Yahoo ×8
+        "ECART.PA": {"currency": "EUR", "d": [10, 10, 10, 10, 10.0]},  # 3 % d'écart, les deux plausibles
+        "OPA.PA": {"currency": "EUR", "d": [10, 10, 10, 10, 16.0]},  # +60 % (offre publique), confirmé par la bourse
+        "SAP.DE": {"currency": "EUR", "d": [200, 200, 200, 200, 900.0]},  # aucune clôture officielle : rien
+    }
+    shs = [shard(items)]
+    enx = enx_of(ADV_MI=("2026-10-19", 5.747, "EUR"), ECART_PA=("2026-10-19", 10.3, "EUR"), OPA_PA=("2026-10-19", 16.1, "EUR"))
+    st = B.correct_catalogue(shs, enx, "2026-10-19")
+    it = shs[0]["items"]
+    assert st["checked"] == 3 and st["corrected"] == 1 and st["disagree"] == 1, st
+    assert it["ADV.MI"]["d"][-1] == 5.747 and it["ADV.MI"]["w"][-1] == 5.747
+    assert it["ECART.PA"]["d"][-1] == 10.0 and it["OPA.PA"]["d"][-1] == 16.0 and it["SAP.DE"]["d"][-1] == 900.0
+    prices = {"items": {"IT1": {"ticker": "ADV.MI", "currency": "EUR", "rows": [["2026-10-16", 5, 5, 5, 5.0, 1], ["2026-10-19", 40, 41, 39, 40.0, 2]]},
+                        "IT2": {"ticker": "ECART.PA", "currency": "EUR", "rows": [["2026-10-16", 10, 10, 10, 10.0, 1], ["2026-10-19", 10, 10, 10, 10.0, 1]]}}}
+    enx["ADV.MI"].update(open=5.5, high=5.9, low=5.4)
+    st = B.correct_prices(prices, enx, "2026-10-19")
+    assert st["corrected"] == 1 and st["disagree"] == 1
+    assert prices["items"]["IT1"]["rows"][-1] == ["2026-10-19", 5.5, 5.9, 5.4, 5.747, 2] and prices["items"]["IT1"]["corrected"] == "2026-10-19"
+
+
+@case("Complétude : séance attendue selon le calendrier de chaque bourse, sociétés liquides seulement")
+def _():
+    items = {
+        "TTE.PA": {"turnoverEur": 5e7, "d": [80, 80.2, 80.4, 80.7, 80.5]},
+        "MC.PA": {"turnoverEur": 5e7, "d": [395, 396, 397, 397, None]},
+        "PETIT.PA": {"turnoverEur": 1e4, "d": [1, 1, 1, 1, None]},  # peu échangée : non comptée
+        "SAP.DE": {"turnoverEur": 5e7, "d": [200, 201, 202, 203, None]},  # bourse allemande fermée le 19/10 (calendrier fictif)
+    }
+    prices = {"items": {"A": {"ticker": "TTE.PA", "rows": [["2026-10-19", 1, 1, 1, 1, 1]]},
+                        "B": {"ticker": "AI.PA", "rows": [["2026-10-16", 1, 1, 1, 1, 1]]},
+                        "C": {"ticker": "OLD.PA", "rows": [["2026-09-01", 1, 1, 1, 1, 1]]}}}  # cours figé : compté ailleurs
+
+    def cal(suf, d):
+        return "2026-10-16" if suf == "DE" else d
+    c = B.completeness([shard(items)], prices, "2026-10-19", cal)
+    assert c["calendar"] is True
+    assert c["catalogue"]["PA"] == {"expected": "2026-10-19", "liquid": 2, "ok": 1, "missing": ["MC.PA"]}
+    assert c["catalogue"]["DE"]["expected"] == "2026-10-16" and c["catalogue"]["DE"]["ok"] == 1
+    assert c["prices"]["PA"] == {"expected": "2026-10-19", "n": 2, "ok": 1, "missing": ["AI.PA"]}
+    c = B.completeness([shard(items)], prices, "2026-10-18", None)  # dimanche, sans calendrier : vendredi attendu
+    assert c["calendar"] is False and c["catalogue"]["PA"]["expected"] == "2026-10-16" and c["catalogue"]["PA"]["ok"] == 2
+    paris = B.timezone(B.timedelta(hours=2))
+    assert B.reference_day(B.datetime(2026, 10, 20, 19, 37, tzinfo=paris)) == "2026-10-20"
+    assert B.reference_day(B.datetime(2026, 10, 21, 1, 30, tzinfo=paris)) == "2026-10-20"
+    cal = B.calendars()
+    if cal:  # calendrier réel installé : jours fériés connus
+        assert cal("ST", "2026-06-19") == "2026-06-18" and cal("PA", "2026-05-14") == "2026-05-14" and cal("DE", "2026-12-24") == "2026-12-23"
 
 
 if __name__ == "__main__":

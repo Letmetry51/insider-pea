@@ -1,6 +1,7 @@
 """
-Euro Signal — email de contrôle du soir : envoyé seulement quand un contrôle trouve un problème (fichiers produits,
-baisse anormale d'une rubrique par rapport au calcul précédent, affichage du tableau de bord sur téléphone).
+Euro Signal — email de contrôle du soir : envoyé seulement quand un contrôle trouve un problème (étape du calcul en échec,
+calcul arrêté avant la fin, fichiers produits, trous dans les cours, baisse anormale d'une rubrique par rapport au calcul
+précédent, affichage du tableau de bord sur téléphone).
 Rien n'est envoyé quand tout va bien. Un même constat n'est envoyé qu'une fois par jour.
 
 Secrets : GMAIL_USER, GMAIL_APP_PASSWORD, ALERT_TO (sinon : simulation, le message est seulement affiché).
@@ -31,11 +32,36 @@ def load(path, default):
         return default
 
 
-def build(quality, ui):
+# étapes du calcul du soir (identifiants de .github/workflows/update-data.yml) : une étape en échec est signalée, même quand le
+# calcul continue sans elle (« continue-on-error » : GitHub affiche alors le calcul en succès et n'avertit personne)
+STEP_LABELS = {
+    "restore": "0. Données de la veille", "deps": "Installation des dépendances", "s1": "1. Déclarations AMF",
+    "s2": "2. Déclarations Belgique et Pays-Bas", "s2c": "2c. Positions vendeuses des fonds", "s3": "3. Cours Yahoo Finance",
+    "s3b": "3b. Secteurs et fiches sociétés", "s3c": "3c. Cours de secours (Euronext, Nasdaq Nordic)",
+    "s4": "4. Résultats, communiqués et révisions", "s4b": "4b. Comptes annuels", "s4c": "4c. Actualité des sociétés",
+    "s5a": "5a. Tests du moteur", "s5b": "5b. Calcul Euro Signal", "s5c": "5c. Archive des résultats et rachats",
+    "s5d": "5d. Contrôle des fichiers", "s5e": "5e. Contrôle de l'affichage", "s6": "6. Alertes email",
+    "s6b": "6b. Vos positions (alertes de revente)",
+}
+
+
+def failed_steps(steps):
+    """Étapes en échec d'après le résumé GitHub (toJSON(steps)) : [(identifiant, libellé)], dans l'ordre du calcul."""
+    if not isinstance(steps, dict):
+        return []
+    order = list(STEP_LABELS)
+    bad = [k for k, v in steps.items() if isinstance(v, dict) and v.get("outcome") == "failure"]
+    return [(k, STEP_LABELS.get(k, k)) for k in sorted(bad, key=lambda k: order.index(k) if k in order else len(order))]
+
+
+def build(quality, ui, steps=None, today=None):
     """Constats du soir : liste de lignes, vide quand tout va bien."""
-    out = []
+    out = [f"✖ Étape « {label} » en échec ce soir" for _, label in failed_steps(steps)]
     if not quality:
         out.append("✖ Contrôle des fichiers non fait (quality.json absent) : le calcul s'est peut-être arrêté avant.")
+    elif today and quality.get("date") and quality["date"] != today:
+        out.append(f"✖ Calcul du soir arrêté avant le contrôle des fichiers (dernier contrôle du {quality['date']}) : "
+                   "la page garde les données précédentes.")
     else:
         out += [i for i in quality.get("issues") or [] if i.startswith(("✖", "⚠"))]
     if not ui:
@@ -55,8 +81,12 @@ def build(quality, ui):
 
 def main():
     quality, ui = load(DIAG / "quality.json", None), load(DIAG / "ui-check.json", None)
-    issues = build(quality, ui)
+    try:
+        steps = json.loads(os.environ.get("STEPS") or "null")
+    except ValueError:
+        steps = None
     today = datetime.now(timezone.utc).date().isoformat()
+    issues = build(quality, ui, steps, today)
     if not issues:
         print("Contrôle du soir : aucun problème, pas d'email")
         return 0

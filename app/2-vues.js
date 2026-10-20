@@ -42,8 +42,14 @@ function render() {
   var top = $('#top'),
     main = $('#main');
   if (!top || !main) return;
-  var mail =
-    S.snapshot && S.snapshot.mail && S.snapshot.mail.ready
+  // email en échec dans la semaine (mot de passe d'application révoqué, Gmail refuse) : l'email de contrôle ne peut pas le dire
+  var mailKo = Object.keys(S.alerts || {}).some(function (k) {
+    var a = S.alerts[k];
+    return a && a.status === 'echec' && ES.daysBetween(String(a.createdAt || '').slice(0, 10), S.today) <= 7;
+  });
+  var mail = mailKo
+    ? '<span class="chip bad">⚠️ Emails en échec</span>'
+    : S.snapshot && S.snapshot.mail && S.snapshot.mail.ready
       ? '<span class="chip good">Alertes email actives</span>'
       : S.mode === 'remote'
         ? '<span class="chip warn">Emails en simulation</span>'
@@ -67,6 +73,7 @@ function render() {
       : 'Surveillance des achats de dirigeants') +
     '</p></div></div>' +
     '<div class="chips">' +
+    staleChip() +
     mail +
     '</div>' +
     '<nav class="tabs" role="tablist">' +
@@ -256,6 +263,19 @@ function starsHtml(total, big) {
     starInner(st) +
     '</span>'
   );
+}
+/** Données en retard : aucun calcul du soir depuis au moins deux jours ouvrés (tâche sautée par GitHub, panne). */
+function staleChip() {
+  if (S.mode !== 'remote' || !S.today) return '';
+  var now = new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  return ES.businessDaysBetween(S.today, now) >= 2
+    ? '<span class="chip bad">⚠️ Données du ' + shortDate(S.today) + ', calcul du soir en retard</span>'
+    : '';
 }
 function shortDate(d) {
   return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(2, 4) : '—';

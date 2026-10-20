@@ -23,7 +23,7 @@ email alerts. Not investment advice. Code under the MIT licence; data files belo
 | 📅 **Agenda des résultats** | publications des 6 prochaines semaines (sélection, 🎯 et 💎 proposées, vos suivis) et surprises des 14 derniers jours ; simple repère : acheter juste avant n'a pas été moins bon (2020-2026) |
 | 📧 **Emails** | sélection, feu vert, paliers de −10 %, protection −30 %, rappel à 6 mois, krach, auto-surveillance, bilan trimestriel |
 | 🧭 **Secteurs**, 👔 **dirigeants** | radar des secteurs en tendance ; déclarations d'achats et de ventes des dirigeants (consultation) |
-| 🔎 **Auto-contrôle** | chaque soir : tests, contrôle des fichiers et de l'affichage ; chaque règle est vérifiée sur les vraies sélections |
+| 🔎 **Auto-contrôle** | chaque soir : tests, contrôle des fichiers, de la dernière clôture de chaque bourse et de l'affichage ; email si une étape échoue ou si des cours manquent ; garde qui relance le calcul du soir s'il n'a pas tourné ; chaque règle est vérifiée sur les vraies sélections |
 
 ## La méthode en bref, et ses limites
 
@@ -72,10 +72,12 @@ euro_signal/
   check_outputs.mjs     contrôle des fichiers produits ; ui_check.mjs : contrôle de l'affichage (Playwright)
   send_alerts.py        envoi des emails (Gmail) ; positions.py : alertes sur vos positions ; send_health.py : email technique
   config.json           réglages (barème, sélection, alertes)
-scrapers/               collecteurs : déclarations (AMF, FI, FSMA, AFM), ventes à découvert, cours et comptes (Yahoo), secteurs, presse
+scrapers/               collecteurs : déclarations (AMF, FI, FSMA, AFM), ventes à découvert, cours et comptes (Yahoo), secteurs, presse ;
+                        backup_prices.py : cours de secours (Euronext, Nasdaq Nordic) et contrôle des clôtures de chaque bourse
 research/               scripts des études (voir research/README.md)
 tools/stamp.mjs         empreintes des fichiers de la page (npm run stamp)
-.github/workflows/      update-data.yml (chaque soir), history.yml (chaque jour), tests.yml (chaque modification),
+.github/workflows/      update-data.yml (chaque soir), watchdog.yml (relance le calcul du soir s'il n'a pas tourné),
+                        history.yml (chaque jour), tests.yml (chaque modification), research.yml (études à la demande),
                         publish.yml (republie la page après une modification du code)
 .github/actions/        restore-data (données de la veille), publish-site (publication sur la branche « site »)
 tools/donnees.sh        copie locale des données du dernier calcul

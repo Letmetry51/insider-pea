@@ -71,9 +71,9 @@ log("   sans clôture à la dernière séance (par place) :", ", ".join(f"{k} {v
 log("\n== 1. Liste Euronext")
 t0 = time.time()
 try:
-    enx = B.euronext_quotes()
+    enx, enx_isins = B.euronext_lists()
 except Exception as e:
-    enx = {}
+    enx, enx_isins = {}, {}
     log("   liste injoignable :", e)
 T = B.session_of(list(enx.values()), today)
 dates = {}
@@ -141,6 +141,15 @@ ids = {}
 N = B.Nordic(ids, today, max_n=400, seconds=600)
 t0 = time.time()
 nl, ninfo = N.lists(T) if T else ({}, {})
+# dossiers Euro Signal sans cours (ISIN introuvable chez Yahoo) : retrouvés dans les listes officielles ?
+table = dict(N.isins)
+for isin_, v in enx_isins.items():
+    B.put_isin(table, isin_, v[0], v[1])
+main_ = B.read_json(B.DATA / "euro-signal.json", {}) or {}
+nop = {i: x for i, x in (main_.get("inst") or {}).items() if not (x.get("stats") or {}).get("lastDate") and not x.get("secondary")}
+found = {i: table[i][0] for i in nop if i in table}
+log(f"   table ISIN → symbole des listes officielles : {len(table)} ; dossiers sans cours : {len(nop)}, retrouvés : {len(found)}"
+    + (" (" + ", ".join(f"{(nop[i].get('name') or i)[:24]} → {s}" for i, s in list(found.items())[:12]) + ")" if found else ""))
 log(f"   {json.dumps(ninfo)} ; {len(nl)} cours retenus pour le {T} ({time.time() - t0:.0f} s) ; en séance, listes écartées (normal)")
 lpairs = [(s, q["date"], q["close"], yv(s, q["date"])) for s, q in nl.items() if s in items and yv(s, q["date"])]
 tally(lpairs, "listes Nasdaq Nordic contre Yahoo, même séance")

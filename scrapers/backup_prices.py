@@ -16,13 +16,16 @@ Sources publiques des bourses, sans clé :
 Non couverts : Allemagne, Espagne, Vienne, Londres et Suisse (pas de source gratuite fiable trouvée).
 
 Règles :
-- seules les cases vides sont complétées : un cours Yahoo n'est jamais remplacé ;
+- seules les cases vides sont complétées ; un cours Yahoo n'est remplacé que s'il est aberrant (plus de ×1,5 ou ÷1,5 en un jour)
+  alors que la clôture officielle de la bourse est normale ;
 - une clôture est écartée si sa devise diffère de celle du titre ou si elle sort de la fourchette ÷2 à ×2 du dernier cours
   connu (homonyme, erreur d'unité) ;
 - une nouvelle séance n'est ajoutée aux fiches que si au moins 30 titres l'ont (toutes les fiches reçoivent les mêmes dates).
 
   python scrapers/backup_prices.py      complète data/societes/*.json et data/prices.json (calcul du soir, après Yahoo)
-Compteurs : data/diagnostics/backup.json (lus par le contrôle du soir). Numéros des titres chez Nasdaq : data/backup-ids.json.
+Compteurs : data/diagnostics/backup.json (lus par le contrôle du soir), avec la complétude place par place après le secours
+(part des sociétés qui ont la clôture de leur dernière séance, d'après le calendrier de chaque bourse). Numéros des titres chez
+Nasdaq : data/backup-ids.json. ISIN → symbole Yahoo des listes officielles : data/backup-isins.json (secours de prices.py).
 """
 import csv
 import io
@@ -43,6 +46,13 @@ EURONEXT_PLACES = (("paris", "PA"), ("amsterdam", "AS"), ("brussels", "BR"), ("m
                    ("dublin", "IR"), ("oslo", "OL"))
 NORDIC = {"ST": "SEK", "HE": "EUR", "CO": "DKK"}  # suffixe Yahoo → devise de cotation habituelle
 NORDIC_MARKETS = (("STO", "ST"), ("HEL", "HE"), ("CPH", "CO"))  # bourses Nasdaq Nordic → suffixe Yahoo
+# suffixe Yahoo → calendrier de la bourse (exchange_calendars) ; pays de l'ISIN → place du pays d'origine
+MIC = {"PA": "XPAR", "AS": "XAMS", "BR": "XBRU", "MI": "XMIL", "LS": "XLIS", "IR": "XDUB", "OL": "XOSL", "ST": "XSTO",
+       "HE": "XHEL", "CO": "XCSE", "DE": "XETR", "MC": "XMAD", "VI": "XWBO", "SW": "XSWX", "L": "XLON"}
+HOME_SUFFIX = {"FR": "PA", "NL": "AS", "BE": "BR", "IT": "MI", "PT": "LS", "IE": "IR", "NO": "OL", "SE": "ST", "FI": "HE", "DK": "CO"}
+ISIN_RE = re.compile(r"[A-Z]{2}[A-Z0-9]{9}[0-9]")
+ISIN_TABLE_MIN = 500  # lignes au moins pour réécrire la table ISIN → symbole (liste tronquée : table de la veille gardée)
+LIQUID_EUR = 1e6  # échanges quotidiens au moins pour compter dans le contrôle de complétude (seuil du classement)
 MIN_NEW_SESSION = 30  # titres au moins pour ajouter une séance aux fiches
 NORDIC_MAX = 100  # titres demandés un par un à Nasdaq Nordic au plus par soir (secours du secours : ≈ 5 s par titre)
 NORDIC_SECONDS = 240  # et pendant 4 minutes au plus
@@ -126,6 +136,36 @@ def parse_euronext(text):
     return out
 
 
+def parse_euronext_isins(text):
+    """Liste Euronext → {ISIN : [symbole Yahoo, devise]} pour toutes les lignes, même sans clôture du jour ; pour une action
+    cotée sur plusieurs places, la place du pays de l'ISIN d'abord."""
+    rows = list(csv.reader(io.StringIO(text), delimiter=";"))
+    head = next((i for i, x in enumerate(rows) if x and x[0].strip().lower() == "name"), None)
+    out = {}
+    if head is None:
+        return out
+    h = [c.strip().lower() for c in rows[head]]
+    for x in rows[head + 1:]:
+        if len(x) < len(h):
+            continue
+        r = dict(zip(h, (c.strip() for c in x)))
+        sym, mk = (r.get("symbol") or "").upper(), (r.get("market") or "").lower()
+        for key, suf in EURONEXT_PLACES:
+            if sym and key in mk:
+                put_isin(out, r.get("isin"), f"{sym}.{suf}", (r.get("currency") or "").upper() or None)
+    return out
+
+
+def put_isin(out, isin, sym, cur):
+    isin = str(isin or "").strip().upper()
+    if not ISIN_RE.fullmatch(isin):
+        return
+    home = HOME_SUFFIX.get(isin[:2])
+    old = out.get(isin)
+    if old is None or (sym.rsplit(".", 1)[-1] == home and old[0].rsplit(".", 1)[-1] != home):
+        out[isin] = [sym, cur]
+
+
 def nordic_symbol(sym):
     """Symbole Yahoo → symbole Nasdaq Nordic : « INVE-B.ST » → « INVE B », « NDA-FI.HE » → « NDA FI »."""
     return sym.rsplit(".", 1)[0].replace("-", " ").upper()
@@ -174,12 +214,18 @@ def parse_nordic_list(js, suf):
         if not isinstance(r, dict):
             continue
         sym, c = str(r.get("symbol") or "").strip().upper(), num(r.get("lastSalePrice"))
-        if not sym or not c:
+        if not sym or not c:  # sans dernier cours : gardé pour la table des ISIN seulement
+            if sym and r.get("isin"):
+                out[sym.replace(" ", "-") + "." + suf] = {"close": None, "change": None, "volume": None, "turnover": None,
+                                                           "currency": str(r.get("currency") or "").upper() or None,
+                                                           "oid": str(r.get("orderbookId") or "") or None,
+                                                           "isin": str(r.get("isin") or "").strip().upper() or None}
             continue
         out[sym.replace(" ", "-") + "." + suf] = {"close": c, "change": snum(r.get("netChange")), "volume": num(r.get("volume")),
                                                    "turnover": num(r.get("turnover")),
                                                    "currency": str(r.get("currency") or "").upper() or None,
-                                                   "oid": str(r.get("orderbookId") or "") or None}
+                                                   "oid": str(r.get("orderbookId") or "") or None,
+                                                   "isin": str(r.get("isin") or "").strip().upper() or None}
     return out
 
 
@@ -200,10 +246,16 @@ def http_get(url, params=None, accept=None, tries=2, timeout=30):
     raise RuntimeError(err or "échec")
 
 
-def euronext_quotes():
+def euronext_lists():
+    """Liste Euronext du soir → (cotations par symbole Yahoo, ISIN → symbole Yahoo)."""
     r = http_get(EURONEXT_LIST, params={"mics": "dm_all_stock", "initialLetter": "", "fe_type": "csv", "fe_decimal_separator": ".",
                                         "fe_date_format": "d/m/Y"}, timeout=60)
-    return parse_euronext(r.content.decode("utf-8-sig", "replace"))
+    text = r.content.decode("utf-8-sig", "replace")
+    return parse_euronext(text), parse_euronext_isins(text)
+
+
+def euronext_quotes():
+    return euronext_lists()[0]
 
 
 class Nordic:
@@ -215,7 +267,7 @@ class Nordic:
         self.until = time.time() + seconds
         self.get = get or http_get
         self.asked = self.got = self.errors = self.fails_in_row = 0
-        self.cache = {}
+        self.cache, self.isins = {}, {}
 
     def _json(self, url, params):
         try:
@@ -296,6 +348,8 @@ class Nordic:
             for sym, r in rows.items():
                 if r["oid"]:
                     self.ids[sym] = [r["oid"], self.today]  # numéros gratuits pour le secours titre par titre
+                put_isin(self.isins, r.get("isin"), sym, r.get("currency"))
+            rows = {k: r for k, r in rows.items() if r["close"]}
             top = sorted((x for x in rows if rows[x]["volume"] and rows[x]["oid"]), key=lambda x: -(rows[x]["turnover"] or 0))[:2]
             ok = sum(1 for x in top if T and self.confirms(rows[x], T))
             info[mk] = {"rows": len(rows), "used": len(top) == 2 and ok == 2}
@@ -447,6 +501,145 @@ def patch_catalogue(shards, enx, nordic, today, T):
     return st
 
 
+def implausible(v, ref):
+    """Variation d'un jour de plus de +50 % ou −33 % : erreur de cours probable (sinon nouvelle majeure, que la bourse confirme)."""
+    return bool(ref) and not (1 / 1.5 <= v / ref <= 1.5)
+
+
+def correct_catalogue(shards, enx, T):
+    """Clôture Yahoo aberrante à la séance T (plus de ×1,5 ou ÷1,5 en un jour) quand la clôture officielle de la bourse
+    (Euronext, liste Nasdaq Nordic retenue) est normale : la clôture officielle la remplace. Un simple écart (les deux
+    plausibles) est compté, jamais corrigé."""
+    st = {"checked": 0, "corrected": 0, "disagree": 0, "examples": []}
+    for sh in shards:
+        sdd, swd = sh.get("dDates") or [], sh.get("wDates") or []
+        if not T or T not in sdd:
+            continue
+        k, wk = sdd.index(T), week_slot(swd, T, "fill")
+        for sym, x in (sh.get("items") or {}).items():
+            q, d = enx.get(sym), x.get("d")
+            if not q or q["date"] != T or not isinstance(d, list) or len(d) != len(sdd) or d[k] is None:
+                continue
+            st["checked"] += 1
+            y, e, ref = d[k], q["close"], last_pos(d, k)
+            if abs(y / e - 1) <= 0.02:
+                continue
+            if implausible(y, ref) and not implausible(e, ref) and acceptable(q, ref, x.get("currency")):
+                d[k] = sig(e)
+                w = x.get("w")
+                if isinstance(w, list) and len(w) == len(swd) and isinstance(wk, int) and w[wk] and abs(w[wk] / y - 1) < 0.001:
+                    w[wk] = d[k]
+                st["corrected"] += 1
+                if len(st["examples"]) < 10:
+                    st["examples"].append([sym, y, d[k]])
+            else:
+                st["disagree"] += 1
+    return st
+
+
+def correct_prices(prices, enx, T):
+    """Même correction pour les cours Euro Signal : dernière séance T aberrante chez Yahoo, normale à la bourse."""
+    st = {"checked": 0, "corrected": 0, "disagree": 0, "examples": []}
+    for it in ((prices or {}).get("items") or {}).values():
+        tk, rows = (it or {}).get("ticker"), (it or {}).get("rows")
+        q = enx.get(tk) if tk else None
+        if not q or q["date"] != T or not isinstance(rows, list) or len(rows) < 2 or str(rows[-1][0]) != T:
+            continue
+        y, e, ref = rows[-1][4], q["close"], rows[-2][4]
+        if not y:
+            continue
+        st["checked"] += 1
+        if abs(y / e - 1) <= 0.02:
+            continue
+        if implausible(y, ref) and not implausible(e, ref) and acceptable(q, ref, it.get("currency")):
+            r = rows[-1]
+            rows[-1] = [r[0], q.get("open") or r[1], q.get("high") or r[2], q.get("low") or r[3], e, r[5] if len(r) > 5 else None]
+            it["corrected"] = T
+            st["corrected"] += 1
+            if len(st["examples"]) < 10:
+                st["examples"].append([tk, y, e])
+        else:
+            st["disagree"] += 1
+    return st
+
+
+def calendars():
+    """Calendriers des bourses (exchange_calendars), None s'ils sont indisponibles."""
+    try:
+        import exchange_calendars as xc
+    except Exception:
+        return None
+    cache = {}
+
+    def last_session(suf, d):
+        """Dernière séance de la place au plus tard le jour d (date ISO), None si la place est inconnue."""
+        mic = MIC.get(suf)
+        if not mic:
+            return None
+        try:
+            if mic not in cache:
+                cache[mic] = xc.get_calendar(mic)
+            return cache[mic].date_to_session(d, direction="previous").date().isoformat()
+        except Exception:
+            return None
+    return last_session
+
+
+def reference_day(now_paris):
+    """Jour dont la clôture est attendue : aujourd'hui après 18 h 15 à Paris (toutes les bourses couvertes ont fermé), sinon la veille."""
+    d = now_paris.date()
+    if (now_paris.hour, now_paris.minute) < (18, 15):
+        d -= timedelta(days=1)
+    return d.isoformat()
+
+
+def completeness(shards, prices, ref_day, last_session=None):
+    """Après le secours : part des sociétés qui ont la clôture de leur dernière séance attendue, place par place.
+    Fiches : sociétés liquides (au moins 1 M€ échangé par jour). Cours Euro Signal : titres dont le cours n'est pas figé
+    (une séance dans les 10 jours). Séance attendue d'une place : sa dernière séance au plus tard ref_day (calendrier de la
+    bourse ; à défaut, ref_day lui-même, donc un jour férié peut sembler manquant)."""
+    exp = {}
+    wd = date.fromisoformat(ref_day)
+    weekday = (wd - timedelta(days=max(0, wd.weekday() - 4))).isoformat()  # sans calendrier : samedi, dimanche → vendredi
+
+    def expected(suf):
+        if suf not in exp:
+            exp[suf] = (last_session(suf, ref_day) if last_session else None) or weekday
+        return exp[suf]
+    cat, pr = {}, {}
+    for sh in shards:
+        pos = {v: k for k, v in enumerate(sh.get("dDates") or [])}
+        for sym, x in (sh.get("items") or {}).items():
+            d = x.get("d")
+            if not isinstance(d, list) or (x.get("turnoverEur") or 0) < LIQUID_EUR or len(d) != len(pos):
+                continue
+            suf = sym.rsplit(".", 1)[-1]
+            e = expected(suf)
+            c = cat.setdefault(suf, {"expected": e, "liquid": 0, "ok": 0, "missing": []})
+            c["liquid"] += 1
+            k = pos.get(e)
+            if k is not None and d[k] is not None:
+                c["ok"] += 1
+            elif len(c["missing"]) < 5:
+                c["missing"].append(sym)
+    for it in ((prices or {}).get("items") or {}).values():
+        tk, rows = (it or {}).get("ticker"), (it or {}).get("rows")
+        if not tk or not isinstance(rows, list) or not rows:
+            continue
+        suf = tk.rsplit(".", 1)[-1]
+        e = expected(suf)
+        last = str(rows[-1][0])
+        if last < (date.fromisoformat(e) - timedelta(days=10)).isoformat():
+            continue  # cours figé (titre retiré de la cote, cotation changée) : compté ailleurs
+        c = pr.setdefault(suf, {"expected": e, "n": 0, "ok": 0, "missing": []})
+        c["n"] += 1
+        if last >= e:
+            c["ok"] += 1
+        elif len(c["missing"]) < 5:
+            c["missing"].append(tk)
+    return {"refDay": ref_day, "calendar": bool(last_session), "catalogue": cat, "prices": pr}
+
+
 def patch_prices(prices, enx, nordic, today, T):
     """Cours Euro Signal (data/prices.json) : séances manquantes ajoutées à la suite (jusqu'à T), cases vides seulement."""
     st = dict(stats(), session=T)
@@ -507,10 +700,10 @@ def main():
     diag = {"date": today, "at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "euronext": {}, "nordic": {}}
     t0 = time.time()
     try:
-        enx = euronext_quotes()
-        diag["euronext"] = {"quotes": len(enx)}
+        enx, isins = euronext_lists()
+        diag["euronext"] = {"quotes": len(enx), "isins": len(isins)}
     except Exception as e:
-        enx = {}
+        enx, isins = {}, {}
         diag["euronext"] = {"quotes": 0, "error": str(e)[:120]}
     T = session_of(list(enx.values()), today)
     log(f"Liste Euronext : {len(enx)} cotations, dernière séance {T or '?'} ({time.time() - t0:.0f} s)")
@@ -527,15 +720,29 @@ def main():
     # cours Euro Signal d'abord (dossiers suivis, alertes) : les titres nordiques déjà lus resservent aux fiches sociétés
     sp = patch_prices(prices, enx, one_by_one, today, T) if isinstance(prices, dict) else dict(stats(), session=T)
     sc = patch_catalogue([sh for _, sh in ok], enx, one_by_one, today, T)
-    diag.update(session=T, catalogue=sc, prices=sp, seconds=round(time.time() - t0))
+    # clôtures Yahoo aberrantes, quand la bourse donne une clôture normale
+    official = {k: q for k, q in enx.items() if q.get("src") in ("Euronext", "Nasdaq Nordic")}
+    cp = correct_prices(prices, official, T)
+    cc = correct_catalogue([sh for _, sh in ok], official, T)
+    diag.update(session=T, catalogue=sc, prices=sp, corrections={"catalogue": cc, "prices": cp}, seconds=round(time.time() - t0))
+    try:  # contrôle de complétude après le secours (lu par le contrôle du soir)
+        from zoneinfo import ZoneInfo
+        diag["complete"] = completeness([sh for _, sh in ok], prices, reference_day(datetime.now(ZoneInfo("Europe/Paris"))), calendars())
+    except Exception as e:
+        diag["complete"] = {"error": str(e)[:120]}
     diag["nordic"] = {"lists": ninfo, "quotes": len(nl), "asked": nordic.asked, "got": nordic.got, "errors": nordic.errors}
-    if sc["filled"] or sc.get("mode") == "append":
+    if sc["filled"] or sc.get("mode") == "append" or cc["corrected"]:
         for f, sh in ok:
             write_json(f, sh)
-    if sp["filled"]:
+    if sp["filled"] or cp["corrected"]:
         write_json(prices_f, prices)
     if nordic.ids:
         write_json(ids_f, nordic.ids)
+    table = dict(nordic.isins)
+    for isin, v in isins.items():
+        put_isin(table, isin, v[0], v[1])
+    if len(table) >= ISIN_TABLE_MIN:  # ISIN → symbole Yahoo des listes officielles : secours de la recherche des cotations (prices.py)
+        write_json(DATA / "backup-isins.json", {"date": today, "isins": table})
     (DATA / "diagnostics").mkdir(parents=True, exist_ok=True)
     write_json(DATA / "diagnostics" / "backup.json", diag)
     changed = sum(1 for f, sh in ok if json.dumps([sh.get("dDates"), sh.get("wDates")]) != before[f])
@@ -543,6 +750,12 @@ def main():
         f" ({', '.join(f'{k} {v}' for k, v in sorted(sc['byMarket'].items(), key=lambda kv: -kv[1])) or 'aucune'}),"
         f" {sc['rejected']} écartées ; dates modifiées dans {changed} fichiers")
     log(f"Cours Euro Signal : {sp['filled']} titres complétés sur {sp['needed']} en retard, {sp['rejected']} écartés")
+    log(f"Clôtures Yahoo aberrantes corrigées par la bourse : {cc['corrected']} fiches, {cp['corrected']} cours Euro Signal"
+        f" ({cc['disagree'] + cp['disagree']} simples écarts gardés) {cc['examples'][:3] + cp['examples'][:3]}")
+    cm = diag.get("complete") or {}
+    holes = [f"{k} {v['ok']}/{v['liquid']}" for k, v in sorted((cm.get("catalogue") or {}).items()) if v["liquid"] and v["ok"] < v["liquid"]]
+    log(f"Complétude (clôture attendue du {cm.get('refDay')}, calendriers {'oui' if cm.get('calendar') else 'non'}) : "
+        + (", ".join(holes) if holes else "toutes les sociétés liquides ont leur dernière clôture"))
     log(f"Nasdaq Nordic : {len(nl)} cours des listes, {nordic.asked} titres demandés un par un, {nordic.got} avec des cours, "
         f"{nordic.errors} erreurs ({diag['seconds']} s au total)")
     return 0
