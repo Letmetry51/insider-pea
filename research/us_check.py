@@ -29,8 +29,13 @@ LISTS = {
 }
 
 
+NOTES = []
+
+
 def log(*a):
-    print(*a, flush=True)
+    s = " ".join(str(x) for x in a)
+    print(s, flush=True)
+    NOTES.append(s)
 
 
 def universe():
@@ -121,7 +126,8 @@ def main():
     np.savez_compressed(npz, P=P.astype("float32"), V=V.values.T.astype("float32"),
                         dates=np.array([str(d.date()) for d in W.index]), cols=np.array(list(W.columns)))
     rep = subprocess.run([sys.executable, os.path.join(HERE, "chiffres_cles.py"), npz], capture_output=True, text=True)
-    txt = "Règles 🎯 d'Euro Signal, sans réglage, sur les actions américaines (S&P 1500 actuel)\n\n" + rep.stdout + rep.stderr[-2000:]
+    txt = ("Règles 🎯 d'Euro Signal, sans réglage, sur les actions américaines (S&P 1500 actuel)\n\n" + "\n".join(NOTES)
+           + "\n\n" + rep.stdout + rep.stderr[-2000:])
     open(os.path.join(OUT, "us_check.txt"), "w").write(txt)
     log("\n" + txt)
     return rep.returncode
