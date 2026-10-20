@@ -230,6 +230,65 @@ def fake_get(responses, calls):
     return get
 
 
+def listing(*rows):
+    return {"data": {"instrumentListing": {"headers": {}, "rows": [
+        {"symbol": sym, "orderbookId": oid, "currency": cur, "lastSalePrice": last, "netChange": chg, "volume": vol, "turnover": turn}
+        for sym, oid, cur, last, chg, vol, turn in rows]}}}
+
+
+LIST_STO = listing(("INVE A", "TX75", "SEK", "412.60", "-1.20", "1,197,856", "500,000,000"),
+                   ("ABB", "TX291", "SEK", "897.40", "-12.60", "1,957,063", "900,000,000"),
+                   ("CALME", "TX1", "SEK", "10.00", "", "", ""), ("", "TX2", "SEK", "5", "0", "1", "1"), ("SANS", "TX3", "SEK", "-", "", "1", "1"))
+CHART_ABB = {"data": {"charts": {"rows": [{"dateTime": "2026-10-16", "close": "910.00"}, {"dateTime": "2026-10-19", "close": "897.40"}]}}}
+
+
+@case("Listes Nasdaq Nordic : symboles Yahoo, titres sans échange du jour, réponses abîmées sans erreur")
+def _():
+    rows = B.parse_nordic_list(LIST_STO, "ST")
+    assert set(rows) == {"INVE-A.ST", "ABB.ST", "CALME.ST"}
+    assert rows["INVE-A.ST"] == {"close": 412.6, "change": -1.2, "volume": 1197856.0, "turnover": 5e8, "currency": "SEK", "oid": "TX75"}
+    assert rows["CALME.ST"]["volume"] is None and rows["CALME.ST"]["change"] is None
+    assert B.snum("+0.004") == 0.004 and B.snum("-1,234.50") == -1234.5 and B.snum("") is None and B.snum(None) is None
+    for bad in (None, {}, {"data": None}, {"data": {"instrumentListing": None}}, {"data": {"instrumentListing": {"rows": [None, 1]}}}):
+        assert B.parse_nordic_list(bad, "ST") == {}
+
+
+@case("Listes Nasdaq Nordic : retenues seulement si deux titres très échangés confirment la séance (pas en séance)")
+def _():
+    def resp(live):
+        def r(url, params):
+            if url.endswith("/screener/shares"):
+                return LIST_STO if params["market"] == "STO" and params["category"] == "MAIN_MARKET" else {"data": {"instrumentListing": {"rows": []}}}
+            if "/TX291/" in url:
+                return CHART_ABB
+            if "/TX75/" in url:
+                return {"data": {"charts": {"rows": [{"dateTime": "2026-10-19", "close": "412.60" if not live else "420.95"}]}}}
+            return None
+        return r
+    calls, ids = [], {}
+    n = B.Nordic(ids, "2026-10-19", get=fake_get(resp(False), calls))
+    out, info = n.lists("2026-10-19")
+    assert info["STO"] == {"rows": 3, "used": True} and info["HEL"] == {"rows": 0, "used": False}, info
+    assert set(out) == {"INVE-A.ST", "ABB.ST"} and out["INVE-A.ST"]["date"] == "2026-10-19" and out["ABB.ST"]["close"] == 897.4
+    assert ids["CALME.ST"] == ["TX1", "2026-10-19"] and n.asked == 0  # numéros gardés, aucun titre demandé un par un
+    out, info = B.Nordic({}, "2026-10-19", get=fake_get(resp(True), [])).lists("2026-10-19")
+    assert out == {} and info["STO"]["used"] is False  # cours en séance (différent de la clôture) : liste écartée
+
+    def evening(url, params):  # le soir, historique encore arrêté à la veille : la clôture précédente de la liste le confirme
+        if url.endswith("/screener/shares"):
+            return LIST_STO if params["market"] == "STO" and params["category"] == "MAIN_MARKET" else {}
+        if "/TX291/" in url:
+            return {"data": {"charts": {"rows": [{"dateTime": "2026-10-16", "close": "910.00"}]}}}
+        return {"data": {"charts": {"rows": [{"dateTime": "2026-10-16", "close": "413.80"}]}}}
+    out, info = B.Nordic({}, "2026-10-19", get=fake_get(evening, [])).lists("2026-10-19")
+    assert info["STO"]["used"] is True and out["ABB.ST"]["close"] == 897.4
+    out, info = B.Nordic({}, "2026-10-20", get=fake_get(evening, [])).lists("2026-10-20")
+    assert info["STO"]["used"] is True  # lundi férié en Suède : la clôture précédente de la liste du mardi est celle du vendredi
+    out, info = B.Nordic({}, "2026-10-19", get=fake_get(lambda u, p: evening(u, p) if "screener" in u else
+                                                         {"data": {"charts": {"rows": [{"dateTime": "2026-10-16", "close": "400"}]}}}, [])).lists("2026-10-19")
+    assert info["STO"]["used"] is False  # clôture précédente différente : la liste ne correspond pas à la séance
+
+
 @case("Nasdaq Nordic : numéro gardé d'un soir à l'autre, titre introuvable non recherché pendant 30 jours, limites")
 def _():
     calls, ids = [], {}
@@ -317,6 +376,41 @@ def _():
     assert json.loads((d / "backup-ids.json").read_text())["INVE-A.ST"][0] == "TX75"
     diag = json.loads((d / "diagnostics" / "backup.json").read_text())
     assert diag["session"] == "2026-10-19" and diag["catalogue"]["filled"] == 2 and diag["prices"]["filled"] == 1, diag
+
+
+@case("Calcul du soir avec les listes nordiques retenues : clôtures prises dans la liste, aucun titre demandé un par un")
+def _():
+    d = Path(tempfile.mkdtemp())
+    (d / "societes").mkdir()
+    (d / "societes" / "0.json").write_text(json.dumps(shard({
+        "INVE-A.ST": {"currency": "SEK", "turnoverEur": 5e7, "d": [400, 405, 410, 413.8, None]},
+        "CALME.ST": {"currency": "SEK", "turnoverEur": 1e3, "d": [10, 10, 10, 10, None]},
+    })))
+    calls = []
+
+    def resp(url, params):
+        if url.endswith("/screener/shares"):
+            return LIST_STO if params["market"] == "STO" and params["category"] == "MAIN_MARKET" else {}
+        return CHART_ABB if "/TX291/" in url else CHART
+    old = B.DATA, B.euronext_quotes, B.http_get, B.datetime
+
+    class FakeDT(B.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return B.datetime(2026, 10, 19, 22, 30, tzinfo=tz)
+    try:
+        B.DATA = d
+        B.euronext_quotes = lambda: {f"X{k}.PA": B.quote("2026-10-19", 1.0) for k in range(40)}
+        B.http_get = fake_get(resp, calls)
+        B.datetime = FakeDT
+        assert B.main() == 0
+    finally:
+        B.DATA, B.euronext_quotes, B.http_get, B.datetime = old
+    it = json.loads((d / "societes" / "0.json").read_text())["items"]
+    assert it["INVE-A.ST"]["d"][-1] == 412.6 and it["CALME.ST"]["d"][-1] is None
+    assert not [u for u in calls if u.endswith("/search")] and len([u for u in calls if "/chart/" in u]) == 2, calls
+    diag = json.loads((d / "diagnostics" / "backup.json").read_text())
+    assert diag["nordic"]["lists"]["STO"]["used"] is True and diag["nordic"]["asked"] == 0 and diag["catalogue"]["byMarket"] == {"ST": 1}
 
 
 if __name__ == "__main__":

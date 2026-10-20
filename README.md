@@ -43,13 +43,17 @@ avec la société moyenne de la même semaine). Le détail chiffré est dans l'o
   momentum européen de Kenneth French, calculé avec les disparues : +9,7 % par an contre +10,0 % pour nous (1998-2026) ;
 - **beaucoup de variantes testées** (512 réglages) : chiffre retenu sur des années jamais vues ; la priorité 📣 n'y résiste pas,
   elle reste à confirmer par le suivi réel ;
+- **contrôle sur les États-Unis** (≈ 1 500 sociétés du S&P 1500, mêmes règles, aucun réglage, `research/us_check.py`) :
+  +3,6 points à 6 mois sur 1997-2026 (t = 2,3), moitié moins qu'en Europe, et +2,5 sur 2013-2026 (t = 1,0, pas significatif ;
+  ≈ 0 avec frais et faillites supposées) : l'avantage n'est pas universel ;
 - **frais et impôts** : 0,5 à 2 % par achat-vente selon le courtier ; dans un PEA, 18,6 % de prélèvements sociaux sur les gains
   à la sortie (taux 2026), comme pour un fonds indiciel ;
 - **💎 valeur** : premier test sur nos données (comptes 2022-2025, départs de mai 2024 à avril 2026) : +5,1 points à 6 mois pour
   les 10 premières, deux fois moins de chutes, mais 2 ans seulement (t = 1,7) ;
 - **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027) ;
-- **l'outil lui-même** : données de Yahoo Finance par un accès non officiel (s'il est coupé, l'outil perd l'essentiel),
-  erreurs de Yahoo reprises (en partie corrigées), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
+- **l'outil lui-même** : données de Yahoo Finance par un accès non officiel (s'il est coupé, l'outil perd l'essentiel ; la
+  clôture du soir a une source de secours, Euronext et Nasdaq Nordic, pour 10 bourses sur 13, pas l'Allemagne, l'Espagne ni
+  Vienne), erreurs de Yahoo reprises (en partie corrigées), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
   moins que Yahoo Finance et les sites gratuits : onglet **Comment ça marche** (pli « 🆚 Face à Yahoo Finance… »).
 
 Tout se recalcule : `research/chiffres_cles.py` (ce tableau), `research/backtest/valeur.py` (💎), détail dans `research/README.md`.
@@ -117,6 +121,7 @@ Les collecteurs lisent des sources publiques ; **vérifiez leurs conditions d'ut
 | Source | Usage | À savoir |
 |---|---|---|
 | Yahoo Finance (via `yfinance`) | cours, volumes, comptes, résultats, avis d'analystes, description d'activité | usage personnel ; la redistribution des données n'est en principe pas autorisée |
+| Euronext (liste des actions), Nasdaq Nordic | clôture du soir quand Yahoo ne l'a pas (`scrapers/backup_prices.py`) | sites publics des bourses ; usage personnel |
 | AMF (France), Finansinspektionen (Suède), FSMA (Belgique), AFM (Pays-Bas) | déclarations des dirigeants | registres publics ; contiennent des noms de personnes (RGPD) |
 | AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA | ventes à découvert déclarées | registres publics |
 | Google News (flux RSS) | titres de presse des sociétés suivies | titres et liens seulement |

@@ -2,10 +2,10 @@
 
 1. Liste Euronext : clôture de la dernière séance comparée à celle de Yahoo (téléchargée maintenant), titre par titre ;
    titres du catalogue sur une place Euronext sans correspondance dans la liste (symbole différent ?).
-2. Nasdaq Nordic : échantillon (les plus échangés, puis au hasard), mêmes comparaisons, titres introuvables.
+2. Nasdaq Nordic : listes complètes de chaque bourse (retenues ou non pour la séance), puis titre par titre sur un
+   échantillon (les plus échangés, puis au hasard) ; mêmes comparaisons, titres introuvables.
 3. Simulation du calcul du soir sur une copie des fiches publiées et des cours Euro Signal : cases complétées, écarts avec
-   Yahoo, durée.
-4. Nasdaq Nordic en un seul appel par bourse (liste « screener ») : réponse ou non.
+   Yahoo, durée. En séance, les listes nordiques sont écartées (dernier cours ≠ clôture) : lancer après 18 h pour les voir.
 
   python backup_check.py        (GitHub Actions : workflow « Recherche (à la demande) », script backup_check.py)
 Résultat : out/backup_check.txt
@@ -106,7 +106,7 @@ nordic_syms = [s for s in items if s.rsplit(".", 1)[-1] in B.NORDIC]
 random.seed(7)
 liquid = sorted(nordic_syms, key=lambda s: -(items[s].get("turnoverEur") or 0))
 sample = liquid[:40] + random.sample(liquid[40:], min(20, max(0, len(liquid) - 40)))
-want = sorted(set(on_enx) | set(sample))
+want = sorted(set(on_enx) | set(nordic_syms))  # toutes les sociétés couvertes : comparaison complète
 t0 = time.time()
 Y = yahoo.download(want, "contrôle", period="10d", interval="1d", fields=("Close",), auto_adjust=False)["Close"]
 log(f"   {Y.shape[1] if not Y.empty else 0} titres, séances {', '.join(str(d.date()) for d in Y.index[-4:])} ({time.time() - t0:.0f} s)")
@@ -136,9 +136,21 @@ for m, l in sorted(by_m.items()):
     log(f"      {m} : {good}/{len(l)} à 1 % près")
 
 # --- 2. Nasdaq Nordic
-log("\n== 2. Nasdaq Nordic (échantillon)")
+log("\n== 2. Nasdaq Nordic : listes complètes")
 ids = {}
 N = B.Nordic(ids, today, max_n=400, seconds=600)
+t0 = time.time()
+nl, ninfo = N.lists(T) if T else ({}, {})
+log(f"   {json.dumps(ninfo)} ; {len(nl)} cours retenus pour le {T} ({time.time() - t0:.0f} s) ; en séance, listes écartées (normal)")
+lpairs = [(s, q["date"], q["close"], yv(s, q["date"])) for s, q in nl.items() if s in items and yv(s, q["date"])]
+tally(lpairs, "listes Nasdaq Nordic contre Yahoo, même séance")
+nordic_cat = [s for s in items if s.rsplit(".", 1)[-1] in B.NORDIC]
+log(f"   catalogue nordique : {len(nordic_cat)} ; présents dans les listes (numéro Nasdaq connu) : {sum(1 for s in nordic_cat if s in N.ids)}")
+miss = sorted((s for s in nordic_cat if s not in N.ids), key=turnover, reverse=True)
+if miss:
+    log("      absents des listes, les plus échangés :", ", ".join("%s %d k€" % (s, round(turnover(s) / 1e3)) for s in miss[:10]))
+
+log("\n== 2b. Nasdaq Nordic titre par titre (échantillon)")
 t0 = time.time()
 got, notfound, none = [], [], []
 for s in sample:
@@ -167,7 +179,8 @@ tally(npairs, "Nasdaq Nordic contre Yahoo, mêmes séances")
 log("\n== 3. Simulation sur une copie des fiches publiées")
 sim = copy.deepcopy(shards)
 t0 = time.time()
-st = B.patch_catalogue(sim, enx, N.quotes, today, T)
+bulk = {**nl, **enx}
+st = B.patch_catalogue(sim, bulk, N.quotes, today, T)
 log(f"   mode {st['mode']} · séance {st['session']} · {st['needed']} cases à compléter · {st['filled']} complétées · {st['rejected']} écartées"
     f" · {time.time() - t0:.0f} s · par place : {st['byMarket']}")
 spairs = []
@@ -188,7 +201,7 @@ pf = B.DATA / "prices.json"
 if pf.exists():
     prices = B.read_json(pf, {})
     p2 = copy.deepcopy(prices)
-    sp = B.patch_prices(p2, enx, N.quotes, today, T)
+    sp = B.patch_prices(p2, bulk, N.quotes, today, T)
     log(f"   cours Euro Signal : {len((prices or {}).get('items') or {})} titres · {sp['needed']} en retard · {sp['filled']} complétés · "
         f"{sp['rejected']} écartés")
     ppairs = []
@@ -201,29 +214,5 @@ if pf.exists():
     tally(ppairs, "cours Euro Signal complétés contre Yahoo")
 else:
     log("   cours Euro Signal (data/prices.json) absents : non simulés")
-
-# --- 4. Nasdaq Nordic en un appel par bourse
-log("\n== 4. Nasdaq Nordic : liste complète d'une bourse en un appel ?")
-for mk in ("STO", "HEL", "CPH"):
-    for path, params in (("screener/shares", {"category": "MAIN_MARKET", "tableonly": "false", "market": mk}),):
-        try:
-            r = B.http_get(f"{B.NASDAQ}/{path}", params=params, accept="application/json", tries=1, timeout=30)
-            js = r.json()
-            d0 = js.get("data") if isinstance(js, dict) else None
-            keys = list(d0.keys())[:8] if isinstance(d0, dict) else type(d0).__name__
-            rows = None
-            if isinstance(d0, dict):
-                for k in ("instrumentListing", "table", "rows"):
-                    v = d0.get(k)
-                    if isinstance(v, dict):
-                        v = v.get("rows")
-                    if isinstance(v, list):
-                        rows = v
-                        break
-            log(f"   {mk} {path} : HTTP 200, clés {keys}, lignes {len(rows) if rows is not None else '?'}")
-            if rows:
-                log("      exemple :", json.dumps(rows[0], ensure_ascii=False)[:400])
-        except Exception as e:
-            log(f"   {mk} {path} : ✗ {e}")
 
 open(os.path.join(OUT, "backup_check.txt"), "w").write("\n".join(lines) + "\n")

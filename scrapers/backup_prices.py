@@ -10,8 +10,9 @@ Pourquoi :
 Sources publiques des bourses, sans clé :
 - Euronext (Paris, Amsterdam, Bruxelles, Milan, Lisbonne, Dublin, Oslo) : liste de toutes les actions avec la clôture de la
   dernière séance, en un seul fichier (live.euronext.com) ;
-- Nasdaq Nordic (Stockholm, Helsinki, Copenhague) : dix jours de cours, titre par titre (api.nasdaq.com), les plus échangés
-  d'abord, dans une limite de nombre et de temps.
+- Nasdaq Nordic (Stockholm, Helsinki, Copenhague) : liste complète de chaque bourse (marché principal et First North,
+  api.nasdaq.com), retenue si deux titres très échangés confirment le cours de la séance (historique Nasdaq) ; sinon dix
+  jours de cours titre par titre, les plus échangés d'abord, dans une limite de nombre et de temps.
 Non couverts : Allemagne, Espagne, Vienne, Londres et Suisse (pas de source gratuite fiable trouvée).
 
 Règles :
@@ -41,9 +42,10 @@ NASDAQ = "https://api.nasdaq.com/api/nordic"
 EURONEXT_PLACES = (("paris", "PA"), ("amsterdam", "AS"), ("brussels", "BR"), ("milan", "MI"), ("lisbon", "LS"),
                    ("dublin", "IR"), ("oslo", "OL"))
 NORDIC = {"ST": "SEK", "HE": "EUR", "CO": "DKK"}  # suffixe Yahoo → devise de cotation habituelle
+NORDIC_MARKETS = (("STO", "ST"), ("HEL", "HE"), ("CPH", "CO"))  # bourses Nasdaq Nordic → suffixe Yahoo
 MIN_NEW_SESSION = 30  # titres au moins pour ajouter une séance aux fiches
-NORDIC_MAX = 300  # titres demandés à Nasdaq Nordic au plus par soir
-NORDIC_SECONDS = 300  # et pendant 5 minutes au plus
+NORDIC_MAX = 100  # titres demandés un par un à Nasdaq Nordic au plus par soir (secours du secours : ≈ 5 s par titre)
+NORDIC_SECONDS = 240  # et pendant 4 minutes au plus
 ID_RETRY_DAYS = 30  # titre introuvable chez Nasdaq : nouvelle recherche après 30 jours
 
 
@@ -64,6 +66,16 @@ def num(v):
         except ValueError:
             return None
     return x if x > 0 and x != float("inf") else None
+
+
+def snum(v):
+    """Nombre signé (« -1.00 », « +0.004 », « 1,234.5 ») ; vide ou illisible → None."""
+    s = str(v if v is not None else "").strip().replace(",", "").replace("+", "").replace("\u2212", "-")
+    try:
+        x = float(s)
+    except ValueError:
+        return None
+    return x if abs(x) != float("inf") and x == x else None
 
 
 def iso_date(s):
@@ -151,6 +163,26 @@ def parse_nordic_chart(js):
     return sorted(out, key=lambda q: q["date"])
 
 
+def parse_nordic_list(js, suf):
+    """Liste complète d'une bourse Nasdaq Nordic (« data.instrumentListing.rows ») → {symbole Yahoo : dernier cours, volume du
+    jour, montant échangé, devise, numéro du titre}. « INVE B » → « INVE-B.ST ». La liste ne donne pas de date."""
+    d0 = js.get("data") if isinstance(js, dict) else None
+    il = d0.get("instrumentListing") if isinstance(d0, dict) else None
+    rows = il.get("rows") if isinstance(il, dict) else None
+    out = {}
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict):
+            continue
+        sym, c = str(r.get("symbol") or "").strip().upper(), num(r.get("lastSalePrice"))
+        if not sym or not c:
+            continue
+        out[sym.replace(" ", "-") + "." + suf] = {"close": c, "change": snum(r.get("netChange")), "volume": num(r.get("volume")),
+                                                   "turnover": num(r.get("turnover")),
+                                                   "currency": str(r.get("currency") or "").upper() or None,
+                                                   "oid": str(r.get("orderbookId") or "") or None}
+    return out
+
+
 def http_get(url, params=None, accept=None, tries=2, timeout=30):
     import requests
     h = dict(UA, **({"Accept": accept} if accept else {}))
@@ -221,18 +253,57 @@ class Nordic:
             if not oid:
                 self.cache[sym] = []
                 return []
-        end = date.fromisoformat(self.today)
-        js = self._json(f"{NASDAQ}/instruments/{oid}/chart/download",
-                        {"assetClass": "SHARES", "fromDate": (end - timedelta(days=14)).isoformat(), "toDate": end.isoformat()})
-        time.sleep(0.15)
-        if js is None:
+        qs = self.chart(oid)
+        if qs is None:
             return None
-        qs = parse_nordic_chart(js)
         for q in qs:
             q["currency"] = NORDIC[suf]  # la recherche a déjà vérifié la devise quand Nasdaq l'indique
         self.got += bool(qs)
         self.cache[sym] = qs
         return qs
+
+    def chart(self, oid):
+        """Quinze derniers jours de cours d'un titre (numéro Nasdaq), None si pas de réponse."""
+        end = date.fromisoformat(self.today)
+        js = self._json(f"{NASDAQ}/instruments/{oid}/chart/download",
+                        {"assetClass": "SHARES", "fromDate": (end - timedelta(days=14)).isoformat(), "toDate": end.isoformat()})
+        time.sleep(0.15)
+        return None if js is None else parse_nordic_chart(js)
+
+    def confirms(self, r, T):
+        """Le dernier cours d'une ligne de liste est-il la clôture de T ? Oui si l'historique du titre a T au même cours (à 0,2 %
+        près), ou s'il s'arrête avant T sur la clôture précédente de la liste (dernier cours − variation du jour : historique
+        pas encore à jour le soir). En séance, le dernier cours diffère de la clôture : non."""
+        qs = self.chart(r["oid"]) or []
+        near = lambda a, b: a and b and abs(a / b - 1) <= 0.002
+        qT = next((q for q in qs if q["date"] == T), None)
+        if qT:
+            return bool(near(qT["close"], r["close"]))
+        before = [q for q in qs if q["date"] < T]
+        return bool(before and r["change"] is not None and near(before[-1]["close"], r["close"] - r["change"]))
+
+    def lists(self, T):
+        """Listes complètes de Stockholm, Helsinki et Copenhague (marché principal et First North). Une liste n'a pas de date :
+        elle est retenue pour la séance T seulement si les deux titres les plus échangés de la bourse la confirment (confirms) ;
+        en séance ou un jour férié, elle est donc écartée.
+        → ({symbole Yahoo : cotation de T, titres échangés ce jour seulement}, {bourse : {lignes, retenue}})."""
+        out, info = {}, {}
+        for mk, suf in NORDIC_MARKETS:
+            rows = {}
+            for cat in ("MAIN_MARKET", "FIRST_NORTH"):
+                js = self._json(f"{NASDAQ}/screener/shares", {"category": cat, "tableonly": "false", "market": mk})
+                rows.update(parse_nordic_list(js, suf))
+            for sym, r in rows.items():
+                if r["oid"]:
+                    self.ids[sym] = [r["oid"], self.today]  # numéros gratuits pour le secours titre par titre
+            top = sorted((x for x in rows if rows[x]["volume"] and rows[x]["oid"]), key=lambda x: -(rows[x]["turnover"] or 0))[:2]
+            ok = sum(1 for x in top if T and self.confirms(rows[x], T))
+            info[mk] = {"rows": len(rows), "used": len(top) == 2 and ok == 2}
+            if info[mk]["used"]:
+                for sym, r in rows.items():
+                    if r["volume"]:  # titre échangé ce jour : son dernier cours est la clôture de T
+                        out[sym] = quote(T, r["close"], volume=r["volume"], currency=r["currency"], src="Nasdaq Nordic")
+        return out, info
 
 
 def session_of(quotes, today, min_n=MIN_NEW_SESSION):
@@ -445,18 +516,25 @@ def main():
     log(f"Liste Euronext : {len(enx)} cotations, dernière séance {T or '?'} ({time.time() - t0:.0f} s)")
     ids = read_json(ids_f, {})
     nordic = Nordic(ids if isinstance(ids, dict) else {}, today)
+    nl, ninfo = nordic.lists(T) if T else ({}, {})
+    log("Listes Nasdaq Nordic : " + ", ".join(f"{k} {v['rows']} titres{' (retenue)' if v['used'] else ' (écartée)'}" for k, v in ninfo.items()))
+    enx = {**nl, **enx}  # une seule table des cotations du soir : Euronext, puis listes nordiques
+    used = {suf for mk, suf in NORDIC_MARKETS if (ninfo.get(mk) or {}).get("used")}
+
+    def one_by_one(sym):  # bourse dont la liste est retenue : un titre absent n'a pas été échangé ce jour, rien à demander
+        return [] if sym.rsplit(".", 1)[-1] in used else nordic.quotes(sym)
     before = {f: json.dumps([sh.get("dDates"), sh.get("wDates")]) for f, sh in ok}
     # cours Euro Signal d'abord (dossiers suivis, alertes) : les titres nordiques déjà lus resservent aux fiches sociétés
-    sp = patch_prices(prices, enx, nordic.quotes, today, T) if isinstance(prices, dict) else dict(stats(), session=T)
-    sc = patch_catalogue([sh for _, sh in ok], enx, nordic.quotes, today, T)
+    sp = patch_prices(prices, enx, one_by_one, today, T) if isinstance(prices, dict) else dict(stats(), session=T)
+    sc = patch_catalogue([sh for _, sh in ok], enx, one_by_one, today, T)
     diag.update(session=T, catalogue=sc, prices=sp, seconds=round(time.time() - t0))
-    diag["nordic"] = {"asked": nordic.asked, "got": nordic.got, "errors": nordic.errors}
+    diag["nordic"] = {"lists": ninfo, "quotes": len(nl), "asked": nordic.asked, "got": nordic.got, "errors": nordic.errors}
     if sc["filled"] or sc.get("mode") == "append":
         for f, sh in ok:
             write_json(f, sh)
     if sp["filled"]:
         write_json(prices_f, prices)
-    if nordic.asked:
+    if nordic.ids:
         write_json(ids_f, nordic.ids)
     (DATA / "diagnostics").mkdir(parents=True, exist_ok=True)
     write_json(DATA / "diagnostics" / "backup.json", diag)
@@ -465,7 +543,8 @@ def main():
         f" ({', '.join(f'{k} {v}' for k, v in sorted(sc['byMarket'].items(), key=lambda kv: -kv[1])) or 'aucune'}),"
         f" {sc['rejected']} écartées ; dates modifiées dans {changed} fichiers")
     log(f"Cours Euro Signal : {sp['filled']} titres complétés sur {sp['needed']} en retard, {sp['rejected']} écartés")
-    log(f"Nasdaq Nordic : {nordic.asked} titres demandés, {nordic.got} avec des cours, {nordic.errors} erreurs ({diag['seconds']} s au total)")
+    log(f"Nasdaq Nordic : {len(nl)} cours des listes, {nordic.asked} titres demandés un par un, {nordic.got} avec des cours, "
+        f"{nordic.errors} erreurs ({diag['seconds']} s au total)")
     return 0
 
 
