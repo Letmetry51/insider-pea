@@ -2051,17 +2051,61 @@ function planCard(isin, plan, adj) {
       esc(PE.label) +
       "</b><small>Règle testée sur 1997-2026 pour les sociétés du 🎯 : attendre un repli n'a pas fait mieux. Les niveaux ci-dessous viennent de l'analyse technique classique, non validée.</small></div>"
     : '';
-  // pli à ouvrir : le verdict reste lisible fermé ; ouvert d'office quand le plan est ajusté à la main ou surveillé
+  // ✏️ ajustement à la main : sous les indicateurs et les raisons du plan, juste avant 🔔 « Me prévenir »
+  var adjH = (function () {
+    var pr0 = plan.primary,
+      e0 = pr0.key === 'breakout' ? pr0.trigger : pr0.key === 'highs' || pr0.key === 'manual' ? pr0.entry : pr0.zoneHi,
+      fv = function (v) {
+        // même arrondi que l'affichage : 1 décimale dès 10, 2 de 1 à 10, 3 chiffres significatifs en dessous
+        return v > 0
+          ? String(+(v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v.toPrecision(3))).replace('.', ',')
+          : '';
+      },
+      inp = function (id, lbl, v) {
+        return (
+          '<label><small>' +
+          lbl +
+          '</small><input data-pl="' +
+          id +
+          '" type="text" inputmode="decimal" value="' +
+          fv(v) +
+          '"></label>'
+        );
+      };
+    return (
+      '<details class="planadj"' +
+      (man ? ' open' : '') +
+      '><summary>✏️ ' +
+      (man ? 'Plan ajusté à la main · modifier' : 'Ajuster ce plan') +
+      '</summary><div class="adjgrid">' +
+      inp('e', '🟢 Entrée', e0) +
+      inp('s', '🛑 Stop', pr0.stop) +
+      inp('t', '🎯 Objectif', pr0.target) +
+      '</div><div class="row"><button data-a="planSave" data-i="' +
+      esc(isin) +
+      '" data-last="' +
+      (lastC > 0 ? lastC : '') +
+      '">Enregistrer</button>' +
+      (man
+        ? '<button class="ghost" data-a="planReset" data-i="' + esc(isin) + '">Revenir au plan calculé</button>'
+        : '') +
+      '</div><p class="small muted">Gardé sur cet appareil : le graphique et les niveaux suivent vos valeurs. Pour que les alertes du soir les utilisent, touchez ensuite «\u00a0' +
+      (wd ? 'Mettre à jour' : 'Surveiller') +
+      '\u00a0» dans 🔔 ci-dessous.' +
+      (man && auto ? ' Plan calculé : ' + esc(String(auto.title || '').toLowerCase() || 'automatique') + '.' : '') +
+      '</p></details>'
+    );
+  })();
+  var vis = planVisuals(plan, adj);
+  // plan d'entrée toujours ouvert : titre et verdict en tête, indicateurs visibles sans pli
   return (
-    '<details class="plan ' +
+    '<section class="plan ' +
     V[0] +
-    '" data-k="f-plan"' +
-    (man || wd ? ' open' : '') +
-    '><summary><h4>🧭 Plan d\'entrée</h4><span class="verdict">' +
+    '"><h4>🧭 Plan d\'entrée</h4><p class="verdict">' +
     V[1] +
     ' <b>' +
     esc(plan.label) +
-    '</b></span></summary>' +
+    '</b></p>' +
     pickH +
     curH +
     liqH +
@@ -2071,54 +2115,8 @@ function planCard(isin, plan, adj) {
     (plan.alt ? line(plan.alt, false) : '') +
     '</ul>' +
     '<p class="small muted">Repères pour entrer. Une fois acheté : garder 6 mois, protection à −30 %.</p>' +
-    (function () {
-      var pr0 = plan.primary,
-        e0 =
-          pr0.key === 'breakout' ? pr0.trigger : pr0.key === 'highs' || pr0.key === 'manual' ? pr0.entry : pr0.zoneHi,
-        fv = function (v) {
-          // même arrondi que l'affichage : 1 décimale dès 10, 2 de 1 à 10, 3 chiffres significatifs en dessous
-          return v > 0
-            ? String(+(v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v.toPrecision(3))).replace('.', ',')
-            : '';
-        },
-        inp = function (id, lbl, v) {
-          return (
-            '<label><small>' +
-            lbl +
-            '</small><input data-pl="' +
-            id +
-            '" type="text" inputmode="decimal" value="' +
-            fv(v) +
-            '"></label>'
-          );
-        };
-      return (
-        '<details class="planadj"' +
-        (man ? ' open' : '') +
-        '><summary>✏️ ' +
-        (man ? 'Plan ajusté à la main · modifier' : 'Ajuster ce plan') +
-        '</summary><div class="adjgrid">' +
-        inp('e', '🟢 Entrée', e0) +
-        inp('s', '🛑 Stop', pr0.stop) +
-        inp('t', '🎯 Objectif', pr0.target) +
-        '</div><div class="row"><button data-a="planSave" data-i="' +
-        esc(isin) +
-        '" data-last="' +
-        (lastC > 0 ? lastC : '') +
-        '">Enregistrer</button>' +
-        (man
-          ? '<button class="ghost" data-a="planReset" data-i="' + esc(isin) + '">Revenir au plan calculé</button>'
-          : '') +
-        '</div><p class="small muted">Gardé sur cet appareil : le graphique et les niveaux suivent vos valeurs. Pour que les alertes du soir les utilisent, touchez ensuite «\u00a0' +
-        (wd ? 'Mettre à jour' : 'Surveiller') +
-        '\u00a0» dans 🔔 ci-dessous.' +
-        (man && auto ? ' Plan calculé : ' + esc(String(auto.title || '').toLowerCase() || 'automatique') + '.' : '') +
-        '</p></details>'
-      );
-    })() +
-    '<details class="xpi pvis"><summary>📟 Les 5 indicateurs</summary>' +
-    planVisuals(plan, adj) +
-    '</details>' +
+    // indicateurs toujours visibles (plus de pli)
+    (vis ? '<div class="pvis"><p class="small pvh"><b>📟 Indicateurs</b></p>' + vis + '</div>' : '') +
     (plan.why && plan.why.length
       ? '<ul class="why">' +
         plan.why
@@ -2128,6 +2126,7 @@ function planCard(isin, plan, adj) {
           .join('') +
         '</ul>'
       : '') +
+    adjH +
     watchH +
     (obs || histH ? xpi(obs + histH, 'Par le passé') : '') +
     xpi(
@@ -2136,7 +2135,7 @@ function planCard(isin, plan, adj) {
         "), sans prévoir la direction. Ce n'est pas un conseil en investissement.",
       'Méthode'
     ) +
-    '</details>'
+    '</section>'
   );
 }
 
