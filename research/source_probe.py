@@ -116,17 +116,20 @@ if r is not None:
                     if not suf or (sym + "." + suf) not in ref:
                         continue
                     try:
-                        last = float((rec.get("last") or "").replace(",", ""))
+                        last = float((rec.get("closing price") or rec.get("last price") or "").replace(",", ""))
                     except ValueError:
                         continue
                     rd, rv = refval(sym + "." + suf)
+                    if rd and (rec.get("closing price datetime") or "")[:10] not in (rd, rd[8:10] + "/" + rd[5:7] + "/" + rd[:4]):
+                        continue  # pas la même séance que le catalogue : comparaison sans objet
                     if near(last, rv):
                         ok += 1
                     else:
                         bad += 1
                         if len(ex) < 5:
-                            ex.append((sym + "." + suf, last, rec.get("last date/time"), rd, rv))
-            log(f"   « Last » du fichier comparé au dernier cours Yahoo du catalogue : {ok} identiques à 2 % près, {bad} différents")
+                            ex.append((sym + "." + suf, last, rec.get("closing price datetime"), rd, rv))
+            log(f"   cours de clôture du fichier comparé au catalogue (Yahoo), même séance : {ok} identiques à 2 % près, {bad} différents")
+            log("   exemple de ligne :", next(iter(enx.values()))[0])
             for e in ex:
                 log("      écart :", e)
             tally("Euronext (liste, dernier cours)", ok > 10 * max(bad, 1) if ok else False)
