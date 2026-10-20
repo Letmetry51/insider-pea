@@ -359,6 +359,44 @@ function valueSection(i) {
     '<p class="foot">Limites : comptes annuels publiés (jusqu\'à 4 mois de retard), rentabilité ramenée à 35 % au plus, croissance ignorée (les sociétés de croissance paraissent donc chères : regarder la « croissance que suppose le cours »). Aucun poids dans la note avant la revue de janvier ; mesuré en observation à chaque achat de dirigeant.</p></details>';
   return h;
 }
+/** 📊 Santé des comptes (pli 🔬 Analyse) : verdict et conseil, F-score détaillé, contrôles anti-piège. Les chiffres
+ *  (chiffre d'affaires, marges, trésorerie…) sont dans « La société en bref » : ils ne sont pas répétés ici. */
+function accHealth(i) {
+  var a = S.inst[i] && S.inst[i].accounts;
+  if (!a) return '';
+  if (a.summary && !hasDetail(i))
+    return '<p class="muted">' + esc(a.verdict ? a.verdict.text : '') + ' — chargement du détail…</p>';
+  var TI = { good: '🟢', mixed: '🟡', bad: '🔴', na: '⚪' },
+    p = a.plain,
+    v = a.verdict,
+    h = '';
+  if (p && p.label)
+    h +=
+      '<p class="accv acc-' +
+      esc(p.tone || 'na') +
+      '">' +
+      (TI[p.tone] || '⚪') +
+      ' <b>' +
+      esc(p.label) +
+      '</b>' +
+      (p.advice ? ' — ' + esc(p.advice) : '') +
+      '</p>';
+  else if (v) h += '<p class="accv acc-' + esc(v.key) + '">' + (TI[v.key] || '⚪') + ' <b>' + esc(v.text) + '</b></p>';
+  var fs = a.fscore;
+  if (fs && !fs.na)
+    h +=
+      '<h4 class="mt">F-score de Piotroski : ' +
+      fsPill(fs.f9) +
+      ' <span class="muted">exercice ' +
+      esc(fs.year) +
+      ' comparé au précédent' +
+      (fs.avail < 9 ? ', ' + fs.score + ' critères remplis sur ' + fs.avail + ' calculables' : '') +
+      '</span></h4>' +
+      fscoreEvolution(a) +
+      fscoreCriteria(fs);
+  else if (fs) h += '<p class="foot">F-score : ' + esc(fs.reason) + '.</p>';
+  return h + riskScores(a) + fscoreScale();
+}
 function accountsSection(i) {
   var a = S.inst[i] && S.inst[i].accounts;
   var h = '<section class="card accounts"><h3>📊 Analyse des comptes</h3>';

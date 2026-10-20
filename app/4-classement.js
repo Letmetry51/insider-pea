@@ -180,6 +180,27 @@ function anMacd(c) {
     s = anEma(m, 9);
   return { up: m[m.length - 1] > s[s.length - 1], pos: m[m.length - 1] > 0 };
 }
+/** Comptes annuels du catalogue (4 exercices) au format des fiches Euro Signal. Ligne : [clôture, CA, résultat
+ *  d'exploitation, résultat net, EBITDA, trésorerie, dette, actions, fonds propres, marge brute, investissements, flux
+ *  d'exploitation]. */
+function coYears(co) {
+  var fy = co && co.fin && Array.isArray(co.fin.y) ? co.fin.y : null;
+  if (!fy || !fy.length) return null;
+  return fy.map(function (y) {
+    var nd = y[5] != null && y[6] != null ? y[6] - y[5] : null;
+    return {
+      year: String(y[0]).slice(0, 4),
+      date: y[0],
+      revenue: y[1],
+      opMargin: y[1] > 0 && y[2] != null ? (y[2] / y[1]) * 100 : null,
+      netIncome: y[3],
+      fcf: y[11] != null && y[10] != null ? y[11] + y[10] : null, // flux d'exploitation + investissements (négatifs)
+      netDebtEbitda: y[4] > 0 && nd != null ? nd / y[4] : null,
+      netCash: nd != null && nd < 0,
+      roe: y[3] != null && y[8] > 0 ? (y[3] / y[8]) * 100 : null,
+    };
+  });
+}
 function anCtx(isin, sym) {
   var r = rankOf(isin, sym),
     x = isin ? S.inst[isin] : null,
@@ -202,6 +223,14 @@ function anCtx(isin, sym) {
           return v > 0;
         })
         .slice(-260);
+    // cours détaillés pas encore chargés (fiche du catalogue) : clôtures du catalogue, pour des indicateurs identiques
+    // d'une fiche à l'autre (MACD, moyennes)
+    if (!o.closes.length && co && co.d)
+      o.closes = co.d
+        .filter(function (v) {
+          return v > 0;
+        })
+        .slice(-260);
     var st = x.stats || {},
       f = x.fund || {},
       fc = x.forecast || {},
@@ -219,22 +248,17 @@ function anCtx(isin, sym) {
     o.roe = f.returnOnEquity;
     o.pe = f.forwardPE > 0 ? f.forwardPE : f.trailingPE > 0 ? f.trailingPE : null;
     o.marginLbl = 'Marge nette';
-    o.growthLbl = 'Croissance attendue';
     o.roeLbl = 'Rentabilité (ROE)';
     o.insider = f.insidersPct != null ? f.insidersPct : null;
     o.evE = f.evToEbitda > 0 ? f.evToEbitda : null;
     o.pb = f.priceToBook;
     if (fc.target && fc.target.mean > 0) o.tgt = fc.target;
     var tr = fc.trend && fc.trend['+1y'];
-    if (tr && tr.cur != null && tr.d30 != null && tr.d30 !== 0) o.rev = (tr.cur / tr.d30 - 1) * 100;
-    // prévisions de chiffre d'affaires : exercice en cours (0y) puis suivant (+1y), datés par la clôture annoncée
-    var fyE = fc.fyEnd ? +String(fc.fyEnd).slice(0, 4) : null;
-    o.revF = ['0y', '+1y']
-      .map(function (k, j) {
-        var v = fc.rev && fc.rev[k];
-        return v && v.avg > 0 ? { year: fyE ? fyE + j : null, avg: v.avg, growth: v.growth } : null;
-      })
-      .filter(Boolean);
+    if (tr && tr.cur != null && tr.d30 != null && tr.d30 !== 0) {
+      var rv30 = (tr.cur / tr.d30 - 1) * 100 * (tr.d30 < 0 ? -1 : 1);
+      o.rev = Math.abs(rv30) < 1 ? 0 : rv30; // moins de 1 % : bruit, prévisions stables (même seuil que les prévisionnels)
+      o.revTxt = pct(rv30) + ' sur 30 jours';
+    }
     if (x.value && !x.value.na && x.value.mid > 0) o.val = x.value;
     if (x.peer && x.peer.discountPct != null) o.peer = x.peer;
     o.acc = ac.plain || (ac.verdict ? { tone: ac.verdict.key, label: ac.verdict.text } : null);
@@ -243,10 +267,10 @@ function anCtx(isin, sym) {
     o.plan = x.plan;
     o.years = ac.years && ac.years.length ? ac.years.slice(-4) : null;
     o.accCur = ac.currency;
-    var g0 = o.revF[0];
-    if (g0 && g0.growth != null) {
-      o.growth = g0.growth * 100;
-      o.growthLbl = 'Croissance attendue' + (g0.year ? ' ' + g0.year : '');
+    if (!o.years && co && coYears(co)) {
+      // comptes détaillés pas encore chargés (ou absents) : comptes annuels du catalogue, même source Yahoo
+      o.years = coYears(co);
+      o.accCur = co.fin.c || null;
     }
     o.ev = S.ev[isin] || null;
     o.shares = x.sharesChange && !x.sharesChange.corporate ? x.sharesChange : null;
@@ -275,8 +299,18 @@ function anCtx(isin, sym) {
     o.pb = co.pb;
     o.growth = co.revGrowth != null ? co.revGrowth * 100 : null;
     if (co.upside != null && o.last) o.tgt = { mean: o.last * (1 + co.upside), n: co.analysts || null };
-    if (co.revUp30 != null && co.revDown30 != null && co.revUp30 + co.revDown30 > 0)
+    if (co.revUp30 != null && co.revDown30 != null && co.revUp30 + co.revDown30 > 0) {
       o.rev = co.revUp30 > co.revDown30 ? 1 : co.revUp30 < co.revDown30 ? -1 : 0;
+      o.revTxt =
+        co.revUp30 +
+        ' hausse' +
+        (co.revUp30 > 1 ? 's' : '') +
+        ' et ' +
+        co.revDown30 +
+        ' baisse' +
+        (co.revDown30 > 1 ? 's' : '') +
+        ' sur 30 jours';
+    }
     o.surprise = co.lastSurprise ? co.lastSurprise[1] : null;
     o.surpriseDate = co.lastSurprise ? co.lastSurprise[0] : null;
     o.reco = co.reco;
@@ -289,25 +323,15 @@ function anCtx(isin, sym) {
     // comptes annuels (4 exercices) : [clôture, CA, résultat d'exploitation, résultat net, EBITDA, trésorerie, dette, actions, fonds propres]
     var fy = co.fin && Array.isArray(co.fin.y) ? co.fin.y : null;
     if (fy && fy.length) {
-      o.years = fy.map(function (y) {
-        var nd = y[5] != null && y[6] != null ? y[6] - y[5] : null;
-        return {
-          year: String(y[0]).slice(0, 4),
-          date: y[0],
-          revenue: y[1],
-          opMargin: y[1] > 0 && y[2] != null ? (y[2] / y[1]) * 100 : null,
-          netIncome: y[3],
-          netDebtEbitda: y[4] > 0 && nd != null ? nd / y[4] : null,
-          netCash: nd != null && nd < 0,
-        };
-      });
+      o.years = coYears(co);
       o.accCur = co.fin.c || null;
       var L = fy[fy.length - 1],
         Lp = fy.length >= 2 ? fy[fy.length - 2] : null;
       if (L[5] != null && L[6] != null) o.cashNet = L[5] - L[6];
       if (L[3] != null && L[8] > 0) {
         o.roe = L[3] / L[8]; // dernier exercice publié (le chiffre glissant de Yahoo varie beaucoup)
-        o.roeLbl = 'ROE ' + String(L[0]).slice(0, 4);
+        o.roeYear = String(L[0]).slice(0, 4);
+        o.roeLbl = 'ROE ' + o.roeYear;
       }
       if (L[1] > 0 && L[3] != null) {
         o.margin = L[3] / L[1];
@@ -447,29 +471,25 @@ function newsBlock(o, list) {
     ' <span class="muted">· ⚠️ / ✅ : repérés par mots-clés dans le titre, à lire avant de décider.</span></p>'
   );
 }
-/** Trajectoire (4 exercices), gestion du capital (dividendes, rachats, nombre d'actions, dette) et agenda : sociétés suivies par Euro Signal. */
-function anExtra(o) {
-  var p = anExtraParts(o);
-  return p.traj + p.cap + p.agenda;
-}
+/** Parties chiffrées de l'analyse : comptes publiés (4 exercices), gestion du capital (dividendes, rachats, nombre
+ *  d'actions) et résultats publiés (fiches Euro Signal). */
 function anExtraParts(o) {
   var h = '',
     parts = {},
+    esI = o.isin && S.inst[o.isin] ? o.isin : null,
+    evI = esI ? S.ev[esI] || { buybacks: [], results: [], splits: [] } : null,
     big = function (v) {
       return v == null ? '—' : Math.abs(v) >= 1e9 ? fmtN(v / 1e9, 1) + ' Md' : fmtN(v / 1e6, 0) + ' M';
     };
-  if (o.years) {
+  // 1. comptes publiés, du plus récent au plus ancien (lisible sur téléphone) ; prévisions : pli 🎯 Analystes
+  if (o.years && o.years.length) {
     var Y = o.years,
-      lastY = +Y[Y.length - 1].year,
-      // prévisions des analystes pour les exercices pas encore publiés
-      F = (o.revF || [])
-        .map(function (f, k) {
-          return { year: f.year || lastY + 1 + k, avg: f.avg, growth: f.growth };
-        })
-        .filter(function (f) {
-          return f.year > lastY;
-        }),
-      row = function (lbl, cells, cls) {
+      R = Y.slice().reverse(),
+      p1 = function (x) {
+        return x == null || !isFinite(x) ? null : Math.abs(x) > 100 ? 'n.s.' : fmtN(x, 1) + ' %';
+      },
+      row = function (lbl, f, neg) {
+        var cells = R.map(f);
         return cells.some(function (c) {
           return c != null;
         })
@@ -478,56 +498,54 @@ function anExtraParts(o) {
               '</th>' +
               cells
                 .map(function (c, k) {
-                  return '<td class="' + ((cls && cls(k)) || '') + '">' + (c == null ? '—' : c) + '</td>';
+                  return '<td class="' + (neg && neg(R[k]) ? 'neg' : '') + '">' + (c == null ? '—' : c) + '</td>';
                 })
                 .join('') +
               '</tr>'
           : '';
       };
     h +=
-      '<h4>Trajectoire <span class="muted small">· ' +
+      '<div class="tablewrap"><table class="kv antraj"><tr><th>' +
       esc(o.accCur || '') +
-      '</span></h4><div class="tablewrap"><table class="kv antraj"><tr><th></th>' +
-      Y.map(function (y) {
+      '</th>' +
+      R.map(function (y) {
         return '<th>' + esc(y.year) + '</th>';
       }).join('') +
-      F.map(function (f) {
-        return '<th>' + f.year + ' (prév.)</th>';
-      }).join('') +
       '</tr>' +
-      row(
-        "Chiffre d'affaires",
-        Y.map(function (y) {
-          return y.revenue != null ? big(y.revenue) : null;
-        }).concat(
-          F.map(function (f) {
-            return big(f.avg);
-          })
-        )
-      ) +
-      row(
-        'Marge opé.',
-        Y.map(function (y) {
-          return y.opMargin != null ? fmtN(y.opMargin, 1) + ' %' : null;
-        }).concat(
-          F.map(function () {
-            return null;
-          })
-        )
-      ) +
+      row("Chiffre d'affaires", function (y) {
+        return y.revenue != null ? big(y.revenue) : null;
+      }) +
+      row('Marge opé.', function (y) {
+        return p1(y.opMargin);
+      }) +
       row(
         'Résultat net',
-        Y.map(function (y) {
+        function (y) {
           return y.netIncome != null ? big(y.netIncome) : null;
-        }).concat(
-          F.map(function () {
-            return null;
-          })
-        ),
-        function (k) {
-          return Y[k] && Y[k].netIncome < 0 ? 'neg' : '';
+        },
+        function (y) {
+          return y.netIncome < 0;
         }
       ) +
+      row(
+        'Trésorerie dispo.',
+        function (y) {
+          return y.fcf != null ? big(y.fcf) : null;
+        },
+        function (y) {
+          return y.fcf < 0;
+        }
+      ) +
+      row('Dette nette / EBITDA', function (y) {
+        return y.netDebtEbitda == null || !isFinite(y.netDebtEbitda)
+          ? null
+          : y.netDebtEbitda < 0 || y.netCash
+            ? 'tréso. nette'
+            : fmtN(y.netDebtEbitda, 1) + '×';
+      }) +
+      row('Rentabilité (ROE)', function (y) {
+        return p1(y.roe);
+      }) +
       '</table></div>';
     var f0 = Y[0],
       f1 = Y[Y.length - 1];
@@ -549,164 +567,98 @@ function anExtraParts(o) {
                 fmtN(f1.opMargin, 1) +
                 ' %)'
               : '') +
-            (F.length && F[0].growth != null
-              ? ' ; prévisions des analystes : ' +
-                F.filter(function (f) {
-                  return f.growth != null;
-                })
-                  .map(function (f) {
-                    return pct(f.growth * 100) + ' en ' + f.year;
-                  })
-                  .join(', ')
-              : '') +
-            '.'
+            ". Trésorerie dispo. : flux d'exploitation moins investissements."
         ) +
         '</p>';
   }
   parts.traj = h;
+  // 2. gestion du capital : dividendes, rachats, nombre d'actions (la dette est dans « La société en bref »)
   h = '';
-  var ev = o.ev,
-    items = [],
-    since = ES.addDays(S.today, -365);
-  if (ev || o.shares || o.years) {
-    var divs = ((ev && ev.splits) || []).filter(function (d) {
-        return d.dividend && d.amount > 0 && d.date >= since;
-      }),
-      dsum = divs.reduce(function (a, d) {
-        return a + d.amount;
-      }, 0),
-      dy = dsum && o.last ? (dsum / o.last) * 100 : null;
-    var bb = ((ev && ev.buybacks) || []).slice().sort(function (a, b) {
-        return a.date < b.date ? 1 : -1;
-      })[0],
-      bbRecent = bb && bb.date >= since && bb.stage !== 'suspension';
-    var nd = o.years ? o.years[o.years.length - 1].netDebtEbitda : null,
-      ncash = o.years ? o.years[o.years.length - 1].netCash : null;
-    if (dy) items.push('💶 Dividendes détachés sur 12 mois : ' + fmtN(dsum, 2) + ' (rendement ' + fmtN(dy, 1) + ' %)');
-    if (bb)
-      items.push(
-        "🔁 Rachat d'actions : " +
-          (STAGES[bb.stage] || bb.stage) +
-          ' le ' +
-          shortDate(bb.date) +
-          (bb.pctCapital != null ? ' (' + fmtN(bb.pctCapital, 1) + ' % du capital)' : '')
-      );
-    if (o.shares && o.shares.pct != null)
-      items.push(
-        (o.shares.pct <= -1
-          ? "📉 Nombre d'actions en baisse "
-          : o.shares.pct >= 2
-            ? "📈 Dilution : nombre d'actions en hausse "
-            : "➖ Nombre d'actions stable ") +
-          '(' +
-          pct(o.shares.pct) +
-          ' depuis le ' +
-          shortDate(o.shares.from) +
-          ')'
-      );
-    if (ncash) items.push('🏦 Plus de trésorerie que de dettes');
-    else if (nd != null)
-      items.push('🏦 Dette nette / EBITDA : ' + fmtN(nd, 1) + (nd > 3 ? ' (élevée)' : nd < 1.5 ? ' (faible)' : ''));
-    if (items.length) {
-      var good = (dy >= 2 || bbRecent || (o.shares && o.shares.pct <= -1.5)) && (ncash || (nd != null && nd < 2)),
-        bad = (o.shares && o.shares.pct >= 3) || (nd != null && nd > 3.5);
-      var lvl = bad ? ['🔴', 'faible'] : good ? ['🟢', 'exemplaire'] : ['🟡', 'standard'];
-      h +=
-        '<h4>Gestion du capital · ' +
-        lvl[0] +
-        ' ' +
-        lvl[1] +
-        '</h4><ul class="plain small anlist">' +
-        items
-          .map(function (t) {
-            return '<li>' + esc(t) + '</li>';
-          })
-          .join('') +
-        '</ul>';
-    }
-  }
-  parts.cap = h;
-  h = '';
-  var ag = [];
-  if (o.nextE && o.nextE >= S.today) ag.push([o.nextE, '📅 Prochains résultats']);
-  // chronologie de l'année : achats et ventes des dirigeants, bond sur gros volume, actualité marquante
-  var txs = (o.isin && S.tx[o.isin]) || [],
-    byDay = {};
-  txs.forEach(function (t) {
-    var d = t.pubDate || t.txDate;
-    if (!d || d < since || (t.type !== 'achat' && t.type !== 'vente') || t.status === 'annulee') return;
-    var k = d + t.type;
-    if (!byDay[k]) byDay[k] = { d: d, type: t.type, n: 0, eur: 0 };
-    byDay[k].n++;
-    byDay[k].eur += ES.toEur ? ES.toEur(t.amount || 0, t.currency) || 0 : 0;
-  });
-  Object.keys(byDay)
-    .map(function (k) {
-      return byDay[k];
+  var since = ES.addDays(S.today, -365),
+    items = [];
+  var divs = ((evI && evI.splits) || []).filter(function (d) {
+      return d.dividend && d.amount > 0 && d.date >= since;
+    }),
+    dsum = divs.reduce(function (a, d) {
+      return a + d.amount;
+    }, 0),
+    dy = dsum && o.last ? (dsum / o.last) * 100 : null;
+  var bb = ((evI && evI.buybacks) || []).slice().sort(function (a, b) {
+      return a.date < b.date ? 1 : -1;
+    })[0],
+    bbRecent = bb && bb.date >= since && bb.stage !== 'suspension';
+  var nd = o.years && o.years.length ? o.years[o.years.length - 1].netDebtEbitda : null,
+    ncash = o.years && o.years.length ? o.years[o.years.length - 1].netCash : null;
+  var ld = ((evI && evI.splits) || [])
+    .filter(function (d) {
+      return d.dividend && d.amount > 0;
     })
     .sort(function (a, b) {
-      return a.d < b.d ? 1 : -1;
-    })
-    .slice(0, 4)
-    .forEach(function (z) {
-      ag.push([
-        z.d,
-        (z.type === 'achat' ? '👔 Achat' : '👔 Vente') +
-          ' de dirigeant' +
-          (z.n > 1 ? 's (' + z.n + ')' : '') +
-          (z.eur >= 1e4 ? ' · ' + fmtN(z.eur / 1e3, 0) + ' k€' : ''),
-      ]);
-    });
-  var bw = bumpOf(o.r);
-  if (bw != null) ag.push([ES.addDays(S.today, -7 * bw), '📣 Bond sur gros volume']);
-  var lr =
-    ev &&
-    (ev.results || []).slice().sort(function (a, b) {
-      return a.pubDate < b.pubDate ? 1 : -1;
+      return a.date < b.date ? 1 : -1;
     })[0];
-  if (!lr && o.surprise != null && o.surpriseDate)
-    ag.push([
-      o.surpriseDate,
-      '📊 Derniers résultats : bénéfice par action ' +
-        (o.surprise >= 0 ? 'au-dessus' : 'en dessous') +
-        ' du consensus (' +
-        pct(o.surprise) +
-        ')',
-    ]);
-  if (lr)
-    ag.push([
-      lr.pubDate,
-      '📊 Derniers résultats' +
-        (lr.epsActual != null && lr.epsConsensus
-          ? ' : bénéfice par action ' +
-            (lr.epsActual >= lr.epsConsensus ? 'au-dessus' : 'en dessous') +
-            ' du consensus (' +
-            pct((lr.epsActual / lr.epsConsensus - 1) * 100) +
-            ')'
-          : ''),
-    ]);
-  var ld =
-    ev &&
-    (ev.splits || [])
-      .filter(function (d) {
-        return d.dividend;
-      })
-      .sort(function (a, b) {
-        return a.date < b.date ? 1 : -1;
-      })[0];
-  if (ld) ag.push([ld.date, '💶 Dernier dividende détaché (' + fmtN(ld.amount, 2) + ')']);
-  if (ag.length)
+  if (dy)
+    items.push(
+      '💶 Dividendes détachés sur 12 mois : ' +
+        fmtN(dsum, 2) +
+        ' (rendement ' +
+        fmtN(dy, 1) +
+        ' %), dernier le ' +
+        shortDate(ld.date)
+    );
+  else if (ld) items.push('💶 Aucun dividende détaché depuis le ' + shortDate(ld.date));
+  // fiches du catalogue : nombre d'actions d'après les comptes (fiches Euro Signal : détail des rachats ci-dessous)
+  if (!esI && o.shares && o.shares.pct != null)
+    items.push(
+      (o.shares.pct <= -1
+        ? "📉 Nombre d'actions en baisse "
+        : o.shares.pct >= 2
+          ? "📈 Dilution : nombre d'actions en hausse "
+          : "➖ Nombre d'actions stable ") +
+        '(' +
+        pct(o.shares.pct) +
+        ' depuis le ' +
+        shortDate(o.shares.from) +
+        ')'
+    );
+  var bbH = esI ? buybackBlock(esI, evI, true) : '';
+  if (items.length || bbH) {
+    var good = (dy >= 2 || bbRecent || (o.shares && o.shares.pct <= -1.5)) && (ncash || (nd != null && nd < 2)),
+      bad = (o.shares && o.shares.pct >= 3) || (nd != null && nd > 3.5);
+    var lvl = bad ? ['🔴', 'faible'] : good ? ['🟢', 'exemplaire'] : ['🟡', 'standard'];
+    parts.capT = lvl[0] + ' ' + lvl[1];
     h +=
-      '<ul class="plain small anlist">' +
-      ag
-        .sort(function (a, b) {
-          return a[0] < b[0] ? 1 : -1;
-        })
-        .map(function (z) {
-          return '<li><b>' + shortDate(z[0]) + '</b> · ' + esc(z[1]) + '</li>';
-        })
-        .join('') +
-      '</ul>';
+      (items.length
+        ? '<ul class="plain small anlist">' +
+          items
+            .map(function (t) {
+              return '<li>' + esc(t) + '</li>';
+            })
+            .join('') +
+          '</ul>'
+        : '') + bbH;
+  }
+  parts.cap = h;
+  // 3. résultats publiés (fiches Euro Signal) : BPA et chiffre d'affaires face au consensus. Prochains résultats : puce 📅
+  // de « En bref » ; bond sur gros volume et surprise des derniers résultats : « Ce qui porte / menace » et le score.
+  h = esI && evI.results && evI.results.length ? resultsBlock(esI, evI, 4, true) : '';
+  var rS = h
+      ? evI.results
+          .map(function (r) {
+            return ES.surprise(r.epsActual, r.epsConsensus);
+          })
+          .filter(function (e) {
+            return e != null;
+          })
+      : [],
+    rB = rS.filter(function (e) {
+      return e > 0;
+    }).length;
+  parts.agendaT =
+    rS.length >= 3
+      ? 'BPA au-dessus du consensus ' + rB + ' fois sur ' + rS.length
+      : h
+        ? evI.results.length + ' publication' + (evI.results.length > 1 ? 's' : '')
+        : '';
   parts.agenda = h;
   return parts;
 }
@@ -739,7 +691,9 @@ function anLevels(o) {
   if (!rows || rows.length < 10) return null;
   return ES.completeLevels((x && x.levels) || ES.supportResistance(rows), rows);
 }
-function analysisCard(isin, sym) {
+/** 🔬 Analyse d'une société. full : fiche Euro Signal (comptes détaillés, valeur, dirigeants, rachats et résultats dans
+ *  les sous-plis) ; sinon fiche du catalogue (lien vers la fiche Euro Signal quand la société y est suivie). */
+function analysisCard(isin, sym, full) {
   var o = anCtx(isin, sym),
     r = o.r,
     cl = function (v) {
@@ -888,8 +842,13 @@ function analysisCard(isin, sym) {
   if (vm != null && vm > 20) add(pros, 2, 'sous sa valeur estimée (marge de sécurité ' + Math.round(vm) + ' %)');
   if (o.peer && o.peer.discountPct > 20)
     add(pros, 1.5, 'moins chère que ses pairs (' + Math.round(o.peer.discountPct) + ' % de décote)');
-  if (o.rev != null && o.rev > 0) add(pros, 1.5, 'prévisions des analystes relevées');
-  if (o.surprise != null && o.surprise > 0) add(pros, 1, 'derniers résultats au-dessus du consensus');
+  if (o.rev != null && o.rev > 0)
+    add(pros, 1.5, 'prévisions des analystes relevées' + (o.revTxt ? ' (' + o.revTxt + ')' : ''));
+  var surT =
+    o.surprise != null
+      ? ' du consensus (' + pct(o.surprise) + (o.surpriseDate ? ', le ' + shortDate(o.surpriseDate) : '') + ')'
+      : '';
+  if (o.surprise != null && o.surprise > 0) add(pros, 1, 'derniers résultats au-dessus' + surT);
   if (o.m10 != null && o.m10 < 0)
     add(cons, 3, 'sous sa moyenne 10 semaines (' + String(o.m10).replace('.', ',') + ' %) : élan cassé');
   if (up != null && up >= 0 && up < 10) add(cons, 0.5, 'peu de potentiel selon les analystes (' + pct(up) + ')');
@@ -903,8 +862,9 @@ function analysisCard(isin, sym) {
     add(cons, 1.5, 'dette nette élevée (plus de la moitié de la capitalisation)');
   if (up != null && up < 0) add(cons, 2, "cours au-dessus de l'objectif des analystes (" + pct(up) + ')');
   if (vm != null && vm < -30) add(cons, 1.5, 'cher par rapport à sa valeur estimée');
-  if (o.rev != null && o.rev < 0) add(cons, 1.5, 'prévisions des analystes abaissées');
-  if (o.surprise != null && o.surprise < 0) add(cons, 1, 'derniers résultats sous le consensus');
+  if (o.rev != null && o.rev < 0)
+    add(cons, 1.5, 'prévisions des analystes abaissées' + (o.revTxt ? ' (' + o.revTxt + ')' : ''));
+  if (o.surprise != null && o.surprise < 0) add(cons, 1, 'derniers résultats en dessous' + surT);
   if (r.ratio != null && r.ratio < 70) add(cons, 1.5, Math.round(100 - r.ratio) + " % sous son plus haut d'un an");
   if (r.mom != null && r.mom > 200)
     add(cons, 1, 'déjà +' + Math.round(r.mom) + ' % sur un an : chutes plus fréquentes');
@@ -942,12 +902,7 @@ function analysisCard(isin, sym) {
   };
   var P3 = top(pros),
     C3 = top(cons);
-  var priced = [
-    o.pe ? 'PER ' + fmtN(o.pe, 1) : null,
-    o.evE ? 'VE/EBITDA ' + fmtN(o.evE, 1) : null,
-    o.pb ? 'cours/actif net ' + fmtN(o.pb, 2) + (o.peer ? ' (pairs ' + fmtN(o.peer.peerMedian, 2) + ')' : '') : null,
-    up != null ? 'objectif ' + pct(up) : null,
-  ].filter(Boolean);
+  var priced = [o.pe ? 'PER ' + fmtN(o.pe, 1) : null, o.evE ? 'VE/EBITDA ' + fmtN(o.evE, 1) : null].filter(Boolean);
   // 3. action selon les règles testées
   var E = o.inPick ? ES.pickEntry(r) : null;
   var act = o.inPick
@@ -1027,13 +982,20 @@ function analysisCard(isin, sym) {
   var sc,
     sg6 = o.vol ? (o.vol / 100) * Math.sqrt(0.5) : 0.2;
   if (o.tgt && o.tgt.low > 0 && o.tgt.high > 0 && (o.tgt.n || 0) >= 2)
-    sc = [o.tgt.low, o.tgt.mean, o.tgt.high, 'objectifs des analystes (bas, moyen, haut)'];
+    sc = [
+      o.tgt.low,
+      o.tgt.mean,
+      o.tgt.high,
+      'objectifs de cours de ' + (o.tgt.n ? o.tgt.n + ' analystes' : 'analystes') + ' (bas, moyen, haut)',
+    ];
   else if (o.tgt && o.tgt.mean > 0)
     sc = [
       Math.min(o.tgt.mean, o.last) * Math.exp(-sg6),
       o.tgt.mean,
       Math.max(o.tgt.mean, o.last) * Math.exp(sg6 / 2),
-      'objectif moyen des analystes, et amplitude habituelle du cours autour',
+      'objectif de cours moyen ' +
+        (o.tgt.n ? 'de ' + o.tgt.n + ' analystes' : 'des analystes') +
+        ', et amplitude habituelle du cours autour',
     ];
   else if (o.val && o.val.low > 0) sc = [o.val.low, o.val.mid, o.val.high, 'valeur estimée (comptes)'];
   else if (o.vol) {
@@ -1112,29 +1074,30 @@ function analysisCard(isin, sym) {
             '</div>'
         : '';
     };
-  var yL = o.years && o.years.length ? o.years[o.years.length - 1] : null;
-  // 🏢 la société : taille, croissance, rentabilité, bilan, actionnariat
+  var esX = o.isin && S.inst[o.isin] ? S.inst[o.isin] : null,
+    coI = sym && S.secCo && S.secCo.items ? S.secCo.items[sym] : null,
+    noY = !(o.years && o.years.length),
+    accX = full && esX && esX.accounts ? esX.accounts : null;
+  // 🏢 la société : taille, bilan, actionnariat. Chiffre d'affaires, marge et rentabilité : dans le tableau des comptes
+  // (repris ici seulement sans tableau) ; croissance attendue : dans « Analystes et prévisions » ; F-score : dans
+  // « Santé des comptes » quand ce pli existe.
   var coK = [
     [
       'Capitalisation',
       o.cap ? (o.capCur && o.capCur !== 'EUR' ? fmtN(o.cap / 1e9, 1) + ' Md ' + o.capCur : capTxt(o.cap)) : null,
     ],
     [
-      "Chiffre d'affaires" + (yL && yL.revenue ? ' ' + yL.year : ''),
-      yL && yL.revenue ? bigM(yL.revenue) + (o.accCur ? ' ' + o.accCur : '') : null,
-    ],
-    [o.growthLbl || 'Croissance', o.growth != null ? pct(o.growth) : null],
-    [o.marginLbl || 'Marge', o.margin != null ? fmtN(o.margin * 100, 0) + ' %' : null],
-    [o.roeLbl || 'Rentabilité (ROE)', o.roe != null ? fmtN(o.roe * 100, 0) + ' %' : null],
-    [
       o.cashNet != null && o.cashNet < 0 ? 'Dette nette' : 'Trésorerie nette',
       o.cashNet != null ? bigM(Math.abs(o.cashNet)) : null,
     ],
-    ['F-score', o.f9 != null ? o.f9 + '/9' : null],
+    [o.growthLbl || 'Croissance', noY && !esX && o.growth != null ? pct(o.growth) : null],
+    [o.marginLbl || 'Marge', noY && o.margin != null ? fmtN(o.margin * 100, 0) + ' %' : null],
+    [o.roeLbl || 'Rentabilité (ROE)', noY && o.roe != null ? fmtN(o.roe * 100, 0) + ' %' : null],
+    ['F-score', !accX && o.f9 != null ? o.f9 + '/9' : null],
     ['Dirigeants et proches', o.insider != null ? fmtN(o.insider * 100, 0) + ' % du capital' : null],
     ['Institutionnels', o.inst != null ? fmtN(o.inst * 100, 0) + ' % du capital' : null],
   ];
-  // 🧭 le marché : cours, liquidité, ventes à découvert, agitation, prochain rendez-vous
+  // 🧭 le marché : cours, liquidité, ventes à découvert (agitation et prochains résultats : dans « En bref »)
   var mkK = [
     ['Cours', f2(o.last) + cur],
     ['Échanges / jour', r.liq ? (r.liq >= 1e6 ? fmtN(r.liq / 1e6, 1) + ' M€' : fmtN(r.liq / 1e3, 0) + ' k€') : null],
@@ -1142,9 +1105,40 @@ function analysisCard(isin, sym) {
       'Vente à découvert',
       r.sh != null ? String(r.sh).replace('.', ',') + ' %' + (r.shn ? ' · ' + r.shn + ' fonds' : '') : null,
     ],
-    ['Volatilité', o.vol != null ? Math.round(o.vol) + ' % par an' : null],
-    ['Prochains résultats', o.nextE && o.nextE >= S.today ? shortDate(o.nextE) : null],
+    [
+      'Volumes',
+      coI && coI.volume != null
+        ? coI.volume > 0.05
+          ? 'achats dominants'
+          : coI.volume < -0.05
+            ? 'ventes dominantes'
+            : 'équilibrés'
+        : null,
+    ],
   ];
+  // secteur : rang de son groupe d'industries dans l'onglet Secteurs (calcul du soir, sinon retrouvé ici)
+  var stI = esX ? secTrendOf(o.isin) : null,
+    gK = stI ? stI.key : coI && coI.group,
+    gR = stI ? stI.rank : coI && coI.groupRank,
+    gN = stI ? stI.of : ((S.sec && S.sec.groups) || []).length,
+    gT = stI ? stI.trending : coI && coI.groupTrending,
+    gE = stI ? stI.emerging : coI && coI.groupEmerging;
+  if (gK)
+    reg.push([
+      'Secteur',
+      dot(gT ? 1 : gR && gN && gR > (gN * 2) / 3 ? -1 : 0) +
+        ' ' +
+        secName(gK) +
+        (gR && gN ? ' : ' + gR + 'e sur ' + gN + ' groupes' : '') +
+        (gT ? ' · en tendance' : '') +
+        (gE ? ' · émergent' : ''),
+    ]);
+  if (coI && coI.rs6 != null && reg[1][1] !== '—')
+    reg[1][1] +=
+      ' · face au STOXX 600 : ' +
+      pc100(coI.rs6) +
+      ' sur 6 mois' +
+      (coI.rs3 != null ? ', ' + pc100(coI.rs3) + ' sur 3 mois' : '');
   // 🧭 En bref : le verdict, le critère le plus fort et le plus faible, puis les repères à surveiller
   var LVa = anLevels(o),
     srt = crit.slice().sort(function (a, b) {
@@ -1160,7 +1154,7 @@ function analysisCard(isin, sym) {
     nr ? '🔴 résistance ' + lvTxt(nr) : null,
     ns ? '🟢 support ' + lvTxt(ns) : null,
     o.nextE && o.nextE >= S.today ? '📅 résultats le ' + shortDate(o.nextE) : null,
-    unc ? '🌫️ incertitude ' + unc : null,
+    unc ? '🌫️ incertitude ' + unc + ' (' + Math.round(o.vol) + ' %/an)' : null,
     starTxt ? '💶 prix / valeur ' + starTxt : null,
   ].filter(Boolean);
   var h =
@@ -1305,25 +1299,53 @@ function analysisCard(isin, sym) {
               ? 'vente'
               : 'vente forte';
   };
-  var anaH =
-    (o.tgt
-      ? '<p class="small">' +
-        esc(
-          (o.tgt.n ? o.tgt.n + ' analystes' : 'Analystes') +
-            (o.reco != null ? ' · avis moyen « ' + RECO(o.reco) + ' »' : '') +
-            ' · objectif moyen ' +
-            f2(o.tgt.mean) +
-            cur +
-            ' (' +
-            pct(up) +
-            ')' +
-            (o.tgt.low > 0 && o.tgt.high > 0 ? ', fourchette ' + f2(o.tgt.low) + ' à ' + f2(o.tgt.high) : '') +
-            (o.rev != null
-              ? ' · prévisions ' + (o.rev > 0 ? 'relevées' : o.rev < 0 ? 'abaissées' : 'stables') + ' sur 30 jours'
-              : '')
-        ) +
-        '</p>'
-      : '<p class="small muted">Pas de consensus d\'analystes publié.</p>') + scH;
+  // prévisions chiffrées (sociétés suivies par Euro Signal) : croissance attendue, PEG, révisions, dispersion
+  var fv = esX ? ES.forecastView(esX.forecast, esX.fund) : null,
+    fvH = '',
+    anaT = o.reco != null ? 'avis moyen « ' + RECO(o.reco) + ' »' : '';
+  if (fv && !fv.na) {
+    var two = function (a, b) {
+        return [
+          a != null ? pct(a) + (fv.fy0 ? ' en ' + fv.fy0 : '') : null,
+          b != null ? pct(b) + (fv.fy1 ? ' en ' + fv.fy1 : '') : null,
+        ]
+          .filter(Boolean)
+          .join(' puis ');
+      },
+      fl = [];
+    if (fv.revG0 != null || fv.revG1 != null) fl.push("chiffre d'affaires " + two(fv.revG0, fv.revG1));
+    if (fv.epsG0 != null || fv.epsG1 != null) fl.push('bénéfice par action ' + two(fv.epsG0, fv.epsG1));
+    else if (fv.turnaround) fl.push('retour aux bénéfices attendu');
+    if (fv.lossNext) fl.push('pertes encore attendues' + (fv.fy1 ? ' en ' + fv.fy1 : ''));
+    if (fv.peg != null)
+      fl.push(
+        'PEG ' +
+          fmtN(fv.peg, 1) +
+          (fv.peg < 1 ? ' (croissance peu payée)' : fv.peg > 2 ? ' (croissance déjà chère)' : '')
+      );
+    if (fv.rev90 != null) fl.push('bénéfice attendu révisé de ' + pct(fv.rev90) + ' sur 90 jours');
+    if (fv.disp1 != null && fv.disp1 >= 50) fl.push('estimations très dispersées (' + Math.round(fv.disp1) + ' %)');
+    var FT = {
+      good: ['🟢', 'Prévisions favorables'],
+      mixed: ['🟡', 'Prévisions sans élan'],
+      bad: ['🔴', 'Prévisions défavorables'],
+      thin: ['⚪', 'Consensus trop maigre'],
+    }[fv.tone] || ['⚪', 'Prévisions'];
+    // verdict des prévisions : dans le titre du pli ; ici les chiffres
+    if (fl.length) {
+      anaT = FT[0] + ' ' + FT[1].toLowerCase();
+      fvH =
+        '<p class="small">' +
+        esc(cap1(fl.join(' · '))) +
+        (esX.forecast && esX.forecast.asOf
+          ? ' <span class="muted">(consensus du ' + esc(shortDate(esX.forecast.asOf)) + ')</span>'
+          : '') +
+        '</p>';
+    }
+  }
+  // objectifs des analystes : ce sont les scénarios ci-dessous (bas, moyen, haut), pas répétés en tête ; avis moyen ou
+  // verdict des prévisions : dans le titre du pli
+  var anaH = (o.tgt ? '' : '<p class="small muted">Pas de consensus d\'analystes publié.</p>') + fvH + scH;
   if (sc && sc[2] > sc[0]) {
     var posP = Math.max(0, Math.min(100, ((o.last - sc[0]) / (sc[2] - sc[0])) * 100));
     anaH +=
@@ -1331,13 +1353,7 @@ function analysisCard(isin, sym) {
       Math.round(posP) +
       ' % entre le scénario baissier et le haussier"><i style="left:' +
       posP.toFixed(0) +
-      '%"></i></div><p class="small muted anbarl"><span>🐻 ' +
-      f2(sc[0]) +
-      '</span><span>cours ' +
-      f2(o.last) +
-      '</span><span>🚀 ' +
-      f2(sc[2]) +
-      '</span></p>';
+      '%"></i></div><p class="small muted anbarl"><span>🐻 baissier</span><span>▲ cours</span><span>🚀 haussier</span></p>';
   }
   // score de conviction : chaque barre avec ses raisons (le plus important d'abord)
   var convH =
@@ -1373,10 +1389,7 @@ function analysisCard(isin, sym) {
       .join('') +
     '</div>' +
     '<p class="small muted">Chaque note part de 5 (8 pour les risques) et bouge selon les raisons affichées ; la note finale est leur moyenne pondérée.</p>' +
-    '<p class="small"><b>Incertitude</b> : ' +
-    (unc || 'n.d.') +
-    (o.vol != null ? ' (volatilité ' + Math.round(o.vol) + ' % par an)' : '') +
-    ' · <b>Prix / valeur</b> : ' +
+    '<p class="small"><b>Prix / valeur</b> : ' +
     (starTxt || 'n.d.') +
     (cu != null
       ? ' <span class="muted">(scénario central ' +
@@ -1384,26 +1397,112 @@ function analysisCard(isin, sym) {
         ' ; ★★★★★ dès +30 %, ★★★ de 0 à +15 %, ★ sous −15 %)</span>'
       : '') +
     '</p>';
+  // comptes détaillés, valeur et dirigeants : autrefois dans « ➕ Plus de détails », désormais ici, chacun une seule fois
+  var TI = { good: '🟢', mixed: '🟡', bad: '🔴', na: '⚪' },
+    mut = function (t) {
+      return t ? ' <span class="muted">· ' + t + '</span>' : '';
+    };
+  var accB = accX ? accHealth(o.isin) : '',
+    accT = '';
+  if (accX) {
+    var ftr = accX.fscoreTrend ? { up: ' ↗', down: ' ↘', flat: '' }[accX.fscoreTrend.key] || '' : '';
+    accT =
+      accX.plain && accX.plain.label
+        ? (TI[accX.plain.tone] || '⚪') +
+          ' ' +
+          esc(accX.plain.label) +
+          (accX.fscore && !accX.fscore.na ? ', F-score ' + accX.fscore.f9 + '/9' + ftr : '')
+        : accX.verdict
+          ? (TI[accX.verdict.key] || '⚪') + ' ' + esc(accX.verdict.text)
+          : '';
+  }
+  var valB = '',
+    valT = '';
+  if (esX && esX.value) {
+    var v0 = esX.value,
+      vv0 = ES.valueView(v0);
+    valB = valueSection(o.isin);
+    valT = vv0
+      ? (TI[vv0.tone] || '⚪') +
+        ' ' +
+        esc(
+          v0.mid != null
+            ? v0.marginPct >= 0
+              ? 'marge de sécurité ' + v0.marginPct + ' %'
+              : 'cours au-dessus de la valeur estimée'
+            : v0.pb != null
+              ? 'cours ' + fmtN(v0.pb, 1) + '× la valeur comptable'
+              : 'non estimable'
+        )
+      : '';
+  } else if (coI && coI.pb != null) {
+    valB = unCard(secValueCard(o.roeYear ? Object.assign({}, coI, { roe: o.roe, roeYear: o.roeYear }) : coI, null));
+    valT = 'cours ' + fmtN(coI.pb, 2) + '× la valeur comptable';
+  }
+  var dirB = '',
+    dirT = '';
+  if (full && esX) {
+    if (!hasDetail(o.isin)) dirB = '<p class="muted small">Chargement des déclarations…</p>';
+    else {
+      var scE = (S.computed[o.isin] || computeOne(o.isin)).score,
+        nTx = (S.tx[o.isin] || []).filter(function (t) {
+          return ES.availDate(t) >= scE.windowFrom;
+        }).length;
+      dirB = unCard(txSection(o.isin, scE));
+      dirT = nTx + ' déclaration' + (nTx > 1 ? 's' : '') + ' depuis le ' + shortDate(scE.windowFrom);
+    }
+  }
+  // identité du titre (fiche Euro Signal ; l'en-tête de la fiche du catalogue la donne déjà)
+  var regs = {};
+  if (full && esX)
+    (S.tx[o.isin] || []).forEach(function (t) {
+      regs[t.registry] = 1;
+    });
+  var idL =
+    full && esX
+      ? [
+          'ISIN ' + o.isin,
+          esX.ticker ? 'symbole Yahoo ' + esX.ticker : null,
+          esX.venue ? 'cotation ' + esX.venue + (esX.isReference === false ? ' (ligne secondaire)' : '') : null,
+          esX.currency ? 'devise ' + esX.currency : null,
+          Object.keys(regs).length ? 'registres consultés : ' + Object.keys(regs).join(', ') : null,
+          esX.priceNote ? 'cours : ' + esX.priceNote : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : '';
   h +=
-    '<details class="andet" data-k="an-det"><summary>📊 Le détail <span class="muted">· société, marché, niveaux, scénarios, agenda, score</span></summary>' +
+    '<details class="andet" data-k="an-det"><summary>📊 Le détail <span class="muted">· ' +
+    (full && esX
+      ? 'comptes, valeur, analystes, marché, résultats, dirigeants'
+      : 'société, valeur, analystes, marché, score') +
+    '</span></summary>' +
     sub('🏢 La société en bref', kpiOf(coK) + ex.traj, 'an-soc') +
-    sub('🧭 Régime de marché', regH + kpiOf(mkK), 'an-reg') +
+    sub('📊 Santé des comptes' + mut(accT), accB, 'an-acc') +
+    sub('💎 Valeur' + mut(valT), valB, 'an-val') +
+    sub('🎯 Analystes et prévisions' + mut(esc(anaT)), anaH, 'an-ana') +
+    sub('🧭 Régime de marché et secteur', regH + kpiOf(mkK), 'an-reg') +
     sub('📐 Supports, résistances et technique', techH, 'an-sr') +
-    sub('🎯 Analystes et scénarios', anaH, 'an-ana') +
-    sub("🗓️ Chronologie de l'année et agenda", ex.agenda, 'an-agd') +
-    sub(
-      '🏦 Gestion du capital',
-      ex.cap.replace(/^<h4>Gestion du capital · ([^<]*)<\/h4>/, '<p class="small"><b>$1</b></p>'),
-      'an-cap'
-    ) +
+    sub('🗓️ Résultats publiés' + mut(ex.agendaT), ex.agenda, 'an-agd') +
+    sub('🏦 Gestion du capital' + mut(ex.capT), ex.cap, 'an-cap') +
+    sub('👔 Dirigeants' + mut(dirT), dirB, 'an-dir') +
     sub('🧮 Score de conviction · ' + fmtN(score, 1) + '/10', convH, 'an-conv') +
-    '<p class="small muted ansrc">Sources : Yahoo Finance (cours, comptes, analystes) · registres AMF, FI, FSMA, AFM (dirigeants) · AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA (ventes à découvert) · Google News (presse) · données du ' +
+    '<p class="small muted ansrc">Sources : Yahoo Finance (cours, comptes, analystes) · registres AMF, FI, FSMA, AFM (dirigeants) · AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA (ventes à découvert) · Google News (presse) · communiqués (rachats, résultats : BPA publié face au consensus figé à la publication) · données du ' +
     shortDate(S.today) +
-    '.</p>';
+    '.' +
+    (idL ? '<br>' + esc(idL) + '.' : '') +
+    '</p>';
   h += '</details>';
   return (
     h +
-    '<p class="foot">Automatique, données du soir. Seules les règles 🎯 et 💎 sont testées. Pas un conseil.</p></details>'
+    (!full && esX
+      ? '<p class="small">📒 Suivie par Euro Signal : <button class="link" data-a="open" data-i="' +
+        esc(o.isin) +
+        '" data-from="secco">fiche complète →</button> <span class="muted">(santé des comptes et déclarations des dirigeants)</span></p>'
+      : '') +
+    '<p class="foot">Automatique, données du soir. Seules les règles 🎯 et 💎 sont testées. Pas un conseil. ' +
+    reportBtn(o.name || o.isin || sym, o.isin, sym) +
+    '</p></details>'
   );
 }
 /** 🏭 Business model : ce que fait la société (description Yahoo Finance, en anglais) et son profil économique, calculé en
@@ -1463,11 +1562,12 @@ function bizCard(sym, lazy) {
       var omLo = Math.min.apply(null, om),
         omHi = Math.max.apply(null, om),
         stable = omHi - omLo < 4;
+      // chiffres de chaque année : tableau des comptes du pli 🔬 Analyse (pas répétés ici)
       rows.push([
         "🏭 Marge d'exploitation",
         stable ? 'stable' : 'variable',
-        'de ' + pc(omLo) + ' à ' + pc(omHi) + ' sur ' + om.length + ' ans',
-        stable ? '' : 'les résultats dépendent de la conjoncture ou des prix',
+        '',
+        stable ? 'résultats peu sensibles à la conjoncture' : 'les résultats dépendent de la conjoncture ou des prix',
       ]);
     }
     var cx = Y.filter(function (y) {
@@ -1499,12 +1599,7 @@ function bizCard(sym, lazy) {
     rows.push([
       '🔁 Régularité',
       worst[1] <= -0.1 ? 'cyclique' : worst[1] >= 0 ? 'régulière' : 'assez régulière',
-      "chiffre d'affaires " +
-        ch
-          .map(function (c) {
-            return (c[1] >= 0 ? '+' : '−') + fmtN(Math.abs(c[1]) * 100, 0) + ' % en ' + c[0];
-          })
-          .join(', '),
+      worst[1] < 0 ? "pire année : chiffre d'affaires −" + fmtN(Math.abs(worst[1]) * 100, 0) + ' % en ' + worst[0] : '',
       worst[1] <= -0.1
         ? 'les ventes suivent le cycle économique ou les prix'
         : worst[1] >= 0
@@ -1588,6 +1683,11 @@ function bizCard(sym, lazy) {
   h +=
     '<p class="small muted">Part de chaque activité dans les ventes et les bénéfices, et ce qui fait varier les marges : rapport annuel de la société (« information sectorielle »).</p>';
   return h + '</details>';
+}
+/** Contenu d'une carte « <section class="card…"><h3>titre</h3>…</section> », sans cadre ni titre (sous-pli de l'analyse). */
+function unCard(html) {
+  var m = html && html.match(/^<section class="card[^"]*"><h3>[\s\S]*?<\/h3>/);
+  return m && html.slice(-10) === '</section>' ? html.slice(m[0].length, -10) : html || '';
 }
 /** Une carte « <section><h3>titre</h3>… » devient un pli fermé ; le titre court du pli porte l'essentiel. */
 function asFold(html, key, summ) {
