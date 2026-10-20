@@ -41,6 +41,20 @@ jobs:
           test -f "$SCRIPT" || { echo "Script absent : research/$SCRIPT"; exit 1; }
           mkdir -p out
           python "$SCRIPT" 2>&1 | tee "out/${SCRIPT%.py}.log"
+      # rapport aussi en annotations (lisibles par l'API GitHub, sans télécharger l'archive) : 20 000 caractères par note
+      - name: Rapport en annotations
+        if: always()
+        working-directory: research
+        run: |
+          python - <<'PY'
+          import glob, os
+          for f in sorted(glob.glob('out/*.txt')):
+              s = open(f, encoding='utf-8', errors='replace').read()
+              parts = [s[i:i + 20000] for i in range(0, len(s), 20000)][:8]
+              for k, p in enumerate(parts, 1):
+                  p = p.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print(f"::notice title={os.path.basename(f)} ({k}/{len(parts)})::{p}")
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
