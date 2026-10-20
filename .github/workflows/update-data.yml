@@ -27,7 +27,56 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Départ planifié arrivé en retard (GitHub peut le retarder de plusieurs heures) alors que le calcul du soir a déjà été fait,
+  # relancé par la garde (watchdog.yml) ou à la main : on le saute. Sinon il refait tout, parfois après minuit à Paris, quand
+  # Yahoo n'a plus la dernière séance de la zone euro (données moins complètes que le premier calcul).
+  garde:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from datetime import datetime, timedelta, timezone
+
+          run = "true"
+          if os.environ["EVENT"] == "schedule":
+              now = datetime.now(timezone.utc)
+              d = now  # départ prévu le plus récent : 17h37 UTC du dernier jour de semaine passé
+              while True:
+                  start = d.replace(hour=17, minute=37, second=0, microsecond=0)
+                  if d.weekday() < 5 and start <= now:
+                      break
+                  d -= timedelta(days=1)
+              try:
+                  out = subprocess.check_output(["gh", "run", "list", "--repo", os.environ["REPO"], "--workflow", "update-data.yml",
+                                                 "--limit", "20", "--json", "databaseId,createdAt,conclusion"])
+                  done = [r for r in json.loads(out) if str(r["databaseId"]) != os.environ["RUN_ID"] and r["conclusion"] == "success"
+                          and datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= start - timedelta(minutes=30)]
+              except Exception as e:  # garde muette : on calcule quand même
+                  print("Garde : vérification impossible,", e)
+                  done = []
+              if done:
+                  run = "false"
+                  print(f"Calcul du soir déjà fait depuis le départ prévu ({start:%d/%m %H:%M} UTC) : ce départ en retard est sauté")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"run={run}\n")
+          PY
+
   update-data:
+    needs: garde
+    if: needs.garde.outputs.run == 'true'
     runs-on: ubuntu-latest
     # chaque étape de collecte a son propre délai : le job n'atteint jamais sa limite, l'enregistrement final s'exécute toujours
     timeout-minutes: 150
