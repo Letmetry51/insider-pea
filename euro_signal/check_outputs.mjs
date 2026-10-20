@@ -592,7 +592,12 @@ Object.keys(COV).forEach((k) => {
   delta[k] = [now, was];
   if (was == null || !(was > 0)) return;
   const drop = (was - now) / was;
-  if (drop > 0.1 && was - now >= 20)
+  // moins de sociétés classées parce que plus de comptes ont été lus (celles en perte ou en détresse sortent alors) : normal
+  const kAcc = 'classement (comptes lus)',
+    moreAcc = prev.cov[kAcc] != null && COV[kAcc] != null ? COV[kAcc] - prev.cov[kAcc] : 0;
+  if (k === 'classement (sociétés classées)' && now < was && moreAcc >= was - now)
+    ok(`${k} : ${now} (${now - was} depuis le calcul précédent, expliqué par ${moreAcc} comptes lus de plus)`);
+  else if (drop > 0.1 && was - now >= 20)
     ko(`baisse anormale : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
   else if (drop > 0.03 && was - now >= 10)
     warn(`baisse : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
