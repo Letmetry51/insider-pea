@@ -4580,3 +4580,16 @@ details.pos summary {
 .bizp li {
   margin: 4px 0;
 }
+/* 📅 Agenda des résultats */
+.agdw {
+  margin: 12px 0 2px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.agd li {
+  cursor: pointer;
+  padding: 6px 0;
+}
+.agd li:hover {
+  background: var(--sunk);
+}

@@ -20,6 +20,7 @@ email alerts. Not investment advice. Code under the MIT licence; data files belo
 | 🎯 **Momentum** | sociétés en forte hausse sur 12 mois (+60 à +200 %), pente forte, comptes solides ; priorité aux volumes en hausse (🔊) et aux bonds sur gros volume (📣) ; 2 par secteur ; écarte les cours très volatils (⚡) et les sociétés parisiennes très vendues à découvert (🐻) |
 | 💎 **Valeur** | complément : sociétés bon marché (cours / fonds propres) aux comptes solides (F-score de Piotroski ≥ 7) |
 | 📋 **Sélection du lundi** | 5 🎯 + 2 💎, avec ✅ feu vert ou ⏸️ en attente (sous la moyenne 10 semaines) |
+| 📅 **Agenda des résultats** | publications des 6 prochaines semaines (sélection, 🎯 et 💎 proposées, vos suivis) et surprises des 14 derniers jours ; simple repère : acheter juste avant n'a pas été moins bon (2020-2026) |
 | 📧 **Emails** | sélection, feu vert, paliers de −10 %, protection −30 %, rappel à 6 mois, krach, auto-surveillance, bilan trimestriel |
 | 🧭 **Secteurs**, 👔 **dirigeants** | radar des secteurs en tendance ; déclarations d'achats et de ventes des dirigeants (consultation) |
 | 🔎 **Auto-contrôle** | chaque soir : tests, contrôle des fichiers et de l'affichage ; chaque règle est vérifiée sur les vraies sélections |

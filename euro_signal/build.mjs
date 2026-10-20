@@ -2287,7 +2287,11 @@ export function build(opts = {}) {
         short: shortOf(sym, isin),
         acc,
         ins,
-        nextEarnings: i ? i.nextEarnings || null : null,
+        // prochaine publication : dossier Euro Signal, sinon relevé hebdomadaire du catalogue (dates annoncées par Yahoo)
+        nextEarnings:
+          (i && i.nextEarnings) ||
+          (typeof x.nextEarnings === 'string' && x.nextEarnings >= today ? x.nextEarnings : null) ||
+          null,
       };
     });
     const rows = ES.rankUniverse(items, cfg, { today });
@@ -2454,6 +2458,9 @@ export function build(opts = {}) {
       secEn: r.secEn || null,
       f9: r.f9 != null ? r.f9 : null,
       pb: r.pb != null ? r.pb : null,
+      ne: r.ne || undefined,
+      ls: r.ls || undefined,
+      sr: r.sr || undefined,
       iv: r.iv || undefined,
     });
     // Liste publiée : sociétés liquides (classées ou écartées pour une raison de fond) ; les autres sont trouvables par la recherche du catalogue
@@ -2463,6 +2470,27 @@ export function build(opts = {}) {
     items.forEach((x) => {
       if (x.acc && x.acc.f9 != null) accF9[x.key] = x.acc.f9;
     });
+    // 📅 agenda des résultats : surprises du bénéfice par action face au consensus. Résultats suivis chaque soir par Euro
+    // Signal s'il y en a, sinon relevé hebdomadaire du catalogue (Yahoo). → { last : [date, %], beats, n }
+    const estim = readJSON(path.join(DATA, 'sectors', 'estimates.json'), {});
+    const surpOf = (sym, isin) => {
+      const ok = (q) => q[0] && q[0] <= today && q[1] != null && Number.isFinite(q[1]);
+      let L =
+        isin && evOut[isin]
+          ? (evOut[isin].results || [])
+              .map((x) => [String(x.pubDate || '').slice(0, 10), ES.surprise(x.epsActual, x.epsConsensus)])
+              .filter(ok)
+          : [];
+      const e = isObj(estim) && sym && isObj(estim[sym]) ? estim[sym] : null;
+      if (!L.length && e && Array.isArray(e.surprises))
+        L = e.surprises
+          .filter((q) => Array.isArray(q) && typeof q[0] === 'string')
+          .map((q) => [q[0].slice(0, 10), +q[1]])
+          .filter(ok);
+      if (!L.length) return null;
+      L.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+      return { last: L[L.length - 1], beats: L.filter((q) => q[1] > 0).length, n: L.length };
+    };
     shown.forEach((r) => {
       const x = co[r.sym] || {},
         i = r.isin ? inst[r.isin] : null;
@@ -2506,6 +2534,12 @@ export function build(opts = {}) {
       if (Array.isArray(x.d)) {
         const tt = ES.trendTemplate(x.d);
         if (tt) r.tmpl = tt.ok ? 1 : 0;
+      }
+      if (nextE[r.key]) r.ne = nextE[r.key];
+      const su = surpOf(r.sym, r.isin);
+      if (su) {
+        if (ES.daysBetween(su.last[0], today) <= 200) r.ls = [su.last[0], Math.round(su.last[1] * 10) / 10];
+        if (su.n >= 4) r.sr = [su.beats, su.n];
       }
     });
     rank = {

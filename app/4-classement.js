@@ -1889,6 +1889,166 @@ function rankSelCard() {
     '</p>';
   return h + subs + '</details>';
 }
+/** 📅 Agenda des résultats : publications des 6 prochaines semaines et des 14 derniers jours pour les sociétés qui comptent :
+ *  vos suivis sur cet appareil (📌 positions, 🔔 plans surveillés), la sélection de la semaine, puis les 🎯 et 💎 proposés.
+ *  Information seulement : aucune règle testée ne demande d'attendre une publication (ES.earningsAgenda). */
+function agendaCard() {
+  var R = rankData();
+  if (!R) return '';
+  var rows = R.rows || [],
+    byKey = {};
+  rows.forEach(function (r) {
+    byKey[r.key] = r;
+    if (r.sym && !byKey[r.sym]) byKey[r.sym] = r;
+    if (r.isin && !byKey[r.isin]) byKey[r.isin] = r;
+  });
+  var list = [],
+    push = function (id, tag) {
+      var r = id ? byKey[id] || null : null,
+        isin = r ? r.isin : ES.isValidIsin(id) ? id : null,
+        x = isin ? S.inst[isin] : null;
+      if (!r && !x) return;
+      var it = {
+        key: r ? r.key : isin,
+        name: (x && x.name) || (r && r.name) || id,
+        tag: tag,
+        ne: (r && r.ne) || (x && x.nextEarnings) || null,
+        ls: r && r.ls ? r.ls : null,
+        sr: r && r.sr ? r.sr : null,
+        go: r ? rankOpenAttr(r) : 'data-a="open" data-i="' + esc(isin) + '"',
+      };
+      // société hors de la liste publiée : résultats suivis par Euro Signal
+      var res = !it.ls && isin && S.ev[isin] ? (S.ev[isin].results || []).slice() : [];
+      if (res.length) {
+        var L = res
+          .map(function (q) {
+            return [q.pubDate, ES.surprise(q.epsActual, q.epsConsensus)];
+          })
+          .filter(function (q) {
+            return q[0] && q[1] != null;
+          })
+          .sort(function (a, b) {
+            return a[0] < b[0] ? -1 : 1;
+          });
+        if (L.length) {
+          it.ls = L[L.length - 1];
+          if (L.length >= 4)
+            it.sr = [
+              L.filter(function (q) {
+                return q[1] > 0;
+              }).length,
+              L.length,
+            ];
+        }
+      }
+      list.push(it);
+    };
+  // 1. vos suivis, sur cet appareil : positions d'abord, puis plans surveillés
+  ['open', 'watch'].forEach(function (kind) {
+    try {
+      for (var k = 0; k < window.localStorage.length; k++) {
+        var m = /^es\.(open|watch)\.([A-Z0-9][A-Z0-9.&-]{1,24})$/.exec(window.localStorage.key(k) || '');
+        if (m && m[1] === kind && window.localStorage.getItem(m[0])) push(m[2], kind === 'open' ? '📌' : '🔔');
+      }
+    } catch (e) {}
+  });
+  // 2. la sélection de la semaine, puis les 🎯 et 💎 proposés
+  ((R.selection || {}).items || []).forEach(function (r) {
+    push(r.key, '🎯');
+  });
+  ES.pickValue(rows, { n: 2, peaOnly: true }).picks.forEach(function (r) {
+    push(r.key, '💎');
+  });
+  (R.pick10 || []).forEach(function (k) {
+    push(k, '🎯');
+  });
+  (R.value10 || []).forEach(function (k) {
+    push(k, '💎');
+  });
+  var A = ES.earningsAgenda(list, S.today),
+    seen = {},
+    nKnown = 0;
+  list.forEach(function (x) {
+    if (seen[x.key]) return;
+    seen[x.key] = 1;
+    if (x.ne) nKnown++;
+  });
+  var nAll = Object.keys(seen).length;
+  var DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'],
+    day = function (d) {
+      return DAYS[new Date(d + 'T12:00:00Z').getUTCDay()] + ' ' + d.slice(8, 10) + '/' + d.slice(5, 7);
+    },
+    line = function (x, when, extra) {
+      return (
+        '<li class="rowlink" ' +
+        x.go +
+        ' data-from="rank" tabindex="0"><div><b>' +
+        when +
+        '</b> · ' +
+        x.tag +
+        ' ' +
+        esc(x.name) +
+        (extra ? '<small>' + extra + '</small>' : '') +
+        '</div></li>'
+      );
+    },
+    habit = function (x) {
+      return x.sr ? 'habitude : au-dessus du consensus ' + x.sr[0] + ' fois sur ' + x.sr[1] : '';
+    };
+  var h =
+    '<details class="card fold agdfold" data-k="agenda"><summary>📅 Agenda des résultats <span class="muted small">· ' +
+    (A.thisWeek
+      ? A.thisWeek + ' cette semaine'
+      : A.n
+        ? A.n + " d'ici 6 semaines"
+        : A.recent.length
+          ? A.recent.length + ' publiés ces 14 jours'
+          : "rien d'annoncé") +
+    '</span></summary>';
+  if (!A.n && !A.recent.length)
+    h += '<p class="muted small">Aucune publication annoncée d\'ici 6 semaines pour ces sociétés.</p>';
+  A.weeks.forEach(function (w) {
+    h +=
+      '<p class="agdw">' +
+      (w.k === 0 ? 'Cette semaine' : w.k === 1 ? 'Semaine prochaine' : 'Semaine du ' + day(w.from)) +
+      '</p><ul class="evs agd">' +
+      w.items
+        .map(function (x) {
+          return line(x, day(x.ne), esc(habit(x)));
+        })
+        .join('') +
+      '</ul>';
+  });
+  if (A.recent.length)
+    h +=
+      '<p class="agdw">Publiés ces 14 derniers jours</p><ul class="evs agd">' +
+      A.recent
+        .map(function (x) {
+          var v = x.ls[1];
+          return line(
+            x,
+            day(x.ls[0]),
+            '<span class="' +
+              (v >= 0 ? 'pos' : 'neg') +
+              '">Bénéfice ' +
+              (Math.abs(v) >= 100
+                ? v >= 0
+                  ? 'très au-dessus du consensus'
+                  : 'très en dessous du consensus'
+                : (v >= 0 ? 'au-dessus' : 'en dessous') + ' du consensus (' + pct(v).replace(' %', '\u00a0%') + ')') +
+              '</span>'
+          );
+        })
+        .join('') +
+      '</ul>';
+  h +=
+    '<p class="foot">📌 position · 🔔 plan surveillé (sur cet appareil) · 🎯 / 💎 proposées. Date annoncée pour ' +
+    nKnown +
+    ' sur ' +
+    nAll +
+    " (Yahoo Finance, à revérifier la veille). Rien à changer avant une publication : dans le 🎯, acheter 1 à 2 semaines avant n'a pas été moins bon (2020-2026) ; le cours bouge seulement un peu plus (baisse de 15 % en 4 semaines : 5 % des cas, contre 4 %).</p>";
+  return h + '</details>';
+}
 /** Classe de pente du canal haussier (régression sur 6 mois, rythme annuel), seulement en tendance de fond haussière. */
 function rkSc(r) {
   return r.sc !== undefined
@@ -2560,7 +2720,7 @@ function vClassement() {
     cv[r.v] = (cv[r.v] || 0) + 1;
   });
   var h = dashTiles(R, rows);
-  h += rankSelCard();
+  h += rankSelCard() + agendaCard();
   var psy = psyCard();
   if (psy)
     h +=
