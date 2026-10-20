@@ -3936,31 +3936,6 @@ svg .mk-na {
   margin: 0 0 8px;
   font-size: 0.98rem;
 }
-/* plan d'entrée en pli : titre et verdict dans l'en-tête */
-details.plan > summary {
-  cursor: pointer;
-  list-style: none;
-  color: var(--ink);
-  font-weight: 400;
-  font-size: 1rem;
-}
-details.plan > summary::-webkit-details-marker {
-  display: none;
-}
-details.plan > summary h4::before {
-  content: '▸ ';
-  color: var(--accent);
-}
-details.plan[open] > summary h4::before {
-  content: '▾ ';
-}
-details.plan > summary .verdict {
-  display: block;
-  margin: 0;
-}
-details.plan[open] > summary {
-  margin-bottom: 8px;
-}
 .plan ul.sc {
   list-style: none;
   padding: 0;
@@ -4598,4 +4573,8 @@ details.pos summary {
 .cmpt tbody th {
   width: 30%;
   font-weight: 600;
+}
+/* 🧭 plan d'entrée : indicateurs toujours visibles */
+.plan .pvh {
+  margin: 12px 0 4px;
 }
