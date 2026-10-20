@@ -60,3 +60,4 @@ jobs:
           python scrapers/test_prices.py
           python scrapers/test_yahoo.py
           python scrapers/test_sectors.py
+          python scrapers/test_backup.py

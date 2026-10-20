@@ -392,6 +392,26 @@ if (YH && YH.sections) {
   });
 } else warn('Yahoo : compteurs du soir absents (diagnostics/yahoo.json)');
 
+// 5d. Cours de secours (scrapers/backup_prices.py) : clôtures prises chez Euronext et Nasdaq Nordic quand Yahoo ne les a pas
+const BK = read('diagnostics/backup.json');
+if (BK && !BK.__error && BK.date === today) {
+  const c = BK.catalogue || {},
+    p = BK.prices || {},
+    mk = Object.entries(c.byMarket || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => k + ' ' + v)
+      .join(', ');
+  check(
+    !(BK.euronext && BK.euronext.error && (c.needed || 0) >= 200),
+    BK.euronext && BK.euronext.error
+      ? `cours de secours : liste Euronext injoignable (${BK.euronext.error}), ${c.needed || 0} fiches sans la dernière séance`
+      : `cours de secours (séance du ${BK.session || '?'}) : ${c.filled || 0} fiches complétées sur ${c.needed || 0} sans clôture Yahoo` +
+          (mk ? ` (${mk})` : '') +
+          `, ${p.filled || 0} cours Euro Signal complétés, ${(c.rejected || 0) + (p.rejected || 0)} clôtures écartées`,
+    true
+  );
+} else warn('cours de secours : pas de compteurs ce soir (diagnostics/backup.json)');
+
 // 6. Couverture rubrique par rubrique, comparée au calcul précédent : une baisse brutale (Yahoo qui répond vide, fichier
 // abîmé) est signalée le soir même, avant qu'un lecteur ne la découvre
 const COV = {};

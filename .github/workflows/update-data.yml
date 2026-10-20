@@ -1,9 +1,11 @@
 name: Mise à jour quotidienne des données
 
 on:
-  # Du lundi au vendredi à 18h00 UTC (19h ou 20h à Paris), après la clôture des bourses européennes
+  # Du lundi au vendredi à 17h37 UTC (18h37 ou 19h37 à Paris), après la clôture des bourses européennes. Pas à l'heure pile :
+  # GitHub y retarde les tâches planifiées (avec « 0 18 », départs entre 20h30 et minuit UTC en octobre 2026, souvent après
+  # minuit à Paris, quand Yahoo n'a pas encore la dernière séance de la zone euro)
   schedule:
-    - cron: '0 18 * * 1-5'
+    - cron: '37 17 * * 1-5'
   # Lancement manuel depuis l'onglet Actions (avec option d'email de test)
   workflow_dispatch:
     inputs:
@@ -94,7 +96,15 @@ jobs:
           python scrapers/sectors.py --prices --dashboard
         continue-on-error: true
 
-      - name: 3c. Garder les cours pour demain (cache)
+      # Clôture du soir manquante chez Yahoo (calcul tardif, panne) : prise à la bourse elle-même (Euronext, Nasdaq Nordic)
+      - name: 3c. Cours de secours (Euronext, Nasdaq Nordic)
+        timeout-minutes: 12
+        run: |
+          python scrapers/test_backup.py > /tmp/test_backup.txt || { cat /tmp/test_backup.txt; exit 1; }
+          python scrapers/backup_prices.py
+        continue-on-error: true
+
+      - name: 3d. Garder les cours pour demain (cache)
         if: always()
         uses: actions/cache/save@v4
         with:

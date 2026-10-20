@@ -21,6 +21,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Données de la veille (branche site)
         uses: ./.github/actions/restore-data
+      # cours Euro Signal du dernier calcul du soir (gardés en cache, jamais publiés) : lecture seule
+      - name: Cours Euro Signal (cache du calcul du soir)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/prices.json
+          key: yahoo-recherche-${{ github.run_id }}
+          restore-keys: yahoo-
+        continue-on-error: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
