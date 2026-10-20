@@ -1,0 +1,50 @@
+name: Recherche (à la demande)
+
+# Lance un script de recherche (dossier research/) avec accès au réseau, puis garde ses résultats (research/out/) 30 jours.
+# Ne modifie ni le tableau de bord ni les données publiées.
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: Script du dossier research/ (par exemple us_check.py)
+        required: true
+        default: us_check.py
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Données de la veille (branche site)
+        uses: ./.github/actions/restore-data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Dépendances
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt lxml html5lib
+      - name: Script de recherche
+        working-directory: research
+        env:
+          SCRIPT: ${{ inputs.script }}
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+        run: |
+          set -o pipefail
+          # nom de fichier seulement (pas de chemin ni d'option) : rien d'autre ne peut être lancé
+          [[ "$SCRIPT" =~ ^[a-z0-9_]+\.py$ ]] || { echo "Nom de script refusé : $SCRIPT"; exit 1; }
+          test -f "$SCRIPT" || { echo "Script absent : research/$SCRIPT"; exit 1; }
+          mkdir -p out
+          python "$SCRIPT" 2>&1 | tee "out/${SCRIPT%.py}.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recherche-${{ github.run_id }}
+          path: research/out/
+          retention-days: 30
+          if-no-files-found: warn
