@@ -3996,6 +3996,41 @@ t('Trend Template de Minervini et psychologie du marché (ampleur, régimes)', (
   ok(ES.marketBreadth(dates, crash).now.m52 < ES.MOM_CRASH_M52, 'baisse continue : alerte krach du momentum');
 });
 
+t('Agenda des résultats : semaines du lundi au dimanche, publications récentes, une ligne par société', () => {
+  // mardi 20 octobre 2026 : la semaine en cours va du lundi 19 au dimanche 25
+  const A = ES.earningsAgenda(
+    [
+      { key: 'A', name: 'A', tag: '📌', ne: '2026-10-22', ls: ['2026-07-20', 3] },
+      { key: 'B', name: 'B', tag: '🎯', ne: '2026-10-28', ls: ['2026-10-15', -4.2], sr: [3, 8] },
+      { key: 'A', name: 'A bis', tag: '🎯', ne: '2026-10-21' }, // doublon : la première étiquette compte
+      { key: 'C', name: 'C', tag: '💎', ne: '2026-12-31' }, // au-delà de 6 semaines
+      { key: 'D', name: 'D', tag: '💎', ne: '2026-10-19' }, // déjà passée
+      { key: 'E', name: 'E', tag: '🎯', ne: '2026-10-20', ls: ['2026-10-01', null] },
+      { key: 'F', name: 'F', tag: '💎', ne: 'bientôt' }, // date illisible
+    ],
+    '2026-10-20'
+  );
+  const w0 = A.weeks[0] || { items: [] };
+  ok(
+    A.weeks.length === 2 &&
+      w0.k === 0 &&
+      w0.from === '2026-10-19' &&
+      w0.to === '2026-10-25' &&
+      w0.items.map((x) => x.key).join() === 'E,A' &&
+      w0.items[1].tag === '📌' &&
+      A.weeks[1].k === 1 &&
+      A.weeks[1].items[0].key === 'B' &&
+      A.thisWeek === 2 &&
+      A.n === 3,
+    JSON.stringify(A.weeks)
+  );
+  ok(A.recent.length === 1 && A.recent[0].key === 'B', 'publiées depuis 14 jours, surprise connue');
+  ok(ES.earningsAgenda([], null).n === 0 && ES.earningsAgenda(null, '2026-10-20').weeks.length === 0, 'sans données');
+  // dimanche : la semaine en cours est celle qui s'achève, lundi suivant = semaine prochaine
+  const S0 = ES.earningsAgenda([{ key: 'X', ne: '2026-10-26' }], '2026-10-25');
+  ok(S0.weeks[0].k === 1 && S0.thisWeek === 0, JSON.stringify(S0));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

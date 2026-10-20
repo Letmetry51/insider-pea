@@ -9278,6 +9278,63 @@
         };
   };
   /**
+   * 📅 Agenda des résultats : publications des prochaines semaines (par défaut 6), groupées par semaine du lundi au dimanche,
+   * et publications des 14 derniers jours avec leur surprise. Information seulement, pas une règle : dans le 🎯 (2020-2026),
+   * acheter 1 à 2 semaines avant les résultats n'a pas été moins bon (+5,1 points à 6 mois contre +3,6 ; test du 18/10/2026).
+   * list : [{ key, name, tag, pri, ne : prochaine publication (AAAA-MM-JJ), ls : [date, surprise du BPA en %],
+   *          sr : [publications au-dessus du consensus, publications] }], par ordre de priorité ; une société n'est comptée qu'une fois.
+   * → { weeks : [{ k : 0 cette semaine, 1 la suivante…, from, to, items }], recent : [items], thisWeek, n }
+   */
+  ES.earningsAgenda = function (list, today, opt) {
+    var o = Object.assign({ ahead: 42, back: 14 }, opt || {});
+    if (!today) return { weeks: [], recent: [], thisWeek: 0, n: 0 };
+    var mon = ES.addDays(today, -((new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7)), // lundi de la semaine
+      weeks = {},
+      recent = [],
+      seen = {},
+      n = 0;
+    var iso = function (d) {
+      return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    };
+    (list || []).forEach(function (x, k) {
+      if (!x || !x.key || seen[x.key]) return;
+      seen[x.key] = 1;
+      var y = Object.assign({ pri: k }, x);
+      if (iso(x.ne) && x.ne >= today && ES.daysBetween(today, x.ne) <= o.ahead) {
+        var w = Math.floor(ES.daysBetween(mon, x.ne) / 7);
+        (weeks[w] = weeks[w] || []).push(y);
+        n++;
+      }
+      if (
+        x.ls &&
+        iso(x.ls[0]) &&
+        x.ls[0] <= today &&
+        ES.daysBetween(x.ls[0], today) <= o.back &&
+        x.ls[1] != null &&
+        isFinite(x.ls[1])
+      )
+        recent.push(y);
+    });
+    var byDay = function (a, b) {
+      return a.ne < b.ne ? -1 : a.ne > b.ne ? 1 : a.pri - b.pri;
+    };
+    return {
+      weeks: Object.keys(weeks)
+        .map(Number)
+        .sort(function (a, b) {
+          return a - b;
+        })
+        .map(function (w) {
+          return { k: w, from: ES.addDays(mon, 7 * w), to: ES.addDays(mon, 7 * w + 6), items: weeks[w].sort(byDay) };
+        }),
+      recent: recent.sort(function (a, b) {
+        return a.ls[0] > b.ls[0] ? -1 : a.ls[0] < b.ls[0] ? 1 : a.pri - b.pri;
+      }),
+      thisWeek: (weeks[0] || []).length,
+      n: n,
+    };
+  };
+  /**
    * 💎 Valeur (18/10/2026) : complément du 🎯. Momentum et valeur évoluent en sens inverse (corrélation −0,32, facteurs européens de
    * Kenneth French 1990-2026) : 70 % momentum + 30 % valeur a gardé +8,5 % par an d'avantage (contre +10,3) en ramenant la plus grosse
    * perte de −46 % à −30 %. Règles (Piotroski 2000) : prix bas par rapport aux fonds propres (tiers le moins cher des sociétés liquides),
