@@ -45,7 +45,7 @@ vérifié sur une source extérieure.
 | Effet momentum confirmé par le facteur européen de Kenneth French (+9,7 %/an contre +10,0 %) | `_wml.py`, `../french_compare.py` | indépendant |
 | 💎 Valeur (Piotroski) : 10 premières +5,1 points à 6 mois, 2 fois moins de chutes (départs 2024-2026) | `valeur.py` | **fragile** : 2 ans seulement (t 1,7) |
 | Dosage 70 % 🎯 / 30 % 💎 | `../french_combo.py`, `factors.py`, `factors2.py` | publié (Piotroski 2000) + facteurs de Kenneth French |
-| Pistes écartées : VIX, plus hauts répétés, moment d'achat, bêta et pistes académiques, résultats, secteurs émergents, signaux de début de hausse | `_vix.py`, `_highs.py`, `_moment.py`, `_acad.py`, `_beta.py`, `_pead.py`, `_earn.py`, `_emerg.py`, `_premices.py`, `_tard.py`, `_croise.py`, `early.py` | testé, sans effet stable |
+| Pistes écartées : VIX, plus hauts répétés, moment d'achat, indicateurs du plan d'entrée (RSI, MACD, canal, support/résistance), bêta et pistes académiques, résultats, secteurs émergents, signaux de début de hausse | `_vix.py`, `_highs.py`, `_moment.py`, `_indic.py`, `_acad.py`, `_beta.py`, `_pead.py`, `_earn.py`, `_emerg.py`, `_premices.py`, `_tard.py`, `_croise.py`, `early.py` | testé, sans effet stable |
 | Achats de dirigeants (≈ 4 000 achats France et Suède : pas mieux qu'un titre pris au hasard) | calcul du soir (`euro_signal/build.mjs`, étude de l'historique long) | testé |
 
 ## Limites communes

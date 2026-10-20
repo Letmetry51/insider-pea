@@ -2049,7 +2049,7 @@ function planCard(isin, plan, adj) {
       PE.icon +
       ' ' +
       esc(PE.label) +
-      "</b><small>Règle testée sur 1997-2026 pour les sociétés du 🎯 : attendre un repli n'a pas fait mieux. Les niveaux ci-dessous viennent de l'analyse technique classique, non validée.</small></div>"
+      "</b><small>Règle testée sur 1997-2026 pour les sociétés du 🎯 : attendre un repli n'a pas fait mieux. Les niveaux et indicateurs ci-dessous viennent de l'analyse technique classique : testés, ils n'aident pas à choisir le moment.</small></div>"
     : '';
   // ✏️ ajustement à la main : sous les indicateurs et les raisons du plan, juste avant 🔔 « Me prévenir »
   var adjH = (function () {
@@ -2130,7 +2130,7 @@ function planCard(isin, plan, adj) {
     watchH +
     (obs || histH ? xpi(obs + histH, 'Par le passé') : '') +
     xpi(
-      "Analyse technique classique (supports, résistances, moyennes mobiles), pas encore validée sur l'historique Euro Signal : son effet est mesuré au fil des achats. Le cône montre l'amplitude probable des variations d'ici 3 mois si la volatilité récente se maintient (" +
+      "Analyse technique classique (supports, résistances, moyennes mobiles, RSI, MACD). Testée avec le 🎯 sur 1997-2026 : ni ces niveaux ni ces indicateurs n'aident à choisir le moment ; c'est un repère pour placer un ordre, pas un signal (détail : Comment ça marche, « Testé et retiré »). Le cône montre l'amplitude probable des variations d'ici 3 mois si la volatilité récente se maintient (" +
         (plan.volYearPct != null ? plan.volYearPct + ' % par an' : 'n.d.') +
         "), sans prévoir la direction. Ce n'est pas un conseil en investissement.",
       'Méthode'
