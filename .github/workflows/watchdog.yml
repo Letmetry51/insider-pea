@@ -1,0 +1,55 @@
+name: Garde du calcul du soir
+
+# GitHub peut retarder de plusieurs heures, voire sauter, une tâche planifiée (sans prévenir personne). Ce garde vérifie que
+# le calcul du soir a tourné depuis son départ prévu et le relance une seule fois sinon. Il ne calcule rien lui-même ; un
+# second calcul le même soir est sans risque (emails déjà envoyés jamais renvoyés).
+on:
+  schedule:
+    - cron: '13 21 * * 1-5' # 3 h 30 après le départ prévu du calcul du soir (17h37 UTC)
+    - cron: '43 5 * * 2-6' # au petit matin, si la soirée n'a rien donné
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: garde
+  cancel-in-progress: false
+
+jobs:
+  garde:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Calcul du soir fait ? Sinon, relance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from datetime import datetime, timedelta, timezone
+
+          now = datetime.now(timezone.utc)
+          d = now  # départ prévu le plus récent : 17h37 UTC du dernier jour de semaine passé
+          while True:
+              start = d.replace(hour=17, minute=37, second=0, microsecond=0)
+              if d.weekday() < 5 and start <= now:
+                  break
+              d -= timedelta(days=1)
+          out = subprocess.check_output(["gh", "run", "list", "--repo", os.environ["REPO"], "--workflow", "update-data.yml",
+                                         "--limit", "40", "--json", "createdAt,status,conclusion,event"])
+          runs = [r for r in json.loads(out)
+                  if datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= start - timedelta(minutes=30)]
+          live = [r for r in runs if r["status"] != "completed" or r["conclusion"] == "success"]
+          again = [r for r in runs if r["event"] == "workflow_dispatch"]
+          print(f"Départ prévu : {start:%d/%m %H:%M} UTC ; exécutions depuis : {len(runs)} ; réussies ou en cours : {len(live)}")
+          if live:
+              print("Calcul du soir fait ou en cours : rien à faire")
+          elif again:
+              print("Déjà relancé une fois sans succès : pas de nouvelle relance (l'email de contrôle signale l'échec)")
+          else:
+              subprocess.check_call(["gh", "workflow", "run", "update-data.yml", "--repo", os.environ["REPO"]])
+              print("Calcul du soir absent ou en échec : relancé")
+          PY

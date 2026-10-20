@@ -412,6 +412,144 @@ if (BK && !BK.__error && BK.date === today) {
   );
 } else warn('cours de secours : pas de compteurs ce soir (diagnostics/backup.json)');
 
+// 5e. Trous : chaque étape a-t-elle produit ses données ce soir, chaque place a-t-elle sa dernière clôture ? (19/10/2026 : tous
+// les contrôles étaient verts alors que 97 % des fiches n'avaient pas la clôture du jour : ils vérifiaient les dates, pas les cours)
+const PLACE = {
+    PA: 'Paris',
+    AS: 'Amsterdam',
+    BR: 'Bruxelles',
+    MI: 'Milan',
+    LS: 'Lisbonne',
+    IR: 'Dublin',
+    OL: 'Oslo',
+    ST: 'Stockholm',
+    HE: 'Helsinki',
+    CO: 'Copenhague',
+    DE: 'Francfort',
+    MC: 'Madrid',
+    VI: 'Vienne',
+    SW: 'Zurich',
+    L: 'Londres',
+  },
+  dm = (d) => (d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '?'),
+  bdays = (a, b) => {
+    let n = 0;
+    for (let t = Date.parse(a + 'T12:00:00Z') + 864e5; t <= Date.parse(b + 'T12:00:00Z'); t += 864e5) {
+      const w = new Date(t).getUTCDay();
+      if (w && w < 6) n++;
+    }
+    return n;
+  };
+if (BK && !BK.__error && BK.date === today && BK.complete && BK.complete.catalogue) {
+  const C = BK.complete;
+  [
+    ['catalogue', 'liquid', 'sociétés liquides des fiches'],
+    ['prices', 'n', 'dossiers Euro Signal'],
+  ].forEach(([kind, tot, label]) => {
+    const o = C[kind] || {},
+      big = Object.keys(o)
+        .filter((k) => o[k][tot] >= 10)
+        .sort((a, b) => o[b][tot] - o[a][tot]),
+      bad = big.filter((k) => o[k].ok < 0.9 * o[k][tot]);
+    if (!big.length) return; // rien à contrôler (fichier absent : signalé par le contrôle des étapes ci-dessous)
+    if (!bad.length)
+      ok(
+        `dernière clôture présente partout (${label} : ${big.map((k) => k + ' ' + o[k].ok + '/' + o[k][tot]).join(', ')})`
+      );
+    else if (bad.length >= 4)
+      // panne générale (Yahoo, calcul trop tardif) : une seule ligne, lisible dans l'email
+      warn(
+        `clôture du ${dm(o[bad[0]].expected)} manquante dans ${bad.length} places (${label} sans la clôture / total) : ` +
+          bad.map((k) => (PLACE[k] || k) + ' ' + (o[k][tot] - o[k].ok) + '/' + o[k][tot]).join(', ')
+      );
+    else
+      bad.forEach((k) =>
+        warn(
+          `clôture du ${dm(o[k].expected)} manquante à ${PLACE[k] || k} : ${o[k][tot] - o[k].ok} ${label} sur ${o[k][tot]}` +
+            ((o[k].missing || []).length ? ` (par exemple ${o[k].missing.slice(0, 3).join(', ')})` : '')
+        )
+      );
+  });
+  if (!C.calendar)
+    warn(
+      'calendriers des bourses indisponibles (exchange_calendars) : un jour férié peut passer pour une clôture manquante'
+    );
+  const cr = BK.corrections || {},
+    ex = [...((cr.catalogue || {}).examples || []), ...((cr.prices || {}).examples || [])],
+    nc = ((cr.catalogue || {}).corrected || 0) + ((cr.prices || {}).corrected || 0);
+  if (nc)
+    ok(
+      `clôtures Yahoo aberrantes remplacées par la clôture officielle de la bourse : ${nc} (` +
+        ex
+          .slice(0, 4)
+          .map((e) => e[0] + ' ' + e[1] + ' → ' + e[2])
+          .join(', ') +
+        ')'
+    );
+  const mk = main.market || {},
+    eP = (C.catalogue.PA || {}).expected;
+  if (mk.lastDate && eP)
+    check(mk.lastDate >= eP, `indice européen (${mk.ticker || '?'}) : dernière séance du ${dm(mk.lastDate)}`, true);
+} else if (BK && BK.complete && BK.complete.error) warn(`contrôle des clôtures impossible : ${BK.complete.error}`);
+// chaque étape du soir réécrit son fichier : un fichier ancien veut dire une étape en échec (données précédentes gardées)
+{
+  const hoursAgo = (x) => {
+      const g = genOf(x);
+      if (!g) return null;
+      const t = Date.parse(/(Z|[+-]\d\d:\d\d)$/.test(String(g)) ? g : g + 'Z');
+      return isFinite(t) ? (Date.now() - t) / 3600000 : null;
+    },
+    STEPS = [
+      ['latest.json', 'déclarations AMF (étape 1)'],
+      ['insiders-eu.json', 'déclarations FSMA, AFM et FI (étape 2)'],
+      ['shorts.json', 'ventes à découvert (étape 2c)'],
+      ['prices.json', 'cours Euro Signal (étape 3)'],
+      ['sectors.json', 'secteurs (étape 3b)'],
+      ['societes-index.json', 'fiches sociétés (étape 3b)'],
+      ['financials.json', 'comptes annuels (étape 4b)'],
+      ['news.json', 'actualité (étape 4c)'],
+      ['euro-signal.json', 'calcul Euro Signal (étape 5b)'],
+    ],
+    old = STEPS.filter(([f]) => {
+      const h = hoursAgo(f === 'euro-signal.json' ? main : read(f));
+      return h == null || h > 8;
+    });
+  old.forEach(([f, label]) => {
+    const g = genOf(f === 'euro-signal.json' ? main : read(f));
+    warn(
+      `${label} : rien de nouveau ce soir (${f} ${g ? 'du ' + dm(String(g).slice(0, 10)) : 'absent'}), données précédentes gardées`
+    );
+  });
+  if (!old.length) ok(`chaque étape du soir a produit ses données (${STEPS.length} fichiers de moins de 8 heures)`);
+  // fichiers hebdomadaires et mensuels (workflow « Historique », chaque nuit) : leur âge dit si la mise à jour périodique tourne
+  const WEEKLY = [
+    ['sectors/universe.json', 'univers des secteurs', 8],
+    ['sectors/catalog.json', 'catalogue des sociétés cotées', 8],
+    ['seasonality.json', 'saisonnalité des indices', 35],
+  ];
+  WEEKLY.forEach(([f, label, max]) => {
+    const h = hoursAgo(read(f));
+    check(
+      h != null && h <= max * 24,
+      `${label} : mis à jour il y a ${h == null ? '?' : Math.floor(h / 24)} jours (${max} au plus)`,
+      true
+    );
+  });
+  if (sec && sec.estimatesAt)
+    check(
+      yearsBetween(String(sec.estimatesAt).slice(0, 10), today) * 365 <= 8,
+      `prévisions des analystes : relevé du ${dm(String(sec.estimatesAt).slice(0, 10))} (chaque semaine)`,
+      true
+    );
+  const amf = (main.src || {}).AMF;
+  if (amf && amf.coveredTo)
+    check(
+      bdays(amf.coveredTo, today) <= 3,
+      `déclarations AMF publiées jusqu'au ${dm(amf.coveredTo)} (${bdays(amf.coveredTo, today)} jours ouvrés de décalage, 3 au plus)`,
+      true
+    );
+}
+
 // 6. Couverture rubrique par rubrique, comparée au calcul précédent : une baisse brutale (Yahoo qui répond vide, fichier
 // abîmé) est signalée le soir même, avant qu'un lecteur ne la découvre
 const COV = {};

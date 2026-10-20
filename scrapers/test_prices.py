@@ -56,6 +56,25 @@ def _():
     assert not P.coherent(h, ("2026-10-02", 100)) and not P.coherent(h, ("2026-10-02", 2))
 
 
+@case("Liste officielle de la bourse : ISIN introuvable chez Yahoo ou cours figé, retenue si cours frais et prix déclaré cohérent")
+def _():
+    from datetime import date
+    today = date(2026, 10, 20)
+    rows = [[f"2026-{m:02d}-{d:02d}", 1, 1, 1, 10.0, 1] for m in range(1, 11) for d in range(1, 29)][:280]
+    rows[-1][0] = "2026-10-19"
+    fresh = {"rows": rows, "currency": "EUR", "splits": [], "dividends": [], "weekly": []}
+    old = {"rows": [r for r in rows if r[0] < "2026-09-01"], "currency": "EUR"}
+    table = {"FR0000036816": ["EIFF.PA", "EUR"]}
+    got = P.try_exchange("FR0000036816", table, ("2026-10-01", 10.5), today, fetch=lambda t, p: fresh)
+    assert got[0] == "EIFF.PA" and got[1] is fresh
+    assert P.try_exchange("FR0000036816", table, ("2026-10-01", 100), today, fetch=lambda t, p: fresh) == (None, None)  # autre titre
+    assert P.try_exchange("FR0000036816", table, None, today, fetch=lambda t, p: old) == (None, None)  # pas plus frais
+    assert P.try_exchange("FR0000036816", table, None, today, current="EIFF.PA", fetch=lambda t, p: fresh) == (None, None)
+    assert P.try_exchange("FR9999999999", table, None, today, fetch=lambda t, p: fresh) == (None, None)
+    assert P.try_exchange("FR0000036816", None, None, today) == (None, None)
+    assert P.frozen(old, today) and not P.frozen(fresh, today) and not P.frozen(None, today)
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

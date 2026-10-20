@@ -3,7 +3,8 @@ Euro Signal — cours quotidiens via Yahoo Finance (yfinance), exécuté par Git
 
 - Univers : tous les émetteurs dont data/latest.json contient une déclaration portant sur des actions.
 - Ticker : correspondance manuelle de run.py, sinon recherche Yahoo par ISIN (préférence Euronext Paris),
-  mise en cache dans data/tickers.json (un échec est réessayé après 7 jours).
+  mise en cache dans data/tickers.json (un échec est réessayé après 7 jours). Secours : listes officielles des bourses
+  (Euronext, Nasdaq Nordic ; ISIN → symbole, data/backup-isins.json) pour un ISIN introuvable ou un cours figé.
 - Historique : 2 ans quotidiens. Yahoo fournit des cours déjà ajustés des divisions d'actions ; on les
   remet en cours bruts et on transmet la liste des divisions, pour que le moteur ajuste lui-même
   le prix payé par les dirigeants.
@@ -233,6 +234,25 @@ def fresh_enough(h, today):
     return bool(h and len(h["rows"]) >= 200 and h["rows"][-1][0] >= (today - timedelta(days=7)).isoformat())
 
 
+def frozen(h, today):
+    """Cours figé chez Yahoo : dernière séance vieille de plus de 10 jours (titre retiré, cotation changée)."""
+    return bool(h and h.get("rows") and h["rows"][-1][0] < (today - timedelta(days=10)).isoformat())
+
+
+def try_exchange(isin, table, paid, today, current=None, fetch=None):
+    """Cotation de la liste officielle de la bourse (Euronext, Nasdaq Nordic : data/backup-isins.json, relevée la veille par
+    backup_prices.py), si elle diffère de la cotation actuelle : retenue quand Yahoo en a deux ans de cours frais qui collent
+    au prix déclaré par le dirigeant. → (symbole, historique) ou (None, None)."""
+    ex = (table.get(isin) or [None])[0] if isinstance(table, dict) else None
+    if not ex or ex == current:
+        return None, None
+    try:
+        h = (fetch or history)(ex, "5y")
+    except Exception:
+        h = None
+    return (ex, h) if h and fresh_enough(h, today) and coherent(h, paid) else (None, None)
+
+
 DAILY_DAYS = 731  # cours journaliers gardés pour le moteur (2 ans, inchangé) ; au-delà, une clôture par semaine
 
 
@@ -338,11 +358,21 @@ def main():
             note(isin, r.get("issuer"), r.get("txDate") if str(r.get("txDate") or "") <= today.isoformat() else None, num(r.get("price"), r.get("numberLocale")))
     cache = load(TICKERS, {})
     manual = manual_map()
+    exch = (load(DATA / "backup-isins.json", {}) or {}).get("isins") or {}  # listes officielles des bourses (veille)
     items, unresolved = {}, []
+    by_exchange = 0
     print(f"Cours Yahoo : {len(isins)} émetteurs")
     for n, isin in enumerate(sorted(isins), 1):
         info = resolve(isin, cache, manual, today, names.get(isin), paid.get(isin))
         if not info:
+            ex, h = try_exchange(isin, exch, paid.get(isin), today)
+            if ex:  # introuvable chez Yahoo par ISIN ou par nom, mais coté (liste officielle de la bourse)
+                cache[isin] = {"ticker": ex, "method": "liste officielle de la bourse", "resolvedAt": today.isoformat()}
+                items[isin] = {"ticker": ex, "exchange": None, "name": names.get(isin), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "weekly": h.get("weekly") or [], "method": "liste officielle de la bourse"}
+                by_exchange += 1
+                print(f"  [{n}/{len(isins)}] {isin} {ex} : {len(h['rows'])} séances (liste officielle de la bourse)")
+                time.sleep(0.2)
+                continue
             try:
                 loc = local_by_name(isin, names.get(isin), cache, names)
             except Exception:  # secours : ne doit jamais arrêter la collecte des cours
@@ -392,6 +422,15 @@ def main():
         except Exception as e:
             print(f"  [{n}] {isin} {info['ticker']} : erreur {str(e)[:80]}")
             h = None
+        if h and frozen(h, today) and info.get("method") != "correction vérifiée":
+            # cours figé chez Yahoo : la liste officielle de la bourse donne peut-être la cotation à jour (place d'origine, nouveau symbole)
+            ex, h2 = try_exchange(isin, exch, paid.get(isin), today, current=info["ticker"])
+            if ex:
+                print(f"  [{n}] {isin} {info['ticker']} figé depuis le {h['rows'][-1][0]} : {ex} (liste officielle de la bourse)")
+                info = {"ticker": ex, "method": "liste officielle de la bourse (cotation à jour)", "exchange": None, "name": info.get("name")}
+                cache[isin] = dict(info, resolvedAt=today.isoformat())
+                h = h2
+                by_exchange += 1
         if not h:
             # Yahoo muet ce soir pour ce titre : cours de la veille s'ils datent de moins de 10 jours (fichier gardé par le cache GitHub)
             old = prev_items.get(isin)
@@ -435,7 +474,8 @@ def main():
     print(f"Taux de change : {len(fx)} devises")
     OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "fx": fx, "unresolved": unresolved}), encoding="utf-8")
     TICKERS.write_text(json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
-    print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours, {carried_n} repris de la veille")
+    print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours, {carried_n} repris de la veille, "
+          f"{by_exchange} cotations trouvées grâce aux listes officielles des bourses")
     yahoo.carried("cours Euro Signal", carried_n)
     yahoo._stat("cours Euro Signal", requested=len(isins), received=len(items) - carried_n, missing=len(unresolved))
     yahoo.write_diag()

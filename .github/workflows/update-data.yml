@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 0. Données de la veille (branche site)
+        id: restore
         uses: ./.github/actions/restore-data
 
       - name: Setup Python 3.11
@@ -51,22 +52,26 @@ jobs:
           node-version: '20'
 
       - name: Installation des dépendances
+        id: deps
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: 1. Déclarations AMF (insider-pea)
+        id: s1
         timeout-minutes: 15
         run: python run.py
         # Si la collecte échoue, Euro Signal le détecte et bloque les alertes au lieu de conclure « aucune transaction »
         continue-on-error: true
 
       - name: 2. Déclarations Belgique (FSMA) et Pays-Bas (AFM)
+        id: s2
         timeout-minutes: 25
         run: python scrapers/europe_insiders.py
         continue-on-error: true
 
       - name: 2c. Positions vendeuses des fonds (AMF, Bundesanzeiger, CNMV, Consob, AFM, FSMA)
+        id: s2c
         timeout-minutes: 10
         run: python scrapers/shorts.py
         continue-on-error: true
@@ -84,11 +89,13 @@ jobs:
         continue-on-error: true
 
       - name: 3. Cours Yahoo Finance
+        id: s3
         timeout-minutes: 25
         run: python scrapers/prices.py
         continue-on-error: true
 
       - name: 3b. Secteurs et thèmes (cours hebdomadaires, test historique, classement du jour)
+        id: s3b
         timeout-minutes: 50
         run: |
           python scrapers/test_sectors.py > /tmp/test_sectors.txt || { cat /tmp/test_sectors.txt; exit 1; }
@@ -98,6 +105,7 @@ jobs:
 
       # Clôture du soir manquante chez Yahoo (calcul tardif, panne) : prise à la bourse elle-même (Euronext, Nasdaq Nordic)
       - name: 3c. Cours de secours (Euronext, Nasdaq Nordic)
+        id: s3c
         timeout-minutes: 12
         run: |
           python scrapers/test_backup.py > /tmp/test_backup.txt || { cat /tmp/test_backup.txt; exit 1; }
@@ -116,6 +124,7 @@ jobs:
         continue-on-error: true
 
       - name: 4. Résultats, communiqués et révisions (Yahoo Finance)
+        id: s4
         timeout-minutes: 45
         env:
           EVENTS_MINUTES: '38'
@@ -123,19 +132,23 @@ jobs:
         continue-on-error: true
 
       - name: 4b. Comptes annuels (4 exercices, Yahoo Finance)
+        id: s4b
         timeout-minutes: 20
         run: python scrapers/test_financials.py && python scrapers/financials.py  # tests d'abord : une panne de Yahoo n'efface jamais les comptes
         continue-on-error: true
 
       - name: 4c. Actualité qualitative (titres de presse des sociétés à acheter ou à surveiller)
+        id: s4c
         timeout-minutes: 10
         run: python scrapers/news.py
         continue-on-error: true
 
       - name: 5a. Tests du moteur Euro Signal
+        id: s5a
         run: node euro_signal/tests.js && python scrapers/test_prices.py && python euro_signal/test_health.py
 
       - name: 5b. Calcul Euro Signal
+        id: s5b
         timeout-minutes: 10
         env:
           ES_RESEND_SELECTION: ${{ github.event.inputs.resend_selection }}
@@ -143,15 +156,18 @@ jobs:
         run: node euro_signal/build.mjs
 
       - name: 5c. Archive permanente des résultats et rachats (jamais effacée)
+        id: s5c
         timeout-minutes: 5
         run: python scrapers/event_archive.py
         continue-on-error: true
 
       - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)
+        id: s5d
         continue-on-error: true
         run: node euro_signal/check_outputs.mjs
 
       - name: 5e. Contrôle de l'affichage (toutes les fiches ouvertes comme sur un téléphone)
+        id: s5e
         timeout-minutes: 25
         continue-on-error: true
         run: |
@@ -160,6 +176,7 @@ jobs:
           node euro_signal/ui_check.mjs
 
       - name: 6. Alertes email (Gmail)
+        id: s6
         timeout-minutes: 10
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
@@ -169,6 +186,7 @@ jobs:
         run: python euro_signal/send_alerts.py
 
       - name: "6b. Vos positions - alertes de revente (lues dans votre Gmail, jamais écrites dans le dépôt)"
+        id: s6b
         timeout-minutes: 5
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
@@ -176,10 +194,13 @@ jobs:
         run: python euro_signal/test_positions.py > /tmp/test_positions.txt && python euro_signal/positions.py || { cat /tmp/test_positions.txt; exit 1; }
         continue-on-error: true
 
+      # Toujours exécuté : une étape en échec (même poursuivie) ou un calcul arrêté avant la fin est signalé par email
       - name: 6c. Email de contrôle (seulement si un contrôle a trouvé un problème)
+        if: always()
         timeout-minutes: 5
         continue-on-error: true
         env:
+          STEPS: ${{ toJSON(steps) }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
