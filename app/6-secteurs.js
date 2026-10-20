@@ -518,7 +518,8 @@ function secValueCard(x, es) {
           ],
           'Rentabilité ' + fmtN(roe * 100, 1) + ' %'
         ),
-        "Résultat net des 12 derniers mois ÷ fonds propres. Au-dessus du rendement exigé, l'entreprise vaut plus que ses fonds propres."
+        (x.roeYear ? "Résultat net de l'exercice " + x.roeYear : 'Résultat net des 12 derniers mois') +
+          " ÷ fonds propres. Au-dessus du rendement exigé, l'entreprise vaut plus que ses fonds propres."
       )
     );
     if (roe > 0 && Math.abs(x.pb - 1) >= 0.05) {
@@ -676,14 +677,14 @@ function vSecCo() {
     (x.basic
       ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>'
       : '');
-  h += rankFold(rankOf(es, sym)) + analysisCard(es && S.inst[es] ? es : null, sym) + bizCard(sym);
+  var anH = analysisCard(es && S.inst[es] ? es : null, sym);
+  h += rankFold(rankOf(es, sym)) + anH + bizCard(sym);
   var more = '';
   if (es)
     more +=
       '<section class="card"><p>📒 Cette société est aussi suivie par Euro Signal : achats des dirigeants, comptes sur 4 ans, résultats, rachats d\'actions, plan d\'entrée et note.</p><button data-a="open" data-i="' +
       esc(es) +
       '" data-from="secco">Ouvrir la fiche Euro Signal complète →</button></section>';
-  // secteur, valeur et chiffres clés : chacun dans son pli (même présentation que les fiches Euro Signal)
   if (x.group)
     more += asFold(
       '<section class="card"><h3>Secteur</h3><p><b>' +
@@ -779,6 +780,9 @@ function vSecCo() {
     'co-kpi',
     '🧾 Chiffres clés <span class="muted">· Yahoo, 12 derniers mois</span>'
   );
+  // secteur, valeur, chiffres clés et lien vers la fiche Euro Signal : dans le pli 🔬 Analyse, sans doublon.
+  // « ➕ Plus de détails » ne sert plus que de secours, quand l'analyse manque (aucun cours).
+  if (anH) more = '';
   // cours
   var D = (S.secCo && S.secCo.dDates) || [],
     Wd = (S.secCo && S.secCo.wDates) || [];
@@ -905,7 +909,7 @@ function catBuyBox(sym, last) {
     ) +
     '<div class="fgrid">' +
     fld(
-      'Votre adresse Gmail (gardée sur cet appareil)',
+      'Votre adresse Gmail (jamais enregistrée, à saisir à chaque visite)',
       '<input id="pos-email" type="email" autocomplete="email" value="' + esc(email) + '" placeholder="vous@gmail.com">'
     ) +
     fld(

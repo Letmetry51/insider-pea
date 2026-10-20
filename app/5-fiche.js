@@ -69,7 +69,8 @@ function vFiche() {
       '">fiche de la ligne principale (' +
       esc(S.inst[x.secondary].name) +
       ')</button>.</p>';
-  h += rankFold(rankOf(i, x.ticker)) + analysisCard(i, x.ticker) + bizCard(x.ticker, true);
+  var anH = analysisCard(i, x.ticker, true);
+  h += rankFold(rankOf(i, x.ticker)) + anH + bizCard(x.ticker, true);
   // version allégée : la note tendance + comptes, le cours avec le plan d'entrée et « Je l'ai acheté » en haut ; la lecture « dirigeants » est repliée plus bas
   var newM = !!rankData(),
     advS = adviceSection(i, c),
@@ -99,7 +100,8 @@ function vFiche() {
       );
     };
   var hTop = h;
-  h = ''; // la suite (dossiers détaillés) est regroupée dans « ➕ Plus de détails »
+  if (newM && anH) return hTop; // comptes, valeur, dirigeants, rachats et résultats : dans le pli 🔬 Analyse, sans doublon
+  h = ''; // secours (pas de cours, ou classement absent) : dossiers détaillés regroupés dans « ➕ Plus de détails »
   var acc = x.accounts,
     TI = { good: '🟢', mixed: '🟡', bad: '🔴', na: '⚪' },
     ft = acc && acc.fscoreTrend ? { up: ' ↗', down: ' ↘', flat: '' }[acc.fscoreTrend.key] || '' : '';
@@ -798,7 +800,7 @@ function adviceSection(i, c) {
     ) +
     '<div class="fgrid">' +
     fld(
-      'Votre adresse Gmail (gardée sur cet appareil)',
+      'Votre adresse Gmail (jamais enregistrée, à saisir à chaque visite)',
       '<input id="pos-email" type="email" autocomplete="email" value="' + esc(email) + '" placeholder="vous@gmail.com">'
     ) +
     fld(
@@ -2325,8 +2327,10 @@ function posTxt(v) {
   return v == null ? 'n.d.' : Math.round(v) + ' %';
 }
 
-function eventsSection(i, ev) {
-  var h = '<div class="cols"><section class="card"><h3>Rachats d\'actions</h3>';
+/** Rachats d'actions (communiqués) et évolution du nombre d'actions : contenu sans titre, réutilisé par le pli 🔬 Analyse.
+ *  quiet : sans la ligne « aucun rachat repéré » (l'évolution du nombre d'actions suffit). */
+function buybackBlock(i, ev, quiet) {
+  var h = '';
   h += ev.buybacks.length
     ? '<ul class="evs">' +
       ev.buybacks
@@ -2355,7 +2359,9 @@ function eventsSection(i, ev) {
         })
         .join('') +
       '</ul>'
-    : '<p class="muted">Aucun rachat repéré dans les communiqués.</p>';
+    : quiet
+      ? ''
+      : '<p class="muted">Aucun rachat repéré dans les communiqués.</p>';
   var sc = (S.inst[i] || {}).sharesChange;
   if (sc && sc.corporate)
     h +=
@@ -2396,48 +2402,83 @@ function eventsSection(i, ev) {
         true,
         "Vert : moins d'actions (rachats) ; rouge : plus d'actions (dilution)"
       );
-  h += '</section><section class="card"><h3>Résultats et perspectives</h3>';
-  h += ev.results.length
-    ? '<ul class="evs">' +
-      ev.results
-        .slice()
-        .sort(function (a, b) {
-          return a.pubDate < b.pubDate ? 1 : -1;
-        })
-        .map(function (r) {
-          var e = ES.surprise(r.epsActual, r.epsConsensus),
-            v = ES.surprise(r.revActual, r.revConsensus);
-          return (
-            '<li><div><b>' +
-            esc(r.period || 'Publication') +
-            '</b> · ' +
-            r.pubDate +
-            '<small>BPA ' +
-            fmtN(r.epsActual) +
-            ' vs ' +
-            fmtN(r.epsConsensus) +
-            ' (' +
-            pct(e) +
-            ') · CA ' +
-            fmtN(r.revActual, 0) +
-            ' vs ' +
-            fmtN(r.revConsensus, 0) +
-            ' (' +
-            pct(v) +
-            ')</small>' +
-            (r.note ? '<small>' + esc(r.note) + '</small>' : '') +
-            (ES.safeUrl(r.sourceUrl)
-              ? '<small><a href="' +
-                esc(ES.safeUrl(r.sourceUrl)) +
-                '" target="_blank" rel="noopener">communiqué</a></small>'
-              : '') +
-            '</div></li>'
+  return h;
+}
+/** Publications de résultats (BPA et chiffre d'affaires face au consensus) : contenu sans titre, réutilisé par le pli
+ *  🔬 Analyse. max : nombre de publications listées (les plus récentes) ; noSum : sans le bilan « au-dessus du consensus
+ *  N fois sur M » (repris dans le titre du pli de l'analyse). */
+function resultsBlock(i, ev, max, noSum) {
+  var L = ev.results.slice().sort(function (a, b) {
+    return a.pubDate < b.pubDate ? 1 : -1;
+  });
+  if (!L.length) return '<p class="muted">Aucune publication repérée.</p>';
+  var S2 = L.map(function (r) {
+      return ES.surprise(r.epsActual, r.epsConsensus);
+    }),
+    known = S2.filter(function (e) {
+      return e != null;
+    }),
+    beats = known.filter(function (e) {
+      return e > 0;
+    }).length;
+  var h =
+    known.length >= 3 && !noSum
+      ? '<p class="small">Bénéfice par action au-dessus du consensus <b>' +
+        beats +
+        ' fois sur ' +
+        known.length +
+        '</b> publications.</p>'
+      : '';
+  var n = max && L.length > max ? max : L.length;
+  h +=
+    '<ul class="evs">' +
+    L.slice(0, n)
+      .map(function (r, k) {
+        var e = S2[k],
+          v = ES.surprise(r.revActual, r.revConsensus),
+          parts = [];
+        if (r.epsActual != null)
+          parts.push(
+            'BPA ' +
+              fmtN(r.epsActual) +
+              (r.epsConsensus != null ? ' contre ' + fmtN(r.epsConsensus) + ' attendu' : '') +
+              (e != null ? ' <span class="' + (e >= 0 ? 'pos' : 'neg') + '">(' + pct(e) + ')</span>' : '')
           );
-        })
-        .join('') +
-      '</ul>'
-    : '<p class="muted">Aucune publication repérée.</p>';
-  return h + '</section></div>';
+        if (r.revActual != null)
+          parts.push(
+            "chiffre d'affaires " +
+              fmtN(r.revActual, 0) +
+              (r.revConsensus != null ? ' contre ' + fmtN(r.revConsensus, 0) + ' attendu' : '') +
+              (v != null ? ' <span class="' + (v >= 0 ? 'pos' : 'neg') + '">(' + pct(v) + ')</span>' : '')
+          );
+        return (
+          '<li><div><b>' +
+          esc(r.period || 'Résultats') +
+          '</b> · ' +
+          shortDate(r.pubDate) +
+          (parts.length ? '<small>' + parts.join(' · ') + '</small>' : '') +
+          (r.note ? '<small>' + esc(r.note) + '</small>' : '') +
+          (ES.safeUrl(r.sourceUrl)
+            ? '<small><a href="' +
+              esc(ES.safeUrl(r.sourceUrl)) +
+              '" target="_blank" rel="noopener">communiqué</a></small>'
+            : '') +
+          '</div></li>'
+        );
+      })
+      .join('') +
+    '</ul>' +
+    (n < L.length ? '<p class="small muted">' + (L.length - n) + ' publications plus anciennes non listées.</p>' : '');
+  return h;
+}
+function eventsSection(i, ev) {
+  return (
+    '<div class="cols"><section class="card"><h3>Rachats d\'actions</h3>' +
+    buybackBlock(i, ev) +
+    '</section><section class="card"><h3>Résultats et perspectives</h3>' +
+    resultsBlock(i, ev) +
+    '</section></div>'
+  );
 }
 
 function alertSection(i, c) {
