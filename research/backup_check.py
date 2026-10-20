@@ -197,6 +197,34 @@ if st["mode"]:
                     spairs.append((s, T, x["d"][k], b))
 tally(spairs, "cases complétées contre Yahoo")
 log(f"   Nasdaq Nordic pendant la simulation : {N.asked} titres demandés au total, {N.got} avec des cours, {N.errors} erreurs")
+# soir où Yahoo n'a rien donné : fiches sans leur dernière séance (ni sa semaine), qui doit être ajoutée partout
+if T and dd and dd[-1] == T:
+    sim2 = copy.deepcopy(shards)
+    for sh in sim2:
+        nw = 1 if B.friday(sh["wDates"][-1]) == B.friday(T) and B.friday(sh["wDates"][-2]) < B.friday(T) else 0
+        sh["dDates"] = sh["dDates"][:-1]
+        sh["wDates"] = sh["wDates"][:len(sh["wDates"]) - nw]
+        for x in sh["items"].values():
+            if isinstance(x.get("d"), list):
+                x["d"] = x["d"][:-1]
+            if nw and isinstance(x.get("w"), list):
+                x["w"] = x["w"][:-1]
+            if nw and isinstance(x.get("wv"), list):
+                x["wv"] = x["wv"][:-1]
+    simT = sim2  # la séance T est alors plus récente que les fiches : ajout
+else:
+    simT = copy.deepcopy(shards)
+t0 = time.time()
+st2 = B.patch_catalogue(simT, bulk, N.quotes, today, T)
+L = {len(sh["dDates"]) for sh in simT}
+okd = all(sh["dDates"][-1] == T for sh in simT) if st2["mode"] == "append" else None
+badlen = sum(1 for sh in simT for x in sh["items"].values()
+             if (isinstance(x.get("d"), list) and len(x["d"]) != len(sh["dDates"])) or (isinstance(x.get("w"), list) and len(x["w"]) != len(sh["wDates"])))
+apairs = [(s, T, x["d"][-1], yv(s, T)) for sh in simT for s, x in sh["items"].items()
+          if st2["mode"] == "append" and isinstance(x.get("d"), list) and x["d"] and x["d"][-1] is not None and yv(s, T)]
+log(f"   ajout d'une séance (fiches privées de la dernière) : mode {st2['mode']} · {st2['filled']} clôtures · séance en fin de dates partout : {okd}"
+    f" · longueurs {sorted(L)} · séries de longueur fausse : {badlen} · semaines {simT[0]['wDates'][-2:]} · {time.time() - t0:.0f} s")
+tally(apairs, "clôtures ajoutées contre Yahoo")
 pf = B.DATA / "prices.json"
 if pf.exists():
     prices = B.read_json(pf, {})
