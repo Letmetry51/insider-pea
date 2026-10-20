@@ -47,7 +47,10 @@ avec la société moyenne de la même semaine). Le détail chiffré est dans l'o
   à la sortie (taux 2026), comme pour un fonds indiciel ;
 - **💎 valeur** : premier test sur nos données (comptes 2022-2025, départs de mai 2024 à avril 2026) : +5,1 points à 6 mois pour
   les 10 premières, deux fois moins de chutes, mais 2 ans seulement (t = 1,7) ;
-- **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027).
+- **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027) ;
+- **l'outil lui-même** : données de Yahoo Finance par un accès non officiel (s'il est coupé, l'outil perd l'essentiel),
+  erreurs de Yahoo reprises (en partie corrigées), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
+  moins que Yahoo Finance et les sites gratuits : onglet **Comment ça marche** (pli « 🆚 Face à Yahoo Finance… »).
 
 Tout se recalcule : `research/chiffres_cles.py` (ce tableau), `research/backtest/valeur.py` (💎), détail dans `research/README.md`.
 Toutes les sources de données, les études académiques (avec ce qui en a été retenu) et les méthodes de calcul sont listées

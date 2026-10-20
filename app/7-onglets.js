@@ -1037,6 +1037,65 @@ function biblioCard() {
     '</details>'
   );
 }
+/** 🆚 Euro Signal face à Yahoo Finance et aux sites gratuits : ce qu'il fait de plus, ce qu'il fait moins bien, ses limites.
+ *  Les chiffres prudents de la méthode sont dans « ⚖️ Fiabilité des chiffres » (logicCard) : pas répétés ici. */
+function compareCard() {
+  var nb = function (t) {
+      return t.replace(/ %/g, '\u00a0%'); // « −30 % » jamais coupé en fin de ligne
+    },
+    row = function (need, es, other) {
+      return '<tr><th>' + need + '</th><td>' + nb(es) + '</td><td>' + nb(other) + '</td></tr>';
+    };
+  var a = function (u, t) {
+    return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + t + '</a>';
+  };
+  return (
+    '<details class="card fold" data-k="aide-cmp"><summary>🆚 Face à Yahoo Finance et aux sites gratuits <span class="muted small">· ce qu\'il fait de plus, ses limites</span></summary>' +
+    '<p class="small">Pas plus complet que Yahoo Finance : l\'outil utilise surtout ses données. Mais il fait ce que ni Yahoo ni les sites gratuits ne font : trier les sociétés européennes avec des règles testées, et dire quoi acheter, quand, et quand vendre.</p>' +
+    '<div class="tablewrap"><table class="grid small cmpt"><thead><tr><th>Besoin</th><th>Euro Signal</th><th>Yahoo Finance et autres sites gratuits</th></tr></thead><tbody>' +
+    row(
+      'Quoi acheter dans un PEA',
+      '✅ règles testées, sélection du lundi',
+      '❌ (Stockopedia le fait, mais il est payant)'
+    ) +
+    row('Quand vendre', '✅ emails à −10 %, −30 %, 6 mois, krach', 'alertes de prix simples') +
+    row(
+      'Dirigeants et ventes à découvert en Europe',
+      '✅ registres officiels (AMF, etc.)',
+      'Yahoo : surtout pour les sociétés américaines ; base AMF brute ; InsiderScreener payant'
+    ) +
+    row(
+      'Analyse en français',
+      '✅ comptes, valeur, scénarios',
+      'Yahoo : chiffres bruts, en anglais ; Zonebourse, en partie payant'
+    ) +
+    row(
+      'Cours en séance, graphiques',
+      '❌ mise à jour une fois par soir',
+      '✅ Yahoo ; TradingView (2 indicateurs par graphique en gratuit)'
+    ) +
+    row('Actualités', 'titres Google News seulement', '✅ Yahoo, Boursorama, Zonebourse') +
+    row('Historique des comptes', '4 ans', 'Yahoo : 5 ans ; Koyfin : 2 ans en gratuit') +
+    '</tbody></table></div>' +
+    "<p class=\"small\"><b>Fait-il mieux pour gagner de l'argent ?</b> Pas encore prouvé en réel : l'avantage mesuré vient du momentum (acheter ce qui monte déjà), un effet connu ; chiffres prudents et suivi réel dans « ⚖️ Fiabilité des chiffres » (📘 La logique en 1 minute). Hors PEA, un ETF momentum (Amundi MSCI Europe Momentum, 0,23\u00a0% de frais par an) capte cet effet sans effort ; il n'est pas éligible au PEA : dans un PEA, l'outil comble ce manque.</p>" +
+    '<p class="small"><b>Limites de l\'outil</b></p><ul class="plain small nomax">' +
+    "<li>🔌 Il dépend d'un accès non officiel aux données de Yahoo (cours, comptes, analystes) : si Yahoo le coupe, l'outil perd l'essentiel de ses données.</li>" +
+    "<li>🧾 Il reprend les erreurs de Yahoo. Certaines sont corrigées (par exemple, la rentabilité sur 12 mois remplacée par celle du dernier exercice publié), pas toutes : en cas de doute, « ⚑ Signaler une erreur » en bas de l'analyse d'une fiche.</li>" +
+    '<li>🌙 Données mises à jour une fois par soir de semaine : pas de cours en séance.</li>' +
+    '<li>📰 Actualités : titres seulement, repérés par mots-clés.</li>' +
+    '<li>👤 Outil personnel et gratuit, sans support ni garantie de service.</li></ul>' +
+    '<p class="small"><b>En pratique</b> : Euro Signal pour décider, TradingView gratuit pour le graphique en séance, Boursorama ou Zonebourse pour l\'actualité.</p>' +
+    '<p class="foot">Comparaison du 20/10/2026, les offres gratuites changent : ' +
+    a('https://help.yahoo.com/kb/SLN29276.html', 'formules Yahoo Finance') +
+    ' · ' +
+    a('https://quantroutine.com/tools/tradingview-free-vs-pro/', 'TradingView gratuit') +
+    ' · ' +
+    a('https://costbench.com/software/financial-data-terminals/koyfin/free-plan/', 'Koyfin gratuit') +
+    ' · ' +
+    a('https://www.abcbourse.com/cotation/MCEUp', 'ETF Amundi MSCI Europe Momentum (PEA : non)') +
+    '.</p></details>'
+  );
+}
 function logicCard() {
   var tr = function (cells, head) {
     return (
@@ -1329,7 +1388,7 @@ function methodCard() {
   return h + '</details>';
 }
 function vAide() {
-  var h = '<h2 class="vt">Comment ça marche</h2>' + logicCard() + biblioCard() + methodCard();
+  var h = '<h2 class="vt">Comment ça marche</h2>' + logicCard() + compareCard() + biblioCard() + methodCard();
   h +=
     "<p class=\"foot pad\">🌙 Mis à jour chaque soir de semaine · 📧 sélection le lundi · 📱 « Ajouter à l'écran d'accueil » pour l'ouvrir comme une application. Aide à la décision, jamais un ordre d'achat.</p>";
   var nD = 0,
