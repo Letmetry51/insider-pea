@@ -462,9 +462,14 @@ def _():
         "PETIT.PA": {"turnoverEur": 1e4, "d": [1, 1, 1, 1, None]},  # peu échangée : non comptée
         "SAP.DE": {"turnoverEur": 5e7, "d": [200, 201, 202, 203, None]},  # bourse allemande fermée le 19/10 (calendrier fictif)
     }
-    prices = {"items": {"A": {"ticker": "TTE.PA", "rows": [["2026-10-19", 1, 1, 1, 1, 1]]},
-                        "B": {"ticker": "AI.PA", "rows": [["2026-10-16", 1, 1, 1, 1, 1]]},
-                        "C": {"ticker": "OLD.PA", "rows": [["2026-09-01", 1, 1, 1, 1, 1]]}}}  # cours figé : compté ailleurs
+    def rows_(last, close=100, vol=50000):  # 20 séances, 5 M€ par jour par défaut
+        return [[f"2026-09-{d:02d}", close, close, close, close, vol] for d in range(1, 20)] + [[last, close, close, close, close, vol]]
+    prices = {"fx": {"SEK": 11.0}, "items": {
+        "A": {"ticker": "TTE.PA", "currency": "EUR", "rows": rows_("2026-10-19")},
+        "B": {"ticker": "AI.PA", "currency": "EUR", "rows": rows_("2026-10-16")},
+        "C": {"ticker": "OLD.PA", "currency": "EUR", "rows": rows_("2026-09-21")},  # cours figé : compté ailleurs
+        "D": {"ticker": "NFO.ST", "currency": "SEK", "rows": rows_("2026-10-16", close=5, vol=1000)},  # 5 000 SEK par jour : non compté
+        "E": {"ticker": "VOLV-B.ST", "currency": "SEK", "rows": rows_("2026-10-16", close=250, vol=1e6)}}}  # 23 M€ par jour
 
     def cal(suf, d):
         return "2026-10-16" if suf == "DE" else d
@@ -473,6 +478,9 @@ def _():
     assert c["catalogue"]["PA"] == {"expected": "2026-10-19", "liquid": 2, "ok": 1, "missing": ["MC.PA"]}
     assert c["catalogue"]["DE"]["expected"] == "2026-10-16" and c["catalogue"]["DE"]["ok"] == 1
     assert c["prices"]["PA"] == {"expected": "2026-10-19", "n": 2, "ok": 1, "missing": ["AI.PA"]}
+    assert c["prices"]["ST"] == {"expected": "2026-10-19", "n": 1, "ok": 0, "missing": ["VOLV-B.ST"]}  # NFO.ST, peu échangée : ignorée
+    assert B.liquid(rows_("x"), "EUR", {}) and not B.liquid(rows_("x", vol=100), "EUR", {}) and not B.liquid([["x", 1, 1, 1, 1, None]] * 20, "EUR", {})
+    assert not B.liquid(rows_("x", close=250, vol=1e6), "XYZ", {})  # devise sans taux : non compté
     c = B.completeness([shard(items)], prices, "2026-10-18", None)  # dimanche, sans calendrier : vendredi attendu
     assert c["calendar"] is False and c["catalogue"]["PA"]["expected"] == "2026-10-16" and c["catalogue"]["PA"]["ok"] == 2
     paris = B.timezone(B.timedelta(hours=2))

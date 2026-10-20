@@ -593,11 +593,22 @@ def reference_day(now_paris):
     return d.isoformat()
 
 
+def liquid(rows, currency, fx, n=20):
+    """Échanges quotidiens (médiane des 20 dernières séances, cours × volume) d'au moins 1 M€, comme le seuil du calcul."""
+    vals = sorted(r[4] * r[5] for r in rows[-n:] if len(r) > 5 and isinstance(r[4], (int, float)) and isinstance(r[5], (int, float))
+                  and r[4] > 0 and r[5] >= 0)
+    if len(vals) < n // 2:
+        return False
+    rate = 1.0 if str(currency or "EUR").upper() == "EUR" else fx.get(currency) or fx.get(str(currency).upper())
+    return bool(rate) and vals[len(vals) // 2] / rate >= LIQUID_EUR
+
+
 def completeness(shards, prices, ref_day, last_session=None):
     """Après le secours : part des sociétés qui ont la clôture de leur dernière séance attendue, place par place.
-    Fiches : sociétés liquides (au moins 1 M€ échangé par jour). Cours Euro Signal : titres dont le cours n'est pas figé
-    (une séance dans les 10 jours). Séance attendue d'une place : sa dernière séance au plus tard ref_day (calendrier de la
-    bourse ; à défaut, ref_day lui-même, donc un jour férié peut sembler manquant)."""
+    Fiches : sociétés liquides (au moins 1 M€ échangé par jour). Cours Euro Signal : titres liquides dont le cours n'est pas
+    figé (une séance dans les 10 jours). Séance attendue d'une place : sa dernière séance au plus tard ref_day (calendrier de la
+    bourse ; à défaut, ref_day lui-même, donc un jour férié peut sembler manquant). Cours Euro Signal : titres échangés pour au
+    moins 1 M€ par jour seulement (une petite valeur sans échange ce jour-là n'a pas de clôture)."""
     exp = {}
     wd = date.fromisoformat(ref_day)
     weekday = (wd - timedelta(days=max(0, wd.weekday() - 4))).isoformat()  # sans calendrier : samedi, dimanche → vendredi
@@ -622,10 +633,11 @@ def completeness(shards, prices, ref_day, last_session=None):
                 c["ok"] += 1
             elif len(c["missing"]) < 5:
                 c["missing"].append(sym)
+    fx = (prices or {}).get("fx") or {}
     for it in ((prices or {}).get("items") or {}).values():
         tk, rows = (it or {}).get("ticker"), (it or {}).get("rows")
-        if not tk or not isinstance(rows, list) or not rows:
-            continue
+        if not tk or not isinstance(rows, list) or not rows or not liquid(rows, it.get("currency"), fx):
+            continue  # peu échangé (moins de 1 M€ par jour) : une séance sans échange n'a pas de clôture, ce n'est pas un trou
         suf = tk.rsplit(".", 1)[-1]
         e = expected(suf)
         last = str(rows[-1][0])
