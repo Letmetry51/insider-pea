@@ -46,6 +46,7 @@ vérifié sur une source extérieure.
 | 💎 Valeur (Piotroski) : 10 premières +5,1 points à 6 mois, 2 fois moins de chutes (départs 2024-2026) | `valeur.py` | **fragile** : 2 ans seulement (t 1,7) |
 | Dosage 70 % 🎯 / 30 % 💎 | `../french_combo.py`, `factors.py`, `factors2.py` | publié (Piotroski 2000) + facteurs de Kenneth French |
 | Pistes écartées : VIX, plus hauts répétés, moment d'achat, indicateurs du plan d'entrée (RSI, MACD, canal, support/résistance), achats de dirigeants croisés avec le 🎯 (bonus à réexaminer à la revue du 31/01/2027), bêta et pistes académiques, résultats, secteurs émergents, signaux de début de hausse | `_vix.py`, `_highs.py`, `_moment.py`, `_indic.py`, `_insider_cross.py`, `_acad.py`, `_beta.py`, `_pead.py`, `_earn.py`, `_emerg.py`, `_premices.py`, `_tard.py`, `_croise.py`, `early.py` | testé, sans effet stable |
+| Piste pour la revue du 31/01/2027 : dosage selon l'agitation de la stratégie (Barroso et Santa-Clara 2015), sans levier ; à exposition moyenne égale, même rendement, pire baisse −38 % au lieu de −43 % (agitation mesurée sur 3 mois, 2000-2026) | `_volman.py` (après `_wml.py`) | testé, gain modeste sur le risque |
 | Achats de dirigeants (≈ 4 000 achats France et Suède : pas mieux qu'un titre pris au hasard) | calcul du soir (`euro_signal/build.mjs`, étude de l'historique long) | testé |
 
 ## Limites communes
