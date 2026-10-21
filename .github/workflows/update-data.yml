@@ -210,6 +210,16 @@ jobs:
         run: python scrapers/event_archive.py
         continue-on-error: true
 
+      # Double calcul : un second programme, écrit à part en Python, refait le classement, la sélection des 5 et les 10 🎯 à partir
+      # des mêmes cours et compare avec le moteur (un chiffre faux qui a l'air juste) ; son rapport est lu par le contrôle des fichiers
+      - name: 5c bis. Double calcul (classement et sélection recalculés à part)
+        id: s5t
+        timeout-minutes: 5
+        run: |
+          python euro_signal/test_twin.py > /tmp/test_twin.txt || { cat /tmp/test_twin.txt; exit 1; }
+          python euro_signal/twin_check.py
+        continue-on-error: true
+
       - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)
         id: s5d
         continue-on-error: true

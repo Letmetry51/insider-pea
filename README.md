@@ -23,7 +23,7 @@ email alerts. Not investment advice. Code under the MIT licence; data files belo
 | 📅 **Agenda des résultats** | publications des 6 prochaines semaines (sélection, 🎯 et 💎 proposées, vos suivis) et surprises des 14 derniers jours ; simple repère : acheter juste avant n'a pas été moins bon (2020-2026) |
 | 📧 **Emails** | sélection, feu vert, paliers de −10 %, protection −30 %, rappel à 6 mois, krach, auto-surveillance, bilan trimestriel |
 | 🧭 **Secteurs**, 👔 **dirigeants** | radar des secteurs en tendance ; déclarations d'achats et de ventes des dirigeants (consultation) |
-| 🔎 **Auto-contrôle** | chaque soir : tests, contrôle des fichiers, de la dernière clôture de chaque bourse et de l'affichage ; email si une étape échoue ou si des cours manquent ; garde qui relance le calcul du soir s'il n'a pas tourné ; chaque règle est vérifiée sur les vraies sélections |
+| 🔎 **Auto-contrôle** | chaque soir : tests, double calcul (classement et sélection refaits à part en Python et comparés au moteur), contrôle des fichiers, de la dernière clôture de chaque bourse et de l'affichage ; email si une étape échoue ou si des cours manquent ; garde qui relance le calcul du soir s'il n'a pas tourné ; chaque règle est vérifiée sur les vraies sélections |
 
 ## La méthode en bref, et ses limites
 
@@ -70,6 +70,7 @@ euro_signal/
   build.mjs             calcul du soir : classement, sélection, suivi réel, emails à envoyer
   tests.js              tests du moteur (npm test)
   check_outputs.mjs     contrôle des fichiers produits ; ui_check.mjs : contrôle de l'affichage (Playwright)
+  twin_check.py         double calcul : classement, sélection des 5 et 10 🎯 refaits à part en Python, comparés au moteur
   send_alerts.py        envoi des emails (Gmail) ; positions.py : alertes sur vos positions ; send_health.py : email technique
   config.json           réglages (barème, sélection, alertes)
 scrapers/               collecteurs : déclarations (AMF, FI, FSMA, AFM), ventes à découvert, cours et comptes (Yahoo), secteurs, presse ;
