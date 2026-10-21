@@ -1,0 +1,36 @@
+name: Idée ou règle à tester
+description: Une amélioration, un nouvel élément à croiser, une source de données
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Une règle de sélection n'entre dans l'outil que si elle est testée sur 1997-2026 et tient sur les années jamais vues
+        (2013-2026, t ≥ 3) ; le barème est gelé jusqu'à la revue du 31/01/2027. Voir CONTRIBUTING.md et research/README.md.
+  - type: textarea
+    id: idee
+    attributes:
+      label: L'idée
+    validations:
+      required: true
+  - type: dropdown
+    id: but
+    attributes:
+      label: Ce qu'elle doit améliorer
+      options:
+        - Gain à 6 mois
+        - Moins de chutes
+        - Moment d'achat ou de vente
+        - Fiabilité des données
+        - Lisibilité de la page
+        - Autre
+  - type: textarea
+    id: donnees
+    attributes:
+      label: Données nécessaires
+      description: Déjà dans l'outil (cours, volumes, comptes, ventes à découvert, dirigeants…) ou source à ajouter (gratuite ?)
+  - type: textarea
+    id: refs
+    attributes:
+      label: Références
+      description: Études, articles, autres outils
