@@ -1,0 +1,35 @@
+name: Erreur dans les données ou l'affichage
+description: Un cours faux, un chiffre incohérent, une fiche mal affichée
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Merci ! Plus c'est précis, plus c'est vite corrigé. Ne mettez jamais vos positions ni votre adresse email."
+  - type: input
+    id: societe
+    attributes:
+      label: Société
+      description: Nom, ISIN ou symbole (ex. TotalEnergies, FR0000120271, TTE.PA)
+    validations:
+      required: true
+  - type: input
+    id: ou
+    attributes:
+      label: Où
+      description: Onglet, pli ou rubrique de la fiche (ex. fiche → 🔬 Analyse → Santé des comptes)
+  - type: textarea
+    id: vu
+    attributes:
+      label: Ce que vous voyez
+    validations:
+      required: true
+  - type: textarea
+    id: attendu
+    attributes:
+      label: Ce que vous attendiez, avec une source si possible
+      description: Lien vers le site de la société, de la bourse ou d'un régulateur
+  - type: input
+    id: date
+    attributes:
+      label: Date des données
+      description: Affichée en haut de la page (« Données du … »)

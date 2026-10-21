@@ -94,7 +94,7 @@ peut refaire (journal des alertes, suivi réel, historiques) sont aussi gardés 
    `https://<vous>.github.io/<dépôt>/euro-signal.html` ; mettez cette adresse dans `euro_signal/config.json` (`dashboardUrl`).
 3. **Settings → Secrets and variables → Actions** (facultatif, pour les emails) : `GMAIL_USER`, `GMAIL_APP_PASSWORD`
    (mot de passe d'application Google) et `ALERT_TO`. Sans eux, les emails sont seulement simulés.
-4. **Actions** : activer les workflows, puis lancer « Update data » une première fois (environ 40 minutes).
+4. **Actions** : activer les workflows, puis lancer « Mise à jour quotidienne des données » une première fois (environ 40 minutes).
 
 Vos positions (« Je l'ai acheté ») partent par email vers votre propre boîte et ne sont jamais écrites dans le dépôt.
 
@@ -115,6 +115,15 @@ python -m http.server     # puis http://localhost:8000/euro-signal.html
 ```
 
 Chaque modification poussée sur `main` ou proposée (pull request) passe automatiquement ces contrôles (workflow « Tests »).
+
+## Contribuer
+
+Questions et idées : onglet [Discussions](https://github.com/Letmetry51/insider-pea/discussions). Erreur repérée : ticket avec
+le modèle « Erreur ». Premières tâches : étiquette
+[good first issue](https://github.com/Letmetry51/insider-pea/labels/good%20first%20issue) ; ce qui est prévu ou à trancher :
+[feuille de route](https://github.com/Letmetry51/insider-pea/labels/feuille%20de%20route). Règles de la méthode et commandes
+de contrôle : [CONTRIBUTING.md](CONTRIBUTING.md) (résumé en anglais). Merci à chaque contributeur : les contributions
+acceptées seront citées ici.
 
 ## Sources de données
 
