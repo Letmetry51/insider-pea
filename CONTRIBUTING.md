@@ -33,7 +33,7 @@ npm run lint                   # erreurs de code JavaScript
 npm run format:check           # mise en forme (npm run format pour corriger)
 node tools/stamp.mjs --check   # versions des fichiers de la page (npm run stamp après une modification de app/ ou core.js)
 ruff check --select F scrapers euro_signal run.py
-python euro_signal/test_positions.py && python euro_signal/test_health.py
+python euro_signal/test_positions.py && python euro_signal/test_health.py && python euro_signal/test_twin.py
 python scrapers/test_financials.py && python scrapers/test_prices.py && python scrapers/test_yahoo.py
 python scrapers/test_sectors.py && python scrapers/test_backup.py
 ```

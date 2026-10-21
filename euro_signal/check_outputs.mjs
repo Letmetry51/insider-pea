@@ -356,6 +356,57 @@ if (RK) {
   );
 }
 
+// 5b bis. Double calcul (euro_signal/twin_check.py) : le classement et la sélection refaits à part, en Python, sur les mêmes cours
+const TW = read('diagnostics/twin.json');
+if (!TW || TW.__error)
+  warn('double calcul : pas de rapport ce soir (diagnostics/twin.json) : classement non recalculé à part');
+else if (TW.error) warn(`double calcul impossible ce soir : ${TW.error}`);
+else if (TW.engineAt !== main.generatedAt)
+  warn(
+    `double calcul fait sur un autre calcul (${TW.engineAt || '?'}) que celui de ce soir (${main.generatedAt || '?'})`
+  );
+else {
+  const names = (l) => (l && l.length ? l.join(', ') : 'aucune');
+  check(
+    TW.selection && TW.selection.same,
+    TW.selection && TW.selection.same
+      ? `double calcul : même sélection des 5 (${names(TW.selection.engine)})`
+      : `double calcul : la sélection des 5 diffère (moteur : ${names(TW.selection && TW.selection.engine)} ; recalcul à part : ${names(TW.selection && TW.selection.twin)}), à vérifier avant d'acheter`
+  );
+  check(
+    TW.pick10 && TW.pick10.same,
+    TW.pick10 && TW.pick10.same
+      ? 'double calcul : mêmes 10 🎯'
+      : `double calcul : les 10 🎯 diffèrent (moteur : ${names(TW.pick10 && TW.pick10.engine)} ; recalcul à part : ${names(TW.pick10 && TW.pick10.twin)})`,
+    true
+  );
+  const val = (v) =>
+    v == null
+      ? 'rien'
+      : typeof v === 'number'
+        ? String(v).replace('.', ',')
+        : typeof v === 'object'
+          ? JSON.stringify(v)
+          : String(v);
+  const ex = (TW.examples || [])
+    .slice(0, 3)
+    .map((e) => `${e.name}, ${e.label || e.field} : ${val(e.engine)} pour le moteur, ${val(e.twin)} recalculé`)
+    .join(' ; ');
+  check(
+    !TW.diffs,
+    TW.diffs
+      ? `double calcul : ${TW.diffs} écart(s) sur ${TW.rows} sociétés (${Object.entries(TW.byLabel || TW.byField || {})
+          .map(([k, v]) => k + ' : ' + v)
+          .join(', ')}), par exemple ${ex}`
+      : `double calcul : ${TW.rows} sociétés recalculées à part, mêmes chiffres (hausse sur 12 mois, plus haut, tendance, pente, volumes, bond, volatilité, points, note, place)`,
+    true
+  );
+  if ((TW.gaps || []).length)
+    warn(
+      `cours hebdomadaires incomplets sur l'année pour ${TW.gaps.join(', ')} (sélection) : hausse sur 12 mois à vérifier`
+    );
+}
+
 // 5c. Lien avec Yahoo Finance : titres demandés, reçus, récupérés en 2e passe, repris de la veille (scrapers/yahoo.py)
 const YH = read('diagnostics/yahoo.json'),
   YM = {};

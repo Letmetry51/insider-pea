@@ -1158,7 +1158,7 @@ function logicCard() {
     (function () {
       var W = (rankData() || {}).watchdog;
       return (
-        "<p class=\"small lgw\">🔎 <b>Auto-surveillance</b> : chaque soir, l'outil vérifie que la méthode garde son avantage (suivi réel 📒 et étude du soir) ; il ne change jamais ses règles seul, mais envoie un email de revue si l'avantage se dégrade. Chaque règle (🔊 📣 ⏸️) est aussi vérifiée sur les vraies sélections, et les révisions des analystes sont testées seules dès qu'il y a un an d'archive (💡 email si la piste se confirme)." +
+        "<p class=\"small lgw\">🔎 <b>Auto-surveillance</b> : chaque soir, l'outil vérifie que la méthode garde son avantage (suivi réel 📒 et étude du soir) ; il ne change jamais ses règles seul, mais envoie un email de revue si l'avantage se dégrade. Chaque règle (🔊 📣 ⏸️) est aussi vérifiée sur les vraies sélections, et les révisions des analystes sont testées seules dès qu'il y a un an d'archive (💡 email si la piste se confirme). Un second programme, écrit à part, refait aussi chaque soir le classement et la sélection des 5 à partir des mêmes cours : le moindre écart avec le calcul principal part dans l'email de contrôle." +
         (W
           ? ' État : ' +
             (W.status === 'ok' ? '✅ avantage intact' : '⚠️ ' + esc(W.reasons.join(' ; '))) +

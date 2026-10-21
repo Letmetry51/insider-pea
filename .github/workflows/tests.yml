@@ -49,6 +49,9 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+      - uses: actions/setup-node@v4  # le test du double calcul compare avec le moteur JavaScript
+        with:
+          node-version: '20'
       - run: pip install -r requirements.txt ruff==0.16.8
       - name: Erreurs de code (ruff)
         run: ruff check --select F scrapers euro_signal run.py
@@ -56,6 +59,7 @@ jobs:
         run: |
           python euro_signal/test_positions.py
           python euro_signal/test_health.py
+          python euro_signal/test_twin.py
           python scrapers/test_financials.py
           python scrapers/test_prices.py
           python scrapers/test_yahoo.py
