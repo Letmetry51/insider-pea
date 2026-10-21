@@ -1464,8 +1464,10 @@ function planChart(isin, adj, plan) {
     });
   if (pr.stop > 0) plv.push({ k: 'stop', a: pr.stop, t: 'Stop ' + f(pr.stop), c: 'pl-ts' });
   if (pr.target > 0) plv.push({ k: 'tgt', a: pr.target, t: 'Objectif ' + f(pr.target), c: 'pl-tg' });
-  // support et résistance les plus proches, toujours visibles ; s'ils coïncident avec un niveau du plan, celui-ci les nomme
-  var LVp = ES.completeLevels(plan.levels || ES.supportResistance(adj), adj),
+  // support et résistance les plus proches, toujours visibles ; s'ils coïncident avec un niveau du plan, celui-ci les nomme.
+  // Niveaux du calcul du soir (plus hauts et plus bas du jour), ceux sur lesquels le plan est bâti et que montre le graphique
+  // des cours ; à défaut seulement, recalculés ici sur les clôtures (ils différaient alors d'un graphique à l'autre)
+  var LVp = ES.completeLevels(plan.levels || (S.inst[isin] || {}).levels || ES.supportResistance(adj), adj),
     near = function (p) {
       return plv.filter(function (v) {
         return (
@@ -1484,8 +1486,10 @@ function planChart(isin, adj, plan) {
       if (!x || !(x.price > 0)) return;
       var hit = near(x.price);
       if (hit) {
-        // le niveau du plan porte aussi le nom du support ou de la résistance qu'il recouvre
-        if (!/support|résistance/i.test(hit.t)) hit.t += q[1] ? ' (support)' : ' (résistance)';
+        // le niveau du plan porte aussi le nom du support ou de la résistance qu'il recouvre ; une résistance collée au support
+        // déjà tracé (cours coincé entre les deux) partage sa ligne au lieu de disparaître
+        if (hit.k === 'sup' || hit.k === 'res') hit.t = 'Support et résistance ' + f(hit.a);
+        else if (!/support|résistance/i.test(hit.t)) hit.t += q[1] ? ' (support)' : ' (résistance)';
         else if (q[1] && !/support/i.test(hit.t)) hit.t = hit.t.replace('(résistance)', '(support et résistance)');
         else if (!q[1] && !/résistance/i.test(hit.t)) hit.t = hit.t.replace('(support)', '(support et résistance)');
       } else
