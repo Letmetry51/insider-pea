@@ -65,3 +65,38 @@ jobs:
           python scrapers/test_yahoo.py
           python scrapers/test_sectors.py
           python scrapers/test_backup.py
+
+  # Calcul du soir rejoué sur les données publiées la veille (branche site) avec le code proposé : une modification qui ferait
+  # planter le calcul, ou qui changerait le classement d'un côté seulement (moteur ou double calcul), est vue avant la fusion
+  replay:
+    name: Calcul du soir rejoué (données publiées)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Données de la veille (branche site)
+        uses: ./.github/actions/restore-data
+      # cours du dernier calcul du soir (cache, jamais publiés) : mêmes chemins que le calcul du soir, sinon le cache n'est pas retrouvé
+      - name: Cours Euro Signal (cache du calcul du soir)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/prices.json
+            data/sectors/weekly.csv.gz
+            data/sectors/weekly_volume.csv.gz
+          key: yahoo-rejeu-${{ github.run_id }}
+          restore-keys: yahoo-
+        continue-on-error: true
+      - name: Calcul à la date des données (euro_signal/build.mjs)
+        run: |
+          export ES_TODAY="$(python -c "import json; print(json.load(open('data/euro-signal.json'))['today'])")"
+          node euro_signal/build.mjs > /tmp/build.log 2>&1 || { tail -60 /tmp/build.log; exit 1; }
+          grep -E "Classement tendance|Tableau de bord" /tmp/build.log
+      - name: Double calcul (classement, sélection des 5, 10 🎯)
+        run: python euro_signal/twin_check.py --strict

@@ -42,6 +42,7 @@ STEP_LABELS = {
     "s5a": "5a. Tests du moteur", "s5b": "5b. Calcul Euro Signal", "s5c": "5c. Archive des résultats et rachats",
     "s5t": "5c bis. Double calcul", "s5d": "5d. Contrôle des fichiers", "s5e": "5e. Contrôle de l'affichage", "s6": "6. Alertes email",
     "s6b": "6b. Vos positions (alertes de revente)",
+    "s7": "7. Publication du site : la page garde les données de la veille (données du soir sauvegardées 30 jours)",
 }
 
 
