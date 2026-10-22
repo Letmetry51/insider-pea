@@ -107,6 +107,10 @@ def engine_constants(core_src):
         if k not in pick:
             raise ValueError(f"réglage {k} de ES.pickThree introuvable dans core.js")
     c["PICK"] = pick
+    m = re.search(r"ES\.EEA = \[([^\]]*)\]", core_src)
+    if not m:
+        raise ValueError("liste ES.EEA introuvable dans core.js")
+    c["EEA"] = set(re.findall(r"'([A-Z]{2})'", m.group(1)))
     return c
 
 
@@ -357,10 +361,11 @@ def pick(rows, n, pea_only=False):
 
 
 def selection_rows(rows):
-    """Lignes du moteur telles que les lit la sélection du lundi (ES.rankSelection) : valeurs non arrondies, secteur seul."""
+    """Lignes du moteur telles que les lit la sélection du lundi (ES.rankSelection) : arrondies comme les lignes publiées, secteur seul."""
     return [{
         "key": r["key"], "note": r["note"], "out": r["out"], "acc": r["acc"], "pea": r["pea"], "sec": r["sector"],
-        "sc": r["sc"], "mom": r["mom"] * 100 if r["mom"] is not None else None, "dj": r["dayJump"], "liq": r["turnover"],
+        "sc": r["sc"], "mom": to_fixed(r["mom"] * 100, 1) if r["mom"] is not None else None, "dj": r["dayJump"],
+        "liq": jround(r["turnover"]) if r["turnover"] is not None else None,
         "vx": r["volx"], "vo": r["vola"], "m10": r["ma10"], "bp": r["bump"],
         "sh": (r["short"] or {}).get("pct"), "shc": (r["short"] or {}).get("cc"), "slope6": None,
     } for r in rows]
@@ -376,6 +381,33 @@ def published_rows(rows):
         "m10": r["ma10"], "bp": r["bump"], "sh": (r["short"] or {}).get("pct"), "shc": (r["short"] or {}).get("cc"),
         "slope6": r["slope6"],
     } for r in rows]
+
+
+def isin_tables(data_dir):
+    """Symbole → ISIN des listes officielles (data/backup-isins.json) puis des ventes à découvert (data/shorts-symbols.json),
+    dans l'ordre du moteur ; un fichier absent ou illisible est ignoré, comme dans le moteur."""
+    out = []
+    try:
+        with open(os.path.join(data_dir, "backup-isins.json"), encoding="utf-8") as fh:
+            bk = json.load(fh)
+        t = {}
+        for isin, v in ((bk or {}).get("isins") or {}).items():
+            if isinstance(v, list) and v and isinstance(v[0], str):
+                t.setdefault(v[0], isin)
+        out.append(t)
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(data_dir, "shorts-symbols.json"), encoding="utf-8") as fh:
+            ss = json.load(fh)
+        t = {}
+        for isin, sym in (ss or {}).items():
+            if isinstance(sym, str):
+                t.setdefault(sym, isin)
+        out.append(t)
+    except Exception:
+        pass
+    return out
 
 
 # ---------- lecture des données ----------
@@ -400,13 +432,18 @@ def load_catalogue(data_dir):
     return co, w_dates, d_dates
 
 
-def build_items(main, co, d_dates, engine_rows):
+def build_items(main, co, d_dates, engine_rows, isin_tables=None):
     inst = main.get("inst") or {}
     isin_of_sym = {}
     for isin in js_key_order(list(inst)):
         t = (inst[isin] or {}).get("ticker")
         if t and t not in isin_of_sym:
             isin_of_sym[t] = isin
+    # ISIN connu par ailleurs (listes officielles des bourses, ventes à découvert) : son pays décide du PEA
+    isin_any = dict(isin_of_sym)
+    for table in isin_tables or []:
+        for sym, isin in table.items():
+            isin_any.setdefault(sym, isin)
     items = []
     for sym in js_key_order(list(co)):
         x = co[sym] or {}
@@ -420,7 +457,9 @@ def build_items(main, co, d_dates, engine_rows):
             if positive(d[k]):
                 last_day = d_dates[k] if k < len(d_dates) and d_dates[k] else None
                 break
-        non_pea = (i and i.get("peaStatus") == "non_eligible") or re.match(r"REIT\b", str(x.get("industry") or ""), re.I)
+        known = isin or isin_any.get(sym) or ""
+        non_pea = ((i and i.get("peaStatus") == "non_eligible") or re.match(r"REIT\b", str(x.get("industry") or ""), re.I)
+                   or (re.fullmatch(r"[A-Z]{2}[A-Z0-9]{9}\d", known) and known[:2] not in CONST["EEA"]))
         fund_sector = ((i or {}).get("fund") or {}).get("sector")
         items.append({
             "key": key, "isin": isin, "sym": sym, "name": (i or {}).get("name") or x.get("name") or sym,
@@ -508,7 +547,7 @@ def run(data_dir):
     if not co:
         raise ValueError("catalogue des sociétés (data/societes) vide ou illisible")
     engine = {r["key"]: r for r in rank["rows"]}
-    rows = rank_universe(build_items(main, co, d_dates, engine), rcfg, main.get("today"))
+    rows = rank_universe(build_items(main, co, d_dates, engine, isin_tables(data_dir)), rcfg, main.get("today"))
     twin = {r["key"]: r for r in rows}
     by_field, found, n = {}, [], 0
     for key, e in engine.items():
@@ -530,7 +569,8 @@ def run(data_dir):
     sel_rows = selection_rows(rows)
     sel = [r["key"] for r, t in pick(sel_rows, int(rcfg["selSize"]), pea_only=True) if t < 2 and r["note"] >= rcfg["selMin"]]
     shown = [r for r in rows if (r["turnover"] or 0) >= rcfg["minTurnoverEur"] or r["isin"]]
-    p10 = [r["isin"] or r["sym"] for r, _ in pick(published_rows(shown), 10)]
+    pea_only = ((main.get("cfg") or {}).get("selection") or {}).get("peaOnly") is not False
+    p10 = [r["isin"] or r["sym"] for r, _ in pick(published_rows(shown), 10, pea_only=pea_only)]
     eng_sel = [x.get("key") for x in (rank.get("selection") or {}).get("items") or []]
     eng_p10 = rank.get("pick10") or []
     name = {r["key"]: r["name"] for r in rows}

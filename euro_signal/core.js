@@ -6964,33 +6964,30 @@
   };
   /** Positions vendeuses nettes publiées (≥ 0,5 % du capital) en vigueur à une date. list : [{ holder, pct, from, to, country }] */
   ES.shortInfo = function (list, day) {
-    var cur = (Array.isArray(list) ? list : [])
-      .filter(function (p) {
-        return (
-          p &&
-          typeof p === 'object' &&
-          +p.pct >= 0.5 &&
-          +p.pct <= 25 &&
-          (!p.from || p.from <= day) &&
-          (!p.to || p.to > day)
-        );
-      })
-      .map(function (p) {
-        return { holder: p.holder, pct: +p.pct, from: p.from, to: p.to };
-      });
-    if (!cur.length) return null;
+    // dernière déclaration connue de chaque détenteur à la date ; elle seule décide : une position close ou repassée sous 0,5 %
+    // n'est plus comptée, même si une déclaration plus ancienne du même détenteur reste ouverte (22/10/2026 : 35 sociétés gardaient
+    // ainsi une vente à découvert disparue)
     var byHolder = {};
-    cur.forEach(function (p) {
-      var k = String(p.holder || '?').toLowerCase();
-      if (!byHolder[k] || p.from > byHolder[k].from) byHolder[k] = p;
+    (Array.isArray(list) ? list : []).forEach(function (p) {
+      if (!p || typeof p !== 'object' || (p.from && p.from > day)) return;
+      var k = String(p.holder || '?').toLowerCase(),
+        b = byHolder[k];
+      if (!b || String(p.from || '') > String(b.from || '')) byHolder[k] = p;
     });
     var pos = Object.keys(byHolder)
       .map(function (k) {
         return byHolder[k];
       })
+      .filter(function (p) {
+        return +p.pct >= 0.5 && +p.pct <= 25 && (!p.to || p.to > day);
+      })
+      .map(function (p) {
+        return { holder: p.holder, pct: +p.pct, from: p.from, to: p.to };
+      })
       .sort(function (a, b) {
         return b.pct - a.pct;
       });
+    if (!pos.length) return null;
     return {
       holders: pos.length,
       totalPct: +pos
@@ -9779,7 +9776,11 @@
                 ? 'comptes mitigés' + (acc.f9 != null ? ' (F-score ' + acc.f9 + '/9)' : '')
                 : acc.key === 'bad'
                   ? 'comptes en dégradation'
-                  : 'comptes insuffisants pour conclure'
+                  : acc.stale
+                    ? 'derniers comptes annuels complets de plus de 18 mois (exercice clos le ' +
+                      acc.stale +
+                      ') : traités comme non lus'
+                    : 'comptes insuffisants pour conclure'
         );
       // 4. calme du cours
       parts.calm = vp == null ? Math.round(W.calm / 2) : vp < 1 / 3 ? W.calm : vp < 2 / 3 ? Math.round(W.calm / 2) : 0;
@@ -10033,10 +10034,12 @@
         secEn: r.secEn || r.sector,
         sector: r.sector,
         sc: r.slopeCls !== undefined ? r.slopeCls : r.sc,
-        mom: r.mom != null && eng ? r.mom * 100 : r.mom,
-        ratio: r.ratio != null && eng ? r.ratio * 100 : r.ratio,
+        // mêmes arrondis que les lignes publiées (hausse au dixième de point, liquidité à l'euro) : l'email et la page donnent la même
+        // liste aux limites (22/10/2026 : +29,956 % publié 30,0 %, palier différent d'un côté à l'autre)
+        mom: r.mom != null && eng ? +(r.mom * 100).toFixed(1) : r.mom,
+        ratio: r.ratio != null && eng ? +(r.ratio * 100).toFixed(1) : r.ratio,
         dj: r.dayJump != null ? r.dayJump : r.dj,
-        liq: r.turnoverEur != null ? r.turnoverEur : r.liq,
+        liq: r.turnoverEur != null ? Math.round(r.turnoverEur) : r.liq,
         vx: r.volx !== undefined ? r.volx : r.vx,
         vo: r.vola !== undefined ? r.vola : r.vo,
         m10: r.ma10 !== undefined ? r.ma10 : r.m10,
