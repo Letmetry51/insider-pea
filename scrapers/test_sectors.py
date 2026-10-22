@@ -26,7 +26,7 @@ def case(name):
     def deco(fn):
         tmp = Path(tempfile.mkdtemp())
         for k in ("SEC", "UNIVERSE", "INFO_CACHE", "ESTIMATES", "REV_HIST", "WEEKLY", "WEEKLY_VOL", "BACKTEST", "OUT", "OUT_CO", "CATALOG", "CO_DIR", "CO_INDEX",
-                  "FINANCIALS"):
+                  "FINANCIALS", "TICKERS", "OFFICIAL"):
             old = getattr(S, k)
             setattr(S, k, tmp / ("sectors" if k == "SEC" else old.name))
         S.SEC.mkdir(parents=True, exist_ok=True)
@@ -248,16 +248,133 @@ def _():
     syms = ["OR.PA"] + ["X%d.PA" % k for k in range(200)]
     S.write_json(S.INFO_CACHE, old)
     calls = []
-    real, real_reset = S.fetch_info, S.reset_yahoo_session
+    real, real_reset, real_sleep = S.fetch_info, S.reset_yahoo_session, S.time.sleep
     S.fetch_info = lambda s: (calls.append(s) or (s, {"fetched": "2026-10-16", "v": S.INFO_V}))
     S.reset_yahoo_session = lambda: None
+    S.time.sleep = lambda sec: None  # pause d'une minute du vrai calcul : inutile ici (1 min de moins chaque soir)
     try:
         c = S.refresh_infos(syms, minutes=1)
     finally:
-        S.fetch_info, S.reset_yahoo_session = real, real_reset
+        S.fetch_info, S.reset_yahoo_session, S.time.sleep = real, real_reset, real_sleep
     assert c["OR.PA"].get("longName") == "L'Oréal S.A.", c["OR.PA"]
-    assert len(calls) <= 80, len(calls)
+    assert len(calls) <= 100, len(calls)  # 40 + 40, puis 10 + 10 une fiche à la fois après la pause : arrêt
     assert S.read_json(S.INFO_CACHE, {})["OR.PA"].get("marketCap") == 2e11
+
+
+class FakeQuery:
+    def __init__(self, op, args):
+        self.op, self.args = op, args
+
+
+class FakeYf:
+    """yfinance simulé pour le filtre du catalogue : Allianz n'apparaît qu'à Vienne, Alstom qu'à Francfort, Publicis nulle part."""
+    EquityQuery = FakeQuery
+    QUOTES = {
+        "VIE": [{"symbol": "ALV.VI", "longName": "Allianz SE", "exchange": "VIE", "currency": "EUR", "marketCap": 1.5e11, "regularMarketPrice": 380,
+                 "averageDailyVolume3Month": 40},
+                {"symbol": "RAW.VI", "longName": "Rawlplug Werke AG", "exchange": "VIE", "currency": "EUR", "marketCap": 8e8, "regularMarketPrice": 10,
+                 "averageDailyVolume3Month": 1000}],
+        "GER": [{"symbol": "AOMD.DE", "longName": "Alstom SA", "exchange": "GER", "currency": "EUR", "marketCap": 1e10, "regularMarketPrice": 22,
+                 "averageDailyVolume3Month": 5000},
+                {"symbol": "RAW.DE", "longName": "Raiffeisen Bank International AG", "exchange": "GER", "currency": "EUR", "marketCap": 9e9,
+                 "regularMarketPrice": 30, "averageDailyVolume3Month": 7000},
+                {"symbol": "SAP.DE", "longName": "SAP SE", "exchange": "GER", "currency": "EUR", "marketCap": 2.5e11, "regularMarketPrice": 200,
+                 "averageDailyVolume3Month": 1e6}],
+    }
+
+    @staticmethod
+    def screen(q, offset=0, size=250, sortField=None, sortAsc=False):
+        exch = [a.args[1] for a in q.args if a.op == "eq" and a.args[0] == "exchange"][0]
+        quotes = FakeYf.QUOTES.get(exch, []) if offset == 0 else []
+        return {"quotes": quotes, "total": len(FakeYf.QUOTES.get(exch, []))}
+
+
+INFOS = {
+    "ALV.VI": {"longName": "Allianz SE", "country": "Germany", "marketCap": 1.5e11, "currency": "EUR", "currentPrice": 380, "averageVolume": 40},
+    "ALV.DE": {"longName": "Allianz SE", "country": "Germany", "marketCap": 1.5e11, "currency": "EUR", "currentPrice": 380, "averageVolume": 560000,
+               "sector": "Financial Services"},
+    "AOMD.DE": {"longName": "Alstom SA", "country": "France", "marketCap": 1e10, "currency": "EUR", "currentPrice": 22, "averageVolume": 5000},
+    "ALO.PA": {"longName": "Alstom SA", "country": "France", "marketCap": 1e10, "currency": "EUR", "currentPrice": 22, "averageVolume": 900000},
+    "PUB.PA": {"longName": "Publicis Groupe S.A.", "country": "France", "marketCap": 2.4e10, "currency": "EUR", "currentPrice": 95, "averageVolume": 600000},
+    "RAW.VI": {"longName": "Rawlplug Werke AG", "country": "Austria", "marketCap": 8e8, "currency": "EUR", "currentPrice": 10, "averageVolume": 1000},
+    "RAW.DE": {"longName": "Raiffeisen Bank International AG", "country": "Austria", "marketCap": 9e9, "currency": "EUR", "currentPrice": 30,
+               "averageVolume": 7000},
+    "RBI.VI": {"longName": "Raiffeisen Bank International AG", "country": "Austria", "marketCap": 9e9, "currency": "EUR", "currentPrice": 30,
+               "averageVolume": 600000},
+    "SAP.DE": {"longName": "SAP SE", "country": "Germany", "marketCap": 2.5e11, "currency": "EUR", "currentPrice": 200, "averageVolume": 1e6},
+    "TINY.PA": {"longName": "Tiny SA", "country": "France", "marketCap": 5e5, "currency": "EUR", "currentPrice": 1, "averageVolume": 10},
+}
+
+
+@case("Cotations principales absentes du filtre Yahoo : Allianz (Vienne), Alstom (Francfort), Publicis (absente) ajoutées ; suppositions fausses écartées")
+def _():
+    S.TICKERS.write_text(json.dumps({"FR0010220475": {"ticker": "ALO.PA", "name": "Alstom SA"}}), encoding="utf-8")
+    S.OFFICIAL.write_text(json.dumps({"isins": {"FR0000130577": ["PUB.PA", "EUR"], "FR0000000099": ["TINY.PA", "EUR"]}}), encoding="utf-8")
+    cache = {k: dict(v, fetched="2026-10-20", v=S.INFO_V) for k, v in INFOS.items() if k in ("ALV.VI", "AOMD.DE", "RAW.VI", "RAW.DE", "SAP.DE")}
+    items = {k: {"name": INFOS[k]["longName"], "capEur": INFOS[k]["marketCap"]} for k in cache}
+    sup, ask = S.home_supplement(items, cache)
+    assert sup["ALV.DE"]["kind"] == "guess" and sup["ALV.DE"]["name"] == "allianz" and sup["ALV.DE"]["of"] == "ALV.VI", sup.get("ALV.DE")
+    assert sup["ALO.PA"]["kind"] == "dossier" and sup["ALO.PA"]["name"] is None, sup.get("ALO.PA")
+    assert sup["PUB.PA"]["kind"] == "list" and "SAP.SW" not in sup and not any(x["of"] == "SAP.DE" for x in sup.values())
+    # RAW.VI existe déjà (Rawlplug, autre société) : Raiffeisen (RAW.DE, siège en Autriche) sera cherchée par son nom
+    assert "RAW.VI" not in sup and [x["of"] for x in ask] == ["RAW.DE"], ask
+    # catalogue complet, avec un faux yfinance
+    real = (sys.modules.get("yfinance"), S.fetch_info, S.fx_now, S.search_home, S.time.sleep)
+    fake = type(sys)("yfinance")
+    fake.screen, fake.EquityQuery = FakeYf.screen, FakeQuery
+    sys.modules["yfinance"] = fake
+    S.fetch_info = lambda s: (s, dict(INFOS[s], fetched="2026-10-23", v=S.INFO_V) if s in INFOS else None)
+    S.fx_now = lambda: {}
+    S.search_home = lambda name, sfx, want: {"raiffeisen bank international": "RBI.VI"}.get(want)
+    S.time.sleep = lambda sec: None
+    try:
+        kept = S.screen_catalog(info_minutes=1)
+    finally:
+        if real[0] is not None:
+            sys.modules["yfinance"] = real[0]
+        else:
+            sys.modules.pop("yfinance", None)
+        S.fetch_info, S.fx_now, S.search_home, S.time.sleep = real[1:]
+    for sym in ("ALV.DE", "ALO.PA", "PUB.PA", "RBI.VI", "SAP.DE", "ALV.VI", "AOMD.DE"):
+        assert sym in kept, (sym, sorted(kept))
+    assert kept["ALV.DE"]["turnoverEur"] > 1e8 and kept["ALV.DE"]["hq"] == "DE" and kept["PUB.PA"]["hq"] == "FR"
+    assert "TINY.PA" not in kept and "AOMD.PA" not in kept and "RAW.VI" in kept  # coquille écartée ; Rawlplug reste une autre société
+    cat = json.loads(S.CATALOG.read_text(encoding="utf-8"))
+    assert cat["pending"] == 0 and cat["homeV"] == S.HOME_V and S.catalog_age() == 0, cat.get("pending")
+    # fiches : la cotation du siège, la plus échangée, représente la société (Allianz à Francfort, plus à Vienne)
+    S.dashboard(fetch_daily=False)
+    idx = {r[0] for r in json.loads(S.CO_INDEX.read_text(encoding="utf-8"))["rows"]}
+    assert "ALV.DE" in idx and "ALV.VI" not in idx and "ALO.PA" in idx and "AOMD.DE" not in idx, sorted(x for x in idx if x[:3] in ("ALV", "ALO", "AOM"))
+
+
+@case("Univers des secteurs : la cotation principale remplace la ligne secondaire (Allianz, Alstom, Raiffeisen)")
+def _():
+    S.TICKERS.write_text(json.dumps({"FR0010220475": {"ticker": "ALO.PA", "name": "Alstom SA"}}), encoding="utf-8")
+    S.OFFICIAL.write_text(json.dumps({"isins": {"FR0000130577": ["PUB.PA", "EUR"]}}), encoding="utf-8")
+    S.write_json(S.INFO_CACHE, {"PUB.PA": dict(INFOS["PUB.PA"], fetched="2026-10-20", v=S.INFO_V)})  # lue par le catalogue
+    real = (sys.modules.get("yfinance"), S.fetch_info, S.fx_now, S.search_home, S.time.sleep)
+    fake = type(sys)("yfinance")
+    fake.screen, fake.EquityQuery = FakeYf.screen, FakeQuery
+    sys.modules["yfinance"] = fake
+    S.fetch_info = lambda s: (s, dict(INFOS[s], fetched="2026-10-23", v=S.INFO_V) if s in INFOS else None)
+    S.fx_now = lambda: {}
+    S.search_home = lambda name, sfx, want: {"raiffeisen bank international": "RBI.VI"}.get(want)
+    S.time.sleep = lambda sec: None
+    try:
+        S.build_universe()
+    finally:
+        if real[0] is not None:
+            sys.modules["yfinance"] = real[0]
+        else:
+            sys.modules.pop("yfinance", None)
+        S.fetch_info, S.fx_now, S.search_home, S.time.sleep = real[1:]
+    u = json.loads(S.UNIVERSE.read_text(encoding="utf-8"))
+    uni = u["items"]
+    for sym in ("ALV.DE", "ALO.PA", "RBI.VI", "SAP.DE", "PUB.PA"):
+        assert sym in uni, (sym, sorted(uni))
+    for sym in ("ALV.VI", "AOMD.DE", "RAW.DE"):
+        assert sym not in uni, (sym, sorted(uni))
+    assert u["homeV"] == S.HOME_V and S.universe_age() == 0
 
 
 if __name__ == "__main__":

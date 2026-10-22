@@ -235,7 +235,47 @@ if (CI && CI.rows) {
   check(
     want.every((w) => have.has(w)),
     'grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : ' +
-      want.filter((w) => !have.has(w)).join(', ') || 'toutes'
+      (want.filter((w) => !have.has(w)).join(', ') || 'toutes')
+  );
+  // cotation principale (et non une ligne secondaire de Vienne ou de Francfort) : absentes du filtre Yahoo jusqu'au 23/10/2026
+  const homes = {
+    'ALV.DE': 'Allianz',
+    'SIE.DE': 'Siemens',
+    'PUB.PA': 'Publicis',
+    'ALO.PA': 'Alstom',
+    'KBC.BR': 'KBC',
+    'ISP.MI': 'Intesa Sanpaolo',
+    'SAN.MC': 'Santander',
+    'NOVO-B.CO': 'Novo Nordisk',
+    'ASSA-B.ST': 'Assa Abloy',
+    'INVE-B.ST': 'Investor',
+  };
+  const noHome = Object.keys(homes).filter((w) => !have.has(w));
+  check(
+    !noHome.length,
+    'cotations principales des grandes sociétés : ' +
+      (noHome.length ? 'absentes : ' + noHome.map((w) => homes[w] + ' (' + w + ')').join(', ') : 'toutes présentes'),
+    true
+  );
+  // dossiers suivis très échangés (5 M€ par jour ou plus) dont la cotation manque à la liste des sociétés : jamais classés
+  // (une autre classe d'actions de la même société, Atlas Copco A au lieu de B, suffit : la plus échangée la représente)
+  const cls = (t) => String(t).replace(/-[A-Z0-9]{1,2}(?=\.)/, ''),
+    haveCls = new Set([...have].map(cls));
+  const lost = Object.keys(main.inst || {})
+    .map((i) => main.inst[i])
+    .filter((x) => x && x.ticker && !x.secondary && (x.stats || {}).adv20Eur >= 5e6 && !haveCls.has(cls(x.ticker)));
+  check(
+    !lost.length,
+    `dossiers très échangés présents dans la liste des sociétés (classement)` +
+      (lost.length
+        ? ' : absents ' +
+          lost
+            .slice(0, 8)
+            .map((x) => x.name + ' (' + x.ticker + ')')
+            .join(', ') +
+          (lost.length > 8 ? '…' : '')
+        : ''),
+    true
   );
   let bad = 0;
   for (let k = 0; k < (CI.shards || 32); k++) {

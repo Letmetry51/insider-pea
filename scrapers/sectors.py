@@ -55,6 +55,8 @@ CO_DIR = DATA / "societes"                # fiche de chaque société cotée, en
 CO_INDEX = DATA / "societes-index.json"   # liste de recherche : symbole, nom, pays, capitalisation, secteur, tendance
 FINANCIALS = DATA / "financials.json"     # comptes annuels (scrapers/financials.py) : trajectoire sur 4 ans des fiches
 CO_SHARDS = 32
+TICKERS = DATA / "tickers.json"           # dossiers d'Euro Signal : ISIN → cotation Yahoo du pays d'origine (scrapers/prices.py)
+OFFICIAL = DATA / "backup-isins.json"     # listes officielles Euronext et Nasdaq Nordic : ISIN → symbole (scrapers/backup_prices.py)
 
 MIN_CAP_EUR = 500e6
 BENCH = "^STOXX"          # STOXX Europe 600 (euros)
@@ -76,6 +78,13 @@ HQ = {"France": "FR", "Germany": "DE", "Netherlands": "NL", "Italy": "IT", "Spai
       "Greece": "GR", "Poland": "PL", "Czech Republic": "CZ", "Czechia": "CZ", "Hungary": "HU", "Romania": "RO", "Iceland": "IS",
       "Liechtenstein": "LI", "Cyprus": "CY", "Malta": "MT", "Estonia": "EE", "Latvia": "LV", "Lithuania": "LT", "Slovenia": "SI",
       "Slovakia": "SK", "Croatia": "HR", "Bulgaria": "BG", "Switzerland": "CH", "United Kingdom": "GB"}
+# place du siège de chaque pays (cotation principale) et pays de chaque suffixe Yahoo
+HOME_V = 1  # version de la recherche des cotations principales (univers et catalogue refaits quand elle change)
+HOME_SFX = {"FR": "PA", "DE": "DE", "NL": "AS", "IT": "MI", "ES": "MC", "BE": "BR", "PT": "LS", "FI": "HE", "IE": "IR", "AT": "VI",
+            "SE": "ST", "DK": "CO", "NO": "OL"}
+SFX_COUNTRY = dict(SUFFIX, SW="CH", L="GB")
+EXCH_OF_SFX = {"PA": "PAR", "DE": "GER", "AS": "AMS", "MI": "MIL", "MC": "MCE", "BR": "BRU", "LS": "LIS", "HE": "HEL", "IR": "ISE",
+               "VI": "VIE", "ST": "STO", "CO": "CPH", "OL": "OSL", "SW": "EBS", "L": "LSE"}
 # Europe hors PEA (catalogue seulement, compte-titres) : Suisse et Royaume-Uni. Le filtre Yahoo plafonne la Suisse à 250 réponses :
 # requêtes par tranches de capitalisation. Fonds fermés et coquilles vides écartés (pas des sociétés opérationnelles).
 NONPEA_REGIONS = {"ch": ["EBS"], "gb": ["LSE"]}
@@ -220,19 +229,53 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
     # siège, secteur et ISIN : fiche Yahoo (cache partagé avec l'univers), lue dans la limite du temps donné, les plus grosses d'abord
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=60)).isoformat()
-    todo = sorted([sym for sym in out if info_stale(cache.get(sym), limit)], key=lambda x: -(out[x].get("capEur") or 0))
+    # cotations principales absentes du filtre (ligne secondaire seule) : lues avec les autres, au rang de la société
+    screened = dict(out)
+    try:
+        sup, ask = home_supplement(screened, cache)
+    except Exception as e:  # noqa: BLE001
+        log(f"  catalogue : cotations principales non recherchées ({str(e)[:80]})")
+        sup, ask = {}, []
+    for sym in sup:
+        out.setdefault(sym, base_of(sym))
+    todo = sorted([sym for sym in out if info_stale(cache.get(sym), limit)],
+                  key=lambda x: -(out[x].get("capEur") or (sup.get(x) or {}).get("prio") or 0))
     t0, n = time.time(), 0
     try:
         n = fetch_infos(todo, info_minutes, cache)
     except Exception as e:  # noqa: BLE001
         log(f"  catalogue : fiches Yahoo interrompues ({str(e)[:80]})")
+    confirmed = {}
+    try:
+        # fiches lues ce soir : nouvelles suppositions (siège connu seulement maintenant), lues dans la foulée (3 minutes au plus)
+        more, ask = home_supplement(screened, cache)
+        more = {k: v for k, v in more.items() if k not in sup and v["kind"] != "list"}
+        if more:
+            fetch_infos(sorted([k for k in more if info_stale(cache.get(k), limit)], key=lambda k: -more[k]["prio"]), 3, cache)
+            for sym, x in more.items():
+                sup[sym] = x
+                out.setdefault(sym, base_of(sym))
+        confirmed = confirm_home(sup, ask, cache)
+    except Exception as e:  # noqa: BLE001
+        log(f"  catalogue : cotations principales non confirmées ({str(e)[:80]})")
+    for sym in confirmed:
+        if sym not in out:  # trouvée par la recherche Yahoo
+            out[sym] = base_of(sym)
+            sup[sym] = {"country": place_of(sym), "prio": 0, "kind": "search", "of": confirmed[sym]}
     write_json(INFO_CACHE, cache)
-    kept, foreign, unknown = {}, 0, 0
+    kept, foreign, unknown, added = {}, 0, 0, []
     for sym, it in out.items():
         inf = cache.get(sym)
         if not inf:
-            unknown += 1
+            unknown += 0 if sym in sup else 1
             continue
+        if sym in sup:  # cotation ajoutée : chiffres tirés de sa fiche (pas du filtre)
+            if sup[sym]["kind"] in ("guess", "search") and sym not in confirmed:
+                continue
+            it = make_item(sym, base_of(sym), inf, fx)
+            if not it.get("capEur") or it["capEur"] < min_cap:
+                continue
+            added.append(sym)
         hq = HQ.get(inf.get("country"))
         # UE / EEE (PEA) partout ; Suisse et Royaume-Uni seulement sur leur propre place (pas les cotations croisées de Francfort)
         if not (hq in EU_EEA or (hq in NONPEA_HQ and hq == it.get("country"))):
@@ -246,9 +289,11 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
         kept[sym] = it
     write_json(CATALOG, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": min_cap, "items": kept,
                          "places": sorted(set(COUNTRY.values()) | set(NONPEA_COUNTRY.values())),
-                         "pending": len(out) - len(kept) - foreign})
+                         "pending": unknown, "homeV": HOME_V})  # fiches du filtre pas encore lues (catalogue refait chaque soir)
     log(f"Catalogue : {len(out)} cotations sur {len(REGIONS) + len(NONPEA_REGIONS)} places → {len(kept)} sociétés (UE, EEE, Suisse, Royaume-Uni) "
         f"({foreign} étrangères écartées, {unknown} fiches Yahoo pas encore lues ; {n} lues ce soir en {time.time() - t0:.0f} s)")
+    added = [x for x in added if x in kept]
+    log(f"  cotations principales ajoutées au filtre Yahoo : {len(added)}" + (" (" + ", ".join(sorted(added)[:12]) + ("…" if len(added) > 12 else "") + ")" if added else ""))
     return kept
 
 
@@ -270,6 +315,8 @@ def catalog_age():
         if c.get("pending"):  # fiches Yahoo encore à lire : on continue chaque soir jusqu'à ce que le catalogue soit complet
             return 10 ** 6
         if not {"CH", "GB"} <= set(c.get("places") or []):  # Suisse et Royaume-Uni ajoutés le 18/10/2026 : catalogue à refaire
+            return 10 ** 6
+        if c.get("homeV") != HOME_V:  # cotations principales ajoutées le 23/10/2026 : catalogue à refaire
             return 10 ** 6
         return (datetime.now(timezone.utc) - datetime.fromisoformat(c["generatedAt"])).days
     except Exception:
@@ -431,6 +478,118 @@ def make_item(s, base, inf, fx_now):
             "pea": (hq in EU_EEA) if hq else (country in EU_EEA)}
 
 
+def place_of(sym):
+    """Pays de la place de cotation d'après le suffixe Yahoo (ALV.VI → AT), None si inconnu."""
+    return SFX_COUNTRY.get(sym.rsplit(".", 1)[1]) if isinstance(sym, str) and "." in sym else None
+
+
+def base_of(sym):
+    """Fiche minimale d'une cotation ajoutée hors du filtre Yahoo (place d'après le suffixe)."""
+    sfx = sym.rsplit(".", 1)[1] if "." in sym else ""
+    return {"symbol": sym, "country": SFX_COUNTRY.get(sfx), "exchange": EXCH_OF_SFX.get(sfx)}
+
+
+def dossier_liquidity():
+    """Cotation → montant échangé par jour (€, 20 séances) des dossiers d'Euro Signal, d'après le tableau de bord de la veille :
+    ordre de lecture des fiches des cotations ajoutées (les plus échangées d'abord)."""
+    inst = (read_json(DATA / "euro-signal.json", {}) or {}).get("inst") or {}
+    return {v["ticker"]: (v.get("stats") or {}).get("adv20Eur") or 0 for v in inst.values() if isinstance(v, dict) and v.get("ticker")}
+
+
+def info_name(inf, it=None):
+    return name_key((inf or {}).get("longName") or (inf or {}).get("shortName") or (it or {}).get("name"))
+
+
+def home_supplement(items, cache):
+    """Cotations principales absentes du filtre Yahoo, à lire avec les autres fiches. Jusqu'au 23/10/2026, Allianz, Publicis,
+    Alstom, KBC, Saipem, Assa Abloy… n'y étaient représentées que par une ligne secondaire (Vienne, Francfort) peu échangée,
+    ensuite écartée comme illiquide : ces sociétés n'étaient jamais classées. Trois sources :
+      - même société, cotée ailleurs que dans son pays (siège d'après sa fiche Yahoo) : cotation du dossier d'Euro Signal de même
+        nom, sinon même code sur la place du siège (ALV.VI → ALV.DE), à confirmer par le nom de sa fiche (« guess ») ; si ce code
+        est déjà pris par une autre société (RAW.VI, Rawlplug, pour Raiffeisen, RAW.DE à Francfort) : recherche par nom (« ask ») ;
+      - dossiers d'Euro Signal (cotation du pays d'origine, choisie par scrapers/prices.py) ;
+      - listes officielles d'Euronext et de Nasdaq Nordic (« list »).
+    Renvoie (ajouts {symbole: {"country", "prio", "name", "full", "of", "kind"}}, recherches à faire [même forme])."""
+    dossiers = {}
+    for v in (read_json(TICKERS, {}) or {}).values():
+        t = v.get("ticker") if isinstance(v, dict) else None
+        if t and place_of(t) in HOME_SFX:
+            dossiers.setdefault(name_key(v.get("name")), t)
+    hq_of = lambda s, it: HQ.get((cache.get(s) or {}).get("country")) or it.get("hq")  # noqa: E731
+    homes = {info_name(cache.get(s), it) for s, it in items.items() if place_of(s) and place_of(s) == hq_of(s, it)}
+    add, ask = {}, {}
+    for s, it in items.items():
+        inf = cache.get(s) or {}
+        hq = hq_of(s, it)
+        sfx = HOME_SFX.get(hq)
+        nm = info_name(inf, it)
+        if not sfx or not place_of(s) or place_of(s) == hq or not nm or nm in homes:
+            continue
+        x = {"country": hq, "prio": it.get("capEur") or inf.get("marketCap") or 0, "name": nm,
+             "full": inf.get("longName") or inf.get("shortName") or it.get("name"), "of": s, "kind": "guess"}
+        sure = dossiers.get(nm) if place_of(dossiers.get(nm)) == hq else None
+        if sure:
+            if sure not in items:
+                add[sure] = dict(x, name=None, kind="dossier")
+            continue
+        cand = s.rsplit(".", 1)[0] + "." + sfx
+        if cand in items:  # code pris par une autre société de la place (sinon son nom serait dans `homes`)
+            if nm not in ask or ask[nm]["prio"] < x["prio"]:
+                ask[nm] = dict(x, kind="ask")
+        elif cand not in add or add[cand]["prio"] < x["prio"]:
+            add[cand] = x
+    off = (read_json(OFFICIAL, {}) or {}).get("isins") or {}
+    lists = list(dossiers.values()) + [v[0] for v in off.values() if isinstance(v, list) and v and isinstance(v[0], str)]
+    liq = dossier_liquidity() if lists else {}
+    for t in lists:
+        if place_of(t) and t not in items and t not in add:
+            add[t] = {"country": place_of(t), "prio": 100 * (liq.get(t) or 0), "name": None, "full": None, "of": None, "kind": "list"}
+    return add, list(ask.values())
+
+
+def search_home(name, sfx, want):
+    """Recherche Yahoo par nom, sur la place du siège seulement : la cotation dont la fiche porte le même nom (clé `want`)."""
+    import yfinance as yf
+    try:
+        quotes = with_retry(lambda: yf.Search(name, max_results=10).quotes, tries=2) or []
+    except Exception:  # noqa: BLE001
+        return None
+    for q in quotes:
+        sym = q.get("symbol") or ""
+        if q.get("quoteType") == "EQUITY" and sym.endswith("." + sfx) and name_key(q.get("longname") or q.get("shortname")) == want:
+            return sym
+    return None
+
+
+def confirm_home(sup, ask, cache, max_search=30):
+    """Suppositions (même code sur la place du siège) confirmées par le nom de leur fiche ; sinon, et pour les codes déjà pris,
+    recherche Yahoo par nom pour les sociétés d'au moins 500 M€. Renvoie {cotation retenue: symbole de la ligne secondaire} ;
+    les suppositions fausses (autre société, fiche vide) sont oubliées."""
+    ok, todo = {}, list(ask)
+    for sym, x in sup.items():
+        if x["kind"] != "guess":
+            continue
+        if cache.get(sym) and info_name(cache[sym]) == x["name"]:
+            ok[sym] = x["of"]
+        else:
+            todo.append(x)
+    n = 0
+    for x in sorted(todo, key=lambda x: -x["prio"]):
+        if x["prio"] < 5e8 or n >= max_search:
+            continue
+        n += 1
+        found = search_home(x["full"] or x["name"], HOME_SFX[x["country"]], x["name"])
+        if not found or found in ok:
+            continue
+        if not cache.get(found):
+            _, inf = fetch_info(found)
+            if inf:
+                cache[found] = inf
+        if cache.get(found) and info_name(cache[found]) == x["name"]:
+            ok[found] = x["of"]
+    return ok
+
+
 def dedupe(items):
     """Une seule cotation par société : siège dans l'UE ou l'EEE, puis la place où il s'échange le plus de capitaux."""
     best = {}
@@ -464,6 +623,10 @@ def build_universe():
             raw.setdefault(s, {"symbol": s})
     cache = read_json(INFO_CACHE, {})
     limit = (date.today() - timedelta(days=INFO_MAX_AGE)).isoformat()
+    # cotations principales absentes du filtre (Allianz retenue à Vienne, 14 k€ échangés par jour, au lieu de Francfort) :
+    # suppositions et dossiers lus ici ; listes officielles seulement si leur fiche est déjà lue (le catalogue les lit chaque semaine)
+    screened = dict(raw)
+    sup, ask = {}, []
     todo = [s for s in raw if info_stale(cache.get(s), limit)]
     log(f"  fiches Yahoo : {len(raw) - len(todo)} en cache, {len(todo)} à lire ({THREADS} en parallèle)")
     with ThreadPoolExecutor(THREADS) as ex:
@@ -472,11 +635,31 @@ def build_universe():
                 cache[s] = inf
             if n % 250 == 0:
                 log(f"    {n}/{len(todo)}")
+    confirmed = {}
+    try:
+        sup, ask = home_supplement(screened, cache)
+        sup = {s: x for s, x in sup.items() if x["kind"] != "list" or cache.get(s)}
+        todo2 = [s for s in sup if info_stale(cache.get(s), limit)]
+        with ThreadPoolExecutor(THREADS) as ex:
+            for s, inf in ex.map(fetch_info, todo2):
+                if inf:
+                    cache[s] = inf
+        for s in sup:
+            raw.setdefault(s, base_of(s))
+        confirmed = confirm_home(sup, ask, cache)
+    except Exception as e:  # noqa: BLE001
+        log(f"  univers : cotations principales non recherchées ({str(e)[:80]})")
+    for s in confirmed:
+        raw.setdefault(s, base_of(s))
+    drop = {s for s, x in sup.items() if x["kind"] == "guess" and s not in confirmed}  # supposition fausse (autre société, fiche vide)
     cat = read_json(CATALOG, {}).get("items", {})
     cache = {s: v for s, v in cache.items() if s in raw or s in cat or v.get("fetched", "") >= limit}  # cotations disparues des deux filtres : oubliées
     write_json(INFO_CACHE, cache)
-    items = {s: make_item(s, raw[s], cache[s], fx) for s in raw if cache.get(s)}
+    items = {s: make_item(s, raw[s], cache[s], fx) for s in raw if cache.get(s) and s not in drop}
     uni = dedupe(items)
+    won = sorted(s for s in uni if s in sup or s in confirmed)
+    if won:
+        log(f"  univers : {len(won)} cotation(s) principale(s) retenue(s) au lieu d'une ligne secondaire ({', '.join(won[:12])})")
     # thèmes : une valeur citée sous une autre cotation que celle retenue (STMPA.PA → STMMI.MI) est rattachée par son nom ;
     # une valeur trop petite pour l'univers (moins de 500 M€) reste suivie dans son thème si son siège est dans l'UE / l'EEE
     by_name = {name_key(it.get("name")): s for s, it in uni.items()}
@@ -492,13 +675,16 @@ def build_universe():
             elif k and k in by_name:
                 alias[s] = by_name[k]
     write_json(UNIVERSE, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR, "fx": fx, "items": uni,
-                          "themeAlias": alias, "themeExtra": extra})
+                          "themeAlias": alias, "themeExtra": extra, "homeV": HOME_V})
     log(f"Univers : {len(raw)} cotations → {len(uni)} sociétés éligibles PEA d'au moins {MIN_CAP_EUR / 1e6:.0f} M€ ({time.time() - t0:.0f} s)")
 
 
 def universe_age():
     try:
-        return (datetime.now(timezone.utc) - datetime.fromisoformat(read_json(UNIVERSE, {})["generatedAt"])).days
+        u = read_json(UNIVERSE, {})
+        if u.get("homeV") != HOME_V:  # cotations principales ajoutées le 23/10/2026 : univers à refaire
+            return 10 ** 6
+        return (datetime.now(timezone.utc) - datetime.fromisoformat(u["generatedAt"])).days
     except Exception:
         return 10 ** 6
 

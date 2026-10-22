@@ -819,6 +819,31 @@ export function build(opts = {}) {
       }));
     if (ok.length) shortsList[isin] = ok;
   });
+  // ventes à découvert d'une même société déclarées sous plusieurs ISIN (ancien et nouveau après un regroupement ou une
+  // restructuration : Atos, Worldline, Fugro, Amper ; lignes réunies par la table des alias) : toutes réunies, la dernière
+  // déclaration de chaque fonds compte (ES.shortInfo). Jusqu'au 23/10/2026, un seul ISIN était lu : Atos sans ses 3,8 %.
+  const shortIsinsOfSym = {};
+  {
+    const m = readJSON(path.join(DATA, 'shorts-symbols.json'), {});
+    Object.keys(isObj(m) ? m : {}).forEach((is) => {
+      const t = m[is];
+      if (typeof t === 'string') (shortIsinsOfSym[t] = shortIsinsOfSym[t] || []).push(is);
+    });
+  }
+  const aliasesOf = {};
+  Object.keys(aliases).forEach((x) => {
+    (aliasesOf[aliases[x]] = aliasesOf[aliases[x]] || []).push(x);
+  });
+  const shortsFor = (isin, sym) => {
+    const seen = new Set(),
+      out = [];
+    [isin].concat(aliasesOf[isin] || [], (sym && shortIsinsOfSym[sym]) || []).forEach((is) => {
+      if (!is || seen.has(is) || !shortsList[is]) return;
+      seen.add(is);
+      shortsList[is].forEach((p) => out.push(p));
+    });
+    return out.length ? out : null;
+  };
   let peers = {},
     positions = {};
   try {
@@ -923,7 +948,7 @@ export function build(opts = {}) {
     if (v) inst[isin].value = v;
     if (peers[isin]) inst[isin].peer = peers[isin];
     if (positions[isin]) inst[isin].position = positions[isin];
-    const sh = ES.shortInfo(shortsList[isin], today);
+    const sh = ES.shortInfo(shortsFor(isin, inst[isin].ticker), today);
     if (sh) inst[isin].shorts = sh;
   });
   // Mémoire des critères non historisés au moment où un achat devient public (valorisation, positions vendeuses)
@@ -2241,12 +2266,12 @@ export function build(opts = {}) {
       });
     }
     const shortOf = (sym, isin) => {
-      const is = isin || shortIsinOfSym[sym];
-      if (!is || !shortsList[is]) return null;
+      const is = isin || shortIsinOfSym[sym],
+        all = shortsFor(is, sym);
+      if (!all) return null;
       // le total de la FCA (Royaume-Uni) recoupe les déclarations nominatives des autres régulateurs : il ne sert que s'il est seul
       const live = (l) => l.filter((p) => p.pct >= 0.5 && (!p.from || p.from <= today) && (!p.to || p.to > today));
-      const all = shortsList[is],
-        eu = all.filter((p) => p.country !== 'GB'),
+      const eu = all.filter((p) => p.country !== 'GB'),
         lst = live(eu).length ? eu : all;
       const s0 = ES.shortInfo(lst, today);
       if (!s0) return null;
