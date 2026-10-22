@@ -83,6 +83,7 @@ HOME_V = 1  # version de la recherche des cotations principales (univers et cata
 HOME_SFX = {"FR": "PA", "DE": "DE", "NL": "AS", "IT": "MI", "ES": "MC", "BE": "BR", "PT": "LS", "FI": "HE", "IE": "IR", "AT": "VI",
             "SE": "ST", "DK": "CO", "NO": "OL"}
 SFX_COUNTRY = dict(SUFFIX, SW="CH", L="GB")
+CUR_OF_SFX = {"L": "GBp", "ST": "SEK", "CO": "DKK", "OL": "NOK", "SW": "CHF"}  # devise de cotation quand Yahoo ne la donne pas
 EXCH_OF_SFX = {"PA": "PAR", "DE": "GER", "AS": "AMS", "MI": "MIL", "MC": "MCE", "BR": "BRU", "LS": "LIS", "HE": "HEL", "IR": "ISE",
                "VI": "VIE", "ST": "STO", "CO": "CPH", "OL": "OSL", "SW": "EBS", "L": "LSE"}
 # Europe hors PEA (catalogue seulement, compte-titres) : Suisse et Royaume-Uni. Le filtre Yahoo plafonne la Suisse à 250 réponses :
@@ -207,7 +208,7 @@ def screen_catalog(min_cap=1e6, info_minutes=15):
                 sym = x.get("symbol")
                 if not sym or x.get("quoteType", "EQUITY") != "EQUITY" or sym in out:
                     continue
-                cur = x.get("currency") or "EUR"
+                cur = x.get("currency") or CUR_OF_SFX.get(sym.rsplit(".", 1)[-1], "EUR")  # BCG.L classée en euros jusqu'au 23/10/2026
                 unit = 100.0 if cur in ("GBp", "GBX") else 1.0
                 rate = 1.0 if cur.upper() == "EUR" else fx.get(cur.upper())
                 cap, px, vol = x.get("marketCap"), x.get("regularMarketPrice"), x.get("averageDailyVolume3Month")
@@ -459,7 +460,7 @@ def name_key(n):
 
 
 def make_item(s, base, inf, fx_now):
-    cur = inf.get("currency") or base.get("currency") or "EUR"
+    cur = inf.get("currency") or base.get("currency") or CUR_OF_SFX.get(s.rsplit(".", 1)[-1], "EUR")
     unit = 100.0 if cur in ("GBp", "GBX") else 1.0
     rate = 1.0 if cur.upper() == "EUR" else fx_now.get(cur.upper())
     cap = inf.get("marketCap")

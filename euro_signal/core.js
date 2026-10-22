@@ -3529,7 +3529,10 @@
       var f = inst[isin] && inst[isin].fund,
         rev = f ? +f.revenue : NaN;
       if (!f || !(rev > 0) || !f.industry) return;
-      var fx = ES.FX_EUR[f.currency || inst[isin].currency || ''];
+      // taux du soir (ES.setFx) ; repère fixe seulement s'il manque (jusqu'au 23/10/2026 : toujours le repère, 11 % d'écart sur la
+      // couronne norvégienne)
+      var cur = f.currency || inst[isin].currency || '',
+        fx = cur === 'EUR' ? 1 : ES.FX && ES.FX[cur] > 0 ? 1 / ES.FX[cur] : ES.FX_EUR[cur];
       if (!fx) return; // devise inconnue : pas de comparaison
       var g = (groups[f.industry] = groups[f.industry] || []);
       if (

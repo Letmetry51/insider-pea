@@ -2563,7 +2563,7 @@ function sigBox() {
           ? '✅ confirmées (' + sg(T.gap) + ' à 3 mois)'
           : "pas d'effet net, piste écartée"
         : T.weeks + ' semaine' + (T.weeks > 1 ? 's' : '') + ' mesurée' + (T.weeks > 1 ? 's' : '') + ' sur ' + T.need
-      : 'archive en cours (depuis le 18/10/2026)';
+      : 'archive en cours';
   return (
     '<p class="small"><b>🧪 Les règles en réel</b> <span class="muted">· verdict à 30 lignes de chaque côté à 6 mois</span></p><ul class="plain small">' +
     li +

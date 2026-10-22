@@ -1403,7 +1403,9 @@ function chart(isin) {
     '</div><p class="legend2">' +
     lg +
     '<span class="muted">' +
-    (five ? 'Une clôture par semaine, ajustée des splits et dividendes' : 'Clôtures ajustées des splits') +
+    (five
+      ? 'Une clôture par semaine, ajustée des splits et dividendes'
+      : 'Clôtures ajustées des splits et dividendes') +
     ' · source ' +
     esc(p.source || 'n.d.') +
     ' · graphique depuis le ' +
