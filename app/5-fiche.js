@@ -992,7 +992,7 @@ function loadLong() {
     return;
   }
   S.longLoading = true;
-  fetch(S.longFile, { cache: 'no-store' })
+  getData(S.longFile)
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();

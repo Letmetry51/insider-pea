@@ -340,7 +340,7 @@ function loadInsiders() {
     return;
   } // un échec n'est pas réessayé en boucle
   S.insLoading = true;
-  fetch(f, { cache: 'no-store' })
+  getData(f)
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -593,7 +593,7 @@ function vDirigeant() {
 function loadQuality() {
   S.qualityLoaded = true;
   var get = function (f) {
-    return fetch('data/diagnostics/' + f, { cache: 'no-store' })
+    return getData('data/diagnostics/' + f)
       .then(function (r) {
         return r.ok ? r.json() : null;
       })

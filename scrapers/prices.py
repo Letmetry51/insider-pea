@@ -16,6 +16,7 @@ import re
 import sys
 import time
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -313,6 +314,34 @@ def history(ticker, period="2y"):
     return {"rows": rows, "splits": splits, "dividends": dividends, "currency": currency, "weekly": weekly}
 
 
+PREFETCH_THREADS = 6  # comme scrapers/sectors.py, qui télécharge à 8 en parallèle sans refus de Yahoo
+
+
+def prefetch(isins, cache):
+    """Cours 5 ans des titres déjà résolus (cache tickers.json, la grande majorité) téléchargés à plusieurs en parallèle, avant la
+    boucle qui reprend chaque titre dans l'ordre avec les mêmes règles : environ 4 minutes de moins chaque soir (822 titres un par
+    un, avec une pause de 0,2 s). Un titre en échec ici est simplement retéléchargé par la boucle (erreurs comptées une fois)."""
+    want = set()
+    for isin in isins:
+        t = OVERRIDES.get(isin) or (cache.get(isin) or {}).get("ticker")
+        if t and str(t).endswith(EU_SUFFIXES):  # cotation qui ne sera pas recherchée à nouveau ce soir
+            want.add(t)
+
+    def get(t):
+        try:
+            return t, yahoo.call(lambda: history(t, "5y"), tries=2)
+        except Exception:  # noqa: BLE001
+            return t, None
+
+    t0, out = time.time(), {}
+    with ThreadPoolExecutor(PREFETCH_THREADS) as ex:
+        for t, h in ex.map(get, sorted(want)):
+            if h:
+                out[t] = h
+    print(f"  téléchargés d'avance : {len(out)}/{len(want)} titres en {time.time() - t0:.0f} s ({PREFETCH_THREADS} en parallèle)")
+    return out
+
+
 def main():
     today = datetime.utcnow().date()
     latest = load(LATEST, None)
@@ -362,6 +391,7 @@ def main():
     items, unresolved = {}, []
     by_exchange = 0
     print(f"Cours Yahoo : {len(isins)} émetteurs")
+    pre = prefetch(isins, cache)
     for n, isin in enumerate(sorted(isins), 1):
         info = resolve(isin, cache, manual, today, names.get(isin), paid.get(isin))
         if not info:
@@ -417,11 +447,14 @@ def main():
                 print(f"  [{n}/{len(isins)}] {isin} {cand} : {len(hh['rows'])} séances (cotation d'origine)")
                 time.sleep(0.2)
                 continue
-        try:
-            h = yahoo.call(lambda: history(info["ticker"], "5y"), tries=3, section="cours Euro Signal")
-        except Exception as e:
-            print(f"  [{n}] {isin} {info['ticker']} : erreur {str(e)[:80]}")
-            h = None
+        h = pre.get(info["ticker"])  # téléchargé d'avance (même titre, mêmes 5 ans) : pas de nouvel appel ni de pause
+        if not h:
+            try:
+                h = yahoo.call(lambda: history(info["ticker"], "5y"), tries=3, section="cours Euro Signal")
+            except Exception as e:
+                print(f"  [{n}] {isin} {info['ticker']} : erreur {str(e)[:80]}")
+                h = None
+            time.sleep(0.2)
         if h and frozen(h, today) and info.get("method") != "correction vérifiée":
             # cours figé chez Yahoo : la liste officielle de la bourse donne peut-être la cotation à jour (place d'origine, nouveau symbole)
             ex, h2 = try_exchange(isin, exch, paid.get(isin), today, current=info["ticker"])
@@ -442,7 +475,6 @@ def main():
             continue
         items[isin] = {"ticker": info["ticker"], "exchange": info.get("exchange"), "name": info.get("name"), "currency": h["currency"], "rows": h["rows"], "splits": h["splits"], "dividends": h.get("dividends") or [], "weekly": h.get("weekly") or [], "method": info.get("method")}
         print(f"  [{n}/{len(isins)}] {isin} {info['ticker']} : {len(h['rows'])} séances")
-        time.sleep(0.2)
     bench = None
     try:
         b = history(BENCH)

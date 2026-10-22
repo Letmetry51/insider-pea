@@ -75,6 +75,30 @@ def _():
     assert P.frozen(old, today) and not P.frozen(fresh, today) and not P.frozen(None, today)
 
 
+@case("Cours téléchargés d'avance en parallèle : titres résolus seulement, échec laissé à la boucle")
+def _():
+    calls = []
+    real = P.history
+
+    def fake(t, period="2y"):
+        calls.append((t, period))
+        if t == "BAD.PA":
+            raise RuntimeError("Yahoo muet")
+        return {"rows": [["2026-10-22", 1, 1, 1, 1, 1]], "splits": [], "currency": "EUR"}
+    P.history = fake
+    real_sleep = P.yahoo.time.sleep
+    P.yahoo.time.sleep = lambda s: None
+    try:
+        cache = {"FR0000000001": {"ticker": "AAA.PA"}, "FR0000000002": {"ticker": "BAD.PA"}, "FR0000000003": {"ticker": None},
+                 "US0000000004": {"ticker": "XYZ"}, "FR0000000005": {"ticker": "AAA.PA"}}
+        out = P.prefetch(list(cache) + ["DE0005785604"], cache)  # Fresenius : correction vérifiée (FRE.DE)
+    finally:
+        P.history = real
+        P.yahoo.time.sleep = real_sleep
+    assert set(out) == {"AAA.PA", "FRE.DE"}, out
+    assert sorted(t for t, _ in calls if t != "BAD.PA") == ["AAA.PA", "FRE.DE"] and all(p == "5y" for _, p in calls), calls
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))
