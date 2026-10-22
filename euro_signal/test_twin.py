@@ -54,6 +54,10 @@ if (inp.mode === 'features') {
   const cfg = JSON.parse(JSON.stringify(ES.DEFAULT_CONFIG)), today = inp.today, co = inp.co, inst = inp.inst;
   const isinOfSym = {};
   Object.keys(inst).forEach((isin) => { const t = inst[isin].ticker; if (t && !isinOfSym[t]) isinOfSym[t] = isin; });
+  const isinOfSymAll = Object.assign({}, isinOfSym);
+  Object.keys(inp.backupIsins).forEach((is) => { const v = inp.backupIsins[is]; if (!isinOfSymAll[v[0]]) isinOfSymAll[v[0]] = is; });
+  Object.keys(inp.shortsSymbols).forEach((is) => { const t = inp.shortsSymbols[is]; if (!isinOfSymAll[t]) isinOfSymAll[t] = is; });
+  const outsideEea = (is) => /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(is || '') && ES.EEA.indexOf(is.slice(0, 2)) < 0;
   const items = Object.keys(co).map((sym) => {
     const x = co[sym], isin = isinOfSym[sym] || null, i = isin ? inst[isin] : null, extra = inp.extra[sym] || {};
     return {
@@ -61,7 +65,7 @@ if (inp.mode === 'features') {
       sector: ES.sectorFr(x.sector) || null,
       lastDay: (() => { const d = x.d || []; for (let k = d.length - 1; k >= 0; k--) if (d[k] > 0) return inp.dDates[k] || null; return null; })(),
       turnoverEur: x.turnoverEur,
-      pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) ? false : x.pea,
+      pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) || outsideEea(isin || isinOfSymAll[sym]) ? false : x.pea,
       f: ES.rankFeatures(x.d, x.w, x.wv), short: extra.short || null, acc: extra.acc || null, ins: extra.ins || null,
     };
   });
@@ -82,7 +86,7 @@ if (inp.mode === 'features') {
   const pub = shown.map(slim);
   process.stdout.write(JSON.stringify({
     today, generatedAt: '2026-10-20T21:00:00.000Z', cfg, inst,
-    rank: { rows: pub, selection: { week: 'test', items: sel.map(slim) }, pick10: ES.pickN(pub, { n: 10 }).picks.map((p) => p.isin || p.sym) },
+    rank: { rows: pub, selection: { week: 'test', items: sel.map(slim) }, pick10: ES.pickN(pub, { n: 10, peaOnly: cfg.selection.peaOnly !== false }).picks.map((p) => p.isin || p.sym) },
   }));
 }
 """
@@ -206,6 +210,9 @@ add("NOSEC", "surge bump", 0.0040, "")
 add("INSB", "surge", 0.0036, "Industrials", ins={"buys": 2, "ceo": True, "multi": 2, "netSeller": False, "ceoSale": False})
 add("INSS", "surge", 0.0036, "Industrials", ins={"buys": 0, "ceo": False, "multi": 0, "netSeller": True, "ceoSale": True})
 add("BRK", "", 0.0, "Basic Materials", shape=breakout)
+add("OKEA", "surge bump", 0.0040, "Energy")  # siège aux îles Marshall : ISIN MH, PEA d'après le pays du siège donné par Yahoo
+BACKUP_ISINS = {"MHY641771016": ["OKEA", "NOK"], "FR0000000052": ["UP1", "EUR"]}
+SHORTS_SYMBOLS = {"GB00BTQGS779": "UP2"}
 inst = {
     "FR0000000011": {"ticker": "UP3", "name": "Up Trois SA", "peaStatus": "probable"},
     "FR0000000029": {"ticker": "UP5", "name": "Up Cinq SA", "peaStatus": "non_eligible"},
@@ -249,7 +256,8 @@ check(any(f.get("bump") is not None for f in js) and any((f.get("volx") or 0) >=
       "cas limites présents (bond, volumes, sortie de base, saut, variation d'un jour, historique court, volumes manquants)")
 
 # 3. même classement, même sélection
-payload = node({"mode": "rank", "co": co, "inst": inst, "extra": extra, "dDates": d_dates, "today": today.isoformat()})
+payload = node({"mode": "rank", "co": co, "inst": inst, "extra": extra, "dDates": d_dates, "today": today.isoformat(),
+                "backupIsins": BACKUP_ISINS, "shortsSymbols": SHORTS_SYMBOLS})
 tmp = tempfile.mkdtemp(prefix="twin-")
 try:
     def write(pl, catalogue):
@@ -258,6 +266,10 @@ try:
             json.dump(pl, fh)
         with open(os.path.join(tmp, "societes", "0.json"), "w", encoding="utf-8") as fh:
             json.dump({"wDates": w_dates, "dDates": d_dates, "items": catalogue}, fh)
+        with open(os.path.join(tmp, "backup-isins.json"), "w", encoding="utf-8") as fh:
+            json.dump({"date": today.isoformat(), "isins": BACKUP_ISINS}, fh)
+        with open(os.path.join(tmp, "shorts-symbols.json"), "w", encoding="utf-8") as fh:
+            json.dump(SHORTS_SYMBOLS, fh)
 
     write(payload, co)
     rep = tw.run(tmp)
@@ -273,6 +285,10 @@ try:
     check(max(secs.count(s) for s in set(secs)) <= 2, "au plus 2 sociétés par secteur dans la sélection")
     check("SHFR" not in keys and "FR0000000029" not in keys and "WILD" not in keys and "HOT" not in keys,
           "écartées de la sélection : vendue à découvert (Paris), hors PEA, très volatile, plus de +200 %")
+    rws = {r["key"]: r for r in payload["rank"]["rows"]}
+    check(rws["OKEA"].get("pea") is False and rws["UP2"].get("pea") is False and rws["UP1"].get("pea") is None
+          and "OKEA" not in keys and "OKEA" not in payload["rank"]["pick10"],
+          "PEA d'après le pays de l'ISIN connu (îles Marshall, Royaume-Uni : hors PEA, jamais proposées)")
     rows = {r["key"]: r for r in payload["rank"]["rows"]}
     check(any(r["out"] and "cours figé" in " ".join(r["out"]) for r in rows.values())
           and any("saut de cours" in " ".join(r["out"]) for r in rows.values())

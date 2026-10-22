@@ -2171,6 +2171,9 @@ export function build(opts = {}) {
   }
   /* 6e. Classement principal (barème 3.0) : tendance + comptes sur toutes les sociétés liquides du catalogue, dirigeants en bonus */
   let rank = null;
+  // listes proposées (sélection du lundi, 10 🎯, 💎, suivi réel, « feu vert », rappel à 6 mois des positions) : même réglage PEA
+  // partout ; avant le 22/10/2026, les 10 🎯 et 💎 du calcul comptaient des sociétés hors PEA que la page n'affichait pas
+  const PEA_ONLY = (cfg.selection || {}).peaOnly !== false;
   try {
     const t0 = Date.now(),
       R = cfg.rank,
@@ -2217,6 +2220,22 @@ export function build(opts = {}) {
       const cur = live(lst);
       return { pct: s0.totalPct, n: s0.holders, cc: (cur[0] && cur[0].country) || is.slice(0, 2) };
     };
+    // ISIN connu d'une ligne du catalogue (dossiers suivis, listes officielles des bourses, ventes à découvert) : le pays de l'ISIN
+    // (siège statutaire) décide du PEA, pas le pays du siège opérationnel donné par Yahoo (classées PEA à tort jusqu'au 22/10/2026 :
+    // Okeanis, îles Marshall ; AutoStore et Aegon, Bermudes ; Metlen, Royaume-Uni)
+    const isinOfSymAll = Object.assign({}, isinOfSym);
+    {
+      const bk = readJSON(path.join(DATA, 'backup-isins.json'), {});
+      const tbl = isObj(bk) && isObj(bk.isins) ? bk.isins : {};
+      Object.keys(tbl).forEach((is) => {
+        const v = tbl[is];
+        if (Array.isArray(v) && typeof v[0] === 'string' && !isinOfSymAll[v[0]]) isinOfSymAll[v[0]] = is;
+      });
+      Object.keys(shortIsinOfSym).forEach((t) => {
+        if (!isinOfSymAll[t]) isinOfSymAll[t] = shortIsinOfSym[t];
+      });
+    }
+    const outsideEea = (is) => /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(is || '') && ES.EEA.indexOf(is.slice(0, 2)) < 0;
     const histTk = readJSON(path.join(F.history, 'tickers.json'), {});
     const symOfIsin = {};
     Object.keys(isObj(histTk) ? histTk : {}).forEach((i) => {
@@ -2226,9 +2245,13 @@ export function build(opts = {}) {
     Object.keys(isinOfSym).forEach((t) => {
       if (co[t]) symOfIsin[isinOfSym[t]] = t;
     });
-    const accSummary = (a) => {
+    const accSummary = (a, asOf) => {
       if (!a) return null;
       const last = a.years && a.years.length ? a.years[a.years.length - 1] : null;
+      // derniers comptes complets de plus de 18 mois (exercice suivant absent ou incomplet chez Yahoo) : traités comme non lus
+      // (22/10/2026 : Logista notée « comptes solides » sur l'exercice clos le 30/09/2024)
+      if (asOf && last && last.date && ES.daysBetween(String(last.date).slice(0, 10), asOf) > 548)
+        return { key: 'na', f9: null, loss: false, alt: null, fin: false, stale: String(last.date).slice(0, 10) };
       return {
         key: a.verdict ? a.verdict.key : 'na',
         f9: a.fscore && !a.fscore.na ? a.fscore.f9 : null,
@@ -2255,7 +2278,7 @@ export function build(opts = {}) {
       const x = co[sym],
         isin = isinOfSym[sym] || null,
         i = isin ? inst[isin] : null;
-      const acc = i ? accSummary(i.accounts) : accSummary(coAcc(sym, x, today));
+      const acc = i ? accSummary(i.accounts, today) : accSummary(coAcc(sym, x, today), today);
       const sc = isin ? scoreOf[isin] : null;
       const ins = sc
         ? {
@@ -2282,7 +2305,12 @@ export function build(opts = {}) {
         })(),
         currency: x.currency || null,
         turnoverEur: x.turnoverEur,
-        pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) ? false : x.pea,
+        pea:
+          (i && i.peaStatus === 'non_eligible') ||
+          /^REIT\b/i.test(String(x.industry || '')) ||
+          outsideEea(isin || isinOfSymAll[sym])
+            ? false
+            : x.pea,
         f: ES.rankFeatures(x.d, x.w, x.wv),
         short: shortOf(sym, isin),
         acc,
@@ -2491,6 +2519,10 @@ export function build(opts = {}) {
       L.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
       return { last: L[L.length - 1], beats: L.filter((q) => q[1] > 0).length, n: L.length };
     };
+    const rowOf = {};
+    rows.forEach((r) => {
+      rowOf[r.key] = r;
+    });
     shown.forEach((r) => {
       const x = co[r.sym] || {},
         i = r.isin ? inst[r.isin] : null;
@@ -2559,7 +2591,8 @@ export function build(opts = {}) {
       bench: mRef ? mRef.ticker : null,
       selection: {
         week,
-        items: sel.map(slimRow).map((r, k) => Object.assign(r, { isNew: sel[k].isNew })),
+        // lignes du classement enrichies plus haut (secteur, F-score, plan…), pas les copies faites avant l'enrichissement
+        items: sel.map((x) => Object.assign(slimRow(rowOf[x.key] || x), { isNew: x.isNew })),
         track: trackSum,
         weeks: track,
       },
@@ -2590,7 +2623,7 @@ export function build(opts = {}) {
         });
       });
       if (!state.pickLog[week] && rank.coFresh) {
-        const P10 = ES.pickN(rank.rows, { n: 10 }).picks;
+        const P10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;
         if (P10.length)
           state.pickLog[week] = {
             date: today,
@@ -2616,9 +2649,9 @@ export function build(opts = {}) {
         });
       rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mLast);
       rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mLast, 30); // auto-contrôle 🔊 📣 ⏸️ sur les vraies sélections
-      rank.pick10 = ES.pickN(rank.rows, { n: 10 }).picks.map((p) => p.isin || p.sym); // lu par positions.py pour le rappel à 6 mois
+      rank.pick10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks.map((p) => p.isin || p.sym); // lu par positions.py (rappel à 6 mois)
       // 💎 valeur : même suivi réel que le 🎯
-      const V10 = ES.pickValue(rank.rows, { n: 10 }).picks;
+      const V10 = ES.pickValue(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;
       rank.value10 = V10.map((p) => p.isin || p.sym);
       state.valueLog = isObj(state.valueLog) ? state.valueLog : {};
       Object.keys(state.valueLog).forEach((w) => {
@@ -2748,7 +2781,21 @@ export function build(opts = {}) {
           rank.counts.ranked +
           ' seulement'
       );
-    const coOk = !!(rank && rank.coFresh && accOk),
+    // garde-fou : dernière clôture manquante sur une place (calcul tardif après minuit, panne de Yahoo et du secours) : la sélection
+    // attend le soir suivant, au plus tard le vendredi (19/10/2026 : 97 % des fiches sans la clôture du jour, sélection envoyée)
+    const BK = readJSON(path.join(DATA, 'diagnostics', 'backup.json'), null);
+    const holes =
+      BK && isObj(BK.complete) && isObj(BK.complete.catalogue) && ES.daysBetween(String(BK.date || ''), today) <= 1
+        ? Object.keys(BK.complete.catalogue).filter((k) => {
+            const v = BK.complete.catalogue[k] || {};
+            return v.liquid >= 10 && v.ok < 0.9 * v.liquid;
+          })
+        : [];
+    if (holes.length)
+      console.warn(
+        '  Sélection reportée : dernière clôture manquante sur ' + holes.join(', ') + ' (au plus tard vendredi)'
+      );
+    const coOk = !!(rank && rank.coFresh && accOk && !holes.length),
       wait = !coOk && dow < 5;
     if ((resend && coOk) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && coOk)) {
       // Depuis le barème 3.0 : la sélection envoyée est celle du classement tendance + comptes (l'ancienne, fondée sur les dirigeants,
@@ -2805,11 +2852,21 @@ export function build(opts = {}) {
     }
   }
 
+  // liste réellement envoyée cette semaine (email du lundi), publiée pour la carte « Sélection de la semaine » : la sélection du soir
+  // peut changer d'ici vendredi (cours du soir, 2 sociétés par secteur), l'email envoyé non
+  if (rank && rank.selection && isObj(state.rankSelections) && isObj(state.rankSelections[week])) {
+    const sent = state.rankSelections[week];
+    rank.selection.sent = {
+      date: sent.date || null,
+      items: (Array.isArray(sent.items) ? sent.items : []).map((x) => ({ key: x.key, name: x.name })),
+    };
+  }
+
   /* 6e. 🎯 Feu vert : une société du 🎯 en attente (⏸️ sous sa moyenne 10 semaines) repasse au-dessus : un email le soir même */
   try {
     state.pickWaitSeen = isObj(state.pickWaitSeen) ? state.pickWaitSeen : {};
     if (rank && rank.coFresh && Array.isArray(rank.rows)) {
-      const pk = ES.pickN(rank.rows, { n: 10 }).picks,
+      const pk = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks,
         now = new Set(pk.map((p) => p.key));
       pk.forEach((p) => {
         if (p.m10 == null) return;

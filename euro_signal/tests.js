@@ -1776,6 +1776,41 @@ t('Pairs, positions vendeuses, critères en observation, repère historique', ()
     ES.shortInfo([{ holder: 'B', pct: 0.6, from: '2026-01-01', to: '2026-05-01' }], '2026-03-01'),
     'en vigueur à la date passée'
   );
+  // la dernière déclaration du détenteur décide : position close depuis, ou repassée sous 0,5 % → plus comptée (22/10/2026)
+  eq(
+    ES.shortInfo(
+      [
+        { holder: 'A', pct: 2, from: '2026-10-06', to: null },
+        { holder: 'A', pct: 2, from: '2026-10-08', to: '2026-10-19' },
+      ],
+      '2026-10-21'
+    ),
+    null,
+    'ancienne déclaration restée ouverte, la plus récente close : plus de vente à découvert'
+  );
+  eq(
+    ES.shortInfo(
+      [
+        { holder: 'A', pct: 1.2, from: '2026-09-01', to: null },
+        { holder: 'A', pct: 0.45, from: '2026-10-01', to: null },
+        { holder: 'C', pct: 0.8, from: '2026-10-02', to: null },
+      ],
+      '2026-10-21'
+    ).totalPct,
+    0.8,
+    'détenteur repassé sous 0,5 % : seul C compte'
+  );
+  eq(
+    ES.shortInfo(
+      [
+        { holder: 'A', pct: 1.2, from: '2026-09-01', to: null },
+        { holder: 'A', pct: 0.45, from: '2026-11-01', to: null },
+      ],
+      '2026-10-21'
+    ).totalPct,
+    1.2,
+    'déclaration postérieure à la date ignorée'
+  );
   const smp = [];
   for (let k = 0; k < 70; k++) {
     smp.push({ f: { smallMid: true }, excess: 0.05 + (k % 7) * 0.001 });

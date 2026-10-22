@@ -402,7 +402,7 @@ function anCtx(isin, sym) {
   o.inVal = !!(
     R &&
     r &&
-    ES.pickValue(R.rows || [], { n: 10 }).picks.some(function (v) {
+    ES.pickValue(R.rows || [], { n: 10, peaOnly: peaLists() }).picks.some(function (v) {
       return v.key === r.key;
     })
   );
@@ -1813,7 +1813,7 @@ function rankSelCard() {
   if (!R) return '';
   var sel = R.selection || { items: [], week: '' },
     t = sel.track,
-    V = ES.pickValue(R.rows || [], { n: 2, peaOnly: true }).picks;
+    V = ES.pickValue(R.rows || [], { n: 2, peaOnly: peaLists() }).picks;
   var li = function (r, tag, act, sub) {
     return (
       '<li class="rowlink" ' +
@@ -1841,6 +1841,63 @@ function rankSelCard() {
     esc(sel.week) +
     '</p>';
   var subs = pick3Card(sel.items) + valueCard(V);
+  // liste réellement envoyée lundi : la sélection du soir peut changer d'ici vendredi (cours du soir, 2 sociétés par secteur)
+  var sent = sel.sent && Array.isArray(sel.sent.items) ? sel.sent.items : null;
+  if (sent && sent.length) {
+    var now = {},
+      was = {};
+    sel.items.forEach(function (r) {
+      now[r.key] = 1;
+    });
+    sent.forEach(function (x) {
+      was[x.key] = 1;
+    });
+    var gone = sent.filter(function (x) {
+        return !now[x.key];
+      }),
+      added = sel.items.filter(function (r) {
+        return !was[r.key];
+      });
+    if (gone.length || added.length)
+      h +=
+        '<p class="note small">📧 Envoyée le ' +
+        esc(shortDate(sel.sent.date)) +
+        ' : ' +
+        esc(
+          sent
+            .map(function (x) {
+              return x.name;
+            })
+            .join(', ')
+        ) +
+        '. Ce soir, avec les cours du jour' +
+        (added.length
+          ? ' : entrée' +
+            (added.length > 1 ? 's' : '') +
+            ' ' +
+            esc(
+              added
+                .map(function (r) {
+                  return r.name;
+                })
+                .join(', ')
+            )
+          : '') +
+        (gone.length
+          ? (added.length ? ', ' : ' : ') +
+            'sortie' +
+            (gone.length > 1 ? 's' : '') +
+            ' ' +
+            esc(
+              gone
+                .map(function (x) {
+                  return x.name;
+                })
+                .join(', ')
+            )
+          : '') +
+        '.</p>';
+  }
   if (R.breadth && R.breadth.now && R.breadth.now.regime === 'high')
     h +=
       '<p class="note warn">😃 Marché euphorique : historiquement moins favorable ; mieux valait entrer en plusieurs fois.</p>';
@@ -1956,7 +2013,7 @@ function agendaCard() {
   ((R.selection || {}).items || []).forEach(function (r) {
     push(r.key, '🎯');
   });
-  ES.pickValue(rows, { n: 2, peaOnly: true }).picks.forEach(function (r) {
+  ES.pickValue(rows, { n: 2, peaOnly: peaLists() }).picks.forEach(function (r) {
     push(r.key, '💎');
   });
   (R.pick10 || []).forEach(function (k) {
@@ -2212,8 +2269,8 @@ function dashTiles(R, rows) {
   var brkS = rows.filter(function (r) {
     return rkBrk(r) && rkSc(r) === 'strong';
   }).length;
-  var VV = ES.pickValue(rows, { n: 10 });
-  var P = ES.pickN(rows, { n: 10, peaOnly: true }),
+  var VV = ES.pickValue(rows, { n: 10, peaOnly: peaLists() });
+  var P = ES.pickN(rows, { n: 10, peaOnly: peaLists() }),
     nHot = P.picks.filter(function (r) {
       return r.pickHot;
     }).length;
@@ -2270,7 +2327,7 @@ function pick3Card(inSel) {
   (inSel || []).forEach(function (r) {
     taken[r.key] = 1;
   });
-  var P = ES.pickN(R.rows || [], { n: 10, peaOnly: true });
+  var P = ES.pickN(R.rows || [], { n: 10, peaOnly: peaLists() });
   var plan = function (r) {
     var o =
       r.plan &&
@@ -2393,8 +2450,8 @@ function valueCard(inSel) {
   (inSel || []).forEach(function (r) {
     taken[r.key] = 1;
   });
-  var peaOnly = true,
-    V = ES.pickValue(R.rows || [], { peaOnly: true }),
+  var peaOnly = peaLists(),
+    V = ES.pickValue(R.rows || [], { peaOnly: peaOnly }),
     rest = V.picks.filter(function (r) {
       return !taken[r.key];
     });
@@ -2558,13 +2615,17 @@ function trackBox(which) {
     '</div></div>'
   );
 }
+/** Listes proposées (🎯, 💎) : PEA seulement, comme la sélection du lundi (réglage selection.peaOnly). */
+function peaLists() {
+  return !(S.cfg && S.cfg.selection && S.cfg.selection.peaOnly === false);
+}
 /** Sociétés proposées ce soir par le 🎯 (10, règles par défaut), par clé ; calculé une fois par jeu de données. */
 function pickSet() {
   var R = rankData();
   if (!R) return {};
   if (S._pkFor !== R) {
     S._pk = {};
-    ES.pickN(R.rows || [], { n: 10 }).picks.forEach(function (p) {
+    ES.pickN(R.rows || [], { n: 10, peaOnly: peaLists() }).picks.forEach(function (p) {
       S._pk[p.key] = p;
     });
     S._pkFor = R;
