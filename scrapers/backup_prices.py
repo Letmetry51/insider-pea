@@ -20,7 +20,10 @@ Règles :
   alors que la clôture officielle de la bourse est normale ;
 - une clôture est écartée si sa devise diffère de celle du titre ou si elle sort de la fourchette ÷2 à ×2 du dernier cours
   connu (homonyme, erreur d'unité) ;
-- une nouvelle séance n'est ajoutée aux fiches que si au moins 30 titres l'ont (toutes les fiches reçoivent les mêmes dates).
+- une nouvelle séance n'est ajoutée aux fiches que si au moins 30 titres l'ont (toutes les fiches reçoivent les mêmes dates) ;
+- la séance du soir est lue dans la liste Euronext ; si celle-ci reste injoignable après trois essais, elle est prise dans le
+  calendrier de la bourse de Paris : les listes nordiques ne dépendent pas d'Euronext et vérifient elles-mêmes la séance
+  (21/10/2026 : Euronext en panne, HTTP 503, et les 36 sociétés liquides de Helsinki restées sans clôture).
 
   python scrapers/backup_prices.py      complète data/societes/*.json et data/prices.json (calcul du soir, après Yahoo)
 Compteurs : data/diagnostics/backup.json (lus par le contrôle du soir), avec la complétude place par place après le secours
@@ -229,7 +232,7 @@ def parse_nordic_list(js, suf):
     return out
 
 
-def http_get(url, params=None, accept=None, tries=2, timeout=30):
+def http_get(url, params=None, accept=None, tries=2, timeout=30, wait=2):
     import requests
     h = dict(UA, **({"Accept": accept} if accept else {}))
     err = None
@@ -242,14 +245,15 @@ def http_get(url, params=None, accept=None, tries=2, timeout=30):
         except Exception as e:  # réseau : nouvel essai, puis abandon
             err = type(e).__name__
         if k + 1 < tries:
-            time.sleep(2 * (k + 1))
+            time.sleep(wait * (k + 1))
     raise RuntimeError(err or "échec")
 
 
 def euronext_lists():
-    """Liste Euronext du soir → (cotations par symbole Yahoo, ISIN → symbole Yahoo)."""
+    """Liste Euronext du soir → (cotations par symbole Yahoo, ISIN → symbole Yahoo). Site parfois indisponible quelques minutes
+    (HTTP 503 le 21/10/2026) : trois essais, à 15 puis 30 secondes d'intervalle."""
     r = http_get(EURONEXT_LIST, params={"mics": "dm_all_stock", "initialLetter": "", "fe_type": "csv", "fe_decimal_separator": ".",
-                                        "fe_date_format": "d/m/Y"}, timeout=60)
+                                        "fe_date_format": "d/m/Y"}, timeout=60, tries=3, wait=15)
     text = r.content.decode("utf-8-sig", "replace")
     return parse_euronext(text), parse_euronext_isins(text)
 
@@ -408,11 +412,12 @@ def week_slot(wd, T, mode):
     return next((k for k in range(len(wd) - 1, -1, -1) if friday(wd[k]) == friday(T)), None)
 
 
-def patch_catalogue(shards, enx, nordic, today, T):
+def patch_catalogue(shards, enx, nordic, today, T, append=True):
     """Complète en place les fiches sociétés (fichiers data/societes/*.json chargés) avec la séance T.
     enx : {symbole : cotation} (Euronext) ; nordic(sym) → cotations Nasdaq Nordic, ou None si non demandé. Renvoie les compteurs.
     « fill » : T est déjà dans les dates, ses cases vides sont complétées. « append » : T est plus récente, elle est ajoutée à
-    toutes les fiches (la plus ancienne séance sort, les longueurs ne changent pas ; None pour les titres non couverts)."""
+    toutes les fiches (la plus ancienne séance sort, les longueurs ne changent pas ; None pour les titres non couverts) ;
+    append=False : jamais d'ajout (séance prise dans le calendrier, que trop peu de cours confirment)."""
     st = dict(stats(), session=T, mode=None)
     if not shards or not T or T > today:
         return st
@@ -422,6 +427,9 @@ def patch_catalogue(shards, enx, nordic, today, T):
         return st
     if T > dd[-1]:
         if not same:  # dates différentes d'un fichier à l'autre : rien n'est ajouté (le calcul suppose des dates communes)
+            return st
+        if not append:
+            st["mode"] = "append refusé"
             return st
         mode = "append"
     elif any(T in (sh.get("dDates") or []) for sh in shards):
@@ -593,6 +601,18 @@ def reference_day(now_paris):
     return d.isoformat()
 
 
+def weekday_on_or_before(day):
+    """Sans calendrier : samedi et dimanche ramenés au vendredi (un jour férié peut alors sembler une séance)."""
+    wd = date.fromisoformat(day)
+    return (wd - timedelta(days=max(0, wd.weekday() - 4))).isoformat()
+
+
+def calendar_session(now_paris, last_session=None):
+    """Séance dont la clôture est attendue d'après le calendrier de la bourse de Paris (liste Euronext injoignable)."""
+    ref = reference_day(now_paris)
+    return (last_session("PA", ref) if last_session else None) or weekday_on_or_before(ref)
+
+
 def liquid(rows, currency, fx, n=20):
     """Échanges quotidiens (médiane des 20 dernières séances, cours × volume) d'au moins 1 M€, comme le seuil du calcul."""
     vals = sorted(r[4] * r[5] for r in rows[-n:] if len(r) > 5 and isinstance(r[4], (int, float)) and isinstance(r[5], (int, float))
@@ -610,8 +630,7 @@ def completeness(shards, prices, ref_day, last_session=None):
     bourse ; à défaut, ref_day lui-même, donc un jour férié peut sembler manquant). Cours Euro Signal : titres échangés pour au
     moins 1 M€ par jour seulement (une petite valeur sans échange ce jour-là n'a pas de clôture)."""
     exp = {}
-    wd = date.fromisoformat(ref_day)
-    weekday = (wd - timedelta(days=max(0, wd.weekday() - 4))).isoformat()  # sans calendrier : samedi, dimanche → vendredi
+    weekday = weekday_on_or_before(ref_day)
 
     def expected(suf):
         if suf not in exp:
@@ -719,6 +738,12 @@ def main():
         diag["euronext"] = {"quotes": 0, "error": str(e)[:120]}
     T = session_of(list(enx.values()), today)
     log(f"Liste Euronext : {len(enx)} cotations, dernière séance {T or '?'} ({time.time() - t0:.0f} s)")
+    diag["sessionSource"] = "liste Euronext" if T else None
+    if not T:  # Euronext muet : séance du calendrier, que les listes nordiques vérifient sur l'historique de leurs titres
+        from zoneinfo import ZoneInfo
+        T = calendar_session(datetime.now(ZoneInfo("Europe/Paris")), calendars())
+        diag["sessionSource"] = "calendrier"
+        log(f"Liste Euronext indisponible : séance du {T} d'après le calendrier de la bourse, secours nordique quand même")
     ids = read_json(ids_f, {})
     nordic = Nordic(ids if isinstance(ids, dict) else {}, today)
     nl, ninfo = nordic.lists(T) if T else ({}, {})
@@ -731,7 +756,9 @@ def main():
     before = {f: json.dumps([sh.get("dDates"), sh.get("wDates")]) for f, sh in ok}
     # cours Euro Signal d'abord (dossiers suivis, alertes) : les titres nordiques déjà lus resservent aux fiches sociétés
     sp = patch_prices(prices, enx, one_by_one, today, T) if isinstance(prices, dict) else dict(stats(), session=T)
-    sc = patch_catalogue([sh for _, sh in ok], enx, one_by_one, today, T)
+    # nouvelle séance ajoutée aux fiches seulement si au moins 30 cours l'ont (liste Euronext, ou listes nordiques retenues)
+    append_ok = diag["sessionSource"] == "liste Euronext" or sum(1 for q in nl.values() if q.get("date") == T) >= MIN_NEW_SESSION
+    sc = patch_catalogue([sh for _, sh in ok], enx, one_by_one, today, T, append=append_ok)
     # clôtures Yahoo aberrantes, quand la bourse donne une clôture normale
     official = {k: q for k, q in enx.items() if q.get("src") in ("Euronext", "Nasdaq Nordic")}
     cp = correct_prices(prices, official, T)

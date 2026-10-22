@@ -452,15 +452,22 @@ if (BK && !BK.__error && BK.date === today) {
       .sort((a, b) => b[1] - a[1])
       .map(([k, v]) => k + ' ' + v)
       .join(', ');
-  check(
-    !(BK.euronext && BK.euronext.error && (c.needed || 0) >= 200),
-    BK.euronext && BK.euronext.error
-      ? `cours de secours : liste Euronext injoignable (${BK.euronext.error}), ${c.needed || 0} fiches sans la dernière séance`
-      : `cours de secours (séance du ${BK.session || '?'}) : ${c.filled || 0} fiches complétées sur ${c.needed || 0} sans clôture Yahoo` +
-          (mk ? ` (${mk})` : '') +
-          `, ${p.filled || 0} cours Euro Signal complétés, ${(c.rejected || 0) + (p.rejected || 0)} clôtures écartées`,
-    true
-  );
+  const left = (c.needed || 0) - (c.filled || 0);
+  if (BK.euronext && BK.euronext.error) {
+    // Euronext muet : séance prise dans le calendrier, secours nordique quand même (21/10/2026) ; reste-t-il des trous ?
+    const m =
+      `cours de secours : liste Euronext injoignable (${BK.euronext.error}), séance du ${BK.session || '?'}` +
+      (BK.sessionSource === 'calendrier' ? " d'après le calendrier" : '') +
+      ` ; ${c.filled || 0} fiches complétées par Nasdaq Nordic sur ${c.needed || 0} sans clôture Yahoo`;
+    if (left >= 200) ko(m);
+    else if (left > 0) warn(m);
+    else ok(m);
+  } else
+    ok(
+      `cours de secours (séance du ${BK.session || '?'}) : ${c.filled || 0} fiches complétées sur ${c.needed || 0} sans clôture Yahoo` +
+        (mk ? ` (${mk})` : '') +
+        `, ${p.filled || 0} cours Euro Signal complétés, ${(c.rejected || 0) + (p.rejected || 0)} clôtures écartées`
+    );
 } else warn('cours de secours : pas de compteurs ce soir (diagnostics/backup.json)');
 
 // 5e. Trous : chaque étape a-t-elle produit ses données ce soir, chaque place a-t-elle sa dernière clôture ? (19/10/2026 : tous
