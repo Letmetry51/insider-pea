@@ -20,6 +20,7 @@ N'arrête jamais le calcul ; sort en erreur seulement si le contrôle n'a pas pu
 
   python euro_signal/twin_check.py              (après euro_signal/build.mjs)
   python euro_signal/twin_check.py --data DIR   (autre dossier de données)
+  python euro_signal/twin_check.py --strict     (sortie en erreur au moindre écart : calcul rejoué de la CI)
 """
 import json
 import math
@@ -588,6 +589,8 @@ def main(argv):
         if not rep["selection"]["same"]:
             print("  sélection du moteur : " + ", ".join(rep["selection"]["engine"]))
             print("  sélection recalculée : " + ", ".join(rep["selection"]["twin"]))
+        if "--strict" in argv and (rep["diffs"] or not rep["selection"]["same"] or not rep["pick10"]["same"]):
+            code = 2  # une modification du moteur doit être reportée dans le double calcul (et inversement)
     return code
 
 

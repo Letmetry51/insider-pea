@@ -267,8 +267,22 @@ jobs:
 
       - name: 7. Enregistrement des données et publication du site (branche site, une seule version)
         # Toujours exécuté, même après une erreur, pour conserver le journal des alertes déjà envoyées
+        id: s7
         if: always()
         uses: ./.github/actions/publish-site
         with:
           message: "📊 Données du soir"
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # La publication peut échouer après l'email de contrôle (GitHub indisponible) : la page garderait alors en silence les
+      # données de la veille. Second passage de l'email de contrôle, avec l'étape 7 en échec (données sauvegardées 30 jours)
+      - name: 7b. Email si la publication a échoué
+        if: always() && steps.s7.outcome == 'failure'
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+        run: python euro_signal/send_health.py
