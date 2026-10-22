@@ -52,8 +52,8 @@ avec la société moyenne de la même semaine). Le détail chiffré est dans l'o
   les 10 premières, deux fois moins de chutes, mais 2 ans seulement (t = 1,7) ;
 - **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027) ;
 - **l'outil lui-même** : données de Yahoo Finance par un accès non officiel (s'il est coupé, l'outil perd l'essentiel ; la
-  clôture du soir a une source de secours, Euronext et Nasdaq Nordic, pour 10 bourses sur 13, pas l'Allemagne, l'Espagne ni
-  Vienne), erreurs de Yahoo reprises (en partie corrigées), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
+  clôture du soir a une source de secours, Euronext et Nasdaq Nordic, pour 10 bourses sur 15, pas l'Allemagne, l'Espagne,
+  Vienne, Londres ni Zurich), erreurs de Yahoo reprises (en partie corrigées), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
   moins que Yahoo Finance et les sites gratuits : onglet **Comment ça marche** (pli « 🆚 Face à Yahoo Finance… »).
 
 Tout se recalcule : `research/chiffres_cles.py` (ce tableau), `research/backtest/valeur.py` (💎), détail dans `research/README.md`.

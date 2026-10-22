@@ -279,7 +279,7 @@ function coSearch(q, exclude, max) {
       .join('') +
     '</ul>' +
     (hits.length > (max || 20) ? '<p class="muted small">Affinez la recherche pour voir les autres.</p>' : '') +
-    "<p class=\"foot\">Toutes les actions des bourses de l'UE et de l'EEE (Paris, Francfort, Milan, Madrid, Amsterdam, Bruxelles, Lisbonne, Dublin, Vienne, Helsinki, Stockholm, Copenhague, Oslo). Touchez une société pour sa fiche : chiffres clés, cours sur 1 an et 5 ans, plan d'entrée.</p></section>"
+    "<p class=\"foot\">Toutes les actions des bourses de l'UE et de l'EEE (Paris, Francfort, Milan, Madrid, Amsterdam, Bruxelles, Lisbonne, Dublin, Vienne, Helsinki, Stockholm, Copenhague, Oslo), plus Londres et Zurich (hors PEA). Touchez une société pour sa fiche : chiffres clés, cours sur 1 an et 5 ans, plan d'entrée.</p></section>"
   );
 }
 function lineChart(ser, five, lv) {
@@ -998,7 +998,7 @@ function vSecteurs() {
     Math.max(5, Math.floor(G.length / 6)) +
     ' places gagnées en 8 semaines, et plus fort que le STOXX 600 sur 3 mois. 📈 <b>En tendance</b> : parmi les 20 % premiers, plus fort que le STOXX 600 sur 6 mois, et au moins la moitié de ses sociétés au-dessus de leur moyenne 40 semaines.</li>' +
     "<li>🧭 <b>Comment s'en servir</b> : comme un radar, pas comme un signal d'achat. Miser sur les secteurs émergents a fait −10,8 % par an face au marché ; croisés avec 🔊, ou avec toutes les règles pour les 5 sociétés de la semaine, les secteurs émergents ou en tendance n'apportent rien de plus (tests sur 29 ans). Le 🎯 prend d'office les sociétés d'un secteur qui monte quand leur propre hausse le justifie : rien à faire de plus. Pour une société qui vous intéresse, touchez « Surveiller » sur son plan d'entrée : un email part quand le cours entre dans la zone d'achat.</li>" +
-    "<li>🔎 <b>Recherche</b> : toutes les actions cotées des bourses de l'UE et de l'EEE, même petites et sans achat de dirigeant.</li>" +
+    "<li>🔎 <b>Recherche</b> : toutes les actions cotées des bourses de l'UE et de l'EEE, plus Londres et Zurich (hors PEA), même petites et sans achat de dirigeant.</li>" +
     '<li>🏆 <b>Leader</b> : plus grosse capitalisation du secteur. 🚀 <b>Challenger</b> : la plus forte des 2e à 4e capitalisations. Touchez un nom pour sa fiche complète.</li></ul></details>';
   var hHelp = h,
     hCyc = cycleCard();
