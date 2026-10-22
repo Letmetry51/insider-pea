@@ -34,6 +34,24 @@ ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 KEEP_FROM = (date.today() - timedelta(days=3 * 365)).isoformat()
 STALE_OPEN = (date.today() - timedelta(days=365)).isoformat()  # sans nouvelle déclaration depuis un an : position présumée close
 
+# Fichier lu mais plus mis à jour par le régulateur : dernière notification trop ancienne. Plus longs écarts observés en 2025-2026 :
+# 5 jours en France, en Italie, en Espagne et aux Pays-Bas, 9 jours en Belgique. Allemagne et Royaume-Uni : positions en vigueur
+# seulement, sans date de notification exploitable (pas de contrôle).
+STALE_DAYS = {"FR": 10, "IT": 10, "ES": 10, "NL": 10, "BE": 16}
+
+
+def freshness(cc, recs, today=None):
+    """(date de la dernière notification du fichier, périmé ?) : « ok » voulait dire fichier lu, pas fichier à jour."""
+    today = today or date.today()
+    last = max((str(r["date"])[:10] for r in recs if r.get("date")), default=None)
+    lim = STALE_DAYS.get(cc)
+    try:
+        stale = bool(lim and last and (today - date.fromisoformat(last)).days > lim)
+    except ValueError:
+        stale = False
+    return last, stale
+
+
 SOURCES = {
     "FR": {"name": "AMF", "urls": ["https://www.data.gouv.fr/api/1/datasets/r/c2539d1c-8531-4937-9cba-3bd8e9786cc5"],
            "dataset": "https://www.data.gouv.fr/api/1/datasets/62738e33f1be79935d3e5553/"},
@@ -449,7 +467,12 @@ def main():
             for isin, lst in it.items():
                 all_items.setdefault(isin, []).extend(lst)
             open_n = sum(1 for lst in it.values() for p in lst if not p["to"])
-            sources[cc] = {"name": src["name"], "status": "ok", "notifications": len(recs), "open": open_n, "issuers": len(it), "lastSuccess": date.today().isoformat()}
+            last, stale = freshness(cc, recs)
+            sources[cc] = {"name": src["name"], "status": "perime" if stale else "ok", "notifications": len(recs), "open": open_n, "issuers": len(it),
+                           "lastNotification": last, "lastSuccess": date.today().isoformat()}
+            if stale:
+                note = "fichier du régulateur non mis à jour : dernière notification le " + "/".join(reversed(last.split("-")))
+                sources[cc]["note"] = note
         except Exception as e:
             note = type(e).__name__ + " : " + str(e)[:120]
             old = (prev.get("sources") or {}).get(cc) or {}
@@ -458,7 +481,8 @@ def main():
                 keep = [p for p in (lst if isinstance(lst, list) else []) if isinstance(p, dict) and p.get("country") == cc]
                 if keep:
                     all_items.setdefault(isin, []).extend(keep)
-        print("Positions vendeuses %s (%s) : %s" % (cc, src["name"], sources[cc]["status"] + (" — %d notifications, %d positions en vigueur" % (sources[cc]["notifications"], sources[cc]["open"]) if sources[cc]["status"] == "ok" else " — " + note)))
+        x = sources[cc]
+        print("Positions vendeuses %s (%s) : %s" % (cc, src["name"], x["status"] + (" — %d notifications, %d positions en vigueur" % (x["notifications"], x["open"]) if x["status"] != "echec" else "") + (" — " + note if note else "")))
     DATA.mkdir(exist_ok=True)
     out = {"generated_at": datetime.now(timezone.utc).isoformat(), "sources": sources, "items": all_items}
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

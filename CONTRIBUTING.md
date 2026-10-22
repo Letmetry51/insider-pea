@@ -35,7 +35,7 @@ node tools/stamp.mjs --check   # versions des fichiers de la page (npm run stamp
 ruff check --select F scrapers euro_signal run.py
 python euro_signal/test_positions.py && python euro_signal/test_health.py && python euro_signal/test_twin.py
 python scrapers/test_financials.py && python scrapers/test_prices.py && python scrapers/test_yahoo.py
-python scrapers/test_sectors.py && python scrapers/test_backup.py
+python scrapers/test_sectors.py && python scrapers/test_backup.py && python scrapers/test_sources.py
 ```
 
 4. Pour voir la page avec les vraies données : `tools/donnees.sh` (données du dernier calcul), puis `python -m http.server`

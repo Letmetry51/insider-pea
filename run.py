@@ -3,7 +3,7 @@ Euro Signal — collecte des déclarations de dirigeants publiées par l'AMF (é
 """
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -26,7 +26,8 @@ ISIN_TO_TICKER = {
     "FR0000121485": "KER.PA", "FR0000045072": "ACA.PA", "FR0000120628": "CS.PA",
     "NL0000235190": "AIR.PA", "FR0000073272": "SAF.PA", "FR001400AJ45": "ML.PA",
     "FR0000125486": "DG.PA", "FR0000133308": "ORA.PA", "FR0010220475": "ALO.PA",
-    "FR0000121667": "EL.PA", "FR0000120172": "CA.PA", "FR0000130577": "BN.PA",
+    "FR0000121667": "EL.PA", "FR0000120172": "CA.PA", "FR0000120644": "BN.PA",
+    "FR0000130577": "PUB.PA",  # Publicis (était associé à Danone par erreur jusqu'au 23/10/2026)
     # SBF 120 / Mid caps où les insiders achètent souvent
     "FR0013230612": "TKO.PA",       # Tikehau Capital
     "FR0013269123": "RUI.PA",       # Rubis
@@ -38,7 +39,8 @@ ISIN_TO_TICKER = {
     "FR0000121709": "SK.PA",        # SEB (Groupe SEB)
     "FR0014000MR3": "ERF.PA",       # Eurofins Scientific
     "FR0004040608": "ABCA.PA",      # ABC Arbitrage (ISIN alternatif)
-    "FR0000074148": "FNAC.PA",      # Fnac Darty
+    "FR0011476928": "FNAC.PA",      # Fnac Darty
+    "FR0000074148": "ASY.PA",       # Assystem (était associé à Fnac Darty par erreur jusqu'au 23/10/2026)
     "FR0000125007": "SGO.PA",       # Saint-Gobain
     "FR0000130809": "GLE.PA",       # Société Générale
     "FR0000120404": "AC.PA",        # Accor
@@ -53,13 +55,44 @@ ISIN_TO_TICKER = {
 }
 
 
+def tx_key(t):
+    """Même clé que le dédoublonnage du collecteur : numéro de déclaration, sinon date + dirigeant + montant."""
+    return t.get("declaration_number") or (str(t.get("date")) + str(t.get("insider")) + str(t.get("amount")))
+
+
+def merge_partial(fresh, old, cutoff):
+    """Collecte interrompue ou anormalement courte : les déclarations de la veille non relues ce soir (dans la fenêtre) sont
+    gardées. Sans cela, le fichier du soir les effacerait, et avec elles les cours des sociétés françaises (scrapers/prices.py
+    tire sa liste de ce fichier)."""
+    seen = {tx_key(t) for t in fresh}
+    kept = [t for t in old if isinstance(t, dict) and tx_key(t) not in seen and str(t.get("date") or "") >= cutoff]
+    merged = fresh + kept
+    merged.sort(key=lambda t: (str(t.get("date") or ""), str(t.get("date_published") or "")), reverse=True)
+    return merged, len(kept)
+
+
 def main():
     """Collecte AMF des 180 derniers jours -> data/latest.json (lu par Euro Signal, euro_signal/build.mjs).
     L'ancien tableau de bord « Insider PEA V3 » (enrichissement Yahoo et score propres) a été retiré le 2026-10-13 :
     Euro Signal calcule cours, notes et avis lui-même ; la table ISIN_TO_TICKER reste utilisée par scrapers/prices.py."""
     print(f"Collecte AMF — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     days_back = 180  # Euro Signal ne garde que les publications utiles ; l'archive longue est dans data/history
-    all_transactions = scrape_all_recent(days_back=days_back, max_pages=300)  # 300 pages : couvre réellement 180 jours
+    status = {}
+    all_transactions = scrape_all_recent(days_back=days_back, max_pages=300, status=status)  # 300 pages : couvre réellement 180 jours
+    collected = len(all_transactions)
+    try:
+        old = json.loads((DATA_DIR / "latest.json").read_text(encoding="utf-8")).get("transactions") or []
+    except Exception:
+        old = []
+    partial = None
+    if not status.get("complete", True):
+        partial = "collecte interrompue (" + (status.get("error") or "fin de liste non atteinte") + ")"
+    elif len(old) >= 200 and collected < 0.5 * len(old):
+        partial = f"collecte anormalement courte : {collected} déclarations contre {len(old)} la veille"
+    kept = 0
+    if partial and old:
+        cutoff = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        all_transactions, kept = merge_partial(all_transactions, old, cutoff)
     purchases = [t for t in all_transactions if t.get("is_purchase")]
     sells = [t for t in all_transactions if t.get("is_sell")]
     output = {
@@ -70,11 +103,15 @@ def main():
         "days_covered": days_back,
         "transactions": all_transactions,
     }
+    if partial:  # lu par euro_signal/build.mjs : source AMF « partielle » (ou « en échec » si rien n'a été lu ce soir)
+        output["partial"] = {"note": partial, "collected": collected, "kept": kept, "pages": status.get("pages", 0)}
     tmp = DATA_DIR / "latest.json.tmp"
     tmp.write_text(json.dumps(output, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")
     tmp.replace(DATA_DIR / "latest.json")  # écriture atomique : jamais de fichier à moitié écrit
     print(f"Données écrites : {len(all_transactions)} déclarations, {len(purchases)} achats, {len(sells)} ventes")
-    return 0
+    if partial:
+        print(f"ATTENTION : {partial} ; {collected} déclarations lues ce soir, {kept} gardées de la veille")
+    return 1 if partial and not collected else 0  # rien lu ce soir : étape en échec (email de contrôle)
 
 
 if __name__ == "__main__":

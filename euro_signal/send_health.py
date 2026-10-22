@@ -20,6 +20,9 @@ from email.message import EmailMessage
 from html import escape
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mail_status import record  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 DIAG = ROOT / "data" / "diagnostics"
 SENT = DIAG / "health-sent.json"
@@ -126,7 +129,9 @@ def main():
             s.send_message(msg)
     except Exception as e:  # noqa: BLE001
         print("Email de contrôle non envoyé :", type(e).__name__)
+        record("controle", False, "email de contrôle non envoyé (" + type(e).__name__ + ")")  # vu par la garde du matin
         return 0
+    record("controle", True, f"{n} point(s) signalé(s)")
     SENT.write_text(json.dumps({"date": today, "key": key}), encoding="utf-8")
     print(f"Email de contrôle envoyé ({n} point(s))")
     return 0

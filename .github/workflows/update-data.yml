@@ -234,9 +234,12 @@ jobs:
           npx playwright install --with-deps chromium > /dev/null 2>&1
           node euro_signal/ui_check.mjs
 
+      # Envoi en échec (alerte retentée demain) : étape signalée par l'email de contrôle, sans arrêter la suite ; un mot de passe
+      # Gmail révoqué (aucun email ne peut plus partir) est vu par la garde du matin (watchdog.yml, via data/diagnostics/mail.json)
       - name: 6. Alertes email (Gmail)
         id: s6
         timeout-minutes: 10
+        continue-on-error: true
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}

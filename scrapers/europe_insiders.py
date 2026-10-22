@@ -47,6 +47,11 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def fr_date(iso):
+    """2026-10-06 → 06/10/2026 (texte des notes affichées)."""
+    return "/".join(reversed(str(iso or "?")[:10].split("-")))
+
+
 def iso_date(s):
     """Convertit 06/10/2026, 06-10-2026, 2026-10-06, '06 Oct 2026', '6 oktober 2026' en AAAA-MM-JJ (sinon None)."""
     if not s:
@@ -169,14 +174,15 @@ def fsma_parse_detail(html):
     return head, merged
 
 
-def fsma_list(polite, since):
-    """Liens des fiches publiées depuis `since`, en essayant les formats de date du filtre."""
+def fsma_list(polite, since, until=None, formats=("%Y-%m-%d", "%d/%m/%Y", None)):
+    """Liens des fiches publiées entre `since` et `until` (aujourd'hui par défaut), en essayant les formats de date du filtre.
+    Renvoie aussi le format qui a fonctionné (None : liste sans filtre de dates)."""
     url = FSMA_BASE + "/en/transaction-search"
-    tried, links = [], {}
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", None):
+    tried, links, used = [], {}, None
+    for fmt in formats:
         params = {"order": "field_ct_date_time", "sort": "desc"}
         if fmt:
-            params.update({"date[min]": since.strftime(fmt), "date[max]": date.today().strftime(fmt)})
+            params.update({"date[min]": since.strftime(fmt), "date[max]": (until or date.today()).strftime(fmt)})
         page_links, first_text = {}, ""
         for page in range(0, 40):
             params["page"] = page
@@ -207,9 +213,36 @@ def fsma_list(polite, since):
             if new == 0 or (oldest and oldest < since.isoformat()):
                 break
         if page_links:
-            links = page_links
+            links, used = page_links, fmt
             break
-    return links, tried, first_text
+    return links, tried, first_text, used
+
+
+FSMA_PAGE = 50  # fiches par page de la liste ; la pagination du site ne renvoie rien de plus (relevé du 22/10/2026)
+
+
+def fsma_walk_back(polite, since, links, tried, fmt, need, max_walks=8):
+    """Liste du site limitée à une page : après une panne de plusieurs semaines, les fiches plus anciennes que la page ne seraient
+    jamais lues (perte définitive, statut « ok »). Fenêtres de dates plus anciennes (date[max] = plus ancienne fiche listée),
+    jusqu'à la date `need` (dernière collecte réussie). Renvoie la plus ancienne date listée et s'il reste un trou avant elle."""
+    dates = [d for d in links.values() if d]
+    oldest = min(dates) if dates else None
+    full = len(links) >= FSMA_PAGE
+    walks = 0
+    while fmt and oldest and oldest > need and full and walks < max_walks:
+        walks += 1
+        more, t2, _, _ = fsma_list(polite, since, until=date.fromisoformat(oldest), formats=(fmt,))
+        tried.extend(t2)
+        new = {u: d for u, d in more.items() if u not in links}
+        if not new:
+            break
+        links.update(new)
+        full = len(more) >= FSMA_PAGE
+        older = [d for d in new.values() if d and d < oldest]
+        if not older:
+            break
+        oldest = min(older)
+    return oldest, bool(oldest and oldest > need and full)
 
 
 def fsma_collect(st):
@@ -218,8 +251,11 @@ def fsma_collect(st):
     polite = Polite(FSMA_DELAY)
     since = date.today() - timedelta(days=WINDOW_DAYS)
     seen = set(st["seen"].get("FSMA", []))
+    prev_ok = src.get("lastSuccess")
+    need = max(since, date.fromisoformat(prev_ok) - timedelta(days=3)).isoformat() if prev_ok else since.isoformat()
     try:
-        links, tried, first_text = fsma_list(polite, since)
+        links, tried, first_text, fmt = fsma_list(polite, since)
+        oldest, gap = fsma_walk_back(polite, since, links, tried, fmt, need)
     except Exception as e:
         src.update({"status": "echec", "note": "liste inaccessible : " + type(e).__name__})
         st["sources"]["FSMA"] = src
@@ -258,12 +294,17 @@ def fsma_collect(st):
     backlog = len(todo) - done
     st["seen"]["FSMA"] = sorted(seen)[-5000:]
     ok = bool(links) and errors <= max(2, done // 3)
-    src.update({"status": ("ok" if backlog == 0 else "partiel") if ok else "echec", "rows": len(links), "fetched": done, "backlog": backlog,
-                "note": None if ok and backlog == 0 else (f"rattrapage en cours : {backlog} fiche(s) restante(s)" if ok else "liste vide ou fiches illisibles")})
+    gap_note = (f"fiches publiées entre le {fr_date(need)} et le {fr_date(oldest)} absentes de la liste du site (limitée à {FSMA_PAGE})"
+                if gap else None)
+    src.update({"status": ("ok" if backlog == 0 and not gap else "partiel") if ok else "echec", "rows": len(links), "fetched": done, "backlog": backlog,
+                "note": (None if ok and backlog == 0 and not gap else
+                         "; ".join(x for x in ((f"rattrapage en cours : {backlog} fiche(s) restante(s)" if backlog else None), gap_note) if x)
+                         if ok else "liste vide ou fiches illisibles")})
     if ok:
         src["lastSuccess"] = date.today().isoformat()
     st["sources"]["FSMA"] = src
-    diag("fsma", {"listAttempts": tried, "listText": first_text, "detailSample": parsed_sample, "links": len(links), "fetched": done, "backlog": backlog, "errors": errors})
+    diag("fsma", {"listAttempts": tried, "listText": first_text, "detailSample": parsed_sample, "links": len(links), "fetched": done, "backlog": backlog, "errors": errors,
+                  "oldestListed": oldest, "needFrom": need, "gap": gap})
     print(f"FSMA : {len(links)} fiches listées, {done} lues, {backlog} en attente, {errors} erreur(s)")
 
 

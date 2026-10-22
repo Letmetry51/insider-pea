@@ -34,6 +34,9 @@ from email.header import decode_header, make_header
 from email.message import EmailMessage
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mail_status import record  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 ISIN_RE = re.compile(r"\b([A-Z]{2}[A-Z0-9]{9}[0-9])\b")
@@ -353,7 +356,9 @@ def main():
         imap.logout()
     except Exception as e:
         print("Positions : lecture Gmail impossible (" + type(e).__name__ + ")")
-        return 0
+        record("positions", False, "lecture Gmail impossible (" + type(e).__name__ + ")")  # vu par la garde du matin
+        return 1
+    record("positions", True)  # fichier public : rien sur les positions elles-mêmes
     to_send = []
     for pos in positions:
         isin = pos["isin"]
@@ -429,6 +434,8 @@ def main():
                     sent += 1
         except Exception as e:
             print("Positions : envoi interrompu (" + type(e).__name__ + ")")
+            record("positions", False, "envoi interrompu (" + type(e).__name__ + ")")
+            return 1
     print("Positions : contrôle effectué")  # journal public : ni nombre de positions, ni nombre d'alertes
     return 0
 
