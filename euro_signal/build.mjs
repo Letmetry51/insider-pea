@@ -269,17 +269,25 @@ export function build(opts = {}) {
   const genDate = latest && latest.generated_at ? String(latest.generated_at).slice(0, 10) : null;
   let rows =
     latest && Array.isArray(latest.transactions) ? latest.transactions.filter((t) => t && typeof t === 'object') : [];
-  const amfFresh = genDate && ES.daysBetween(genDate, today) <= 3 && rows.length > 0;
-  amf.status = amfFresh ? 'ok' : 'echec';
+  // collecte interrompue (run.py) : déclarations de la veille gardées ; « partielle » si des pages ont été lues ce soir, sinon
+  // « en échec » (rien de neuf : les alertes des sociétés françaises sont bloquées, comme pour une collecte absente)
+  const part = latest && latest.partial && typeof latest.partial === 'object' ? latest.partial : null;
+  const amfFresh =
+    genDate && ES.daysBetween(genDate, today) <= 3 && rows.length > 0 && !(part && !(part.collected > 0));
+  amf.status = amfFresh ? (part ? 'partiel' : 'ok') : 'echec';
   amf.lastSuccess = amfFresh ? genDate : prevAmf.lastSuccess || null;
   amf.lastAttempt = today;
   amf.note = amfFresh
-    ? null
+    ? part
+      ? String(part.note || 'collecte partielle').slice(0, 160) + ' : déclarations de la veille gardées'
+      : null
     : !latest
       ? 'fichier data/latest.json absent ou illisible'
-      : rows.length === 0
-        ? 'collecte vide'
-        : 'collecte non mise à jour depuis le ' + genDate;
+      : part
+        ? String(part.note || 'collecte interrompue').slice(0, 160) + ' : aucune déclaration lue ce soir'
+        : rows.length === 0
+          ? 'collecte vide'
+          : 'collecte non mise à jour depuis le ' + genDate;
 
   /* 2. Conversion et fusion dans l'archive (corrections, doublons, première observation) */
   const rejects = [],
@@ -607,6 +615,17 @@ export function build(opts = {}) {
     const er = (evRaw.items || {})[isin];
     state.fund = state.fund || {};
     if (er && er.fund) state.fund[isin] = er.fund; // conservées si la collecte du soir échoue
+    // … mais pas les chiffres (P/E, marges, dette) au-delà de 60 jours sans relevé : secteur, activité et dirigeants seulement
+    const fd = state.fund[isin];
+    if (fd && !fd.stale && fd.asOf && ES.daysBetween(fd.asOf, today) > 60)
+      state.fund[isin] = {
+        sector: fd.sector || null,
+        industry: fd.industry || null,
+        currency: fd.currency || null,
+        officers: fd.officers || null,
+        asOf: fd.asOf,
+        stale: true,
+      };
     // Nombre d'actions sur un an (relu une fois par semaine) : baisse nette = rachats, hausse = émission d'actions (dilution)
     state.shares = state.shares || {};
     if (er && er.shares && er.shares.n0 > 0 && er.shares.n1 > 0)
@@ -778,9 +797,11 @@ export function build(opts = {}) {
     if (isObj(x))
       shortsSrc[cc] = {
         name: String(x.name || cc),
-        status: x.status === 'ok' ? 'ok' : 'echec',
+        // « perime » : fichier lu mais plus mis à jour par le régulateur (positions anciennes, signalées)
+        status: x.status === 'ok' || x.status === 'perime' ? x.status : 'echec',
         open: Number.isFinite(+x.open) ? +x.open : null,
         note: x.note ? String(x.note).slice(0, 160) : null,
+        lastNotification: typeof x.lastNotification === 'string' ? x.lastNotification.slice(0, 10) : null,
       };
   });
   const shortsList = {};
@@ -2193,6 +2214,18 @@ export function build(opts = {}) {
           if (g && (!coDate || g > coDate)) coDate = g;
           Object.assign(co, sh.items);
         });
+    // P/B du catalogue : relevé par Yahoo jusqu'à 60 jours plus tôt (pbAt), remis au cours du soir (la valeur comptable ne change
+    // qu'avec les comptes, relus au relevé suivant) ; jusqu'au 23/10/2026, le 💎 classait sur le cours du jour du relevé
+    const pbNow = (x) => {
+      const d = x && x.d;
+      if (!(x && x.pb > 0) || !x.pbAt || !Array.isArray(d) || d.length !== dDates.length) return x ? x.pb : null;
+      let k = dDates.length - 1;
+      while (k >= 0 && !(dDates[k] <= x.pbAt && d[k] > 0)) k--;
+      let j = d.length - 1;
+      while (j >= 0 && !(d[j] > 0)) j--;
+      const r = k >= 0 && j >= 0 ? d[j] / d[k] : null;
+      return r && r > 0.2 && r < 5 ? x.pb * r : x.pb;
+    };
     const isinOfSym = {};
     Object.keys(inst).forEach((isin) => {
       const t = inst[isin].ticker;
@@ -2564,7 +2597,7 @@ export function build(opts = {}) {
       r.sec = x.groupTrending ? 't' : x.groupEmerging ? 'e' : null;
       r.secEn = x.sector || (i && i.fund && i.fund.sector) || null;
       r.f9 = accF9[r.key] != null ? accF9[r.key] : null;
-      const pb = i && i.value && i.value.pb != null ? i.value.pb : x.pb;
+      const pb = i && i.value && i.value.pb != null ? i.value.pb : pbNow(x);
       r.pb = pb != null && isFinite(pb) ? +(+pb).toFixed(2) : null;
       r.iv = !!(i && ES.valueCheap(i.value));
       if (Array.isArray(x.d)) {
@@ -2812,7 +2845,7 @@ export function build(opts = {}) {
             dashUrl,
             today,
             rank.selection.track,
-            ES.pickValue(rank.rows, { n: 2, peaOnly: true }).picks
+            ES.pickValue(rank.rows, { n: 2, peaOnly: PEA_ONLY }).picks
           )
         : null;
       if (!mail) {

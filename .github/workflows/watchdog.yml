@@ -3,6 +3,9 @@ name: Garde du calcul du soir
 # GitHub peut retarder de plusieurs heures, voire sauter, une tâche planifiée (sans prévenir personne). Ce garde vérifie que
 # le calcul du soir a tourné depuis son départ prévu et le relance une seule fois sinon. Il ne calcule rien lui-même ; un
 # second calcul le même soir est sans risque (emails déjà envoyés jamais renvoyés).
+# Il échoue (GitHub prévient alors le propriétaire du dépôt par sa propre notification, sans passer par Gmail) quand le calcul
+# a encore échoué après la relance, ou quand Gmail a refusé un envoi ou une lecture ce soir-là (mot de passe d'application
+# révoqué : l'email de contrôle ne peut pas le dire, il passe par le même compte).
 on:
   schedule:
     - cron: '13 21 * * 1-5' # 3 h 30 après le départ prévu du calcul du soir (17h37 UTC)
@@ -45,11 +48,30 @@ jobs:
           live = [r for r in runs if r["status"] != "completed" or r["conclusion"] == "success"]
           again = [r for r in runs if r["event"] == "workflow_dispatch"]
           print(f"Départ prévu : {start:%d/%m %H:%M} UTC ; exécutions depuis : {len(runs)} ; réussies ou en cours : {len(live)}")
+          problems = []
           if live:
               print("Calcul du soir fait ou en cours : rien à faire")
           elif again:
-              print("Déjà relancé une fois sans succès : pas de nouvelle relance (l'email de contrôle signale l'échec)")
+              print("Déjà relancé une fois sans succès : pas de nouvelle relance")
+              if all(r["status"] == "completed" for r in again):
+                  problems.append("calcul du soir en échec, même après la relance : la page garde les données précédentes")
           else:
               subprocess.check_call(["gh", "workflow", "run", "update-data.yml", "--repo", os.environ["REPO"]])
               print("Calcul du soir absent ou en échec : relancé")
+          # Gmail du dernier calcul (publié sur la branche site) : envoi ou lecture refusés depuis le départ prévu
+          try:
+              raw = subprocess.check_output(["gh", "api", "-H", "Accept: application/vnd.github.raw",
+                                             f"repos/{os.environ['REPO']}/contents/data/diagnostics/mail.json?ref=site"])
+              parts = (json.loads(raw).get("parts") or {}).items()
+              for name, p in parts:
+                  at = datetime.fromisoformat(str(p.get("at") or "1970-01-01T00:00:00+00:00").replace("Z", "+00:00"))
+                  if at >= start and not p.get("ok"):
+                      problems.append(f"Gmail a refusé un échange ce soir ({name} : {p.get('detail') or 'échec'}). Si cela se répète,"
+                                      " le mot de passe d'application (secret GMAIL_APP_PASSWORD) est sans doute révoqué :"
+                                      " plus aucun email Euro Signal ne part")
+          except Exception as e:  # fichier absent (premier soir) ou API indisponible : rien à signaler
+              print("État des emails non lu :", type(e).__name__)
+          for p in problems:
+              print("::error::" + p)
+          raise SystemExit(1 if problems else 0)
           PY

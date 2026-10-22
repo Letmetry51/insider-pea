@@ -305,9 +305,9 @@ function vSources() {
             '</td><td class="hide-s">' +
             esc(x.name || '') +
             '</td><td><span class="chip ' +
-            (x.status === 'ok' ? 'good' : 'bad') +
+            (x.status === 'ok' ? 'good' : x.status === 'perime' ? 'warn' : 'bad') +
             '">' +
-            (x.status === 'ok' ? 'À jour' : 'En échec') +
+            (x.status === 'ok' ? 'À jour' : x.status === 'perime' ? 'Non mise à jour' : 'En échec') +
             '</span>' +
             (x.note ? '<small>' + esc(x.note) + '</small>' : '') +
             '</td><td class="num">' +
@@ -316,7 +316,7 @@ function vSources() {
           );
         })
         .join('') +
-      '</tbody></table></div><p class="foot">Information croisée, sans effet sur la note ni sur les alertes. En cas d\'échec, les positions de la veille sont conservées.</p>';
+      '</tbody></table></div><p class="foot">Paris : une société vendue à découvert à 0,5 % du capital ou plus est écartée de la sélection (🐻). Ailleurs, simple information. En cas d\'échec, les positions de la veille sont conservées ; « non mise à jour » : le régulateur ne publie plus de nouvelles positions.</p>';
   return h;
 }
 

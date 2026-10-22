@@ -65,6 +65,7 @@ jobs:
           python scrapers/test_yahoo.py
           python scrapers/test_sectors.py
           python scrapers/test_backup.py
+          python scrapers/test_sources.py
 
   # Calcul du soir rejoué sur les données publiées la veille (branche site) avec le code proposé : une modification qui ferait
   # planter le calcul, ou qui changerait le classement d'un côté seulement (moteur ou double calcul), est vue avant la fusion

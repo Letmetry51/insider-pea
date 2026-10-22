@@ -269,11 +269,28 @@ check(
   `ventes à découvert : ${SHS && SHS.items ? Object.keys(SHS.items).length : 0} sociétés, données du ${genOf(SHS) ? String(genOf(SHS)).slice(0, 10) : '?'}`,
   true
 );
+// « en panne » : fichier illisible, positions de la veille gardées ; « non mis à jour » : fichier lu, mais le régulateur ne publie
+// plus (dernière notification trop ancienne) ; dans les deux cas l'exclusion 🐻 de Paris tourne sur des positions anciennes
 const ssrc = main.shortsSrc || {},
-  ssBad = Object.keys(ssrc).filter((c) => ssrc[c] && ssrc[c].status !== 'ok');
+  ssBad = Object.keys(ssrc).filter((c) => ssrc[c] && ssrc[c].status !== 'ok'),
+  ssDown = ssBad.filter((c) => ssrc[c].status !== 'perime'),
+  ssOld = ssBad.filter((c) => ssrc[c].status === 'perime');
 check(
   Object.keys(ssrc).length >= 5 && !ssBad.length,
-  `régulateurs des ventes à découvert : ${Object.keys(ssrc).length - ssBad.length}/${Object.keys(ssrc).length} à jour${ssBad.length ? ' (en panne : ' + ssBad.map((c) => ssrc[c].name || c).join(', ') + ')' : ''}`,
+  `régulateurs des ventes à découvert : ${Object.keys(ssrc).length - ssBad.length}/${Object.keys(ssrc).length} à jour` +
+    (ssDown.length ? ' (en panne : ' + ssDown.map((c) => ssrc[c].name || c).join(', ') + ')' : '') +
+    (ssOld.length
+      ? ' (non mis à jour par le régulateur : ' +
+        ssOld
+          .map((c) => {
+            const d = ssrc[c].lastNotification;
+            return (
+              (ssrc[c].name || c) + (d ? ', dernière notification le ' + d.slice(8, 10) + '/' + d.slice(5, 7) : '')
+            );
+          })
+          .join(' ; ') +
+        ')'
+      : ''),
   true
 );
 check(
@@ -544,10 +561,17 @@ if (BK && !BK.__error && BK.date === today && BK.complete && BK.complete.catalog
           .join(', ') +
         ')'
     );
+  // indice européen : tendance du marché, force relative et alerte de krach du momentum ; repli muet sur le CAC 40 jusqu'au 23/10/2026
   const mk = main.market || {},
     eP = (C.catalogue.PA || {}).expected;
-  if (mk.lastDate && eP)
-    check(mk.lastDate >= eP, `indice européen (${mk.ticker || '?'}) : dernière séance du ${dm(mk.lastDate)}`, true);
+  if (eP)
+    check(
+      mk.ticker === '^STOXX' && mk.lastDate >= eP,
+      mk.lastDate
+        ? `indice européen (${mk.ticker === '^STOXX' ? 'STOXX Europe 600' : (mk.ticker || '?') + ' à la place du STOXX Europe 600, indisponible'}) : dernière séance du ${dm(mk.lastDate)}`
+        : 'indice européen (STOXX Europe 600) indisponible : tendance du marché et alerte de krach non calculées',
+      true
+    );
 } else if (BK && BK.complete && BK.complete.error) warn(`contrôle des clôtures impossible : ${BK.complete.error}`);
 // chaque étape du soir réécrit son fichier : un fichier ancien veut dire une étape en échec (données précédentes gardées)
 {
@@ -606,6 +630,21 @@ if (BK && !BK.__error && BK.date === today && BK.complete && BK.complete.catalog
       `déclarations AMF publiées jusqu'au ${dm(amf.coveredTo)} (${bdays(amf.coveredTo, today)} jours ouvrés de décalage, 3 au plus)`,
       true
     );
+  // registres de déclarations de dirigeants : une collecte en échec ou interrompue (AMF, FSMA, FI) n'avait aucune ligne de contrôle
+  // (l'AFM, « partielle » en permanence : export public sans ISIN ni prix, n'est pas signalée chaque soir)
+  const src = main.src || {},
+    decl = Object.keys(src).filter((n) => src[n] && src[n].kind === 'déclarations'),
+    dDown = decl.filter((n) => src[n].status === 'echec'),
+    dPart = decl.filter((n) => src[n].status === 'partiel' && n !== 'AFM'),
+    why = (n) => n + (src[n].note ? ' : ' + String(src[n].note).slice(0, 120) : '');
+  if (decl.length)
+    check(
+      !dDown.length && !dPart.length,
+      `registres de déclarations de dirigeants : ${decl.length - dDown.length}/${decl.length} lus ce soir` +
+        (dDown.length ? ' (en panne : ' + dDown.map(why).join(' ; ') + ')' : '') +
+        (dPart.length ? ' (partiels : ' + dPart.map(why).join(' ; ') + ')' : ''),
+      true
+    );
 }
 
 // 6. Couverture rubrique par rubrique, comparée au calcul précédent : une baisse brutale (Yahoo qui répond vide, fichier
@@ -623,6 +662,12 @@ const COV = {};
   COV['secteur'] = has((i) => main.inst[i].fund && main.inst[i].fund.sector);
   COV['liquidité'] = has((i) => (main.inst[i].stats || {}).adv20Eur != null);
   COV["plan d'entrée"] = has((i) => main.inst[i].plan);
+  // événements Yahoo (étape 4) : statut « ok » même quand Yahoo répond vide ; la baisse se voit ici
+  COV['prévisions des analystes'] = has((i) => {
+    const f = main.inst[i].forecast;
+    return f && (f.eps != null || f.target != null);
+  });
+  COV['résultats publiés'] = has((i) => ((main.ev || {})[i] || {}).results && main.ev[i].results.length > 0);
   COV['déclarations (3 mois)'] = Object.values(main.tx || {}).reduce((s, l) => s + (l || []).length, 0);
   COV['sources à jour'] = Object.values(main.src || {}).filter((x) => x && x.status === 'ok').length;
   if (CI && CI.rows) COV['catalogue des sociétés cotées'] = CI.rows.length;

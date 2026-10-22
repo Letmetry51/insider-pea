@@ -19,6 +19,9 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mail_status import record  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 STATE = DATA / "euro-signal-state.json"
@@ -68,6 +71,7 @@ def main():
     outbox = load(OUTBOX, [])
 
     phase = {"v": ""}
+    tally = {"sent": 0, "failed": 0, "uncertain": 0, "errors": []}  # envois de ce soir (data/diagnostics/mail.json)
 
     def send(subject, text, html):
         msg = EmailMessage()
@@ -94,8 +98,11 @@ def main():
                 send("[Euro Signal] Email de test", "Email de test envoyé par Euro Signal depuis GitHub Actions le " + now() + ". Aucune alerte dans ce message." + ("\nTableau de bord : " + dash if dash else ""),
                      '<p>Email de test envoyé par Euro Signal le ' + now() + '. Aucune alerte dans ce message.</p>' + ('<p><a href="' + dash + '" style="display:inline-block;background:#0D6A56;color:#fff;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Ouvrir le tableau de bord</a></p>' if dash else ''))
                 print("Email de test envoyé à", len(to_list), "destinataire(s)")  # jamais les adresses : le journal est public
+                tally["sent"] += 1
             except Exception as e:
                 print("ÉCHEC de l'email de test :", type(e).__name__, redact(str(e))[:200])
+                tally["failed"] += 1
+                tally["errors"].append(type(e).__name__)
         else:
             print("Email de test impossible : secrets GMAIL_USER / GMAIL_APP_PASSWORD / ALERT_TO manquants")
 
@@ -113,17 +120,23 @@ def main():
         try:
             send(item["subject"], item["text"], item["html"])
             rec["status"] = "envoyee"
+            tally["sent"] += 1
             print("  envoyée :", rec["subject"])
         except (smtplib.SMTPAuthenticationError, smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused) as e:
             rec["status"] = "echec"  # refus certain : sera retentée à la prochaine exécution
             rec["error"] = type(e).__name__ + " : vérifiez GMAIL_USER, le mot de passe d'application et ALERT_TO"
+            tally["failed"] += 1
+            tally["errors"].append(type(e).__name__)
             print("  ÉCHEC :", rec["subject"], rec["error"])
         except Exception as e:
             if phase["v"] in ("envoi", "accepte"):
                 rec["status"] = "incertain"  # le message a pu partir : pas de renvoi automatique
+                tally["uncertain"] += 1
                 print("  INCERTAIN :", rec["subject"], type(e).__name__)
             else:
                 rec["status"] = "echec"  # rien n'a été transmis : sera retentée à la prochaine exécution
+                tally["failed"] += 1
+                tally["errors"].append(type(e).__name__)
                 print("  ÉCHEC (connexion) :", rec["subject"], type(e).__name__)
             rec["error"] = phase["v"] + " — " + type(e).__name__ + " : " + redact(str(e))[:160]
         rec["doneAt"] = now()
@@ -135,7 +148,11 @@ def main():
         dash["alerts"] = {a["id"]: a for a in alerts}
         dash["mail"] = {"ready": live}
         save(DASH, dash)
-    return 0
+    if live and (tally["sent"] or tally["failed"] or tally["uncertain"]):
+        record("alertes", not tally["failed"], f"{tally['sent']} envoyé(s), {tally['failed']} en échec, {tally['uncertain']} incertain(s)"
+               + (" (" + ", ".join(sorted(set(tally["errors"]))) + ")" if tally["errors"] else ""))
+    # envoi en échec : étape signalée (l'alerte est retentée demain) ; un mot de passe révoqué est aussi vu par la garde du matin
+    return 3 if tally["failed"] else 0
 
 
 if __name__ == "__main__":

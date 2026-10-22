@@ -190,11 +190,16 @@ def _extract_transactions_from_soup(soup):
     return transactions
 
 
-def scrape_all_recent(days_back: int = 180, max_pages: int = 80) -> list[dict]:
+def scrape_all_recent(days_back: int = 180, max_pages: int = 80, status: dict | None = None) -> list[dict]:
     """
     Récupère TOUTES les transactions AMF des N derniers jours.
     Utilise le filtre de dates du site pour s'assurer de couvrir toute la période.
+    `status` (facultatif) reçoit pages lues, fin normale ou non (`complete`) et l'erreur : une collecte interrompue n'est
+    jamais prise pour une liste complète (run.py garde alors les déclarations de la veille).
     """
+    if status is None:
+        status = {}
+    status.update({"pages": 0, "complete": False, "error": None})
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; insider-pea-personal/1.0)",
         "Accept": "text/html,application/xhtml+xml",
@@ -228,6 +233,7 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80) -> list[dict]:
                 print(f"  Retry page {page}: OK")
             except requests.RequestException as e2:
                 print(f"  Retry échoué page {page}: {e2}")
+                status["error"] = f"page {page} : {type(e2).__name__}"
                 break
         
         soup = BeautifulSoup(response.text, "html.parser")
@@ -238,21 +244,26 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80) -> list[dict]:
             print(f"  Page {page}: 0 tx parsées (page vide ou format inconnu)")
             if empty_pages >= 3:
                 print("  3 pages vides consécutives, arrêt")
+                status["complete"] = bool(all_transactions)  # fin de liste, ou format du site changé (rien de lu)
                 break
             continue
         else:
             empty_pages = 0
         
         all_transactions.extend(page_txs)
+        status["pages"] = page
         print(f"  Page {page}: {len(page_txs)} tx")
         
         # Vérifier si c'est la dernière page
         if "Page suivante" not in response.text:
             print("  Dernière page atteinte")
+            status["complete"] = True
             break
         
         # Petit délai pour ne pas surcharger le serveur
         time.sleep(0.3)
+    else:
+        status["error"] = f"limite de {max_pages} pages atteinte"
     
     # Dédupliquer par numéro de déclaration
     seen = set()

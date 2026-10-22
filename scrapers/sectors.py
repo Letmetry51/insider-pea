@@ -330,6 +330,8 @@ def book_fields(inf):
     out = {}
     if ok_cur and isinstance(pb, (int, float)) and 0.02 < pb < 100:
         out["pb"] = float(f"{pb:.4g}")
+        if inf.get("fetched"):  # date du relevé : euro_signal/build.mjs remet le P/B au cours du soir
+            out["pbAt"] = str(inf["fetched"])[:10]
     if isinstance(roe, (int, float)) and -2 < roe < 2:
         out["roe"] = float(f"{roe:.4g}")
     return out
