@@ -417,6 +417,60 @@ def _():
     assert diag["nordic"]["lists"]["STO"]["used"] is True and diag["nordic"]["asked"] == 0 and diag["catalogue"]["byMarket"] == {"ST": 1}
 
 
+@case("Liste Euronext injoignable : séance du calendrier, secours nordique quand même (cas du 21/10/2026, Helsinki)")
+def _():
+    d = Path(tempfile.mkdtemp())
+    (d / "societes").mkdir()
+    (d / "societes" / "0.json").write_text(json.dumps(shard({
+        "INVE-A.ST": {"currency": "SEK", "turnoverEur": 5e7, "d": [400, 405, 410, 413.8, None]},
+        "TTE.PA": {"currency": "EUR", "turnoverEur": 5e7, "d": [80, 80.2, 80.4, 80.7, None]},
+    })))
+    calls = []
+
+    def resp(url, params):
+        if url.endswith("/screener/shares"):
+            return LIST_STO if params["market"] == "STO" and params["category"] == "MAIN_MARKET" else {}
+        return CHART_ABB if "/TX291/" in url else CHART
+
+    def down():
+        raise RuntimeError("HTTP 503")
+    old = B.DATA, B.euronext_lists, B.http_get, B.datetime
+
+    class FakeDT(B.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return B.datetime(2026, 10, 19, 22, 30, tzinfo=tz)
+    try:
+        B.DATA = d
+        B.euronext_lists = down
+        B.http_get = fake_get(resp, calls)
+        B.datetime = FakeDT
+        assert B.main() == 0
+    finally:
+        B.DATA, B.euronext_lists, B.http_get, B.datetime = old
+    it = json.loads((d / "societes" / "0.json").read_text())["items"]
+    assert it["INVE-A.ST"]["d"][-1] == 412.6 and it["TTE.PA"]["d"][-1] is None
+    diag = json.loads((d / "diagnostics" / "backup.json").read_text())
+    assert diag["euronext"]["error"] == "HTTP 503" and diag["session"] == "2026-10-19" and diag["sessionSource"] == "calendrier", diag
+    assert diag["nordic"]["lists"]["STO"]["used"] is True and diag["catalogue"]["byMarket"] == {"ST": 1}
+
+
+@case("Séance du calendrier que trop peu de cours confirment : jamais ajoutée aux fiches (dates inchangées)")
+def _():
+    sh = shard({"INVE-A.ST": {"currency": "SEK", "d": [400, 405, 410, 413.8, 412.6]}},
+               dd=["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"])
+    st = B.patch_catalogue([sh], {}, no_nordic, "2026-10-19", "2026-10-19", append=False)
+    assert st["mode"] == "append refusé" and st["filled"] == 0 and sh["dDates"][-1] == "2026-10-16"
+    assert sh["items"]["INVE-A.ST"]["d"] == [400, 405, 410, 413.8, 412.6]
+    paris = B.timezone(B.timedelta(hours=2))
+    assert B.calendar_session(B.datetime(2026, 10, 19, 22, 30, tzinfo=paris)) == "2026-10-19"
+    assert B.calendar_session(B.datetime(2026, 10, 20, 7, 40, tzinfo=paris)) == "2026-10-19"  # le matin : séance de la veille
+    assert B.calendar_session(B.datetime(2026, 10, 18, 12, 0, tzinfo=paris)) == "2026-10-16"  # dimanche : vendredi
+    cal = B.calendars()
+    if cal:  # calendrier réel : le jour férié de Paris est sauté (1er mai 2026, un vendredi)
+        assert B.calendar_session(B.datetime(2026, 5, 1, 22, 0, tzinfo=paris), cal) == "2026-04-30"
+
+
 @case("Table ISIN → symbole Yahoo : toutes les lignes Euronext, place du pays de l'ISIN d'abord, ISIN invalides ignorés")
 def _():
     t = B.parse_euronext_isins(CSV)
