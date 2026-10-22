@@ -2385,6 +2385,10 @@ export function build(opts = {}) {
       }
       study.withAccounts = Object.keys(accM).length;
       study.withInsiders = Object.keys(insM).length;
+      // semaine en cours étiquetée au vendredi dans l'historique long : jamais une date future à l'écran (« au 23/10 » le 21/10)
+      if (study.to > today) study.to = today;
+      if (breadth && breadth.to > today) breadth.to = today;
+      if (breadth && breadth.now && breadth.now.date > today) breadth.now.date = today;
     } catch (e) {
       console.warn('  Étude de contrôle du classement indisponible : ' + e.message);
     }

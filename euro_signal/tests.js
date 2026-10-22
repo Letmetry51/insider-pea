@@ -4066,6 +4066,67 @@ t('Agenda des résultats : semaines du lundi au dimanche, publications récentes
   ok(S0.weeks[0].k === 1 && S0.thisWeek === 0, JSON.stringify(S0));
 });
 
+t("Plan d'entrée et niveaux : cas limites trouvés par le stress test du 22/10/2026", () => {
+  const days = (n) => {
+    const o = [];
+    let d = '2025-08-01';
+    while (o.length < n) {
+      const w = new Date(d + 'T12:00:00Z').getUTCDay();
+      if (w && w < 6) o.push(d);
+      d = ES.addDays(d, 1);
+    }
+    return o;
+  };
+  const d = days(260);
+  // chute ÷10 il y a 30 séances, puis légère reprise : jamais « au plus haut de l'année », plan suspendu
+  const c = d.map((x, i) =>
+    i < 230 ? 10 + (i % 5) * 0.1 : i <= 240 ? 1.0 - (i - 230) * 0.01 : 0.9 + (i - 240) * 0.0075
+  );
+  const p1 = ES.entryPlan(d.map((x, i) => [x, null, null, null, +c[i].toFixed(4), null]));
+  eq(p1.verdict, 'avoid', 'saut de cours récent : plan suspendu');
+  ok(/plan suspendu/.test(p1.label), p1.label);
+  // plus bas du jour aberrant (0,001) : pas de support absurde, stop positif, objectif au-dessus de l'entrée
+  const rows = d.map((x, i) => {
+    const cl = +(20 + 3 * Math.sin(i / 9) + i * 0.01).toFixed(3);
+    return [x, cl, +(cl * 1.01).toFixed(3), +(cl * 0.99).toFixed(3), cl, 1000];
+  });
+  rows[255] = [rows[255][0], rows[255][1], rows[255][2], 0.001, rows[255][4], 1000];
+  const lv = ES.supportResistance(rows);
+  ok(lv.supports.length && lv.supports.every((x) => x.price > 10), JSON.stringify(lv.supports));
+  const p2 = ES.entryPlan(rows, { levels: lv });
+  ok(
+    [p2.primary, p2.alt].filter(Boolean).every((x) => x.stop > 0 && x.target > x.entry),
+    JSON.stringify([p2.primary, p2.alt])
+  );
+  // cours figé : RSI neutre (50), pas « surachat »
+  const o = ES.oscillators(d.map((x) => [x, null, null, null, 10, null]));
+  ok(o.rsi === 50 && o.zone === 'neutre', JSON.stringify({ rsi: o.rsi, zone: o.zone }));
+  // surprise du bénéfice : consensus quasi nul → rien ; bornée à ±500 %
+  eq(ES.surprise(0.02, 0.0001), null, 'consensus quasi nul');
+  eq(ES.surprise(3, 1), 200);
+  eq(ES.surprise(100, 1), 500, 'bornée');
+  // convergence : figure inconnue → inconnu, pas d'exception
+  const cv = ES.convergence({ plan: { verdict: 'waitSupport', wedge: { type: 'inconnu', key: 'inconnu' } } });
+  eq(cv.items[4].ok, null, 'figure inconnue');
+  // comptes : champ à null = absent, pas zéro
+  const y = (dt, x) =>
+    Object.assign(
+      {
+        date: dt,
+        revenue: 100,
+        netIncome: 10,
+        totalAssets: 200,
+        currentAssets: 80,
+        currentLiabilities: 40,
+        equity: 100,
+      },
+      x
+    );
+  const a1 = ES.accountsAnalysis({ years: [y('2024-12-31', { shares: 10 }), y('2025-12-31', { shares: null })] });
+  const a2 = ES.accountsAnalysis({ years: [y('2024-12-31', { shares: 10 }), y('2025-12-31', {})] });
+  eq(JSON.stringify(a1.fscore), JSON.stringify(a2.fscore), 'null comme absent');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

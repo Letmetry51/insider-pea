@@ -214,8 +214,10 @@ function anCtx(isin, sym) {
   };
   if (x) {
     var p = S.prices[isin];
+    // cours ajustés des regroupements et divisions d'actions, comme le graphique de la fiche (sinon MACD, volatilité et plus bas
+    // faux après une opération : Worldline regroupé par 40 le 15/06/2026)
     if (p && p.rows)
-      o.closes = ES.normalizeSeries(p.rows)
+      o.closes = ES.adjustedSeries(ES.normalizeSeries(p.rows), (S.ev[isin] && S.ev[isin].splits) || [])
         .map(function (q) {
           return q[4];
         })
@@ -677,7 +679,7 @@ function anLevels(o) {
     D = (S.secCo && S.secCo.dDates) || [],
     rows =
       p && p.rows && p.rows.length
-        ? ES.normalizeSeries(p.rows).slice(-260)
+        ? ES.adjustedSeries(ES.normalizeSeries(p.rows), (S.ev[o.isin] && S.ev[o.isin].splits) || []).slice(-260)
         : co && co.d
           ? co.d
               .map(function (v, k) {

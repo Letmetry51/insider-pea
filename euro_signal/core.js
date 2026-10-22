@@ -1032,7 +1032,7 @@
       if (d > 0) g += d;
       else l -= d;
     }
-    if (l === 0) return 100;
+    if (l === 0) return g === 0 ? 50 : 100; // cours figé sur la période : neutre, pas « surachat »
     return 100 - 100 / (1 + g / l);
   }
   /** Extrêmes sur une fenêtre ; utilise les plus hauts/bas intrajournaliers s'ils existent pour toutes les lignes. */
@@ -3582,6 +3582,7 @@
   ES.accountsAnalysis = function (fin, opts) {
     opts = opts || {};
     var n = function (v) {
+      if (v == null || v === '') return null; // +null et +'' valent 0 : une donnée absente compterait comme zéro
       v = +v;
       return Number.isFinite(v) ? v : null;
     };
@@ -4943,11 +4944,13 @@
       n = R.length,
       k = opts.span || 5;
     if (n < 60) return null;
+    // plus haut ou plus bas du jour aberrant (erreur de cotation : plus bas à 0,001, plus haut ×8) : borné à ×1,5 ou ÷1,5 la
+    // clôture, sinon il devient le seul support ou la résistance visée (22/10/2026 : stop à −340 %, objectif ×8)
     var hi = function (r) {
-        return r[2] > 0 ? r[2] : r[4];
+        return r[2] > 0 ? Math.min(r[2], r[4] * 1.5) : r[4];
       },
       lo = function (r) {
-        return r[3] > 0 ? r[3] : r[4];
+        return r[3] > 0 ? Math.max(r[3], r[4] / 1.5) : r[4];
       };
     var last = R[n - 1][4],
       tr = [];
@@ -5000,10 +5003,20 @@
       };
     if (H52 > last * 1.005 && !near(H52)) levels.push({ price: H52, touches: 1, last: null, kind: 'high52' });
     if (L52 < last * 0.995 && !near(L52)) levels.push({ price: L52, touches: 1, last: null, kind: 'low52' });
+    var cMin = Infinity,
+      cMax = -Infinity;
+    R.forEach(function (r) {
+      cMin = Math.min(cMin, r[4]);
+      cMax = Math.max(cMax, r[4]);
+    });
     var out = function (side) {
       return levels
         .filter(function (g) {
-          return side < 0 ? g.price < last - tol / 3 : g.price > last + tol / 3;
+          return (
+            g.price >= cMin * 0.75 &&
+            g.price <= cMax * 1.35 &&
+            (side < 0 ? g.price < last - tol / 3 : g.price > last + tol / 3)
+          );
         })
         .sort(function (a, b) {
           return Math.abs(a.price - last) - Math.abs(b.price - last);
@@ -5041,10 +5054,10 @@
       n = R.length;
     if (n < 30) return null;
     var hi = function (r) {
-        return r[2] > 0 ? r[2] : r[4];
+        return r[2] > 0 ? Math.min(r[2], r[4] * 1.5) : r[4];
       },
       lo = function (r) {
-        return r[3] > 0 ? r[3] : r[4];
+        return r[3] > 0 ? Math.max(r[3], r[4] / 1.5) : r[4];
       };
     var H = [],
       Lw = [];
@@ -5099,6 +5112,7 @@
     var U = fit(H, true),
       D = fit(Lw, false),
       last = R[n - 1][4];
+    if (!(D.a > 0 && D.a + D.b * (n - 1) > 0)) return null; // droite basse sous zéro : pas de figure lisible
     return ES.wedgeShape(
       { a: U.a, b: U.b, touches: U.touches },
       { a: D.a, b: D.b, touches: D.touches },
@@ -5243,9 +5257,9 @@
       var d1 = c[k] - c[k - 1];
       g = (g * 13 + Math.max(d1, 0)) / 14;
       l = (l * 13 + Math.max(-d1, 0)) / 14;
-      rsiS.push(l === 0 ? 100 : 100 - 100 / (1 + g / l));
+      rsiS.push(l === 0 ? (g === 0 ? 50 : 100) : 100 - 100 / (1 + g / l));
     }
-    var rsiW = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+    var rsiW = l === 0 ? (g === 0 ? 50 : 100) : 100 - 100 / (1 + g / l); // cours figé : neutre
     var ema = function (arr, p) {
       var a = 2 / (p + 1),
         out = [arr[0]];
@@ -5580,7 +5594,7 @@
           fk && ES.FIGURES[fk]
             ? 'Figure : ' + ES.FIGURES[fk][1].toLowerCase() + (p.wedge && p.wedge.weak ? ' (peu marquée)' : '')
             : 'Figure : n.d.',
-        ok: fk ? ES.FIGURES[fk][2] === 'good' && !(p.wedge && p.wedge.weak) : null,
+        ok: fk && ES.FIGURES[fk] ? ES.FIGURES[fk][2] === 'good' && !(p.wedge && p.wedge.weak) : null,
       },
     ];
     var n = items.filter(function (x) {
@@ -5876,8 +5890,11 @@
       return String(+(+v).toPrecision(v >= 1000 ? 5 : 4)).replace('.', ',');
     }; // nombre affiché à la française
     var mk = function (o) {
-      var risk = o.entry - o.stop,
-        gain = o.target != null ? o.target - o.entry : null;
+      if (!(o.stop > 0)) o.stop = o.entry * 0.7; // stop négatif (niveaux aberrants) : protection à −30 %, la règle testée
+      var risk = o.entry - o.stop;
+      // objectif sous l'entrée (niveau suivant trop proche pour un ATR large : 18 plans le 22/10/2026) : 2 fois le risque pris
+      if (risk > 0 && !(o.target > o.entry)) o.target = o.entry + 2 * risk;
+      var gain = o.target != null ? o.target - o.entry : null;
       o.rr = risk > 0 && gain != null ? +(gain / risk).toFixed(1) : null;
       o.stopPct = risk > 0 ? +((-risk / o.entry) * 100).toFixed(1) : null;
       o.targetPct = gain != null ? +((gain / o.entry) * 100).toFixed(1) : null;
@@ -6054,6 +6071,13 @@
         why.push(
           'Le cours est près du support, mais en tendance baissière les supports cèdent souvent : la cassure de la résistance confirme mieux un retournement.'
         );
+    }
+    // saut de cours de moins de 6 mois : niveaux d'avant écartés, ceux d'après trop récents pour dire « plus haut de l'année » ;
+    // plan suspendu plutôt qu'une « Zone d'entrée » trompeuse (22/10/2026 : cours à 3 % de son plus haut annoncé « au plus haut »)
+    if (jumpAt > 0 && n - jumpAt < 120) {
+      verdict = 'avoid';
+      label =
+        "Saut de cours récent : plan suspendu, à vérifier (regroupement d'actions non ajusté ou événement exceptionnel)";
     }
     why.unshift(TR[trend] + '.');
     if (primary && primary.rr != null && primary.rr < 1.5)
@@ -7858,8 +7882,10 @@
     };
   };
   ES.surprise = function (actual, consensus) {
-    if (actual == null || consensus == null || consensus === 0) return null;
-    return ((actual - consensus) / Math.abs(consensus)) * 100;
+    // consensus quasi nul (moins d'un centime par action) : un pourcentage n'a pas de sens (±19 900 % affichés avant le 22/10/2026)
+    if (actual == null || consensus == null || !(Math.abs(consensus) >= 0.01)) return null;
+    var s = ((actual - consensus) / Math.abs(consensus)) * 100;
+    return Math.max(-500, Math.min(500, s));
   };
 
   /* ===================== Qualité et couverture ===================== */
@@ -10310,8 +10336,22 @@
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track, values) {
     values = values || [];
-    var vtxt = values.length
-      ? '💎 Et 2 sociétés Valeur (bon marché, comptes solides ; 5 🎯 + 2 💎 ≈ 70/30) : ' +
+    var nv = values.length,
+      share = Math.round((100 * (items || []).length) / Math.max(1, (items || []).length + nv));
+    var vtxt = nv
+      ? '💎 Et ' +
+        nv +
+        ' société' +
+        (nv > 1 ? 's' : '') +
+        ' Valeur (bon marché, comptes solides ; ' +
+        (items || []).length +
+        ' 🎯 + ' +
+        nv +
+        ' 💎 ≈ ' +
+        share +
+        '/' +
+        (100 - share) +
+        ') : ' +
         values
           .map(function (v) {
             return v.name + ' (F-score ' + v.f9 + ', cours/fonds propres ' + String(v.pb).replace('.', ',') + ')';
@@ -10335,7 +10375,7 @@
         ? n + ' société' + (n > 1 ? 's' : '') + (nBuy < n ? ', ' + nBuy + ' à acheter maintenant' : '')
         : 'aucune société ne passe les règles');
     var intro =
-      "Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois, volumes en hausse puis 📣 bond sur gros volume d'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.";
+      "Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois (dès +30 % ou pente moyenne avec un 📣 bond, ou pour compléter à 5), volumes en hausse puis 📣 bond sur gros volume d'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.";
     var pcs = function (v) {
       return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %';
     };

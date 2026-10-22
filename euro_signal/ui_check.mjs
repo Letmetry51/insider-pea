@@ -85,8 +85,9 @@ async function inspect(p, where) {
       d.open = true;
     });
     // texte de la page, sans le rapport du contrôle précédent (il cite les textes fautifs : sinon il se relirait chaque soir)
+    // ni les descriptions d'activité Yahoo en anglais (lang="en"), où ces mots sont parfois des noms de produits (« Elekta Infinity »)
     let t = document.body.innerText;
-    document.querySelectorAll('[data-nocheck]').forEach((e) => {
+    document.querySelectorAll('[data-nocheck], [lang="en"]').forEach((e) => {
       const x = e.innerText;
       if (x) t = t.split(x).join(' ');
     });
