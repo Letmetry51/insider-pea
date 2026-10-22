@@ -414,7 +414,7 @@ function anCtx(isin, sym) {
 }
 function loadNews() {
   S.newsLoaded = true;
-  fetch('data/news.json', { cache: 'no-store' })
+  getData('data/news.json')
     .then(function (r) {
       return r.ok ? r.json() : null;
     })

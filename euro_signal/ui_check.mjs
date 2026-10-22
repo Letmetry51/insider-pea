@@ -59,7 +59,17 @@ const URL0 = 'http://localhost:' + server.address().port + '/euro-signal.html';
 
 const main = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'euro-signal.json'), 'utf8'));
 const isins = Object.keys(main.inst || {});
-const browser = await chromium.launch();
+// Chrome déjà installé sur les machines de GitHub (ES_CHROME_CHANNEL=chrome) : pas de téléchargement de Chromium chaque soir
+let browser;
+try {
+  browser = await chromium.launch(process.env.ES_CHROME_CHANNEL ? { channel: process.env.ES_CHROME_CHANNEL } : {});
+} catch (e) {
+  try {
+    browser = await chromium.launch();
+  } catch (e2) {
+    finish('navigateur indisponible : contrôle des fiches non fait (' + String(e2.message || e2).split('\n')[0] + ')');
+  }
+}
 const problem = (kind, where, detail) => {
   if (report.problems.length < 400) report.problems.push({ kind, where, detail: String(detail || '').slice(0, 160) });
 };
@@ -67,6 +77,17 @@ const jsErr = (where, m) => {
   if (report.jsErrors.length < 100) report.jsErrors.push({ where, message: String(m).slice(0, 200) });
 };
 
+// page prête : données chargées, plus de message d'attente (au lieu d'attentes fixes : environ 1 min 30 de moins chaque soir)
+const ready = (p) =>
+  p
+    .waitForFunction(
+      () => window.__ES_STATE && window.__ES_STATE.mode !== 'chargement' && !window.__ES_STATE.busy,
+      null,
+      {
+        timeout: 20000,
+      }
+    )
+    .catch(() => {});
 async function newPage() {
   const p = await browser.newPage({ viewport: { width: W, height: H } });
   p.on('pageerror', (e) => jsErr(p.__where || 'page', e.message));
@@ -76,7 +97,7 @@ async function newPage() {
   });
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   await p.goto(URL0);
-  await p.waitForTimeout(4000);
+  await ready(p);
   return p;
 }
 async function inspect(p, where) {
@@ -133,15 +154,19 @@ await Promise.all(
         location.hash = '#' + i;
       }, i);
       try {
+        // fiche demandée affichée (et non la précédente, encore à l'écran juste après le changement d'adresse) et chargée
         await p.waitForFunction(
-          () => document.querySelector('.fhead') && !/Chargement (des cours|de la fiche)/.test(document.body.innerText),
-          null,
+          (i) =>
+            window.__ES_STATE &&
+            window.__ES_STATE.sel === i &&
+            document.querySelector('.fhead') &&
+            !/Chargement (des cours|de la fiche)/.test(document.body.innerText),
+          i,
           { timeout: 6000 }
         );
       } catch (e) {
         /* jugé quand même */
       }
-      await p.waitForTimeout(120);
       judge(await inspect(p, i), i + ' ' + ((main.inst[i] || {}).name || ''), true);
       report.fiches++;
     }
@@ -163,12 +188,12 @@ await Promise.all(
   for (const v of ['classement', 'secteurs', 'inities', 'alertes', 'aide']) {
     p.__where = 'onglet ' + v;
     await p.goto(URL0);
-    await p.waitForTimeout(2500);
+    await ready(p);
     try {
       const b = p.locator(`nav [data-v="${v}"]`).first();
       if (await b.count()) {
         await b.click({ timeout: 5000 });
-        await p.waitForTimeout(1500);
+        await p.waitForSelector(EXPECT[v], { timeout: 8000 }).catch(() => {});
       }
       if (!(await p.locator(EXPECT[v]).count()))
         problem('onglet sans contenu', v, 'élément attendu absent : ' + EXPECT[v]);
@@ -203,7 +228,6 @@ await Promise.all(
           { timeout: 6000 }
         );
       } catch (e) {}
-      await p.waitForTimeout(150);
       const res = await inspect(p, 'classement ' + r.key);
       judge(res, 'classement ' + r.key + ' ' + (r.name || ''), true);
       if (!(await p.locator('.rcard').count()))
@@ -224,14 +248,14 @@ await Promise.all(
   }
   const sample = rows.filter((_, k) => k % Math.max(1, Math.floor(rows.length / 40)) === 0).slice(0, 40);
   await p.goto(URL0);
-  await p.waitForTimeout(2500);
+  await ready(p);
   for (const r of sample) {
     p.__where = 'catalogue ' + r[0];
     try {
       await p.locator('nav [data-v="secteurs"]').first().click({ timeout: 5000 });
-      await p.waitForTimeout(500);
+      await p.waitForSelector('#sec-q', { timeout: 8000 });
       await p.fill('#sec-q', r[0], { timeout: 5000 });
-      await p.waitForTimeout(600);
+      await p.waitForSelector(`[data-a="secCo"][data-v="${r[0]}"]`, { timeout: 4000 }).catch(() => {});
       const btn = p.locator(`[data-a="secCo"][data-v="${r[0]}"]`).first();
       if (!(await btn.count())) {
         problem('catalogue : société introuvable par la recherche', r[0], r[1]);

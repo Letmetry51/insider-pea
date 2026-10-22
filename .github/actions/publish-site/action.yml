@@ -45,6 +45,26 @@ runs:
         cp -r data "$SITE/data"
         find "$SITE/data" \( -name 'prices.json' -o -name 'euro-signal-outbox.json' -o -name 'events.json' -o -name '*.tmp' \
           -o -name 'weekly.csv.gz' -o -name 'weekly_volume.csv.gz' -o -name '*.illisible-*' \) -delete
+        # empreinte de chaque fichier publié : la page demande ses données en ?v=empreinte, servies par la copie du téléphone tant
+        # qu'elles ne changent pas (sinon environ 1,7 Mo retéléchargés à chaque ouverture) ; écrite en dernier, sur les fichiers finaux
+        rm -f "$SITE/data/version.json"  # celle de la veille (données restaurées) : jamais republiée, elle pointerait vers d'anciens fichiers
+        python3 - "$SITE/data" <<'PY' || echo "Empreintes des données non écrites : la page relira tout depuis le réseau"
+        import hashlib, json, os, sys
+        root, files = sys.argv[1], {}
+        for d, _, names in os.walk(root):
+            for n in names:
+                p = os.path.join(d, n)
+                rel = os.path.relpath(p, root).replace(os.sep, "/")
+                if rel != "version.json":
+                    h = hashlib.sha1()
+                    with open(p, "rb") as fh:
+                        for chunk in iter(lambda: fh.read(1 << 20), b""):
+                            h.update(chunk)
+                    files[rel] = h.hexdigest()[:12]
+        with open(os.path.join(root, "version.json"), "w", encoding="utf-8") as fh:
+            json.dump({"format": "euro-signal-version", "files": dict(sorted(files.items()))}, fh, separators=(",", ":"))
+        print(f"Empreintes des données : {len(files)} fichiers")
+        PY
         touch "$SITE/.nojekyll"
         cd "$SITE"
         git init -q -b site

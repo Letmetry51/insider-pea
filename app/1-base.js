@@ -208,10 +208,37 @@ function defang(o) {
   }
   return o;
 }
+/** Empreintes des données publiées (data/version.json, écrit à la publication et relu à chaque ouverture) : chaque fichier est
+ *  demandé en ?v=empreinte et servi par le cache du téléphone tant qu'il ne change pas (jusqu'au 23/10/2026, environ 1,7 Mo
+ *  retéléchargés à chaque ouverture). Sans empreinte (première publication, fichier ouvert hors du site) : réseau, comme avant. */
+S.ver = null;
+function dataUrl(f) {
+  var h = S.ver && S.ver[String(f).replace(/^data\//, '')];
+  return h && /^[0-9a-f]{6,40}$/.test(h) ? f + '?v=' + h : f;
+}
+function getData(f) {
+  var u = dataUrl(f);
+  return fetch(u, { cache: u === f ? 'no-store' : 'default' });
+}
+function loadVersion() {
+  return fetch('data/version.json?_=' + Date.now(), { cache: 'no-store' })
+    .then(function (r) {
+      return r.ok ? r.json() : null;
+    })
+    .then(function (v) {
+      S.ver = v && v.format === 'euro-signal-version' && v.files && typeof v.files === 'object' ? v.files : null;
+    })
+    .catch(function () {
+      S.ver = null;
+    });
+}
 /** Mode automatique : la page est servie avec data/euro-signal.json (GitHub Pages), mis à jour chaque soir. */
 function tryRemote() {
   busy('Chargement des données du jour…');
-  fetch('data/euro-signal.json', { cache: 'no-store' })
+  loadVersion()
+    .then(function () {
+      return getData('data/euro-signal.json');
+    })
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -304,7 +331,7 @@ function loadDetailFor(i) {
   var k = ES.shardOf(i, S.shards.n);
   if (S.detailLoaded || S.shardLoaded[k] || S.shardLoading[k]) return;
   S.shardLoading[k] = true;
-  fetch(S.shards.dir + '/' + k + '.json', { cache: 'no-store' })
+  getData(S.shards.dir + '/' + k + '.json')
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -335,7 +362,7 @@ function loadDetail() {
     for (var k = 0; k < S.shards.n; k++) if (!S.shardLoaded[k]) todo.push(k);
     Promise.all(
       todo.map(function (k) {
-        return fetch(S.shards.dir + '/' + k + '.json', { cache: 'no-store' })
+        return getData(S.shards.dir + '/' + k + '.json')
           .then(function (r) {
             return r.ok ? r.json() : null;
           })
@@ -359,7 +386,7 @@ function loadDetail() {
     });
     return;
   }
-  fetch(S.detailFile, { cache: 'no-store' })
+  getData(S.detailFile)
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();

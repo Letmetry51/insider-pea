@@ -231,7 +231,8 @@ jobs:
         continue-on-error: true
         run: |
           npm install --no-save --no-package-lock playwright@1.47.2 > /dev/null 2>&1
-          npx playwright install --with-deps chromium > /dev/null 2>&1
+          # Chrome est déjà installé sur les machines de GitHub : pas de téléchargement de Chromium (environ 1 min 30 chaque soir)
+          if command -v google-chrome > /dev/null; then export ES_CHROME_CHANNEL=chrome; else npx playwright install --with-deps chromium > /dev/null 2>&1; fi
           node euro_signal/ui_check.mjs
 
       # Envoi en échec (alerte retentée demain) : étape signalée par l'email de contrôle, sans arrêter la suite ; un mot de passe

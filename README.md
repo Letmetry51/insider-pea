@@ -85,7 +85,9 @@ tools/donnees.sh        copie locale des données du dernier calcul
 ```
 
 La branche `main` ne contient que le code. Chaque calcul publie la page et ses données sur la branche **`site`**, en une
-seule version sans historique (le dépôt ne grossit pas) ; GitHub Pages sert cette branche. Les fichiers qu'aucun calcul ne
+seule version sans historique (le dépôt ne grossit pas) ; GitHub Pages sert cette branche. La publication écrit aussi
+`data/version.json` (empreinte de chaque fichier) : le téléphone garde les données et les scripts tant qu'ils ne changent pas
+(`sw.js`), une réouverture ne retélécharge plus que la page et cette liste (quelques Ko au lieu d'environ 1,7 Mo). Les fichiers qu'aucun calcul ne
 peut refaire (journal des alertes, suivi réel, historiques) sont aussi gardés 30 jours en copie de secours (Actions → artefacts).
 
 ## Installer sa propre instance

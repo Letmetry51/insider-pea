@@ -68,6 +68,19 @@ def table(df, spec, years):
                         break
 
 
+KNOWN_CUR = {}  # symbole → devise des comptes déjà connue (fiches Yahoo du catalogue) : évite t.info, 3 requêtes sur 6 par société
+
+
+def known_currencies():
+    """Devise des comptes d'après les fiches Yahoo déjà lues par le catalogue (data/sectors/info_cache.json)."""
+    out = {}
+    for sym, inf in (load(DATA / "sectors" / "info_cache.json", {}) or {}).items():
+        c = inf.get("financialCurrency") if isinstance(inf, dict) else None
+        if isinstance(c, str) and 2 <= len(c) <= 4:
+            out[sym] = c
+    return out
+
+
 def statements(ticker):
     t = yf.Ticker(ticker)
     years = {}
@@ -79,11 +92,12 @@ def statements(ticker):
         if y.get("intangibles") is None and (gw is not None or oi is not None):
             y["intangibles"] = (gw or 0) + (oi or 0)
     rows = [y for y in sorted(years.values(), key=lambda y: y["date"]) if len(y) > 3][-5:]
-    currency = None
-    try:
-        currency = (t.info or {}).get("financialCurrency")
-    except Exception:
-        pass
+    currency = KNOWN_CUR.get(ticker) if rows else None
+    if rows and not currency:
+        try:
+            currency = (t.info or {}).get("financialCurrency")
+        except Exception:
+            pass
     return {"years": rows, "currency": currency}
 
 
@@ -123,6 +137,7 @@ def catalogue_pairs(known, min_turnover=CAT_MIN_TURNOVER_EUR):
 def main():
     t0 = time.time()
     today = datetime.now(timezone.utc).date()
+    KNOWN_CUR.update(known_currencies())
     prices = load(DATA / "prices.json", {}).get("items", {})
     pairs = {isin: p.get("ticker") for isin, p in prices.items() if isinstance(p, dict) and p.get("ticker")}
     pairs.update(catalogue_pairs(set(pairs.values())))

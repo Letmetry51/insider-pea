@@ -6,7 +6,7 @@
 function loadSectors() {
   if (S.secLoading || S.secLoaded) return;
   S.secLoading = true;
-  fetch('data/sectors.json', { cache: 'no-store' })
+  getData('data/sectors.json')
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -174,7 +174,7 @@ function loadSecCo(sym) {
     S.coShard[k] = true;
     if (S.view === 'secco' || S.view === 'fiche') render(); // fiche Euro Signal : pli 🏭 business model
   };
-  fetch('data/societes/' + k + '.json', { cache: 'no-store' })
+  getData('data/societes/' + k + '.json')
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -182,7 +182,7 @@ function loadSecCo(sym) {
     .then(done)
     .catch(function () {
       // avant le premier calcul du soir avec le catalogue : ancien fichier unique, s'il existe encore
-      fetch('data/sectors-companies.json', { cache: 'no-store' })
+      getData('data/sectors-companies.json')
         .then(function (r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
@@ -197,7 +197,7 @@ function loadSecCo(sym) {
 function loadCoIndex() {
   if (S.coIndexLoading || S.coIndex) return;
   S.coIndexLoading = true;
-  fetch('data/societes-index.json', { cache: 'no-store' })
+  getData('data/societes-index.json')
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
