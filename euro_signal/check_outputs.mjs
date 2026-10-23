@@ -250,7 +250,10 @@ if (CI && CI.rows) {
     'ASSA-B.ST': 'Assa Abloy',
     'INVE-B.ST': 'Investor',
   };
-  const noHome = Object.keys(homes).filter((w) => !have.has(w));
+  // une autre classe d'actions de la même société suffit (Investor A tant que la ligne B n'a pas remplacé la A dans l'univers)
+  const clsOf = (t) => String(t).replace(/-[A-Z0-9]{1,2}(?=\.)/, ''),
+    haveClass = new Set([...have].map(clsOf));
+  const noHome = Object.keys(homes).filter((w) => !have.has(w) && !haveClass.has(clsOf(w)));
   check(
     !noHome.length,
     'cotations principales des grandes sociétés : ' +
@@ -259,11 +262,9 @@ if (CI && CI.rows) {
   );
   // dossiers suivis très échangés (5 M€ par jour ou plus) dont la cotation manque à la liste des sociétés : jamais classés
   // (une autre classe d'actions de la même société, Atlas Copco A au lieu de B, suffit : la plus échangée la représente)
-  const cls = (t) => String(t).replace(/-[A-Z0-9]{1,2}(?=\.)/, ''),
-    haveCls = new Set([...have].map(cls));
   const lost = Object.keys(main.inst || {})
     .map((i) => main.inst[i])
-    .filter((x) => x && x.ticker && !x.secondary && (x.stats || {}).adv20Eur >= 5e6 && !haveCls.has(cls(x.ticker)));
+    .filter((x) => x && x.ticker && !x.secondary && (x.stats || {}).adv20Eur >= 5e6 && !haveClass.has(clsOf(x.ticker)));
   check(
     !lost.length,
     `dossiers très échangés présents dans la liste des sociétés (classement)` +
