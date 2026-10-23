@@ -2437,50 +2437,33 @@ t("Coût d'attendre le lundi : entrée le lendemain de la publication contre le 
   eq(ES.waitCost([], {}, flat), null);
 });
 
-t("Revue de la méthode : critères fixés à l'avance et décision", () => {
+t("Revue de la méthode : critères fixés à l'avance, suivi réel du 🎯 et règles en réel", () => {
   const c = ES.mergeConfig(ES.DEFAULT_CONFIG, { rules: { review: { date: '2027-01-31', minCases: 50 } } });
-  const res = [
-    {
-      group: 'Achat DG ou DAF',
-      horizon: 120,
-      sample: 'échantillon',
-      n: 60,
-      mean: 5,
-      hit: 60,
-      nExcess: 60,
-      meanExcess: 3,
-      hitExcess: 60,
-      nEx2: 60,
-      meanEx2: 4,
-      hitEx2: 70,
-      nSec: 60,
-      meanSec: 2,
-      hitSec: 60,
-    },
+  const g = (n, avg, bench) => ({ n, avg, bench, beat: 55, win: 60 });
+  const sig = (ok) => [
+    { k: 'hot', icon: '🔊', label: 'volumes en hausse', ok: true },
+    { k: 'bp', icon: '📣', label: 'bond sur gros volume', ok },
+    { k: 'wait', icon: '⏸️', label: 'attente sous la moyenne 10 semaines', ok: null },
   ];
   const good = ES.reviewStatus(
-    {
-      backtest: { results: res },
-      selection: { paper: { core: { ret: 15, bench: 12 } }, waitCost: { dg: { n: 40, mean: 0.4, t: 0.8 } } },
-    },
+    { rank: { pickTrack: { m3: g(80, 6, 3), m6: g(60, 12, 7) }, signalTrack: sig(true), valueTrack: {} } },
     c
   );
   eq(good.decision.key, 'keep');
   eq(good.items.length, 4);
-  eq(good.items[3].ok, false);
-  const bad = ES.reviewStatus(
-    {
-      backtest: { results: [Object.assign({}, res[0], { hitEx2: 30 })] },
-      selection: { paper: { core: { ret: 5, bench: 12 } } },
-    },
-    c
-  );
-  eq(bad.decision.key, 'drop');
-  eq(
-    ES.reviewStatus({ backtest: { results: [] }, selection: {} }, c).decision.key,
-    'extend',
-    'trop peu de cas : prolonger'
-  );
+  ok(good.items[1].now.indexOf('+12 %') === 0 && /à 6 mois, 60 lignes/.test(good.items[1].now), good.items[1].now);
+  eq(good.items[3].ok, false, '💎 sans recul : information seulement');
+  // règle démentie : garder les autres, retirer celle-là
+  const one = ES.reviewStatus({ rank: { pickTrack: { m6: g(60, 12, 7) }, signalTrack: sig(false) } }, c);
+  ok(one.decision.key === 'keep' && /Retirer la règle démentie : 📣/.test(one.decision.text), one.decision.text);
+  // 🎯 sous l'indice ou trop peu de recul : prolonger, jamais de changement sur le hasard
+  eq(ES.reviewStatus({ rank: { pickTrack: { m6: g(60, 4, 7) } } }, c).decision.key, 'extend');
+  const early = ES.reviewStatus({ rank: { pickTrack: { open: g(20, -1.5, -1.1), m3: g(25, 2, 1) } } }, c);
+  ok(early.decision.key === 'extend' && early.horizon === 'à 3 mois', JSON.stringify(early.decision));
+  ok(/0 mesurées \(à 3 mois : 25\)/.test(early.items[0].now), early.items[0].now);
+  // instantané vide ou ancien format : pas d'exception
+  eq(ES.reviewStatus({}, c).decision.key, 'extend');
+  eq(ES.reviewStatus(null, {}).items[1].now, 'pas encore de recul');
 });
 
 t('Devises : conversion des montants hors zone euro', () => {
@@ -4169,6 +4152,32 @@ t('Thermomètre de panique : seuil selon la part habituelle, hystérésis, donn�
   eq(ES.panicState(null).on, false);
   eq(ES.panicState({ now: { lo: null }, hist: big }).on, false);
   eq(ES.panicState({ now: { lo: 30 }, hist: [null, ['x', 1, 2, 'n.d.']] }).cut, 20, 'historique invalide : plancher');
+});
+
+t("Suivi réel : division ou regroupement d'actions depuis l'entrée, cours d'entrée corrigé", () => {
+  eq(ES.splitBase(100, 50.5), 50.5, 'division par 2');
+  eq(ES.splitBase(2, 20.4), 20.4, 'regroupement par 10');
+  eq(ES.splitBase(100, 97), 100, 'dividende : cours noté gardé');
+  eq(ES.splitBase(100, null), 100);
+  eq(ES.splitBase(null, 50), null);
+  // une ligne divisée par 2 (q = 50) et une ligne normale : la moyenne n'est plus faussée de −50 %
+  const log = {
+    '2026-W30': {
+      date: '2026-07-20',
+      b0: 100,
+      b3: 103,
+      items: [
+        { key: 'A', p0: 100, p3: 52, q3: 50, hot: 1 },
+        { key: 'B', p0: 10, p3: 11, hot: 0 },
+      ],
+    },
+    '2026-W40': { date: '2026-10-01', b0: 100, items: [{ key: 'C', p0: 40, q: 20 }] },
+  };
+  const T = ES.pickTrack(log, { C: 21 }, 101);
+  eq(T.m3.avg, 7, '(+4 % + 10 %) / 2');
+  eq(T.open.avg, 5, 'en cours : 21 / 20');
+  const S = ES.signalTrack(log, { C: 21 }, 101, 1);
+  eq(S[0].yes.m3.avg, 4, '🔊 : la ligne divisée compte +4 %, pas −48 %');
 });
 
 console.log(results.join('\n'));

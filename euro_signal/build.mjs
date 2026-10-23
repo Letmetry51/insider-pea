@@ -2448,10 +2448,23 @@ export function build(opts = {}) {
     state.rankSelections = isObj(state.rankSelections) ? state.rankSelections : {};
     const week = ES.isoWeek(today),
       mkLink = (r) => (dashUrl ? dashUrl + '#' + (r.isin || 'co=' + r.sym) : null);
-    const lastOf = {};
+    const lastOf = {},
+      dayOf = {},
+      symOfKey = {};
     rows.forEach((r) => {
       lastOf[r.key] = r.last;
+      dayOf[r.key] = r.lastDay || null;
+      symOfKey[r.key] = r.sym;
     });
+    // cours d'entrée du suivi réel corrigé des divisions et regroupements d'actions survenus depuis (ES.splitBase) : la série ajustée
+    // du soir donne le cours du jour de l'entrée ; sans cela, une division par 2 comptait −50 % (et un regroupement par 10, +900 %)
+    const adjAt = (key, d) => {
+      const a = (co[symOfKey[key]] || {}).d;
+      if (!d || !Array.isArray(a) || a.length !== dDates.length) return null;
+      for (let k = dDates.length - 1; k >= 0; k--) if (dDates[k] <= d && a[k] > 0) return a[k];
+      return null;
+    };
+    const baseOf = (key, d, p0) => ES.splitBase(p0, adjAt(key, d));
     const mRows = mRef && Array.isArray(mRef.rows) ? ES.normalizeSeries(mRef.rows) : [],
       mLast = mRows.length ? mRows[mRows.length - 1][4] : null;
     const prevW = Object.keys(state.rankSelections)
@@ -2476,7 +2489,8 @@ export function build(opts = {}) {
             key: x.key,
             name: x.name,
             note: x.note,
-            perf: x.p0 > 0 && lastOf[x.key] > 0 ? (lastOf[x.key] / x.p0 - 1) * 100 : null,
+            perf:
+              x.p0 > 0 && lastOf[x.key] > 0 ? (lastOf[x.key] / baseOf(x.key, x.d0 || S0.date, x.p0) - 1) * 100 : null,
           })),
         };
       });
@@ -2673,10 +2687,20 @@ export function build(opts = {}) {
           if (a < dd || L[pk + 'Done']) return;
           if (mLast > 0) L[bk] = mLast;
           L.items.forEach((x) => {
-            if (x[pk] == null && lastOf[x.key] > 0) x[pk] = lastOf[x.key];
+            if (x[pk] == null && lastOf[x.key] > 0) {
+              x[pk] = lastOf[x.key];
+              const q = baseOf(x.key, x.d0 || L.date, x.p0);
+              if (q > 0 && q !== x.p0) x['q' + pk.slice(1)] = q;
+            }
           });
           L[pk + 'Done'] = today;
         });
+        if (!L.p6Done)
+          L.items.forEach((x) => {
+            const q = baseOf(x.key, x.d0 || L.date, x.p0);
+            if (q > 0 && q !== x.p0) x.q = q;
+            else delete x.q;
+          });
       });
       if (!state.pickLog[week] && rank.coFresh) {
         const P10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;
@@ -2694,6 +2718,7 @@ export function build(opts = {}) {
               wait: r.pickWait ? 1 : 0,
               promo: r.pickPromo ? 1 : 0,
               p0: lastOf[r.key] || null,
+              d0: dayOf[r.key] || null,
             })),
           };
       }
@@ -2724,16 +2749,33 @@ export function build(opts = {}) {
           if (a < dd || L[pk + 'Done']) return;
           if (mLast > 0) L[bk] = mLast;
           L.items.forEach((x) => {
-            if (x[pk] == null && lastOf[x.key] > 0) x[pk] = lastOf[x.key];
+            if (x[pk] == null && lastOf[x.key] > 0) {
+              x[pk] = lastOf[x.key];
+              const q = baseOf(x.key, x.d0 || L.date, x.p0);
+              if (q > 0 && q !== x.p0) x['q' + pk.slice(1)] = q;
+            }
           });
           L[pk + 'Done'] = today;
         });
+        if (!L.p6Done)
+          L.items.forEach((x) => {
+            const q = baseOf(x.key, x.d0 || L.date, x.p0);
+            if (q > 0 && q !== x.p0) x.q = q;
+            else delete x.q;
+          });
       });
       if (!state.valueLog[week] && rank.coFresh && V10.length)
         state.valueLog[week] = {
           date: today,
           b0: mLast || null,
-          items: V10.map((r) => ({ key: r.key, name: r.name, f9: r.f9, pb: r.pb, p0: lastOf[r.key] || null })),
+          items: V10.map((r) => ({
+            key: r.key,
+            name: r.name,
+            f9: r.f9,
+            pb: r.pb,
+            p0: lastOf[r.key] || null,
+            d0: dayOf[r.key] || null,
+          })),
         };
       Object.keys(state.valueLog)
         .sort()
@@ -2874,7 +2916,13 @@ export function build(opts = {}) {
         state.rankSelections[week] = {
           date: today,
           b0: rank._b0,
-          items: rank._sel.map((x) => ({ key: x.key, name: x.name, note: x.note, p0: x.last })),
+          items: rank._sel.map((x) => ({
+            key: x.key,
+            name: x.name,
+            note: x.note,
+            p0: x.last,
+            d0: x.lastDay || null,
+          })),
         };
       Object.keys(state.rankSelections || {})
         .sort()

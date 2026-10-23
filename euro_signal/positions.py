@@ -235,13 +235,37 @@ def death_cross(rows, since):
     return None
 
 
-def evaluate(pos, rows, stats, txs, today, in_pick=None):
-    """Événements de revente pour une position. rows : [[date, o, h, l, close, v], …] (cours bruts suffisent ici)."""
+def split_base(price, adj):
+    """Prix d'achat corrigé d'une division ou d'un regroupement d'actions survenu depuis l'achat (même règle que ES.splitBase) :
+    adj = cours du jour de l'achat dans la série ajustée du soir. Un écart de plus de 20 % ne peut venir que d'une opération sur
+    le capital (un dividende n'ajuste que de quelques %) : la série ajustée sert alors de base. Sans cela, une division par 2
+    déclenchait à tort l'alerte de protection à −30 % (et un regroupement par 10, un faux « objectif atteint »)."""
+    if not price or price <= 0 or not adj or adj <= 0:
+        return price
+    f = adj / price
+    return adj if f < 0.8 or f > 1.25 else price
+
+
+def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=False):
+    """Événements de revente pour une position. rows : [[date, o, h, l, close, v], …] : cours bruts publiés (cours d'Euro Signal,
+    divisions et regroupements dans « splits » : [{date, ratio}]) ou cours ajustés (catalogue, adjusted=True). Dans les deux cas,
+    prix d'achat et cours sont ramenés à la même base : une division par 2 ne compte plus pour une baisse de 50 %."""
     closes = [(r[0], r[4]) for r in rows if r and r[4]]
-    after = [c for d, c in closes if d >= pos["date"]]
+    sp = [(x["date"], float(x["ratio"])) for x in (splits or []) if isinstance(x, dict) and x.get("date") and (x.get("ratio") or 0) > 0]
+
+    def now_basis(c, d):  # cours brut du jour d exprimé au nombre d'actions d'aujourd'hui
+        for sd, r in sp:
+            if sd > d:
+                c = c / r
+        return c
+    after = [now_basis(c, d) for d, c in closes if d >= pos["date"]]
     if not after:
         return [], None
-    last, peak, buy = after[-1], max(after), pos["price"]
+    buy = now_basis(pos["price"], pos["date"])
+    if adjusted:
+        at_buy = [c for d, c in closes if d <= pos["date"]][-1:] or [None]
+        buy = split_base(buy, at_buy[0])
+    last, peak = after[-1], max(after)
     perf = (last / buy - 1) * 100
     ev = []
     if pos.get("target") and perf >= pos["target"]:
@@ -374,7 +398,7 @@ def main():
         if not p:
             continue
         evs, info = evaluate(pos, p.get("rows") or [], stats, (state.get("txArchive") or {}).get(isin) or [], today,
-                             (isin in picks) if picks is not None else None)
+                             (isin in picks) if picks is not None else None, splits=p.get("splits"), adjusted="splits" not in p)
         for key, label in evs:
             ref = "%s:%s:%s" % (isin, pos["date"].replace("-", ""), key)
             if ref in refs:

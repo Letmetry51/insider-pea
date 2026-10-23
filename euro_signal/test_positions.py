@@ -151,6 +151,29 @@ def _():
     assert P.plan_txt(c) == "ajusté à la main (entrée 12,50, stop 11,00, objectif 15,00)", P.plan_txt(c)
 
 
+@case("Division ou regroupement d'actions après l'achat : pas de fausse protection −30 % ni de faux objectif")
+def _():
+    pos = {"isin": "FR0000054470", "price": 100.0, "date": "2026-06-01"}
+    d = date(2026, 9, 4)
+    # cours bruts d'Euro Signal : division par 2 le 15/07, signalée dans « splits »
+    raw = [["2026-06-01", 0, 0, 0, 101.0, 0], ["2026-07-14", 0, 0, 0, 110.0, 0], ["2026-07-15", 0, 0, 0, 55.0, 0], ["2026-09-03", 0, 0, 0, 52.0, 0]]
+    ev, info = P.evaluate(pos, raw, {}, [], d, splits=[{"date": "2026-07-15", "ratio": 2.0}])
+    assert not ev and abs(info["perf"] - 4.0) < 0.01 and info["peak"] == 55.0, (ev, info)
+    ev0, _ = P.evaluate(pos, raw, {}, [], d)
+    assert "stop30" in {k for k, _ in ev0}, "sans la liste des divisions, l'ancienne erreur réapparaît"
+    # cours ajustés du catalogue : la série montre 50,5 le jour de l'achat (payé 100)
+    adj = [["2026-05-29", 0, 0, 0, 50.0, 0], ["2026-06-01", 0, 0, 0, 50.5, 0], ["2026-07-15", 0, 0, 0, 55.0, 0], ["2026-09-03", 0, 0, 0, 52.0, 0]]
+    ev, info = P.evaluate(pos, adj, {}, [], d, adjusted=True)
+    assert not ev and abs(info["perf"] - 2.97) < 0.1, (ev, info)
+    # regroupement par 10 (catalogue) : payé 2,00, cours ajusté du jour de l'achat 20,40
+    ev2, info2 = P.evaluate(dict(pos, price=2.0, target=50), [["2026-06-01", 0, 0, 0, 20.4, 0], ["2026-09-03", 0, 0, 0, 21.0, 0]], {}, [], d, adjusted=True)
+    assert not ev2 and info2["perf"] < 5, (ev2, info2)
+    # dividende (série ajustée de 3 %) ou achat en cours de séance : le prix payé reste la base ; une vraie baisse reste signalée
+    assert P.split_base(100.0, 97.0) == 100.0 and P.split_base(100.0, 112.0) == 100.0
+    assert P.split_base(100.0, None) == 100.0 and P.split_base(None, 50.0) is None
+    ev3, _ = P.evaluate(pos, [["2026-06-01", 0, 0, 0, 97.0, 0], ["2026-09-03", 0, 0, 0, 68.0, 0]], {}, [], d, adjusted=True)
+    assert "stop30" in {k for k, _ in ev3}, ev3
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

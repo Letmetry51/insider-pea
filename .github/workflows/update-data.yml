@@ -225,9 +225,18 @@ jobs:
         continue-on-error: true
         run: node euro_signal/check_outputs.mjs
 
-      - name: 5e. Contrôle de l'affichage (toutes les fiches ouvertes comme sur un téléphone)
-        id: s5e
-        timeout-minutes: 25
+      # Navigateur du contrôle d'affichage gardé d'un soir à l'autre (≈ 150 Mo) : plus de téléchargement chaque soir
+      - name: 5e-0. Navigateur du contrôle de l'affichage (cache)
+        id: s5ec
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.47.2-chromium-${{ runner.os }}
+        continue-on-error: true
+
+      - name: 5e-1. Installation du navigateur (Playwright 1.47.2, Chromium)
+        id: s5ei
+        timeout-minutes: 12
         continue-on-error: true
         run: |
           npm install --no-save --no-package-lock playwright@1.47.2 > /dev/null 2>&1
@@ -236,7 +245,12 @@ jobs:
           npx playwright install chromium > /dev/null 2>&1 || true
           node -e "require('playwright').chromium.launch().then((b) => b.close())" > /dev/null 2>&1 \
             || npx playwright install --with-deps chromium > /dev/null 2>&1
-          node euro_signal/ui_check.mjs
+
+      - name: 5e. Contrôle de l'affichage (toutes les fiches ouvertes comme sur un téléphone)
+        id: s5e
+        timeout-minutes: 15
+        continue-on-error: true
+        run: node euro_signal/ui_check.mjs
 
       # Envoi en échec (alerte retentée demain) : étape signalée par l'email de contrôle, sans arrêter la suite ; un mot de passe
       # Gmail révoqué (aucun email ne peut plus partir) est vu par la garde du matin (watchdog.yml, via data/diagnostics/mail.json)

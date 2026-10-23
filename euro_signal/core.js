@@ -2874,10 +2874,18 @@
       if (!L || !Array.isArray(L.items)) return;
       (L.items || []).forEach(function (x) {
         if (!(x.p0 > 0) || (pred && !pred(x))) return;
-        if (x.p6 > 0) add(A.m6, (x.p6 / x.p0 - 1) * 100, L.b6 > 0 && L.b0 > 0 ? (L.b6 / L.b0 - 1) * 100 : null);
-        if (x.p3 > 0) add(A.m3, (x.p3 / x.p0 - 1) * 100, L.b3 > 0 && L.b0 > 0 ? (L.b3 / L.b0 - 1) * 100 : null);
+        // q3, q6, q : cours d'entrée corrigé d'une division ou d'un regroupement d'actions (ES.splitBase), noté par le calcul du soir
+        var base = function (q) {
+          return q > 0 ? q : x.p0;
+        };
+        if (x.p6 > 0) add(A.m6, (x.p6 / base(x.q6) - 1) * 100, L.b6 > 0 && L.b0 > 0 ? (L.b6 / L.b0 - 1) * 100 : null);
+        if (x.p3 > 0) add(A.m3, (x.p3 / base(x.q3) - 1) * 100, L.b3 > 0 && L.b0 > 0 ? (L.b3 / L.b0 - 1) * 100 : null);
         if (!(x.p6 > 0) && lastOf && lastOf[x.key] > 0)
-          add(A.open, (lastOf[x.key] / x.p0 - 1) * 100, benchNow > 0 && L.b0 > 0 ? (benchNow / L.b0 - 1) * 100 : null);
+          add(
+            A.open,
+            (lastOf[x.key] / base(x.q) - 1) * 100,
+            benchNow > 0 && L.b0 > 0 ? (benchNow / L.b0 - 1) * 100 : null
+          );
       });
     });
     var fin = function (g) {
@@ -2892,6 +2900,19 @@
         : null;
     };
     return { since: log[ws[0]].date, weeks: ws.length, open: fin(A.open), m3: fin(A.m3), m6: fin(A.m6) };
+  };
+  /**
+   * Cours d'entrée du suivi réel corrigé d'une division ou d'un regroupement d'actions survenu depuis (23/10/2026). p0 : cours noté
+   * le jour de l'entrée ; adj : cours de ce jour-là dans la série ajustée du soir. Un écart de plus de 20 % ne peut venir que d'une
+   * opération sur le capital (un dividende n'ajuste que de quelques %) : le cours ajusté sert alors de base ; sinon le cours noté
+   * est gardé (rendement hors dividendes, comme l'indice). Sans cela, une division par 2 comptait −50 % et un regroupement par 10,
+   * +900 %. → base (nombre) ou null si p0 manque.
+   */
+  ES.splitBase = function (p0, adj) {
+    if (!(p0 > 0)) return null;
+    if (!(adj > 0)) return p0;
+    var f = adj / p0;
+    return f < 0.8 || f > 1.25 ? adj : p0;
   };
   /**
    * Auto-contrôle des règles sur les vraies sélections (18/10/2026) : pour chaque signal du 🎯, résultat des lignes avec et sans.
@@ -6654,17 +6675,21 @@
     };
   };
   /**
-   * Revue de la méthode : critères écrits à l'avance (rules.review), évalués sur les mesures du soir.
-   * → { items: [{ k, label, now, ok }], decision: { key, text }, date, fixedOn }
+   * Revue de la méthode (rules.review : 31/01/2027, critères fixés le 17/10/2026 avec le barème 3.0), sur le suivi réel du 🎯
+   * (rank.pickTrack, depuis le 18/10/2026) et les règles en réel (rank.signalTrack) : garder les règles si le 🎯 bat l'indice
+   * à 6 mois ; retirer une règle démentie (✗) ; sinon prolonger 6 mois sans rien changer (même texte que l'email de revue du
+   * calcul du soir). Sans recul à 6 mois, le résultat à 3 mois ou en cours est donné pour information.
+   * → { items: [{ k, label, now, ok, optional? }], decision: { key: 'keep' | 'extend', text }, date, fixedOn, horizon }
    */
   ES.reviewStatus = function (snap, cfg) {
-    var Rv = (cfg.rules && cfg.rules.review) || {},
-      res = (snap && snap.backtest && snap.backtest.results) || [],
-      sel = (snap && snap.selection) || {};
-    var o = ES.groupOutcome(res, 'Achat DG ou DAF', 120),
-      w = o.nEx2 ? ES.wilson(o.beat2, o.nEx2) : null,
-      K = sel.paper && sel.paper.core,
-      wc = sel.waitCost && sel.waitCost.dg;
+    var Rv = (cfg && cfg.rules && cfg.rules.review) || {},
+      R = (snap && snap.rank) || {},
+      PT = R.pickTrack || {},
+      VT = R.valueTrack || {},
+      minN = Rv.minCases || 50,
+      g6 = PT.m6 || null,
+      gi = g6 || PT.m3 || PT.open || null,
+      hz = g6 ? 'à 6 mois' : PT.m3 ? 'à 3 mois' : PT.open ? 'en cours' : null;
     var f1 = function (v) {
       return (
         (v >= 0 ? '+' : '−') +
@@ -6674,58 +6699,65 @@
         ' %'
       );
     };
+    var vs = function (g) {
+      return g && g.avg != null
+        ? f1(g.avg) + (g.bench != null ? ' contre ' + f1(g.bench) + " pour l'indice" : '')
+        : null;
+    };
+    var bad = (Array.isArray(R.signalTrack) ? R.signalTrack : []).filter(function (x) {
+      return x && x.ok === false;
+    });
+    var badTxt = bad
+      .map(function (x) {
+        return x.icon + ' ' + x.label;
+      })
+      .join(', ');
+    var beats6 = !!(g6 && g6.avg != null && g6.bench != null && g6.avg >= g6.bench);
     var items = [
       {
         k: 'cases',
-        label: 'Au moins ' + Rv.minCases + ' achats du DG ou du DAF mesurés à 6 mois',
-        now: o.n + ' mesurés',
-        ok: o.n >= Rv.minCases,
+        label: 'Au moins ' + minN + ' lignes 🎯 du suivi réel mesurées à 6 mois',
+        now: (g6 ? g6.n : 0) + ' mesurées' + (!g6 && PT.m3 ? ' (à 3 mois : ' + PT.m3.n + ')' : ''),
+        ok: !!(g6 && g6.n >= minN),
       },
       {
         k: 'edge',
-        label:
-          "Part des achats DG/DAF qui battent le STOXX 600 à 6 mois : marge d'erreur entièrement au-dessus de 50 %",
-        now: w ? Math.round(o.beat2) + ' % (fourchette ' + w[0] + ' – ' + w[1] + ' %)' : 'non mesurable',
-        ok: !!(w && w[0] > 50),
+        label: "Le 🎯 bat l'indice à 6 mois en réel",
+        now: gi ? vs(gi) + ' (' + hz + ', ' + gi.n + ' lignes)' : 'pas encore de recul',
+        ok: beats6,
       },
       {
-        k: 'paper',
-        label: "Portefeuille « indice + Euro Signal » au moins aussi bon que l'indice seul",
-        now: K && K.bench != null ? f1(K.ret) + ' contre ' + f1(K.bench) : 'non mesurable',
-        ok: !!(K && K.bench != null && K.ret >= K.bench),
+        k: 'rules',
+        label: 'Aucune règle démentie en réel (🔊, 📣, ⏸️ : 30 lignes de chaque côté à 6 mois)',
+        now: bad.length ? badTxt + ' ✗' : 'aucune règle démentie',
+        ok: !bad.length,
       },
       {
-        k: 'wait',
-        label:
-          'Attendre le lundi coûte plus de ' +
-          String(Rv.waitCostPct).replace('.', ',') +
-          " % en moyenne (écart net, t ≥ 2) : passer aux alertes au fil de l'eau",
-        now: wc
-          ? f1(wc.mean) +
-            ' en moyenne sur ' +
-            wc.n +
-            ' cas' +
-            (wc.t != null ? ' (t = ' + (Math.round(wc.t * 10) / 10).toString().replace('.', ',') + ')' : '')
-          : 'non mesurable',
-        ok: !!(wc && wc.mean > Rv.waitCostPct && wc.t != null && wc.t >= 2),
+        k: 'value',
+        label: "💎 Valeur : bat l'indice à 6 mois en réel (information)",
+        now: VT.m6 ? vs(VT.m6) + ' (' + VT.m6.n + ' lignes)' : 'pas encore de recul',
+        ok: !!(VT.m6 && VT.m6.avg != null && VT.m6.bench != null && VT.m6.avg >= VT.m6.bench),
         optional: true,
       },
     ];
-    var under = K && K.bench != null ? K.bench - K.ret : null,
-      decision;
-    if (items[0].ok && items[1].ok && items[2].ok)
-      decision = { key: 'keep', text: 'Garder la règle DG/DAF et envisager une part plus grande du portefeuille.' };
-    else if (items[0].ok && ((w && w[1] < 50) || (under != null && under > Rv.maxUnderperfPts)))
-      decision = {
-        key: 'drop',
-        text: "Abandonner la règle : rester sur l'indice seul, Euro Signal ne servant plus qu'à la veille.",
-      };
-    else
-      decision = {
-        key: 'extend',
-        text: "Pas encore de preuve dans un sens ou dans l'autre : prolonger l'observation de 6 mois, sans changer les règles.",
-      };
-    return { items: items, decision: decision, date: Rv.date || null, fixedOn: Rv.fixedOn || null };
+    var decision =
+      items[0].ok && beats6
+        ? {
+            key: 'keep',
+            text:
+              "Garder les règles : en réel, le 🎯 bat l'indice à 6 mois." +
+              (bad.length ? ' Retirer la règle démentie : ' + badTxt + '.' : ''),
+          }
+        : {
+            key: 'extend',
+            text:
+              (items[0].ok
+                ? "Le 🎯 ne bat pas l'indice à 6 mois : "
+                : 'Pas encore assez de recul (' + (g6 ? g6.n : 0) + ' lignes à 6 mois sur ' + minN + ') : ') +
+              'prolonger 6 mois sans changer les règles (changer sur trop peu de recul suivrait le hasard).' +
+              (bad.length ? ' Seule exception : retirer la règle démentie (' + badTxt + ').' : ''),
+          };
+    return { items: items, decision: decision, date: Rv.date || null, fixedOn: Rv.fixedOn || null, horizon: hz };
   };
   /** Intervalle de confiance à 95 % (Wilson) d'une proportion : pct = part observée (0-100), n = nombre de cas. → [bas, haut] en %. */
   ES.wilson = function (pct, n) {
