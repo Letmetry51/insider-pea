@@ -117,7 +117,12 @@ def engine_constants(core_src):
 # ---------- repères d'une société (cours journaliers sur un an, hebdomadaires sur 5 ans, volumes hebdomadaires) ----------
 def features(daily, weekly, wvol):
     D = [float(v) for v in (daily or []) if positive(v)]
-    W = [float(v) for v in (weekly or []) if positive(v)]
+    W = []  # semaine sans cours : dernière clôture connue reprise (cours et volumes alignés, 52 semaines = un an)
+    for v in weekly or []:
+        if positive(v):
+            W.append(float(v))
+        elif W:
+            W.append(W[-1])
     WV = [float(v) if positive(v) else None for v in (wvol or [])]
     # erreurs isolées de Yahoo : semaine ×2,5 puis retour (ou l'inverse) remplacée par la moyenne de ses voisines
     for z in range(1, len(W) - 1):

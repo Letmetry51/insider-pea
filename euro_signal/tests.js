@@ -3511,6 +3511,18 @@ t('Classement : repères de tendance (force relative 12-1, plus haut, MM50/MM200
   // cours journaliers absents : repères tirés des cours hebdomadaires
   const w = ES.rankFeatures([], wUp);
   ok(w.weeklyOnly && w.trend === 'up' && w.mom > 0);
+  // semaines sans cours : dernière clôture reprise, la force relative couvre toujours 52 semaines (et non 53 ou plus)
+  const holes = wUp.slice();
+  holes[200] = null;
+  holes[230] = null;
+  const fh = ES.rankFeatures([], holes),
+    filled = holes.slice();
+  filled[200] = filled[199];
+  filled[230] = filled[229];
+  ok(Math.abs(fh.mom - (filled[filled.length - 5] / filled[filled.length - 53] - 1)) < 1e-12, 'trou : ' + fh.mom);
+  eq(fh.weeks, holes.length);
+  const lead = [null, null, null].concat(wUp.slice(3));
+  eq(ES.rankFeatures([], lead).weeks, wUp.length - 3, 'semaines avant la cotation : ignorées');
 });
 t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélection', () => {
   const c3 = ES.mergeConfig(ES.DEFAULT_CONFIG, {});
@@ -4066,6 +4078,19 @@ t('Agenda des résultats : semaines du lundi au dimanche, publications récentes
   ok(S0.weeks[0].k === 1 && S0.thisWeek === 0, JSON.stringify(S0));
 });
 
+t('Deuxième passe du stress test (23/10/2026) : date du calcul après minuit, entrées nulles', () => {
+  // départ retardé par GitHub : un calcul fini après minuit reste daté de la séance de la veille (jusqu'à 6 h, heure de Paris)
+  eq(ES.parisDay(new Date('2026-10-23T21:59:00Z')), '2026-10-23', 'vendredi 23 h 59 (heure d’été)');
+  eq(ES.parisDay(new Date('2026-10-23T22:30:00Z')), '2026-10-23', 'samedi 0 h 30 : séance du vendredi');
+  eq(ES.parisDay(new Date('2026-10-24T04:00:00Z')), '2026-10-24', 'samedi 6 h');
+  eq(ES.parisDay(new Date('2026-10-27T04:59:00Z')), '2026-10-26', 'heure d’hiver : 5 h 59');
+  eq(ES.parisDay(new Date('2027-01-01T03:00:00Z')), '2026-12-31', 'nouvel an');
+  // listes avec des trous : jamais d'exception (les appelants filtrent déjà, défense en profondeur)
+  eq(ES.normalizeSeries(null).length, 0);
+  eq(ES.adjustedSeries(null, null).length, 0);
+  ok(ES.pickN([null], { n: 10 }).picks.length === 0 && ES.pickValue([null], { n: 2 }).picks.length === 0);
+  eq(ES.activeTx([null, { status: 'annulee' }, { status: 'ok' }]).length, 1);
+});
 t("Plan d'entrée et niveaux : cas limites trouvés par le stress test du 22/10/2026", () => {
   const days = (n) => {
     const o = [];

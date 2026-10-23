@@ -76,13 +76,7 @@ function writeJSON(file, obj, pretty, compact) {
   fs.renameSync(tmp, file); // écriture atomique : jamais de fichier à moitié écrit
 }
 function parisToday() {
-  if (process.env.ES_TODAY) return process.env.ES_TODAY;
-  return new Intl.DateTimeFormat('fr-CA', {
-    timeZone: 'Europe/Paris',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
+  return process.env.ES_TODAY || ES.parisDay(new Date()); // après minuit (départ retardé) : encore la séance de la veille
 }
 
 function mainRegistry(list) {

@@ -952,7 +952,7 @@
   ES.normalizeSeries = function (rows) {
     var seen = {},
       out = [];
-    rows.forEach(function (r) {
+    (rows || []).forEach(function (r) {
       if (!r || !r[0] || typeof r[4] !== 'number' || !isFinite(r[4]) || !(r[4] > 0)) return;
       for (var k = 1; k < 6; k++)
         if (r[k] != null && (typeof r[k] !== 'number' || !isFinite(r[k]))) {
@@ -1001,7 +1001,7 @@
     return out;
   };
   ES.adjustedSeries = function (rows, splits) {
-    return rows.map(function (r) {
+    return (rows || []).filter(Boolean).map(function (r) {
       var f = ES.splitFactor(splits, r[0]);
       return [
         r[0],
@@ -1566,7 +1566,7 @@
   };
   ES.activeTx = function (list) {
     return (list || []).filter(function (t) {
-      return t.status !== 'annulee' && t.status !== 'remplacee';
+      return t && t.status !== 'annulee' && t.status !== 'remplacee';
     });
   };
   /** Clé d'acheteur indépendant ; null si personne liée sans rattachement (non comptée). */
@@ -2115,6 +2115,27 @@
     return { kept: kept, small: small };
   };
   /** Numéro de semaine ISO (« 2026-W41 »). */
+  /** Jour du calcul du soir, à l'heure de Paris. Un calcul qui finit après minuit (départ retardé de 3 heures ou plus par GitHub)
+   *  reste daté de la séance de la veille jusqu'à 6 h, comme les cours de secours (scrapers/backup_prices.py) : avant le
+   *  23/10/2026, il était daté du lendemain (samedi pour un vendredi soir). */
+  ES.parisDay = function (now) {
+    var parts = new Intl.DateTimeFormat('fr-CA', {
+      timeZone: 'Europe/Paris',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now instanceof Date ? now : new Date());
+    var g = function (k) {
+      var x = parts.filter(function (p) {
+        return p.type === k;
+      })[0];
+      return x ? x.value : '';
+    };
+    var d = g('year') + '-' + g('month') + '-' + g('day');
+    return +g('hour') < 6 ? ES.addDays(d, -1) : d;
+  };
   ES.isoWeek = function (day) {
     var d = new Date(day + 'T12:00:00Z'),
       wd = (d.getUTCDay() + 6) % 7;
@@ -9134,9 +9155,14 @@
     var D = (daily || []).filter(function (v) {
         return v > 0;
       }),
-      W = (weekly || []).filter(function (v) {
-        return v > 0;
-      });
+      W = [];
+    // semaine sans cours (titre peu échangé, trou de Yahoo) : dernière clôture connue reprise, pour que 52 semaines restent un an et
+    // que cours et volumes restent alignés semaine par semaine (jusqu'au 23/10/2026, semaines supprimées : force relative sur plus
+    // de 12 mois, bond 📣 comparé au volume d'une autre semaine ; EPP.L +48,7 % au lieu de +22,3 %)
+    (weekly || []).forEach(function (v) {
+      if (v > 0) W.push(v);
+      else if (W.length) W.push(W[W.length - 1]);
+    });
     // réparation des erreurs isolées de Yahoo : une semaine aberrante (×2,5 puis retour) est remplacée par la moyenne de ses voisines,
     // et la dernière clôture hebdomadaire est alignée sur la dernière clôture journalière si elles divergent de plus de 15 %
     for (var z = 1; z < W.length - 1; z++) {
@@ -9370,7 +9396,7 @@
   ES.pickValue = function (rows, opt) {
     var o = Object.assign({ n: 10, perSec: 2, fMin: 7, liqMin: 1e6, momMin: -40 }, opt || {});
     var liq = (rows || []).filter(function (r) {
-      return (r.liq || 0) >= o.liqMin && r.pb > 0;
+      return r && (r.liq || 0) >= o.liqMin && r.pb > 0;
     });
     var pbs = liq
       .map(function (r) {
@@ -9509,6 +9535,7 @@
     // 📣 repêche la règle assouplie (pente moyenne ou +30 à +60 %) : 1997-2026, au-dessus de la moyenne 10 semaines,
     // assouplie avec 📣 +10,0 points à 6 mois contre +7,4 pour les règles strictes sans 📣, mieux dans chaque période (18/10/2026)
     (rows || []).forEach(function (r) {
+      if (!r) return; // ligne absente : ignorée (entrées nulles, stress test du 22/10/2026)
       var t = tierOf(r);
       if (t === 1 && bump(r) && !wait(r)) {
         t = 0;
@@ -9670,7 +9697,7 @@
     var pc = function (v) {
       return Math.round(v * 100);
     };
-    var rows = (items || []).map(function (x) {
+    var rows = (items || []).filter(Boolean).map(function (x) {
       var f = x.f || {},
         out = [],
         parts = {},
@@ -10052,7 +10079,7 @@
     // comptes lus exigés : une société dont on ne connaît ni la perte éventuelle ni le F-score n'est pas proposée
     // l'email du lundi suit les règles du bouton 🎯 (17-18/10/2026) : PEA seulement, comptes solides, pente forte ou moyenne,
     // hausse sur 12 mois de +30 à +200 %, volumes en hausse d'abord, 2 sociétés par secteur au plus ; note minimale gardée
-    var slim = (rows || []).map(function (r) {
+    var slim = (rows || []).filter(Boolean).map(function (r) {
       var eng = r.slopeCls !== undefined; // ligne du moteur (hausse en fraction, liquidité en €) ou ligne publiée (hausse en %)
       return {
         key: r.key,
