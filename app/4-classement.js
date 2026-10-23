@@ -1900,9 +1900,6 @@ function rankSelCard() {
           : '') +
         '.</p>';
   }
-  if (R.breadth && R.breadth.now && R.breadth.now.regime === 'high')
-    h +=
-      '<p class="note warn">😃 Marché euphorique : historiquement moins favorable ; mieux valait entrer en plusieurs fois.</p>';
   if (!sel.items.length && !V.length)
     return (
       h + '<p class="muted">Rien ne passe les règles cette semaine : mieux vaut attendre.</p>' + subs + '</details>'
@@ -2230,7 +2227,9 @@ function psyCard() {
     (mood && mood.label ? ' · volatilité : ' + esc(mood.icon || '') + ' ' + esc(mood.label) : '') +
     '.</p>' +
     svg +
-    '<p class="small"><b>Six mois plus tard</b>, une société moyenne a fait :</p><p class="psyg">' +
+    '<p class="small"><b>Six mois plus tard</b>, une société moyenne a fait (' +
+    esc(b.source || 'sociétés cotées') +
+    ') :</p><p class="psyg">' +
     [
       ['low', '😟 pessimiste'],
       ['mid', '😐 neutre'],
@@ -2241,10 +2240,9 @@ function psyCard() {
       })
       .join('') +
     '</p>' +
+    '<p class="small muted">Sur 26 ans (2000-2026, ≈\u00a01\u00a0000 sociétés) : 😟 +6,3\u00a0% · 😐 +6,9\u00a0% · 😃 +8,1\u00a0%.</p>' +
     xpi(
-      "Quand peu de sociétés sont en tendance haussière, la peur domine et les cours sont bas : historiquement, les six mois suivants ont été meilleurs que quand tout le monde est euphorique. C'est une information sur le moment d'investir (entrer franchement quand le marché est pessimiste, étaler ses achats quand il est euphorique), pas sur le choix des sociétés. Mesuré sur " +
-        esc(b.source || 'les sociétés cotées') +
-        " : peu de cycles complets, donc un ordre de grandeur, pas une certitude. Les recherches Google ne sont pas utilisées : Google bloque leur lecture automatique et, dans les études, elles annoncent surtout des emballements de courte durée suivis d'un retour en arrière."
+      "Sur 2013-2026, la peur a précédé de meilleurs six mois (+10,4\u00a0% après un marché pessimiste, +7,7\u00a0% après un marché euphorique) ; sur 2000-2012, l'inverse (+2,2\u00a0% contre +8,6\u00a0%), car les baisses de 2001-2003, 2008 et 2011 ont duré. Même une panique (plus de 20\u00a0% des sociétés au plus bas de l'année, comme le 4 avril 2025 ou le 20 mars 2026) n'a pas été un signal fiable : acheter pendant, +7,7\u00a0% en 6 mois, comme d'habitude (+7,1\u00a0%), avec souvent une baisse de plus (−7\u00a0% en médiane, jusqu'à −25\u00a0%) ; attendre la reprise, de +4 à +17\u00a0% selon le réglage (5 à 22 épisodes), jamais significatif. L'humeur du marché ne dit donc pas quand entrer : le 🎯 a gardé la même avance dans les trois cas (+6 points à 6 mois). Seule règle de marché retenue : l'alerte krach (marché −20\u00a0% sur un an). Les recherches Google ne sont pas utilisées : Google bloque leur lecture automatique et, dans les études, elles annoncent surtout des emballements de courte durée suivis d'un retour en arrière."
     ) +
     '</section>'
   );
@@ -2256,6 +2254,9 @@ function dashTiles(R, rows) {
     rg = N ? N.regime : null,
     C = R.counts || {};
   var crash = !!(N && N.m52 != null) && (R.crashOn != null ? !!R.crashOn : N.m52 <= ES.MOM_CRASH_M52);
+  // humeur du marché : une information, pas un conseil d'entrée (sur 2000-2026, ni la peur ni l'euphorie n'ont dit quand acheter ;
+  // seule l'alerte krach change la façon d'acheter, étude du 23/10/2026)
+  var upTxt = N ? fmtN(N.up, 0) + ' % des sociétés en hausse' : 'conditions normales';
   var mk = crash
     ? [
         '⚠️',
@@ -2264,10 +2265,10 @@ function dashTiles(R, rows) {
         'bad',
       ]
     : rg === 'high'
-      ? ['😃', 'Marché euphorique', 'étalez vos achats', 'warn']
+      ? ['😃', 'Marché euphorique', upTxt, 'good']
       : rg === 'low'
-        ? ['😟', 'Marché pessimiste', 'bon moment pour entrer', 'good']
-        : ['😐', 'Marché neutre', N ? fmtN(N.up, 0) + ' % des sociétés en hausse' : 'conditions normales', 'good'];
+        ? ['😟', 'Marché pessimiste', upTxt, 'good']
+        : ['😐', 'Marché neutre', upTxt, 'good'];
   var brkS = rows.filter(function (r) {
     return rkBrk(r) && rkSc(r) === 'strong';
   }).length;
