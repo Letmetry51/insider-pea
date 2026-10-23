@@ -107,6 +107,14 @@ def engine_constants(core_src):
         if k not in pick:
             raise ValueError(f"réglage {k} de ES.pickThree introuvable dans core.js")
     c["PICK"] = pick
+    m = re.search(r"ES\.pickValue = function \(rows, opt\) \{\s*var o = Object\.assign\(\{([^}]*)\}", core_src)
+    if not m:
+        raise ValueError("réglages par défaut de ES.pickValue introuvables dans core.js")
+    val = {k: float(v) for k, v in re.findall(r"(\w+)\s*:\s*(-?[0-9.e+]+)", m.group(1))}
+    for k in ("n", "perSec", "fMin", "liqMin", "momMin"):
+        if k not in val:
+            raise ValueError(f"réglage {k} de ES.pickValue introuvable dans core.js")
+    c["VALUE"] = val
     m = re.search(r"ES\.EEA = \[([^\]]*)\]", core_src)
     if not m:
         raise ValueError("liste ES.EEA introuvable dans core.js")
@@ -291,6 +299,7 @@ def rank_universe(items, rcfg, today):
             "mom": f.get("mom"), "ratio": f.get("ratio"), "trend": trend,
             "sc": slope_class(slope, trend), "slope6": jround((math.sqrt(1 + slope_r) - 1) * 100) if slope_r is not None else None,
             "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "brk": f.get("brk"),
+            "f9": x.get("f9"), "pb": x.get("pb"),
             "vola": jround(f["vol52"] * 100) if f.get("vol52") is not None else None,
             "ma10": jround((f["last"] / f["sma50"] - 1) * 1000) / 10 if (f.get("sma50") or 0) > 0 and (f.get("last") or 0) > 0
             else None,
@@ -365,6 +374,59 @@ def pick(rows, n, pea_only=False):
     return picks
 
 
+VALUE_BAD = ("liquidité", "moins d'un an", "cours figé", "saut de cours")
+
+
+def pick_value(rows, pea_only=False):
+    """💎 (ES.pickValue) : tiers le moins cher en P/B des sociétés liquides, F-score ≥ 7, ni perte ni détresse, pas de chute de plus
+    de 40 % sur un an, ni ⚡ ni 🐻 ; meilleur F-score puis P/B le plus bas, 2 par secteur. rows : lignes publiées, dans l'ordre."""
+    o = CONST["VALUE"]
+    liq = [r for r in rows if (r["liq"] or 0) >= o["liqMin"] and r["pb"] is not None and r["pb"] > 0]
+    pbs = sorted(r["pb"] for r in liq)
+    if len(pbs) < 30:
+        return []
+    cut = pbs[len(pbs) // 3]
+    pool = []
+    for r in liq:
+        if r["pb"] > cut or r["f9"] is None or r["f9"] < o["fMin"] or r["bad"]:
+            continue
+        if pea_only and r["pea"] is False:
+            continue
+        if r["mom"] is not None and r["mom"] < o["momMin"]:
+            continue
+        if r["dj"] is not None or (r["vo"] is not None and r["vo"] >= CONST["VOL_WILD"] * 100):
+            continue
+        if r["sh"] is not None and r["sh"] >= CONST["SHORT_MIN"] and r["shc"] in CONST["SHORT_EXCLUDE"]:
+            continue
+        pool.append(r)
+    pool.sort(key=lambda r: (-r["f9"], r["pb"]))  # tri stable, comme le moteur
+    picks, seen = [], {}
+    for r in pool:
+        sc = r["sec"] or "?"
+        if len(picks) >= int(o["n"]) or seen.get(sc, 0) >= int(o["perSec"]):
+            continue
+        seen[sc] = seen.get(sc, 0) + 1
+        picks.append(r)
+    return picks
+
+
+def value_rows(rows):
+    """Lignes publiées telles que les lit le 💎 (P/B arrondi au centime, hausse sur 12 mois en %, secteur anglais d'abord)."""
+    out = []
+    for r in rows:
+        pb = r["pb"]
+        out.append({
+            "key": r["key"], "isin": r["isin"], "sym": r["sym"],
+            "liq": jround(r["turnover"]) if r["turnover"] is not None else None,
+            "pb": to_fixed(pb, 2) if isinstance(pb, (int, float)) and math.isfinite(pb) else None, "f9": r["f9"],
+            "bad": any(t in VALUE_BAD or ACC_OUT.search(t) for t in r["out"]),
+            "pea": False if r["pea"] is False else None, "mom": to_fixed(r["mom"] * 100, 1) if r["mom"] is not None else None,
+            "dj": r["dayJump"], "vo": r["vola"], "sh": (r["short"] or {}).get("pct"), "shc": (r["short"] or {}).get("cc"),
+            "sec": r["secEn"] or r["sector"],
+        })
+    return out
+
+
 def selection_rows(rows):
     """Lignes du moteur telles que les lit la sélection du lundi (ES.rankSelection) : arrondies comme les lignes publiées, secteur seul."""
     return [{
@@ -437,6 +499,24 @@ def load_catalogue(data_dir):
     return co, w_dates, d_dates
 
 
+def pb_now(x, d_dates):
+    """P/B du catalogue relevé par Yahoo à la date pbAt, ramené au dernier cours (la valeur comptable ne bouge qu'avec les comptes) ;
+    même règle que pbNow du calcul du soir (rapport des cours borné entre 0,2 et 5)."""
+    if not x:
+        return None
+    pb, at, d = x.get("pb"), x.get("pbAt"), x.get("d")
+    if not (isinstance(pb, (int, float)) and pb > 0) or not at or not isinstance(d, list) or len(d) != len(d_dates):
+        return pb
+    k = len(d_dates) - 1
+    while k >= 0 and not (d_dates[k] <= at and positive(d[k])):
+        k -= 1
+    j = len(d) - 1
+    while j >= 0 and not positive(d[j]):
+        j -= 1
+    r = d[j] / d[k] if k >= 0 and j >= 0 else None
+    return pb * r if r and 0.2 < r < 5 else pb
+
+
 def build_items(main, co, d_dates, engine_rows, isin_tables=None):
     inst = main.get("inst") or {}
     isin_of_sym = {}
@@ -475,6 +555,9 @@ def build_items(main, co, d_dates, engine_rows, isin_tables=None):
             "acc": eng.get("acc"), "accOut": [t for t in eng.get("out") or [] if ACC_OUT.search(t)],
             "insiders": (eng.get("parts") or {}).get("insiders", 0),
             "short": {"pct": eng.get("sh"), "cc": eng.get("shc")} if eng.get("sh") is not None else None,
+            # 💎 : F-score repris du moteur (comptes) ; P/B du dossier Euro Signal s'il existe, sinon recalculé ici
+            "f9": eng.get("f9"),
+            "pb": ((i or {}).get("value") or {}).get("pb") if ((i or {}).get("value") or {}).get("pb") is not None else pb_now(x, d_dates),
         })
     return items
 
@@ -576,6 +659,8 @@ def run(data_dir):
     shown = [r for r in rows if (r["turnover"] or 0) >= rcfg["minTurnoverEur"] or r["isin"]]
     pea_only = ((main.get("cfg") or {}).get("selection") or {}).get("peaOnly") is not False
     p10 = [r["isin"] or r["sym"] for r, _ in pick(published_rows(shown), 10, pea_only=pea_only)]
+    v10 = [r["isin"] or r["sym"] for r in pick_value(value_rows(shown), pea_only=pea_only)]
+    eng_v10 = rank.get("value10")
     eng_sel = [x.get("key") for x in (rank.get("selection") or {}).get("items") or []]
     eng_p10 = rank.get("pick10") or []
     name = {r["key"]: r["name"] for r in rows}
@@ -594,6 +679,8 @@ def run(data_dir):
         "byLabel": by_label, "examples": examples,
         "selection": {"same": sel == eng_sel, "engine": [name.get(k, k) for k in eng_sel], "twin": [name.get(k, k) for k in sel]},
         "pick10": {"same": p10 == eng_p10, "engine": [name.get(k, k) for k in eng_p10], "twin": [name.get(k, k) for k in p10]},
+        "value10": None if eng_v10 is None else {"same": v10 == eng_v10, "engine": [name.get(k, k) for k in eng_v10],
+                                                 "twin": [name.get(k, k) for k in v10]},
         "gaps": gaps, "error": None, "seconds": round(time.time() - t0, 1),
     }
 
@@ -628,13 +715,19 @@ def main(argv):
     else:
         print(f"Double calcul : {rep['rows']} sociétés comparées ({rep['catalogue']} au catalogue), {rep['diffs']} écart(s)"
               + (f" {rep['byField']}" if rep["diffs"] else "") + f" ; sélection des 5 {'identique' if rep['selection']['same'] else 'DIFFÉRENTE'}"
-              f" ; 10 🎯 {'identiques' if rep['pick10']['same'] else 'DIFFÉRENTES'} ({rep['seconds']} s)")
+              f" ; 10 🎯 {'identiques' if rep['pick10']['same'] else 'DIFFÉRENTES'}"
+              + (f" ; 10 💎 {'identiques' if rep['value10']['same'] else 'DIFFÉRENTES'}" if rep.get("value10") else "")
+              + f" ({rep['seconds']} s)")
         for ex in rep["examples"][:10]:
             print(f"  · {ex['name']} : {ex['field']} moteur {ex['engine']} / double calcul {ex['twin']}")
         if not rep["selection"]["same"]:
             print("  sélection du moteur : " + ", ".join(rep["selection"]["engine"]))
             print("  sélection recalculée : " + ", ".join(rep["selection"]["twin"]))
-        if "--strict" in argv and (rep["diffs"] or not rep["selection"]["same"] or not rep["pick10"]["same"]):
+        if rep.get("value10") and not rep["value10"]["same"]:
+            print("  💎 du moteur : " + ", ".join(rep["value10"]["engine"]))
+            print("  💎 recalculés : " + ", ".join(rep["value10"]["twin"]))
+        if "--strict" in argv and (rep["diffs"] or not rep["selection"]["same"] or not rep["pick10"]["same"]
+                                   or (rep.get("value10") and not rep["value10"]["same"])):
             code = 2  # une modification du moteur doit être reportée dans le double calcul (et inversement)
     return code
 

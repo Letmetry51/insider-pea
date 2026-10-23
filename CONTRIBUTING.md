@@ -40,6 +40,8 @@ python scrapers/test_sectors.py && python scrapers/test_backup.py && python scra
 
 4. Pour voir la page avec les vraies données : `tools/donnees.sh` (données du dernier calcul), puis `python -m http.server`
    et http://localhost:8000/euro-signal.html. Pour l'affichage sur téléphone : `node euro_signal/ui_check.mjs` (Playwright).
+   Sécurité de la page, sur une copie des données : `python tools/poison.py data && node tools/inject_check.mjs` (textes et
+   liens des sources piégés ; aucun ne doit devenir du code ; contrôle refait sur chaque pull request).
 5. Ouvrez la pull request : pourquoi, ce qui change, ce que vous avez vérifié. Un sujet par pull request.
 
 ## À ne jamais envoyer
