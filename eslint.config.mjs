@@ -64,7 +64,7 @@ export default [
   },
   {
     // les fonctions passées à page.evaluate() s'exécutent dans le navigateur
-    files: ['euro_signal/ui_check.mjs'],
+    files: ['euro_signal/ui_check.mjs', 'tools/inject_check.mjs'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {

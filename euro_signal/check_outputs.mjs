@@ -438,6 +438,15 @@ else {
       : `double calcul : les 10 🎯 diffèrent (moteur : ${names(TW.pick10 && TW.pick10.engine)} ; recalcul à part : ${names(TW.pick10 && TW.pick10.twin)})`,
     true
   );
+  // 💎 refaits à part depuis le 23/10/2026 (P/B du soir recalculé, F-score repris des comptes du moteur)
+  if (TW.value10)
+    check(
+      TW.value10.same,
+      TW.value10.same
+        ? 'double calcul : mêmes 10 💎'
+        : `double calcul : les 10 💎 diffèrent (moteur : ${names(TW.value10.engine)} ; recalcul à part : ${names(TW.value10.twin)})`,
+      true
+    );
   const val = (v) =>
     v == null
       ? 'rien'

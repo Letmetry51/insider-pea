@@ -294,6 +294,32 @@ try:
           and any("saut de cours" in " ".join(r["out"]) for r in rows.values())
           and any(r.get("pea") is False for r in rows.values()), "cas limites du classement présents (cours figé, saut, hors PEA)")
 
+    # 3 bis. 💎 : même sélection que ES.pickValue sur des lignes publiées construites (P/B, F-score, PEA, ⚡, 🐻, chutes, secteurs)
+    rnd = random.Random(23)
+    vrows = []
+    for k in range(160):
+        vrows.append({
+            "key": "V%03d.PA" % k, "isin": None, "sym": "V%03d.PA" % k, "liq": rnd.choice([5e5, 2e6, 8e6, 3e7]),
+            "pb": rnd.choice([None, -1.2] + [round(rnd.uniform(0.3, 4), 2)] * 6), "f9": rnd.choice([None, 5, 6, 7, 7, 8, 8, 9]),
+            "out": rnd.choice([[]] * 6 + [["dernier exercice en perte (−3 M€)"], ["saut de cours anormal (×3)"], ["tiers le plus faible"]]),
+            "pea": rnd.choice([None] * 6 + [False]), "mom": rnd.choice([None, -55.0, -10.0, 12.5, 12.5, 80.0]),
+            "dj": rnd.choice([None] * 8 + [42.0]), "vo": rnd.choice([None, 35, 35, 35, 85]),
+            "sh": rnd.choice([None] * 6 + [0.7]), "shc": rnd.choice(["FR", "DE"]),
+            "secEn": rnd.choice(["Industrials", "Utilities", "Energy", None]), "sector": "Industrie",
+        })
+    js = subprocess.run(["node", "-e", "const ES=require(process.argv[1]);const r=JSON.parse(require('fs').readFileSync(0,'utf8'));"
+                         "process.stdout.write(JSON.stringify(ES.pickValue(r,{n:10,peaOnly:true}).picks.map((x)=>x.key)))",
+                         os.path.join(HERE, "core.js")], input=json.dumps(vrows), capture_output=True, text=True, check=True)
+    eng_v = json.loads(js.stdout)
+    bad = lambda r: any(t in tw.VALUE_BAD or tw.ACC_OUT.search(t) for t in tw.price_out(r["out"]) + r["out"])  # noqa: E731
+    twin_v = [r["key"] for r in tw.pick_value([dict(r, bad=bad(r), sec=r["secEn"] or r["sector"]) for r in vrows], pea_only=True)]
+    check(eng_v == twin_v and len(eng_v) >= 3, f"10 💎 : mêmes choix que le moteur ({eng_v} / {twin_v})")
+    # P/B du soir : relevé ramené au dernier cours, borné, sans relevé ou sans série : tel quel
+    dd = ["2026-10-0%d" % k for k in range(1, 6)]
+    check(abs(tw.pb_now({"pb": 1.0, "pbAt": "2026-10-02", "d": [10, 10, 11, 12, 15]}, dd) - 1.5) < 1e-9, "P/B ramené au dernier cours")
+    check(tw.pb_now({"pb": 1.0, "pbAt": "2026-10-02", "d": [10, 10, 11, 12, 60]}, dd) == 1.0, "rapport aberrant (×6) : P/B relevé gardé")
+    check(tw.pb_now({"pb": 2.0, "d": [1, 1, 1, 1, 1]}, dd) == 2.0 and tw.pb_now(None, dd) is None, "sans date de relevé : tel quel")
+
     # 4. un écart est trouvé
     bad_pl = copy.deepcopy(payload)
     r0 = next(r for r in bad_pl["rank"]["rows"] if r["mom"] is not None and not r["out"])
