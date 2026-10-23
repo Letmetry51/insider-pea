@@ -1169,7 +1169,7 @@ function logicCard() {
         '</p>'
       );
     })() +
-    '<p class="small lgw">⚠️ Si le marché perd 20 % en un an, la méthode souffre (−12,5 pts) : une alerte rouge s\'affiche en haut. 🇪🇺 Hors PEA (Suisse, Royaume-Uni, foncières) : compte-titres seulement.</p>';
+    '<p class="small lgw">⚠️ Si le marché perd 20 % en un an, la méthode souffre (−12,5 pts) : une alerte rouge s\'affiche en haut. 😱 Si plus de 20 % des sociétés touchent leur plus bas de l\'année (panique générale, comme le 4 avril 2025 et le 20 mars 2026), la tuile le signale : pas de vente de panique, les positions touchées par une baisse générale étant mieux reparties que celles touchées seules (2000-2026) ; la protection à −30 % reste la seule vente. 🇪🇺 Hors PEA (Suisse, Royaume-Uni, foncières) : compte-titres seulement.</p>';
   h +=
     '<details class="fsscale more" data-k="lg-tests"><summary>📊 Chiffres détaillés des tests</summary><p class="small">Écart de performance à 6 mois avec la société moyenne de la même semaine. Trois échantillons : 5 ans (≈ 760 sociétés liquides, 2021–2026), 8 ans (≈ 900 sociétés de plus de 500 M€, 2018–2026) et tout l\'historique disponible chez Yahoo (1 067 sociétés, 1997–2026, avec la bulle internet et le krach de 2008).</p>' +
     tbl(
