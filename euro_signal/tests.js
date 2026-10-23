@@ -4152,6 +4152,25 @@ t("Plan d'entrée et niveaux : cas limites trouvés par le stress test du 22/10/
   eq(JSON.stringify(a1.fscore), JSON.stringify(a2.fscore), 'null comme absent');
 });
 
+t('Thermomètre de panique : seuil selon la part habituelle, hystérésis, données manquantes', () => {
+  const hist = (vals) => vals.map((v, k) => ['2026-01-' + String(k + 1).padStart(2, '0'), 50, 20, v]);
+  // grandes sociétés : d'habitude 5 % → seuil 20 % (plancher), fin sous 10 %
+  const big = hist([3, 4, 5, 5, 6, 7, 26.7]);
+  eq(ES.panicState({ now: { lo: 26.7 }, hist: big }).on, true, '4/4/2025');
+  eq(ES.panicState({ now: { lo: 20.5 }, hist: big }).cut, 20, 'plancher de 20 %');
+  eq(ES.panicState({ now: { lo: 15 }, hist: big }).on, false, 'agité, pas une panique');
+  eq(ES.panicState({ now: { lo: 15 }, hist: big }, true).on, true, 'reste allumée au-dessus de 10 %');
+  eq(ES.panicState({ now: { lo: 9 }, hist: big }, true).on, false, "s'éteint sous 10 %");
+  // toutes les sociétés cotées : d'habitude 12 % → seuil 27 % (les petites touchent plus souvent leur plus bas)
+  const all = hist([10, 11, 12, 12, 13, 19.5, 31]);
+  const pa = ES.panicState({ now: { lo: 19.5 }, hist: all });
+  ok(pa.cut === 27 && pa.on === false, JSON.stringify(pa));
+  // données absentes ou invalides : jamais allumée, jamais d'exception
+  eq(ES.panicState(null).on, false);
+  eq(ES.panicState({ now: { lo: null }, hist: big }).on, false);
+  eq(ES.panicState({ now: { lo: 30 }, hist: [null, ['x', 1, 2, 'n.d.']] }).cut, 20, 'historique invalide : plancher');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

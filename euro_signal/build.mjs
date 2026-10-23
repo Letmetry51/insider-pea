@@ -3037,6 +3037,46 @@ export function build(opts = {}) {
     console.warn('  Alerte krach indisponible : ' + e.message);
   }
 
+  /* 6f bis. Panique générale (part des sociétés à leur plus bas de l'année, ES.panicState) : un email quand elle commence (au plus un
+     par mois), pour rappeler la conduite testée : pas de vente de panique, la protection −30 % reste la seule vente */
+  try {
+    const BR = rank && rank.breadth;
+    if (BR && BR.now) {
+      const was = !!state.panicOn,
+        PS = ES.panicState(BR, was);
+      if (PS.lo != null) {
+        const quiet = state.panicSent && ES.daysBetween(state.panicSent, today) < 30;
+        if (PS.on && !was && !state.crashOn && !quiet) {
+          const txt =
+            Math.round(PS.lo) +
+            ' % des sociétés européennes sont à leur plus bas de l’année (d’habitude ' +
+            Math.round(PS.usual != null ? PS.usual : 5) +
+            ' %) : la baisse touche tout le marché, comme le 4 avril 2025 et le 20 mars 2026. Conduite testée sur 2000-2026 : pas de vente de panique, les positions touchées par une baisse générale étant mieux reparties que celles touchées seules ; la protection à −30 % reste la seule vente. Acheter maintenant n’a pas fait mieux que d’habitude (la baisse a souvent continué, −8 % de plus en médiane) : continuer de suivre la sélection 🎯, qui a gardé son avance pendant les paniques.';
+          outbox.push({
+            id: 'panique-' + today,
+            kind: 'panique',
+            isin: null,
+            name: 'Marché',
+            subject: '[Euro Signal] 😱 Panique générale : pas de vente de panique',
+            text: txt + (dashUrl ? '\nTableau de bord : ' + dashUrl : ''),
+            html:
+              '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px"><h2 style="margin:0 0 8px">😱 Panique générale</h2><p>' +
+              ES.esc(txt) +
+              '</p></div>',
+            eventIds: ['panique:on:' + today],
+            score: null,
+            version: cfg.rank.version,
+          });
+          state.panicSent = today;
+        }
+        state.panicOn = PS.on;
+      }
+      if (rank) rank.panicOn = !!state.panicOn; // la page affiche la tuile selon le même état que les emails
+    }
+  } catch (e) {
+    console.warn('  Thermomètre de panique indisponible : ' + e.message);
+  }
+
   /* 6g. Auto-surveillance : la méthode n'est jamais modifiée seule ; si l'avantage mesuré se dégrade nettement, un email
      (au plus un par mois tant que la situation dure) demande une revue. Mesures : suivi réel du 🎯 (📒) et étude de contrôle du soir. */
   try {
@@ -3235,6 +3275,7 @@ export function build(opts = {}) {
             ? '⚠️ ' + (W.reasons || []).join(' ; ')
             : '✅ Avantage intact (' + (W.checked ? ES.frDate(W.checked) : 'ce soir') + ').',
           state.crashOn ? '⚠️ Alerte krach du momentum en cours : acheter par petites touches.' : "Pas d'alerte krach.",
+          ...(state.panicOn ? ['😱 Panique générale en cours : pas de vente de panique.'] : []),
           '## 💡 Pistes en test automatique',
           RT
             ? RT.ready

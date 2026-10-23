@@ -9446,6 +9446,40 @@
   ES.MOM_CRASH_OFF = -15;
   ES.RANK_JUMP_DOWN = 0.35; // alerte krach : allumée à −20 %, éteinte au-dessus de −15 % (pas de va-et-vient)
   /**
+   * Thermomètre de panique : part des sociétés à leur plus bas de l'année (ES.marketBreadth). Panique générale à 20 % au moins et
+   * 15 points au-dessus de la part habituelle (médiane de l'historique, qui dépend de l'univers : 5 % pour les sociétés de plus de
+   * 500 M€, 12 % pour toutes les sociétés cotées) ; fin 10 points sous le seuil (pas de va-et-vient). 4/4/2025 : 27 %, 20/3/2026 : 21 %.
+   * Sur 2000-2026, acheter pendant une panique n'a pas fait mieux que d'habitude, mais les positions touchées par une panique
+   * générale sont mieux reparties que celles touchées seules : pas de vente de panique (étude du 23/10/2026, _panique3.py à 5).
+   * breadth : { now: { lo }, hist: [[date, up, hi, lo], …] } ; wasOn : état de la veille.
+   */
+  ES.PANIC_LO = 20;
+  ES.PANIC_GAP = 15;
+  ES.PANIC_OFF_GAP = 10;
+  ES.panicState = function (breadth, wasOn) {
+    var b = breadth || {},
+      N = b.now;
+    var v = (Array.isArray(b.hist) ? b.hist : [])
+      .map(function (r) {
+        return Array.isArray(r) ? r[3] : null;
+      })
+      .filter(function (x) {
+        return typeof x === 'number' && isFinite(x);
+      })
+      .sort(function (a, c) {
+        return a - c;
+      });
+    var usual = v.length ? v[Math.floor(v.length / 2)] : null,
+      cut = Math.max(ES.PANIC_LO, usual != null ? usual + ES.PANIC_GAP : ES.PANIC_LO),
+      lo = N && typeof N.lo === 'number' && isFinite(N.lo) ? N.lo : null;
+    return {
+      lo: lo,
+      usual: usual,
+      cut: cut,
+      on: lo != null && (wasOn ? lo > cut - ES.PANIC_OFF_GAP : lo >= cut),
+    };
+  };
+  /**
    * « Les 3 des règles testées » (17/10/2026), sur les lignes publiées du classement (mom en %, liq en €) :
    * classée, comptes solides, pente forte, hausse sur 12 mois de +60 à +200 % (zone qui a le mieux continué sur 5 et 8 ans),
    * au moins 3 M€ échangés par jour ; priorité aux volumes en hausse (10 semaines ≥ 1,5 fois la moyenne de l'année), puis

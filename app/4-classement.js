@@ -2134,6 +2134,12 @@ function brkNote() {
   );
 }
 var SLOPE_TXT = { strong: ['⬆⬆', 'forte', 'good'], mid: ['⬆', 'moyenne', 'warn'], light: ['↗', 'légère', 'neutral'] };
+/** Panique générale (ES.panicState) selon le même état que les emails (calcul du soir, avec hystérésis), sinon recalculée ici. */
+function panicOf(R) {
+  var P = ES.panicState(R && R.breadth, R && R.panicOn);
+  if (R && R.panicOn != null) P.on = !!R.panicOn && P.lo != null;
+  return P;
+}
 /** Psychologie du marché : part des sociétés en tendance haussière (ampleur), plus hauts et plus bas de l'année, volatilité, et ce qui a suivi dans le passé. */
 function psyCard() {
   var R = rankData(),
@@ -2141,7 +2147,8 @@ function psyCard() {
   if (!b || !b.now) return '';
   var N = b.now,
     G = b.regimes || {},
-    mood = S.snapshot && S.snapshot.market && S.snapshot.market.mood;
+    mood = S.snapshot && S.snapshot.market && S.snapshot.market.mood,
+    PS = panicOf(R);
   var L = {
     low: ['😟', 'Marché pessimiste', 'peu de sociétés en tendance haussière'],
     mid: ['😐', 'Marché neutre', 'ni peur ni euphorie'],
@@ -2224,8 +2231,14 @@ function psyCard() {
     " %</b> des sociétés · plus bas de l'année : <b>" +
     fmtN(N.lo, 0) +
     ' %</b>' +
+    (PS.usual != null
+      ? ' (d’habitude ' + fmtN(PS.usual, 0) + ' % ; panique générale au-delà de ' + fmtN(PS.cut, 0) + ' %)'
+      : '') +
     (mood && mood.label ? ' · volatilité : ' + esc(mood.icon || '') + ' ' + esc(mood.label) : '') +
     '.</p>' +
+    (PS.on && !(R.crashOn != null ? R.crashOn : N.m52 != null && N.m52 <= ES.MOM_CRASH_M52)
+      ? '<p class="note warn small">😱 <b>Panique générale</b> : la baisse touche tout le marché. Pas de vente de panique : sur 2000-2026, les positions touchées par une panique générale sont mieux reparties que celles touchées seules ; la protection à −30 % reste la seule vente. Acheter à ce moment n’a pas fait mieux que d’habitude : suivre les règles.</p>'
+      : '') +
     svg +
     '<p class="small"><b>Six mois plus tard</b>, une société moyenne a fait (' +
     esc(b.source || 'sociétés cotées') +
@@ -2242,7 +2255,7 @@ function psyCard() {
     '</p>' +
     '<p class="small muted">Sur 26 ans (2000-2026, ≈\u00a01\u00a0000 sociétés) : 😟 +6,3\u00a0% · 😐 +6,9\u00a0% · 😃 +8,1\u00a0%.</p>' +
     xpi(
-      "Sur 2013-2026, la peur a précédé de meilleurs six mois (+10,4\u00a0% après un marché pessimiste, +7,7\u00a0% après un marché euphorique) ; sur 2000-2012, l'inverse (+2,2\u00a0% contre +8,6\u00a0%), car les baisses de 2001-2003, 2008 et 2011 ont duré. Même une panique (plus de 20\u00a0% des sociétés au plus bas de l'année, comme le 4 avril 2025 ou le 20 mars 2026) n'a pas été un signal fiable : acheter pendant, +7,7\u00a0% en 6 mois, comme d'habitude (+7,1\u00a0%), avec souvent une baisse de plus (−7\u00a0% en médiane, jusqu'à −25\u00a0%) ; attendre la reprise, de +4 à +17\u00a0% selon le réglage (5 à 22 épisodes), jamais significatif. L'humeur du marché ne dit donc pas quand entrer : le 🎯 a gardé la même avance dans les trois cas (+6 points à 6 mois). Seule règle de marché retenue : l'alerte krach (marché −20\u00a0% sur un an). Les recherches Google ne sont pas utilisées : Google bloque leur lecture automatique et, dans les études, elles annoncent surtout des emballements de courte durée suivis d'un retour en arrière."
+      "Humeur (part des sociétés en hausse) : sur 2013-2026, la peur a précédé de meilleurs six mois (+10,4\u00a0% contre +7,7\u00a0% après l'euphorie) ; sur 2000-2012, l'inverse (+2,2\u00a0% contre +8,6\u00a0%), car les baisses de 2001-2003, 2008 et 2011 ont duré. Elle ne dit donc pas quand entrer : le 🎯 a gardé la même avance dans les trois cas (+6 points à 6 mois). Plus bas de l'année, le thermomètre de panique : au-delà de 20\u00a0% des sociétés (4 avril 2025, 20 mars 2026), la baisse est générale. Acheter à ce moment n'a pas fait mieux (+7,7\u00a0% en 6 mois, comme d'habitude) et la baisse a souvent continué (−8\u00a0% de plus en médiane, −30\u00a0% une fois sur 10). Vendre n'a pas aidé non plus : les positions touchées par une panique générale sont mieux reparties que celles touchées seules (+4 à +11 points à 6 mois face au marché selon la période, contre −5 à +3). À l'inverse, une société seule à son plus bas, marché calme, a fait −3,3 points à 6 mois : là, c'est un vrai signal d'alerte. Seule règle de marché retenue : l'alerte krach (marché −20\u00a0% sur un an). Les recherches Google ne sont pas utilisées : Google bloque leur lecture automatique et, dans les études, elles annoncent surtout des emballements de courte durée suivis d'un retour en arrière."
     ) +
     '</section>'
   );
@@ -2254,9 +2267,11 @@ function dashTiles(R, rows) {
     rg = N ? N.regime : null,
     C = R.counts || {};
   var crash = !!(N && N.m52 != null) && (R.crashOn != null ? !!R.crashOn : N.m52 <= ES.MOM_CRASH_M52);
-  // humeur du marché : une information, pas un conseil d'entrée (sur 2000-2026, ni la peur ni l'euphorie n'ont dit quand acheter ;
-  // seule l'alerte krach change la façon d'acheter, étude du 23/10/2026)
-  var upTxt = N ? fmtN(N.up, 0) + ' % des sociétés en hausse' : 'conditions normales';
+  // humeur du marché : une information, pas un conseil d'entrée (sur 2000-2026, ni la peur ni l'euphorie n'ont dit quand acheter) ;
+  // panique générale : positions touchées mieux reparties que celles touchées seules, d'où « pas de vente de panique » ; seule
+  // l'alerte krach change la façon d'acheter (études du 23/10/2026)
+  var panic = !crash && panicOf(R).on;
+  var upTxt = (N ? fmtN(N.up, 0) + ' % des sociétés en hausse : ' : '') + 'rien à changer';
   var mk = crash
     ? [
         '⚠️',
@@ -2264,11 +2279,13 @@ function dashTiles(R, rows) {
         fmtN(N.m52, 0) + ' % en un an : historiquement, mieux valait entrer par petites touches',
         'bad',
       ]
-    : rg === 'high'
-      ? ['😃', 'Marché euphorique', upTxt, 'good']
-      : rg === 'low'
-        ? ['😟', 'Marché pessimiste', upTxt, 'good']
-        : ['😐', 'Marché neutre', upTxt, 'good'];
+    : panic
+      ? ['😱', 'Panique générale', fmtN(N.lo, 0) + ' % des sociétés au plus bas : pas de vente de panique', 'warn']
+      : rg === 'high'
+        ? ['😃', 'Marché euphorique', upTxt, 'good']
+        : rg === 'low'
+          ? ['😟', 'Marché pessimiste', upTxt, 'good']
+          : ['😐', 'Marché neutre', upTxt, 'good'];
   var brkS = rows.filter(function (r) {
     return rkBrk(r) && rkSc(r) === 'strong';
   }).length;
