@@ -259,11 +259,24 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80, status: dict | 
             print("  Dernière page atteinte")
             status["complete"] = True
             break
+        # Fenêtre couverte : le site classe par date de publication (le filtre sur la date d'opération est ignoré : le 23/10/2026,
+        # 300 pages remontaient à un an de publications). Une page entièrement publiée avant la fenêtre (marge de 14 jours) : fin.
+        pubs = [t.get("date_published") for t in page_txs if t.get("date_published")]
+        if pubs and max(pubs) < (cutoff_date - timedelta(days=14)).strftime("%Y-%m-%d"):
+            print(f"  Fenêtre de {days_back} jours couverte (publications du {min(pubs)} au {max(pubs)} sur cette page) : arrêt")
+            status["complete"] = True
+            break
         
         # Petit délai pour ne pas surcharger le serveur
         time.sleep(0.3)
     else:
-        status["error"] = f"limite de {max_pages} pages atteinte"
+        # limite de pages : complète si les publications lues remontent avant le début de la fenêtre
+        pubs = [t.get("date_published") for t in all_transactions if t.get("date_published")]
+        if pubs and min(pubs) <= cutoff_date.strftime("%Y-%m-%d"):
+            status["complete"] = True
+        else:
+            status["error"] = f"limite de {max_pages} pages atteinte"
+    status["oldestPublished"] = min((t.get("date_published") for t in all_transactions if t.get("date_published")), default=None)
     
     # Dédupliquer par numéro de déclaration
     seen = set()

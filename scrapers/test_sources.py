@@ -189,6 +189,36 @@ def _():
     assert gap and len(links) == 50
 
 
+
+def scrape(pages, dates_of, max_pages, days_back=180):
+    """scrape_all_recent sur un site simulé : `pages` pages, publications de la page p données par dates_of(p)."""
+    st = {}
+    saved = (AMF.requests.get, AMF._extract_transactions_from_soup, AMF.time.sleep)
+    try:
+        AMF.requests.get = lambda url, params=None, headers=None, timeout=None: FakeResp(
+            f"<p>page {params['f_page']} </p>" + ("<p>Page suivante</p>" if params["f_page"] < pages else ""))
+        AMF._extract_transactions_from_soup = lambda soup: [
+            dict(tx(f"P{soup.get_text().split()[1]}-{k}", d), date_published=d)
+            for k, d in enumerate(dates_of(int(soup.get_text().split()[1])))]
+        AMF.time.sleep = lambda s: None
+        AMF.scrape_all_recent(days_back=days_back, max_pages=max_pages, status=st)
+    finally:
+        AMF.requests.get, AMF._extract_transactions_from_soup, AMF.time.sleep = saved
+    return st
+
+
+@case("AMF : liste classée par publication, fenêtre de 180 jours couverte → arrêt, collecte complète (23/10/2026 : 300 pages lues)")
+def _():
+    ago = lambda n: (date.today() - timedelta(days=n)).isoformat()  # noqa: E731
+    st = scrape(300, lambda p: [ago(20 * p), ago(20 * p + 5)], max_pages=300)
+    assert st["complete"] is True and st["error"] is None and st["pages"] == 10, st  # page 10 : publications de 200 jours
+    # limite de pages atteinte, mais les publications lues remontent avant la fenêtre : complète
+    st = scrape(300, lambda p: [ago(p), ago(185 + p)], max_pages=5)
+    assert st["complete"] is True and st["error"] is None and st["oldestPublished"] == ago(190), st
+    # limite atteinte sans couvrir la fenêtre : partielle, comme avant
+    st = scrape(300, lambda p: [ago(p)], max_pages=5)
+    assert st["complete"] is False and "limite de 5 pages" in st["error"], st
+
 if __name__ == "__main__":
     for r in results:
         print(*r)
