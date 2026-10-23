@@ -71,5 +71,25 @@ def _():
     assert fr["Close"].empty and yahoo.STATS["t3"]["missing"] == 1
 
 
+@case("Compteurs : parties des 20 dernières heures gardées (historique du matin, passage de minuit), anciennes effacées")
+def _():
+    import json, tempfile
+    from datetime import datetime, timezone
+    keep = yahoo.DIAG
+    try:
+        yahoo.DIAG = Path(tempfile.mkdtemp()) / "yahoo.json"
+        yahoo.DIAG.write_text(json.dumps({"date": "2026-10-22", "at": "2026-10-22T21:40:00+00:00", "sections": {
+            "journalier": {"requested": 3829, "received": 3829, "at": "2026-10-22T21:10:00+00:00"},
+            "ancien": {"requested": 5, "received": 5, "at": "2026-10-21T21:10:00+00:00"},
+            "sans heure": {"requested": 7, "received": 7}}}))
+        yahoo.STATS.clear(); yahoo._stat("hebdomadaire", requested=1077, received=1077)
+        yahoo.write_diag(now=datetime(2026, 10, 23, 8, 8, tzinfo=timezone.utc))
+        d = json.loads(yahoo.DIAG.read_text())
+        assert set(d["sections"]) == {"journalier", "sans heure", "hebdomadaire"}, d["sections"].keys()
+        assert d["date"] == "2026-10-23" and d["sections"]["hebdomadaire"]["at"].startswith("2026-10-23T08:08")
+    finally:
+        yahoo.DIAG = keep; yahoo.STATS.clear()
+
+
 print(f"\n{ok} réussis, {fail} échoués")
 sys.exit(1 if fail else 0)

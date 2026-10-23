@@ -171,8 +171,9 @@ def carried(section, n):
     _stat(section, carried=n)
 
 
-def write_diag():
-    """Compteurs de la nuit, fusionnés avec ceux des autres scripts du même soir."""
+def write_diag(now=None):
+    """Compteurs de ce script, fusionnés avec ceux des autres scripts des 20 dernières heures (calcul du soir et historique du
+    matin) : chaque partie garde son heure ; un passage de minuit pendant le calcul ne perd plus les compteurs du début."""
     try:
         import yfinance as yf
         ver = getattr(yf, "__version__", "?")
@@ -182,9 +183,18 @@ def write_diag():
         old = json.loads(DIAG.read_text()) if DIAG.exists() else {}
     except Exception:
         old = {}
-    today = datetime.now(timezone.utc).date().isoformat()
-    sections = old.get("sections", {}) if old.get("date") == today else {}
-    sections.update(STATS)
+    now = now or datetime.now(timezone.utc)
+    sections = {}
+    for k, v in (old.get("sections") or {}).items():
+        try:
+            at = datetime.fromisoformat(str((v or {}).get("at") or old.get("at")))
+            fresh = (now - at).total_seconds() < 20 * 3600
+        except Exception:
+            fresh = False
+        if fresh and isinstance(v, dict):
+            sections[k] = v
+    for k, v in STATS.items():
+        sections[k] = dict(v, at=now.isoformat())
     DIAG.parent.mkdir(parents=True, exist_ok=True)
-    DIAG.write_text(json.dumps({"date": today, "at": datetime.now(timezone.utc).isoformat(), "yfinance": ver, "sections": sections},
+    DIAG.write_text(json.dumps({"date": now.date().isoformat(), "at": now.isoformat(), "yfinance": ver, "sections": sections},
                                ensure_ascii=False, indent=1))
