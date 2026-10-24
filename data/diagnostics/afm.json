@@ -1,0 +1,41 @@
+{
+ "status": 200,
+ "contentType": null,
+ "bytes": 674910,
+ "encoding": "cp1252",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-21 00:00:00\";\"Add Value Fund N.V.\";\"Westerling J.F.\";\"Westerling\"\r\n\"2026-10-20 00:00:00\";\"Coca-Cola Europacific Partners plc\";\"Callol A.\";\"Callol\"\r\n\"2026-10-20 00:00:00\";\"DSM-Firmenich AG\";\"Ridinger R.\";\"Ridinger\"\r\n\"2026-10-20 00:00:00\";\"Coca-Cola Europacific Partners plc\";\"Rueda Gamboa, de J.\";\"Rueda Gamboa\"\r\n\"2026-10-20 00:00:00\";\"DSM-Firmenich AG\";\"Leysen T.\";\"Leysen\"\r\n\"2026-10-20 00:00:00\";\"Coca-Cola Europacific Partners plc\";\"Echeverría J.A.\";\"Echeverría\"\r\n\"2026-10-19 00:00:00\";\"Coca-Cola Europacific Partners ",
+ "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
+ "delimiter": ";",
+ "headers": [
+  "Transaction",
+  "Issuing institution",
+  "Notifiable",
+  "NotifiableLastName"
+ ],
+ "sampleRows": [
+  [
+   "2026-10-21 00:00:00",
+   "Add Value Fund N.V.",
+   "Westerling J.F.",
+   "Westerling"
+  ],
+  [
+   "2026-10-20 00:00:00",
+   "Coca-Cola Europacific Partners plc",
+   "Callol A.",
+   "Callol"
+  ],
+  [
+   "2026-10-20 00:00:00",
+   "DSM-Firmenich AG",
+   "Ridinger R.",
+   "Ridinger"
+  ]
+ ],
+ "rowCount": 9576,
+ "columnMap": {
+  "issuer": "Issuing institution"
+ },
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>20261021221A5371-2BE7-4BAA-9AE1-4B0CEB4173BD</meldingid><transactiedatum>10/21/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Add Value Fund N.V.</uitgevendeinstelling><meldingsplichtige>Westerling J.F.</meldingsplichtige><meldingsplichtigeachternaam>Westerling</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Mede-beleidsbepaler Add Value Fund Management B.V.</functie><lei>7245007PXO9QM2DDES73</lei><vermelding>Add Value Fund N.V. - Westerling J.F. - </vermelding></vermelding><vermelding><meldingid>20261020238287B2-2FB4-4D07-9593-91FE15A06584</meldingid><transactiedatum>10/20/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Coca-Cola Europacific Partners plc</uitgevendeinstelling><meldingsplichtige>Callol A.</meldingsplichtige><meldingsplichtigeachternaam>Callol</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>General Manager, Iberian Business Unit</functie><lei>549300LTH67W4GWMRF57</lei><vermelding>Coca-Cola Europacific Partners plc - Callol A. - </vermelding></vermelding><vermelding><meldingid>202610202DBCD017-9A7E-4DC4-A2D6-CEFF9FADB7D9</meldingid><transactiedatum>10/20/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>DSM-Firmenich AG</uitgevendeinstelling><meldingsplichtige>Ridinger R.</meldingsplichtige><meldingsplichtigeachternaam>Ridinger</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>member  Board of Directors</functie><lei>506700G44V67MPM4BI12</lei><vermelding>DSM-Firmenich AG - Ridinger R. - </vermelding></vermelding><vermelding><meldingid>202610206447A3BC-9A78-484A-9D93-2209CB459584</meldingid><transactiedatum>10/20/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Coca-Cola Europacific Partners plc</uitgevendeinstelling><meldingsplichtige>Rueda Gamboa, de J.</meldingsplichtige><meldingsplichtigeachternaam>Rueda Gamboa</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Public Affairs, Communications and Sustainability Officer</functie><lei>549300LTH67W4GWMRF57</lei><vermelding>Coca-Cola Europacific Partners plc - Rueda Gamboa, de J. - </vermelding></vermelding><vermelding><meldingid>2026102095997BD4-07A1-429F-B1C7-AE1B0E88C05C</meldingid><transactiedatum>10/20/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>DSM-Firmenich AG</uitgevendeinstelling><meldingsplichtige>Leysen T.</meldingsplichtige><meldingsplichtigeachternaam>Leysen</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>chairman Board of Directors</functie><lei>506700G44V67MPM4BI12</lei><vermelding>DSM-Firmenich AG - Leysen T. - </vermelding></vermelding><vermelding><meldingid>20261020BDA4613C-1FD8-4B58-8CD8-2F757C4F347B</meldingid><transactiedatum>10/20/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Coca-Cola Europacific Partners plc</uitgevendeinstelling><meldingsplichtige>Echeverría J.A.</meldingsplichtige><meldingsplichtigeachternaam>",
+ "at": "2026-10-23T20:41:35.472923+00:00"
+}

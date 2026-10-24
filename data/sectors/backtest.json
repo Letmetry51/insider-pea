@@ -1,0 +1,987 @@
+{
+ "periods": 90,
+ "from": "2019-11-22",
+ "to": "2026-09-18",
+ "stepWeeks": 4,
+ "topGroups": 3,
+ "cost": 0.003,
+ "perf": {
+  "top": {
+   "cagr": 0.111106,
+   "vol": 0.222431,
+   "sharpe": 0.58719,
+   "maxdd": -0.288518,
+   "n": 90
+  },
+  "universeEW": {
+   "cagr": 0.139611,
+   "vol": 0.195211,
+   "sharpe": 0.776826,
+   "maxdd": -0.293201,
+   "n": 90
+  },
+  "stoxx": {
+   "cagr": 0.069857,
+   "vol": 0.181468,
+   "sharpe": 0.472614,
+   "maxdd": -0.305119,
+   "n": 90
+  },
+  "leaders": {
+   "cagr": 0.042277,
+   "vol": 0.247877,
+   "sharpe": 0.295914,
+   "maxdd": -0.505218,
+   "n": 90
+  },
+  "challengers": {
+   "cagr": 0.071685,
+   "vol": 0.268583,
+   "sharpe": 0.395086,
+   "maxdd": -0.416849,
+   "n": 90
+  }
+ },
+ "vsUniverse": {
+  "top": {
+   "meanPerPeriod": -0.001618,
+   "t": -0.33962,
+   "beatPct": 0.444444,
+   "n": 90
+  },
+  "leaders": {
+   "meanPerPeriod": -0.006023,
+   "t": -1.118855,
+   "beatPct": 0.411111,
+   "n": 90
+  },
+  "challengers": {
+   "meanPerPeriod": -0.003502,
+   "t": -0.569922,
+   "beatPct": 0.444444,
+   "n": 90
+  }
+ },
+ "vsStoxx": {
+  "top": {
+   "meanPerPeriod": 0.00345,
+   "t": 0.678085,
+   "beatPct": 0.544444,
+   "n": 90
+  },
+  "leaders": {
+   "meanPerPeriod": -0.000955,
+   "t": -0.182781,
+   "beatPct": 0.444444,
+   "n": 90
+  },
+  "challengers": {
+   "meanPerPeriod": 0.001565,
+   "t": 0.244889,
+   "beatPct": 0.5,
+   "n": 90
+  },
+  "universeEW": {
+   "meanPerPeriod": 0.005068,
+   "t": 2.631619,
+   "beatPct": 0.622222,
+   "n": 90
+  }
+ },
+ "challengerVsLeader": {
+  "meanPerPeriod": 0.00252,
+  "t": 0.425696,
+  "beatPct": 0.533333,
+  "n": 90
+ },
+ "halves": {
+  "top": [
+   {
+    "meanPerPeriod": -3e-05,
+    "t": -0.003977,
+    "beatPct": 0.413043,
+    "n": 46
+   },
+   {
+    "meanPerPeriod": -0.00329,
+    "t": -0.591398,
+    "beatPct": 0.466667,
+    "n": 45
+   }
+  ],
+  "leaders": [
+   {
+    "meanPerPeriod": -0.003648,
+    "t": -0.510577,
+    "beatPct": 0.391304,
+    "n": 46
+   },
+   {
+    "meanPerPeriod": -0.008034,
+    "t": -1.005818,
+    "beatPct": 0.444444,
+    "n": 45
+   }
+  ],
+  "challengers": [
+   {
+    "meanPerPeriod": -0.003165,
+    "t": -0.406602,
+    "beatPct": 0.456522,
+    "n": 46
+   },
+   {
+    "meanPerPeriod": -0.004252,
+    "t": -0.449256,
+    "beatPct": 0.422222,
+    "n": 45
+   }
+  ]
+ },
+ "halvesSplit": "2023-05-05",
+ "stress": {
+  "trials": 26,
+  "grid": [
+   {
+    "signal": "composite",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.111106,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.021036,
+    "t": -0.33962,
+    "beatPct": 0.444444,
+    "maxdd": -0.288518
+   },
+   {
+    "signal": "composite",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.140118,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.00924,
+    "t": 0.143337,
+    "beatPct": 0.407407,
+    "maxdd": -0.300555
+   },
+   {
+    "signal": "composite",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.095117,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.03799,
+    "t": -0.81229,
+    "beatPct": 0.411111,
+    "maxdd": -0.319668
+   },
+   {
+    "signal": "composite",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.161858,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.025077,
+    "t": 0.446863,
+    "beatPct": 0.481481,
+    "maxdd": -0.187409
+   },
+   {
+    "signal": "mom12",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.193045,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.058389,
+    "t": 0.863818,
+    "beatPct": 0.5,
+    "maxdd": -0.286356
+   },
+   {
+    "signal": "mom12",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.210694,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.06819,
+    "t": 1.052713,
+    "beatPct": 0.555556,
+    "maxdd": -0.179566
+   },
+   {
+    "signal": "mom12",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.195288,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.051546,
+    "t": 1.04529,
+    "beatPct": 0.533333,
+    "maxdd": -0.260768
+   },
+   {
+    "signal": "mom12",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.204972,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.054954,
+    "t": 1.389739,
+    "beatPct": 0.592593,
+    "maxdd": -0.098757
+   },
+   {
+    "signal": "high52",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.178182,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.037274,
+    "t": 0.651689,
+    "beatPct": 0.566667,
+    "maxdd": -0.308865
+   },
+   {
+    "signal": "high52",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.102812,
+    "cagrEW": 0.143671,
+    "excessPerYear": -0.033724,
+    "t": -0.703623,
+    "beatPct": 0.37037,
+    "maxdd": -0.281554
+   },
+   {
+    "signal": "high52",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.16309,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.020329,
+    "t": 0.442022,
+    "beatPct": 0.511111,
+    "maxdd": -0.253953
+   },
+   {
+    "signal": "high52",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.122021,
+    "cagrEW": 0.143671,
+    "excessPerYear": -0.015513,
+    "t": -0.462077,
+    "beatPct": 0.37037,
+    "maxdd": -0.245321
+   },
+   {
+    "signal": "emerging",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.029916,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.093962,
+    "t": -1.747123,
+    "beatPct": 0.411111,
+    "maxdd": -0.48034
+   },
+   {
+    "signal": "emerging",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.184275,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.043193,
+    "t": 0.730153,
+    "beatPct": 0.444444,
+    "maxdd": -0.169779
+   },
+   {
+    "signal": "emerging",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.111222,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.021471,
+    "t": -0.590238,
+    "beatPct": 0.5,
+    "maxdd": -0.310276
+   },
+   {
+    "signal": "emerging",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.185334,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.039347,
+    "t": 0.943808,
+    "beatPct": 0.407407,
+    "maxdd": -0.147066
+   },
+   {
+    "signal": "volume",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.090698,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.038984,
+    "t": -0.784211,
+    "beatPct": 0.422222,
+    "maxdd": -0.281736
+   },
+   {
+    "signal": "volume",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.139136,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.002026,
+    "t": 0.037511,
+    "beatPct": 0.518519,
+    "maxdd": -0.235004
+   },
+   {
+    "signal": "volume",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.112192,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.022072,
+    "t": -0.528455,
+    "beatPct": 0.511111,
+    "maxdd": -0.274822
+   },
+   {
+    "signal": "volume",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.19087,
+    "cagrEW": 0.143671,
+    "excessPerYear": 0.0445,
+    "t": 1.116056,
+    "beatPct": 0.555556,
+    "maxdd": -0.149017
+   },
+   {
+    "signal": "surprise",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.14218,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.007495,
+    "t": 0.216889,
+    "beatPct": 0.455556,
+    "maxdd": -0.322457
+   },
+   {
+    "signal": "surprise",
+    "top": 3,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.116568,
+    "cagrEW": 0.143671,
+    "excessPerYear": -0.020051,
+    "t": -0.541119,
+    "beatPct": 0.407407,
+    "maxdd": -0.242075
+   },
+   {
+    "signal": "surprise",
+    "top": 6,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.142209,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.003754,
+    "t": 0.142546,
+    "beatPct": 0.466667,
+    "maxdd": -0.305077
+   },
+   {
+    "signal": "surprise",
+    "top": 6,
+    "step": 13,
+    "from": "2019-11-22",
+    "periods": 27,
+    "cagr": 0.122127,
+    "cagrEW": 0.143671,
+    "excessPerYear": -0.0156,
+    "t": -0.667046,
+    "beatPct": 0.444444,
+    "maxdd": -0.274248
+   },
+   {
+    "signal": "composite+conservation",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.06647,
+    "cagrEW": 0.139611,
+    "excessPerYear": -0.060334,
+    "t": -1.000256,
+    "beatPct": 0.422222,
+    "maxdd": -0.32382
+   },
+   {
+    "signal": "mom12+conservation",
+    "top": 3,
+    "step": 4,
+    "from": "2019-11-22",
+    "periods": 90,
+    "cagr": 0.220469,
+    "cagrEW": 0.139611,
+    "excessPerYear": 0.082656,
+    "t": 1.26858,
+    "beatPct": 0.522222,
+    "maxdd": -0.298162
+   }
+  ],
+  "best": {
+   "signal": "mom12",
+   "top": 6,
+   "step": 13,
+   "from": "2019-11-22",
+   "periods": 27,
+   "cagr": 0.204972,
+   "cagrEW": 0.143671,
+   "excessPerYear": 0.054954,
+   "t": 1.389739,
+   "beatPct": 0.592593,
+   "maxdd": -0.098757
+  },
+  "deflatedSharpe": 0.542907,
+  "sharpeByChance": 0.493328,
+  "bootstrapComposite": {
+   "p5": -0.007211,
+   "p50": -0.001363,
+   "p95": 0.004532,
+   "pNeg": 0.6465
+  },
+  "doubleCost": {
+   "meanPerPeriod": -0.005473,
+   "t": -1.14792,
+   "beatPct": 0.422222,
+   "n": 90
+  },
+  "crises": [
+   {
+    "from": "2020-02-01",
+    "to": "2020-05-01",
+    "top": -0.091658,
+    "universeEW": -0.204251,
+    "stoxx": -0.207818,
+    "periods": 3
+   },
+   {
+    "from": "2022-01-01",
+    "to": "2022-10-15",
+    "top": -0.185572,
+    "universeEW": -0.193357,
+    "stoxx": -0.176386,
+    "periods": 10
+   }
+  ],
+  "placebo": {
+   "n": 500,
+   "actual": 0.002237,
+   "p5": -0.005255,
+   "p95": 0.004004,
+   "pctBelow": 0.81
+  }
+ },
+ "leadLag": [
+  {
+   "theme": "ia-puces",
+   "name": "IA : puces et équipements",
+   "us": [
+    "NVDA",
+    "AVGO",
+    "AMD",
+    "TSM",
+    "MU"
+   ],
+   "eu": [
+    "ASML.AS",
+    "ASM.AS",
+    "BESI.AS",
+    "AIXA.DE",
+    "IFX.DE",
+    "SOI.PA",
+    "TPRO.MI",
+    "WAF.DE",
+    "NOD.OL"
+   ],
+   "corr": {
+    "t+0": 0.66166,
+    "t+1": -0.064821,
+    "t+2": -0.089656,
+    "t+3": -0.08819
+   },
+   "rule": {
+    "cagr": 0.324472,
+    "vol": 0.342283,
+    "sharpe": 0.997666,
+    "maxdd": -0.356825,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.289076,
+    "vol": 0.380855,
+    "sharpe": 0.860879,
+    "maxdd": -0.420067,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075266,
+    "vol": 0.173913,
+    "sharpe": 0.513763,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": 0.001047,
+    "t": 0.274413,
+    "beatPct": 0.15,
+    "n": 100
+   }
+  },
+  {
+   "theme": "ia-energie",
+   "name": "IA : électricité et data centers",
+   "us": [
+    "VRT",
+    "ETN",
+    "PWR",
+    "MSFT",
+    "AMZN",
+    "GOOGL",
+    "META"
+   ],
+   "eu": [
+    "SU.PA",
+    "LR.PA",
+    "PRY.MI",
+    "NEX.PA",
+    "ENR.DE",
+    "SIE.DE",
+    "SPIE.PA",
+    "MTRS.ST",
+    "NKT.CO"
+   ],
+   "corr": {
+    "t+0": 0.511259,
+    "t+1": -0.001445,
+    "t+2": -0.033447,
+    "t+3": -0.019341
+   },
+   "rule": {
+    "cagr": 0.19346,
+    "vol": 0.236167,
+    "sharpe": 0.879543,
+    "maxdd": -0.344434,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.274037,
+    "vol": 0.262891,
+    "sharpe": 1.066756,
+    "maxdd": -0.344434,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075266,
+    "vol": 0.173913,
+    "sharpe": 0.513763,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.005594,
+    "t": -2.005089,
+    "beatPct": 0.09,
+    "n": 100
+   }
+  },
+  {
+   "theme": "ia-logiciel",
+   "name": "IA : logiciels et services",
+   "us": [
+    "MSFT",
+    "GOOGL",
+    "META",
+    "ORCL",
+    "NOW"
+   ],
+   "eu": [
+    "SAP.DE",
+    "DSY.PA",
+    "CAP.PA",
+    "NEM.DE",
+    "SOP.PA",
+    "REY.MI"
+   ],
+   "corr": {
+    "t+0": 0.614006,
+    "t+1": -0.127708,
+    "t+2": 0.068211,
+    "t+3": 0.203452
+   },
+   "rule": {
+    "cagr": 0.107354,
+    "vol": 0.226905,
+    "sharpe": 0.56872,
+    "maxdd": -0.31012,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.104225,
+    "vol": 0.270709,
+    "sharpe": 0.506015,
+    "maxdd": -0.429877,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075266,
+    "vol": 0.173913,
+    "sharpe": 0.513763,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.000611,
+    "t": -0.166465,
+    "beatPct": 0.18,
+    "n": 100
+   }
+  },
+  {
+   "theme": "cyber",
+   "name": "Cybersécurité",
+   "us": [
+    "CRWD",
+    "PANW",
+    "FTNT",
+    "ZS",
+    "NET",
+    "CHKP"
+   ],
+   "eu": [
+    "HO.PA",
+    "YSN.DE",
+    "YUBICO.ST",
+    "FSECURE.HE",
+    "ALLIX.PA",
+    "CLAV.ST",
+    "HAG.DE"
+   ],
+   "corr": {
+    "t+0": 0.113078,
+    "t+1": 0.132947,
+    "t+2": -0.053247,
+    "t+3": 0.002476
+   },
+   "rule": {
+    "cagr": 0.136005,
+    "vol": 0.273368,
+    "sharpe": 0.600755,
+    "maxdd": -0.385459,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.173144,
+    "vol": 0.296738,
+    "sharpe": 0.684309,
+    "maxdd": -0.279149,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075266,
+    "vol": 0.173913,
+    "sharpe": 0.513763,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.002987,
+    "t": -0.76521,
+    "beatPct": 0.18,
+    "n": 100
+   }
+  },
+  {
+   "theme": "defense",
+   "name": "Défense",
+   "us": [
+    "LMT",
+    "RTX",
+    "NOC",
+    "GD"
+   ],
+   "eu": [
+    "RHM.DE",
+    "HO.PA",
+    "SAF.PA",
+    "LDO.MI",
+    "AM.PA",
+    "HAG.DE",
+    "R3NK.DE",
+    "KOG.OL",
+    "SAAB-B.ST",
+    "EXA.PA"
+   ],
+   "corr": {
+    "t+0": 0.488378,
+    "t+1": 0.014884,
+    "t+2": 0.152377,
+    "t+3": -0.059997
+   },
+   "rule": {
+    "cagr": 0.222883,
+    "vol": 0.246957,
+    "sharpe": 0.942,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.319388,
+    "vol": 0.335182,
+    "sharpe": 0.993557,
+    "maxdd": -0.348405,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075266,
+    "vol": 0.173913,
+    "sharpe": 0.513763,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.007722,
+    "t": -1.275291,
+    "beatPct": 0.26,
+    "n": 100
+   }
+  },
+  {
+   "theme": "obesite",
+   "name": "Obésité (GLP-1)",
+   "us": [
+    "LLY"
+   ],
+   "eu": [
+    "NOVO-B.CO",
+    "ZEAL.CO"
+   ],
+   "corr": {
+    "t+0": 0.206842,
+    "t+1": 0.137616,
+    "t+2": 0.025502,
+    "t+3": -0.150844
+   },
+   "rule": {
+    "cagr": 0.14063,
+    "vol": 0.350895,
+    "sharpe": 0.553361,
+    "maxdd": -0.632078,
+    "n": 100
+   },
+   "alwaysEU": {
+    "cagr": 0.146181,
+    "vol": 0.381382,
+    "sharpe": 0.550875,
+    "maxdd": -0.712805,
+    "n": 100
+   },
+   "stoxx": {
+    "cagr": 0.075266,
+    "vol": 0.173913,
+    "sharpe": 0.513763,
+    "maxdd": -0.305119,
+    "n": 100
+   },
+   "ruleVsAlways": {
+    "meanPerPeriod": -0.001225,
+    "t": -0.286356,
+    "beatPct": 0.16,
+    "n": 100
+   }
+  }
+ ],
+ "aiCase": {
+  "chatgpt": "2022-11-30",
+  "usBarometerConfirmed": "2022-12-23",
+  "groups": [
+   {
+    "group": "Semiconductor Equipment & Materials",
+    "example": "ASML.AS",
+    "firstTrending": "2022-12-09",
+    "leader": "ASML.AS",
+    "challenger": "BESI.AS",
+    "weeksAfterChatGPT": 1,
+    "leader12m": 0.136469,
+    "challenger12m": 1.204967,
+    "stoxx12m": 0.075445,
+    "leaderToNow": 1.525766,
+    "challengerToNow": 1.62492,
+    "stoxxToNow": 0.446246,
+    "leaderFromChatGPT": 1.537206
+   },
+   {
+    "group": "Specialty Industrial Machinery",
+    "example": "SU.PA",
+    "firstTrending": "2022-12-09",
+    "leader": "SIE.DE",
+    "challenger": "ATCO-A.ST",
+    "weeksAfterChatGPT": 1,
+    "leader12m": 0.252798,
+    "challenger12m": 0.201508,
+    "stoxx12m": 0.075445,
+    "leaderToNow": 1.125446,
+    "challengerToNow": 0.398163,
+    "stoxxToNow": 0.446246,
+    "leaderFromChatGPT": 1.105544
+   },
+   {
+    "group": "Semiconductors",
+    "example": "IFX.DE",
+    "firstTrending": "2025-07-11",
+    "leader": "IFX.DE",
+    "challenger": "TPRO.MI",
+    "weeksAfterChatGPT": 136,
+    "leader12m": 0.923057,
+    "challenger12m": 3.242021,
+    "stoxx12m": 0.171301,
+    "leaderToNow": 0.336163,
+    "challengerToNow": 2.271277,
+    "stoxxToNow": 0.160321,
+    "leaderFromChatGPT": 0.626825
+   },
+   {
+    "group": "Electrical Equipment & Parts",
+    "example": "PRY.MI",
+    "firstTrending": "2022-12-02",
+    "leader": "LR.PA",
+    "challenger": "PRY.MI",
+    "weeksAfterChatGPT": 0,
+    "leader12m": 0.147596,
+    "challenger12m": 0.101105,
+    "stoxx12m": 0.051682,
+    "leaderToNow": 0.687142,
+    "challengerToNow": 2.127275,
+    "stoxxToNow": 0.432674,
+    "leaderFromChatGPT": 0.687142
+   }
+  ]
+ },
+ "trends": {
+  "at": "2026-10-23",
+  "themes": [
+   {
+    "theme": "ia-puces",
+    "keyword": "Nvidia",
+    "n": 64,
+    "corrNext": -0.059157,
+    "corrSame": 0.234789,
+    "last": 27.0,
+    "change3m": -0.386364
+   },
+   {
+    "theme": "ia-energie",
+    "keyword": "data center",
+    "n": 64,
+    "corrNext": 0.02248,
+    "corrSame": 0.013164,
+    "last": 22.0,
+    "change3m": -0.758242
+   },
+   {
+    "theme": "ia-logiciel",
+    "keyword": "ChatGPT",
+    "n": 64,
+    "corrNext": 0.11136,
+    "corrSame": -0.026394,
+    "last": 90.0,
+    "change3m": 0.139241
+   },
+   {
+    "theme": "cyber",
+    "keyword": "cybersecurity",
+    "n": 64,
+    "corrNext": 0.112875,
+    "corrSame": -0.161766,
+    "last": 28.0,
+    "change3m": -0.569231
+   },
+   {
+    "theme": "defense",
+    "keyword": "defense stocks",
+    "n": 64,
+    "corrNext": 0.112042,
+    "corrSame": 0.338501,
+    "last": 1.0,
+    "change3m": -0.952381
+   },
+   {
+    "theme": "obesite",
+    "keyword": "Ozempic",
+    "n": 64,
+    "corrNext": 0.167954,
+    "corrSame": -0.072105,
+    "last": 44.0,
+    "change3m": -0.301587
+   }
+  ]
+ },
+ "generatedAt": "2026-10-23T08:07:19.237956+00:00",
+ "universe": {
+  "n": 1040,
+  "minCapEur": 500000000.0,
+  "bias": "univers d'aujourd'hui appliqué au passé : les sociétés disparues ou devenues petites manquent (biais du survivant) ; comparer à l'univers à poids égaux, qui a le même biais, plutôt qu'au STOXX 600"
+ }
+}

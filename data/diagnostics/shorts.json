@@ -1,0 +1,310 @@
+[
+ {
+  "country": "FR",
+  "header": [
+   "Detenteur de la position courte nette",
+   "Legal Entity Identifier detenteur",
+   "Emetteur / issuer",
+   "Ratio",
+   "code ISIN",
+   "Date de debut position",
+   "Date de debut de publication position",
+   "Date de fin de publication position"
+  ],
+  "mapped": {
+   "isin": 4,
+   "holder": 0,
+   "pct": 3,
+   "date": 5,
+   "end": 7,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "IT",
+  "error": "UnicodeDecodeError : 'utf-8' codec can't decode byte 0xe9 in position 608: invalid continuation byte",
+  "response": {
+   "url": "https://www.consob.it/web/area-pubblica/pnc",
+   "status": 200,
+   "type": "text/html;charset=UTF-8",
+   "head": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+  }
+ },
+ {
+  "country": "IT",
+  "header": [
+   "Detentore",
+   "LEI del Detentore",
+   "Emittente",
+   "LEI dell'Emittente",
+   "ISIN",
+   "Perc. posizione netta corta",
+   "Data della posizione",
+   "None"
+  ],
+  "mapped": {
+   "isin": 4,
+   "holder": 0,
+   "pct": 5,
+   "date": 6,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "IT",
+  "header": [
+   "Detentore",
+   "LEI del Detentore",
+   "Emittente",
+   "LEI dell'Emittente",
+   "ISIN",
+   "Perc. posizione netta corta",
+   "Data della posizione",
+   "None"
+  ],
+  "mapped": {
+   "isin": 4,
+   "holder": 0,
+   "pct": 5,
+   "date": 6,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "IT",
+  "error": "en-tête introuvable",
+  "first": [
+   [
+    "Date of publication",
+    "None"
+   ],
+   [
+    "Data di pubblicazione",
+    "None"
+   ],
+   [
+    "23/10/2026",
+    "None"
+   ]
+  ]
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": [
+   [
+    "",
+    ""
+   ],
+   [
+    "",
+    "Fecha de Publicación"
+   ],
+   [
+    "",
+    "Date of publication"
+   ]
+  ]
+ },
+ {
+  "country": "ES",
+  "header": [
+   "LEI",
+   "ISIN",
+   "Emisor / Issuer",
+   "Tenedor de la Posición / Position holder",
+   "Fecha posición / Position date",
+   "Posición corta (%) / Net short position (%)"
+  ],
+  "mapped": {
+   "isin": 1,
+   "holder": 3,
+   "pct": 5,
+   "date": 4,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "ES",
+  "header": [
+   "LEI",
+   "ISIN",
+   "Emisor / Issuer",
+   "Tenedor de la Posición / Position holder",
+   "Fecha posición / Position date",
+   "Posición corta (%) / Net short position (%)"
+  ],
+  "mapped": {
+   "isin": 1,
+   "holder": 3,
+   "pct": 5,
+   "date": 4,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "ES",
+  "header": [
+   "LEI",
+   "ISIN",
+   "Emisor / Issuer",
+   "Tenedor de la Posición / Position holder",
+   "Fecha posición / Position date",
+   "Posición corta (%) / Net short position (%)"
+  ],
+  "mapped": {
+   "isin": 1,
+   "holder": 3,
+   "pct": 5,
+   "date": 4,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": []
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": []
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": []
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": []
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": []
+ },
+ {
+  "country": "ES",
+  "error": "en-tête introuvable",
+  "first": []
+ },
+ {
+  "country": "NL",
+  "header": [
+   "Positie houder",
+   "Naam van de emittent",
+   "ISIN",
+   "Netto Shortpositie",
+   "Positiedatum"
+  ],
+  "mapped": {
+   "isin": 2,
+   "holder": 0,
+   "pct": 3,
+   "date": 4,
+   "issuer": 1
+  }
+ },
+ {
+  "country": "NL",
+  "header": [
+   "Positie houder",
+   "Naam van de emittent",
+   "ISIN",
+   "Netto Shortpositie",
+   "Positiedatum"
+  ],
+  "mapped": {
+   "isin": 2,
+   "holder": 0,
+   "pct": 3,
+   "date": 4,
+   "issuer": 1
+  }
+ },
+ {
+  "country": "BE",
+  "error": "ValueError : page HTML reçue au lieu d'un fichier",
+  "response": {
+   "url": "https://www.fsma.be/en/de-shortselling?page&_format=csv",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "head": "3c68746d6c3e3c686561643e3c7374796c653e0a6469762c"
+  }
+ },
+ {
+  "country": "BE",
+  "header": [
+   "Position date",
+   "Change Position Date",
+   "Issuer",
+   "ISIN",
+   "Position holder",
+   "Net short position"
+  ],
+  "mapped": {
+   "isin": 3,
+   "holder": 4,
+   "pct": 5,
+   "date": 0,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "BE",
+  "error": "ValueError : page HTML reçue au lieu d'un fichier",
+  "response": {
+   "url": "https://www.fsma.be/en/de-shortselling-history?page&_format=csv",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "head": "3c68746d6c3e3c686561643e3c7374796c653e0a6469762c"
+  }
+ },
+ {
+  "country": "BE",
+  "header": [
+   "Position date",
+   "Change Position Date",
+   "Issuer",
+   "ISIN",
+   "Position holder",
+   "Net short position"
+  ],
+  "mapped": {
+   "isin": 3,
+   "holder": 4,
+   "pct": 5,
+   "date": 0,
+   "issuer": 2
+  }
+ },
+ {
+  "country": "DE",
+  "header": [
+   "Positionsinhaber",
+   "Emittent",
+   "ISIN",
+   "Position",
+   "Datum"
+  ],
+  "mapped": {
+   "isin": 2,
+   "holder": 0,
+   "pct": 3,
+   "date": 4,
+   "issuer": 1
+  }
+ },
+ {
+  "country": "GB",
+  "header": [
+   "Name of Company",
+   "International Securities Identification Number (ISIN)",
+   "Aggregated net short position (%)",
+   "Position date (of latest position date notified)"
+  ],
+  "lines": 426
+ }
+]
