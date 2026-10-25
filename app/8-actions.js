@@ -140,6 +140,13 @@ document.addEventListener('click', function (ev) {
     var ybk = window.scrollY;
     render();
     window.scrollTo(0, ybk);
+  } else if (a === 'rfBp') {
+    S.rf = S.rf || {};
+    S.rf.bp = !S.rf.bp;
+    S.limit = 50;
+    var ybp = window.scrollY;
+    render();
+    window.scrollTo(0, ybp);
   } else if (a === 'secOpen') {
     S.openDet = S.openDet || {};
     S.openDet[el.dataset.v] = true;
@@ -164,6 +171,13 @@ document.addEventListener('click', function (ev) {
     render();
     var pc3 = document.querySelector('.selc');
     if (pc3) pc3.scrollIntoView({ block: 'start' });
+  } else if (a === 'weekBp') {
+    S.rf = S.rf || {};
+    S.rf.bp = true;
+    S.limit = 50;
+    render();
+    var sbp = document.querySelector('.slbar');
+    if (sbp) sbp.scrollIntoView({ block: 'start' });
   } else if (a === 'weekBrk') {
     S.rf = S.rf || {};
     S.rf.brk = true;
