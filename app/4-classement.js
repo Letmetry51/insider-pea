@@ -2115,6 +2115,34 @@ function rkSc(r) {
 function rkBrk(r) {
   return r.brk != null && (!r.out.length || (r.out.length === 1 && /tiers le plus faible/.test(r.out[0])));
 }
+/**
+ * 📣 Démarrage sur bond : semaine à +8 % ou plus sur 3 fois le volume de l'année, il y a 3 semaines au plus, cours en tendance de
+ * fond, pas encore parmi les 10 🎯 (p10 : clés des 🎯). Signal précoce, hors note : sur 1997-2026, +7,7 points à 6 mois face à la
+ * moyenne en entrant la semaine du bond, +5,8 dans les 4 semaines (t 3,2), positif dans chaque période ; plus d'un sur trois
+ * rejoint le 🎯 dans les 6 mois (étude du 25/10/2026, research/backtest/_bond.py).
+ */
+function rkBp(r, p10) {
+  var b = bumpOf(r);
+  return (
+    b != null &&
+    b <= 3 &&
+    r.trend === 'up' &&
+    !(p10 && p10[r.key]) &&
+    (!r.out.length || (r.out.length === 1 && /tiers le plus faible/.test(r.out[0])))
+  );
+}
+/** Clés des 10 🎯 du soir (mêmes règles que la sélection affichée). */
+function pickKeys(rows) {
+  var k = {};
+  ES.pickN(rows || [], { n: 10, peaOnly: peaLists() }).picks.forEach(function (r) {
+    k[r.key] = 1;
+  });
+  return k;
+}
+/** Explication du démarrage sur bond, avec ses chiffres testés. */
+function bpNote() {
+  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel (souvent des résultats), cours en tendance, pas encore dans le 🎯. Sur 1997-2026 : +7,7 points à 6 mois face à la société moyenne en entrant la semaine du bond, +5,8 dans les 4 semaines suivantes, positif dans chaque période ; 1 sur 14 a chuté de 25 % ou plus ; plus d'un sur trois a rejoint le 🎯 dans les 6 mois. Le même bond sans tendance (rebond d'une société en baisse) n'a rien rapporté. Signal précoce, hors note : le 🎯 reste la règle.</p>";
+}
 /** Explication du signal précoce, avec la combinaison qui a le mieux marché et l'état actuel du marché. */
 function brkNote() {
   var R = rankData(),
@@ -2289,6 +2317,10 @@ function dashTiles(R, rows) {
   var brkS = rows.filter(function (r) {
     return rkBrk(r) && rkSc(r) === 'strong';
   }).length;
+  var p10 = pickKeys(rows),
+    bpS = rows.filter(function (r) {
+      return rkBp(r, p10);
+    }).length;
   var VV = ES.pickValue(rows, { n: 10, peaOnly: peaLists() });
   var P = ES.pickN(rows, { n: 10, peaOnly: peaLists() }),
     nHot = P.picks.filter(function (r) {
@@ -2334,6 +2366,13 @@ function dashTiles(R, rows) {
         ' sortie' +
         (brkS > 1 ? 's' : '') +
         ' de base en ⬆⬆</button>'
+      : '') +
+    (bpS
+      ? ' · <button type="button" class="linkbtn" data-a="weekBp">📣 ' +
+        bpS +
+        ' démarrage' +
+        (bpS > 1 ? 's' : '') +
+        ' sur bond</button>'
       : '') +
     ' · <button type="button" class="linkbtn" data-a="rankWhy">la méthode →</button></p>'
   );
@@ -2745,16 +2784,20 @@ function vClassement() {
     rows = R.rows;
   var shownV = f.v || (q ? '' : 'in');
   // base(r, sans) : filtres de base ; « sans » ignore la pente ou la sortie de base (pour compter ce que donnerait chaque case)
+  var p10 = pickKeys(rows);
   var base = function (r, sans) {
-    var useBrk = sans === 'brk' ? true : f.brk && sans !== 'brk0';
+    var useBrk = sans === 'brk' ? true : f.brk && sans !== 'brk0',
+      useBp = sans === 'bp' ? true : f.bp && sans !== 'bp0';
     if ((sans === 'vol' || (f.vol && sans !== 'vol0')) && !(r.vx >= ES.VOL_SURGE)) return false;
     if (q && ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) < 0) return false;
     if (f.country && r.country !== f.country) return false;
     if (f.sector && r.sector !== f.sector) return false;
     if (sans !== 'slope' && f.slope && f.slope.length && f.slope.indexOf(rkSc(r) || 'none') < 0) return false;
     if (useBrk && !rkBrk(r)) return false;
-    // la sortie de base arrive souvent quand le cours est encore dans le tiers faible sur 12 mois : on la montre quand même
-    if (shownV === 'in' && r.out.length && !(useBrk && rkBrk(r))) return false;
+    if (useBp && !rkBp(r, p10)) return false;
+    // la sortie de base et le démarrage sur bond arrivent souvent quand le cours est encore dans le tiers faible sur 12 mois :
+    // on les montre quand même
+    if (shownV === 'in' && r.out.length && !(useBrk && rkBrk(r)) && !(useBp && rkBp(r, p10))) return false;
     if (shownV && shownV !== 'in' && r.v !== shownV) return false;
     return true;
   };
@@ -2814,6 +2857,7 @@ function vClassement() {
     f.slope.length ||
     f.vol ||
     f.brk ||
+    f.bp ||
     f.quick.length ||
     f.country ||
     f.sector ||
@@ -2850,10 +2894,14 @@ function vClassement() {
   var volN = rows.filter(function (r) {
     return base(r, 'vol') && qf(r) && plf(r);
   }).length;
+  var bpN = rows.filter(function (r) {
+    return base(r, 'bp') && qf(r) && plf(r);
+  }).length;
   var nF =
     f.slope.length +
     (f.vol ? 1 : 0) +
     (f.brk ? 1 : 0) +
+    (f.bp ? 1 : 0) +
     f.quick.length +
     (f.country ? 1 : 0) +
     (f.sector ? 1 : 0) +
@@ -2918,8 +2966,18 @@ function vClassement() {
     (f.brk ? '☑' : '☐') +
     '</span> 🚀 Nouveau plus haut après une base <span class="count">' +
     brkN +
+    '</span></button>' +
+    '<button class="fchip' +
+    (f.bp ? ' on' : '') +
+    '" aria-pressed="' +
+    !!f.bp +
+    '" data-a="rfBp" title="Semaine à +8 % ou plus sur 3 fois le volume habituel, il y a 3 semaines au plus, cours en tendance, pas encore dans le 🎯"><span aria-hidden="true">' +
+    (f.bp ? '☑' : '☐') +
+    '</span> 📣 Démarrage sur bond <span class="count">' +
+    bpN +
     '</span></button></div>' +
     (f.brk ? brkNote() : '') +
+    (f.bp ? bpNote() : '') +
     '<span class="slt">Filtres</span><div class="fchips">' +
     Object.keys(Q)
       .map(function (k) {
