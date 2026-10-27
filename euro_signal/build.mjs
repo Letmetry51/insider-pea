@@ -2544,6 +2544,7 @@ export function build(opts = {}) {
       vo: r.vola != null ? r.vola : undefined,
       m10: r.ma10 != null ? r.ma10 : undefined,
       bp: r.bump != null ? r.bump : undefined,
+      bh: r.bumpHi != null ? r.bumpHi : undefined,
       sh: r.short ? r.short.pct : undefined,
       shn: r.short ? r.short.n : undefined,
       shc: r.short ? r.short.cc : undefined,

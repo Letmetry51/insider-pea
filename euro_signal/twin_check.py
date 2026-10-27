@@ -208,6 +208,17 @@ def features(daily, weekly, wvol):
         if len(base) >= 40 and WV[vi] is not None and W[wi] / W[wi - 1] - 1 >= 0.08 and WV[vi] >= 3 * mean(base):
             f["bump"] = kb
             break
+    # bond au plus haut de l'année (affichage seulement) : semaine à +8 % ou plus sur au moins 2 fois le volume moyen de l'année,
+    # nouveau plus haut sur un an (52 semaines précédentes), dans les 8 dernières semaines
+    for kh in range(8):
+        vh, wh = len(WV) - 1 - kh, len(W) - 1 - kh
+        if vh < 52 or wh < 52:
+            break
+        yb = [v for v in WV[vh - 52:vh] if v is not None]
+        if (len(yb) >= 40 and WV[vh] is not None and W[wh] / W[wh - 1] - 1 >= 0.08 and WV[vh] >= 2 * mean(yb)
+                and W[wh] >= max(W[wh - 52:wh])):
+            f["bumpHi"] = kh
+            break
     # sortie de base : nouveau plus haut sur un an dans les 4 dernières semaines, après un cours à plus de 25 % sous son plus haut
     if len(W) >= 82:
         def top(a, b):
@@ -298,7 +309,7 @@ def rank_universe(items, rcfg, today):
             "out": out, "parts": parts, "note": note, "v": verdict, "mp": mp, "acc": acc, "short": x["short"],
             "mom": f.get("mom"), "ratio": f.get("ratio"), "trend": trend,
             "sc": slope_class(slope, trend), "slope6": jround((math.sqrt(1 + slope_r) - 1) * 100) if slope_r is not None else None,
-            "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "brk": f.get("brk"),
+            "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "bumpHi": f.get("bumpHi"), "brk": f.get("brk"),
             "f9": x.get("f9"), "pb": x.get("pb"),
             "vola": jround(f["vol52"] * 100) if f.get("vol52") is not None else None,
             "ma10": jround((f["last"] / f["sma50"] - 1) * 1000) / 10 if (f.get("sma50") or 0) > 0 and (f.get("last") or 0) > 0
@@ -565,12 +576,13 @@ def build_items(main, co, d_dates, engine_rows, isin_tables=None):
 # ---------- comparaison ----------
 # repères tirés des cours d'abord, puis ce qui en découle (rang sur 12 mois, points, note, verdict, place) : les exemples du
 # rapport montrent la cause avant ses conséquences
-FIELDS = ["mom", "ratio", "trend", "sc", "slope6", "vx", "vo", "m10", "bp", "dj", "brk", "liq", "pea", "out",
+FIELDS = ["mom", "ratio", "trend", "sc", "slope6", "vx", "vo", "m10", "bp", "bh", "dj", "brk", "liq", "pea", "out",
           "momPct", "parts", "note", "v", "pos"]
 LABELS = {
     "mom": "hausse sur 12 mois (%)", "ratio": "cours / plus haut sur un an (%)", "trend": "tendance de fond",
     "sc": "classe de pente", "slope6": "pente sur 6 mois (%)", "vx": "volumes (×)", "vo": "volatilité (%/an)",
-    "m10": "écart à la moyenne 10 semaines (%)", "bp": "bond sur gros volume (semaines)", "dj": "variation du jour (%)",
+    "m10": "écart à la moyenne 10 semaines (%)", "bp": "bond sur gros volume (semaines)",
+    "bh": "bond au plus haut de l'année (semaines)", "dj": "variation du jour (%)",
     "brk": "sortie de base (semaines)", "liq": "échanges par jour (€)", "pea": "PEA", "out": "raisons d'écarter",
     "momPct": "rang sur 12 mois", "parts": "points", "note": "note", "v": "verdict", "pos": "place", "société": "société",
 }
@@ -592,7 +604,7 @@ def twin_view(r):
         "momPct": jround(r["mp"] * 100) if r["mp"] is not None else None,
         "ratio": to_fixed(r["ratio"] * 100, 1) if r["ratio"] is not None else None,
         "trend": r["trend"], "sc": r["sc"], "slope6": r["slope6"], "vx": r["volx"], "vo": r["vola"], "m10": r["ma10"],
-        "bp": r["bump"], "dj": r["dayJump"], "brk": r["brk"],
+        "bp": r["bump"], "bh": r["bumpHi"], "dj": r["dayJump"], "brk": r["brk"],
         "liq": jround(r["turnover"]) if r["turnover"] is not None else None,
         "pea": False if r["pea"] is False else None,
         "parts": {k: v for k, v in r["parts"].items() if k != "insiders"},
@@ -604,7 +616,7 @@ def engine_view(e):
     return {
         "mom": e.get("mom"), "momPct": e.get("momPct"), "ratio": e.get("ratio"), "trend": e.get("trend"),
         "sc": e.get("sc"), "slope6": e.get("slope6"), "vx": e.get("vx"), "vo": e.get("vo"), "m10": e.get("m10"),
-        "bp": e.get("bp"), "dj": e.get("dj"), "brk": e.get("brk"), "liq": e.get("liq"),
+        "bp": e.get("bp"), "bh": e.get("bh"), "dj": e.get("dj"), "brk": e.get("brk"), "liq": e.get("liq"),
         "pea": False if e.get("pea") is False else None,
         "parts": {k: v for k, v in (e.get("parts") or {}).items() if k != "insiders"},
         "note": e.get("note"), "v": e.get("v"), "pos": e.get("pos"), "out": price_out(e.get("out")),

@@ -9317,6 +9317,23 @@
         break;
       }
     }
+    // 📣 au plus haut de l'année, pour l'affichage seulement (hors note : l'ordre du 🎯 garde le bond ci-dessus) : semaine à +8 % ou
+    // plus sur au moins 2 fois le volume moyen de l'année, qui fait un nouveau plus haut sur un an. 1997-2026, en tendance, hors 🎯 et
+    // hors tiers le plus faible, en plus du bond ci-dessus : +5,3 points à 6 mois et +10,7 à 12 mois face à la société moyenne, positif
+    // dans chaque période ; avec ou sans longue base avant (Bravida le 20/02/2026 : volume ×2,3, test du 27/10/2026).
+    for (var kh = 0; kh < 8 && WV.length - 1 - kh >= 52 && W.length - 1 - kh >= 52; kh++) {
+      var vh = WV.length - 1 - kh,
+        wh = W.length - 1 - kh,
+        yb = WV.slice(vh - 52, vh).filter(function (v) {
+          return v > 0;
+        }),
+        hiY = 0;
+      for (var qh = wh - 52; qh < wh; qh++) if (W[qh] > hiY) hiY = W[qh];
+      if (yb.length >= 40 && WV[vh] > 0 && W[wh] / W[wh - 1] - 1 >= 0.08 && WV[vh] >= 2 * mean(yb) && W[wh] >= hiY) {
+        f.bumpHi = kh;
+        break;
+      }
+    }
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
     // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
     // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
@@ -9964,6 +9981,7 @@
         dayJump: f.dayJump != null ? f.dayJump : null,
         vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null,
         bump: f.bump != null ? f.bump : null,
+        bumpHi: f.bumpHi != null ? f.bumpHi : null,
         ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null,
         short: x.short || null,
         currency: x.currency || null,

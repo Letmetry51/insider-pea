@@ -3894,6 +3894,22 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
     V[62 - 1 - 3] = 4000;
     const fb = ES.rankFeatures(null, W, V);
     ok(fb.bump === 3, 'bond sur gros volume repéré il y a 3 semaines (' + fb.bump + ')');
+    // 📣 au plus haut de l'année (affichage) : même bond sur 2,5 fois le volume ; rien sous un ancien plus haut ni sur 1,5 fois
+    const V25 = V.slice(),
+      V15 = V.slice(),
+      Wlow = W.slice();
+    V25[62 - 1 - 3] = 2500;
+    V15[62 - 1 - 3] = 1500;
+    Wlow[30] = 150;
+    const a = ES.rankFeatures(null, W, V25),
+      b = ES.rankFeatures(null, Wlow, V25),
+      c = ES.rankFeatures(null, W, V15);
+    ok(
+      a.bumpHi === 3 && a.bump == null && fb.bumpHi === 3 && b.bumpHi == null && c.bumpHi == null,
+      "📣 bond au plus haut de l'année sur 2,5 fois le volume repéré (" +
+        a.bumpHi +
+        '), pas sous un ancien plus haut ni sur 1,5 fois'
+    );
   }
   const pvw = ES.pickN(rows.map((x) => (x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x)));
   ok(
