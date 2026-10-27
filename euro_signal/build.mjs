@@ -2663,7 +2663,9 @@ export function build(opts = {}) {
       selection: {
         week,
         // lignes du classement enrichies plus haut (secteur, F-score, plan…), pas les copies faites avant l'enrichissement
-        items: sel.map((x) => Object.assign(slimRow(rowOf[x.key] || x), { isNew: x.isNew })),
+        items: sel.map((x) =>
+          Object.assign(slimRow(rowOf[x.key] || x), { isNew: x.isNew, bd: x.pickBond ? 1 : undefined })
+        ),
         track: trackSum,
         weeks: track,
       },
@@ -2718,6 +2720,7 @@ export function build(opts = {}) {
               bp: r.pickBump ? 1 : 0,
               wait: r.pickWait ? 1 : 0,
               promo: r.pickPromo ? 1 : 0,
+              bd: r.pickBond ? 1 : 0,
               p0: lastOf[r.key] || null,
               d0: dayOf[r.key] || null,
             })),
@@ -2923,6 +2926,7 @@ export function build(opts = {}) {
             note: x.note,
             p0: x.last,
             d0: x.lastDay || null,
+            bd: x.pickBond ? 1 : undefined, // 📣 place réservée (depuis le 27/10/2026)
           })),
         };
       Object.keys(state.rankSelections || {})

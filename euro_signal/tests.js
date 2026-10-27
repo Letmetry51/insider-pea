@@ -3838,6 +3838,54 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
     );
   }
   {
+    // 📣 place réservée (27/10/2026) : 1 sur 5, 2 sur 10, aucune sur 3 ; le 🎯 suivant si le 📣 manque ou a une note trop basse
+    const S = [
+      'Energy',
+      'Tech',
+      'Media',
+      'Health',
+      'Utilities',
+      'Industrials',
+      'Materials',
+      'Finance',
+      'Retail',
+      'Telecom',
+    ];
+    const base = S.map((sec, k) => r('T' + k, 95 - k, { secEn: sec, trend: 'up' }));
+    const bd = r('BD', 75, { secEn: 'Leisure', trend: 'up', sc: 'mid', mom: 20, bh: 1 }),
+      bl = r('BL', 60, { secEn: 'Travel', trend: 'up', sc: 'mid', mom: 20, bp: 2 }),
+      down = r('DN', 99, { secEn: 'Food', trend: 'down', sc: 'mid', mom: 20, bh: 0 }),
+      old = r('OL', 98, { secEn: 'Auto', trend: 'up', bh: 5, sc: 'mid', mom: 20 });
+    const keys = (p) =>
+      p.picks
+        .map(function (x) {
+          return x.key;
+        })
+        .join();
+    const all = base.concat([bd, bl, down, old]);
+    const p5 = ES.pickN(all, { n: 5 }),
+      p5n = ES.pickN(all, { n: 5, bondNoteMin: 70 }),
+      p5x = ES.pickN(base.concat([bl]), { n: 5, bondNoteMin: 70 }),
+      p10 = ES.pickN(all, { n: 10 }),
+      p3 = ES.pickN(all, { n: 3 });
+    ok(
+      keys(p5) === 'T0,T1,T2,T3,BL' &&
+        p5.picks[4].pickBond &&
+        /place réservée/.test(p5.picks[4].pickWhy) &&
+        keys(p5n) === 'T0,T1,T2,T3,BD' &&
+        keys(p5x) === 'T0,T1,T2,T3,T4' &&
+        keys(p10) === 'T0,T1,T2,T3,T4,T5,T6,T7,BL,BD' &&
+        keys(p3) === 'T0,T1,T2',
+      '📣 place réservée : 4 🎯 + 1 📣, 8 + 2 sur 10, rien sur 3, pas de bond ancien ni sans tendance, le 🎯 suivant à défaut (' +
+        keys(p5) +
+        ' / ' +
+        keys(p5n) +
+        ' / ' +
+        keys(p10) +
+        ')'
+    );
+  }
+  {
     const log = {
       w1: {
         date: '2026-01-05',

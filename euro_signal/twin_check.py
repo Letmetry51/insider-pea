@@ -325,10 +325,12 @@ def rank_universe(items, rcfg, today):
 
 
 # ---------- sélection (règles du bouton 🎯 et de l'email du lundi) ----------
-def pick(rows, n, pea_only=False):
-    """rows : lignes au format de la sélection (mom en %, liq en €…), dans l'ordre du classement ; renvoie [(ligne, palier)]."""
+def pick(rows, n, pea_only=False, bond_note_min=None):
+    """rows : lignes au format de la sélection (mom en %, liq en €…), dans l'ordre du classement ; renvoie [(ligne, palier)].
+    Une place sur 5 (2 sur 10) revient au meilleur 📣 démarrage sur bond pas encore choisi (palier noté « b »), sinon au 🎯 suivant."""
     o = CONST["PICK"]
     mom_min, mom_max, liq_min, vol_min, per_sec = o["momMin"], o["momMax"], o["liqMin"], o["volMin"], int(o["perSec"])
+    nb = n // 5
 
     def not_pea(r):
         return r["pea"] is False
@@ -367,21 +369,51 @@ def pick(rows, n, pea_only=False):
         c.sort(key=lambda r: (-(2 * hot(r) + bump(r)), wait(r), -r["note"], -(r["slope6"] or 0)))
     picks, used, seen = [], set(), {}
 
-    def take(max_per_sec):
+    def take(max_per_sec, lim):
         for t in range(3):
-            if len(picks) >= n:
+            if len(picks) >= lim:
                 break
             for r in cand[t]:
                 s = r["sec"] or "?"
-                if len(picks) >= n or r["key"] in used or seen.get(s, 0) >= max_per_sec:
+                if len(picks) >= lim or r["key"] in used or seen.get(s, 0) >= max_per_sec:
                     continue
                 used.add(r["key"])
                 seen[s] = seen.get(s, 0) + 1
                 picks.append((r, t))
 
-    take(per_sec)
-    if len(picks) < n:
-        take(per_sec + 1)
+    take(per_sec, n - nb)
+    if len(picks) < n - nb:
+        take(per_sec + 1, n - nb)
+    if nb:
+        def bond_ok(r):
+            ws = [w for w in (r["bp"], r["bh"]) if w is not None]
+            if not ws or min(ws) > 3 or r["trend"] != "up" or r["acc"] != "good" or r["key"] in used:
+                return False
+            if r["out"] or (pea_only and not_pea(r)) or r["dj"] is not None:
+                return False
+            if r["vo"] is not None and r["vo"] >= CONST["VOL_WILD"] * 100:
+                return False
+            if r["sh"] is not None and r["sh"] >= CONST["SHORT_MIN"] and r["shc"] in CONST["SHORT_EXCLUDE"]:
+                return False
+            if r["mom"] is None or r["mom"] > mom_max or (r["liq"] or 0) < liq_min:
+                return False
+            return bond_note_min is None or r["note"] >= bond_note_min
+
+        bc = sorted([r for r in rows if bond_ok(r)],
+                    key=lambda r: (-(2 * hot(r) + bump(r)), wait(r), -r["note"], -(r["slope6"] or 0)))
+        k = 0
+        for r in bc:
+            s = r["sec"] or "?"
+            if k >= nb or len(picks) >= n or r["key"] in used or seen.get(s, 0) >= per_sec:
+                continue
+            used.add(r["key"])
+            seen[s] = seen.get(s, 0) + 1
+            k += 1
+            picks.append((r, "b"))
+        take(per_sec, n)
+        if len(picks) < n:
+            take(per_sec + 1, n)
+        picks = [x for x in picks if x[1] != "b"] + [x for x in picks if x[1] == "b"]  # 📣 en fin de liste, comme le moteur
     return picks
 
 
@@ -444,7 +476,7 @@ def selection_rows(rows):
         "key": r["key"], "note": r["note"], "out": r["out"], "acc": r["acc"], "pea": r["pea"], "sec": r["sector"],
         "sc": r["sc"], "mom": to_fixed(r["mom"] * 100, 1) if r["mom"] is not None else None, "dj": r["dayJump"],
         "liq": jround(r["turnover"]) if r["turnover"] is not None else None,
-        "vx": r["volx"], "vo": r["vola"], "m10": r["ma10"], "bp": r["bump"],
+        "vx": r["volx"], "vo": r["vola"], "m10": r["ma10"], "bp": r["bump"], "bh": r["bumpHi"], "trend": r["trend"],
         "sh": (r["short"] or {}).get("pct"), "shc": (r["short"] or {}).get("cc"), "slope6": None,
     } for r in rows]
 
@@ -456,8 +488,8 @@ def published_rows(rows):
         "pea": False if r["pea"] is False else None, "sec": r["secEn"] or r["sector"], "sc": r["sc"],
         "mom": to_fixed(r["mom"] * 100, 1) if r["mom"] is not None else None, "dj": r["dayJump"],
         "liq": jround(r["turnover"]) if r["turnover"] is not None else None, "vx": r["volx"], "vo": r["vola"],
-        "m10": r["ma10"], "bp": r["bump"], "sh": (r["short"] or {}).get("pct"), "shc": (r["short"] or {}).get("cc"),
-        "slope6": r["slope6"],
+        "m10": r["ma10"], "bp": r["bump"], "bh": r["bumpHi"], "trend": r["trend"], "sh": (r["short"] or {}).get("pct"),
+        "shc": (r["short"] or {}).get("cc"), "slope6": r["slope6"],
     } for r in rows]
 
 
@@ -667,7 +699,8 @@ def run(data_dir):
     by_label = {LABELS.get(k, k): v for k, v in sorted(by_field.items(), key=lambda kv: FIELDS.index(kv[0]) if kv[0] in FIELDS else -1)}
     # sélection du lundi : ES.rankSelection (PEA seulement, palier 0 ou 1, note minimale) ; 10 🎯 : ES.pickN sur les lignes publiées
     sel_rows = selection_rows(rows)
-    sel = [r["key"] for r, t in pick(sel_rows, int(rcfg["selSize"]), pea_only=True) if t < 2 and r["note"] >= rcfg["selMin"]]
+    sel = [r["key"] for r, t in pick(sel_rows, int(rcfg["selSize"]), pea_only=True, bond_note_min=rcfg["selMin"])
+           if (t == "b" or t < 2) and r["note"] >= rcfg["selMin"]]
     shown = [r for r in rows if (r["turnover"] or 0) >= rcfg["minTurnoverEur"] or r["isin"]]
     pea_only = ((main.get("cfg") or {}).get("selection") or {}).get("peaOnly") is not False
     p10 = [r["isin"] or r["sym"] for r, _ in pick(published_rows(shown), 10, pea_only=pea_only)]

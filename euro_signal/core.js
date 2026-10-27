@@ -9535,9 +9535,17 @@
    * par note décroissante, 2 sociétés par secteur au plus (simulation 1997-2026 : mieux qu'une seule dans 2 périodes sur 3, perte
    * maximale identique). Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur chaque société (pickWhy). Renvoie { picks, rejected, pool, pools }.
    * Test 1997-2026 (filtres sans les comptes) : +6,7 points à 6 mois ; avec volumes ≥ ×1,5 : +10,2 (positif dans chaque période).
+   * Depuis le 27/10/2026, une place sur 5 (2 sur 10, aucune sur 3) revient au meilleur 📣 démarrage sur bond qui n'est pas déjà
+   * choisi : bond il y a 3 semaines au plus (3 fois le volume, ou 2 fois au plus haut de l'année), tendance haussière, société classée,
+   * comptes solides, même liquidité, 2 par secteur ; à défaut, la place revient au 🎯 suivant. Portefeuille simulé 1998-2026
+   * (5 lignes chaque semaine, gardées 6 mois) : +1,3 point par an (t 2,3), −0,3 sur 1998-2008 (nul), +1,9 sur 2009-2017, +2,6 sur
+   * 2018-2026 ; sur 10 lignes, 8 + 2 : +0,9, positif dans chaque période. Abaisser le seuil de +60 % n'a rien apporté
+   * (research/backtest/_selection_sim*.py).
+   * o.bond : nombre de places 📣 ; o.bondNoteMin : note minimale du 📣 (celle de la sélection du lundi).
    */
   ES.pickThree = function (rows, opt) {
     var o = Object.assign({ n: 3, momMin: 60, momMax: 200, liqMin: 3e6, volMin: 1.5, perSec: 2 }, opt || {});
+    var nb = o.bond != null ? o.bond : Math.floor(o.n / 5);
     var hot = function (r) {
       return r.vx != null && r.vx >= o.volMin ? 1 : 0;
     };
@@ -9647,10 +9655,10 @@
     var picks = [],
       used = {},
       seen = {};
-    var take = function (maxPerSec) {
-      for (var t = 0; t < 3 && picks.length < o.n; t++)
+    var take = function (maxPerSec, lim) {
+      for (var t = 0; t < 3 && picks.length < lim; t++)
         cand[t].forEach(function (r) {
-          if (picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
+          if (picks.length >= lim || used[r.key] || (seen[secOf(r)] || 0) >= maxPerSec) return;
           used[r.key] = 1;
           seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
           picks.push(
@@ -9668,8 +9676,72 @@
           );
         });
     };
-    take(o.perSec);
-    if (picks.length < o.n) take(o.perSec + 1);
+    take(o.perSec, o.n - nb);
+    if (picks.length < o.n - nb) take(o.perSec + 1, o.n - nb);
+    if (nb > 0) {
+      // 📣 démarrage sur bond : la place réservée, puis le 🎯 suivant s'il n'y en a pas
+      var bondW = function (r) {
+        var b = r.bp != null ? r.bp : null,
+          h = r.bh != null ? r.bh : null;
+        return b == null ? h : h == null ? b : Math.min(b, h);
+      };
+      var bc = (rows || [])
+        .filter(function (r) {
+          if (!r || used[r.key]) return false;
+          var w = bondW(r);
+          if (w == null || w > 3 || r.trend !== 'up' || r.acc !== 'good') return false;
+          if (
+            (r.out || []).filter(function (t) {
+              return !/PEA/.test(t);
+            }).length ||
+            (o.peaOnly && notPea(r))
+          )
+            return false;
+          if (r.dj != null || r.dayJump != null || (r.vo != null && r.vo >= ES.VOL_WILD * 100) || ES.shortBlocks(r))
+            return false;
+          if (o.near && !(r.ratio != null && r.ratio >= 90 && r.ratio < 98)) return false;
+          if (r.mom == null || r.mom > o.momMax || (r.liq || 0) < o.liqMin) return false;
+          return !(o.bondNoteMin != null && !(r.note >= o.bondNoteMin));
+        })
+        .sort(ord);
+      var nbTaken = 0;
+      bc.forEach(function (r) {
+        if (nbTaken >= nb || picks.length >= o.n || used[r.key] || (seen[secOf(r)] || 0) >= o.perSec) return;
+        used[r.key] = 1;
+        seen[secOf(r)] = (seen[secOf(r)] || 0) + 1;
+        nbTaken++;
+        picks.push(
+          Object.assign({}, r, {
+            pickTier: 0,
+            pickWhy:
+              '📣 démarrage sur bond : place réservée (' +
+              nb +
+              ' sur ' +
+              o.n +
+              ')' +
+              (seen[secOf(r)] > 1 ? ' ; ' + seen[secOf(r)] + 'e société du secteur' : ''),
+            pickHot: !!hot(r),
+            pickBump: !!bump(r),
+            pickPromo: false,
+            pickWait: !!wait(r),
+            pickNotPea: notPea(r),
+            pickBond: true,
+          })
+        );
+      });
+      take(o.perSec, o.n);
+      if (picks.length < o.n) take(o.perSec + 1, o.n);
+      // le 📣 à la fin de la liste (après le 🎯 qui complète, le cas échéant)
+      picks = picks
+        .filter(function (p) {
+          return !p.pickBond;
+        })
+        .concat(
+          picks.filter(function (p) {
+            return p.pickBond;
+          })
+        );
+    }
     cand.forEach(function (c, t) {
       c.forEach(function (r) {
         if (!used[r.key])
@@ -10184,18 +10256,21 @@
         vo: r.vola !== undefined ? r.vola : r.vo,
         m10: r.ma10 !== undefined ? r.ma10 : r.m10,
         bp: r.bump !== undefined ? r.bump : r.bp,
+        bh: r.bumpHi !== undefined ? r.bumpHi : r.bh,
+        trend: r.trend,
         sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh,
         shn: r.short ? r.short.n : r.shn,
         shc: r.short ? r.short.cc : r.shc,
         _r: r,
       };
     });
-    return ES.pickN(slim, { n: R.selSize, peaOnly: true })
+    // 📣 : place réservée prise seulement par une note d'au moins selMin (sinon le 🎯 suivant), comme les autres lignes du lundi
+    return ES.pickN(slim, { n: R.selSize, peaOnly: true, bondNoteMin: R.selMin })
       .picks.filter(function (p) {
         return p.pickTier < 2 && p.note >= R.selMin;
       })
       .map(function (p) {
-        return p._r;
+        return p.pickBond ? Object.assign({}, p._r, { pickBond: true }) : p._r;
       });
   };
   /**
@@ -10489,7 +10564,8 @@
         ? n + ' société' + (n > 1 ? 's' : '') + (nBuy < n ? ', ' + nBuy + ' à acheter maintenant' : '')
         : 'aucune société ne passe les règles');
     var intro =
-      "Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois (dès +30 % ou pente moyenne avec un 📣 bond, ou pour compléter à 5), volumes en hausse puis 📣 bond sur gros volume d'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.";
+      "Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois (dès +30 % ou pente moyenne avec un 📣 bond, ou pour compléter à 5), volumes en hausse puis 📣 bond sur gros volume d'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Une place sur 5 revient au meilleur 📣 démarrage sur bond (semaine à +8 % ou plus sur 3 fois le volume habituel, ou 2 fois au plus haut de l'année ; portefeuille simulé 1998-2026 : +1,3 point par an). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.";
+    var BOND = '📣 Démarrage sur bond : place réservée au signal précoce';
     var pcs = function (v) {
       return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %';
     };
@@ -10532,6 +10608,7 @@
                 ' — ' +
                 x.note +
                 '/100' +
+                (x.pickBond ? '\n   ' + BOND : '') +
                 (ent(x) ? '\n   ' + ent(x).icon + ' ' + ent(x).label : '') +
                 (evOf(x) ? '\n   ' + evOf(x) : '') +
                 '\n   Pourquoi : ' +
@@ -10578,6 +10655,11 @@
                 '<div style="margin:6px 0"><b style="font-size:18px">' +
                 x.note +
                 '</b>/100</div>' +
+                (x.pickBond
+                  ? '<div style="margin:6px 0;padding:6px 10px;border-radius:6px;font-weight:bold;background:#E3EEFB;color:#1D5FAF">' +
+                    esc(BOND) +
+                    '</div>'
+                  : '') +
                 (ent(x)
                   ? '<div style="margin:6px 0;padding:6px 10px;border-radius:6px;font-weight:bold;background:' +
                     (ent(x).k === 'buy' ? '#DCEFE1;color:#1F7A3E' : '#F6E8CF;color:#9A5B00') +
