@@ -167,7 +167,7 @@ function vAlertesAuto() {
     (mailReady
       ? ''
       : '<p class="note warn">Gmail n\'est pas configuré : rien ne part, les emails sont seulement simulés.</p>') +
-    '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (5 🎯 + 2 💎, ✅ feu vert ou ⏸️ en attente).</li>' +
+    '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (4 🎯 + 1 📣 démarrage sur bond + 2 💎, ✅ feu vert ou ⏸️ en attente).</li>' +
     '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
     "<li>📉 <b>Après « Je l'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>" +
     "<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d'achat, casse sa résistance ou passe sous le stop ; avec un plan ✏️ ajusté à la main, vos propres niveaux.</li>" +
@@ -1141,7 +1141,7 @@ function logicCard() {
     fl(
       '🎯',
       'Choisir',
-      "+60 à +200 % sur 12 mois · 🔊 volumes puis 📣 bond d'abord · ⏸️ sous la moyenne 10 sem. en dernier · 2 par secteur"
+      "+60 à +200 % sur 12 mois · 🔊 volumes puis 📣 bond d'abord · ⏸️ sous la moyenne 10 sem. en dernier · 2 par secteur · 1 place sur 5 pour le meilleur 📣 démarrage sur bond"
     ) +
     fl('⏱️', 'Entrer', 'au-dessus de la moyenne 10 semaines, sans attendre de repli') +
     fl('⏳', 'Garder 6 mois', 'protection à −30 % ; emails à chaque −10 %, à −30 % et à 6 mois') +
@@ -1241,6 +1241,18 @@ function logicCard() {
         ],
         ['📣 Démarrage sur bond : avec une longue base avant / sans', '—', '—', '+5,1 / +5,2'],
         [
+          'Sélection 4 🎯 + 1 📣 au lieu de 5 🎯 (portefeuille simulé 1998-2026, 5 lignes chaque semaine gardées 6 mois, points de rendement par an : 1998-2008 / 2009-2017 / 2018-2026 ; en tout +1,3, t 2,3 ; sur 10 lignes, 8 + 2 : +0,9, positif dans chaque période)',
+          '—',
+          '—',
+          '−0,3 / +1,9 / +2,6',
+        ],
+        [
+          'Seuil de hausse sur 12 mois abaissé à +50 / +40 / +30 % au lieu de +60 % (même portefeuille, points par an ; sur 10 lignes : −0,3 / −0,5 / −0,7) : gardé à +60 %',
+          '—',
+          '—',
+          '+0,1 / +0,3 / −0,1',
+        ],
+        [
           'Anciennes 🎯 écartées par la pente pendant une consolidation, reprises à la sortie de leur base (nouvelle entrée 🎯 : +5,9)',
           '—',
           '—',
@@ -1284,7 +1296,7 @@ function logicCard() {
     "<p class=\"small\">Les deux premières périodes n'ont pas servi à régler les seuils : ce sont de vrais tests. L'écart avec le hasard (environ 15 à 20 points par an) est le chiffre à retenir ; les rendements eux-mêmes sont gonflés, car seules les sociétés encore cotées aujourd'hui sont dans l'historique. Les seuils changent peu le résultat (de +29 à +31 %/an en faisant varier hausse mini, hausse maxi et pente) : la méthode ne tient pas à un réglage fin. Elle ne protège pas des krachs : les pertes maximales sont celles du marché.</p></details>" +
     '<details class="fsscale more" data-k="lg-out"><summary>🗑️ Testé et retiré</summary><ul class="plain small">' +
     "<li><b>Achats de dirigeants</b> comme critère principal : environ 4 000 achats en France et en Suède n'ont pas fait mieux qu'un titre pris au hasard une fois publiés (+0,3 point, 48 % de gagnants). Gardés en petit bonus, consultables dans l'onglet Achats. Croisés avec le 🎯 au feu vert (France depuis 2021, Suède depuis 2016) : pas d'avantage, +1,5 point à 6 mois avec un achat de dirigeant dans les 3 derniers mois contre +4,6 sans (moins de chutes, mais moins de hausse, sur peu de cas) ; ce petit bonus sera réexaminé à la revue du 31/01/2027.</li>" +
-    "<li><b>Signaux de début de hausse</b> : tendance qui vient de tourner, sortie de creux, compression de volatilité, base serrée, accélération sur 3 mois, croisement de moyennes, recherches Google : pas mieux que la moyenne. Indicateurs de retournement de la bibliothèque ProRealCode (1997-2026) : entrée en étape 2 de Weinstein après une baisse, MACD-V qui repasse au-dessus de 0, divergence haussière du RSI, creux de −30 % puis croisement des moyennes : de −1,7 à −3,5 points à 6 mois face à la moyenne, avec 9 à 14 % de chutes ; seuls 8 à 12 % de ces signaux mènent au 🎯 dans les 6 mois. Le « V » des graphiques (creux de −30 %, rebond de +25 %, volumes en hausse) : au mieux +4,9 points (t 1,3) et 11 % de chutes, contre +8,1 et 7 % pour le 🎯. Le tracé « longue base » (plus haut de 5 ans vieux de 2 ans ou plus, creux de 35 % ou plus, puis retour près de ce plus haut, 1 395 cas) : +1,5 point seulement ; ce qui compte, c'est le bond sur volume qui l'accompagne parfois, avec ou sans longue base. Seule exception mesurée : le 📣 démarrage sur bond, montré à part dans le classement (hors note).</li>" +
+    "<li><b>Signaux de début de hausse</b> : tendance qui vient de tourner, sortie de creux, compression de volatilité, base serrée, accélération sur 3 mois, croisement de moyennes, recherches Google : pas mieux que la moyenne. Indicateurs de retournement de la bibliothèque ProRealCode (1997-2026) : entrée en étape 2 de Weinstein après une baisse, MACD-V qui repasse au-dessus de 0, divergence haussière du RSI, creux de −30 % puis croisement des moyennes : de −1,7 à −3,5 points à 6 mois face à la moyenne, avec 9 à 14 % de chutes ; seuls 8 à 12 % de ces signaux mènent au 🎯 dans les 6 mois. Le « V » des graphiques (creux de −30 %, rebond de +25 %, volumes en hausse) : au mieux +4,9 points (t 1,3) et 11 % de chutes, contre +8,1 et 7 % pour le 🎯. Le tracé « longue base » (plus haut de 5 ans vieux de 2 ans ou plus, creux de 35 % ou plus, puis retour près de ce plus haut, 1 395 cas) : +1,5 point seulement ; ce qui compte, c'est le bond sur volume qui l'accompagne parfois, avec ou sans longue base. Seule exception mesurée : le 📣 démarrage sur bond, montré à part dans le classement (hors note) ; depuis le 27/10/2026, la meilleure société qui démarre ainsi prend une place sur cinq de la sélection.</li>" +
     "<li><b>Essoufflement d'une hausse</b> (sociétés 🎯, 1997-2026) : RSI ≥ 80, divergence baissière, MACD-V sous son signal ou au-delà de 150, 9 semaines de hausse d'affilée, pente qui ralentit, volumes en baisse près du plus haut : aucun ne prévoit une moins bonne suite, à 3 comme à 6 mois. Une hausse déjà très forte ne s'essouffle pas plus : à +250 % du plus bas de l'année, encore +10,6 points (avec 11 % de chutes). Pour la force du signal, seul 🔊 compte (+10,2 points contre +5,8 sans hausse de volume, positif dans chaque période, voir les chiffres détaillés des tests) ; additionner d'autres repères (pente, plus haut, force relative) ajoute autant de fortes baisses que de fortes hausses.</li>" +
     '<li><b>Doublons</b> : Trend Template de Minervini, secteur fort, RSI, F-score 8–9, convergence : rien de plus que le classement.</li>' +
     "<li><b>Saisonnalité des secteurs</b> : les bons mois de 2018–2021 ne l'étaient plus en 2022–2026 ; acheter les secteurs « saisonniers » n'a rien rapporté.</li>" +

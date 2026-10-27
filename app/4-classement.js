@@ -1824,7 +1824,10 @@ function rankCard(r) {
     '<p class="small">Vert : bon score, orange : moyen, rouge : faible. <button class="linkbtn" data-a="rankWhy">Pourquoi cette méthode ?</button></p></details></section>';
   return h;
 }
-/** 📋 La sélection de la semaine : 5 🎯 (celles de l'email du lundi) + 2 💎, soit 70/30, avec l'état de chacune (✅ feu vert, ⏸️ en attente). */
+/**
+ * 📋 La sélection de la semaine : 5 lignes de l'email du lundi (4 🎯 + 1 📣 démarrage sur bond depuis le 27/10/2026, 5 🎯 s'il n'y a pas
+ * de 📣) + 2 💎, soit 70/30, avec l'état de chacune (✅ feu vert, ⏸️ en attente).
+ */
 function rankSelCard() {
   var R = rankData();
   if (!R) return '';
@@ -1849,10 +1852,14 @@ function rankSelCard() {
       '</small></li>'
     );
   };
+  var nBd = sel.items.filter(function (r) {
+    return r.bd;
+  }).length;
   var h =
     '<details class="card fold selc" data-k="buy"><summary>📋 Sélection de la semaine <span class="muted small">· ' +
-    sel.items.length +
+    (sel.items.length - nBd) +
     ' 🎯 + ' +
+    (nBd ? nBd + ' 📣 + ' : '') +
     V.length +
     ' 💎</span></summary><p class="selrule small muted">PEA · lignes égales (≈ 70/30) · envoyée par email le lundi · ' +
     esc(sel.week) +
@@ -1926,13 +1933,14 @@ function rankSelCard() {
         var E = ES.pickEntry(r);
         return li(
           r,
-          '🎯',
+          r.bd ? '📣' : '🎯',
           E ? E.icon + ' ' + (E.k === 'buy' ? 'Feu vert' : 'En attente') : '✅ Feu vert',
           [
+            r.bd ? 'démarrage sur bond' : null,
             r.sector,
             'note ' + r.note,
             r.mom != null ? '12 m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + ' %' : null,
-            bumpOf(r) != null ? '📣 bond' : null,
+            !r.bd && bumpOf(r) != null ? '📣 bond' : null,
             E && E.k === 'wait' ? 'sous sa moyenne 10 sem.' : null,
           ]
             .filter(Boolean)
@@ -2152,7 +2160,7 @@ function pickKeys(rows) {
 }
 /** Explication du démarrage sur bond, avec ses chiffres testés. */
 function bpNote() {
-  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel, ou sur 2 fois si elle fait un nouveau plus haut de l'année (souvent des résultats), cours en tendance, société classée, pas encore dans le 🎯. Sur 1997-2026 : +5,5 points à 6 mois et +11,2 à 12 mois face à la société moyenne, positif dans chaque période ; 1 sur 4 a gagné 50 % ou plus en un an, 1 sur 15 a chuté de 25 % ou plus en 6 mois ; 4 sur 10 ont rejoint le 🎯 dans les 6 mois. Pas d'urgence : 3 semaines après le bond, encore +4,8. Une longue base avant n'ajoute rien ; sans tendance, le même bond n'a rien rapporté. Signal précoce, hors note : le 🎯 reste la règle.</p>";
+  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel, ou sur 2 fois si elle fait un nouveau plus haut de l'année (souvent des résultats), cours en tendance, société classée, pas encore dans le 🎯. Sur 1997-2026 : +5,5 points à 6 mois et +11,2 à 12 mois face à la société moyenne, positif dans chaque période ; 1 sur 4 a gagné 50 % ou plus en un an, 1 sur 15 a chuté de 25 % ou plus en 6 mois ; 4 sur 10 ont rejoint le 🎯 dans les 6 mois. Pas d'urgence : 3 semaines après le bond, encore +4,8. Une longue base avant n'ajoute rien ; sans tendance, le même bond n'a rien rapporté. Signal précoce, hors note ; depuis le 27/10/2026, le meilleur prend une place sur cinq de la sélection du lundi (portefeuille simulé 1998-2026 : +1,3 point par an).</p>";
 }
 /** Explication du signal précoce, avec la combinaison qui a le mieux marché et l'état actuel du marché. */
 function brkNote() {
@@ -2420,12 +2428,17 @@ function pick3Card(inSel) {
       rest
         .map(function (r, k) {
           var pl = plan(r),
+            grp = function (x) {
+              return x.pickBond ? 'b' : x.pickTier;
+            },
             sep =
-              r.pickTier > 0 && (k === 0 || rest[k - 1].pickTier !== r.pickTier)
+              (r.pickBond || r.pickTier > 0) && (k === 0 || grp(rest[k - 1]) !== grp(r))
                 ? '<li class="pick3sep">' +
-                  (r.pickTier === 1
-                    ? 'Règles assouplies : pente moyenne ou +30 à +60 % sur 12 mois'
-                    : 'Règles assouplies : comptes mitigés ou pas lus') +
+                  (r.pickBond
+                    ? '📣 Place réservée : démarrage sur bond'
+                    : r.pickTier === 1
+                      ? 'Règles assouplies : pente moyenne ou +30 à +60 % sur 12 mois'
+                      : 'Règles assouplies : comptes mitigés ou pas lus') +
                   '</li>'
                 : '';
           return (
@@ -2481,7 +2494,7 @@ function pick3Card(inSel) {
         .join('') +
       '</ol>';
   h +=
-    '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord (📣 repêche pente moyenne ou +30 %) · 2 par secteur · sans ⚡ ni 🐻</p>' +
+    '<p class="p3rules">⬆⬆ pente forte · +60 à +200 % sur 12 mois · 📊 comptes solides · 🔊 volumes puis 📣 bond d\'abord (📣 repêche pente moyenne ou +30 %) · 2 par secteur · sans ⚡ ni 🐻 · 1 place sur 5 pour un 📣 démarrage sur bond</p>' +
     xpi(
       P.pool +
         ' société' +
