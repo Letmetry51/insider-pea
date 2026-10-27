@@ -671,6 +671,21 @@ function bumpOf(r) {
 function bumpTxt(b) {
   return b ? 'il y a ' + b + ' sem.' : 'cette semaine';
 }
+/**
+ * 📣 pour l'affichage : bond sur 3 fois le volume (bp, celui qui ordonne le 🎯), sinon bond sur 2 fois le volume qui fait un nouveau
+ * plus haut de l'année (bh, affichage seulement). { w : semaines depuis le bond, hi : vrai pour le second }, ou null.
+ */
+function bondOf(r) {
+  var b = bumpOf(r),
+    h = r ? (r.bh != null ? r.bh : r.bumpHi) : null;
+  if (b != null && (h == null || b <= h)) return { w: b, hi: false };
+  return h != null ? { w: h, hi: true } : null;
+}
+function bondTitle(o) {
+  return o.hi
+    ? "Semaine à +8 % ou plus avec 2 fois le volume habituel, nouveau plus haut de l'année"
+    : 'Semaine à +8 % ou plus avec 3 fois le volume habituel';
+}
 /** Supports et résistances de l'analyse : les mêmes que le graphique (calcul du soir, sinon recalculés, toujours complétés). */
 function anLevels(o) {
   var x = o.isin && S.inst[o.isin],
@@ -2116,20 +2131,16 @@ function rkBrk(r) {
   return r.brk != null && (!r.out.length || (r.out.length === 1 && /tiers le plus faible/.test(r.out[0])));
 }
 /**
- * 📣 Démarrage sur bond : semaine à +8 % ou plus sur 3 fois le volume de l'année, il y a 3 semaines au plus, cours en tendance de
- * fond, pas encore parmi les 10 🎯 (p10 : clés des 🎯). Signal précoce, hors note : sur 1997-2026, +7,7 points à 6 mois face à la
- * moyenne en entrant la semaine du bond, +5,8 dans les 4 semaines (t 3,2), positif dans chaque période ; plus d'un sur trois
- * rejoint le 🎯 dans les 6 mois (étude du 25/10/2026, research/backtest/_bond.py).
+ * 📣 Démarrage sur bond : semaine à +8 % ou plus sur 3 fois le volume de l'année, ou sur 2 fois si elle fait un nouveau plus haut
+ * de l'année, il y a 3 semaines au plus, cours en tendance de fond, société classée (sans raison d'écarter, donc hors tiers le plus
+ * faible sur 12 mois), pas encore parmi les 10 🎯 (p10 : clés des 🎯). Signal précoce, hors note : sur 1997-2026, une entrée par
+ * bond, +5,5 points à 6 mois et +11,2 à 12 mois face à la moyenne, positif dans chaque période, encore +4,8 en entrant 3 semaines
+ * après ; longue base avant ou non, même résultat ; tiers le plus faible +3,0 seulement (études du 25 et du 27/10/2026,
+ * research/backtest/_bond.py et _longue_base*.py).
  */
 function rkBp(r, p10) {
-  var b = bumpOf(r);
-  return (
-    b != null &&
-    b <= 3 &&
-    r.trend === 'up' &&
-    !(p10 && p10[r.key]) &&
-    (!r.out.length || (r.out.length === 1 && /tiers le plus faible/.test(r.out[0])))
-  );
+  var o = bondOf(r);
+  return o != null && o.w <= 3 && r.trend === 'up' && !(p10 && p10[r.key]) && !r.out.length;
 }
 /** Clés des 10 🎯 du soir (mêmes règles que la sélection affichée). */
 function pickKeys(rows) {
@@ -2141,7 +2152,7 @@ function pickKeys(rows) {
 }
 /** Explication du démarrage sur bond, avec ses chiffres testés. */
 function bpNote() {
-  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel (souvent des résultats), cours en tendance, pas encore dans le 🎯. Sur 1997-2026 : +7,7 points à 6 mois face à la société moyenne en entrant la semaine du bond, +5,8 dans les 4 semaines suivantes, positif dans chaque période ; 1 sur 14 a chuté de 25 % ou plus ; plus d'un sur trois a rejoint le 🎯 dans les 6 mois. Le même bond sans tendance (rebond d'une société en baisse) n'a rien rapporté. Signal précoce, hors note : le 🎯 reste la règle.</p>";
+  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel, ou sur 2 fois si elle fait un nouveau plus haut de l'année (souvent des résultats), cours en tendance, société classée, pas encore dans le 🎯. Sur 1997-2026 : +5,5 points à 6 mois et +11,2 à 12 mois face à la société moyenne, positif dans chaque période ; 1 sur 4 a gagné 50 % ou plus en un an, 1 sur 15 a chuté de 25 % ou plus en 6 mois ; 4 sur 10 ont rejoint le 🎯 dans les 6 mois. Pas d'urgence : 3 semaines après le bond, encore +4,8. Une longue base avant n'ajoute rien ; sans tendance, le même bond n'a rien rapporté. Signal précoce, hors note : le 🎯 reste la règle.</p>";
 }
 /** Explication du signal précoce, avec la combinaison qui a le mieux marché et l'état actuel du marché. */
 function brkNote() {
@@ -2432,9 +2443,12 @@ function pick3Card(inSel) {
             r.note +
             '/100</span>' +
             (r.vx >= 1.5 ? ' <span class="chip good">🔊 volumes ×' + String(r.vx).replace('.', ',') + '</span>' : '') +
-            (bumpOf(r) != null
-              ? ' <span class="chip good" title="Semaine à +8 % ou plus avec 3 fois le volume habituel">📣 bond ' +
-                bumpTxt(bumpOf(r)) +
+            (bondOf(r)
+              ? ' <span class="chip good" title="' +
+                bondTitle(bondOf(r)) +
+                '">📣 bond ' +
+                (bondOf(r).hi ? 'au plus haut ' : '') +
+                bumpTxt(bondOf(r).w) +
                 '</span>'
               : '') +
             '<small>' +
@@ -3115,7 +3129,7 @@ function vClassement() {
     '<li><b class="big">78</b> note /100 : 🟢 en tête, 🟡 solide, ⚪ moyenne, ⛔ écartée</li>' +
     '<li><span class="rb sl-strong">⬆⬆ +45 %</span> pente du canal sur 6 mois : ⬆⬆ forte (≥ +40 %), ⬆ moyenne, ↗ légère</li>' +
     '<li><span class="rb t-good">🔊 ×2,1</span> volumes des 10 dernières semaines / moyenne de l\'année</li>' +
-    '<li><span class="rb t-good">📣 bond</span> semaine à +8 % ou plus avec 3 fois le volume habituel (8 dernières semaines)</li>' +
+    '<li><span class="rb t-good">📣 bond</span> semaine à +8 % ou plus avec 3 fois le volume habituel, ou 2 fois si elle fait un nouveau plus haut de l\'année (8 dernières semaines)</li>' +
     '<li><span class="rb t-good">🚀</span> nouveau plus haut après 6 mois de base (signal, hors note)</li>' +
     '<li><span class="rb t-bad">🐻 1,4 %</span> capital vendu à découvert par des fonds : à Paris, écartée du 🎯 (−11,6 pts à 6 mois sur 2013-2026) ; ailleurs signalée</li>' +
     '<li><span class="rb t-warn">⚡ 85 %/an</span> cours très volatil (≥ 80 % par an) : deux fois plus de chutes, écarté du 🎯</li>' +
@@ -3181,11 +3195,9 @@ function vClassement() {
         );
       if (r.acc === 'good') bd.push('<span class="rb t-good" title="Comptes solides">📊</span>');
     }
-    if (bumpOf(r) != null)
+    if (bondOf(r))
       bd.push(
-        '<span class="rb t-good" title="Semaine à +8 % ou plus avec 3 fois le volume habituel, ' +
-          bumpTxt(bumpOf(r)) +
-          '">📣 bond</span>'
+        '<span class="rb t-good" title="' + bondTitle(bondOf(r)) + ', ' + bumpTxt(bondOf(r).w) + '">📣 bond</span>'
       );
     if (r.vx >= ES.VOL_SURGE)
       bd.push(

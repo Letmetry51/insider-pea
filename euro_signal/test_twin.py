@@ -80,7 +80,8 @@ if (inp.mode === 'features') {
     pos: r.pos || null, acc: r.acc, slope6: r.slope != null ? Math.round((Math.sqrt(1 + r.slope) - 1) * 100) : null,
     sc: r.slopeCls || null, brk: r.brk != null ? r.brk : undefined, vx: r.volx != null ? r.volx : undefined,
     dj: r.dayJump != null ? r.dayJump : undefined, vo: r.vola != null ? r.vola : undefined, m10: r.ma10 != null ? r.ma10 : undefined,
-    bp: r.bump != null ? r.bump : undefined, sh: r.short ? r.short.pct : undefined, shc: r.short ? r.short.cc : undefined,
+    bp: r.bump != null ? r.bump : undefined, bh: r.bumpHi != null ? r.bumpHi : undefined, sh: r.short ? r.short.pct : undefined,
+    shc: r.short ? r.short.cc : undefined,
     pea: r.pea === false ? false : undefined, secEn: r.secEn || null,
   });
   const pub = shown.map(slim);
@@ -130,7 +131,12 @@ def company(kind, drift=0.0, sigma=0.015, shape=None):
     V = [int(1e6 * rng.lognormvariate(0, 0.3)) for _ in range(N_VOL)]
     if "surge" in kind:
         V[-10:] = [int(v * 2.3) for v in V[-10:]]
-    if "bump" in kind:  # semaine à +10 % sur 4 fois le volume, il y a 3 semaines
+    if "bumphi" in kind:  # semaine à +12 % sur 2,5 fois le volume, il y a 2 semaines (📣 au plus haut de l'année seulement)
+        k = N_WEEKS - 3
+        W[k:] = [round(v * 1.12, 4) for v in W[k:]]
+        D[-15:] = [round(v * 1.12, 4) for v in D[-15:]]
+        V[-3] = int(sum(V[-55:-3]) / 52 * 2.5)
+    elif "bump" in kind:  # semaine à +10 % sur 4 fois le volume, il y a 3 semaines
         k = N_WEEKS - 4
         W[k:] = [round(v * 1.10, 4) for v in W[k:]]
         D[-20:] = [round(v * 1.10, 4) for v in D[-20:]]
@@ -211,6 +217,8 @@ add("INSB", "surge", 0.0036, "Industrials", ins={"buys": 2, "ceo": True, "multi"
 add("INSS", "surge", 0.0036, "Industrials", ins={"buys": 0, "ceo": False, "multi": 0, "netSeller": True, "ceoSale": True})
 add("BRK", "", 0.0, "Basic Materials", shape=breakout)
 add("OKEA", "surge bump", 0.0040, "Energy")  # siège aux îles Marshall : ISIN MH, PEA d'après le pays du siège donné par Yahoo
+add("BHI", "bumphi", 0.0036, "Industrials")       # bond sur 2,5 fois le volume au plus haut de l'année
+add("BHLOW", "bumphi", -0.0015, "Utilities")      # même bond en baisse : pas au plus haut de l'année
 BACKUP_ISINS = {"MHY641771016": ["OKEA", "NOK"], "FR0000000052": ["UP1", "EUR"]}
 SHORTS_SYMBOLS = {"GB00BTQGS779": "UP2"}
 inst = {
@@ -238,7 +246,7 @@ js = node({"mode": "features", "series": [[co[s]["d"], co[s]["w"], co[s]["wv"]] 
 bad = []
 for s, f_js in zip(syms, js):
     f_py = tw.features(co[s]["d"], co[s]["w"], co[s]["wv"])
-    for k in ("last", "mom", "sma50", "ratio", "trend", "vol", "vol52", "volx", "bump", "brk", "dayJump"):
+    for k in ("last", "mom", "sma50", "ratio", "trend", "vol", "vol52", "volx", "bump", "bumpHi", "brk", "dayJump"):
         a, b = f_js.get(k), f_py.get(k)
         if not ((a is None and b is None) or (a is not None and b is not None and a == b)):
             bad.append((s, k, a, b))
@@ -254,6 +262,9 @@ check(any(f.get("bump") is not None for f in js) and any((f.get("volx") or 0) >=
       and any(f.get("brk") is not None for f in js) and any(f.get("jump") for f in js) and any(f.get("dayJump") for f in js)
       and feats["SHORTH"].get("mom") is None and feats["NOVOL"].get("volx") is None,
       "cas limites présents (bond, volumes, sortie de base, saut, variation d'un jour, historique court, volumes manquants)")
+check(feats["BHI"].get("bumpHi") == 2 and feats["BHI"].get("bump") is None and feats["BHLOW"].get("bumpHi") is None,
+      "📣 bond au plus haut de l'année sur 2,5 fois le volume : repéré il y a 2 semaines, pas en baisse ("
+      + str(feats["BHI"].get("bumpHi")) + ", " + str(feats["BHLOW"].get("bumpHi")) + ")")
 
 # 3. même classement, même sélection
 payload = node({"mode": "rank", "co": co, "inst": inst, "extra": extra, "dDates": d_dates, "today": today.isoformat(),
