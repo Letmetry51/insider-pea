@@ -3048,6 +3048,76 @@ export function build(opts = {}) {
     console.warn('  Feu vert du 🎯 indisponible : ' + e.message);
   }
 
+  /* 6e bis. 📣 Démarrage : une société remplit ce soir toutes les conditions de la place 📣 de la sélection du lundi (PEA, note ≥ 70,
+     comptes solides, 3 M€/jour, tendance, bond il y a 3 semaines au plus) sans être dans la liste envoyée lundi : un email le soir
+     même, une fois par société sur 30 jours (demandé le 28/10/2026). Avant l'envoi de la sélection de la semaine, rien : elle
+     l'inclura. */
+  try {
+    const sentW = isObj(state.rankSelections) && isObj(state.rankSelections[week]) ? state.rankSelections[week] : null;
+    if (rank && rank.coFresh && sentW && Array.isArray(sentW.items) && Array.isArray(rank._sel)) {
+      const sentKeys = new Set(sentW.items.map((x) => x.key));
+      state.bondSent = isObj(state.bondSent) ? state.bondSent : {};
+      rank._sel
+        .filter((p) => p.pickBond && !sentKeys.has(p.key))
+        .forEach((p) => {
+          if (state.bondSent[p.key] && ES.daysBetween(state.bondSent[p.key], today) < 30) return;
+          state.bondSent[p.key] = today;
+          const b = p.bump != null ? p.bump : null,
+            h = p.bumpHi != null ? p.bumpHi : null,
+            w = b == null ? h : h == null ? b : Math.min(b, h),
+            big = b != null && b === w;
+          const E = ES.pickEntry({ m10: p.ma10 });
+          const link = p.link || (dashUrl ? dashUrl + '#' + (p.isin || 'co=' + p.sym) : null);
+          const pc = (v) => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %';
+          const lines = [
+            p.name + (p.sector ? ' (' + p.sector + ')' : '') + ' — ' + p.note + '/100',
+            '📣 Bond sur gros volume ' +
+              (w ? 'il y a ' + w + ' semaine' + (w > 1 ? 's' : '') : 'cette semaine') +
+              ' : semaine à +8 % ou plus sur ' +
+              (big ? '3 fois' : "2 fois, au plus haut de l'année,") +
+              ' le volume habituel.',
+            'Remplit ce soir toutes les conditions de la place 📣 de la sélection du lundi (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour, cours en tendance) : elle y entrera lundi si elle reste la meilleure.',
+            (E ? E.icon + ' ' + E.label + ' · ' : '') +
+              '12 mois : ' +
+              (p.mom != null ? pc(p.mom * 100) : '—') +
+              (p.ratio != null
+                ? ' · ' + (p.ratio >= 0.995 ? 'au plus haut' : Math.round((1 - p.ratio) * 100) + ' % sous le plus haut')
+                : ''),
+            'Sur 1997-2026 : +5,5 points à 6 mois face à la moyenne des sociétés, 1 sur 15 a chuté de 25 % ou plus. Rien ne presse : 3 semaines après le bond, encore +4,8.',
+            "Ensuite : ligne de taille égale, garder 6 mois, protection à −30 %. « Je l'ai acheté » sur la fiche pour le rappel.",
+          ];
+          outbox.push({
+            id: 'demarrage-' + p.key + '-' + today,
+            kind: 'demarrage',
+            isin: p.isin || null,
+            name: p.name,
+            subject: '[Euro Signal] 📣 Démarrage : ' + p.name + ' — place 📣 de la sélection',
+            text: lines.join('\n') + (link ? '\nFiche : ' + link : '') + "\nÀ étudier, pas un ordre d'achat.",
+            html:
+              '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">📣 Démarrage : ' +
+              ES.esc(p.name) +
+              '</h2>' +
+              lines.map((l) => '<p style="margin:0 0 8px">' + ES.esc(l) + '</p>').join('') +
+              (link
+                ? '<p><a href="' +
+                  ES.esc(link) +
+                  '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Voir la fiche</a></p>'
+                : '') +
+              '<p style="color:#55615c;font-size:12px">À étudier, pas un ordre d\'achat.</p></div>',
+            eventIds: ['demarrage:' + p.key + ':' + today],
+            score: null,
+            version: cfg.rank.version,
+          });
+          console.log('  📣 Démarrage : ' + p.name + ' (bond il y a ' + w + ' semaine(s))');
+        });
+      Object.keys(state.bondSent).forEach((k) => {
+        if (ES.daysBetween(state.bondSent[k], today) > 60) delete state.bondSent[k];
+      });
+    }
+  } catch (e) {
+    console.warn('  📣 Démarrage indisponible : ' + e.message);
+  }
+
   /* 6f. Alerte « krach du momentum » (marché −20 % ou pire sur un an) : un email quand elle s'allume, un quand elle s'éteint */
   try {
     const NB = rank && rank.breadth && rank.breadth.now;

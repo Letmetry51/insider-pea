@@ -169,6 +169,7 @@ function vAlertesAuto() {
       : '<p class="note warn">Gmail n\'est pas configuré : rien ne part, les emails sont seulement simulés.</p>') +
     '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (4 🎯 + 1 📣 démarrage sur bond + 2 💎, ✅ feu vert ou ⏸️ en attente).</li>' +
     '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
+    '<li>📣 <b>Démarrage</b> : en cours de semaine, une société remplit toutes les conditions de la place 📣 de la sélection (un email par société sur 30 jours au plus).</li>' +
     "<li>📉 <b>Après « Je l'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>" +
     "<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d'achat, casse sa résistance ou passe sous le stop ; avec un plan ✏️ ajusté à la main, vos propres niveaux.</li>" +
     "<li>⚠️ <b>Krach</b> : quand l'alerte s'allume (marché à −20 % sur un an), puis quand elle s'éteint (retour au-dessus de −15 %).</li>" +
@@ -1154,7 +1155,7 @@ function logicCard() {
     '</div>' +
     '<p class="small lgw">🎲 <b>6 mois après l\'achat</b> (29 ans, chiffres bruts) : 2 fois sur 3 en hausse · 1 sur 3 à +20 % · 1 sur 8 à +50 % · 1 sur 14 à −25 % ou pire (toutes sociétés : 61 %, 1 sur 4, 1 sur 16, 1 sur 12).</p>' +
     trackBox() +
-    "<p class=\"small lgw\">📧 <b>Automatique</b> : le lundi, la sélection avec ✅ feu vert ou ⏸️ en attente pour chaque société ; dès qu'une société ⏸️ du 🎯 repasse au-dessus de sa moyenne 10 semaines, un email « feu vert » ; après « Je l'ai acheté » : un email à chaque palier de −10 %, à la protection de −30 % et au rappel des 6 mois (garder si encore dans le 🎯, sinon vendre) ; un email quand l'alerte krach s'allume ou s'éteint ; 📊 un bilan chaque trimestre (suivi réel, règles en réel, pistes) et le point de revue le 31/01/2027.</p>" +
+    "<p class=\"small lgw\">📧 <b>Automatique</b> : le lundi, la sélection avec ✅ feu vert ou ⏸️ en attente pour chaque société ; dès qu'une société ⏸️ du 🎯 repasse au-dessus de sa moyenne 10 semaines, un email « feu vert » ; dès qu'une société remplit en cours de semaine toutes les conditions de la place 📣 de la sélection, un email « démarrage » ; après « Je l'ai acheté » : un email à chaque palier de −10 %, à la protection de −30 % et au rappel des 6 mois (garder si encore dans le 🎯, sinon vendre) ; un email quand l'alerte krach s'allume ou s'éteint ; 📊 un bilan chaque trimestre (suivi réel, règles en réel, pistes) et le point de revue le 31/01/2027.</p>" +
     (function () {
       var W = (rankData() || {}).watchdog;
       return (
