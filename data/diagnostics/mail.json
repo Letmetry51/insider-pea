@@ -1,0 +1,21 @@
+{
+ "date": "2026-10-30",
+ "parts": {
+  "alertes": {
+   "ok": true,
+   "detail": "1 envoyé(s), 0 en échec, 0 incertain(s)",
+   "at": "2026-10-30T22:12:08.065447+00:00"
+  },
+  "positions": {
+   "ok": true,
+   "detail": "",
+   "at": "2026-10-30T22:12:13.583927+00:00"
+  },
+  "controle": {
+   "ok": true,
+   "detail": "1 point(s) signalé(s)",
+   "at": "2026-10-30T22:12:14.799973+00:00"
+  }
+ },
+ "at": "2026-10-30T22:12:14.799973+00:00"
+}

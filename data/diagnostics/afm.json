@@ -1,0 +1,41 @@
+{
+ "status": 200,
+ "contentType": null,
+ "bytes": 676682,
+ "encoding": "cp1252",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-10-28 00:00:00\";\"argenx SE\";\"Borgions F.\";\"Borgions\"\r\n\"2026-10-28 00:00:00\";\"argenx SE\";\"Ulrichts P.\";\"Ulrichts\"\r\n\"2026-10-26 00:00:00\";\"Iveco Group N.V.\";\"Liccardo M.\";\"Liccardo\"\r\n\"2026-10-26 00:00:00\";\"Iveco Group N.V.\";\"Porcelli G.\";\"Porcelli\"\r\n\"2026-10-26 00:00:00\";\"Iveco Group N.V.\";\"Passerini C.\";\"Passerini\"\r\n\"2026-10-26 00:00:00\";\"Iveco Group N.V.\";\"Tanganelli A.\";\"Tanganelli\"\r\n\"2026-10-26 00:00:00\";\"Iveco Group N.V.\";\"Polsinelli F.\";\"Polsinelli\"\r\n\"2026-10-26 00:00:00\";\"Iveco Group N.V.\";\"Sra L.\";\"Sra\"\r\n\"2026-1",
+ "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
+ "delimiter": ";",
+ "headers": [
+  "Transaction",
+  "Issuing institution",
+  "Notifiable",
+  "NotifiableLastName"
+ ],
+ "sampleRows": [
+  [
+   "2026-10-28 00:00:00",
+   "argenx SE",
+   "Borgions F.",
+   "Borgions"
+  ],
+  [
+   "2026-10-28 00:00:00",
+   "argenx SE",
+   "Ulrichts P.",
+   "Ulrichts"
+  ],
+  [
+   "2026-10-26 00:00:00",
+   "Iveco Group N.V.",
+   "Liccardo M.",
+   "Liccardo"
+  ]
+ ],
+ "rowCount": 9603,
+ "columnMap": {
+  "issuer": "Issuing institution"
+ },
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>202610283F80171F-1B79-4B02-945C-1805C3102138</meldingid><transactiedatum>10/28/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Borgions F.</meldingsplichtige><meldingsplichtigeachternaam>Borgions</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Technology Innovation Officer</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Borgions F. - </vermelding></vermelding><vermelding><meldingid>202610283FEB46E1-78DC-4C45-9BBF-FA776E8331F3</meldingid><transactiedatum>10/28/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Ulrichts P.</meldingsplichtige><meldingsplichtigeachternaam>Ulrichts</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Scientific Officer</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Ulrichts P. - </vermelding></vermelding><vermelding><meldingid>20261026071F5FDE-C3E5-4228-969B-98D3A3CC0CE1</meldingid><transactiedatum>10/26/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Iveco Group N.V.</uitgevendeinstelling><meldingsplichtige>Liccardo M.</meldingsplichtige><meldingsplichtigeachternaam>Liccardo</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Technology &amp; Digital Officer</functie><lei>549300ZWF2ZJDD9EOR96</lei><vermelding>Iveco Group N.V. - Liccardo M. - </vermelding></vermelding><vermelding><meldingid>2026102615708D33-DE93-4917-9DF9-B3C022954E1E</meldingid><transactiedatum>10/26/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Iveco Group N.V.</uitgevendeinstelling><meldingsplichtige>Porcelli G.</meldingsplichtige><meldingsplichtigeachternaam>Porcelli</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Legal &amp; Compliance Officer and Head of Corporate Governance</functie><lei>549300ZWF2ZJDD9EOR96</lei><vermelding>Iveco Group N.V. - Porcelli G. - </vermelding></vermelding><vermelding><meldingid>20261026208D5153-A18D-487E-B850-1EBDF8236FF3</meldingid><transactiedatum>10/26/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Iveco Group N.V.</uitgevendeinstelling><meldingsplichtige>Passerini C.</meldingsplichtige><meldingsplichtigeachternaam>Passerini</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>President, Bus</functie><lei>549300ZWF2ZJDD9EOR96</lei><vermelding>Iveco Group N.V. - Passerini C. - </vermelding></vermelding><vermelding><meldingid>202610262E7E4A63-C75D-44F2-B2E6-608AF609A2D4</meldingid><transactiedatum>10/26/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Iveco Group N.V.</uitgevendeinstelling><meldingsplichtige>Tanganelli A.</meldingsplichtige><meldingsplichtigeachternaam>Tanganelli</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Financial &amp; Information Technology Officer</functie><lei>549300ZWF2ZJDD",
+ "at": "2026-10-30T21:41:13.049998+00:00"
+}

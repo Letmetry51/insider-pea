@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Euro Signal</title>
+<link rel="manifest" href="euro-signal.webmanifest">
+<meta name="theme-color" content="#17201C">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Euro Signal">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="app/euro-signal.css?v=31f2d256eb">
+</head>
+<body>
+<div class="wrap">
+  <header id="top"></header>
+  <main id="main"><p class="muted pad">Chargement d'Euro Signal…</p></main>
+</div>
+<div id="busy" hidden><span></span></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="euro_signal/core.js?v=fbcd6fb1f0"></script>
+<script src="app/1-base.js?v=6070f7cd6c"></script>
+<script src="app/2-vues.js?v=7c81086f06"></script>
+<script src="app/3-valeur.js?v=14aadec363"></script>
+<script src="app/4-classement.js?v=0cb963af23"></script>
+<script src="app/5-fiche.js?v=7b7dffcdd9"></script>
+<script src="app/6-secteurs.js?v=b9b56c0e5b"></script>
+<script src="app/7-onglets.js?v=c0066c76fb"></script>
+<script src="app/8-actions.js?v=26f792eead"></script>
+</body>
+</html>
