@@ -152,8 +152,9 @@ jobs:
           python scrapers/sectors.py --prices --dashboard
         continue-on-error: true
 
-      # Clôture du soir manquante chez Yahoo (calcul tardif, panne) : prise à la bourse elle-même (Euronext, Nasdaq Nordic)
-      - name: 3c. Cours de secours (Euronext, Nasdaq Nordic)
+      # Clôture du soir manquante chez Yahoo (calcul tardif, panne) : prise à la bourse elle-même (Euronext, Nasdaq Nordic), puis
+      # dernier cours Yahoo titre par titre pour les autres places (03/11/2026 : séance vide chez Yahoo le lendemain matin)
+      - name: 3c. Cours de secours (Euronext, Nasdaq Nordic, Yahoo titre par titre)
         id: s3c
         timeout-minutes: 12
         run: |
