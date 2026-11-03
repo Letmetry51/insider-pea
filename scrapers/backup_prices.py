@@ -392,7 +392,8 @@ def parse_yahoo_meta(md, today):
     d = when.date().isoformat()
     if d > today:
         return None
-    return quote(d, px, volume=num(md.get("regularMarketVolume")), currency=md.get("currency"), src="Yahoo (cotation)")
+    # volume du jour laissé vide : faux à Madrid (44 titres pour Inditex le 02/11/2026), il fausserait les volumes de la semaine
+    return quote(d, px, currency=md.get("currency"), src="Yahoo (cotation)")
 
 
 def _yahoo_meta(sym):

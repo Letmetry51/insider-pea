@@ -1,4 +1,5 @@
-"""Sonde : le secours « Yahoo titre par titre » de scrapers/backup_prices.py, sur de vrais titres (dernier cours et sa date)."""
+"""Sonde (Recherche à la demande, script yahoo_secours.py) : le secours « Yahoo titre par titre » de scrapers/backup_prices.py sur de
+vrais titres de chaque place : dernier cours de la cotation et sa date (03/11/2026 : séance du 02/11 vide chez Yahoo le lendemain)."""
 import datetime as dt
 import sys
 sys.path.insert(0, "../scrapers")

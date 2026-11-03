@@ -510,7 +510,8 @@ if (YH && YH.sections) {
   });
 } else warn('Yahoo : compteurs du soir absents (diagnostics/yahoo.json)');
 
-// 5d. Cours de secours (scrapers/backup_prices.py) : clôtures prises chez Euronext et Nasdaq Nordic quand Yahoo ne les a pas
+// 5d. Cours de secours (scrapers/backup_prices.py) : clôtures prises chez Euronext et Nasdaq Nordic quand Yahoo ne les a pas, puis
+// dernier cours Yahoo titre par titre pour les autres places (03/11/2026)
 const BK = read('diagnostics/backup.json');
 if (BK && !BK.__error && BK.date === today) {
   const c = BK.catalogue || {},
@@ -533,7 +534,10 @@ if (BK && !BK.__error && BK.date === today) {
     ok(
       `cours de secours (séance du ${BK.session || '?'}) : ${c.filled || 0} fiches complétées sur ${c.needed || 0} sans clôture Yahoo` +
         (mk ? ` (${mk})` : '') +
-        `, ${p.filled || 0} cours Euro Signal complétés, ${(c.rejected || 0) + (p.rejected || 0)} clôtures écartées`
+        `, ${p.filled || 0} cours Euro Signal complétés, ${(c.rejected || 0) + (p.rejected || 0)} clôtures écartées` +
+        (BK.yahoo && BK.yahoo.todo
+          ? ` ; Yahoo titre par titre : ${BK.yahoo.session || 0} cours de la séance sur ${BK.yahoo.asked || 0} demandés`
+          : '')
     );
 } else warn('cours de secours : pas de compteurs ce soir (diagnostics/backup.json)');
 
