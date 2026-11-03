@@ -2545,6 +2545,7 @@ export function build(opts = {}) {
       m10: r.ma10 != null ? r.ma10 : undefined,
       bp: r.bump != null ? r.bump : undefined,
       bh: r.bumpHi != null ? r.bumpHi : undefined,
+      fd: r.flagB != null ? r.flagB : undefined,
       sh: r.short ? r.short.pct : undefined,
       shn: r.short ? r.short.n : undefined,
       shc: r.short ? r.short.cc : undefined,
@@ -3118,6 +3119,11 @@ export function build(opts = {}) {
               ' : semaine à +8 % ou plus sur ' +
               (big ? '3 fois' : "2 fois, au plus haut de l'année,") +
               ' le volume habituel.',
+            ...(p.flagB != null && p.flagB === w
+              ? [
+                  "🚩 Ce bond casse un drapeau (hausse d'au moins 30 % en 8 semaines, puis 2 à 6 semaines de repos sans repli de plus de 15 %) : sur 1997-2026, +18 points à 6 mois face à la moyenne, 3 sur 10 ont gagné 50 % ou plus.",
+                ]
+              : []),
             'Remplit ce soir toutes les conditions de la place 📣 de la sélection du lundi (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour, cours en tendance) : elle y entrera lundi si elle reste la meilleure.',
             (E ? E.icon + ' ' + E.label + ' · ' : '') +
               '12 mois : ' +

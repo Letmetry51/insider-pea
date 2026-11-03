@@ -3959,6 +3959,43 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
         '), pas sous un ancien plus haut ni sur 1,5 fois'
     );
   }
+  {
+    // 🚩 drapeau cassé par un 📣 : mât de +40 % en 8 semaines, 3 semaines de repos (repli de 8 % au plus), bond il y a 1 semaine
+    const mk = (o) => {
+      const W = [];
+      for (let k = 0; k < 70; k++) W.push(100 * Math.pow(1.002, k));
+      const base = W[56],
+        top = base * 1.4;
+      for (let j = 0; j < 8; j++) W[57 + j] = base * (1 + (0.4 * (j + 1)) / 8);
+      W[65] = top * 0.95;
+      W[66] = top * (o.deep ? 0.75 : 0.92);
+      W[67] = top * 0.96;
+      W[68] = top * 1.1;
+      W[69] = top * 1.12;
+      if (o.down) for (let k = 20; k < 57; k++) W[k] = 400 - k * 4; // longue baisse avant : pas en tendance la semaine du bond
+      const V = [];
+      for (let k = 0; k < 62; k++) V.push(1000);
+      V[60] = o.vol || 3500;
+      return [W, V];
+    };
+    const [W, V] = mk({}),
+      f1 = ES.rankFeatures(null, W, V);
+    ok(
+      f1.flagB === 1 && ES.flagBond(W, V) === 1,
+      '🚩 drapeau cassé par un bond sur 3,5 fois le volume : repéré il y a 1 semaine'
+    );
+    ok(
+      ES.flagBond.apply(null, mk({ vol: 1200 })) == null &&
+        ES.flagBond.apply(null, mk({ deep: true })) == null &&
+        ES.flagBond.apply(null, mk({ down: true })) == null &&
+        ES.flagBond(W.slice(0, 60), V.slice(0, 52)) == null &&
+        ES.flagBond(
+          W.concat([W[69], W[69], W[69], W[69], W[69], W[69], W[69], W[69]]),
+          V.concat([1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
+        ) == null,
+      '🚩 pas de drapeau : bond sur 1,2 fois le volume, repli de 25 %, pas en tendance, historique court, bond de plus de 8 semaines'
+    );
+  }
   const pvw = ES.pickN(rows.map((x) => (x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x)));
   ok(
     !pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)),

@@ -219,6 +219,38 @@ def features(daily, weekly, wvol):
                 and W[wh] >= max(W[wh - 52:wh])):
             f["bumpHi"] = kh
             break
+    # 🚩 drapeau cassé par un bond (affichage seulement, ES.flagBond) : semaine à +8 % ou plus sur 3 fois le volume moyen de l'année
+    # (ou 2 fois au plus haut de l'année), en tendance (moyennes 10 et 40 semaines), qui clôture au-dessus du haut d'un mât de +30 %
+    # en 8 semaines après 2 à 6 semaines de repos sans repli de plus de 15 % ; dans les 8 dernières semaines
+    for kf in range(8):
+        vf, wf = len(WV) - 1 - kf, len(W) - 1 - kf
+        if wf < 60 or vf < 52:
+            break
+        if not (W[wf] / W[wf - 1] - 1 >= 0.08) or WV[vf] is None:
+            continue
+        yb = [v for v in WV[vf - 52:vf] if v is not None]
+        if len(yb) < 40:
+            continue
+        mv = mean(yb)
+        if not (WV[vf] >= 3 * mv or (WV[vf] >= 2 * mv and W[wf] >= max(W[wf - 52:wf]))):
+            continue
+        m10, m40 = mean(W[wf - 9:wf + 1]), mean(W[wf - 39:wf + 1])
+        if not (m10 > m40 and W[wf] > m40):
+            continue
+        hit = False
+        for w in range(2, 7):
+            tp = wf - w - 1
+            top = W[tp]
+            if not (W[wf] > top and W[wf - 1] <= top):
+                continue
+            rest = W[tp + 1:wf]
+            if max(rest) > top:
+                continue
+            hit = top / min(W[tp - 8:tp]) - 1 >= 0.3 and min(rest) >= top * 0.85
+            break
+        if hit:
+            f["flagB"] = kf
+            break
     # sortie de base : nouveau plus haut sur un an dans les 4 dernières semaines, après un cours à plus de 25 % sous son plus haut
     if len(W) >= 82:
         def top(a, b):
@@ -309,7 +341,7 @@ def rank_universe(items, rcfg, today):
             "out": out, "parts": parts, "note": note, "v": verdict, "mp": mp, "acc": acc, "short": x["short"],
             "mom": f.get("mom"), "ratio": f.get("ratio"), "trend": trend,
             "sc": slope_class(slope, trend), "slope6": jround((math.sqrt(1 + slope_r) - 1) * 100) if slope_r is not None else None,
-            "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "bumpHi": f.get("bumpHi"), "brk": f.get("brk"),
+            "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "bumpHi": f.get("bumpHi"), "flagB": f.get("flagB"), "brk": f.get("brk"),
             "f9": x.get("f9"), "pb": x.get("pb"),
             "vola": jround(f["vol52"] * 100) if f.get("vol52") is not None else None,
             "ma10": jround((f["last"] / f["sma50"] - 1) * 1000) / 10 if (f.get("sma50") or 0) > 0 and (f.get("last") or 0) > 0
@@ -608,13 +640,13 @@ def build_items(main, co, d_dates, engine_rows, isin_tables=None):
 # ---------- comparaison ----------
 # repères tirés des cours d'abord, puis ce qui en découle (rang sur 12 mois, points, note, verdict, place) : les exemples du
 # rapport montrent la cause avant ses conséquences
-FIELDS = ["mom", "ratio", "trend", "sc", "slope6", "vx", "vo", "m10", "bp", "bh", "dj", "brk", "liq", "pea", "out",
+FIELDS = ["mom", "ratio", "trend", "sc", "slope6", "vx", "vo", "m10", "bp", "bh", "fd", "dj", "brk", "liq", "pea", "out",
           "momPct", "parts", "note", "v", "pos"]
 LABELS = {
     "mom": "hausse sur 12 mois (%)", "ratio": "cours / plus haut sur un an (%)", "trend": "tendance de fond",
     "sc": "classe de pente", "slope6": "pente sur 6 mois (%)", "vx": "volumes (×)", "vo": "volatilité (%/an)",
     "m10": "écart à la moyenne 10 semaines (%)", "bp": "bond sur gros volume (semaines)",
-    "bh": "bond au plus haut de l'année (semaines)", "dj": "variation du jour (%)",
+    "bh": "bond au plus haut de l'année (semaines)", "fd": "drapeau cassé par un bond (semaines)", "dj": "variation du jour (%)",
     "brk": "sortie de base (semaines)", "liq": "échanges par jour (€)", "pea": "PEA", "out": "raisons d'écarter",
     "momPct": "rang sur 12 mois", "parts": "points", "note": "note", "v": "verdict", "pos": "place", "société": "société",
 }
@@ -636,7 +668,7 @@ def twin_view(r):
         "momPct": jround(r["mp"] * 100) if r["mp"] is not None else None,
         "ratio": to_fixed(r["ratio"] * 100, 1) if r["ratio"] is not None else None,
         "trend": r["trend"], "sc": r["sc"], "slope6": r["slope6"], "vx": r["volx"], "vo": r["vola"], "m10": r["ma10"],
-        "bp": r["bump"], "bh": r["bumpHi"], "dj": r["dayJump"], "brk": r["brk"],
+        "bp": r["bump"], "bh": r["bumpHi"], "fd": r["flagB"], "dj": r["dayJump"], "brk": r["brk"],
         "liq": jround(r["turnover"]) if r["turnover"] is not None else None,
         "pea": False if r["pea"] is False else None,
         "parts": {k: v for k, v in r["parts"].items() if k != "insiders"},
@@ -648,7 +680,7 @@ def engine_view(e):
     return {
         "mom": e.get("mom"), "momPct": e.get("momPct"), "ratio": e.get("ratio"), "trend": e.get("trend"),
         "sc": e.get("sc"), "slope6": e.get("slope6"), "vx": e.get("vx"), "vo": e.get("vo"), "m10": e.get("m10"),
-        "bp": e.get("bp"), "bh": e.get("bh"), "dj": e.get("dj"), "brk": e.get("brk"), "liq": e.get("liq"),
+        "bp": e.get("bp"), "bh": e.get("bh"), "fd": e.get("fd"), "dj": e.get("dj"), "brk": e.get("brk"), "liq": e.get("liq"),
         "pea": False if e.get("pea") is False else None,
         "parts": {k: v for k, v in (e.get("parts") or {}).items() if k != "insiders"},
         "note": e.get("note"), "v": e.get("v"), "pos": e.get("pos"), "out": price_out(e.get("out")),

@@ -681,6 +681,11 @@ function bondOf(r) {
   if (b != null && (h == null || b <= h)) return { w: b, hi: false };
   return h != null ? { w: h, hi: true } : null;
 }
+/** 🚩 drapeau cassé par un 📣 (ES.flagBond, affichage seulement) : la figure classique qui a tenu (étude du 03/11/2026). */
+var FLAG_TITLE =
+  "Le bond 📣 a cassé un drapeau : hausse d'au moins 30 % en 8 semaines, puis 2 à 6 semaines de repos sans repli de plus de 15 %, et clôture de la semaine du bond au-dessus du haut";
+var FLAG_TXT =
+  '+18 points à 6 mois face à la société moyenne sur 1997-2026, positif dans chaque période, 3 sur 10 ont gagné 50 % ou plus (même hausse sans le repos : +8,8)';
 function bondTitle(o) {
   return o.hi
     ? "Semaine à +8 % ou plus avec 2 fois le volume habituel, nouveau plus haut de l'année"
@@ -848,6 +853,7 @@ function analysisCard(isin, sym, full) {
     add(pros, 3, '+' + Math.round(r.mom) + ' % sur 12 mois, mieux que ' + r.momPct + ' % des sociétés');
   if (bumpOf(r) != null)
     add(pros, 2.2, '📣 bond sur gros volume ' + bumpTxt(bumpOf(r)) + " : souvent suivi d'une hausse prolongée");
+  if (r.fd != null) add(pros, 2.6, '🚩 le bond ' + bumpTxt(r.fd) + ' a cassé un drapeau : ' + FLAG_TXT);
   if (r.vx >= 1.5) add(pros, 2, 'volumes en hausse (×' + String(r.vx).replace('.', ',') + ' sur 10 semaines)');
   if (o.acc && o.acc.tone === 'good')
     add(pros, 2.5, o.acc.label.toLowerCase() + (o.f9 != null ? ' (F-score ' + o.f9 + '/9)' : ''));
@@ -1947,6 +1953,7 @@ function rankSelCard() {
             'note ' + r.note,
             r.mom != null ? '12 m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + ' %' : null,
             !r.bd && bumpOf(r) != null ? '📣 bond' : null,
+            r.fd != null ? '🚩 drapeau' : null,
             E && E.k === 'wait' ? 'sous sa moyenne 10 sem.' : null,
           ]
             .filter(Boolean)
@@ -2166,7 +2173,7 @@ function pickKeys(rows) {
 }
 /** Explication du démarrage sur bond, avec ses chiffres testés. */
 function bpNote() {
-  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel, ou sur 2 fois si elle fait un nouveau plus haut de l'année (souvent des résultats), cours en tendance, société classée, pas encore dans le 🎯. Sur 1997-2026 : +5,5 points à 6 mois et +11,2 à 12 mois face à la société moyenne, positif dans chaque période ; 1 sur 4 a gagné 50 % ou plus en un an, 1 sur 15 a chuté de 25 % ou plus en 6 mois ; 4 sur 10 ont rejoint le 🎯 dans les 6 mois. Pas d'urgence : 3 semaines après le bond, encore +4,8. Une longue base avant n'ajoute rien ; sans tendance, le même bond n'a rien rapporté. Signal précoce, hors note ; depuis le 27/10/2026, le meilleur prend une place sur cinq de la sélection du lundi (portefeuille simulé 1998-2026 : +1,3 point par an).</p>";
+  return "<p class=\"small brkx\">📣 Démarrage : semaine à +8 % ou plus sur 3 fois le volume habituel, ou sur 2 fois si elle fait un nouveau plus haut de l'année (souvent des résultats), cours en tendance, société classée, pas encore dans le 🎯. Sur 1997-2026 : +5,5 points à 6 mois et +11,2 à 12 mois face à la société moyenne, positif dans chaque période ; 1 sur 4 a gagné 50 % ou plus en un an, 1 sur 15 a chuté de 25 % ou plus en 6 mois ; 4 sur 10 ont rejoint le 🎯 dans les 6 mois. Pas d'urgence : 3 semaines après le bond, encore +4,8. Une longue base avant n'ajoute rien ; sans tendance, le même bond n'a rien rapporté. Signal précoce, hors note ; depuis le 27/10/2026, le meilleur prend une place sur cinq de la sélection du lundi (portefeuille simulé 1998-2026 : +1,3 point par an). 🚩 Quand le bond casse un drapeau (hausse d'au moins 30 % en 8 semaines, puis 2 à 6 semaines de repos sans repli de plus de 15 %) : +18 points à 6 mois et +30 à 12 mois, 3 sur 10 ont gagné 50 % ou plus ; encore +15 en entrant 4 semaines après.</p>";
 }
 /** Explication du signal précoce, avec la combinaison qui a le mieux marché et l'état actuel du marché. */
 function brkNote() {
@@ -2470,6 +2477,7 @@ function pick3Card(inSel) {
                 bumpTxt(bondOf(r).w) +
                 '</span>'
               : '') +
+            (r.fd != null ? ' <span class="chip good" title="' + FLAG_TITLE + '">🚩 drapeau</span>' : '') +
             '<small>' +
             esc(
               [
@@ -3149,6 +3157,7 @@ function vClassement() {
     '<li><span class="rb sl-strong">⬆⬆ +45 %</span> pente du canal sur 6 mois : ⬆⬆ forte (≥ +40 %), ⬆ moyenne, ↗ légère</li>' +
     '<li><span class="rb t-good">🔊 ×2,1</span> volumes des 10 dernières semaines / moyenne de l\'année</li>' +
     '<li><span class="rb t-good">📣 bond</span> semaine à +8 % ou plus avec 3 fois le volume habituel, ou 2 fois si elle fait un nouveau plus haut de l\'année (8 dernières semaines)</li>' +
+    '<li><span class="rb t-good">🚩 drapeau</span> le bond 📣 a cassé un drapeau : hausse d\'au moins 30 % en 8 semaines, 2 à 6 semaines de repos, puis clôture au-dessus (+18 points à 6 mois sur 1997-2026, affichage seulement)</li>' +
     '<li><span class="rb t-good">🚀</span> nouveau plus haut après 6 mois de base (signal, hors note)</li>' +
     '<li><span class="rb t-bad">🐻 1,4 %</span> capital vendu à découvert par des fonds : à Paris, écartée du 🎯 (−11,6 pts à 6 mois sur 2013-2026) ; ailleurs signalée</li>' +
     '<li><span class="rb t-warn">⚡ 85 %/an</span> cours très volatil (≥ 80 % par an) : deux fois plus de chutes, écarté du 🎯</li>' +
@@ -3218,6 +3227,8 @@ function vClassement() {
       bd.push(
         '<span class="rb t-good" title="' + bondTitle(bondOf(r)) + ', ' + bumpTxt(bondOf(r).w) + '">📣 bond</span>'
       );
+    if (r.fd != null)
+      bd.push('<span class="rb t-good" title="' + FLAG_TITLE + ', ' + bumpTxt(r.fd) + '">🚩 drapeau</span>');
     if (r.vx >= ES.VOL_SURGE)
       bd.push(
         '<span class="rb t-good" title="Volumes des 10 dernières semaines / moyenne de l\'année">🔊 ×' +
