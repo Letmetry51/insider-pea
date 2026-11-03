@@ -1,6 +1,6 @@
 """
 Tests hors ligne de la source de cours de secours (aucun accès réseau) : lecture de la liste Euronext et des réponses
-Nasdaq Nordic, complément des fiches sociétés (case vide, nouvelle séance, nouvelle semaine), garde-fous (devise, écart
+Nasdaq Nordic et de l'en-tête Yahoo, complément des fiches sociétés (case vide, nouvelle séance, nouvelle semaine), garde-fous (devise, écart
 ÷2 ou ×2, cours Yahoo jamais remplacé, dates communes), cours Euro Signal, limites de Nasdaq Nordic.
 
   python scrapers/test_backup.py
@@ -415,6 +415,71 @@ def _():
     assert not [u for u in calls if u.endswith("/search")] and len([u for u in calls if "/chart/" in u]) == 2, calls
     diag = json.loads((d / "diagnostics" / "backup.json").read_text())
     assert diag["nordic"]["lists"]["STO"]["used"] is True and diag["nordic"]["asked"] == 0 and diag["catalogue"]["byMarket"] == {"ST": 1}
+
+
+@case("Yahoo titre par titre : dernier cours daté à l'heure de la bourse, liquides seulement, listes officielles prioritaires")
+def _():
+    from datetime import datetime as DT, timezone as TZ
+    ts = int(DT(2026, 10, 19, 15, 35, tzinfo=TZ.utc).timestamp())  # 17 h 35 à Francfort
+    md = {"regularMarketPrice": 204.6, "regularMarketTime": ts, "exchangeTimezoneName": "Europe/Berlin", "currency": "EUR",
+          "regularMarketVolume": 1200000}
+    q = B.parse_yahoo_meta(md, "2026-10-20")
+    assert q["date"] == "2026-10-19" and q["close"] == 204.6 and q["currency"] == "EUR" and q["src"] == "Yahoo (cotation)"
+    late = int(DT(2026, 10, 19, 22, 30, tzinfo=TZ.utc).timestamp())  # 23 h 30 UTC = 0 h 30 le 20 à Francfort
+    assert B.parse_yahoo_meta(dict(md, regularMarketTime=late), "2026-10-20")["date"] == "2026-10-20"
+    assert B.parse_yahoo_meta(dict(md, regularMarketTime=late), "2026-10-19") is None  # date future
+    class Meta:  # yfinance renvoie un objet HistoryMetadata, pas un dict
+        def __init__(self, d):
+            self.d = d
+
+        def get(self, k, default=None):
+            return self.d.get(k, default)
+    assert B.parse_yahoo_meta(Meta(md), "2026-10-20")["close"] == 204.6
+    for bad in (None, {}, "x", 3, dict(md, regularMarketPrice=None), dict(md, regularMarketPrice=0), dict(md, regularMarketTime="x"),
+                dict(md, regularMarketTime=True)):
+        assert B.parse_yahoo_meta(bad, "2026-10-20") is None
+    items = {
+        "SAP.DE": {"currency": "EUR", "turnoverEur": 5e8, "d": [200, 201, 202, 203, None], "w": [199, 200, 201, 203, None]},
+        "ITX.MC": {"currency": "EUR", "turnoverEur": 9e8, "d": [50, 50, 51, 51, None]},
+        "TINY.DE": {"currency": "EUR", "turnoverEur": 1e4, "d": [5, 5, 5, 5, None]},  # peu échangée : pas demandée
+        "TTE.PA": {"currency": "EUR", "turnoverEur": 1e9, "d": [80, 80.2, 80.4, 80.7, None]},  # dans la liste Euronext
+        "MC.PA": {"currency": "EUR", "turnoverEur": 1e9, "d": [395, 396, 397, 397, 390.0]},  # déjà complète
+    }
+    shs = [shard(items)]
+    enx = enx_of(TTE_PA=("2026-10-19", 80.53, "EUR"))
+    assert B.yahoo_todo(shs, None, enx, "2026-10-19") == ["ITX.MC", "SAP.DE"]  # les plus échangées d'abord
+    asked = []
+
+    def get(sym):
+        asked.append(sym)
+        if sym == "ITX.MC":
+            return dict(md, regularMarketPrice=51.4, exchangeTimezoneName="Europe/Madrid")
+        if sym == "SAP.DE":
+            return md
+        raise ValueError("rien")
+    yq, st = B.yahoo_quotes(["ITX.MC", "SAP.DE", "ERR.DE"], "2026-10-20", get=get)
+    assert set(yq) == {"ITX.MC", "SAP.DE"} and st["asked"] == 3 and st["got"] == 2 and st["errors"] == 1, st
+    yq2, st2 = B.yahoo_quotes(["ITX.MC", "SAP.DE", "ERR.DE"], "2026-10-20", get=get, max_n=1)
+    assert list(yq2) == ["ITX.MC"] and st2["asked"] == 1
+    tab = {**yq, **enx}
+    sc = B.patch_catalogue(shs, tab, no_nordic, "2026-10-20", "2026-10-19")
+    it = shs[0]["items"]
+    assert sc["filled"] == 3 and sc["byMarket"] == {"DE": 1, "MC": 1, "PA": 1}, sc
+    assert it["SAP.DE"]["d"][-1] == 204.6 and it["SAP.DE"]["w"][-1] == 204.6 and it["ITX.MC"]["d"][-1] == 51.4
+    assert it["TINY.DE"]["d"][-1] is None and it["MC.PA"]["d"][-1] == 390.0
+    # cotation d'un autre jour (titre non échangé lundi) : jamais rangée à la séance attendue
+    old = int(DT(2026, 10, 16, 15, 35, tzinfo=TZ.utc).timestamp())
+    yq3, _ = B.yahoo_quotes(["SAP.DE"], "2026-10-20", get=lambda s: dict(md, regularMarketTime=old))
+    sh2 = [shard({"SAP.DE": items["SAP.DE"]})]
+    B.patch_catalogue(sh2, {k: q for k, q in yq3.items() if q["date"] == "2026-10-19"}, no_nordic, "2026-10-20", "2026-10-19")
+    assert sh2[0]["items"]["SAP.DE"]["d"][-1] is None
+    # cours Euro Signal : titres liquides en retard demandés d'abord
+    rows = [[f"2026-09-{d:02d}", 200, 200, 200, 200, 50000] for d in range(1, 21)] + [["2026-10-16", 203, 203, 203, 203, 50000]]
+    prices = {"fx": {}, "items": {"X": {"ticker": "SAP.DE", "currency": "EUR", "rows": copy.deepcopy(rows)},
+                                  "Y": {"ticker": "SMALL.DE", "currency": "EUR", "rows": [r[:5] + [10] for r in rows]}}}
+    assert B.yahoo_todo([], prices, {}, "2026-10-19") == ["SAP.DE"]
+    sp = B.patch_prices(prices, yq, no_nordic, "2026-10-20", "2026-10-19")
+    assert sp["filled"] == 1 and prices["items"]["X"]["rows"][-1][0] == "2026-10-19" and prices["items"]["X"]["rows"][-1][4] == 204.6
 
 
 @case("Liste Euronext injoignable : séance du calendrier, secours nordique quand même (cas du 21/10/2026, Helsinki)")

@@ -373,7 +373,7 @@ class Nordic:
 def parse_yahoo_meta(md, today):
     """En-tête du graphique Yahoo (regularMarketPrice, regularMarketTime, fuseau de la bourse, devise) → cotation datée du jour
     de ce dernier cours, à l'heure de la bourse ; None si prix ou heure illisible, ou date future."""
-    if not isinstance(md, dict):
+    if md is None or not callable(getattr(md, "get", None)):  # dict, ou objet HistoryMetadata de yfinance (lu comme un dict)
         return None
     px, ts = num(md.get("regularMarketPrice")), md.get("regularMarketTime")
     try:
