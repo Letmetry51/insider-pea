@@ -80,7 +80,8 @@ if (inp.mode === 'features') {
     pos: r.pos || null, acc: r.acc, slope6: r.slope != null ? Math.round((Math.sqrt(1 + r.slope) - 1) * 100) : null,
     sc: r.slopeCls || null, brk: r.brk != null ? r.brk : undefined, vx: r.volx != null ? r.volx : undefined,
     dj: r.dayJump != null ? r.dayJump : undefined, vo: r.vola != null ? r.vola : undefined, m10: r.ma10 != null ? r.ma10 : undefined,
-    bp: r.bump != null ? r.bump : undefined, bh: r.bumpHi != null ? r.bumpHi : undefined, sh: r.short ? r.short.pct : undefined,
+    bp: r.bump != null ? r.bump : undefined, bh: r.bumpHi != null ? r.bumpHi : undefined,
+    fd: r.flagB != null ? r.flagB : undefined, sh: r.short ? r.short.pct : undefined,
     shc: r.short ? r.short.cc : undefined,
     pea: r.pea === false ? false : undefined, secEn: r.secEn || null,
   });
@@ -141,6 +142,16 @@ def company(kind, drift=0.0, sigma=0.015, shape=None):
         W[k:] = [round(v * 1.10, 4) for v in W[k:]]
         D[-20:] = [round(v * 1.10, 4) for v in D[-20:]]
         V[-4] = int(sum(V[-56:-4]) / 52 * 4)
+    if "flag" in kind:  # 🚩 mât de +40 % en 8 semaines, 3 semaines de repos, bond il y a 1 semaine au-dessus du haut du mât
+        n, base = N_WEEKS, W[N_WEEKS - 14]
+        top = round(base * 1.4, 4)
+        for j in range(8):  # semaines n-13 à n-6 : montée régulière jusqu'au haut du mât
+            W[n - 13 + j] = round(base * (1 + 0.4 * (j + 1) / 8), 4)
+        deep = "flagdeep" in kind  # repli de 25 % pendant le repos : pas un drapeau
+        W[n - 5], W[n - 4], W[n - 3] = round(top * 0.95, 4), round(top * (0.75 if deep else 0.92), 4), round(top * 0.96, 4)
+        W[n - 2], W[n - 1] = round(top * 1.10, 4), round(top * 1.12, 4)
+        D[-10:-5], D[-5:] = [W[n - 2]] * 5, [W[n - 1]] * 5
+        V[-2] = int(sum(V[-54:-2]) / 52 * (1.2 if "flagnovol" in kind else 3.5))
     if "dip" in kind:  # repli sous la moyenne 10 semaines
         D[-12:] = [round(v * 0.86, 4) for v in D[-12:]]
         W[-3:] = [round(v * 0.86, 4) for v in W[-3:]]
@@ -219,6 +230,9 @@ add("BRK", "", 0.0, "Basic Materials", shape=breakout)
 add("OKEA", "surge bump", 0.0040, "Energy")  # siège aux îles Marshall : ISIN MH, PEA d'après le pays du siège donné par Yahoo
 add("BHI", "bumphi", 0.0036, "Industrials")       # bond sur 2,5 fois le volume au plus haut de l'année
 add("BHLOW", "bumphi", -0.0015, "Utilities")      # même bond en baisse : pas au plus haut de l'année
+add("FLAG", "flag", 0.0036, "Technology")          # 🚩 drapeau cassé par un bond sur 3,5 fois le volume
+add("FLAGNV", "flag flagnovol", 0.0036, "Technology")  # même figure, bond sur 1,2 fois le volume : pas un 📣
+add("FLAGDP", "flag flagdeep", 0.0036, "Healthcare")   # repli de 25 % pendant le repos : pas un drapeau
 BACKUP_ISINS = {"MHY641771016": ["OKEA", "NOK"], "FR0000000052": ["UP1", "EUR"]}
 SHORTS_SYMBOLS = {"GB00BTQGS779": "UP2"}
 inst = {
@@ -246,7 +260,7 @@ js = node({"mode": "features", "series": [[co[s]["d"], co[s]["w"], co[s]["wv"]] 
 bad = []
 for s, f_js in zip(syms, js):
     f_py = tw.features(co[s]["d"], co[s]["w"], co[s]["wv"])
-    for k in ("last", "mom", "sma50", "ratio", "trend", "vol", "vol52", "volx", "bump", "bumpHi", "brk", "dayJump"):
+    for k in ("last", "mom", "sma50", "ratio", "trend", "vol", "vol52", "volx", "bump", "bumpHi", "flagB", "brk", "dayJump"):
         a, b = f_js.get(k), f_py.get(k)
         if not ((a is None and b is None) or (a is not None and b is not None and a == b)):
             bad.append((s, k, a, b))
@@ -265,6 +279,11 @@ check(any(f.get("bump") is not None for f in js) and any((f.get("volx") or 0) >=
 check(feats["BHI"].get("bumpHi") == 2 and feats["BHI"].get("bump") is None and feats["BHLOW"].get("bumpHi") is None,
       "📣 bond au plus haut de l'année sur 2,5 fois le volume : repéré il y a 2 semaines, pas en baisse ("
       + str(feats["BHI"].get("bumpHi")) + ", " + str(feats["BHLOW"].get("bumpHi")) + ")")
+
+check(feats["FLAG"].get("flagB") == 1 and feats["FLAGNV"].get("flagB") is None and feats["FLAGDP"].get("flagB") is None
+      and all(f.get("flagB") is None for s, f in feats.items() if not s.startswith("FLAG")),
+      "🚩 drapeau cassé par un bond : repéré il y a 1 semaine ; pas sans gros volume, ni après un repli de 25 % ("
+      + str(feats["FLAG"].get("flagB")) + ", " + str(feats["FLAGNV"].get("flagB")) + ", " + str(feats["FLAGDP"].get("flagB")) + ")")
 
 # 3. même classement, même sélection
 payload = node({"mode": "rank", "co": co, "inst": inst, "extra": extra, "dDates": d_dates, "today": today.isoformat(),

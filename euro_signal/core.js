@@ -9183,6 +9183,50 @@
    * Ordre de décision : 1. exclusions, 2. tendance (force relative surtout, barème 3.1), 3. comptes, 4. dirigeants en bonus ou malus.
    */
   /** Repères de tendance d'une société : clôtures journalières (1 an) et hebdomadaires (5 ans), valeurs nulles tolérées. */
+  /**
+   * 🚩 Drapeau cassé par un 📣 : semaines depuis la dernière semaine de bond qui casse un drapeau (8 dernières semaines), sinon null.
+   * Bond : semaine à +8 % ou plus sur 3 fois le volume moyen de l'année, ou sur 2 fois en faisant un nouveau plus haut de l'année,
+   * cours en tendance cette semaine-là (moyenne 10 semaines au-dessus de la 40, cours au-dessus de la 40). Drapeau : le haut du mât
+   * (clôture hebdomadaire) vient d'une hausse d'au moins 30 % en 8 semaines ; puis 2 à 6 semaines de repos sous ce haut sans repli de
+   * plus de 15 % ; la semaine du bond clôture au-dessus (premier repos dont le haut est cassé). W : clôtures hebdomadaires, WV :
+   * volumes, alignés par la fin. Affichage seulement. 1997-2026, hors 🎯 : +18,0 points à 6 mois et +29,9 à 12 mois face à la société
+   * moyenne, positif dans chaque période (t 6,3), 3 sur 10 ont gagné 50 % ou plus en 6 mois ; même hausse avant le bond sans le
+   * repos : +8,8 ; drapeau cassé sans gros volume : +1,8 ; dans la sélection simulée, la priorité à ce 📣 n'apporte que +0,5 point
+   * par an, pas dans chaque période (étude du 03/11/2026, research/backtest/_figures*.py, _drapeau_*.py, _selection_sim7.py).
+   */
+  ES.flagBond = function (W, WV) {
+    if (!W || !WV) return null;
+    var n = W.length,
+      nv = WV.length;
+    for (var kb = 0; kb < 8; kb++) {
+      var wi = n - 1 - kb,
+        vi = nv - 1 - kb;
+      if (wi < 60 || vi < 52) break;
+      if (!(W[wi] / W[wi - 1] - 1 >= 0.08) || !(WV[vi] > 0)) continue;
+      var yb = WV.slice(vi - 52, vi).filter(function (v) {
+        return v > 0;
+      });
+      if (yb.length < 40) continue;
+      var mv = mean(yb),
+        hiY = 0;
+      for (var q = wi - 52; q < wi; q++) if (W[q] > hiY) hiY = W[q];
+      if (!(WV[vi] >= 3 * mv || (WV[vi] >= 2 * mv && W[wi] >= hiY))) continue;
+      var m10 = mean(W.slice(wi - 9, wi + 1)),
+        m40 = mean(W.slice(wi - 39, wi + 1));
+      if (!(m10 > m40 && W[wi] > m40)) continue;
+      for (var w = 2; w <= 6; w++) {
+        var tp = wi - w - 1,
+          top = W[tp];
+        if (!(W[wi] > top && W[wi - 1] <= top)) continue;
+        var rest = W.slice(tp + 1, wi);
+        if (Math.max.apply(null, rest) > top) continue;
+        if (top / Math.min.apply(null, W.slice(tp - 8, tp)) - 1 >= 0.3 && Math.min.apply(null, rest) >= top * 0.85)
+          return kb;
+        break;
+      }
+    }
+    return null;
+  };
   ES.rankFeatures = function (daily, weekly, wvol) {
     var D = (daily || []).filter(function (v) {
         return v > 0;
@@ -9334,6 +9378,9 @@
         break;
       }
     }
+    // 🚩 drapeau cassé par un 📣 (affichage seulement) : voir ES.flagBond
+    var fbw = ES.flagBond(W, WV);
+    if (fbw != null) f.flagB = fbw;
     // signal précoce : nouveau plus haut sur 52 semaines dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous
     // son plus haut d'alors il y a 6 mois (sortie de base). Seul : +40 % en 6 mois 1 fois sur 6 (5 ans) à 1 sur 9 (8 ans), contre 1 sur 10 ;
     // avec une pente forte et un marché non euphorique : 1 fois sur 4 à 5, sans plus de chutes (test du 17/10/2026).
@@ -10054,6 +10101,7 @@
         vola: f.vol52 != null ? Math.round(f.vol52 * 100) : null,
         bump: f.bump != null ? f.bump : null,
         bumpHi: f.bumpHi != null ? f.bumpHi : null,
+        flagB: f.flagB != null ? f.flagB : null,
         ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null,
         short: x.short || null,
         currency: x.currency || null,
@@ -10257,6 +10305,7 @@
         m10: r.ma10 !== undefined ? r.ma10 : r.m10,
         bp: r.bump !== undefined ? r.bump : r.bp,
         bh: r.bumpHi !== undefined ? r.bumpHi : r.bh,
+        fd: r.flagB !== undefined ? r.flagB : r.fd,
         trend: r.trend,
         sh: r.short !== undefined ? (r.short ? r.short.pct : null) : r.sh,
         shn: r.short ? r.short.n : r.shn,
@@ -10566,6 +10615,14 @@
     var intro =
       "Règles du bouton 🎯 (testées sur 1997-2026) : PEA, comptes solides, pente forte, +60 à +200 % sur 12 mois (dès +30 % ou pente moyenne avec un 📣 bond, ou pour compléter à 5), volumes en hausse puis 📣 bond sur gros volume d'abord, 2 par secteur, sans cours très volatil ni vente à découvert importante (Paris). Une place sur 5 revient au meilleur 📣 démarrage sur bond (semaine à +8 % ou plus sur 3 fois le volume habituel, ou 2 fois au plus haut de l'année ; portefeuille simulé 1998-2026 : +1,3 point par an). Sur 29 ans, 6 mois après : 2 fois sur 3 en hausse, 1 sur 3 à +20 %, 1 sur 14 à −25 %. Ensuite : lignes égales, garder 6 mois, protection à −30 %.";
     var BOND = '📣 Démarrage sur bond : place réservée au signal précoce';
+    // 🚩 figure qui a tenu dans chaque période (ES.flagBond), affichée seulement
+    var FLAG = function (x) {
+      return x.flagB != null
+        ? '🚩 Bond qui casse un drapeau ' +
+            (x.flagB ? 'il y a ' + x.flagB + ' sem.' : 'cette semaine') +
+            ' : +18 points à 6 mois face à la moyenne sur 1997-2026'
+        : null;
+    };
     var pcs = function (v) {
       return (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %';
     };
@@ -10609,6 +10666,7 @@
                 x.note +
                 '/100' +
                 (x.pickBond ? '\n   ' + BOND : '') +
+                (FLAG(x) ? '\n   ' + FLAG(x) : '') +
                 (ent(x) ? '\n   ' + ent(x).icon + ' ' + ent(x).label : '') +
                 (evOf(x) ? '\n   ' + evOf(x) : '') +
                 '\n   Pourquoi : ' +
@@ -10658,6 +10716,11 @@
                 (x.pickBond
                   ? '<div style="margin:6px 0;padding:6px 10px;border-radius:6px;font-weight:bold;background:#E3EEFB;color:#1D5FAF">' +
                     esc(BOND) +
+                    '</div>'
+                  : '') +
+                (FLAG(x)
+                  ? '<div style="margin:6px 0;padding:6px 10px;border-radius:6px;font-weight:bold;background:#E3EEFB;color:#1D5FAF">' +
+                    esc(FLAG(x)) +
                     '</div>'
                   : '') +
                 (ent(x)
