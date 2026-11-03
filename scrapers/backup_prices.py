@@ -13,7 +13,10 @@ Sources publiques des bourses, sans clé :
 - Nasdaq Nordic (Stockholm, Helsinki, Copenhague) : liste complète de chaque bourse (marché principal et First North,
   api.nasdaq.com), retenue si deux titres très échangés confirment le cours de la séance (historique Nasdaq) ; sinon dix
   jours de cours titre par titre, les plus échangés d'abord, dans une limite de nombre et de temps.
-Non couverts : Allemagne, Espagne, Vienne, Londres et Suisse (pas de source gratuite fiable trouvée).
+- Yahoo lui-même, titre par titre (03/11/2026) : dernier cours de la cotation (en-tête du graphique : prix, heure et fuseau de
+  la bourse), retenu seulement s'il date de la séance attendue ; pour les titres liquides que les listes officielles ne donnent
+  pas (Allemagne, Espagne, Vienne, Londres, Suisse, titres nordiques manquants). Le 02/11/2026, Yahoo avait la séance mais sans
+  cours pour presque toutes les bourses, le lendemain matin encore, alors que le dernier cours de chaque cotation était juste.
 
 Règles :
 - seules les cases vides sont complétées ; un cours Yahoo n'est remplacé que s'il est aberrant (plus de ×1,5 ou ÷1,5 en un jour)
@@ -60,6 +63,9 @@ MIN_NEW_SESSION = 30  # titres au moins pour ajouter une séance aux fiches
 NORDIC_MAX = 100  # titres demandés un par un à Nasdaq Nordic au plus par soir (secours du secours : ≈ 5 s par titre)
 NORDIC_SECONDS = 240  # et pendant 4 minutes au plus
 ID_RETRY_DAYS = 30  # titre introuvable chez Nasdaq : nouvelle recherche après 30 jours
+YAHOO_MAX = 1500  # titres demandés un par un à Yahoo (dernier cours de la cotation) au plus par soir
+YAHOO_SECONDS = 300  # et pendant 5 minutes au plus
+YAHOO_THREADS = 6
 
 
 def log(*a):
@@ -362,6 +368,95 @@ class Nordic:
                     if r["volume"]:  # titre échangé ce jour : son dernier cours est la clôture de T
                         out[sym] = quote(T, r["close"], volume=r["volume"], currency=r["currency"], src="Nasdaq Nordic")
         return out, info
+
+
+def parse_yahoo_meta(md, today):
+    """En-tête du graphique Yahoo (regularMarketPrice, regularMarketTime, fuseau de la bourse, devise) → cotation datée du jour
+    de ce dernier cours, à l'heure de la bourse ; None si prix ou heure illisible, ou date future."""
+    if not isinstance(md, dict):
+        return None
+    px, ts = num(md.get("regularMarketPrice")), md.get("regularMarketTime")
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(str(md.get("exchangeTimezoneName") or "Europe/Paris"))
+    except Exception:
+        tz = timezone.utc
+    if px is None or isinstance(ts, bool):
+        return None
+    if isinstance(ts, (int, float)) and ts > 0:  # secondes depuis 1970 (réponse brute)
+        when = datetime.fromtimestamp(ts, tz)
+    elif isinstance(ts, datetime):  # date déjà convertie par yfinance (Timestamp pandas)
+        when = ts.astimezone(tz) if ts.tzinfo else ts.replace(tzinfo=timezone.utc).astimezone(tz)
+    else:
+        return None
+    d = when.date().isoformat()
+    if d > today:
+        return None
+    return quote(d, px, volume=num(md.get("regularMarketVolume")), currency=md.get("currency"), src="Yahoo (cotation)")
+
+
+def _yahoo_meta(sym):
+    import yahoo as Y
+    import yfinance as yf
+    Y.configure()
+    t = yf.Ticker(sym)
+    t.history(period="5d", interval="1d", auto_adjust=False)
+    return t.get_history_metadata() if hasattr(t, "get_history_metadata") else t.history_metadata
+
+
+def yahoo_todo(shards, prices, enx, T):
+    """Titres sans la clôture de T que les listes officielles ne donnent pas : cours Euro Signal (dossiers suivis) d'abord, puis
+    fiches sociétés liquides (au moins 1 M€ échangé par jour), les plus échangées d'abord."""
+    out, seen, fx = [], set(enx), (prices or {}).get("fx") or {}
+    for it in ((prices or {}).get("items") or {}).values():
+        tk, rows = (it or {}).get("ticker"), (it or {}).get("rows")
+        if (tk and tk not in seen and isinstance(rows, list) and rows and str(rows[-1][0]) < T
+                and liquid(rows, it.get("currency"), fx)):
+            out.append(tk)
+            seen.add(tk)
+    cat = []
+    for sh in shards:
+        sdd = sh.get("dDates") or []
+        iT = sdd.index(T) if T in sdd else None
+        if iT is None and (not sdd or T < sdd[-1]):
+            continue
+        for sym, x in (sh.get("items") or {}).items():
+            d = x.get("d")
+            if sym in seen or (x.get("turnoverEur") or 0) < LIQUID_EUR or not isinstance(d, list) or len(d) != len(sdd):
+                continue
+            if iT is None or d[iT] is None:
+                cat.append((-(x.get("turnoverEur") or 0), sym))
+                seen.add(sym)
+    return out + [s for _, s in sorted(cat)]
+
+
+def yahoo_quotes(symbols, today, get=None, max_n=YAHOO_MAX, seconds=YAHOO_SECONDS):
+    """Dernier cours Yahoo de chaque titre, par lots de 60 (6 en parallèle), dans une limite de nombre et de temps.
+    get(sym) → en-tête du graphique (tests : réponses préparées). Renvoie ({symbole : cotation}, compteurs)."""
+    from concurrent.futures import ThreadPoolExecutor
+    get = get or _yahoo_meta
+
+    def one(sym):
+        try:
+            return get(sym)
+        except Exception:
+            return None
+    syms, out, st, t0 = list(symbols)[:max_n], {}, {"asked": 0, "got": 0, "errors": 0}, time.time()
+    for k in range(0, len(syms), 60):
+        if time.time() - t0 > seconds:
+            break
+        lot = syms[k:k + 60]
+        with ThreadPoolExecutor(max_workers=YAHOO_THREADS) as ex:
+            for sym, md in zip(lot, ex.map(one, lot)):
+                st["asked"] += 1
+                q = parse_yahoo_meta(md, today)
+                if q is None:
+                    st["errors"] += md is None
+                    continue
+                out[sym] = q
+                st["got"] += 1
+    st["seconds"] = round(time.time() - t0)
+    return out, st
 
 
 def session_of(quotes, today, min_n=MIN_NEW_SESSION):
@@ -750,6 +845,18 @@ def main():
     log("Listes Nasdaq Nordic : " + ", ".join(f"{k} {v['rows']} titres{' (retenue)' if v['used'] else ' (écartée)'}" for k, v in ninfo.items()))
     enx = {**nl, **enx}  # une seule table des cotations du soir : Euronext, puis listes nordiques
     used = {suf for mk, suf in NORDIC_MARKETS if (ninfo.get(mk) or {}).get("used")}
+    # Yahoo, titre par titre : dernier cours de la cotation pour les titres liquides encore sans la clôture de T (les listes
+    # officielles restent prioritaires ; une cotation d'un autre jour que T n'est jamais retenue)
+    yq, diag["yahoo"] = ({}, {"asked": 0, "got": 0, "errors": 0})
+    if T:
+        todo = yahoo_todo([sh for _, sh in ok], prices if isinstance(prices, dict) else None, enx, T)
+        if todo:
+            yq, diag["yahoo"] = yahoo_quotes(todo, today)
+            yq = {k: q for k, q in yq.items() if q["date"] == T}
+            diag["yahoo"].update(todo=len(todo), session=len(yq))
+            log(f"Yahoo titre par titre : {len(todo)} titres sans la clôture du {T}, {diag['yahoo']['asked']} demandés,"
+                f" {len(yq)} avec le cours de cette séance ({diag['yahoo']['seconds']} s)")
+    enx = {**yq, **enx}
 
     def one_by_one(sym):  # bourse dont la liste est retenue : un titre absent n'a pas été échangé ce jour, rien à demander
         return [] if sym.rsplit(".", 1)[-1] in used else nordic.quotes(sym)
