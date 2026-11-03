@@ -1248,6 +1248,12 @@ function logicCard() {
           '+19,7 / +14,6 / +19,5',
         ],
         [
+          "Sélection limitée aux 🚩 (portefeuille simulé 1998-2026, tranche sans 🚩 en liquidités ; points de rendement par an face à la sélection actuelle : 1998-2008 / 2009-2017 / 2018-2026) : +18,4 %/an contre +40,1 %, chaque 🚩 fait mieux (+14,3 points à 6 mois contre +9,6) mais il y en a 8 par an en moyenne, aucun certaines années : un tiers du capital investi ; 🚩 d'abord puis la sélection actuelle : +0,4 point par an (t 0,8)",
+          '—',
+          '—',
+          '−18,2 / −26,2 / −11,2',
+        ],
+        [
           'Figures classiques, sociétés européennes (golden cross et death cross, chandeliers japonais journaliers 2000-2026 et de la semaine, double creux, tête-épaules et son inverse, tasse avec anse, triangle ascendant) : golden cross 10/40 semaines / marteau de la semaine / avalement haussier de la semaine / double creux / tasse avec anse',
           '—',
           '—',
