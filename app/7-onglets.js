@@ -167,7 +167,7 @@ function vAlertesAuto() {
     (mailReady
       ? ''
       : '<p class="note warn">Gmail n\'est pas configuré : rien ne part, les emails sont seulement simulés.</p>') +
-    '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (4 🎯 + 1 📣 démarrage sur bond + 2 💎, ✅ feu vert ou ⏸️ en attente).</li>' +
+    '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (4 🎯 + 1 📣 démarrage sur bond + 2 💎, ✅ feu vert ou ⏸️ en attente). Si les cours du soir manquent (calcul lancé trop tard par GitHub), elle attend : le calcul est relancé au petit matin et elle part avant l\'ouverture des bourses.</li>' +
     '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
     '<li>📣 <b>Démarrage</b> : en cours de semaine, une société remplit toutes les conditions de la place 📣 de la sélection (un email par société sur 30 jours au plus).</li>' +
     "<li>📉 <b>Après « Je l'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>" +
