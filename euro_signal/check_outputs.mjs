@@ -623,6 +623,16 @@ if (BK && !BK.__error && BK.date === today && BK.complete && BK.complete.catalog
       true
     );
 } else if (BK && BK.complete && BK.complete.error) warn(`contrôle des clôtures impossible : ${BK.complete.error}`);
+// sélection de la semaine reportée (03/11/2026 : calcul lancé par GitHub après minuit, clôtures du lundi absentes de Yahoo pour
+// 5 places) : dit clairement dans l'email de contrôle, avec la relance prévue (rattrapage.yml)
+{
+  const SD = read('diagnostics/selection.json');
+  if (SD && !SD.__error && SD.postponed)
+    warn(
+      `sélection de la semaine ${SD.week} pas encore envoyée : ${SD.postponed.why} ; relance automatique du calcul au petit matin, sinon au calcul suivant (au plus tard vendredi)`
+    );
+  else if (SD && !SD.__error && SD.sent) ok(`sélection de la semaine ${SD.week} envoyée`);
+}
 // chaque étape du soir réécrit son fichier : un fichier ancien veut dire une étape en échec (données précédentes gardées)
 {
   const hoursAgo = (x) => {

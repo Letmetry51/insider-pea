@@ -1,0 +1,91 @@
+name: Rattrapage de la sélection
+
+# La sélection du lundi est reportée quand la dernière clôture manque sur une place du PEA (souvent parce que GitHub a lancé le calcul
+# du soir après minuit, quand Yahoo n'a pas encore la dernière séance de la zone euro : 03/11/2026, Francfort, Madrid et Vienne sans
+# la clôture du lundi). Ce rattrapage relance alors le calcul au petit matin (6 h 20 UTC, avant l'ouverture des bourses), une seule
+# fois : la sélection part le matin au lieu du soir suivant. Déclenché à la fin de chaque calcul (pas de tâche planifiée : GitHub
+# les retarde de plusieurs heures). L'attente est coupée en deux tâches (une tâche GitHub dure 6 heures au plus).
+on:
+  workflow_run:
+    workflows: ['Mise à jour quotidienne des données']
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: rattrapage
+  cancel-in-progress: true # un seul rattrapage en attente : le plus récent
+
+jobs:
+  attente:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    outputs:
+      reste: ${{ steps.a.outputs.reste }}
+    steps:
+      - id: a
+        name: Sélection reportée ? Attente jusqu'au petit matin (première partie)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, time
+          from datetime import datetime, timedelta, timezone
+
+          out = open(os.environ["GITHUB_OUTPUT"], "a")
+          try:
+              raw = subprocess.check_output(["gh", "api", "-H", "Accept: application/vnd.github.raw",
+                                             f"repos/{os.environ['REPO']}/contents/data/diagnostics/selection.json?ref=site"])
+              d = json.loads(raw)
+          except Exception as e:  # fichier absent (calcul d'avant le 03/11/2026) ou API indisponible
+              print("Pas d'état de la sélection :", type(e).__name__)
+              out.write("reste=-1\n")
+              raise SystemExit(0)
+          if d.get("sent") or not d.get("postponed"):
+              print("Sélection envoyée ou pas encore due : rien à faire")
+              out.write("reste=-1\n")
+              raise SystemExit(0)
+          now = datetime.now(timezone.utc)
+          if 7 <= now.hour < 20:  # report en journée (panne) : nouvel essai 90 minutes plus tard
+              target = now + timedelta(minutes=90)
+          else:
+              target = now.replace(hour=6, minute=20, second=0, microsecond=0)
+              if target <= now:
+                  target += timedelta(days=1)
+          total = (target - now).total_seconds()
+          first = min(total, 5.5 * 3600)
+          print(f"Sélection {d.get('week')} reportée ({d['postponed'].get('why')}) : relance du calcul vers {target:%d/%m %H:%M} UTC")
+          time.sleep(first)
+          out.write(f"reste={int(total - first)}\n")
+          PY
+
+  relance:
+    needs: attente
+    if: needs.attente.outputs.reste != '' && needs.attente.outputs.reste != '-1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - name: Fin de l'attente, puis relance du calcul si la sélection n'est toujours pas partie
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RESTE: ${{ needs.attente.outputs.reste }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, time
+
+          time.sleep(max(0, int(os.environ["RESTE"])))
+          raw = subprocess.check_output(["gh", "api", "-H", "Accept: application/vnd.github.raw",
+                                         f"repos/{os.environ['REPO']}/contents/data/diagnostics/selection.json?ref=site"])
+          d = json.loads(raw)
+          if d.get("sent") or not d.get("postponed"):  # un autre calcul l'a envoyée entre-temps
+              print("Sélection partie entre-temps : rien à faire")
+              raise SystemExit(0)
+          subprocess.check_call(["gh", "api", f"repos/{os.environ['REPO']}/actions/workflows/update-data.yml/dispatches",
+                                 "--method", "POST", "-f", "ref=main"])
+          print("Calcul relancé")
+          PY

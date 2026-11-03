@@ -1863,7 +1863,13 @@ function rankSelCard() {
     V.length +
     ' 💎</span></summary><p class="selrule small muted">PEA · lignes égales (≈ 70/30) · envoyée par email le lundi · ' +
     esc(sel.week) +
-    '</p>';
+    '</p>' +
+    // sélection de la semaine reportée (clôtures manquantes, comptes illisibles) : pas encore partie, relance au petit matin
+    (sel.postponed && !(sel.sent && sel.sent.items && sel.sent.items.length)
+      ? '<p class="note warn small">⏳ Sélection de la semaine pas encore envoyée : ' +
+        esc(sel.postponed.why) +
+        '. Nouvel essai au petit matin (relance automatique), sinon au calcul suivant. La liste ci-dessous est celle du soir.</p>'
+      : '');
   var subs = pick3Card(sel.items) + valueCard(V);
   // liste réellement envoyée lundi : la sélection du soir peut changer d'ici vendredi (cours du soir, 2 sociétés par secteur)
   var sent = sel.sent && Array.isArray(sel.sent.items) ? sel.sent.items : null;

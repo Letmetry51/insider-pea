@@ -2890,7 +2890,8 @@ export function build(opts = {}) {
       BK && isObj(BK.complete) && isObj(BK.complete.catalogue) && ES.daysBetween(String(BK.date || ''), today) <= 1
         ? Object.keys(BK.complete.catalogue).filter((k) => {
             const v = BK.complete.catalogue[k] || {};
-            return v.liquid >= 10 && v.ok < 0.9 * v.liquid;
+            // Londres et Zurich hors PEA : sans effet sur une sélection PEA, elles ne la retiennent pas (03/11/2026)
+            return v.liquid >= 10 && v.ok < 0.9 * v.liquid && !(PEA_ONLY && (k === 'L' || k === 'SW'));
           })
         : [];
     if (holes.length)
@@ -2959,6 +2960,47 @@ export function build(opts = {}) {
           version: cfg.rank.version,
         });
     }
+    // report noté pour la page, le contrôle du soir et la relance du petit matin (rattrapage.yml). 03/11/2026 : calcul du lundi
+    // lancé par GitHub à 1 h du matin, clôtures du lundi absentes de Yahoo pour 5 places, sélection reportée au soir suivant
+    const sentWeek = !!(isObj(state.rankSelections) && isObj(state.rankSelections[week]));
+    const PL = {
+      PA: 'Paris',
+      AS: 'Amsterdam',
+      BR: 'Bruxelles',
+      MI: 'Milan',
+      LS: 'Lisbonne',
+      IR: 'Dublin',
+      OL: 'Oslo',
+      ST: 'Stockholm',
+      HE: 'Helsinki',
+      CO: 'Copenhague',
+      DE: 'Francfort',
+      MC: 'Madrid',
+      VI: 'Vienne',
+      SW: 'Zurich',
+      L: 'Londres',
+    };
+    const postponed =
+      !sentWeek && !coOk && dow >= (selCfg.weekday || 1) && dow <= 5
+        ? {
+            date: today,
+            why: holes.length
+              ? 'clôture de la dernière séance manquante à ' + holes.map((k) => PL[k] || k).join(', ')
+              : !accOk
+                ? 'comptes annuels lus pour trop peu de sociétés'
+                : rank && !rank.coFresh
+                  ? 'cours du catalogue trop anciens'
+                  : 'classement indisponible',
+          }
+        : null;
+    if (rank && rank.selection) rank.selection.postponed = postponed || undefined;
+    writeJSON(path.join(DATA, 'diagnostics', 'selection.json'), {
+      week,
+      date: today,
+      at: new Date().toISOString(),
+      sent: sentWeek,
+      postponed,
+    });
   }
 
   // liste réellement envoyée cette semaine (email du lundi), publiée pour la carte « Sélection de la semaine » : la sélection du soir
