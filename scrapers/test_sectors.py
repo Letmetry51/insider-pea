@@ -377,6 +377,19 @@ def _():
     assert u["homeV"] == S.HOME_V and S.universe_age() == 0
 
 
+@case("Volumes journaliers des fiches (📣 bond du jour) : 60 dernières séances alignées sur les cours, entiers, trous gardés")
+def _():
+    idx = pd.bdate_range("2026-07-01", periods=80)
+    V = pd.DataFrame({"AAA.PA": np.arange(1, 81, dtype=float) * 1000, "BBB.PA": [np.nan] * 70 + [5.0] * 10})
+    V.index = idx
+    V.loc[idx[-3], "AAA.PA"] = np.nan
+    dv = S.daily_volumes(V, "AAA.PA", idx)
+    assert len(dv) == 60 and dv[-1] == 80000 and dv[0] == 21000 and dv[-3] is None, dv
+    assert S.daily_volumes(V, "BBB.PA", idx) is None  # moins de 20 volumes connus
+    assert S.daily_volumes(V, "ZZZ.PA", idx) is None and S.daily_volumes(pd.DataFrame(), "AAA.PA", idx) is None
+    assert S.daily_volumes(V, "AAA.PA", idx[:-5])[-1] == 75000  # alignées sur les dates des cours, pas sur la fin des volumes
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

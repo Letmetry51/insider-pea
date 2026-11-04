@@ -170,6 +170,7 @@ function vAlertesAuto() {
     '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (4 🎯 + 1 📣 démarrage sur bond + 2 💎, ✅ feu vert ou ⏸️ en attente). Si les cours du soir manquent (calcul lancé trop tard par GitHub), elle attend : le calcul est relancé au petit matin et elle part avant l\'ouverture des bourses.</li>' +
     '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
     '<li>📣 <b>Démarrage</b> : en cours de semaine, une société remplit toutes les conditions de la place 📣 de la sélection (un email par société sur 30 jours au plus).</li>' +
+    "<li>📣 <b>Bond du jour</b> : le soir d'une séance à +8 % ou plus sur au moins 5 fois le volume habituel, en tendance, pour une société aux conditions de la place 📣 : l'acheter le lendemain plutôt qu'attendre le lundi suivant (un email par société sur 30 jours, pas pour une société déjà dans la sélection).</li>" +
     "<li>📉 <b>Après « Je l'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>" +
     "<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d'achat, casse sa résistance ou passe sous le stop ; avec un plan ✏️ ajusté à la main, vos propres niveaux.</li>" +
     "<li>⚠️ <b>Krach</b> : quand l'alerte s'allume (marché à −20 % sur un an), puis quand elle s'éteint (retour au-dessus de −15 %).</li>" +
@@ -1241,6 +1242,18 @@ function logicCard() {
           '+1,5 / +4,0 / +0,5',
         ],
         ['📣 Démarrage sur bond : avec une longue base avant / sans', '—', '—', '+5,1 / +5,2'],
+        [
+          "📣 Bond du jour (cours journaliers 2000-2026, 1 107 sociétés, achat à l'ouverture du lendemain, une entrée par semestre) : séance à +8 % ou plus sur au moins 5 fois le volume moyen des 50 séances précédentes, en tendance : 2000-2008 / 2009-2017 / 2018-2026 (en tout +9,3, t 5,3 ; au plus haut de l'année +10,9 ; hors tendance +2,8 ; 📣 de la semaine acheté le lundi +7,1 ; mêmes sociétés achetées le lendemain plutôt que le lundi suivant : +1,1 point, t 2,9 ; dans la sélection du lundi : +0,1 point par an, rien)",
+          '—',
+          '—',
+          '+5,6 / +10,9 / +10,8',
+        ],
+        [
+          "Autres façons d'arriver plus tôt, même mesure : pocket pivot (Kacher et Morales) / gap achetable / 📣 repéré en cours de semaine avec un volume ramené aux séances écoulées (faux départs : +3,0) / séance à +5 % sur 3 fois le volume",
+          '—',
+          '—',
+          '+0,8 / +2,2 / +6,3 / +4,3',
+        ],
         [
           "🚩 📣 qui casse un drapeau, hors 🎯 (hausse d'au moins 30 % en 8 semaines, 2 à 6 semaines de repos sans repli de plus de 15 %, bond qui clôture au-dessus ; 118 cas) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +18,0, t 6,3 ; +29,9 à 12 mois ; même hausse avant le bond sans le repos : +8,8 ; drapeau cassé sans gros volume : +1,8) ; priorité dans la place 📣 : +0,5 point par an (t 1,7), pas dans chaque période : affichage seulement",
           '—',

@@ -555,7 +555,7 @@ def patch_catalogue(shards, enx, nordic, today, T, append=True):
             probe.append(any(q["date"] == T for q in qs))
             if len(probe) == 3 and not any(probe):
                 break
-    vT = {}
+    vT, vV = {}, {}  # clôture et volume de la séance T (volume des listes officielles seulement)
     for sh, sym, x in todo:
         qs = [enx[sym]] if sym in enx else nq.get(sym) or []
         d, cur = x["d"], x.get("currency")
@@ -566,6 +566,7 @@ def patch_catalogue(shards, enx, nordic, today, T, append=True):
                 continue
             if acceptable(q, last_pos(d, k), cur):
                 d[k] = sig(q["close"])
+                fill_volume(x, len(sh.get("dDates") or []), k, q)
                 if q["date"] == T:
                     vT[(id(sh), sym)] = d[k]
                     _count(st, sym)
@@ -575,6 +576,7 @@ def patch_catalogue(shards, enx, nordic, today, T, append=True):
         if q is not None:
             if acceptable(q, last_pos(d), cur):
                 vT[(id(sh), sym)] = sig(q["close"])
+                vV[(id(sh), sym)] = int(q["volume"]) if q.get("volume") else None
                 _count(st, sym)
             else:
                 _count(st, sym, "rejected")
@@ -587,6 +589,8 @@ def patch_catalogue(shards, enx, nordic, today, T, append=True):
             d = x.get("d")
             if mode == "append" and isinstance(d, list) and len(d) == len(sdd):
                 x["d"] = d[1:] + [v]
+                if isinstance(x.get("dv"), list) and x["dv"]:  # volumes alignés par la fin : décalés eux aussi
+                    x["dv"] = x["dv"][1:] + [vV.get((id(sh), sym))]
             w = x.get("w")
             okw = isinstance(w, list) and len(w) == len(swd)
             if wk == "new":
@@ -603,6 +607,18 @@ def patch_catalogue(shards, enx, nordic, today, T, append=True):
             elif isinstance(wk, int) and wk == len(swd) - 1 and T > swd[-1]:
                 sh["wDates"] = swd[:-1] + [T]
     return st
+
+
+def fill_volume(x, n_dates, k, q):
+    """Volume d'une séance complétée (case vide seulement, listes officielles : la cotation Yahoo n'en donne pas de fiable) dans les
+    volumes journaliers de la fiche, alignés par la fin sur les dates."""
+    dv = x.get("dv")
+    vol = q.get("volume")
+    if not isinstance(dv, list) or not vol:
+        return
+    j = len(dv) - (n_dates - k)
+    if 0 <= j < len(dv) and dv[j] is None:
+        dv[j] = int(vol)
 
 
 def implausible(v, ref):

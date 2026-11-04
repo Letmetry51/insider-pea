@@ -1367,13 +1367,27 @@ def report(res):
 
 
 # --------------------------------------------------------------------------- tableau de bord (classement du jour)
-def daily_closes(tickers):
-    """Clôtures journalières sur un an, en devise locale, ajustées : DataFrame dates × titres (téléchargement robuste)."""
+DV_DAYS = 60  # volumes journaliers gardés dans les fiches (📣 bond du jour : séance comparée aux 50 précédentes)
+
+
+def daily_series(tickers):
+    """Clôtures (ajustées, devise locale) et volumes journaliers sur un an : deux DataFrame dates × titres, même téléchargement
+    (les volumes ne coûtent aucune requête de plus)."""
     import yahoo
-    X = yahoo.download(tickers, "journalier", period="1y", interval="1d", fields=("Close",))["Close"]
+    F = yahoo.download(tickers, "journalier", period="1y", interval="1d", fields=("Close", "Volume"))
+    X, V = F.get("Close", pd.DataFrame()), F.get("Volume", pd.DataFrame())
     if X.empty:
-        return X
-    return X.where(X > 0)
+        return X, V
+    return X.where(X > 0), (V.reindex(index=X.index).where(V > 0) if not V.empty else V)
+
+
+def daily_volumes(V, sym, index, n=DV_DAYS):
+    """Volumes des n dernières séances d'un titre, alignés sur les dates des cours journaliers (entiers, None si inconnus)."""
+    if V is None or V.empty or sym not in V.columns:
+        return None
+    s = V[sym].reindex(index).iloc[-n:]
+    out = [None if v is None or not np.isfinite(v) or v <= 0 else int(round(v)) for v in s.tolist()]
+    return out if sum(v is not None for v in out) >= 20 else None
 
 
 def fin_by_symbol(items):
@@ -1458,10 +1472,10 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             cols = [c for c in syms if c in Wl.columns and str((uni.get(c) or extra.get(c) or {}).get("currency") or "").upper() == cur]
             if cols:
                 Wl[cols] = Wl[cols].mul(Wl[pair].ffill(), axis=0)
-    D = pd.DataFrame()
+    D, DV = pd.DataFrame(), pd.DataFrame()
     if fetch_daily:
         t0 = time.time()
-        D = daily_closes(syms)
+        D, DV = daily_series(syms)
         log(f"Cours journaliers des fiches : {D.shape[1]} titres, {D.shape[0]} séances, {time.time() - t0:.0f} s")
         miss = [x for x in cat_only if x not in Wl.columns]
         if miss:
@@ -1521,6 +1535,9 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             rec["wv"] = [None if v is None or not np.isfinite(v) else int(round(v)) for v in Vl[sym].tolist()]
         if sym in D.columns and D[sym].notna().sum() >= 20:
             rec["d"] = [sig(v) for v in D[sym].tolist()]
+            dv = daily_volumes(DV, sym, D.index)
+            if dv:
+                rec["dv"] = dv
         items[sym] = rec
         cap = rec.get("capEur")
         index.append([sym, rec.get("name"), rec.get("country"), round(cap / 1e6) if cap else None, rec.get("sector"), g,
@@ -1552,6 +1569,11 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             v = realign(old["d"], odd, dd_new)
             if v:
                 rec["d"] = v; took = True
+                if old.get("dv"):  # volumes de la veille, alignés par la fin sur les dates de la veille
+                    m = dict(zip(odd[-len(old["dv"]):], old["dv"]))
+                    dv = [m.get(d) for d in dd_new[-DV_DAYS:]]
+                    if sum(x is not None for x in dv) >= 20:
+                        rec["dv"] = dv
         if "wv" not in rec and old.get("wv"):
             rec["wv"] = old["wv"]
         if took:

@@ -2363,7 +2363,7 @@ export function build(opts = {}) {
           outsideEea(isin || isinOfSymAll[sym])
             ? false
             : x.pea,
-        f: ES.rankFeatures(x.d, x.w, x.wv),
+        f: ES.rankFeatures(x.d, x.w, x.wv, x.dv),
         short: shortOf(sym, isin),
         acc,
         ins,
@@ -2546,6 +2546,7 @@ export function build(opts = {}) {
       bp: r.bump != null ? r.bump : undefined,
       bh: r.bumpHi != null ? r.bumpHi : undefined,
       fd: r.flagB != null ? r.flagB : undefined,
+      bj: r.dayBond != null ? r.dayBond : undefined,
       sh: r.short ? r.short.pct : undefined,
       shn: r.short ? r.short.n : undefined,
       shc: r.short ? r.short.cc : undefined,
@@ -2843,6 +2844,8 @@ export function build(opts = {}) {
     );
     rank._sel = sel;
     rank._b0 = mLast;
+    rank._rows = rows; // lignes complètes du moteur (📣 bond du jour), jamais publiées
+    rank._dDates = dDates;
   } catch (e) {
     console.warn('  Classement tendance + comptes indisponible : ' + e.message);
     rank = null;
@@ -3164,6 +3167,94 @@ export function build(opts = {}) {
     }
   } catch (e) {
     console.warn('  📣 Démarrage indisponible : ' + e.message);
+  }
+
+  /* 6e ter. 📣 Bond du jour (04/11/2026) : séance à +8 % ou plus sur au moins 5 fois le volume moyen des 50 séances précédentes, cours
+     en tendance, aux conditions de la place 📣 (ES.dayBondAlerts) : un email le soir même, pour acheter le lendemain sans attendre la
+     fin de la semaine (cours journaliers 2000-2026 : +9,3 points à 6 mois face à la moyenne ; acheté le lendemain plutôt que le lundi
+     suivant, +1,1 point). Une fois par société sur 30 jours, rien pour une société de la sélection de la semaine ni déjà annoncée par
+     l'email 📣 Démarrage. */
+  try {
+    if (rank && rank.coFresh && Array.isArray(rank._rows)) {
+      const sentW =
+        isObj(state.rankSelections) && isObj(state.rankSelections[week]) ? state.rankSelections[week] : null;
+      const inSel = new Set([
+        ...(sentW && Array.isArray(sentW.items) ? sentW.items.map((x) => x.key) : []),
+        ...(Array.isArray(rank._sel) ? rank._sel.map((x) => x.key) : []),
+      ]);
+      state.bondSent = isObj(state.bondSent) ? state.bondSent : {};
+      state.dayBondSent = isObj(state.dayBondSent) ? state.dayBondSent : {};
+      const DD = rank._dDates || [];
+      ES.dayBondAlerts(rank._rows, cfg)
+        .filter((p) => !inSel.has(p.key))
+        .forEach((p) => {
+          const recent = (m) => m[p.key] && ES.daysBetween(m[p.key], today) < 30;
+          if (recent(state.dayBondSent) || recent(state.bondSent)) return;
+          state.dayBondSent[p.key] = today;
+          state.bondSent[p.key] = today; // pas de deuxième email 📣 Démarrage pour la même société dans les 30 jours
+          const day = DD[DD.length - 1 - p.dayBond] || p.lastDay || today;
+          const E = ES.pickEntry({ m10: p.ma10 });
+          const link = p.link || (dashUrl ? dashUrl + '#' + (p.isin || 'co=' + p.sym) : null);
+          const pc = (v) => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %';
+          const lines = [
+            p.name + (p.sector ? ' (' + p.sector + ')' : '') + ' — ' + p.note + '/100',
+            '📣 Bond du jour (séance du ' +
+              ES.frDate(day) +
+              ') : clôture à +' +
+              p.dayBondPct +
+              ' % sur ' +
+              String(p.dayBondVx).replace('.', ',') +
+              ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
+            'Sur 2000-2026 : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.',
+            'Remplit les conditions de la place 📣 (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour) ; hors sélection du lundi.',
+            (E ? E.icon + ' ' + E.label + ' · ' : '') +
+              '12 mois : ' +
+              (p.mom != null ? pc(p.mom * 100) : '—') +
+              (p.ratio != null
+                ? ' · ' + (p.ratio >= 0.995 ? 'au plus haut' : Math.round((1 - p.ratio) * 100) + ' % sous le plus haut')
+                : ''),
+            "Ensuite : ligne de taille égale, garder 6 mois, protection à −30 %. « Je l'ai acheté » sur la fiche pour le rappel.",
+          ];
+          outbox.push({
+            id: 'bondjour-' + p.key + '-' + today,
+            kind: 'bondjour',
+            isin: p.isin || null,
+            name: p.name,
+            subject: '[Euro Signal] 📣 Bond du jour : ' + p.name + ' (+' + p.dayBondPct + ' % sur gros volume)',
+            text: lines.join('\n') + (link ? '\nFiche : ' + link : '') + "\nÀ étudier, pas un ordre d'achat.",
+            html:
+              '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">📣 Bond du jour : ' +
+              ES.esc(p.name) +
+              '</h2>' +
+              lines.map((l) => '<p style="margin:0 0 8px">' + ES.esc(l) + '</p>').join('') +
+              (link
+                ? '<p><a href="' +
+                  ES.esc(link) +
+                  '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Voir la fiche</a></p>'
+                : '') +
+              '<p style="color:#55615c;font-size:12px">À étudier, pas un ordre d\'achat.</p></div>',
+            eventIds: ['bondjour:' + p.key + ':' + day],
+            score: null,
+            version: cfg.rank.version,
+          });
+          console.log(
+            '  📣 Bond du jour : ' +
+              p.name +
+              ' (+' +
+              p.dayBondPct +
+              ' %, volume ×' +
+              p.dayBondVx +
+              ', séance du ' +
+              day +
+              ')'
+          );
+        });
+      Object.keys(state.dayBondSent).forEach((k) => {
+        if (ES.daysBetween(state.dayBondSent[k], today) > 60) delete state.dayBondSent[k];
+      });
+    }
+  } catch (e) {
+    console.warn('  📣 Bond du jour indisponible : ' + e.message);
   }
 
   /* 6f. Alerte « krach du momentum » (marché −20 % ou pire sur un an) : un email quand elle s'allume, un quand elle s'éteint */
@@ -4056,6 +4147,8 @@ export function build(opts = {}) {
     const r = Object.assign({}, rank);
     delete r._sel;
     delete r._b0;
+    delete r._rows;
+    delete r._dDates;
     payload.rank = r;
   }
   payload.history = {
