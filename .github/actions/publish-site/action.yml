@@ -14,7 +14,10 @@ runs:
   steps:
     # copie de secours des fichiers qu'aucun calcul ne peut refaire (journal des alertes, suivi réel, historiques, archives) :
     # la branche « site » ne garde qu'une version, ces copies permettent de revenir jusqu'à 30 jours en arrière
+    # copie de secours en panne (service des artefacts indisponible) : la publication se fait quand même (jusqu'au 04/11/2026,
+    # elle s'arrêtait là : journal des alertes non publié, emails du soir renvoyés le lendemain)
     - uses: actions/upload-artifact@v4
+      continue-on-error: true
       with:
         name: donnees-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
         retention-days: 30
@@ -45,6 +48,52 @@ runs:
         cp -r data "$SITE/data"
         find "$SITE/data" \( -name 'prices.json' -o -name 'euro-signal-outbox.json' -o -name 'events.json' -o -name '*.tmp' \
           -o -name 'weekly.csv.gz' -o -name 'weekly_volume.csv.gz' -o -name '*.illisible-*' \) -delete
+        # garde-fou : un fichier de données illisible (étape coupée en pleine écriture, disque plein) n'est jamais publié ; la version
+        # publiée la veille le remplace, sinon le calcul suivant repartirait d'un fichier vide (ou s'arrêterait : journal des alertes)
+        python3 - "$SITE/data" <<'PY' || echo "Relecture des fichiers de données impossible : publication sans ce contrôle"
+        import gzip, json, os, subprocess, sys
+
+        root, fetched, notes = sys.argv[1], [None], []
+
+
+        def readable(b, name):
+            try:
+                json.loads((gzip.decompress(b) if name.endswith(".gz") else b).decode("utf-8"))
+                return True
+            except Exception:  # noqa: BLE001
+                return False
+
+
+        def previous(rel):
+            if fetched[0] is None:  # branche site lue seulement s'il y a un fichier à remplacer
+                url = "https://x-access-token:" + os.environ["GH_TOKEN"] + "@github.com/" + os.environ["GITHUB_REPOSITORY"] + ".git"
+                fetched[0] = subprocess.run(["git", "fetch", "-q", "--depth", "1", url, "site"], capture_output=True).returncode == 0
+            if not fetched[0]:
+                return None
+            r = subprocess.run(["git", "show", "FETCH_HEAD:" + rel], capture_output=True)
+            return r.stdout if r.returncode == 0 else None
+
+
+        for d, _, names in os.walk(root):
+            for n in sorted(names):
+                if not n.endswith((".json", ".json.gz")):
+                    continue
+                p = os.path.join(d, n)
+                with open(p, "rb") as fh:
+                    if readable(fh.read(), n):
+                        continue
+                rel = "data/" + os.path.relpath(p, root).replace(os.sep, "/")
+                old = previous(rel)
+                if old is not None and readable(old, n):
+                    with open(p, "wb") as fh:
+                        fh.write(old)
+                    notes.append(rel + " : version publiée la veille gardée")
+                else:
+                    notes.append(rel + " : pas de version lisible de la veille, publié tel quel")
+        for t in notes:
+            print("::warning::Fichier de données illisible, " + t)
+        print("Fichiers de données : " + (str(len(notes)) + " illisible(s)" if notes else "tous lisibles"))
+        PY
         # empreinte de chaque fichier publié : la page demande ses données en ?v=empreinte, servies par la copie du téléphone tant
         # qu'elles ne changent pas (sinon environ 1,7 Mo retéléchargés à chaque ouverture) ; écrite en dernier, sur les fichiers finaux
         rm -f "$SITE/data/version.json"  # celle de la veille (données restaurées) : jamais republiée, elle pointerait vers d'anciens fichiers
@@ -72,5 +121,12 @@ runs:
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add -A
         git commit -q -m "$MSG — $(date -u +'%Y-%m-%d %H:%M UTC')"
-        for i in 1 2 3; do git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site && break; sleep 5; done
+        ok=0
+        for i in 1 2 3; do
+          if git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" site; then ok=1; break; fi
+          sleep 5
+        done
+        # trois refus de suite : l'étape échoue (email 7b, garde du matin). Jusqu'au 04/11/2026, elle réussissait quand même (la boucle
+        # finissait sur « sleep ») : page figée sans alerte, journal des alertes perdu, emails du soir renvoyés le lendemain
+        [ "$ok" = 1 ] || { echo "Publication refusée 3 fois par GitHub : la page garde les données de la veille"; exit 1; }
         echo "Site publié : $(du -sh . | cut -f1), $(git ls-files | wc -l) fichiers"

@@ -1668,16 +1668,21 @@ export function build(opts = {}) {
       score: null,
       version: cfg.scoringVersion,
     };
-  } // Emails d'information en attente (barème) : renvoyés chaque soir jusqu'à un envoi confirmé ou incertain, jamais deux fois
+  } // Emails en attente (barème, emails ponctuels non partis, voir 6b bis) : renvoyés chaque soir jusqu'à un envoi confirmé ou
+  // incertain, jamais deux fois ; un email ponctuel est abandonné après son délai (3 jours pour un signal, 10 pour une information)
   Object.keys(state.pendingInfo || {}).forEach((id) => {
-    const a = state.alerts[id],
+    const q = state.pendingInfo[id],
+      a = state.alerts[id],
       sent =
         a &&
         ['envoyee', 'incertain', 'en_cours']
           .concat(process.env.ES_MAIL_READY === 'oui' ? [] : ['simulee'])
           .indexOf(a.status) > -1;
-    if (sent) delete state.pendingInfo[id];
-    else outbox.push(state.pendingInfo[id]);
+    if (sent || !isObj(q)) delete state.pendingInfo[id];
+    else if (q.queuedOn && ES.daysBetween(q.queuedOn, today) > (q.retryDays || 3)) {
+      console.warn('  Email abandonné, non envoyé depuis le ' + q.queuedOn + ' : ' + q.subject);
+      delete state.pendingInfo[id];
+    } else outbox.push(q);
   });
 
   /* 6c. Suivi des alertes envoyées et signaux de sortie */
@@ -3185,70 +3190,90 @@ export function build(opts = {}) {
       state.bondSent = isObj(state.bondSent) ? state.bondSent : {};
       state.dayBondSent = isObj(state.dayBondSent) ? state.dayBondSent : {};
       const DD = rank._dDates || [];
-      ES.dayBondAlerts(rank._rows, cfg)
-        .filter((p) => !inSel.has(p.key))
-        .forEach((p) => {
-          const recent = (m) => m[p.key] && ES.daysBetween(m[p.key], today) < 30;
-          if (recent(state.dayBondSent) || recent(state.bondSent)) return;
-          state.dayBondSent[p.key] = today;
-          state.bondSent[p.key] = today; // pas de deuxième email 📣 Démarrage pour la même société dans les 30 jours
-          const day = DD[DD.length - 1 - p.dayBond] || p.lastDay || today;
-          const E = ES.pickEntry({ m10: p.ma10 });
-          const link = p.link || (dashUrl ? dashUrl + '#' + (p.isin || 'co=' + p.sym) : null);
-          const pc = (v) => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %';
-          const lines = [
-            p.name + (p.sector ? ' (' + p.sector + ')' : '') + ' — ' + p.note + '/100',
-            '📣 Bond du jour (séance du ' +
-              ES.frDate(day) +
-              ') : clôture à +' +
-              p.dayBondPct +
-              ' % sur ' +
-              String(p.dayBondVx).replace('.', ',') +
-              ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
-            'Sur 2000-2026 : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.',
-            'Remplit les conditions de la place 📣 (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour) ; hors sélection du lundi.',
-            (E ? E.icon + ' ' + E.label + ' · ' : '') +
-              '12 mois : ' +
-              (p.mom != null ? pc(p.mom * 100) : '—') +
-              (p.ratio != null
-                ? ' · ' + (p.ratio >= 0.995 ? 'au plus haut' : Math.round((1 - p.ratio) * 100) + ' % sous le plus haut')
-                : ''),
-            "Ensuite : ligne de taille égale, garder 6 mois, protection à −30 %. « Je l'ai acheté » sur la fiche pour le rappel.",
-          ];
-          outbox.push({
-            id: 'bondjour-' + p.key + '-' + today,
-            kind: 'bondjour',
-            isin: p.isin || null,
-            name: p.name,
-            subject: '[Euro Signal] 📣 Bond du jour : ' + p.name + ' (+' + p.dayBondPct + ' % sur gros volume)',
-            text: lines.join('\n') + (link ? '\nFiche : ' + link : '') + "\nÀ étudier, pas un ordre d'achat.",
-            html:
-              '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">📣 Bond du jour : ' +
-              ES.esc(p.name) +
-              '</h2>' +
-              lines.map((l) => '<p style="margin:0 0 8px">' + ES.esc(l) + '</p>').join('') +
-              (link
-                ? '<p><a href="' +
-                  ES.esc(link) +
-                  '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Voir la fiche</a></p>'
-                : '') +
-              '<p style="color:#55615c;font-size:12px">À étudier, pas un ordre d\'achat.</p></div>',
-            eventIds: ['bondjour:' + p.key + ':' + day],
-            score: null,
-            version: cfg.rank.version,
-          });
-          console.log(
-            '  📣 Bond du jour : ' +
-              p.name +
-              ' (+' +
-              p.dayBondPct +
-              ' %, volume ×' +
-              p.dayBondVx +
-              ', séance du ' +
-              day +
-              ')'
-          );
+      // 3 emails au plus par soir, les meilleures notes d'abord : un jour de hausse générale ou une erreur de volumes de la source ne
+      // déclenche pas une rafale (stress test du 04/11/2026 : 62 emails le même soir). Les autres, sans drapeau, restent candidates le
+      // lendemain (bond de la veille)
+      const DAYBOND_MAX = 3,
+        cands = ES.dayBondAlerts(rank._rows, cfg).filter((p) => !inSel.has(p.key)),
+        held = [];
+      let nSent = 0;
+      cands.forEach((p) => {
+        const recent = (m) => m[p.key] && ES.daysBetween(m[p.key], today) < 30;
+        if (recent(state.dayBondSent) || recent(state.bondSent)) return;
+        if (nSent >= DAYBOND_MAX) {
+          held.push(p.name);
+          return;
+        }
+        nSent++;
+        state.dayBondSent[p.key] = today;
+        state.bondSent[p.key] = today; // pas de deuxième email 📣 Démarrage pour la même société dans les 30 jours
+        const day = DD[DD.length - 1 - p.dayBond] || p.lastDay || today;
+        const E = ES.pickEntry({ m10: p.ma10 });
+        const link = p.link || (dashUrl ? dashUrl + '#' + (p.isin || 'co=' + p.sym) : null);
+        const pc = (v) => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %';
+        const lines = [
+          p.name + (p.sector ? ' (' + p.sector + ')' : '') + ' — ' + p.note + '/100',
+          '📣 Bond du jour (séance du ' +
+            ES.frDate(day) +
+            ') : clôture à +' +
+            p.dayBondPct +
+            ' % sur ' +
+            String(p.dayBondVx).replace('.', ',') +
+            ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
+          'Sur 2000-2026 : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.',
+          'Remplit les conditions de la place 📣 (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour) ; hors sélection du lundi.',
+          (E ? E.icon + ' ' + E.label + ' · ' : '') +
+            '12 mois : ' +
+            (p.mom != null ? pc(p.mom * 100) : '—') +
+            (p.ratio != null
+              ? ' · ' + (p.ratio >= 0.995 ? 'au plus haut' : Math.round((1 - p.ratio) * 100) + ' % sous le plus haut')
+              : ''),
+          "Ensuite : ligne de taille égale, garder 6 mois, protection à −30 %. « Je l'ai acheté » sur la fiche pour le rappel.",
+        ];
+        outbox.push({
+          id: 'bondjour-' + p.key + '-' + today,
+          kind: 'bondjour',
+          isin: p.isin || null,
+          name: p.name,
+          subject: '[Euro Signal] 📣 Bond du jour : ' + p.name + ' (+' + p.dayBondPct + ' % sur gros volume)',
+          text: lines.join('\n') + (link ? '\nFiche : ' + link : '') + "\nÀ étudier, pas un ordre d'achat.",
+          html:
+            '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">📣 Bond du jour : ' +
+            ES.esc(p.name) +
+            '</h2>' +
+            lines.map((l) => '<p style="margin:0 0 8px">' + ES.esc(l) + '</p>').join('') +
+            (link
+              ? '<p><a href="' +
+                ES.esc(link) +
+                '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Voir la fiche</a></p>'
+              : '') +
+            '<p style="color:#55615c;font-size:12px">À étudier, pas un ordre d\'achat.</p></div>',
+          eventIds: ['bondjour:' + p.key + ':' + day],
+          score: null,
+          version: cfg.rank.version,
         });
+        console.log(
+          '  📣 Bond du jour : ' +
+            p.name +
+            ' (+' +
+            p.dayBondPct +
+            ' %, volume ×' +
+            p.dayBondVx +
+            ', séance du ' +
+            day +
+            ')'
+        );
+      });
+      rank.dayBonds = { n: cands.length, sent: nSent, held: held.length }; // lu par le contrôle du soir
+      if (held.length)
+        console.log(
+          '  📣 Bond du jour : ' +
+            held.length +
+            ' autre(s) société(s) repérée(s), gardée(s) pour demain (' +
+            DAYBOND_MAX +
+            ' emails au plus par soir) : ' +
+            held.slice(0, 8).join(', ')
+        );
       Object.keys(state.dayBondSent).forEach((k) => {
         if (ES.daysBetween(state.dayBondSent[k], today) > 60) delete state.dayBondSent[k];
       });
@@ -3594,6 +3619,37 @@ export function build(opts = {}) {
         : '</h2>';
     m.html = m.html.replace(anchor, anchor + r.html);
     m.text = r.text + '\n\n' + m.text;
+  });
+
+  /* 6b bis. Emails du soir : objet sur une ligne, un seul email par identifiant, reprise des emails ponctuels (04/11/2026).
+     Un nom de société lu dans une déclaration peut contenir un retour à la ligne : Gmail (EmailMessage) refuse alors l'objet, et
+     l'email échouait chaque soir. Les emails ponctuels (🎯 feu vert, 📣 démarrage, 📣 bond du jour, krach, panique, auto-surveillance,
+     pistes, bilans, signaux de sortie) posent leur drapeau « déjà envoyé » dès ce soir : si Gmail refusait l'envoi, ou si l'étape
+     d'envoi ne tournait pas, ils étaient perdus. Ils sont maintenant gardés en attente (state.pendingInfo) jusqu'à un envoi confirmé
+     ou incertain (achats des dirigeants et sélection de la semaine : leur propre reprise). */
+  const oneLine = (v) =>
+    String(v == null ? '' : v)
+      .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
+      .replace(/ {2,}/g, ' ')
+      .trim();
+  const outIds = new Set(),
+    outUniq = outbox.filter((m) => {
+      if (!m || !m.id || outIds.has(m.id)) return false;
+      outIds.add(m.id);
+      m.subject = oneLine(m.subject);
+      if (m.name != null) m.name = oneLine(m.name);
+      return true;
+    });
+  outbox.length = 0;
+  outUniq.forEach((m) => outbox.push(m));
+  state.pendingInfo = isObj(state.pendingInfo) ? state.pendingInfo : {};
+  const SIGNAL_KINDS = ['feuvert', 'demarrage', 'bondjour', 'krach', 'panique', 'sortie'];
+  outbox.forEach((m) => {
+    if (!m.kind || m.kind === 'selection' || m.kind === 'info' || state.pendingInfo[m.id]) return;
+    state.pendingInfo[m.id] = Object.assign({}, m, {
+      queuedOn: today,
+      retryDays: SIGNAL_KINDS.indexOf(m.kind) > -1 ? 3 : 10,
+    });
   });
 
   /* 7. Tableau de bord : cours allégés (clôtures, 260 séances) pour tous les titres suivis : une fiche ouverte depuis la
@@ -4124,7 +4180,9 @@ export function build(opts = {}) {
     journal = res;
     if (!opts.dryRun) {
       fs.mkdirSync(path.dirname(F.journal), { recursive: true });
-      fs.writeFileSync(F.journal, zlib.gzipSync(JSON.stringify(J)));
+      // écriture atomique : un journal à moitié écrit serait relu vide le lendemain (26 mois d'historique perdus)
+      fs.writeFileSync(F.journal + '.tmp', zlib.gzipSync(JSON.stringify(J)));
+      fs.renameSync(F.journal + '.tmp', F.journal);
     }
   } catch (e) {
     console.warn('  Journal de bord indisponible : ' + e.message);

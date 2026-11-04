@@ -170,7 +170,20 @@ def main():
             items[k] = lst
             ok += 1
         time.sleep(0.6)
-    OUT.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "days": DAYS, "items": items}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    # sociétés non relues ce soir (budget de 7 minutes atteint) : titres de la veille gardés, s'ils sont encore récents (jusqu'au
+    # 04/11/2026 : perdus, un soir où Google répondait lentement publiait une actualité presque vide)
+    kept = 0
+    for k in T:
+        if k not in items and prev.get(k):
+            old = [g for g in prev[k] if isinstance(g, dict) and str(g.get("d") or "") >= since]
+            if old:
+                items[k] = old
+                kept += 1
+    tmp = OUT.with_name(OUT.name + ".tmp")  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit
+    tmp.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "days": DAYS, "items": items}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.replace(OUT)
+    if kept:
+        print("Actualité qualitative : %d sociétés non relues ce soir (budget atteint), titres de la veille gardés" % kept)
     print("Actualité qualitative : %d sociétés avec des articles sur %d visées (%d requêtes refusées)" % (ok, len(T), fail))
     return 0
 

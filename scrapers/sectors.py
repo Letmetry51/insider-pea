@@ -793,8 +793,10 @@ def archive_estimates(est):
         hist.setdefault("fields", ["up7", "down7", "up30", "down30", "upside", "reco", "analysts"])
         hist.setdefault("weeks", {})[date.today().isoformat()] = snap
         EST_HIST.parent.mkdir(parents=True, exist_ok=True)
-        with gzip.open(EST_HIST, "wt", encoding="utf-8") as f:
+        tmp = EST_HIST.with_name(EST_HIST.name + ".tmp")  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit (archive jamais effacée)
+        with gzip.open(tmp, "wt", encoding="utf-8") as f:
             json.dump(hist, f, separators=(",", ":"))
+        tmp.replace(EST_HIST)
         log(f"Révisions : archive hebdomadaire, {len(snap)} sociétés, {len(hist['weeks'])} semaine(s)")
     except Exception as ex:
         log(f"Révisions : archive non écrite ({ex})")

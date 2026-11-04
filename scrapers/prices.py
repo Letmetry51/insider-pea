@@ -504,8 +504,12 @@ def main():
     if "GBP" in fx:
         fx["GBp"] = fx["GBP"] * 100  # cotations londoniennes en pence
     print(f"Taux de change : {len(fx)} devises")
-    OUT.write_text(json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "fx": fx, "unresolved": unresolved}), encoding="utf-8")
-    TICKERS.write_text(json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
+    # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit (mis en cache pour le lendemain)
+    for path, text in ((OUT, json.dumps({"generated_at": datetime.utcnow().isoformat(), "items": items, "bench": bench, "market": market, "fx": fx, "unresolved": unresolved})),
+                       (TICKERS, json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True))):
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        tmp.replace(path)
     print(f"Cours écrits : {len(items)} titres, {len(unresolved)} sans cours, {carried_n} repris de la veille, "
           f"{by_exchange} cotations trouvées grâce aux listes officielles des bourses")
     yahoo.carried("cours Euro Signal", carried_n)

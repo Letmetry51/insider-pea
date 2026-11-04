@@ -51,12 +51,28 @@ STEP_LABELS = {
 
 
 def failed_steps(steps):
-    """Étapes en échec d'après le résumé GitHub (toJSON(steps)) : [(identifiant, libellé)], dans l'ordre du calcul."""
+    """Étapes en échec d'après le résumé GitHub (toJSON(steps)) : [(identifiant, libellé)], dans l'ordre du calcul. Une étape
+    interrompue (« cancelled » : job coupé pendant qu'elle tournait) compte aussi."""
     if not isinstance(steps, dict):
         return []
     order = list(STEP_LABELS)
-    bad = [k for k, v in steps.items() if isinstance(v, dict) and v.get("outcome") == "failure"]
+    bad = [k for k, v in steps.items() if isinstance(v, dict) and v.get("outcome") in ("failure", "cancelled")]
     return [(k, STEP_LABELS.get(k, k)) for k in sorted(bad, key=lambda k: order.index(k) if k in order else len(order))]
+
+
+def recent(obj, today, hours=12):
+    """Rapport de ce soir : daté d'aujourd'hui, ou écrit il y a moins de 12 heures. Un calcul parti en retard peut passer minuit UTC
+    entre deux étapes : jusqu'au 04/11/2026, le contrôle écrit à 23 h 50 était alors pris pour celui de la veille (« calcul arrêté
+    avant le contrôle des fichiers ») et les vrais constats n'étaient pas envoyés."""
+    if not isinstance(obj, dict):
+        return False
+    if today and obj.get("date") == today:
+        return True
+    try:
+        at = datetime.fromisoformat(str(obj.get("at")).replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - at).total_seconds() < hours * 3600
+    except (TypeError, ValueError):
+        return False
 
 
 def build(quality, ui, steps=None, today=None):
@@ -64,7 +80,7 @@ def build(quality, ui, steps=None, today=None):
     out = [f"✖ Étape « {label} » en échec ce soir" for _, label in failed_steps(steps)]
     if not quality:
         out.append("✖ Contrôle des fichiers non fait (quality.json absent) : le calcul s'est peut-être arrêté avant.")
-    elif today and quality.get("date") and quality["date"] != today:
+    elif today and quality.get("date") and not recent(quality, today):
         out.append(f"✖ Calcul du soir arrêté avant le contrôle des fichiers (dernier contrôle du {quality['date']}) : "
                    "la page garde les données précédentes.")
     else:
@@ -97,7 +113,7 @@ def main():
         return 0
     key = hashlib.sha1("\n".join(issues).encode("utf-8")).hexdigest()[:12]
     sent = load(SENT, {})
-    if sent.get("date") == today and sent.get("key") == key:
+    if sent.get("key") == key and recent(sent, today):
         print("Contrôle du soir : mêmes constats déjà envoyés aujourd'hui")
         return 0
     dash = (load(ROOT / "euro_signal" / "config.json", {}) or {}).get("dashboardUrl", "")
@@ -133,7 +149,7 @@ def main():
         record("controle", False, "email de contrôle non envoyé (" + type(e).__name__ + ")")  # vu par la garde du matin
         return 0
     record("controle", True, f"{n} point(s) signalé(s)")
-    SENT.write_text(json.dumps({"date": today, "key": key}), encoding="utf-8")
+    SENT.write_text(json.dumps({"date": today, "key": key, "at": datetime.now(timezone.utc).isoformat()}), encoding="utf-8")
     print(f"Email de contrôle envoyé ({n} point(s))")
     return 0
 

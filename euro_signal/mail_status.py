@@ -22,9 +22,20 @@ def record(part, ok, detail=""):
             cur = json.loads(FILE.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             cur = {}
-        if not isinstance(cur, dict) or cur.get("date") != today or not isinstance(cur.get("parts"), dict):
-            cur = {"date": today, "parts": {}}
-        at = datetime.now(timezone.utc).isoformat()
+        if not isinstance(cur, dict) or not isinstance(cur.get("parts"), dict):
+            cur = {"parts": {}}
+        now = datetime.now(timezone.utc)
+
+        def fresh(p):
+            try:
+                return (now - datetime.fromisoformat(str(p.get("at")).replace("Z", "+00:00"))).total_seconds() < 20 * 3600
+            except (AttributeError, TypeError, ValueError):
+                return False
+        # échanges d'un calcul précédent (plus de 20 heures) retirés ; ceux du calcul en cours gardés, même s'il passe minuit UTC
+        # (jusqu'au 04/11/2026 : tout était effacé au changement de date, un échec Gmail noté à 23 h 58 disparaissait à 0 h 01)
+        cur["parts"] = {k: v for k, v in cur["parts"].items() if isinstance(v, dict) and fresh(v)}
+        cur["date"] = today
+        at = now.isoformat()
         cur["at"] = at
         cur["parts"][part] = {"ok": bool(ok), "detail": str(detail or "")[:200], "at": at}
         FILE.parent.mkdir(parents=True, exist_ok=True)

@@ -75,7 +75,8 @@ def main():
 
     def send(subject, text, html):
         msg = EmailMessage()
-        msg["Subject"], msg["From"] = subject, user
+        # objet sur une ligne : un retour à la ligne (nom de société) fait refuser l'objet par EmailMessage, l'email échouait chaque soir
+        msg["Subject"], msg["From"] = re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+", " ", subject or "").strip(), user
         if len(to_list) <= 1:
             msg["To"] = to
         else:  # plusieurs destinataires : en copie cachée, chacun ne voit pas les adresses des autres

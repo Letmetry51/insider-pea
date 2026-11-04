@@ -111,6 +111,24 @@ def _():
     assert len(it) == 50 and all(it[i]["schema"] == F.SCHEMA for i in isins[:50]), len(it)
 
 
+@case("Liste du soir incomplète (cours absents) : comptes récents des autres sociétés gardés")
+def _():
+    isins = setup(100)
+    raw = json.loads(F.OUT.read_text())
+    recent = (F.datetime.now(F.timezone.utc).date() - F.timedelta(days=10)).isoformat()
+    for v in raw["items"].values():
+        v["asOf"] = recent
+    F.OUT.write_text(json.dumps(raw))
+    pr = json.loads((F.DATA / "prices.json").read_text())
+    pr["items"] = {i: pr["items"][i] for i in isins[:20]}  # 20 sociétés seulement ce soir (cours de la veille perdus)
+    (F.DATA / "prices.json").write_text(json.dumps(pr))
+    F.statements = lambda t: {"years": [{"date": "2025-12-31", "equity": 1.0}], "currency": "EUR"}
+    F.main()
+    it = saved()
+    assert len(it) == 100 and all(it[i]["years"] for i in isins), len(it)
+    assert not list(F.DATA.glob("*.tmp")), "fichier temporaire laissé"
+
+
 @case("Yahoo bloqué : les nouvelles sociétés ne sont pas notées « sans comptes » (relues le soir suivant)")
 def _():
     setup(2)

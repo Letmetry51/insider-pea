@@ -288,19 +288,33 @@ if (CI && CI.rows) {
   }
   check(bad === 0, `fiches des sociétés : ${CI.shards || 32} fichiers lisibles`);
   // chaque fichier de cours du catalogue doit contenir des sociétés : un fichier vide réduit le classement sans autre signe
-  const thin = [];
+  const thin = [],
+    jumps = [];
   let withD = 0,
     withDv = 0;
   for (let k = 0; k < (CI.shards || 32); k++) {
     try {
       const d = JSON.parse(fs.readFileSync(path.join(DATA, 'societes', k + '.json'), 'utf8'));
       if (Object.keys(d.items || {}).length < 20) thin.push(k);
-      Object.values(d.items || {}).forEach((x) => {
+      Object.entries(d.items || {}).forEach(([sym, x]) => {
         if (Array.isArray(x.d)) withD++;
         if (Array.isArray(x.d) && Array.isArray(x.dv)) withDv++;
+        // cours multiplié ou divisé par plus de 3 en une séance, sur les 5 dernières : regroupement d'actions parfois, erreur d'unité
+        // de la source plus souvent (pence au lieu de livres, ×100 resté plusieurs jours) ; d'ordinaire 0 à 2 sociétés sur 4 000
+        const c = Array.isArray(x.d) ? x.d.filter((v) => typeof v === 'number' && v > 0).slice(-6) : [];
+        for (let j = 1; j < c.length; j++)
+          if (c[j] / c[j - 1] > 3 || c[j] / c[j - 1] < 1 / 3) {
+            jumps.push(sym);
+            break;
+          }
       });
     } catch (e) {}
   }
+  (jumps.length < 10 ? ok : warn)(
+    `cours multipliés ou divisés par plus de 3 en une séance (5 dernières séances) : ${jumps.length} sociétés` +
+      (jumps.length ? ' (' + jumps.slice(0, 6).join(', ') + (jumps.length > 6 ? '…' : '') + ')' : '') +
+      (jumps.length >= 10 ? ' : erreur de cours de la source probable' : '')
+  );
   // volumes journaliers (📣 bond du jour, 04/11/2026) : sans eux, l'alerte du soir ne peut rien repérer
   if (withD)
     (withDv >= 0.8 * withD ? ok : warn)(
@@ -423,6 +437,17 @@ if (RK) {
     `variations de plus de 40 % sur la dernière séance (à vérifier, jamais proposées par 🎯) : ${djn}`,
     true
   );
+  // 📣 bond du jour (04/11/2026) : 3 emails au plus par soir ; d'ordinaire 0 à 3 sociétés, au-delà de 10 une erreur de volumes ou de
+  // cours de la source est probable (ou un jour de hausse générale)
+  const DB = RK.dayBonds;
+  if (DB && typeof DB.n === 'number')
+    check(
+      DB.n <= 10,
+      `📣 bonds du jour ce soir : ${DB.n} société(s), ${DB.sent} email(s)` +
+        (DB.held ? `, ${DB.held} gardée(s) pour demain (3 emails au plus par soir)` : '') +
+        (DB.n > 10 ? ' : erreur de volumes de la source possible' : ''),
+      true
+    );
 }
 
 // 5b bis. Double calcul (euro_signal/twin_check.py) : le classement et la sélection refaits à part, en Python, sur les mêmes cours
@@ -524,7 +549,10 @@ if (YH && YH.sections) {
 // 5d. Cours de secours (scrapers/backup_prices.py) : clôtures prises chez Euronext et Nasdaq Nordic quand Yahoo ne les a pas, puis
 // dernier cours Yahoo titre par titre pour les autres places (03/11/2026)
 const BK = read('diagnostics/backup.json');
-if (BK && !BK.__error && BK.date === today) {
+// compteurs de ce soir : datés d'aujourd'hui, ou écrits il y a moins de 12 heures (calcul parti en retard qui passe minuit UTC entre
+// l'étape 3c et ce contrôle ; jusqu'au 04/11/2026, ces contrôles étaient alors sautés)
+const tonight = (o) => !!o && (o.date === today || (!!o.at && Date.now() - Date.parse(o.at) < 12 * 3600e3));
+if (BK && !BK.__error && tonight(BK)) {
   const c = BK.catalogue || {},
     p = BK.prices || {},
     mk = Object.entries(c.byMarket || {})
@@ -580,7 +608,7 @@ const PLACE = {
     }
     return n;
   };
-if (BK && !BK.__error && BK.date === today && BK.complete && BK.complete.catalogue) {
+if (BK && !BK.__error && tonight(BK) && BK.complete && BK.complete.catalogue) {
   const C = BK.complete;
   [
     ['catalogue', 'liquid', 'sociétés liquides des fiches'],
@@ -762,28 +790,43 @@ try {
 } catch (e) {
   hist = [];
 }
-const prev = hist.filter((h) => h && h.at && h.at < new Date().toISOString() && h.at >= REBASE).slice(-1)[0] || null;
+const before = hist.filter((h) => h && h.at && h.at < new Date().toISOString() && h.at >= REBASE && h.cov);
+const prev = before.slice(-1)[0] || null;
+// référence : médiane des 5 derniers calculs. Une rubrique qui reste en panne est signalée plusieurs soirs de suite, pas seulement le
+// premier (jusqu'au 04/11/2026, comparaison avec le seul calcul précédent : dès le 2e soir, la panne devenait la référence)
+const last5 = before.slice(-5),
+  REF_TXT =
+    last5.length > 1 ? 'par rapport aux ' + last5.length + ' derniers calculs (médiane)' : 'depuis le calcul précédent';
+const refOf = (k) => {
+  const v = last5
+    .map((h) => h.cov[k])
+    .filter((x) => typeof x === 'number')
+    .sort((x, y) => x - y);
+  return v.length ? v[Math.floor(v.length / 2)] : null;
+};
 const delta = {};
 Object.keys(COV).forEach((k) => {
   const now = COV[k],
-    was = prev && prev.cov ? prev.cov[k] : null;
+    was = refOf(k);
   delta[k] = [now, was];
   if (was == null || !(was > 0)) return;
   const drop = (was - now) / was;
   // moins de sociétés classées parce que plus de comptes ont été lus (celles en perte ou en détresse sortent alors) : normal
   const kAcc = 'classement (comptes lus)',
-    moreAcc = prev.cov[kAcc] != null && COV[kAcc] != null ? COV[kAcc] - prev.cov[kAcc] : 0;
+    accRef = refOf(kAcc),
+    moreAcc = accRef != null && COV[kAcc] != null ? COV[kAcc] - accRef : 0;
   if (k === 'classement (sociétés classées)' && now < was && moreAcc >= was - now)
-    ok(`${k} : ${now} (${now - was} depuis le calcul précédent, expliqué par ${moreAcc} comptes lus de plus)`);
+    ok(`${k} : ${now} (${now - was} ${REF_TXT}, expliqué par ${moreAcc} comptes lus de plus)`);
   else if (drop > 0.1 && was - now >= 20)
-    ko(`baisse anormale : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
+    ko(`baisse anormale : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) ${REF_TXT}`);
   else if (drop > 0.03 && was - now >= 10)
-    warn(`baisse : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) depuis le calcul précédent`);
-  else ok(`${k} : ${now}` + (now !== was ? ` (${now > was ? '+' : ''}${now - was} depuis le calcul précédent)` : ''));
+    warn(`baisse : ${k} ${was} → ${now} (−${Math.round(drop * 100)} %) ${REF_TXT}`);
+  else ok(`${k} : ${now}` + (now !== was ? ` (${now > was ? '+' : ''}${now - was} ${REF_TXT})` : ''));
 });
 hist.push({ at: new Date().toISOString(), date: today, cov: COV, ym: YM });
 fs.mkdirSync(path.join(DATA, 'diagnostics'), { recursive: true });
-fs.writeFileSync(HIST, JSON.stringify(hist.slice(-60)));
+fs.writeFileSync(HIST + '.tmp', JSON.stringify(hist.slice(-60)));
+fs.renameSync(HIST + '.tmp', HIST); // écriture atomique : un contrôle coupé ne laisse pas un historique à moitié écrit
 globalThis.__COV = { cov: delta, prevAt: prev ? prev.at : null };
 
 finish();

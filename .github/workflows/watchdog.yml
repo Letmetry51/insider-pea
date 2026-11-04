@@ -41,7 +41,7 @@ jobs:
               if d.weekday() < 5 and start <= now:
                   break
               d -= timedelta(days=1)
-          out = subprocess.check_output(["gh", "run", "list", "--repo", os.environ["REPO"], "--workflow", "update-data.yml",
+          out = subprocess.check_output(["gh", "run", "list", "--repo", os.environ["REPO"], "--workflow", "update-data.yml", "--branch", "main",
                                          "--limit", "40", "--json", "createdAt,status,conclusion,event"])
           runs = [r for r in json.loads(out)
                   if datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= start - timedelta(minutes=30)]

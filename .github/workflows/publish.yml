@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false # jeton jamais laissé sur le disque (la publication passe le sien)
       - name: Données du dernier calcul
         uses: ./.github/actions/restore-data
       - name: Publication
