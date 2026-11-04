@@ -1255,6 +1255,12 @@ function logicCard() {
           '+0,8 / +2,2 / +6,3 / +4,3',
         ],
         [
+          "Ne garder que l'alerte du jour ? 📣 de la semaine sans bond du jour la même semaine ou la précédente (82 % des 📣, 84 par an) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +4,8, t 8,3 ; avec un bond du jour +7,6) ; dans la place 📣 de la sélection, le bond du jour seul : −1,3 point par an : les deux sont gardés",
+          '—',
+          '—',
+          '+3,5 / +5,9 / +4,7',
+        ],
+        [
           "🚩 📣 qui casse un drapeau, hors 🎯 (hausse d'au moins 30 % en 8 semaines, 2 à 6 semaines de repos sans repli de plus de 15 %, bond qui clôture au-dessus ; 118 cas) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +18,0, t 6,3 ; +29,9 à 12 mois ; même hausse avant le bond sans le repos : +8,8 ; drapeau cassé sans gros volume : +1,8) ; priorité dans la place 📣 : +0,5 point par an (t 1,7), pas dans chaque période : affichage seulement",
           '—',
           '—',
