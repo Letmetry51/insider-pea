@@ -49,7 +49,7 @@ NODE = r"""
 const ES = require(process.argv[1]);
 const inp = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 if (inp.mode === 'features') {
-  process.stdout.write(JSON.stringify(inp.series.map((s) => ES.rankFeatures(s[0], s[1], s[2]))));
+  process.stdout.write(JSON.stringify(inp.series.map((s) => ES.rankFeatures(s[0], s[1], s[2], s[3]))));
 } else {
   const cfg = JSON.parse(JSON.stringify(ES.DEFAULT_CONFIG)), today = inp.today, co = inp.co, inst = inp.inst;
   const isinOfSym = {};
@@ -66,7 +66,7 @@ if (inp.mode === 'features') {
       lastDay: (() => { const d = x.d || []; for (let k = d.length - 1; k >= 0; k--) if (d[k] > 0) return inp.dDates[k] || null; return null; })(),
       turnoverEur: x.turnoverEur,
       pea: (i && i.peaStatus === 'non_eligible') || /^REIT\b/i.test(String(x.industry || '')) || outsideEea(isin || isinOfSymAll[sym]) ? false : x.pea,
-      f: ES.rankFeatures(x.d, x.w, x.wv), short: extra.short || null, acc: extra.acc || null, ins: extra.ins || null,
+      f: ES.rankFeatures(x.d, x.w, x.wv, x.dv), short: extra.short || null, acc: extra.acc || null, ins: extra.ins || null,
     };
   });
   const rows = ES.rankUniverse(items, cfg, { today });
@@ -81,7 +81,7 @@ if (inp.mode === 'features') {
     sc: r.slopeCls || null, brk: r.brk != null ? r.brk : undefined, vx: r.volx != null ? r.volx : undefined,
     dj: r.dayJump != null ? r.dayJump : undefined, vo: r.vola != null ? r.vola : undefined, m10: r.ma10 != null ? r.ma10 : undefined,
     bp: r.bump != null ? r.bump : undefined, bh: r.bumpHi != null ? r.bumpHi : undefined,
-    fd: r.flagB != null ? r.flagB : undefined, sh: r.short ? r.short.pct : undefined,
+    fd: r.flagB != null ? r.flagB : undefined, bj: r.dayBond != null ? r.dayBond : undefined, sh: r.short ? r.short.pct : undefined,
     shc: r.short ? r.short.cc : undefined,
     pea: r.pea === false ? false : undefined, secEn: r.secEn || null,
   });
@@ -104,6 +104,7 @@ def node(payload):
 
 # ---------- univers construit ----------
 rng = random.Random(20261021)
+rng_v = random.Random(20261104)
 N_DAYS, N_WEEKS, N_VOL = 1310, 262, 62
 today = date(2026, 10, 20)
 d_dates, d = [], today
@@ -176,7 +177,16 @@ def company(kind, drift=0.0, sigma=0.015, shape=None):
         D[-8:] = [None] * 8
     if "novol" in kind:
         V[-30:] = [0] * 30
-    return {"d": D, "w": W, "wv": V}
+    # volumes journaliers des 60 dernières séances (tirage à part : les autres séries restent celles d'avant)
+    DV = [int(2e5 * rng_v.lognormvariate(0, 0.3)) for _ in range(60)]
+    if "daybond" in kind:  # 📣 bond du jour : +9 % sur 6 fois le volume (« daybond1 » : la veille ; « daybondlow » : 3 fois seulement)
+        k = 2 if "daybond1" in kind else 1
+        D[-k] = round(D[-k - 1] * 1.09, 4)
+        if k == 2:
+            D[-1] = round(D[-2] * 1.001, 4)
+        W[-1] = D[-1]
+        DV[-k] = int(sum(DV[-50 - k:-k]) / 50 * (3 if "daybondlow" in kind else 6))
+    return {"d": D, "w": W, "wv": V, "dv": DV}
 
 
 def breakout(t):
@@ -230,6 +240,9 @@ add("BRK", "", 0.0, "Basic Materials", shape=breakout)
 add("OKEA", "surge bump", 0.0040, "Energy")  # siège aux îles Marshall : ISIN MH, PEA d'après le pays du siège donné par Yahoo
 add("BHI", "bumphi", 0.0036, "Industrials")       # bond sur 2,5 fois le volume au plus haut de l'année
 add("BHLOW", "bumphi", -0.0015, "Utilities")      # même bond en baisse : pas au plus haut de l'année
+add("DAYB", "daybond", 0.0036, "Industrials")     # 📣 bond du jour : +9 % sur 6 fois le volume, dernière séance
+add("DAYB1", "daybond daybond1", 0.0036, "Energy")  # même bond la veille
+add("DAYBLO", "daybond daybondlow", 0.0036, "Utilities")  # +9 % sur 3 fois le volume seulement : pas un bond du jour
 add("FLAG", "flag", 0.0036, "Technology")          # 🚩 drapeau cassé par un bond sur 3,5 fois le volume
 add("FLAGNV", "flag flagnovol", 0.0036, "Technology")  # même figure, bond sur 1,2 fois le volume : pas un 📣
 add("FLAGDP", "flag flagdeep", 0.0036, "Healthcare")   # repli de 25 % pendant le repos : pas un drapeau
@@ -256,11 +269,11 @@ except ValueError:
     check(True, "seuil introuvable : erreur")
 
 # 2. mêmes repères que ES.rankFeatures
-js = node({"mode": "features", "series": [[co[s]["d"], co[s]["w"], co[s]["wv"]] for s in syms]})
+js = node({"mode": "features", "series": [[co[s]["d"], co[s]["w"], co[s]["wv"], co[s]["dv"]] for s in syms]})
 bad = []
 for s, f_js in zip(syms, js):
-    f_py = tw.features(co[s]["d"], co[s]["w"], co[s]["wv"])
-    for k in ("last", "mom", "sma50", "ratio", "trend", "vol", "vol52", "volx", "bump", "bumpHi", "flagB", "brk", "dayJump"):
+    f_py = tw.features(co[s]["d"], co[s]["w"], co[s]["wv"], co[s]["dv"])
+    for k in ("last", "mom", "sma50", "ratio", "trend", "vol", "vol52", "volx", "bump", "bumpHi", "flagB", "dayBond", "brk", "dayJump"):
         a, b = f_js.get(k), f_py.get(k)
         if not ((a is None and b is None) or (a is not None and b is not None and a == b)):
             bad.append((s, k, a, b))
@@ -280,6 +293,11 @@ check(feats["BHI"].get("bumpHi") == 2 and feats["BHI"].get("bump") is None and f
       "📣 bond au plus haut de l'année sur 2,5 fois le volume : repéré il y a 2 semaines, pas en baisse ("
       + str(feats["BHI"].get("bumpHi")) + ", " + str(feats["BHLOW"].get("bumpHi")) + ")")
 
+check(feats["DAYB"].get("dayBond") == 0 and feats["DAYB1"].get("dayBond") == 1 and feats["DAYBLO"].get("dayBond") is None
+      and feats["DAYB"].get("dayBondPct") == 9 and feats["DAYB"].get("dayBondVx") == 6
+      and sum(1 for s, f in feats.items() if f.get("dayBond") is not None) == 2,
+      "📣 bond du jour : repéré la dernière séance et la veille, pas sur 3 fois le volume ("
+      + str(feats["DAYB"].get("dayBond")) + ", " + str(feats["DAYB1"].get("dayBond")) + ", " + str(feats["DAYBLO"].get("dayBond")) + ")")
 check(feats["FLAG"].get("flagB") == 1 and feats["FLAGNV"].get("flagB") is None and feats["FLAGDP"].get("flagB") is None
       and all(f.get("flagB") is None for s, f in feats.items() if not s.startswith("FLAG")),
       "🚩 drapeau cassé par un bond : repéré il y a 1 semaine ; pas sans gros volume, ni après un repli de 25 % ("

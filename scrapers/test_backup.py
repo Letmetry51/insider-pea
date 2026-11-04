@@ -482,6 +482,30 @@ def _():
     assert sp["filled"] == 1 and prices["items"]["X"]["rows"][-1][0] == "2026-10-19" and prices["items"]["X"]["rows"][-1][4] == 204.6
 
 
+@case("Volumes journaliers des fiches (📣 bond du jour) : décalés avec les cours, complétés par les listes officielles seulement")
+def _():
+    items = {
+        "TTE.PA": {"currency": "EUR", "d": [80, 80.2, 80.4, 80.7, 80.5], "dv": [10, 11, 12, 13], "w": [79, 79.5, 80, 80.7, 80.5]},
+        "SAP.DE": {"currency": "EUR", "turnoverEur": 5e8, "d": [200, 201, 202, 203, 204], "dv": [20, 21, 22, 23]},
+    }
+    shs = [shard(items)]
+    enx = {"TTE.PA": B.quote("2026-10-20", 81.0, volume=1500, currency="EUR", src="Euronext"),
+           "SAP.DE": B.quote("2026-10-20", 205.0, currency="EUR", src="Yahoo (cotation)")}
+    st = B.patch_catalogue(shs, enx, no_nordic, "2026-10-20", "2026-10-20")
+    it = shs[0]["items"]
+    assert st["mode"] == "append" and it["TTE.PA"]["dv"] == [11, 12, 13, 1500] and it["SAP.DE"]["dv"] == [21, 22, 23, None], it
+    assert it["TTE.PA"]["d"][-1] == 81.0 and it["SAP.DE"]["d"][-1] == 205.0
+    # séance déjà dans les dates, cours et volume manquants : la liste Euronext complète les deux, sans toucher un volume connu
+    items2 = {"TTE.PA": {"currency": "EUR", "d": [80, 80.2, 80.4, 80.7, None], "dv": [10, 11, 12, None]},
+              "MC.PA": {"currency": "EUR", "d": [395, 396, 397, 397, None], "dv": [5, 6, 7, 8]}}
+    sh2 = [shard(items2)]
+    enx2 = {"TTE.PA": B.quote("2026-10-19", 80.53, volume=900, currency="EUR", src="Euronext"),
+            "MC.PA": B.quote("2026-10-19", 390.0, volume=777, currency="EUR", src="Euronext")}
+    B.patch_catalogue(sh2, enx2, no_nordic, "2026-10-19", "2026-10-19")
+    i2 = sh2[0]["items"]
+    assert i2["TTE.PA"]["dv"] == [10, 11, 12, 900] and i2["MC.PA"]["dv"] == [5, 6, 7, 8], i2
+
+
 @case("Liste Euronext injoignable : séance du calendrier, secours nordique quand même (cas du 21/10/2026, Helsinki)")
 def _():
     d = Path(tempfile.mkdtemp())

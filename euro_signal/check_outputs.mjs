@@ -289,12 +289,23 @@ if (CI && CI.rows) {
   check(bad === 0, `fiches des sociétés : ${CI.shards || 32} fichiers lisibles`);
   // chaque fichier de cours du catalogue doit contenir des sociétés : un fichier vide réduit le classement sans autre signe
   const thin = [];
+  let withD = 0,
+    withDv = 0;
   for (let k = 0; k < (CI.shards || 32); k++) {
     try {
       const d = JSON.parse(fs.readFileSync(path.join(DATA, 'societes', k + '.json'), 'utf8'));
       if (Object.keys(d.items || {}).length < 20) thin.push(k);
+      Object.values(d.items || {}).forEach((x) => {
+        if (Array.isArray(x.d)) withD++;
+        if (Array.isArray(x.d) && Array.isArray(x.dv)) withDv++;
+      });
     } catch (e) {}
   }
+  // volumes journaliers (📣 bond du jour, 04/11/2026) : sans eux, l'alerte du soir ne peut rien repérer
+  if (withD)
+    (withDv >= 0.8 * withD ? ok : warn)(
+      `volumes journaliers des fiches (📣 bond du jour) : ${withDv} sur ${withD} sociétés avec des cours journaliers (80 % au moins)`
+    );
   check(
     !thin.length,
     `cours du catalogue : chaque fichier contient des sociétés${thin.length ? ' (vides : ' + thin.join(', ') + ')' : ''}`

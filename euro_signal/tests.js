@@ -3996,6 +3996,77 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
       '🚩 pas de drapeau : bond sur 1,2 fois le volume, repli de 25 %, pas en tendance, historique court, bond de plus de 8 semaines'
     );
   }
+  {
+    // 📣 bond du jour : +9 % sur 6 fois le volume des 50 séances précédentes, en tendance
+    const D = [];
+    for (let k = 0; k < 257; k++) D.push(100 * Math.pow(1.0015, k));
+    const V = [];
+    for (let k = 0; k < 60; k++) V.push(1000 + (k % 7) * 10);
+    const mk = (o) => {
+      const d = D.slice(),
+        v = V.slice(),
+        i = o.yday ? 2 : 1;
+      d[257 - i] = d[257 - i - 1] * (o.pct || 1.09);
+      if (o.yday) d[256] = d[255] * 1.002;
+      v[60 - i] = (o.vx || 6) * 1030;
+      if (o.down) for (let k = 0; k < 250; k++) d[k] = 400 - k;
+      return [d, v];
+    };
+    const [d0, v0] = mk({}),
+      inf = ES.dayBondInfo(d0, v0);
+    ok(
+      ES.dayBond(d0, v0) === 0 &&
+        inf.pct === 9 &&
+        inf.vx >= 5.9 &&
+        inf.vx <= 6.1 &&
+        ES.rankFeatures(d0, null, null, v0).dayBond === 0,
+      '📣 bond du jour : +9 % sur 6 fois le volume repéré le soir même (' + JSON.stringify(inf) + ')'
+    );
+    ok(
+      ES.dayBond.apply(null, mk({ yday: true })) === 1 &&
+        ES.dayBond.apply(null, mk({ vx: 4 })) == null &&
+        ES.dayBond.apply(null, mk({ pct: 1.07 })) == null &&
+        ES.dayBond.apply(null, mk({ down: true })) == null &&
+        ES.dayBond(d0, v0.slice(0, 30)) == null &&
+        ES.dayBond(d0, null) == null &&
+        ES.dayBond(d0.slice(-150), v0) == null,
+      '📣 bond du jour : la veille repérée ; pas sur 4 fois le volume, à +7 %, hors tendance, sans 40 volumes ni 200 cours'
+    );
+    const cfg = { rank: { selMin: 70 } },
+      base = {
+        key: 'A',
+        dayBond: 0,
+        trend: 'up',
+        acc: 'good',
+        out: [],
+        pea: true,
+        mom: 0.8,
+        turnoverEur: 5e6,
+        note: 80,
+      };
+    const al = ES.dayBondAlerts(
+      [
+        base,
+        Object.assign({}, base, { key: 'B', note: 90 }),
+        Object.assign({}, base, { key: 'C', pea: false }),
+        Object.assign({}, base, { key: 'D', acc: 'mixed' }),
+        Object.assign({}, base, { key: 'E', turnoverEur: 2e6 }),
+        Object.assign({}, base, { key: 'F', note: 60 }),
+        Object.assign({}, base, { key: 'G', vola: 85 }),
+        Object.assign({}, base, { key: 'H', mom: 2.5 }),
+        Object.assign({}, base, { key: 'I', dayBond: null }),
+        Object.assign({}, base, { key: 'J', short: { pct: 1.2, cc: 'FR' } }),
+        Object.assign({}, base, { key: 'K', out: ['écartée : comptes'] }),
+      ],
+      cfg
+    );
+    ok(
+      al.map((x) => x.key).join(',') === 'B,A',
+      "📣 bond du jour : alerte aux conditions de la place 📣 seulement, meilleure note d'abord (" +
+        al.map((x) => x.key).join(',') +
+        ')'
+    );
+  }
   const pvw = ES.pickN(rows.map((x) => (x.key === 'A' ? Object.assign({}, x, { vo: 85 }) : x)));
   ok(
     !pvw.picks.some((x) => x.key === 'A') && pvw.rejected.some((x) => x.r.key === 'A' && /très volatil/.test(x.why)),

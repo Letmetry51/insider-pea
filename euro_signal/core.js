@@ -9227,7 +9227,71 @@
     }
     return null;
   };
-  ES.rankFeatures = function (daily, weekly, wvol) {
+  /**
+   * 📣 Bond du jour : séances depuis le dernier bond d'une séance parmi les 2 dernières (0 : la dernière ; 1 : la veille, quand son
+   * volume n'est arrivé que le lendemain), sinon null. Bond : clôture à +8 % ou plus sur la veille, volume d'au moins 5 fois la moyenne
+   * des 50 séances précédentes (40 connues au moins), cours en tendance ce jour-là (au-dessus de sa moyenne 200 séances, la 50
+   * au-dessus de la 200). daily : clôtures journalières (un an, cases vides possibles) ; dvol : volumes des dernières séances, alignés
+   * par la fin. Cours journaliers 2000-2026 (1 107 sociétés) : +9,3 points à 6 mois face à la moyenne (t 5,3 ; +5,6 / +10,9 / +10,8
+   * par période), +10,9 au plus haut de l'année ; acheté le lendemain plutôt que le lundi suivant : +1,1 point (t 2,9), +2,8 quand la
+   * semaine finit en 📣 ; 4 sur 10 ne font pas de 📣 de la semaine. La sélection du lundi n'en tire rien (+0,1 point par an) : alerte du
+   * soir seulement (étude du 04/11/2026, research/hausse_tot*.py, research/backtest/_selection_sim9.py).
+   */
+  ES.dayBond = function (daily, dvol) {
+    var o = ES.dayBondInfo(daily, dvol);
+    return o ? o.k : null;
+  };
+  /** Même repère avec la hausse de la séance (%, arrondie) et le volume rapporté à la moyenne (au dixième) : { k, pct, vx } ou null. */
+  ES.dayBondInfo = function (daily, dvol) {
+    if (!daily || !dvol || !dvol.length) return null;
+    var pos = function (v) {
+      return typeof v === 'number' && v > 0;
+    };
+    var n = daily.length,
+      nv = dvol.length;
+    for (var k = 0; k < 2; k++) {
+      var s = n - 1 - k,
+        vi = nv - 1 - k;
+      if (s < 1 || vi < 0) break;
+      var c = daily[s];
+      if (!pos(c) || !pos(daily[s - 1]) || !(c / daily[s - 1] - 1 >= 0.08) || !pos(dvol[vi])) continue;
+      var base = dvol.slice(Math.max(0, vi - 50), vi).filter(pos);
+      if (base.length < 40 || !(dvol[vi] >= 5 * mean(base))) continue;
+      var closes = daily.slice(0, s + 1).filter(pos);
+      if (closes.length < 200) continue;
+      var m200 = mean(closes.slice(-200)),
+        m50 = mean(closes.slice(-50));
+      if (c > m200 && m50 > m200)
+        return {
+          k: k,
+          pct: Math.round((c / daily[s - 1] - 1) * 100),
+          vx: Math.round((dvol[vi] / mean(base)) * 10) / 10,
+        };
+    }
+    return null;
+  };
+  /**
+   * 📣 Bond du jour, alerte du soir : lignes de ES.rankUniverse avec un bond du jour (ES.dayBond) qui remplissent les conditions de la
+   * place 📣 de la sélection (PEA, comptes solides, cours en tendance, hausse sur 12 mois de +200 % au plus, au moins 3 M€ échangés par
+   * jour, note ≥ selMin, ni variation d'un jour à vérifier, ni cours très volatil, ni vente à découvert bloquante), meilleure note d'abord.
+   */
+  ES.dayBondAlerts = function (rows, cfg) {
+    var R = (cfg && cfg.rank) || {};
+    return (rows || [])
+      .filter(function (r) {
+        if (!r || r.dayBond == null || r.trend !== 'up' || r.acc !== 'good') return false;
+        var outs = r.out || [];
+        if (r.pea === false || outs.length) return false;
+        if (r.dayJump != null || (r.vola != null && r.vola >= ES.VOL_WILD * 100)) return false;
+        if (ES.shortBlocks({ sh: r.short ? r.short.pct : null, shc: r.short ? r.short.cc : null })) return false;
+        if (r.mom == null || r.mom > 2 || (r.turnoverEur || 0) < 3e6) return false;
+        return R.selMin == null || r.note >= R.selMin;
+      })
+      .sort(function (a, b) {
+        return b.note - a.note;
+      });
+  };
+  ES.rankFeatures = function (daily, weekly, wvol, dvol) {
     var D = (daily || []).filter(function (v) {
         return v > 0;
       }),
@@ -9258,6 +9322,7 @@
     }
     var last = D.length ? D[D.length - 1] : W.length ? W[W.length - 1] : null;
     if (!last) return null;
+    var dayB = ES.dayBondInfo(daily, dvol);
     var avg = function (a, n) {
       if (a.length < n) return null;
       var t = 0;
@@ -9265,6 +9330,11 @@
       return t / n;
     };
     var f = { last: last, weeks: W.length, days: D.length };
+    if (dayB) {
+      f.dayBond = dayB.k;
+      f.dayBondPct = dayB.pct;
+      f.dayBondVx = dayB.vx;
+    }
     if (W.length >= 53) f.mom = W[W.length - 5] / W[W.length - 53] - 1; // 12 mois hors dernier mois (Jegadeesh et Titman)
     if (D.length >= 200) {
       f.high = Math.max.apply(null, D.slice(-252));
@@ -10102,6 +10172,9 @@
         bump: f.bump != null ? f.bump : null,
         bumpHi: f.bumpHi != null ? f.bumpHi : null,
         flagB: f.flagB != null ? f.flagB : null,
+        dayBond: f.dayBond != null ? f.dayBond : null,
+        dayBondPct: f.dayBondPct != null ? f.dayBondPct : null,
+        dayBondVx: f.dayBondVx != null ? f.dayBondVx : null,
         ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null,
         short: x.short || null,
         currency: x.currency || null,
