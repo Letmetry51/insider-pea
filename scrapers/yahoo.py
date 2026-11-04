@@ -196,5 +196,7 @@ def write_diag(now=None):
     for k, v in STATS.items():
         sections[k] = dict(v, at=now.isoformat())
     DIAG.parent.mkdir(parents=True, exist_ok=True)
-    DIAG.write_text(json.dumps({"date": now.date().isoformat(), "at": now.isoformat(), "yfinance": ver, "sections": sections},
-                               ensure_ascii=False, indent=1))
+    tmp = DIAG.with_name(DIAG.name + ".tmp")  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit
+    tmp.write_text(json.dumps({"date": now.date().isoformat(), "at": now.isoformat(), "yfinance": ver, "sections": sections},
+                              ensure_ascii=False, indent=1))
+    tmp.replace(DIAG)

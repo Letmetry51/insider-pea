@@ -813,8 +813,9 @@ def main(argv):
             pass
         rep = {"date": today, "at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "error": f"{type(e).__name__}: {e}"}
         code = 1
-    with open(out_path, "w", encoding="utf-8") as fh:
+    with open(out_path + ".tmp", "w", encoding="utf-8") as fh:  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit
         json.dump(rep, fh, ensure_ascii=False, indent=1)
+    os.replace(out_path + ".tmp", out_path)
     if rep.get("error"):
         print("Double calcul impossible : " + rep["error"])
     else:

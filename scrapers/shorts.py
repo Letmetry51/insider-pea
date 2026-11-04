@@ -40,6 +40,12 @@ STALE_OPEN = (date.today() - timedelta(days=365)).isoformat()  # sans nouvelle d
 STALE_DAYS = {"FR": 10, "IT": 10, "ES": 10, "NL": 10, "BE": 16}
 
 
+def write_atomic(path, text):
+    """Écriture atomique : fichier temporaire puis renommage (une étape coupée par son délai ne laisse pas un fichier à moitié écrit)."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
 def freshness(cc, recs, today=None):
     """(date de la dernière notification du fichier, périmé ?) : « ok » voulait dire fichier lu, pas fichier à jour."""
     today = today or date.today()
@@ -381,7 +387,7 @@ def resolve_symbols(items, limit=900, names=None):
             if sym:
                 cache[isin] = sym
     if not todo:
-        SYMS.write_text(json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8")
+        write_atomic(SYMS, json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True))
         return cache
     try:
         import yfinance as yf
@@ -405,7 +411,7 @@ def resolve_symbols(items, limit=900, names=None):
         if not sym:
             cache.setdefault("_tried", {})[isin] = today
         found += 1 if sym else 0
-    SYMS.write_text(json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8")
+    write_atomic(SYMS, json.dumps(cache, ensure_ascii=False, indent=0, sort_keys=True))
     print("Positions vendeuses : %d ISIN recherchés sur Yahoo, %d reliés au catalogue (cache : %d)" % (len(todo), found, len(cache)))
     return cache
 
@@ -485,7 +491,7 @@ def main():
         print("Positions vendeuses %s (%s) : %s" % (cc, src["name"], x["status"] + (" — %d notifications, %d positions en vigueur" % (x["notifications"], x["open"]) if x["status"] != "echec" else "") + (" — " + note if note else "")))
     DATA.mkdir(exist_ok=True)
     out = {"generated_at": datetime.now(timezone.utc).isoformat(), "sources": sources, "items": all_items}
-    OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    write_atomic(OUT, json.dumps(out, ensure_ascii=False, separators=(",", ":")))
     try:
         resolve_symbols(all_items, names=names)
     except Exception as e:

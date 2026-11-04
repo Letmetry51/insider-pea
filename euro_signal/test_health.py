@@ -33,6 +33,26 @@ check(b == ["✖ Étape « 3b. Secteurs et fiches sociétés » en échec ce soi
 b = H.build({"issues": ["⚠ x"], "date": "2026-10-19"}, {"summary": {}, "problems": [], "jsErrors": []}, None, "2026-10-20")
 check(len(b) == 1 and "arrêté avant le contrôle" in b[0], "contrôle de la veille : calcul arrêté avant la fin, signalé")
 check(H.failed_steps(None) == [] and H.failed_steps({"a": None}) == [], "résumé des étapes absent ou abîmé : rien")
+check(H.failed_steps({"s7": {"outcome": "cancelled"}}) == [("s7", H.STEP_LABELS["s7"])], "étape interrompue (job coupé) : signalée")
+# calcul parti en retard qui passe minuit UTC entre le contrôle (23 h 50) et l'email (0 h 05) : contrôle de ce soir, pas de la veille
+from datetime import datetime, timedelta, timezone  # noqa: E402
+now = datetime.now(timezone.utc)
+b = H.build({"issues": ["⚠ x"], "date": "2026-10-19", "at": (now - timedelta(minutes=15)).isoformat()},
+            {"summary": {}, "problems": [], "jsErrors": []}, None, "2026-10-20")
+check(b == ["⚠ x"], "contrôle écrit avant minuit UTC : ses constats sont envoyés (pas « calcul arrêté »)")
+b = H.build({"issues": ["⚠ x"], "date": "2026-10-19", "at": (now - timedelta(hours=30)).isoformat()},
+            {"summary": {}, "problems": [], "jsErrors": []}, None, "2026-10-20")
+check(len(b) == 1 and "arrêté avant le contrôle" in b[0], "contrôle d'un calcul précédent (30 heures) : calcul arrêté, signalé")
+import mail_status as M  # noqa: E402
+dm = Path(tempfile.mkdtemp())
+M.FILE = dm / "mail.json"
+M.FILE.write_text(json.dumps({"date": "2026-10-19", "parts": {
+    "alertes": {"ok": False, "detail": "SMTPAuthenticationError", "at": (now - timedelta(minutes=10)).isoformat()},
+    "positions": {"ok": False, "detail": "ancien", "at": (now - timedelta(hours=30)).isoformat()}}}))
+M.record("controle", True)
+mp = json.loads(M.FILE.read_text())["parts"]
+check(set(mp) == {"alertes", "controle"} and not mp["alertes"]["ok"],
+      "état Gmail : échec noté avant minuit UTC gardé, échange d'un calcul précédent retiré")
 d = Path(tempfile.mkdtemp())
 H.DIAG, H.SENT = d, d / "health-sent.json"
 (d / "quality.json").write_text(json.dumps({"issues": [], "cov": {}}))

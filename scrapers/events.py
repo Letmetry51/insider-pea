@@ -182,6 +182,10 @@ def main():
     press_sample = set(i for i, _ in pairs[:30])
 
     def fetch(isin, ticker):
+        # budget dépassé : les titres pas encore commencés sont sautés (données de la veille gardées). Jusqu'au 04/11/2026, le budget
+        # n'était vu qu'entre deux lots de 30 titres : un lot lent pouvait dépasser la limite de l'étape, et rien n'était écrit
+        if budget and time.monotonic() - t0 > budget:
+            return isin, None, 0
         errs = 0
         t = yf.Ticker(ticker)
         rec = {"ticker": ticker, "earnings": [], "press": [], "epsTrend": None, "fund": None, "nextEarnings": None, "forecast": None}
@@ -243,11 +247,16 @@ def main():
                 print(f"  Budget de temps atteint : {done} titres sur {len(pairs)} relus ce soir, les autres gardent les données de la veille")
                 break
             for isin, rec, errs in ex.map(lambda p: fetch(*p), pairs[k:k + 30]):
+                if rec is None:
+                    partial = True
+                    continue
                 items[isin] = rec
                 errors += errs
                 done += 1
             print(f"  {done}/{len(pairs)} ({time.monotonic() - t0:.0f} s)")
-    (DATA / "events.json").write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors, "partial": partial, "total": len(pairs)}, ensure_ascii=False), encoding="utf-8")
+    tmp = DATA / "events.json.tmp"  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit
+    tmp.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors, "partial": partial, "total": len(pairs)}, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(DATA / "events.json")
     withE = sum(1 for v in items.values() if v["earnings"])
     withP = sum(1 for v in items.values() if v["press"])
     withF = sum(1 for v in items.values() if v.get("fund"))

@@ -42,6 +42,9 @@ DATA = ROOT / "data"
 ISIN_RE = re.compile(r"\b([A-Z]{2}[A-Z0-9]{9}[0-9])\b")
 # sociétés du catalogue sans dossier Euro Signal (classement tendance + comptes) : symbole Yahoo, ex. « VOLV-B.ST »
 SYM_RE = re.compile(r"\]\s*(?:Position|Vente|Surveiller|Ne plus surveiller)\s+([A-Z0-9][A-Z0-9&-]{0,20}\.[A-Z]{1,3})\b")
+# objet d'un email à lire en entier (positions, ventes, plans surveillés) ; les autres (alertes, contrôles) : objet seulement
+POS_SUBJ = re.compile(r"\]\s*(?:Position|Vente|Surveiller|Ne plus surveiller)\b", re.I)
+REF_RE = re.compile(r"réf\. ([A-Za-z0-9:._&-]+)")  # « & » comme dans SYM_RE (jusqu'au 04/11/2026 : réf. jamais reconnue, email chaque soir)
 DRAWDOWN_PCT = 20  # plus utilisé pour les alertes (voir l'en-tête)
 HOLD_DAYS = 182
 STOP_DEFAULT = 30
@@ -114,22 +117,40 @@ def sent_folder(imap):
     return '"[Gmail]/Sent Mail"'
 
 
+def one_line(s):
+    """Objet d'email sur une ligne : un retour à la ligne (nom de société lu dans une déclaration) fait refuser l'objet par Python
+    (EmailMessage), et l'envoi de toutes les alertes suivantes de la liste s'arrêtait chaque soir."""
+    return re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+", " ", str(s or "")).strip()
+
+
 def read_positions(imap):
-    """Dernier message par ISIN dans les Envoyés : une Position ouvre ou met à jour, une Vente clôt."""
+    """Dernier message par ISIN dans les Envoyés : une Position ouvre ou met à jour, une Vente clôt.
+    Objet et date d'abord, par lots de 200 ; le message entier seulement pour les positions, ventes et plans surveillés. Jusqu'au
+    04/11/2026, chaque email « [Euro Signal] » des Envoyés (toutes les alertes envoyées par le calcul du soir, des centaines par an)
+    était téléchargé en entier, un par un : de plus en plus long chaque soir, jusqu'à dépasser le délai de l'étape."""
     folder = sent_folder(imap)
     imap.select(folder, readonly=True)
     typ, data = imap.search(None, '(SUBJECT "[Euro Signal]")')
+    ids = data[0].split() if data and data[0] else []
     latest, watch, refs = {}, {}, set()
-    for mid in (data[0].split() if data and data[0] else []):
+    heads = []
+    for k in range(0, len(ids), 200):
+        typ, part = imap.fetch(b",".join(ids[k:k + 200]), "(BODY.PEEK[HEADER.FIELDS (SUBJECT DATE)])")
+        for it in part or []:
+            if isinstance(it, tuple) and len(it) >= 2 and it[0]:
+                heads.append((it[0].split()[0], email.message_from_bytes(it[1])))
+    for mid, head in heads:
+        subject = str(make_header(decode_header(head.get("Subject", ""))))
+        for r in REF_RE.findall(subject):
+            refs.add(r)  # alertes de revente déjà envoyées
+        if not POS_SUBJ.search(subject):
+            continue
         typ, msgdata = imap.fetch(mid, "(RFC822)")
-        if not msgdata or not msgdata[0]:
+        if not msgdata or not msgdata[0] or not isinstance(msgdata[0], tuple):
             continue
         msg = email.message_from_bytes(msgdata[0][1])
-        subject = str(make_header(decode_header(msg.get("Subject", ""))))
-        for r in re.findall(r"réf\. ([A-Za-z0-9:._-]+)", subject):
-            refs.add(r)  # alertes de revente déjà envoyées
         try:
-            sent_at = email.utils.parsedate_to_datetime(msg.get("Date")).astimezone(timezone.utc).isoformat()
+            sent_at = email.utils.parsedate_to_datetime(head.get("Date") or msg.get("Date")).astimezone(timezone.utc).isoformat()
         except Exception:
             sent_at = datetime.now(timezone.utc).isoformat()
         p = parse_position(subject, text_of(msg), sent_at)
@@ -284,6 +305,8 @@ def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=F
         ev.append(("vente" + max((t.get("pubDate") or t.get("txDate")) for t in sells).replace("-", ""),
                    "un dirigeant a vendu depuis votre achat (" + ", ".join(((t.get("person") or "?") + " le " + (t.get("txDate") or "?")) for t in sells[:3]) + ")"))
     try:
+        if isinstance(today, str):  # date du jour en texte (« 2026-11-04 ») : jusqu'au 04/11/2026, le rappel des 6 mois ne partait jamais
+            today = date.fromisoformat(today[:10])
         held = (today - date.fromisoformat(pos["date"][:10])).days
     except (TypeError, ValueError):
         held = 0
@@ -372,9 +395,10 @@ def main():
     pk = (dash.get("rank") or {}).get("pick10")
     vk = (dash.get("rank") or {}).get("value10")
     picks = (set(pk) | set(vk if isinstance(vk, list) else [])) if isinstance(pk, list) else None  # 🎯 et 💎 de ce soir (ISIN ou symbole)
-    today = date.today().isoformat()
+    today = date.today()
     try:
-        imap = imaplib.IMAP4_SSL("imap.gmail.com", 993, ssl_context=ssl.create_default_context())
+        # délai de 30 s par échange : un Gmail qui ne répond plus ne bloque plus l'étape jusqu'à sa limite
+        imap = imaplib.IMAP4_SSL("imap.gmail.com", 993, ssl_context=ssl.create_default_context(), timeout=30)
         imap.login(user, pwd)
         positions, refs, watches = read_positions(imap)
         imap.logout()
@@ -452,7 +476,7 @@ def main():
                 s.login(user, pwd)
                 for subject, body in to_send:
                     msg = EmailMessage()
-                    msg["Subject"], msg["From"], msg["To"] = subject, user, user  # vos positions ne vont qu'à vous
+                    msg["Subject"], msg["From"], msg["To"] = one_line(subject), user, user  # vos positions ne vont qu'à vous
                     msg.set_content(body)
                     s.send_message(msg)
                     sent += 1

@@ -174,6 +174,68 @@ def _():
     ev3, _ = P.evaluate(pos, [["2026-06-01", 0, 0, 0, 97.0, 0], ["2026-09-03", 0, 0, 0, 68.0, 0]], {}, [], d, adjusted=True)
     assert "stop30" in {k for k, _ in ev3}, ev3
 
+
+@case("Date du jour en texte : le rappel des 6 mois part quand même (jusqu'au 04/11/2026, jamais envoyé)")
+def _():
+    pos = {"isin": "FR0000120271", "price": 50.0, "date": "2026-04-01", "target": None, "stop": None}
+    rows = [["2026-04-01", 0, 0, 0, 50.0, 0], ["2026-10-05", 0, 0, 0, 55.0, 0]]
+    assert "6mois" in {k for k, _ in P.evaluate(pos, rows, {}, [], "2026-10-05")[0]}
+    assert "6mois" in {k for k, _ in P.evaluate(pos, rows, {}, [], date(2026, 10, 5))[0]}
+    assert "6mois" not in {k for k, _ in P.evaluate(pos, rows, {}, [], "2026-09-01")[0]}
+
+
+@case("Lecture Gmail : objets d'abord (par lots), message entier seulement pour positions et plans ; réf. avec « & »")
+def _():
+    from email.message import EmailMessage
+
+    def mk(subject, body=""):
+        m = EmailMessage()
+        m["Subject"], m["From"], m["Date"] = subject, "moi@example.com", "Mon, 05 Oct 2026 18:00:00 +0000"
+        m.set_content(body)
+        return m.as_bytes()
+
+    box = {b"1": mk("[Euro Signal] Position FR0000120271", "Prix d'achat : 50\nDate d'achat : 2026-10-01"),
+           b"2": mk("[Euro Signal] 📣 Bond du jour : Saipem SpA (+12 % sur gros volume)", "x" * 50000),
+           b"3": mk("[Euro Signal] Revente — Total : 6 mois (réf. FR0000120271:20261001:6mois)"),
+           b"4": mk("[Euro Signal] Plan — M&G : entrée (réf. plan:M&G.L:entree)"),
+           b"5": mk("[Euro Signal] Surveiller VOLV-B.ST", "Entrée ajustée : 250")}
+
+    class FakeIMAP:
+        def __init__(self):
+            self.full, self.head_calls = [], 0
+
+        def list(self):
+            return "OK", [b'(\\HasNoChildren \\Sent) "/" "[Gmail]/Sent Mail"']
+
+        def select(self, folder, readonly=False):
+            assert readonly
+            return "OK", [b"5"]
+
+        def search(self, charset, crit):
+            return "OK", [b" ".join(sorted(box))]
+
+        def fetch(self, mset, spec):
+            if "HEADER.FIELDS" in spec:
+                self.head_calls += 1
+                out = []
+                for mid in mset.split(b","):
+                    raw = box[mid]
+                    head = raw.split(b"\n\n", 1)[0] + b"\n\n"
+                    out += [(mid + b" (BODY[HEADER.FIELDS (SUBJECT DATE)] {%d}" % len(head), head), b")"]
+                return "OK", out
+            self.full.append(mset)
+            return "OK", [(mset + b" (RFC822 {%d}" % len(box[mset]), box[mset]), b")"]
+
+    im = FakeIMAP()
+    positions, refs, watches = P.read_positions(im)
+    assert im.head_calls == 1, im.head_calls
+    assert sorted(im.full) == [b"1", b"5"], im.full
+    assert [p["isin"] for p in positions] == ["FR0000120271"] and positions[0]["price"] == 50.0, positions
+    assert positions[0]["sentAt"].startswith("2026-10-05"), positions[0]["sentAt"]
+    assert refs == {"FR0000120271:20261001:6mois", "plan:M&G.L:entree"}, refs
+    assert [w["isin"] for w in watches] == ["VOLV-B.ST"], watches
+    assert P.one_line("[Euro Signal] Revente — ACME\r\nSA : 6 mois") == "[Euro Signal] Revente — ACME SA : 6 mois"
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

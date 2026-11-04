@@ -60,7 +60,7 @@ jobs:
                       break
                   d -= timedelta(days=1)
               try:
-                  out = subprocess.check_output(["gh", "run", "list", "--repo", os.environ["REPO"], "--workflow", "update-data.yml",
+                  out = subprocess.check_output(["gh", "run", "list", "--repo", os.environ["REPO"], "--workflow", "update-data.yml", "--branch", "main",
                                                  "--limit", "20", "--json", "databaseId,createdAt,conclusion"])
                   done = [r for r in json.loads(out) if str(r["databaseId"]) != os.environ["RUN_ID"] and r["conclusion"] == "success"
                           and datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= start - timedelta(minutes=30)]
@@ -78,15 +78,20 @@ jobs:
     needs: garde
     if: needs.garde.outputs.run == 'true'
     runs-on: ubuntu-latest
-    # chaque étape de collecte a son propre délai : le job n'atteint jamais sa limite, l'enregistrement final s'exécute toujours
-    timeout-minutes: 150
+    # chaque étape a son propre délai et leur somme reste sous la limite du job (vérifié par tools/test_workflows.py) : le job n'atteint
+    # jamais sa limite, l'enregistrement final s'exécute toujours. Jusqu'au 04/11/2026 : 150 minutes pour 284 de délais cumulés, un
+    # soir où Yahoo traîne pouvait couper le job avant le calcul (ni calcul ni email)
+    timeout-minutes: 350
 
     steps:
       - name: Checkout du repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false # jeton GitHub jamais laissé sur le disque pour les collecteurs (la publication passe le sien)
 
       - name: 0. Données de la veille (branche site)
         id: restore
+        timeout-minutes: 5
         uses: ./.github/actions/restore-data
 
       - name: Setup Python 3.11
@@ -102,6 +107,7 @@ jobs:
 
       - name: Installation des dépendances
         id: deps
+        timeout-minutes: 10
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
@@ -195,6 +201,7 @@ jobs:
 
       - name: 5a. Tests du moteur Euro Signal
         id: s5a
+        timeout-minutes: 10
         run: node euro_signal/tests.js && python scrapers/test_prices.py && python euro_signal/test_health.py
 
       - name: 5b. Calcul Euro Signal
@@ -223,6 +230,7 @@ jobs:
 
       - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)
         id: s5d
+        timeout-minutes: 10
         continue-on-error: true
         run: node euro_signal/check_outputs.mjs
 
@@ -291,6 +299,7 @@ jobs:
         # Toujours exécuté, même après une erreur, pour conserver le journal des alertes déjà envoyées
         id: s7
         if: always()
+        timeout-minutes: 15
         uses: ./.github/actions/publish-site
         with:
           message: "📊 Données du soir"
@@ -299,7 +308,7 @@ jobs:
       # La publication peut échouer après l'email de contrôle (GitHub indisponible) : la page garderait alors en silence les
       # données de la veille. Second passage de l'email de contrôle, avec l'étape 7 en échec (données sauvegardées 30 jours)
       - name: 7b. Email si la publication a échoué
-        if: always() && steps.s7.outcome == 'failure'
+        if: always() && steps.s7.outcome != 'success'
         timeout-minutes: 5
         continue-on-error: true
         env:

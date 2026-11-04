@@ -155,8 +155,14 @@ def main():
     retry_before = (today - timedelta(days=RETRY_EMPTY_DAYS)).isoformat()
     done = failed = kept = streak = 0
     streak_new = []  # sociétés notées « sans comptes » pendant la série de réponses vides en cours
-    # comptes déjà disponibles pour les titres de la liste du soir (une société sortie de la liste n'est pas une perte de données)
-    avail_before = sum(1 for i, v in items.items() if v.get("years") and i in pairs)
+    # titres absents de la liste du soir : gardés tant que leurs comptes ont moins de REFRESH_DAYS + 30 jours (liste incomplète un soir :
+    # cours absents, catalogue en panne), retirés ensuite (sortis de la cote ou du périmètre). Jusqu'au 04/11/2026, retirés dès le
+    # premier soir, et le garde-fou ne comptait que la liste du soir : des centaines de comptes effacés puis relus pendant des semaines
+    keep_after = (today - timedelta(days=REFRESH_DAYS + 30)).isoformat()
+
+    def keep(i, v):
+        return i in pairs or (isinstance(v, dict) and str(v.get("asOf") or "") >= keep_after)
+    avail_before = sum(1 for i, v in items.items() if isinstance(v, dict) and v.get("years") and keep(i, v))
     stopped = False
     for isin in order:
         old = items.get(isin) or {}
@@ -195,12 +201,14 @@ def main():
     if stopped:  # Yahoo bloqué : les sociétés de la série vide ne sont pas notées « sans comptes », elles seront relues dès le soir suivant
         for k in streak_new:
             items.pop(k, None)
-    items = {i: v for i, v in items.items() if i in pairs}  # titres disparus de la liste : retirés
+    items = {i: v for i, v in items.items() if keep(i, v)}
     avail = sum(1 for v in items.values() if v.get("years"))
     if avail < avail_before * 0.8:  # garde-fou : jamais de fichier qui perd plus de 20 % des comptes disponibles
         print(f"Comptes annuels : {avail} disponibles contre {avail_before} avant, fichier précédent conservé")
         return 0
-    OUT.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp = OUT.with_name(OUT.name + ".tmp")  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit
+    tmp.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    tmp.replace(OUT)
     if stopped:
         print(f"Comptes annuels : Yahoo ne renvoie plus de comptes ({STREAK_STOP} réponses vides de suite), arrêt pour ce soir")
     pending = sum(1 for i in pairs if (items.get(i) or {}).get("asOf", "") <= fresh_before or (items.get(i) or {}).get("schema", 1) < SCHEMA)
