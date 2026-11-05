@@ -703,6 +703,27 @@ def next_earnings(ed, today=None):
     return fut[0].strftime("%Y-%m-%d") if fut else None
 
 
+def past_earnings(ed, today=None):
+    """Publications de résultats passées (dates de get_earnings_dates avant aujourd'hui) : AAAA-MM-JJ croissantes, sans doublon.
+    Page société : dernière publication et réaction du cours, date estimée d'après l'an dernier quand Yahoo n'annonce rien."""
+    if ed is None or getattr(ed, "empty", True):
+        return []
+    t0 = pd.Timestamp(today or date.today()).normalize()
+    idx = pd.to_datetime(ed.index)
+    if getattr(idx, "tz", None) is not None:
+        idx = idx.tz_localize(None)
+    return sorted({d.strftime("%Y-%m-%d") for d in idx.normalize() if d < t0})
+
+
+def past_dates(ev, today_s, keep=8):
+    """Dates des dernières publications d'une société (relevé hebdomadaire : dates passées de Yahoo et dates des surprises), avant
+    aujourd'hui, les keep plus récentes."""
+    ev = ev or {}
+    ds = {d for d in (ev.get("past") or []) if isinstance(d, str)}
+    ds |= {x[0] for x in (ev.get("surprises") or []) if isinstance(x, (list, tuple)) and x and isinstance(x[0], str)}
+    return sorted(d for d in ds if len(d) == 10 and d < today_s)[-keep:]
+
+
 def fetch_estimates(s):
     import yfinance as yf
     t = yf.Ticker(s)
@@ -722,6 +743,9 @@ def fetch_estimates(s):
         nx = next_earnings(ed)
         if nx:
             out["next"] = nx
+        pa = past_earnings(ed)
+        if pa:
+            out["past"] = pa
     except Exception:
         pass
     return s, out
@@ -744,6 +768,9 @@ def refresh_estimates():
             pn = (old.get(s) or {}).get("next")
             if not e.get("next") and pn and pn >= date.today().isoformat():
                 e["next"] = pn  # Yahoo muet cette semaine : la date annoncée reste valable tant qu'elle est à venir
+            pp = set((old.get(s) or {}).get("past") or []) | set(e.get("past") or [])
+            if pp:
+                e["past"] = sorted(pp)[-16:]  # publications passées gardées au-delà des 16 lignes de Yahoo
             est[s] = e
     write_json(ESTIMATES, est)
     # instantané hebdomadaire de la largeur des révisions par groupe : constitue l'historique qui permettra de valider ce signal
@@ -1518,6 +1545,9 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
         nx = (est.get(sym) or {}).get("next")
         if isinstance(nx, str) and nx >= today_s:
             rec["nextEarnings"] = nx
+        pa = past_dates(est.get(sym), today_s)
+        if pa:
+            rec["earnPast"] = pa
         for k, ik in (("instPct", "heldPercentInstitutions"), ("insiderPct", "heldPercentInsiders")):
             if rec.get(k) is None and isinstance(inf.get(ik), (int, float)) and 0 <= inf[ik] <= 1:
                 rec[k] = round(float(inf[ik]), 4)

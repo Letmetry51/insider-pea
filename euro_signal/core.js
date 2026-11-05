@@ -9275,6 +9275,151 @@
     return null;
   };
   /**
+   * 📊 Volumes des dernières séances (page société, information seulement) : les 5 dernières séances face au volume moyen des 50
+   * séances qui les précèdent, avec la variation du cours de chaque séance, et la séance la plus forte des 3 derniers mois.
+   * daily : clôtures alignées sur dates ; dvol : volumes des dernières séances, alignés par la fin sur dates.
+   * Étude du 05/11/2026 (clôtures hebdomadaires 1998-2026, sociétés en tendance) : une semaine à 2 fois le volume habituel ou plus,
+   * en hausse comme en baisse, est suivie de +4 points à 6 mois en moyenne face au marché (+1 d'habitude) : c'est l'effet 🔊 / 📣
+   * déjà dans les règles ; le sens des séances et la tendance des volumes n'y ajoutent rien de sûr.
+   */
+  ES.volumeBrief = function (daily, dvol, dates) {
+    if (!daily || !dvol || !dates) return null;
+    var pos = function (v) {
+      return typeof v === 'number' && isFinite(v) && v > 0;
+    };
+    var n = dates.length,
+      nv = Math.min(dvol.length, n),
+      off = n - nv; // dvol[dvol.length - nv + j] ↔ dates[off + j]
+    if (nv < 10) return null;
+    var bars = [];
+    for (var j = 0; j < nv; j++) {
+      var k = off + j,
+        c = daily[k],
+        p = k > 0 ? daily[k - 1] : null,
+        v = dvol[dvol.length - nv + j];
+      bars.push({
+        date: dates[k],
+        close: pos(c) ? c : null,
+        chg: pos(c) && pos(p) ? c / p - 1 : null,
+        vol: pos(v) ? v : null,
+      });
+    }
+    var vols = function (a) {
+      return a
+        .map(function (b) {
+          return b.vol;
+        })
+        .filter(pos);
+    };
+    var base = vols(bars.slice(Math.max(0, bars.length - 55), -5));
+    if (base.length < 20) return null;
+    var avg = mean(base),
+      last5 = bars.slice(-5),
+      v5 = vols(last5),
+      prev5 = vols(bars.slice(-10, -5));
+    if (!v5.length) return null;
+    var r1 = function (x) {
+      return Math.round(x * 10) / 10;
+    };
+    var top = null;
+    bars.forEach(function (b, i) {
+      if (b.vol == null) return;
+      var o = vols(bars.slice(Math.max(0, i - 50), i));
+      if (o.length < 20)
+        o = vols(
+          bars.filter(function (b2, q) {
+            return q !== i;
+          })
+        );
+      if (!o.length) return;
+      var x = b.vol / mean(o);
+      if (!top || x > top.x) top = { date: b.date, chg: b.chg, vol: b.vol, x: r1(x) };
+    });
+    var r5 = mean(v5) / avg;
+    return {
+      avg: avg,
+      r5: r1(r5),
+      level:
+        r5 >= 1.5
+          ? "nettement au-dessus de l'habitude"
+          : r5 >= 1.15
+            ? "au-dessus de l'habitude"
+            : r5 <= 0.6
+              ? "nettement en dessous de l'habitude"
+              : r5 <= 0.85
+                ? "en dessous de l'habitude"
+                : 'habituels',
+      trend: prev5.length >= 3 ? r1(mean(v5) / mean(prev5)) : null,
+      last: last5.map(function (b) {
+        return { date: b.date, close: b.close, chg: b.chg, vol: b.vol, x: b.vol != null ? r1(b.vol / avg) : null };
+      }),
+      top: top,
+      bars: bars,
+    };
+  };
+  /**
+   * 📅 Résultats (page société) : prochaine publication annoncée (Yahoo) ; sinon, estimée d'après la même période de l'an dernier
+   * (publication passée + 52 semaines, même jour de la semaine, sauf si cette période est déjà publiée cette année) ; dernière
+   * publication et réaction du cours, de la clôture de la veille à celle du lendemain (la publication tombe avant l'ouverture ou après
+   * la clôture selon les sociétés). Information seulement : aucune règle testée ne demande d'attendre une publication.
+   */
+  ES.earningsInfo = function (next, past, today, daily, dates) {
+    var isD = function (d) {
+      return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    };
+    var P = (past || []).filter(isD);
+    if (isD(next) && next < today) P.push(next); // date annoncée déjà passée : c'est la dernière publication
+    P = P.filter(function (d, i, a) {
+      return d < today && a.indexOf(d) === i;
+    }).sort();
+    var out = {
+      next: isD(next) && next >= today ? next : null,
+      est: false,
+      last: P.length ? P[P.length - 1] : null,
+      past: P,
+    };
+    if (!out.next) {
+      var cand = P.map(function (d) {
+        return ES.addDays(d, 364);
+      })
+        .filter(function (e) {
+          return (
+            e >= today &&
+            ES.daysBetween(today, e) <= 200 &&
+            !P.some(function (p) {
+              return Math.abs(ES.daysBetween(p, e)) <= 45;
+            })
+          );
+        })
+        .sort();
+      if (cand.length) {
+        out.next = cand[0];
+        out.est = true;
+      }
+    }
+    if (out.next) out.days = ES.daysBetween(today, out.next);
+    if (out.last && daily && dates && dates.length) {
+      var k = -1;
+      for (var i = 0; i < dates.length; i++)
+        if (dates[i] >= out.last) {
+          k = i;
+          break;
+        }
+      var good = function (v) {
+        return typeof v === 'number' && isFinite(v) && v > 0;
+      };
+      if (k > 0) {
+        var b = Math.min(k + 1, dates.length - 1);
+        while (b > k && !good(daily[b])) b--;
+        var a = k - 1;
+        while (a > 0 && !good(daily[a])) a--;
+        if (good(daily[a]) && good(daily[b]) && ES.daysBetween(out.last, dates[k]) <= 4)
+          out.react = { pct: daily[b] / daily[a] - 1, from: dates[a], to: dates[b] };
+      }
+    }
+    return out;
+  };
+  /**
    * 📣 Bond du jour, alerte du soir : lignes de ES.rankUniverse avec un bond du jour (ES.dayBond) qui remplissent les conditions de la
    * place 📣 de la sélection (PEA, comptes solides, cours en tendance, hausse sur 12 mois de +200 % au plus, au moins 3 M€ échangés par
    * jour, note ≥ selMin, ni variation d'un jour à vérifier, ni cours très volatil, ni vente à découvert bloquante), meilleure note d'abord.

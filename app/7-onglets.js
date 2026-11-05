@@ -999,6 +999,9 @@ function biblioCard() {
       "🧭 <b>Plan d'entrée</b> : supports et résistances aux plus hauts et plus bas touchés plusieurs fois (tolérance de 1,2 ATR ou 1,5 %), complétés par le plus haut et le plus bas de l'année ; figures (canal, biseau, triangle, élargissement) tracées par les sommets et les creux ; cône de volatilité à 68 % et 90 % (loi log-normale, sans tendance supposée) ; retracements de Fibonacci (23,6 à 61,8 %)."
     ),
     li(
+      "📊 <b>Volumes et 📅 résultats (page société)</b> : volumes de chaque séance des 3 derniers mois (barres vertes en hausse, rouges en baisse, plus foncées à 2 fois la moyenne ou plus), les 5 dernières séances face à la moyenne des 50 précédentes ; prochaine publication annoncée par Yahoo, sinon estimée sur la même période de l'an dernier (date passée + 52 semaines), dernière publication et réaction du cours de la veille au lendemain, repères R sur le graphique. Information seulement : sur 5 séances, un volume double de l'habitude, en hausse comme en baisse, a été suivi de +4 points à 6 mois (sociétés en tendance, 1998-2026), l'effet 🔊 / 📣 déjà dans les règles."
+    ),
+    li(
       "🏦 <b>Valeur intrinsèque</b> : revenu résiduel et trésorerie disponible capitalisée, sans croissance supposée ; rendement exigé de 8,5 à 11 % selon la taille (taux sans risque européen d'environ 3 % plus la prime de risque des actions)."
     ),
     li(
