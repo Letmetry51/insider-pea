@@ -1273,6 +1273,42 @@ function logicCard() {
           '−3,8 / −2,0 / −1,2',
         ],
         [
+          "Calendrier saisonnier (ancien outil « PEA Dashboard », 05/11/2026) : il ne se vérifie pas (Tech et Industrie font mieux, pas moins bien, dans leurs mois « défavorables » de décembre à février) ; pas d'achat en août-septembre / en septembre-octobre / de mai à octobre (« Sell in May ») : −7,8 / −8,5 / −19,9 points par an ; secteurs écartés dans leurs mois défavorables : −1,0 : rien de changé",
+          '—',
+          '—',
+          '−7,8 / −8,5 / −19,9',
+        ],
+        [
+          'CAPE de Shiller (ancien outil Rotation PEA : « marché cher » au-delà de 30 ; 1998-2023) : la sélection fait +22,8 % à 6 mois quand le CAPE est entre 30 et 35, +11,9 % entre 20 et 25 ; ne pas acheter au-delà de 30 / de 35 : −12,1 / −5,7 points par an : rien de changé',
+          '—',
+          '—',
+          '−12,1 / −5,7',
+        ],
+        [
+          "« FOMO » (ancien Comité IA : se méfier d'une société déjà montée de +30 % en 1 à 3 mois, 55 % des lignes 🎯) : elles font mieux, +14,1 points à 6 mois contre +9,3, sans plus de chutes ; les écarter du 🎯 / du 📣 / partout : −4,9 / −1,5 / −7,7 points par an. C'est le momentum lui-même : rien de changé",
+          '—',
+          '—',
+          '−4,9 / −1,5 / −7,7',
+        ],
+        [
+          "Gestion de ligne du Comité IA (lignes suivies une à une, face à 6 mois avec protection −30 %) : stop remonté au prix d'entrée une fois +10 % atteint / vente d'un tiers à +20 % dans les 3 mois / les deux : −4,0 / −4,6 / −8,0 points par an, pire baisse −38 / −42 / −36 % contre −45 % ; les lignes coupées à l'entrée remontent ensuite de +10,7 % en moyenne. À risque égal (règle actuelle avec un quart du capital en liquidités), les deux : +1,1 point par an, nul depuis 2018 : rien de changé",
+          '—',
+          '—',
+          '−4,0 / −4,6 / −8,0',
+        ],
+        [
+          "Momentum relatif au secteur (Comité IA) : tiers le plus fort face au momentum médian de son secteur +12,9 points à 6 mois, le plus faible +10,1 (écart t 0,5, plus de chutes : 8,2 % contre 5,7 %) ; secteur fort ou faible : pas d'ordre net : rien de changé",
+          '—',
+          '—',
+          '+3,5 (t 0,5)',
+        ],
+        [
+          "Portefeuille « miroir Buffett » (backtest de l'ancien outil Rotation PEA), revérifié sur les cours réels, dividendes compris : corrélations annoncées de 0,52 à 0,82, mesurées de 0,15 à 0,64 ; achats de 2008 (Goldman Sachs, General Electric) : +312 % annoncés en 3 ans, +22 % et −3 % pour les actions ; miroir (BNP Paribas, Siemens) : +185 % annoncés, −36 % et +84 % ; 25 000 € début 2008 : 25 300 € fin 2012 (42 000 € annoncés), 134 500 € aujourd'hui (+9,3 %/an, pire baisse −49 %). Portefeuille figé de 6 grandes sociétés : rien à reprendre",
+          '—',
+          '—',
+          '+9,3 %/an',
+        ],
+        [
           "🚩 📣 qui casse un drapeau, hors 🎯 (hausse d'au moins 30 % en 8 semaines, 2 à 6 semaines de repos sans repli de plus de 15 %, bond qui clôture au-dessus ; 118 cas) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +18,0, t 6,3 ; +29,9 à 12 mois ; même hausse avant le bond sans le repos : +8,8 ; drapeau cassé sans gros volume : +1,8) ; priorité dans la place 📣 : +0,5 point par an (t 1,7), pas dans chaque période : affichage seulement",
           '—',
           '—',
@@ -1335,7 +1371,7 @@ function logicCard() {
       ]
     ) +
     xpi(
-      "Un stop serré limite les pertes (le pire dixième des positions perd environ 20 % au lieu de 25 %) mais coupe trop tôt des sociétés qui repartent : moins de positions gagnantes, pour un rendement annuel voisin. La protection à −30 % ne sert qu'en cas d'accident."
+      "Un stop serré limite les pertes (le pire dixième des positions perd environ 20 % au lieu de 25 %) mais coupe trop tôt des sociétés qui repartent : moins de positions gagnantes, pour un rendement annuel voisin. La protection à −30 % ne sert qu'en cas d'accident. Remonter le stop au prix d'entrée après +10 % ou vendre un tiers à un objectif atteint en avance (règles de l'ancien Comité IA, testées le 05/11/2026) coûte 4 à 8 points par an : moins de risque, mais pas plus qu'en gardant un quart du capital en liquidités."
     ) +
     '</details>';
   h +=
