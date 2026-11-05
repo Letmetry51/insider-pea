@@ -1261,6 +1261,12 @@ function logicCard() {
           '+3,5 / +5,9 / +4,7',
         ],
         [
+          "Bond près du point bas (05/11/2026, exemples Qiagen, Husqvarna, Corbion) : bond du jour (+8 % sur 5 fois le volume) hors tendance à moins de 10 / 20 / 30 % du plus bas d'un an (57 cas seulement à moins de 10 %, t 1,4 ; 16 à 18 % de chutes de 25 % ou plus, deux fois plus qu'en tendance) ; chute puis rebond +5 % : −0,3 ; un jour quelconque près du plus bas : −1,6. Dans la règle actuelle, plus le cours est loin de son plus bas, mieux c'est (+5,7 à +20-35 % du plus bas, +11,0 au-delà de +60 %). Modèle prédictif (régression logistique sur 8 325 bonds, réentraîné chaque année) : à peine mieux que le hasard (AUC 0,53), son meilleur cinquième +5,3 contre +10,8 pour la règle sur 2008-2026 : règle inchangée",
+          '—',
+          '—',
+          '+7,0 / +3,7 / +2,3',
+        ],
+        [
           "🚩 📣 qui casse un drapeau, hors 🎯 (hausse d'au moins 30 % en 8 semaines, 2 à 6 semaines de repos sans repli de plus de 15 %, bond qui clôture au-dessus ; 118 cas) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +18,0, t 6,3 ; +29,9 à 12 mois ; même hausse avant le bond sans le repos : +8,8 ; drapeau cassé sans gros volume : +1,8) ; priorité dans la place 📣 : +0,5 point par an (t 1,7), pas dans chaque période : affichage seulement",
           '—',
           '—',
