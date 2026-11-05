@@ -81,7 +81,8 @@ if (inp.mode === 'features') {
     sc: r.slopeCls || null, brk: r.brk != null ? r.brk : undefined, vx: r.volx != null ? r.volx : undefined,
     dj: r.dayJump != null ? r.dayJump : undefined, vo: r.vola != null ? r.vola : undefined, m10: r.ma10 != null ? r.ma10 : undefined,
     bp: r.bump != null ? r.bump : undefined, bh: r.bumpHi != null ? r.bumpHi : undefined,
-    fd: r.flagB != null ? r.flagB : undefined, bj: r.dayBond != null ? r.dayBond : undefined, sh: r.short ? r.short.pct : undefined,
+    fd: r.flagB != null ? r.flagB : undefined, bj: r.dayBond != null ? r.dayBond : undefined,
+    bjl: r.dayBond != null && r.dayBondLo != null ? r.dayBondLo : undefined, sh: r.short ? r.short.pct : undefined,
     shc: r.short ? r.short.cc : undefined,
     pea: r.pea === false ? false : undefined, secEn: r.secEn || null,
   });
