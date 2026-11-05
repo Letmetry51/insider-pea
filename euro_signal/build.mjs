@@ -2552,6 +2552,7 @@ export function build(opts = {}) {
       bh: r.bumpHi != null ? r.bumpHi : undefined,
       fd: r.flagB != null ? r.flagB : undefined,
       bj: r.dayBond != null ? r.dayBond : undefined,
+      bjl: r.dayBond != null && r.dayBondLo != null ? r.dayBondLo : undefined, // distance au plus bas d'un an (%)
       sh: r.short ? r.short.pct : undefined,
       shn: r.short ? r.short.n : undefined,
       shc: r.short ? r.short.cc : undefined,
@@ -3221,6 +3222,13 @@ export function build(opts = {}) {
             String(p.dayBondVx).replace('.', ',') +
             ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
           'Sur 2000-2026 : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.',
+          p.dayBondLo != null
+            ? 'À +' +
+              p.dayBondLo +
+              " % de son plus bas d'un an" +
+              (p.dayBondLo >= 60 ? ' : la meilleure catégorie' : '') +
+              ' (sur 2000-2026, ces bonds ont fait +11 points à 6 mois au-delà de +60 % du plus bas, +6 à +7 en dessous).'
+            : null,
           'Remplit les conditions de la place 📣 (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour) ; hors sélection du lundi.',
           (E ? E.icon + ' ' + E.label + ' · ' : '') +
             '12 mois : ' +
@@ -3229,7 +3237,7 @@ export function build(opts = {}) {
               ? ' · ' + (p.ratio >= 0.995 ? 'au plus haut' : Math.round((1 - p.ratio) * 100) + ' % sous le plus haut')
               : ''),
           "Ensuite : ligne de taille égale, garder 6 mois, protection à −30 %. « Je l'ai acheté » sur la fiche pour le rappel.",
-        ];
+        ].filter(Boolean);
         outbox.push({
           id: 'bondjour-' + p.key + '-' + today,
           kind: 'bondjour',

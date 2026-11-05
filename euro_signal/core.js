@@ -9261,11 +9261,15 @@
       if (closes.length < 200) continue;
       var m200 = mean(closes.slice(-200)),
         m50 = mean(closes.slice(-50));
+      // distance au plus bas d'un an (252 séances jusqu'au bond) : sur 2000-2026, +11 points à 6 mois au-delà de +60 %, +6 à +7 en
+      // dessous (étude du 05/11/2026) ; information seulement, la règle ne change pas
+      var lo = Math.min.apply(null, closes.slice(-252));
       if (c > m200 && m50 > m200)
         return {
           k: k,
           pct: Math.round((c / daily[s - 1] - 1) * 100),
           vx: Math.round((dvol[vi] / mean(base)) * 10) / 10,
+          lo: Math.round((c / lo - 1) * 100),
         };
     }
     return null;
@@ -9334,6 +9338,7 @@
       f.dayBond = dayB.k;
       f.dayBondPct = dayB.pct;
       f.dayBondVx = dayB.vx;
+      f.dayBondLo = dayB.lo;
     }
     if (W.length >= 53) f.mom = W[W.length - 5] / W[W.length - 53] - 1; // 12 mois hors dernier mois (Jegadeesh et Titman)
     if (D.length >= 200) {
@@ -10175,6 +10180,7 @@
         dayBond: f.dayBond != null ? f.dayBond : null,
         dayBondPct: f.dayBondPct != null ? f.dayBondPct : null,
         dayBondVx: f.dayBondVx != null ? f.dayBondVx : null,
+        dayBondLo: f.dayBondLo != null ? f.dayBondLo : null,
         ma10: f.sma50 > 0 && f.last > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : null,
         short: x.short || null,
         currency: x.currency || null,

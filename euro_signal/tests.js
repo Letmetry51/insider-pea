@@ -4022,6 +4022,18 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
         ES.rankFeatures(d0, null, null, v0).dayBond === 0,
       '📣 bond du jour : +9 % sur 6 fois le volume repéré le soir même (' + JSON.stringify(inf) + ')'
     );
+    // distance au plus bas d'un an : clôture du bond sur la plus basse des 252 dernières clôtures (information de l'email, 05/11/2026)
+    const lo252 = Math.min.apply(null, d0.slice(257 - 252));
+    ok(
+      inf.lo === Math.round((d0[256] / lo252 - 1) * 100) &&
+        inf.lo === 59 &&
+        ES.rankFeatures(d0, null, null, v0).dayBondLo === 59 &&
+        ES.dayBondInfo.apply(null, mk({ yday: true })).lo ===
+          Math.round(
+            (mk({ yday: true })[0][255] / Math.min.apply(null, mk({ yday: true })[0].slice(4, 256)) - 1) * 100
+          ),
+      "📣 bond du jour : distance au plus bas d'un an (+" + inf.lo + ' %), la veille comprise'
+    );
     ok(
       ES.dayBond.apply(null, mk({ yday: true })) === 1 &&
         ES.dayBond.apply(null, mk({ vx: 4 })) == null &&

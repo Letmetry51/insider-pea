@@ -684,6 +684,12 @@ function bondOf(r) {
 /** 📣 bond du jour (ES.dayBond) : repéré le soir même, email « 📣 Bond du jour » (étude du 04/11/2026). */
 var DAYB_TITLE =
   'Séance à +8 % ou plus sur au moins 5 fois le volume moyen des 50 séances précédentes, cours en tendance : +9 points à 6 mois face à la moyenne sur 2000-2026';
+/** distance au plus bas d'un an d'un 📣 bond du jour (r.bjl, %) : plus le cours en est loin, mieux c'est (étude du 05/11/2026) */
+function daybLo(r) {
+  return r.bjl == null
+    ? ''
+    : 'à +' + r.bjl + " % de son plus bas d'un an (au-delà de +60 % : +11 points à 6 mois ; en dessous : +6 à +7)";
+}
 /** 🚩 drapeau cassé par un 📣 (ES.flagBond, affichage seulement) : la figure classique qui a tenu (étude du 03/11/2026). */
 var FLAG_TITLE =
   "Le bond 📣 a cassé un drapeau : hausse d'au moins 30 % en 8 semaines, puis 2 à 6 semaines de repos sans repli de plus de 15 %, et clôture de la semaine du bond au-dessus du haut";
@@ -863,7 +869,8 @@ function analysisCard(isin, sym, full) {
       2.4,
       '📣 bond du jour (' +
         (r.bj ? 'hier' : 'dernière séance') +
-        ') : +8 % ou plus sur au moins 5 fois le volume habituel, +9 points à 6 mois en moyenne'
+        ') : +8 % ou plus sur au moins 5 fois le volume habituel, +9 points à 6 mois en moyenne' +
+        (r.bjl != null ? ' ; ' + daybLo(r) : '')
     );
   if (r.vx >= 1.5) add(pros, 2, 'volumes en hausse (×' + String(r.vx).replace('.', ',') + ' sur 10 semaines)');
   if (o.acc && o.acc.tone === 'good')
@@ -2492,6 +2499,7 @@ function pick3Card(inSel) {
             (r.bj != null
               ? ' <span class="chip good" title="' +
                 DAYB_TITLE +
+                (r.bjl != null ? '. ' + daybLo(r).replace(/^à/, 'À') : '') +
                 '">📣 bond du jour' +
                 (r.bj ? ' (hier)' : '') +
                 '</span>'

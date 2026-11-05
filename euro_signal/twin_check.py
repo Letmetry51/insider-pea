@@ -126,6 +126,12 @@ def engine_constants(core_src):
 def day_bond(daily, dvol):
     """📣 bond du jour (ES.dayBond) : séances depuis le dernier bond parmi les 2 dernières (+8 % sur la veille, volume d'au moins
     5 fois la moyenne des 50 séances précédentes avec 40 connues, au-dessus de la moyenne 200 séances et la 50 au-dessus de la 200)"""
+    b = day_bond_info(daily, dvol)
+    return b[0] if b else None
+
+
+def day_bond_info(daily, dvol):
+    """(séances depuis le bond, distance au plus bas d'un an en %, arrondie) ou None (ES.dayBondInfo : k et lo)"""
     if not daily or not dvol:
         return None
     n, nv = len(daily), len(dvol)
@@ -144,7 +150,7 @@ def day_bond(daily, dvol):
             continue
         m200, m50 = mean(closes[-200:]), mean(closes[-50:])
         if c > m200 and m50 > m200:
-            return k
+            return k, jround((c / min(closes[-252:]) - 1) * 100)
     return None
 
 
@@ -168,9 +174,9 @@ def features(daily, weekly, wvol, dvol=None):
         if q > 1.15 or q < 0.87:
             W[-1] = D[-1]
     f = {}
-    db = day_bond(daily, dvol)
+    db = day_bond_info(daily, dvol)
     if db is not None:
-        f["dayBond"] = db
+        f["dayBond"], f["dayBondLo"] = db
     if len(D) >= 2:
         dq = D[-1] / D[-2]
         if dq > 1.4 or dq < 0.6:
@@ -369,7 +375,7 @@ def rank_universe(items, rcfg, today):
             "out": out, "parts": parts, "note": note, "v": verdict, "mp": mp, "acc": acc, "short": x["short"],
             "mom": f.get("mom"), "ratio": f.get("ratio"), "trend": trend,
             "sc": slope_class(slope, trend), "slope6": jround((math.sqrt(1 + slope_r) - 1) * 100) if slope_r is not None else None,
-            "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "bumpHi": f.get("bumpHi"), "flagB": f.get("flagB"), "dayBond": f.get("dayBond"), "brk": f.get("brk"),
+            "volx": f.get("volx"), "dayJump": f.get("dayJump"), "bump": f.get("bump"), "bumpHi": f.get("bumpHi"), "flagB": f.get("flagB"), "dayBond": f.get("dayBond"), "dayBondLo": f.get("dayBondLo"), "brk": f.get("brk"),
             "f9": x.get("f9"), "pb": x.get("pb"),
             "vola": jround(f["vol52"] * 100) if f.get("vol52") is not None else None,
             "ma10": jround((f["last"] / f["sma50"] - 1) * 1000) / 10 if (f.get("sma50") or 0) > 0 and (f.get("last") or 0) > 0
@@ -668,13 +674,13 @@ def build_items(main, co, d_dates, engine_rows, isin_tables=None):
 # ---------- comparaison ----------
 # repères tirés des cours d'abord, puis ce qui en découle (rang sur 12 mois, points, note, verdict, place) : les exemples du
 # rapport montrent la cause avant ses conséquences
-FIELDS = ["mom", "ratio", "trend", "sc", "slope6", "vx", "vo", "m10", "bp", "bh", "fd", "bj", "dj", "brk", "liq", "pea", "out",
+FIELDS = ["mom", "ratio", "trend", "sc", "slope6", "vx", "vo", "m10", "bp", "bh", "fd", "bj", "bjl", "dj", "brk", "liq", "pea", "out",
           "momPct", "parts", "note", "v", "pos"]
 LABELS = {
     "mom": "hausse sur 12 mois (%)", "ratio": "cours / plus haut sur un an (%)", "trend": "tendance de fond",
     "sc": "classe de pente", "slope6": "pente sur 6 mois (%)", "vx": "volumes (×)", "vo": "volatilité (%/an)",
     "m10": "écart à la moyenne 10 semaines (%)", "bp": "bond sur gros volume (semaines)",
-    "bh": "bond au plus haut de l'année (semaines)", "fd": "drapeau cassé par un bond (semaines)", "bj": "bond du jour (séances)", "dj": "variation du jour (%)",
+    "bh": "bond au plus haut de l'année (semaines)", "fd": "drapeau cassé par un bond (semaines)", "bj": "bond du jour (séances)", "bjl": "bond du jour : distance au plus bas d'un an (%)", "dj": "variation du jour (%)",
     "brk": "sortie de base (semaines)", "liq": "échanges par jour (€)", "pea": "PEA", "out": "raisons d'écarter",
     "momPct": "rang sur 12 mois", "parts": "points", "note": "note", "v": "verdict", "pos": "place", "société": "société",
 }
@@ -696,7 +702,7 @@ def twin_view(r):
         "momPct": jround(r["mp"] * 100) if r["mp"] is not None else None,
         "ratio": to_fixed(r["ratio"] * 100, 1) if r["ratio"] is not None else None,
         "trend": r["trend"], "sc": r["sc"], "slope6": r["slope6"], "vx": r["volx"], "vo": r["vola"], "m10": r["ma10"],
-        "bp": r["bump"], "bh": r["bumpHi"], "fd": r["flagB"], "bj": r["dayBond"], "dj": r["dayJump"], "brk": r["brk"],
+        "bp": r["bump"], "bh": r["bumpHi"], "fd": r["flagB"], "bj": r["dayBond"], "bjl": r.get("dayBondLo"), "dj": r["dayJump"], "brk": r["brk"],
         "liq": jround(r["turnover"]) if r["turnover"] is not None else None,
         "pea": False if r["pea"] is False else None,
         "parts": {k: v for k, v in r["parts"].items() if k != "insiders"},
@@ -708,7 +714,7 @@ def engine_view(e):
     return {
         "mom": e.get("mom"), "momPct": e.get("momPct"), "ratio": e.get("ratio"), "trend": e.get("trend"),
         "sc": e.get("sc"), "slope6": e.get("slope6"), "vx": e.get("vx"), "vo": e.get("vo"), "m10": e.get("m10"),
-        "bp": e.get("bp"), "bh": e.get("bh"), "fd": e.get("fd"), "bj": e.get("bj"), "dj": e.get("dj"), "brk": e.get("brk"), "liq": e.get("liq"),
+        "bp": e.get("bp"), "bh": e.get("bh"), "fd": e.get("fd"), "bj": e.get("bj"), "bjl": e.get("bjl"), "dj": e.get("dj"), "brk": e.get("brk"), "liq": e.get("liq"),
         "pea": False if e.get("pea") is False else None,
         "parts": {k: v for k, v in (e.get("parts") or {}).items() if k != "insiders"},
         "note": e.get("note"), "v": e.get("v"), "pos": e.get("pos"), "out": price_out(e.get("out")),
