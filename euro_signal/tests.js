@@ -4364,6 +4364,57 @@ t("Suivi réel : division ou regroupement d'actions depuis l'entrée, cours d'en
   eq(S[0].yes.m3.avg, 4, '🔊 : la ligne divisée compte +4 %, pas −48 %');
 });
 
+t('Page société : volumes des 5 dernières séances face aux 50 précédentes, séance la plus forte', () => {
+  const dates = [],
+    d = [],
+    dv = [];
+  for (let k = 0; k < 80; k++) {
+    dates.push(ES.addDays('2026-07-01', k));
+    d.push(100 + (k % 2));
+  }
+  for (let k = 0; k < 60; k++) dv.push(k === 30 ? 5000 : 1000);
+  dv[59] = 3000; // dernière séance : 3 fois l'habitude
+  dv[57] = null; // trou gardé
+  const v = ES.volumeBrief(d, dv, dates);
+  ok(v && v.bars.length === 60 && v.bars[59].date === dates[79], 'alignées par la fin sur les dates');
+  // base : séances 5 à 54 des volumes (50 séances avant les 5 dernières), dont la séance à 5 000
+  near(v.avg, (49 * 1000 + 5000) / 50, 1e-9, 'moyenne des 50 séances précédentes');
+  eq(v.last.length, 5);
+  eq(v.last[4].x, Math.round((3000 / v.avg) * 10) / 10, 'dernière séance face à la moyenne');
+  eq(v.last[2].vol, null, 'trou');
+  eq(v.r5, Math.round(((1000 * 3 + 3000) / 4 / v.avg) * 10) / 10, 'moyenne des 4 séances connues');
+  eq(v.top.date, dates[50], 'séance la plus forte : la séance à 5 fois le volume');
+  ok(v.top.x >= 4.9, 'face aux séances précédentes');
+  near(v.last[4].chg, 101 / 100 - 1, 1e-9, 'variation du jour');
+  eq(ES.volumeBrief(d, dv.slice(0, 8), dates), null, 'trop peu de séances');
+  eq(ES.volumeBrief(d, null, dates), null);
+});
+
+t(
+  'Page société : prochains résultats annoncés, sinon estimés sur l’an dernier ; dernière publication et réaction du cours',
+  () => {
+    const dates = ['2026-10-29', '2026-10-30', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'],
+      d = [100, 101, 102, 110, 111, 112];
+    // date annoncée à venir
+    let e = ES.earningsInfo('2027-02-12', ['2026-07-24', '2026-11-03'], '2026-11-05', d, dates);
+    ok(e.next === '2027-02-12' && !e.est && e.days === 99 && e.last === '2026-11-03', JSON.stringify(e));
+    near(e.react.pct, 111 / 102 - 1, 1e-9, 'veille (02/11) → lendemain (04/11)');
+    ok(e.react.from === '2026-11-02' && e.react.to === '2026-11-04');
+    // date annoncée hier : c'est la dernière publication ; la prochaine est estimée (février de l'an dernier + 52 semaines)
+    e = ES.earningsInfo('2026-11-04', ['2025-11-05', '2026-02-19', '2026-07-24'], '2026-11-05', d, dates);
+    ok(e.last === '2026-11-04' && e.est && e.next === ES.addDays('2026-02-19', 364), JSON.stringify(e));
+    ok(e.react.from === '2026-11-03' && e.react.to === '2026-11-05', 'lendemain pas encore connu : dernière clôture');
+    // la période de novembre est déjà publiée cette année : pas d'estimation au 04/11/2026
+    ok(e.next !== ES.addDays('2025-11-05', 364));
+    // aucune date
+    e = ES.earningsInfo(null, [], '2026-11-05', d, dates);
+    ok(e.next === null && e.last === null && !e.react);
+    // publication trop ancienne pour les cours affichés : pas de réaction
+    e = ES.earningsInfo(null, ['2025-01-10'], '2026-11-05', d, dates);
+    ok(e.last === '2025-01-10' && !e.react && e.next === null, 'estimation au-delà de 200 jours écartée');
+  }
+);
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

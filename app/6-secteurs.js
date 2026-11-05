@@ -282,7 +282,182 @@ function coSearch(q, exclude, max) {
     "<p class=\"foot\">Toutes les actions des bourses de l'UE et de l'EEE (Paris, Francfort, Milan, Madrid, Amsterdam, Bruxelles, Lisbonne, Dublin, Vienne, Helsinki, Stockholm, Copenhague, Oslo), plus Londres et Zurich (hors PEA). Touchez une société pour sa fiche : chiffres clés, cours sur 1 an et 5 ans, plan d'entrée.</p></section>"
   );
 }
-function lineChart(ser, five, lv) {
+/** 📅 Ligne « résultats » de la page société (ES.earningsInfo) : prochaine publication annoncée ou estimée, dernière publication et
+ * réaction du cours ; avertissement quand la publication annoncée tombe dans les jours qui viennent (comme sur les fiches). */
+function earnLine(e, warnD) {
+  if (!e || (!e.next && !e.last)) return '';
+  var p = [];
+  if (e.next && e.est)
+    p.push(
+      'prochains résultats pas encore annoncés : vers le <b>' +
+        ES.frDate(e.next) +
+        "</b> d'après la même période de l'an dernier"
+    );
+  else if (e.next)
+    p.push(
+      'prochains résultats le <b>' +
+        ES.frDate(e.next) +
+        '</b> (' +
+        (e.days === 0 ? "aujourd'hui" : e.days === 1 ? 'demain' : 'dans ' + e.days + ' jours') +
+        ')'
+    );
+  else p.push('prochaine date de résultats pas encore connue');
+  if (e.last)
+    p.push(
+      'derniers le ' +
+        ES.frDate(e.last) +
+        (e.react
+          ? ' : cours ' + pct(e.react.pct * 100) + ' du ' + shortDate(e.react.from) + ' au ' + shortDate(e.react.to)
+          : '')
+    );
+  var soon = e.next && !e.est && e.days <= warnD;
+  return (
+    '<p class="small erl' +
+    (soon ? ' warn' : '') +
+    '">📅 ' +
+    cap1(p.join(' · ')) +
+    (soon ? ' : acheter juste avant revient à parier sur leur contenu.' : '.') +
+    '</p>'
+  );
+}
+/** Montant échangé en euros (cotations en pence ou en centimes : divisées par 100). */
+function eurOfTrade(amount, cur) {
+  var m = { GBp: 'GBP', GBX: 'GBP', ZAc: 'ZAR', ZAC: 'ZAR', ILA: 'ILS' }[cur];
+  return m ? ES.toEur(amount / 100, m) : ES.toEur(amount, cur || 'EUR');
+}
+/** 📊 Volumes des 3 derniers mois (barres vertes les séances en hausse, rouges en baisse, ligne : moyenne des 50 séances qui
+ * précèdent les 5 dernières) et détail des 5 dernières séances (ES.volumeBrief). Information seulement. */
+function volBlock(x, cur, dates) {
+  var v = ES.volumeBrief(x.d || [], x.dv || [], dates);
+  if (!v) return '';
+  var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
+  var W = narrow ? 380 : 640,
+    H = 84,
+    L = 6,
+    R = 8,
+    T = 8,
+    B = 18,
+    n = v.bars.length,
+    mx = 0;
+  v.bars.forEach(function (b) {
+    if (b.vol != null) mx = Math.max(mx, b.vol);
+  });
+  mx = Math.max(mx, v.avg * 1.2);
+  var bw = (W - L - R) / n,
+    ys = function (q) {
+      return T + (H - T - B) * (1 - q / mx);
+    };
+  var bars = v.bars
+    .map(function (b, k) {
+      if (b.vol == null) return '';
+      var y = ys(b.vol),
+        xr = v.avg > 0 ? b.vol / v.avg : null;
+      return (
+        '<rect x="' +
+        (L + k * bw + 0.5).toFixed(1) +
+        '" width="' +
+        Math.max(1, bw - 1.2).toFixed(1) +
+        '" y="' +
+        y.toFixed(1) +
+        '" height="' +
+        Math.max(1, H - B - y).toFixed(1) +
+        '" class="' +
+        (b.chg == null ? 'vb-na' : b.chg >= 0 ? 'sp-up' : 'sp-dn') +
+        (xr != null && xr >= 2 ? ' vb-hot' : ' vb-n') +
+        '"><title>' +
+        shortDate(b.date) +
+        ' : ' +
+        fmtInt(b.vol) +
+        ' titres' +
+        (xr != null ? ', ×' + fmtN(xr, 1) + ' la moyenne' : '') +
+        (b.chg != null ? ', cours ' + pct(b.chg * 100) : '') +
+        '</title></rect>'
+      );
+    })
+    .join('');
+  var ya = ys(v.avg).toFixed(1);
+  var svg =
+    '<svg viewBox="0 0 ' +
+    W +
+    ' ' +
+    H +
+    '" class="chart vbars" role="img" aria-label="Volumes échangés chaque séance sur 3 mois et moyenne des 50 séances">' +
+    bars +
+    '<line x1="' +
+    L +
+    '" x2="' +
+    (W - R) +
+    '" y1="' +
+    ya +
+    '" y2="' +
+    ya +
+    '" class="vb-avg"/><text x="' +
+    (L + 2) +
+    '" y="' +
+    (+ya - 3) +
+    '" class="ax vb-t">moyenne</text><text x="' +
+    L +
+    '" y="' +
+    (H - 4) +
+    '" class="ax">' +
+    shortDate(v.bars[0].date) +
+    '</text><text x="' +
+    (W - R) +
+    '" y="' +
+    (H - 4) +
+    '" text-anchor="end" class="ax">' +
+    shortDate(v.bars[n - 1].date) +
+    '</text></svg>';
+  var xTxt = function (q) {
+    return q == null ? 'n.d.' : '×' + fmtN(q, 1);
+  };
+  var rows = v.last
+    .slice()
+    .reverse()
+    .map(function (b) {
+      var eur = b.vol != null && b.close != null ? eurOfTrade(b.vol * b.close, cur) : null;
+      return (
+        '<tr><td>' +
+        shortDate(b.date) +
+        '</td><td class="num hide-s">' +
+        (b.close != null ? fmtN(b.close, b.close < 10 ? 2 : 1) : 'n.d.') +
+        '</td><td class="num ' +
+        (b.chg == null ? '' : b.chg >= 0 ? 'pos' : 'neg') +
+        '">' +
+        (b.chg != null ? pct(b.chg * 100) : 'n.d.') +
+        '</td><td class="num">' +
+        (b.vol != null ? fmtInt(b.vol) : 'n.d.') +
+        '</td><td class="num hide-s">' +
+        (eur != null ? ES.fmtEur(eur) : 'n.d.') +
+        '</td><td class="num">' +
+        (b.x != null && b.x >= 2 ? '<b>' + xTxt(b.x) + '</b>' : xTxt(b.x)) +
+        '</td></tr>'
+      );
+    })
+    .join('');
+  return (
+    '<h4 class="vbh">📊 Volumes des 3 derniers mois</h4><div class="chartwrap">' +
+    svg +
+    '</div><p class="small">5 dernières séances : volumes <b>' +
+    xTxt(v.r5) +
+    '</b> la moyenne des 50 séances précédentes (' +
+    v.level +
+    ')' +
+    (v.trend != null ? ', ' + xTxt(v.trend) + " face aux 5 séances d'avant" : '') +
+    (v.top
+      ? ' · séance la plus forte des 3 mois : ' +
+        shortDate(v.top.date) +
+        ' (' +
+        xTxt(v.top.x) +
+        (v.top.chg != null ? ', cours ' + pct(v.top.chg * 100) : '') +
+        ')'
+      : '') +
+    '.</p><div class="tablewrap"><table class="grid small vtab"><thead><tr><th>Séance</th><th class="num hide-s">Clôture</th><th class="num">Variation</th><th class="num">Volume</th><th class="num hide-s">Montant</th><th class="num">× moyenne</th></tr></thead><tbody>' +
+    rows +
+    "</tbody></table></div><p class=\"small muted\">Barres vertes : séances en hausse, rouges : en baisse ; plus foncées à 2 fois la moyenne ou plus. Repère des tests (1998-2026, sociétés en tendance) : 5 séances à 2 fois le volume habituel ou plus, en hausse comme en baisse, ont été suivies de +4 points à 6 mois face au marché en moyenne (+1 d'habitude). C'est l'effet 🔊 / 📣 déjà dans les règles ; le sens des séances et la tendance des volumes n'y ajoutent rien de sûr.</p>"
+  );
+}
+function lineChart(ser, five, lv, marks) {
   var narrow = typeof window !== 'undefined' && window.innerWidth < 560;
   var W = narrow ? 380 : 640,
     H = 220,
@@ -389,6 +564,36 @@ function lineChart(ser, five, lv) {
       );
     })
     .join('');
+  // R : publications de résultats passées dans la période du graphique (première clôture à la date ou après)
+  var mk = (marks || [])
+    .map(function (d) {
+      if (!(d >= ser[0][0]) || d > ser[n - 1][0]) return null;
+      for (var k = 0; k < n; k++) if (ser[k][0] >= d) return { k: k, d: d };
+      return null;
+    })
+    .filter(Boolean);
+  var mkSvg = mk
+    .map(function (m) {
+      var xm = xs(m.k).toFixed(1);
+      return (
+        '<line x1="' +
+        xm +
+        '" x2="' +
+        xm +
+        '" y1="' +
+        T +
+        '" y2="' +
+        (H - B) +
+        '" class="er-mk"><title>Résultats publiés le ' +
+        ES.frDate(m.d) +
+        '</title></line><text x="' +
+        xm +
+        '" y="' +
+        (H - B - 3) +
+        '" text-anchor="middle" class="ax er-t">R</text>'
+      );
+    })
+    .join('');
   var svg =
     '<svg viewBox="0 0 ' +
     W +
@@ -430,6 +635,7 @@ function lineChart(ser, five, lv) {
     ' ' +
     (H - B) +
     'Z" class="area"/>' +
+    mkSvg +
     lvSvg +
     '<path d="' +
     path +
@@ -452,7 +658,13 @@ function lineChart(ser, five, lv) {
     '" text-anchor="end" class="ax">' +
     shortDate(ser[n - 1][0]) +
     '</text></svg>';
-  return { svg: svg, perf: first > 0 ? (last / first - 1) * 100 : null, last: last, levels: lab.length };
+  return {
+    svg: svg,
+    perf: first > 0 ? (last / first - 1) * 100 : null,
+    last: last,
+    levels: lab.length,
+    marks: mk.length,
+  };
 }
 /** Valeur d'une société du catalogue (fiche Yahoo) : cours / valeur comptable, rentabilité, croissance que suppose le cours. */
 function secValueCard(x, es) {
@@ -654,6 +866,9 @@ function vSecCo() {
     })
     .join(' ');
   var nG = ((S.sec && S.sec.groups) || []).length;
+  // 📅 résultats : prochaine publication (annoncée, sinon estimée sur l'an dernier), dernière publication et réaction du cours
+  var D0 = (S.secCo && S.secCo.dDates) || [],
+    ER = ES.earningsInfo(x.nextEarnings, x.earnPast, S.today, x.d || [], D0);
   var h =
     back +
     '<header class="fhead"><div><h2>' +
@@ -672,7 +887,9 @@ function vSecCo() {
             '</span> '
           : '') +
     roles +
-    '</p></div></header>' +
+    '</p>' +
+    earnLine(ER, (S.cfg && S.cfg.alerts && S.cfg.alerts.earningsWarnDays) || 7) +
+    '</div></header>' +
     partH +
     (x.basic
       ? '<p class="note">ℹ️ Société hors du classement des secteurs (moins de 500 M€ de capitalisation ou fiche Yahoo incomplète) : cours, plan d\'entrée et chiffres de base. Vérifiez l\'éligibilité au PEA chez votre courtier.</p>'
@@ -819,7 +1036,7 @@ function vSecCo() {
   }
   var ser = five ? wser : dser;
   h +=
-    '<details class="card fold" data-k="f-cours"><summary>📉 Cours, supports et résistances <span class="muted small">· plan d\'entrée</span></summary><div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' +
+    '<details class="card fold" data-k="f-cours"><summary>📉 Cours, supports et résistances <span class="muted small">· volumes · plan d\'entrée</span></summary><div class="seg" role="group" aria-label="Période du graphique"><button data-a="range" data-v="1y" class="' +
     (five ? '' : 'on') +
     '" aria-pressed="' +
     !five +
@@ -848,12 +1065,13 @@ function vSecCo() {
         return [r[0], null, null, null, r[1]];
       }),
       lvC = ES.completeLevels(dser.length >= 60 ? ES.supportResistance(lvRows) : null, lvRows),
-      lc = lineChart(ser, five, lvC);
+      lc = lineChart(ser, five, lvC, ER.past);
     h +=
       '<div class="chartwrap">' +
       lc.svg +
       '</div><p class="legend2">' +
       (lc.levels ? '<span><i class="lg-sup"></i>support</span><span><i class="lg-res"></i>résistance</span>' : '') +
+      (lc.marks ? '<span><i class="lg-er"></i>R : publication de résultats</span>' : '') +
       '<span class="muted">' +
       (five ? 'Une clôture par semaine' : 'Clôtures journalières') +
       ', ajustées des dividendes et splits, en ' +
@@ -866,6 +1084,7 @@ function vSecCo() {
       shortDate(ser[0][0]) +
       ' · source Yahoo Finance</span></p>';
   } else h += '<p class="muted">Aucun cours disponible pour ce titre.</p>';
+  h += volBlock(x, cur, D0);
   // plan d'entrée sur les cours journaliers (dans le même pli que le graphique, comme sur les fiches Euro Signal)
   if (dser.length >= 120) {
     try {

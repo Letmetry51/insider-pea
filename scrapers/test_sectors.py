@@ -212,6 +212,9 @@ def _():
     est = json.loads(S.ESTIMATES.read_text(encoding="utf-8"))
     est["ASML.AS"]["next"] = "2099-01-28"
     est["SU.PA"]["next"] = "2001-01-01"  # date passée : ignorée
+    est["ASML.AS"]["past"] = ["2025-10-15", "2026-01-28", "2099-12-31"]  # date à venir : pas une publication passée
+    est["ASML.AS"]["surprises"] = [["2025-07-16", 3.0], ["2025-10-15", 1.0]]
+    est["SU.PA"]["surprises"] = []  # aucune publication connue : pas de champ
     S.write_json(S.ESTIMATES, est)
     about = "ASML Holding N.V. develops and sells lithography systems for the semiconductor industry. " * 20
     S.write_json(S.INFO_CACHE, {"ASML.AS": {"heldPercentInstitutions": 0.42, "heldPercentInsiders": 7, "longBusinessSummary": about,
@@ -226,6 +229,7 @@ def _():
     assert a["web"] == "https://www.asml.com" and not any(k in b for k in ("about", "staff", "web")), b
     assert a["nextEarnings"] == "2099-01-28" and a["instPct"] == 0.42 and a.get("insiderPct") is None, a
     assert "fin" not in b and "nextEarnings" not in b, b
+    assert a["earnPast"] == ["2025-07-16", "2025-10-15", "2026-01-28"] and "earnPast" not in b, a.get("earnPast")
     assert S.fin_compact(None) is None and S.fin_compact({"years": [{"date": "2025-12-31", "revenue": float("nan")}]}) is None
     assert S.about_text("x" * 30) is None and S.about_text("Une phrase. " * 200).endswith(".") and len(S.about_text("mot " * 400)) <= 901
 
@@ -240,6 +244,11 @@ def _():
     naive = ed.copy()
     naive.index = idx.tz_localize(None)
     assert S.next_earnings(naive, "2026-10-23") == "2027-01-30"
+    assert S.past_earnings(ed, "2026-10-23") == ["2026-07-24", "2026-10-22"] and S.past_earnings(naive, "2026-10-22") == ["2026-07-24"]
+    assert S.past_earnings(None) == [] and S.past_earnings(ed.iloc[:0]) == []
+    ev = {"past": ["2024-01-01", "2026-07-24", "bad"], "surprises": [["2026-04-20", 2.0], ["2027-01-01", 1.0], []]}
+    assert S.past_dates(ev, "2026-10-23") == ["2024-01-01", "2026-04-20", "2026-07-24"] and S.past_dates(ev, "2026-10-23", keep=1) == ["2026-07-24"]
+    assert S.past_dates(None, "2026-10-23") == []
 
 
 @case("Yahoo renvoie des fiches vides : les anciennes fiches sont conservées, relecture arrêtée")
