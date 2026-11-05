@@ -1267,6 +1267,12 @@ function logicCard() {
           '+7,0 / +3,7 / +2,3',
         ],
         [
+          "Volatilité implicite (livre « Les secrets du trading sur la volatilité », 05/11/2026 ; VIX 1990-2026, VIX 3 mois 2007-2026) : la peur annonce de bons achats (sélection +20 à +33 % à 6 mois quand le VIX dépasse 25, +13 % entre 16 et 20) ; ne pas acheter quand le VIX ≥ 30 / quand la structure par terme s'inverse (VIX 3 mois sous le VIX) / lignes pondérées par l'inverse de leur volatilité : −3,8 / −2,0 / −1,2 point par an. L'inversion réduit la pire baisse (−56 % → −42 %), mais l'alerte krach du momentum en place fait autant pour −0,6 point (−43 %). Trackers VIX et ventes de volatilité : hors PEA (XIV fermé en 2018 après −96 % en un jour) : rien de changé",
+          '—',
+          '—',
+          '−3,8 / −2,0 / −1,2',
+        ],
+        [
           "🚩 📣 qui casse un drapeau, hors 🎯 (hausse d'au moins 30 % en 8 semaines, 2 à 6 semaines de repos sans repli de plus de 15 %, bond qui clôture au-dessus ; 118 cas) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +18,0, t 6,3 ; +29,9 à 12 mois ; même hausse avant le bond sans le repos : +8,8 ; drapeau cassé sans gros volume : +1,8) ; priorité dans la place 📣 : +0,5 point par an (t 1,7), pas dans chaque période : affichage seulement",
           '—',
           '—',
