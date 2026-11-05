@@ -1309,6 +1309,12 @@ function logicCard() {
           '+9,3 %/an',
         ],
         [
+          "Ventes à découvert dans le sens « squeeze » (ancien Squeeze Hunter : une société très vendue qui bondit forcerait les vendeurs à racheter ; positions publiques AMF et FCA, Paris et Londres 2013-2026, 2 665 bonds) : 📣 démarrage sans position publiée / vendu à découvert à 0,5 % ou plus / à 2 % ou plus : +11,3 / +3,3 / −4,4 points à 6 mois ; à Paris, 📣 vendu à 0,5 % ou plus : −2,5 (25 % de chutes de 25 % ou plus). Les vendeurs à découvert ont plutôt raison : l'écart 🐻 est gardé, 📣 compris",
+          '—',
+          '—',
+          '+11,3 / +3,3 / −4,4',
+        ],
+        [
           "🚩 📣 qui casse un drapeau, hors 🎯 (hausse d'au moins 30 % en 8 semaines, 2 à 6 semaines de repos sans repli de plus de 15 %, bond qui clôture au-dessus ; 118 cas) : 1997-2008 / 2009-2017 / 2018-2026 (en tout +18,0, t 6,3 ; +29,9 à 12 mois ; même hausse avant le bond sans le repos : +8,8 ; drapeau cassé sans gros volume : +1,8) ; priorité dans la place 📣 : +0,5 point par an (t 1,7), pas dans chaque période : affichage seulement",
           '—',
           '—',
