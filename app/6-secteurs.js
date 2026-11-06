@@ -283,8 +283,9 @@ function coSearch(q, exclude, max) {
   );
 }
 /** 📅 Ligne « résultats » de la page société (ES.earningsInfo) : prochaine publication annoncée ou estimée, dernière publication et
- * réaction du cours ; avertissement quand la publication annoncée tombe dans les jours qui viennent (comme sur les fiches). */
-function earnLine(e, warnD) {
+ * réaction du cours. Publication dans les 3 semaines : même mention que l'email de la sélection (test du 18/10/2026 : dans le 🎯,
+ * acheter 1 à 2 semaines avant n'a pas été pire, plutôt mieux, +5,1 points à 6 mois contre +3,6, moins de chutes). */
+function earnLine(e) {
   if (!e || (!e.next && !e.last)) return '';
   var p = [];
   if (e.next && e.est)
@@ -310,13 +311,11 @@ function earnLine(e, warnD) {
           ? ' : cours ' + pct(e.react.pct * 100) + ' du ' + shortDate(e.react.from) + ' au ' + shortDate(e.react.to)
           : '')
     );
-  var soon = e.next && !e.est && e.days <= warnD;
+  var soon = e.next && !e.est && e.days <= 21;
   return (
-    '<p class="small erl' +
-    (soon ? ' warn' : '') +
-    '">📅 ' +
+    '<p class="small erl">📅 ' +
     cap1(p.join(' · ')) +
-    (soon ? ' : acheter juste avant revient à parier sur leur contenu.' : '.') +
+    (soon ? ". Inutile d'attendre la publication pour acheter (testé dans le 🎯, 2020-2026)." : '.') +
     '</p>'
   );
 }
@@ -888,7 +887,7 @@ function vSecCo() {
           : '') +
     roles +
     '</p>' +
-    earnLine(ER, (S.cfg && S.cfg.alerts && S.cfg.alerts.earningsWarnDays) || 7) +
+    earnLine(ER) +
     '</div></header>' +
     partH +
     (x.basic
