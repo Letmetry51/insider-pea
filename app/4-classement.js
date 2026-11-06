@@ -2022,7 +2022,8 @@ function agendaCard() {
         key: r ? r.key : isin,
         name: (x && x.name) || (r && r.name) || id,
         tag: tag,
-        ne: (r && r.ne) || (x && x.nextEarnings) || null,
+        ne: (r && r.ne) || (x && x.nextEarnings) || (r && r.nee) || null,
+        est: !(r && r.ne) && !(x && x.nextEarnings) && !!(r && r.nee), // date pas encore annoncée, estimée sur l'an dernier
         ls: r && r.ls ? r.ls : null,
         sr: r && r.sr ? r.sr : null,
         go: r ? rankOpenAttr(r) : 'data-a="open" data-i="' + esc(isin) + '"',
@@ -2077,11 +2078,13 @@ function agendaCard() {
   });
   var A = ES.earningsAgenda(list, S.today),
     seen = {},
-    nKnown = 0;
+    nKnown = 0,
+    nEst = 0;
   list.forEach(function (x) {
     if (seen[x.key]) return;
     seen[x.key] = 1;
-    if (x.ne) nKnown++;
+    if (x.ne && !x.est) nKnown++;
+    else if (x.ne) nEst++;
   });
   var nAll = Object.keys(seen).length;
   var DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'],
@@ -2124,7 +2127,11 @@ function agendaCard() {
       '</p><ul class="evs agd">' +
       w.items
         .map(function (x) {
-          return line(x, day(x.ne), esc(habit(x)));
+          return line(
+            x,
+            (x.est ? '≈ ' : '') + day(x.ne),
+            esc([x.est ? "date estimée d'après l'an dernier" : '', habit(x)].filter(Boolean).join(' · '))
+          );
         })
         .join('') +
       '</ul>';
@@ -2156,7 +2163,9 @@ function agendaCard() {
     nKnown +
     ' sur ' +
     nAll +
-    " (Yahoo Finance, à revérifier la veille). Rien à changer avant une publication : dans le 🎯, acheter 1 à 2 semaines avant n'a pas été moins bon (2020-2026) ; le cours bouge seulement un peu plus (baisse de 15 % en 4 semaines : 5 % des cas, contre 4 %).</p>";
+    ' (Yahoo Finance, à revérifier la veille)' +
+    (nEst ? ', estimée pour ' + nEst + " (≈ : même période de l'an dernier)" : '') +
+    ". Rien à changer avant une publication : dans le 🎯, acheter 1 à 2 semaines avant n'a pas été moins bon (2020-2026) ; le cours bouge seulement un peu plus (baisse de 15 % en 4 semaines : 5 % des cas, contre 4 %).</p>";
   return h + '</details>';
 }
 /** Classe de pente du canal haussier (régression sur 6 mois, rythme annuel), seulement en tendance de fond haussière. */

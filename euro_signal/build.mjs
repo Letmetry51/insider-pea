@@ -2566,6 +2566,7 @@ export function build(opts = {}) {
       f9: r.f9 != null ? r.f9 : null,
       pb: r.pb != null ? r.pb : null,
       ne: r.ne || undefined,
+      nee: r.nee || undefined,
       ls: r.ls || undefined,
       sr: r.sr || undefined,
       iv: r.iv || undefined,
@@ -2647,6 +2648,11 @@ export function build(opts = {}) {
         if (tt) r.tmpl = tt.ok ? 1 : 0;
       }
       if (nextE[r.key]) r.ne = nextE[r.key];
+      else if (Array.isArray(x.earnPast) && x.earnPast.length) {
+        // pas de date annoncée : date estimée sur la même période de l'an dernier (agenda des résultats, comme la page société)
+        const ei = ES.earningsInfo(x.nextEarnings, x.earnPast, today); // date annoncée déjà passée : publication récente
+        if (ei.est && ei.next) r.nee = ei.next;
+      }
       const su = surpOf(r.sym, r.isin);
       if (su) {
         if (ES.daysBetween(su.last[0], today) <= 200) r.ls = [su.last[0], Math.round(su.last[1] * 10) / 10];
