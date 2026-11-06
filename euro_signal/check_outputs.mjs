@@ -262,9 +262,25 @@ if (CI && CI.rows) {
   );
   // dossiers suivis très échangés (5 M€ par jour ou plus) dont la cotation manque à la liste des sociétés : jamais classés
   // (une autre classe d'actions de la même société, Atlas Copco A au lieu de B, suffit : la plus échangée la représente)
+  // hors du catalogue par construction : siège hors de l'UE / l'EEE coté ailleurs que sur sa place d'origine (Verisure, société
+  // britannique cotée à Stockholm, 05/11/2026) ; le catalogue ne garde que les sièges de l'UE / l'EEE sur ces places, comme le PEA,
+  // et ne lit hors PEA que Londres et Zurich
+  const EEA = new Set(
+      'AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO'.split(' ')
+    ),
+    HOME = { GB: 'L', CH: 'SW' };
+  const outOfScope = (x) => x.country && !EEA.has(x.country) && String(x.ticker).split('.').pop() !== HOME[x.country];
   const lost = Object.keys(main.inst || {})
     .map((i) => main.inst[i])
-    .filter((x) => x && x.ticker && !x.secondary && (x.stats || {}).adv20Eur >= 5e6 && !haveClass.has(clsOf(x.ticker)));
+    .filter(
+      (x) =>
+        x &&
+        x.ticker &&
+        !x.secondary &&
+        (x.stats || {}).adv20Eur >= 5e6 &&
+        !outOfScope(x) &&
+        !haveClass.has(clsOf(x.ticker))
+    );
   check(
     !lost.length,
     `dossiers très échangés présents dans la liste des sociétés (classement)` +

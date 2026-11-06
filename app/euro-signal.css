@@ -4582,9 +4582,6 @@ details.pos summary {
 .erl {
   margin: 6px 0 0;
 }
-.erl.warn {
-  color: var(--warn);
-}
 .chart .er-mk {
   stroke: var(--muted);
   stroke-width: 1;

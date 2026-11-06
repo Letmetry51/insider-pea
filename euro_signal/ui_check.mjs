@@ -112,8 +112,9 @@ async function inspect(p, where) {
       const x = e.innerText;
       if (x) t = t.split(x).join(' ');
     });
-    // chaque graphique de cours doit montrer au moins un support et une résistance
-    const noLevels = [...document.querySelectorAll('svg.chart')].filter((g) => {
+    // chaque graphique de cours doit montrer au moins un support et une résistance (pas les barres de volume de la page
+    // société : le 05/11/2026, elles ont été comptées comme 68 graphiques sans niveaux)
+    const noLevels = [...document.querySelectorAll('svg.chart:not(.vbars)')].filter((g) => {
       const tx = [...g.querySelectorAll('text')].map((x) => x.textContent).join(' ');
       return (
         !(g.querySelector('.lv-sup') || /support/i.test(tx)) || !(g.querySelector('.lv-res') || /résistance/i.test(tx))
