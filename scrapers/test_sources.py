@@ -124,6 +124,31 @@ def _():
     assert code == 0 and "anormalement courte" in out["partial"]["note"] and out["total_transactions"] == 430
 
 
+@case("AMF : pages vides passagères (05/11/2026 : 3 de suite, collecte arrêtée à 55 déclarations) → relues, collecte complète")
+def _():
+    calls = {}
+
+    def get(url, params=None, headers=None, timeout=None):
+        p = params["f_page"]
+        calls[p] = calls.get(p, 0) + 1
+        empty = 3 <= p <= 5 and calls[p] == 1          # pages 3 à 5 vides au premier passage
+        return FakeResp(f"<p>page {p} {'vide' if empty else 'pleine'} </p>" + ("<p>Page suivante</p>" if p < 8 else ""))
+
+    def extract(soup):
+        w = soup.get_text().split()
+        return [] if w[2] == "vide" else [tx(f"P{w[1]}-{k}", (date.today() - timedelta(days=int(w[1]))).isoformat()) for k in range(10)]
+
+    st = {}
+    saved = (AMF.requests.get, AMF._extract_transactions_from_soup, AMF.time.sleep)
+    try:
+        AMF.requests.get, AMF._extract_transactions_from_soup, AMF.time.sleep = get, extract, lambda s: None
+        out = AMF.scrape_all_recent(days_back=180, max_pages=20, status=st)
+    finally:
+        AMF.requests.get, AMF._extract_transactions_from_soup, AMF.time.sleep = saved
+    assert len(out) == 80 and st["complete"] is True and st["retried"] == 3 and st["pages"] == 8, (len(out), st)
+    assert calls[3] == 2 and calls[1] == 1
+
+
 @case("Ventes à découvert : fichier lu mais plus mis à jour → « perime » (pas en Allemagne ni au Royaume-Uni)")
 def _():
     d = date(2026, 10, 22)

@@ -11,6 +11,9 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://transactions-amf.swaoo.com"
+# Page vide alors que la liste continue : réponse passagère du site (2 à 4 pages par soir ; 3 de suite le 04/11 et le 05/11/2026,
+# collecte arrêtée à 47 et 55 déclarations sur environ 1 500). Relue après ces pauses (secondes) avant d'être comptée vide.
+EMPTY_RETRY_WAITS = (3, 10)
 
 PURCHASE_NATURES = {"Acquisition", "Souscription"}
 SELL_NATURES = {"Cession"}
@@ -238,7 +241,20 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80, status: dict | 
         
         soup = BeautifulSoup(response.text, "html.parser")
         page_txs = _extract_transactions_from_soup(soup)
-        
+        for wait in EMPTY_RETRY_WAITS if not page_txs else ():
+            time.sleep(wait)
+            try:
+                again = requests.get(BASE_URL + "/", params=params, headers=headers, timeout=30)
+                again.raise_for_status()
+            except requests.RequestException:
+                continue
+            response = again
+            page_txs = _extract_transactions_from_soup(BeautifulSoup(again.text, "html.parser"))
+            if page_txs:
+                print(f"  Page {page}: relue après {wait} s")
+                status["retried"] = status.get("retried", 0) + 1
+                break
+
         if not page_txs:
             empty_pages += 1
             print(f"  Page {page}: 0 tx parsées (page vide ou format inconnu)")
