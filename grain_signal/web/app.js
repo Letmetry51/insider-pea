@@ -4,6 +4,8 @@
 
 const GS = { data: null, comite: null, journal: [], tab: 'signaux' };
 const ICON = { ble: '🌾', escourgeon: '🍺', orge_printemps: '🍺', colza: '🌼', mais: '🌽' };
+const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const moisFr = (m) => (m && m.length >= 7 ? `${MOIS[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}` : m || '');
 const FEU = { attendre: '⏸️', executer: '✅', accelerer: '⚡', inconnu: '❔' };
 
 function h(tag, attrs, ...kids) {
@@ -94,7 +96,7 @@ function chart(rows, opts = {}) {
   const reg = opts.channel === false ? null : regression(closes, Math.min(63, closes.length));
   const sig = fut ? vol(closes) : null;
   const last = closes[closes.length - 1];
-  const all = pts.flatMap((r) => r.slice(1).filter((v) => v !== null && v !== undefined));
+  const all = pts.flatMap((r) => r.slice(1, 5).filter((v) => v !== null && v !== undefined));
   (opts.levels || []).forEach((l) => all.push(l.v));
   if (sig) all.push(last * Math.exp(1.6 * sig * Math.sqrt(fut)), last * Math.exp(-1.6 * sig * Math.sqrt(fut)));
   let lo = Math.min(...all),
@@ -216,8 +218,10 @@ function chart(rows, opts = {}) {
         'stroke-dasharray': '3 3',
       });
     }
-    const ly = y(l.v) - 5;
-    if (usedY.some((u) => Math.abs(u - ly) < 14)) return;
+    // étiquettes jamais superposées : décalées vers le haut ou le bas jusqu'à trouver une place libre
+    let ly = y(l.v) - 5;
+    for (let k = 1; usedY.some((u) => Math.abs(u - ly) < 14) && k < 12; k++)
+      ly = y(l.v) - 5 + (k % 2 ? -1 : 1) * Math.ceil(k / 2) * 14;
     usedY.push(ly);
     svgEl(
       svg,
@@ -230,7 +234,8 @@ function chart(rows, opts = {}) {
   [
     [3, 'var(--chart-3)', 1.3],
     [2, 'var(--chart-2)', 1.3],
-    [1, 'var(--chart-1)', 2.4],
+    [1, opts.mainColor || 'var(--chart-1)', opts.mainWidth || 2.4],
+    [4, 'var(--chart-1)', 2.6],
   ].forEach(([col, color, w]) => {
     let d = '';
     pts.forEach((r, i) => {
@@ -239,14 +244,15 @@ function chart(rows, opts = {}) {
     });
     if (d) svgEl(svg, 'path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linejoin': 'round' });
   });
-  svgEl(svg, 'circle', {
-    cx: x(li),
-    cy: y(last),
-    r: 5,
-    fill: 'var(--chart-1)',
-    stroke: 'var(--surface)',
-    'stroke-width': 2,
-  });
+  if (opts.dot !== false)
+    svgEl(svg, 'circle', {
+      cx: x(li),
+      cy: y(last),
+      r: 5,
+      fill: 'var(--chart-1)',
+      stroke: 'var(--surface)',
+      'stroke-width': 2,
+    });
   const wrap = h('div', {}, svg);
   wrap.canal = canal;
   return wrap;
@@ -652,10 +658,11 @@ function vSignaux() {
   const grid = h('div', { class: 'grid' });
   for (const [k, c] of Object.entries(d.cultures || {})) {
     const cc = c.comite || {};
-    const niv = c.niveaux || {};
-    // escourgeon et orge de printemps : pas de marché à terme, pas d'ordres techniques tirés du blé
-    const ordres = (cc.ordres && cc.ordres.length ? cc.ordres : c.proxy ? [] : niv.ordres) || [];
-    const revision = cc.revision_bas || (c.proxy ? null : niv.revision);
+    // niveaux retenus (comité, sinon technique) ; escourgeon et orge de printemps : niveaux du blé Euronext
+    const nr = c.niveaux_retenus || { ordres: [], revision: null };
+    const ordres = nr.ordres || [];
+    const revision = nr.revision;
+    const ech = nr.echeance ? ` (${c.contrat} ${moisFr(nr.echeance)})` : '';
     const contrat = (d.contrats || {})[c.contrat] || {};
     grid.append(
       h(
@@ -712,10 +719,27 @@ function vSignaux() {
           { class: 'kv' },
           cc.pct ? [h('dt', { text: 'À vendre' }), h('dd', { text: cc.pct })] : null,
           [
-            h('dt', { text: 'Ordres' }),
-            h('dd', { text: ordres.length ? ordres.map((v) => fmt(v)).join(' · ') + ' €/t' : '—' }),
+            h('dt', { text: nr.sur_ble ? '🎯 Blé à' : '🎯 Ordres' }),
+            h('dd', {
+              text: ordres.length
+                ? ordres.map((v) => fmt(v)).join(' · ') +
+                  ' €/t' +
+                  ech +
+                  (nr.sur_ble ? ' : vendre une tranche d’orge' : '')
+                : '—',
+            }),
           ],
-          [h('dt', { text: 'Révision' }), h('dd', { text: revision ? '< ' + fmt(revision) : '—' })],
+          [h('dt', { text: '🛑 Révision' }), h('dd', { text: revision ? `sous ${fmt(revision)} €/t${ech}` : '—' })],
+          nr.source && nr.source !== 'aucun'
+            ? [
+                h('dt', { text: 'Niveaux' }),
+                h('dd', {
+                  class: 'muted',
+                  text:
+                    nr.source === 'comite' ? 'fixés par le comité' : 'techniques (MM20, Fibonacci, plus bas 3 mois)',
+                }),
+              ]
+            : null,
           c.score_actualise !== undefined
             ? [
                 h('dt', { text: 'Score' }),
@@ -912,17 +936,74 @@ function vTechnique() {
           const src = c.proxy && c.proxy.graphique ? c.proxy : c;
           const ta = c.proxy && c.proxy.technique ? c.proxy.technique : a;
           // lecture de secours (marché américain converti) : pas d'ordres, les niveaux ne valent pas pour Euronext
-          const nv = c.proxy && c.proxy.graphique ? null : c.niveaux;
+          const nv = c.proxy && c.proxy.graphique ? null : c.niveaux_retenus || c.niveaux;
           if (!src.graphique) return null;
-          const g = chart(src.graphique, {
-            levels: chartLevels(nv, ta),
-            label: `${c.nom} : cours, moyennes mobiles, canal et niveaux`,
-          });
+          const box = h('div', {});
+          const periods = [['3m', '3 mois']].concat(
+            c.long
+              ? [
+                  ['1a', '1 an'],
+                  ['5a', '5 ans'],
+                ]
+              : []
+          );
+          const draw = (per) => {
+            box.textContent = '';
+            if (per === '3m') {
+              const g3 = chart(src.graphique, { levels: chartLevels(nv, ta), label: `${c.nom} : 3 mois` });
+              box.append(g3, chartLegend());
+              return g3;
+            }
+            const rows = per === '1a' ? c.long.an : c.long.cinq_ans;
+            const g = chart(rows, {
+              channel: false,
+              cone: false,
+              dot: false,
+              mainColor: 'var(--muted)',
+              mainWidth: 1.6,
+              label: `${c.nom} : ${per === '1a' ? '1 an' : '5 ans'}`,
+            });
+            const mm = per === '1a' ? ['MM50', 'MM200'] : ['MM 10 sem.', 'MM 40 sem.'];
+            box.append(
+              g,
+              h(
+                'div',
+                { class: 'legend' },
+                h(
+                  'span',
+                  {},
+                  h('i', { style: 'background:var(--chart-1)' }),
+                  `Euronext (depuis le ${dfr(c.long.euronext_depuis)})`
+                ),
+                h('span', {}, h('i', { style: 'background:var(--muted)' }), `${c.long.nom} recalé sur Euronext`),
+                h('span', {}, h('i', { style: 'background:var(--chart-2)' }), mm[0]),
+                h('span', {}, h('i', { style: 'background:var(--chart-3)' }), mm[1])
+              ),
+              h('p', {
+                class: 'note',
+                text: `L'historique Euronext se construit chaque jour depuis le ${dfr(c.long.euronext_depuis)}. Pour la tendance longue : ${c.long.nom}, converti en €/t puis recalé sur le niveau d'Euronext des dernières séances (même tendance, écarts possibles entre les deux marchés) ; les moyennes mobiles portent sur cette série.`,
+              })
+            );
+            return g;
+          };
+          const sw = h(
+            'div',
+            { class: 'periods', role: 'group', 'aria-label': 'Période du graphique' },
+            periods.map(([k, t]) => {
+              const b = h('button', { type: 'button', 'aria-pressed': String(k === '3m'), text: t });
+              b.addEventListener('click', () => {
+                sw.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+                draw(k);
+              });
+              return b;
+            })
+          );
+          const g = draw('3m');
           return h(
             'div',
             {},
-            g,
-            chartLegend(),
+            periods.length > 1 ? sw : null,
+            box,
             ta && !ta.insuffisant
               ? indicatorCards(ta, src.series, nv, g.canal)
               : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
