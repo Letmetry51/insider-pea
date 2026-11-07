@@ -149,6 +149,42 @@ def _():
     assert calls[3] == 2 and calls[1] == 1
 
 
+@case("AMF : pages dont toutes les déclarations sont écartées (06/11/2026) → pas comptées vides, pas relues, collecte complète")
+def _():
+    calls = {}
+
+    def get(url, params=None, headers=None, timeout=None):
+        p = params["f_page"]
+        calls[p] = calls.get(p, 0) + 1
+        kind = "filtree" if 3 <= p <= 5 else "pleine"
+        return FakeResp(f"<p>page {p} {kind} </p>" + ("<p>Page suivante</p>" if p < 8 else ""))
+
+    def extract(soup):
+        w = soup.get_text().split()
+        return [] if w[2] == "filtree" else [tx(f"Q{w[1]}-{k}", (date.today() - timedelta(days=int(w[1]))).isoformat()) for k in range(10)]
+
+    st = {}
+    saved = (AMF.requests.get, AMF._extract_transactions_from_soup, AMF._declaration_rows, AMF.time.sleep)
+    try:
+        AMF.requests.get, AMF._extract_transactions_from_soup, AMF.time.sleep = get, extract, lambda s: None
+        AMF._declaration_rows = lambda soup: 4 if "filtree" in soup.get_text() else 0
+        out = AMF.scrape_all_recent(days_back=180, max_pages=20, status=st)
+    finally:
+        AMF.requests.get, AMF._extract_transactions_from_soup, AMF._declaration_rows, AMF.time.sleep = saved
+    assert len(out) == 50 and st["complete"] is True and st["filtered"] == 3 and st["pages"] == 8, (len(out), st)
+    assert calls[3] == 1 and "retried" not in st
+
+
+@case("AMF : repérage des lignes de déclaration, retenues ou non")
+def _():
+    from bs4 import BeautifulSoup
+    row = "<tr>" + "".join(f"<td>{v}</td>" for v in ["Soc", "05/11/2026", "04/11/2026", "Acquisition", "Options", "", "10", "1,0", "10"]) + "</tr>"
+    other = "<tr><td>Auteur : X</td></tr><tr>" + "<td>a</td>" * 9 + "</tr>"
+    assert AMF._declaration_rows(BeautifulSoup("<table>" + row * 2 + other + "</table>", "html.parser")) == 2
+    assert AMF._declaration_rows(BeautifulSoup("<p>vide</p>", "html.parser")) == 0
+    assert AMF._extract_transactions_from_soup(BeautifulSoup("<table>" + row + "</table>", "html.parser")) == []  # sans ISIN : écartée
+
+
 @case("Ventes à découvert : fichier lu mais plus mis à jour → « perime » (pas en Allemagne ni au Royaume-Uni)")
 def _():
     d = date(2026, 10, 22)
