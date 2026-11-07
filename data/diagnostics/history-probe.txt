@@ -1,0 +1,387 @@
+=== AMF : liste février 2021 ===
+0 déclarations ; exemple []
+
+--- 2021DD732448 (SAFRAN) ---
+2021DD732448
+FR0000073272 - DD114622
+16 février 2021
+INFORMATION
+Déclaration individuelle relative aux opérations des personnes
+mentionnées à l’article L.621-18-2 du Code monétaire et financier sur les titres de la société
+LA PRESENTE NOTIFICATION N’A PAS FAIT L’OBJET D’UN CONTROLE DE L’AMF ET EST ETABLIE
+SOUS LA RESPONSABILITE EXCLUSIVE DU DECLARANT.
+NOM /FONCTION DE LA PERSONNE EXERCANT DES RESPONSABILITES DIRIGEANTES OU DE LA
+PERSONNE ETROITEMENT LIEE :
+FFP INVEST Société par actions simplifiée personne morale liée à F&P SAS, Administrateur
+NOTIFICATION INITIALE / MODIFICATION:
+Notification initiale
+COORDONNEES DE L’EMETTEUR
+NOM : SAFRAN
+DETAIL DE LA TRANSACTION
+DATE DE LA TRANSACTION : 13 février 2021
+LIEU DE LA TRANSACTION : N/A
+NATURE DE LA TRANSACTION : Conversion automatique d'actions de préférence en actions ordinaires
+DESCRIPTION DE L’INSTRUMENT FINANCIER : Action
+CODE D’IDENTIFICATION DE L’INSTRUMENT FINANCIER : FR0000073272
+INFORMATION DETAILLEE PAR OPERATION
+PRIX UNITAIRE : 0.0000 Euro
+VOLUME : 2 832 024.0000
+INFORMATIONS AGREGEES
+PRIX : 0.0000 Euro
+VOLUME : 2 832 024.0000
+TRANSACTION LIEE A L’EXERCICE DE PROGRAMMES D’OPTIONS SUR ACTIONS OU SUR UNE ATTRIBUTION
+D’ACTIONS GRATUITES OU DE PERFORMANCES : NON
+DATE DE RECEPTION DE LA NOTIFICATION : 16 février 2021
+COMMENTAIRES :
+Comme l’a rappelé Safran le 1er février 2021 (https://www.safran-group.com/fr/media/conversion-des-actions-de-preference-safran-
+en-actions-ordinaires-safran-intervenir-le-samedi-13-fevrier-2021-20210101), chaque action de préférence émise par Safran le 13
+février 2018 a été convertie en une action ordinaire le 13 février 2021.
+"Les données à caractère personnel collectées par le biais de ce formulaire font l’objet d’un traitement informatique réservé à l’usage exclusif de
+l’AMF pour l’accomplissement de ses missions. Conformément au règlement (UE) n° 2016/679 du 27 avril 2016 et à la loi « informatique et libertés »
+du 6 janvier 1978 modifiée, vous disposez d’un droit d’accès, de rectification, d’effacement, d’opposition ou de limitation du traitement de vos données
+personnelles en contactant l’AMF par courrier : AMF - Délégué à la protection des données - 17 place de la Bourse, 75002 Paris ; par mail :
+accesdopers@amf-france.org. Vous pouvez également introduire une réclamation au sujet du traitement de vos données auprès de la CNIL."
+--- analyse ---
+[
+ {
+  "registry": "AMF",
+  "country": "FR",
+  "id": "2021DD732448",
+  "published": "2021-12-08",
+  "issuer": "SAFRAN",
+  "person": "FFP INVEST Société par actions simplifiée personne morale liée à F&P SAS",
+  "role": "Administrateur",
+  "isin": "FR0000073272",
+  "instrument": "Action",
+  "nature": "Conversion automatique d'actions de préférence en actions ordinaires",
+  "txDate": "2021-02-13",
+  "currency": "EUR",
+  "quantity": "2832024.0000",
+  "price": "0.0000",
+  "url": "https://bdif.amf-france.org/back/api/v1/documents/2021/2021DD732448/8DA9877F80935180C5E044AA966065995207EED429E87C9C10EA728182FD4F09.pdf",
+  "numberLocale": "auto",
+  "linkedTo": null
+ }
+]
+
+--- 2021DD732453 (SAFRAN) ---
+2021DD732453
+FR0000073272 - DD114623
+16 février 2021
+INFORMATION
+Déclaration individuelle relative aux opérations des personnes
+mentionnées à l’article L.621-18-2 du Code monétaire et financier sur les titres de la société
+LA PRESENTE NOTIFICATION N’A PAS FAIT L’OBJET D’UN CONTROLE DE L’AMF ET EST ETABLIE
+SOUS LA RESPONSABILITE EXCLUSIVE DU DECLARANT.
+NOM /FONCTION DE LA PERSONNE EXERCANT DES RESPONSABILITES DIRIGEANTES OU DE LA
+PERSONNE ETROITEMENT LIEE :
+FFP Société anonyme personne morale liée à F&P SAS, Administrateur
+NOTIFICATION INITIALE / MODIFICATION:
+Notification initiale
+COORDONNEES DE L’EMETTEUR
+NOM : SAFRAN
+LEI : 969500UIC89GT3UL7L24
+DETAIL DE LA TRANSACTION
+DATE DE LA TRANSACTION : 13 février 2021
+LIEU DE LA TRANSACTION : N/A
+NATURE DE LA TRANSACTION : Conversion automatique d'actions de préférence en actions ordinaires
+DESCRIPTION DE L’INSTRUMENT FINANCIER : Action
+CODE D’IDENTIFICATION DE L’INSTRUMENT FINANCIER : FR0000073272
+INFORMATION DETAILLEE PAR OPERATION
+PRIX UNITAIRE : 0.0000 Euro
+VOLUME : 468.0000
+INFORMATIONS AGREGEES
+PRIX : 0.0000 Euro
+VOLUME : 468.0000
+TRANSACTION LIEE A L’EXERCICE DE PROGRAMMES D’OPTIONS SUR ACTIONS OU SUR UNE ATTRIBUTION
+D’ACTIONS GRATUITES OU DE PERFORMANCES : NON
+DATE DE RECEPTION DE LA NOTIFICATION : 16 février 2021
+COMMENTAIRES :
+Comme l’a rappelé Safran le 1er février 2021 (https://www.safran-group.com/fr/media/conversion-des-actions-de-preference-safran-
+en-actions-ordinaires-safran-intervenir-le-samedi-13-fevrier-2021-20210101), chaque action de préférence émise par Safran le 13
+février 2018 a été convertie en une action ordinaire le 13 février 2021.
+"Les données à caractère personnel collectées par le biais de ce formulaire font l’objet d’un traitement informatique réservé à l’usage exclusif de
+l’AMF pour l’accomplissement de ses missions. Conformément au règlement (UE) n° 2016/679 du 27 avril 2016 et à la loi « informatique et libertés »
+du 6 janvier 1978 modifiée, vous disposez d’un droit d’accès, de rectification, d’effacement, d’opposition ou de limitation du traitement de vos données
+personnelles en contactant l’AMF par courrier : AMF - Délégué à la protection des données - 17 place de la Bourse, 75002 Paris ; par mail :
+accesdopers@amf-france.org. Vous pouvez également introduire une réclamation au sujet du traitement de vos données auprès de la CNIL."
+--- analyse ---
+[
+ {
+  "registry": "AMF",
+  "country": "FR",
+  "id": "2021DD732453",
+  "published": "2021-12-08",
+  "issuer": "SAFRAN",
+  "person": "FFP Société anonyme personne morale liée à F&P SAS",
+  "role": "Administrateur",
+  "isin": "FR0000073272",
+  "instrument": "Action",
+  "nature": "Conversion automatique d'actions de préférence en actions ordinaires",
+  "txDate": "2021-02-13",
+  "currency": "EUR",
+  "quantity": "468.0000",
+  "price": "0.0000",
+  "url": "https://bdif.amf-france.org/back/api/v1/documents/2021/2021DD732453/D2555E689C5E349BE24943D5C4E7655BEB3CC7A37B2D89474B86199DC187B86E.pdf",
+  "numberLocale": "auto",
+  "linkedTo": null
+ }
+]
+
+--- 2023DD913031 (NEOLIFE) ---
+2023DD913031
+FR0011636083 - DD166950
+01 juin 2023
+INFORMATION
+CETTE INFORMATION ANNULE ET REMPLACE L’INFORMATION 912793 PUBLIEE LE 01 juin 2023
+Déclaration individuelle relative aux opérations des personnes
+mentionnées à l’article L.621-18-2 du Code monétaire et financier sur les titres de la société
+LA PRESENTE NOTIFICATION N’A PAS FAIT L’OBJET D’UN CONTROLE DE L’AMF ET EST ETABLIE
+SOUS LA RESPONSABILITE EXCLUSIVE DU DECLARANT.
+NOM /FONCTION DE LA PERSONNE EXERCANT DES RESPONSABILITES DIRIGEANTES OU DE LA
+PERSONNE ETROITEMENT LIEE :
+PM SAS SAS personne morale liée à PATRICK MARCHE, PRESIDENT
+NOTIFICATION INITIALE / MODIFICATION:
+ Erreur sur la date de transaction initiale (31/05/2023 au lieu du 03/05/2023
+COORDONNEES DE L’EMETTEUR
+NOM : NEOLIFE
+DETAIL DE LA TRANSACTION
+DATE DE LA TRANSACTION : 31 mai 2023
+LIEU DE LA TRANSACTION : Euronext Growth Paris
+NATURE DE LA TRANSACTION : Acquisition
+DESCRIPTION DE L’INSTRUMENT FINANCIER : Action
+INFORMATION DETAILLEE PAR OPERATION
+PRIX UNITAIRE : 0.0716 Euro
+VOLUME : 71 400.0000
+INFORMATIONS AGREGEES
+PRIX : 0.0716 Euro
+VOLUME : 71 400.0000
+TRANSACTION LIEE A L’EXERCICE DE PROGRAMMES D’OPTIONS SUR ACTIONS OU SUR UNE ATTRIBUTION
+D’ACTIONS GRATUITES OU DE PERFORMANCES : NON
+DATE DE RECEPTION DE LA NOTIFICATION : 01 juin 2023
+COMMENTAIRES :
+"Les données à caractère personnel collectées par le biais de ce formulaire font l’objet d’un traitement informatique réservé à l’usage exclusif de
+l’AMF pour l’accomplissement de ses missions. En application du règlement (UE) n° 2016/679 du 27 avril 2016 et de la loi n° 78-17 du 6 janvier 1978,
+le droit d’accès et le cas échéant, de rectification, d’effacement, d’opposition ou de limitation du traitement des données personnelles des personnes
+physiques les concernant, peut être exercé par courrier à l’adresse suivante : AMF - Délégué à la protection des données - 17 place de la Bourse,
+75002 Paris ; et via le formulaire « données personnelles » accessible sur le site internet de l’AMF. Vous pouvez également introduire une
+réclamation au sujet du traitement de vos données auprès de la CNIL."
+--- analyse ---
+[
+ {
+  "registry": "AMF",
+  "country": "FR",
+  "id": "2023DD913031",
+  "published": "2023-06-02",
+  "issuer": "NEOLIFE",
+  "person": "PM SAS SAS personne morale liée à PATRICK MARCHE",
+  "role": "PRESIDENT",
+  "isin": null,
+  "instrument": "Action",
+  "nature": "Acquisition",
+  "txDate": "2023-05-31",
+  "currency": "EUR",
+  "quantity": "71400.0000",
+  "price": "0.0716",
+  "url": "https://bdif.amf-france.org/back/api/v1/documents/2023/2023DD913031/A3B0A966DFF3D9A1CAB93D3398D7172A82C7C5815E71C88614FA67948B26805D.pdf",
+  "numberLocale": "auto",
+  "linkedTo": null
+ }
+]
+
+--- 2023DD913098 (CHARGEURS) ---
+2023DD913098
+FR0000130692 - DD166943
+02 juin 2023
+INFORMATION
+Déclaration individuelle relative aux opérations des personnes
+mentionnées à l’article L.621-18-2 du Code monétaire et financier sur les titres de la société
+LA PRESENTE NOTIFICATION N’A PAS FAIT L’OBJET D’UN CONTROLE DE L’AMF ET EST ETABLIE
+SOUS LA RESPONSABILITE EXCLUSIVE DU DECLARANT.
+NOM /FONCTION DE LA PERSONNE EXERCANT DES RESPONSABILITES DIRIGEANTES OU DE LA
+PERSONNE ETROITEMENT LIEE :
+Nicolas Urbain, Administrateur
+NOTIFICATION INITIALE / MODIFICATION:
+Notification initiale
+COORDONNEES DE L’EMETTEUR
+NOM : CHARGEURS
+DETAIL DE LA TRANSACTION
+DATE DE LA TRANSACTION : 01 juin 2023
+LIEU DE LA TRANSACTION : Euronext Paris
+NATURE DE LA TRANSACTION : Acquisition
+DESCRIPTION DE L’INSTRUMENT FINANCIER : Action
+CODE D’IDENTIFICATION DE L’INSTRUMENT FINANCIER : FR0000130692
+INFORMATION DETAILLEE PAR OPERATION
+PRIX UNITAIRE : 12.2200 Euro
+VOLUME : 2 500.0000
+INFORMATIONS AGREGEES
+PRIX : 12.2200 Euro
+VOLUME : 2 500.0000
+TRANSACTION LIEE A L’EXERCICE DE PROGRAMMES D’OPTIONS SUR ACTIONS OU SUR UNE ATTRIBUTION
+D’ACTIONS GRATUITES OU DE PERFORMANCES : NON
+DATE DE RECEPTION DE LA NOTIFICATION : 02 juin 2023
+COMMENTAIRES :
+Acquisition des 2 500 actions via la société H.R.P. (RCS Paris 434 012 217) dont le gérant est M. Nicolas Urbain
+"Les données à caractère personnel collectées par le biais de ce formulaire font l’objet d’un traitement informatique réservé à l’usage exclusif de
+l’AMF pour l’accomplissement de ses missions. En application du règlement (UE) n° 2016/679 du 27 avril 2016 et de la loi n° 78-17 du 6 janvier 1978,
+le droit d’accès et le cas échéant, de rectification, d’effacement, d’opposition ou de limitation du traitement des données personnelles des personnes
+physiques les concernant, peut être exercé par courrier à l’adresse suivante : AMF - Délégué à la protection des données - 17 place de la Bourse,
+75002 Paris ; et via le formulaire « données personnelles » accessible sur le site internet de l’AMF. Vous pouvez également introduire une
+réclamation au sujet du traitement de vos données auprès de la CNIL."
+--- analyse ---
+[
+ {
+  "registry": "AMF",
+  "country": "FR",
+  "id": "2023DD913098",
+  "published": "2023-06-02",
+  "issuer": "CHARGEURS",
+  "person": "Nicolas Urbain",
+  "role": "Administrateur",
+  "isin": "FR0000130692",
+  "instrument": "Action",
+  "nature": "Acquisition",
+  "txDate": "2023-06-01",
+  "currency": "EUR",
+  "quantity": "2500.0000",
+  "price": "12.2200",
+  "url": "https://bdif.amf-france.org/back/api/v1/documents/2023/2023DD913098/E4C680FC0BD2A399E099A878630D0F17ED6BDC841A35446450F887C2AF1F0AEA.pdf",
+  "numberLocale": "auto",
+  "linkedTo": null
+ }
+]
+
+--- 2024DD948939 (LES CONSTRUCTEURS DU BOIS) ---
+2024DD948939
+FR00140007I9 - DD170366
+02 février 2024
+INFORMATION
+Déclaration individuelle relative aux opérations des personnes
+mentionnées à l’article L.621-18-2 du Code monétaire et financier sur les titres de la société
+LA PRESENTE NOTIFICATION N’A PAS FAIT L’OBJET D’UN CONTROLE DE L’AMF ET EST ETABLIE
+SOUS LA RESPONSABILITE EXCLUSIVE DU DECLARANT.
+NOM /FONCTION DE LA PERSONNE EXERCANT DES RESPONSABILITES DIRIGEANTES OU DE LA
+PERSONNE ETROITEMENT LIEE :
+CFD CAPITAL SARL personne morale liée à François DUCHAINE, Président
+NOTIFICATION INITIALE / MODIFICATION:
+Notification initiale
+COORDONNEES DE L’EMETTEUR
+NOM : LES CONSTRUCTEURS DU BOIS
+LEI : 969500QZN2BGCPF22V20
+DETAIL DE LA TRANSACTION
+DATE DE LA TRANSACTION : 01 février 2024
+LIEU DE LA TRANSACTION : Euronext Access Paris
+NATURE DE LA TRANSACTION : Cession
+DESCRIPTION DE L’INSTRUMENT FINANCIER : Action
+INFORMATION DETAILLEE PAR OPERATION
+PRIX UNITAIRE : 4.0800 Euro
+VOLUME : 6.0000
+INFORMATIONS AGREGEES
+PRIX : 4.0800 Euro
+VOLUME : 6.0000
+TRANSACTION LIEE A L’EXERCICE DE PROGRAMMES D’OPTIONS SUR ACTIONS OU SUR UNE ATTRIBUTION
+D’ACTIONS GRATUITES OU DE PERFORMANCES : NON
+DATE DE RECEPTION DE LA NOTIFICATION : 02 février 2024
+COMMENTAIRES :
+
+"Les données à caractère personnel collectées par le biais de ce formulaire font l’objet d’un traitement informatique réservé à l’usage exclusif de
+l’AMF pour l’accomplissement de ses missions. En application du règlement (UE) n° 2016/679 du 27 avril 2016 et de la loi n° 78-17 du 6 janvier 1978,
+le droit d’accès et le cas échéant, de rectification, d’effacement, d’opposition ou de limitation du traitement des données personnelles des personnes
+physiques les concernant, peut être exercé par courrier à l’adresse suivante : AMF - Délégué à la protection des données - 17 place de la Bourse,
+75002 Paris ; et via le formulaire « données personnelles » accessible sur le site internet de l’AMF. Vous pouvez également introduire une
+réclamation au sujet du traitement de vos données auprès de la CNIL."
+--- analyse ---
+[
+ {
+  "registry": "AMF",
+  "country": "FR",
+  "id": "2024DD948939",
+  "published": "2024-02-02",
+  "issuer": "LES CONSTRUCTEURS DU BOIS",
+  "person": "CFD CAPITAL SARL personne morale liée à François DUCHAINE",
+  "role": "Président",
+  "isin": null,
+  "instrument": "Action",
+  "nature": "Cession",
+  "txDate": "2024-02-01",
+  "currency": "EUR",
+  "quantity": "6.0000",
+  "price": "4.0800",
+  "url": "https://bdif.amf-france.org/back/api/v1/documents/2024/2024DD948939/49C3F8E585CFC0287A19F148625565E13DF704EA93219E5F7C4FE1693C0B5EDF.pdf",
+  "numberLocale": "auto",
+  "linkedTo": null
+ }
+]
+
+--- 2024DD948921 (POXEL) ---
+2024DD948921
+FR0012432516 - DD170365
+02 février 2024
+INFORMATION
+Déclaration individuelle relative aux opérations des personnes
+mentionnées à l’article L.621-18-2 du Code monétaire et financier sur les titres de la société
+LA PRESENTE NOTIFICATION N’A PAS FAIT L’OBJET D’UN CONTROLE DE L’AMF ET EST ETABLIE
+SOUS LA RESPONSABILITE EXCLUSIVE DU DECLARANT.
+NOM /FONCTION DE LA PERSONNE EXERCANT DES RESPONSABILITES DIRIGEANTES OU DE LA
+PERSONNE ETROITEMENT LIEE :
+Kuhn Thomas, Directeur Général
+NOTIFICATION INITIALE / MODIFICATION:
+Notification initiale
+COORDONNEES DE L’EMETTEUR
+NOM : POXEL
+DETAIL DE LA TRANSACTION
+DATE DE LA TRANSACTION : 29 janvier 2024
+LIEU DE LA TRANSACTION : Euronext Paris
+NATURE DE LA TRANSACTION : Acquisition
+DESCRIPTION DE L’INSTRUMENT FINANCIER : Action
+INFORMATION DETAILLEE PAR OPERATION
+PRIX UNITAIRE : 0.0000 Euro
+VOLUME : 80 000.0000
+INFORMATIONS AGREGEES
+PRIX : 0.0000 Euro
+VOLUME : 80 000.0000
+TRANSACTION LIEE A L’EXERCICE DE PROGRAMMES D’OPTIONS SUR ACTIONS OU SUR UNE ATTRIBUTION
+D’ACTIONS GRATUITES OU DE PERFORMANCES : OUI
+DATE DE RECEPTION DE LA NOTIFICATION : 02 février 2024
+COMMENTAIRES :
+Valeur sous-jacente théorique des actions de performance attribuées gratuitement et définitivement acquises le 29 janvier 2024 sur
+la base du cours d'ouverture le 29 janvier 2024 :
+38.080 euros
+"Les données à caractère personnel collectées par le biais de ce formulaire font l’objet d’un traitement informatique réservé à l’usage exclusif de
+l’AMF pour l’accomplissement de ses missions. En application du règlement (UE) n° 2016/679 du 27 avril 2016 et de la loi n° 78-17 du 6 janvier 1978,
+le droit d’accès et le cas échéant, de rectification, d’effacement, d’opposition ou de limitation du traitement des données personnelles des personnes
+physiques les concernant, peut être exercé par courrier à l’adresse suivante : AMF - Délégué à la protection des données - 17 place de la Bourse,
+75002 Paris ; et via le formulaire « données personnelles » accessible sur le site internet de l’AMF. Vous pouvez également introduire une
+réclamation au sujet du traitement de vos données auprès de la CNIL."
+--- analyse ---
+[
+ {
+  "registry": "AMF",
+  "country": "FR",
+  "id": "2024DD948921",
+  "published": "2024-02-02",
+  "issuer": "POXEL",
+  "person": "Kuhn Thomas",
+  "role": "Directeur Général",
+  "isin": null,
+  "instrument": "Action",
+  "nature": "Acquisition",
+  "txDate": "2024-01-29",
+  "currency": "EUR",
+  "quantity": "80000.0000",
+  "price": "0.0000",
+  "url": "https://bdif.amf-france.org/back/api/v1/documents/2024/2024DD948921/7FAC079FC10BB9E7165A2455F9B3FC29AA734941A51C7746C804A16B95EAB556.pdf",
+  "numberLocale": "auto",
+  "linkedTo": null
+ }
+]
+
+=== FI : juillet 2016 et mars 2019 ===
+2016-07-01 29 lignes ; colonnes ['amendment', 'associated', 'currency', 'instrument', 'isin', 'issuer', 'nature', 'notifier', 'pdmr', 'place', 'price', 'program', 'published', 'quantity', 'role', 'status', 'txDate', 'unit'] 
+ ['Publication date', 'Issuer', 'LEI-code', 'Notifier', 'Person discharging managerial responsibilities', 'Position', 'Closely associated', 'Amendment', 'Details of amendment', 'Initial notification', 'Linked to share option programme', 'Nature of transaction', 'Intrument type', 'Instrument name', 'ISIN', 'Transaction date', 'Volume', 'Unit', 'Price', 'Currency', 'Trading venue', 'Status', ''] 
+ [['07/07/2016 23:01:56', 'North Chemical AB', '', 'INGE SJÖGREN', 'INGE SJÖGREN', 'Inköpschef', '', '', '', 'Yes', '', 'Acquisition', '', 'Sparbanken Skane', 'SE0007604103', '05/07/2016 00:00:00', '43000.0', 'Quantity', '3.38', 'SEK', 'FIRST NORTH SWEDEN', 'Revised', ''], ['07/07/2016 23:01:56', 'North Chemical AB', '', 'INGE SJÖGREN', 'INGE SJÖGREN', 'Inköpschef', '', '', '', 'Yes', '', 'Subscription', '', 'Sparbanken Skane', 'SE0007604103', '05/07/2016 00:00:00', '107500.0', 'Quantity', '2.00', 'SEK', 'FIRST NORTH SWEDEN', 'Revised', '']] 
+ [{'registry': 'FI', 'country': 'SE', 'id': '2016-07-05-north_chemical_ab-inge_sj_gren-SE0007604103-3.38-43000.0-2016-07-07', 'url': 'https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn', 'via': 'fi.se', 'published': '2016-07-07', 'issuer': 'North Chemical AB', 'person': 'INGE SJÖGREN', 'role': 'Inköpschef', 'isin': 'SE0007604103', 'instrument': 'Share', 'nature': 'Acquisition', 'txDate': '2016-07-05', 'currency': 'SEK', 'quantity': '43000.0', 'price': '3.38', 'amount': None, 'place': 'FIRST NORTH SWEDEN', 'numberLocale': 'auto', 'linkedTo': None, 'collectedAt': '2026-10-11'}]
+2019-03-01 268 lignes ; colonnes ['amendment', 'associated', 'currency', 'instrument', 'isin', 'issuer', 'nature', 'notifier', 'pdmr', 'place', 'price', 'program', 'published', 'quantity', 'role', 'status', 'txDate', 'unit'] 
+ ['Publication date', 'Issuer', 'LEI-code', 'Notifier', 'Person discharging managerial responsibilities', 'Position', 'Closely associated', 'Amendment', 'Details of amendment', 'Initial notification', 'Linked to share option programme', 'Nature of transaction', 'Intrument type', 'Instrument name', 'ISIN', 'Transaction date', 'Volume', 'Unit', 'Price', 'Currency', 'Trading venue', 'Status', ''] 
+ [['07/03/2019 22:18:54', 'Catena AB', '549300EMLM7AH5LDLY65', 'Gustaf Hermelin', 'Gustaf Hermelin', 'Styrelseledamot/suppleant', '', '', '', 'Yes', '', 'Disposal', 'Share', 'Catena AB', 'SE0001664707', '07/03/2019 00:00:00', '250000.0', 'Quantity', '248.13', 'SEK', 'Outside a trading venue', 'Current', ''], ['07/03/2019 22:03:36', 'Litium AB', '254900BFIOLD2DDP1W10', 'Arnäs Förvaltning AB', 'Lars Karlsson', 'Styrelseledamot/suppleant', 'Yes', '', '', 'Yes', '', 'Disposal', 'Share', 'Litium AB', 'SE0007387246', '06/03/2019 00:00:00', '1000.0', 'Quantity', '9.90', 'SEK', 'SPOTLIGHT STOCK MARKET', 'Current', '']] 
+ [{'registry': 'FI', 'country': 'SE', 'id': '2019-03-07-catena_ab-gustaf_hermelin-SE0001664707-248.13-250000.0-2019-03-07', 'url': 'https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn', 'via': 'fi.se', 'published': '2019-03-07', 'issuer': 'Catena AB', 'person': 'Gustaf Hermelin', 'role': 'Styrelseledamot/suppleant', 'isin': 'SE0001664707', 'instrument': 'Share', 'nature': 'Disposal', 'txDate': '2019-03-07', 'currency': 'SEK', 'quantity': '250000.0', 'price': '248.13', 'amount': None, 'place': 'Outside a trading venue', 'numberLocale': 'auto', 'linkedTo': None, 'collectedAt': '2026-10-11'}]

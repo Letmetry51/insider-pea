@@ -1,0 +1,52 @@
+{
+ "date": "2026-11-06",
+ "at": "2026-11-06T22:34:20.635566+00:00",
+ "yfinance": "1.8.0",
+ "sections": {
+  "hebdomadaire": {
+   "requested": 1085,
+   "received": 1085,
+   "recovered": 0,
+   "missing": 0,
+   "errors": 0,
+   "carried": 86,
+   "at": "2026-11-06T22:34:20.635566+00:00"
+  },
+  "cours Euro Signal": {
+   "requested": 826,
+   "received": 761,
+   "recovered": 0,
+   "missing": 65,
+   "errors": 0,
+   "carried": 0,
+   "at": "2026-11-06T22:24:48.698646+00:00"
+  },
+  "journalier": {
+   "requested": 4180,
+   "received": 4158,
+   "recovered": 0,
+   "missing": 22,
+   "errors": 0,
+   "carried": 0,
+   "at": "2026-11-06T22:34:20.635566+00:00"
+  },
+  "hebdo catalogue": {
+   "requested": 3123,
+   "received": 3104,
+   "recovered": 0,
+   "missing": 19,
+   "errors": 0,
+   "carried": 0,
+   "at": "2026-11-06T22:34:20.635566+00:00"
+  },
+  "fiches sociétés": {
+   "requested": 0,
+   "received": 0,
+   "recovered": 0,
+   "missing": 0,
+   "errors": 0,
+   "carried": 13,
+   "at": "2026-11-06T22:34:20.635566+00:00"
+  }
+ }
+}

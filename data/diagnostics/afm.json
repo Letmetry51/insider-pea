@@ -1,0 +1,41 @@
+{
+ "status": 200,
+ "contentType": null,
+ "bytes": 675891,
+ "encoding": "cp1252",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-11-05 00:00:00\";\"argenx SE\";\"Ulrichts P.\";\"Ulrichts\"\r\n\"2026-11-04 00:00:00\";\"argenx SE\";\"Ulrichts P.\";\"Ulrichts\"\r\n\"2026-11-04 00:00:00\";\"Coca-Cola Europacific Partners plc\";\"Lusk S.\";\"Lusk\"\r\n\"2026-11-03 00:00:00\";\"STMicroelectronics N.V.\";\"Gualandris F.\";\"Gualandris\"\r\n\"2026-10-31 00:00:00\";\"Tetragon Financial Group Limited\";\"Prince S.\";\"Prince\"\r\n\"2026-10-30 00:00:00\";\"Shell Plc\";\"Smith A.\";\"Smith\"\r\n\"2026-10-30 00:00:00\";\"Icecat N.V.\";\"Icecat International B.V.\";\"\"\r\n\"2026-10-30 00:00:00\";\"Ferrovial N.V.\";\"Sacristán Mar",
+ "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
+ "delimiter": ";",
+ "headers": [
+  "Transaction",
+  "Issuing institution",
+  "Notifiable",
+  "NotifiableLastName"
+ ],
+ "sampleRows": [
+  [
+   "2026-11-05 00:00:00",
+   "argenx SE",
+   "Ulrichts P.",
+   "Ulrichts"
+  ],
+  [
+   "2026-11-04 00:00:00",
+   "argenx SE",
+   "Ulrichts P.",
+   "Ulrichts"
+  ],
+  [
+   "2026-11-04 00:00:00",
+   "Coca-Cola Europacific Partners plc",
+   "Lusk S.",
+   "Lusk"
+  ]
+ ],
+ "rowCount": 9579,
+ "columnMap": {
+  "issuer": "Issuing institution"
+ },
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>2026110536B2B2B2-9670-4417-8D87-1A85BD2EF00C</meldingid><transactiedatum>11/5/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Ulrichts P.</meldingsplichtige><meldingsplichtigeachternaam>Ulrichts</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Scientific Officer</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Ulrichts P. - </vermelding></vermelding><vermelding><meldingid>2026110436B2B2B2-9670-4417-8D87-1A85BD2EF00C</meldingid><transactiedatum>11/4/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Ulrichts P.</meldingsplichtige><meldingsplichtigeachternaam>Ulrichts</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Scientific Officer</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Ulrichts P. - </vermelding></vermelding><vermelding><meldingid>202611045BF284D3-0B1F-4A25-A051-1BC36353641C</meldingid><transactiedatum>11/4/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Coca-Cola Europacific Partners plc</uitgevendeinstelling><meldingsplichtige>Lusk S.</meldingsplichtige><meldingsplichtigeachternaam>Lusk</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Commercial Officer</functie><lei>549300LTH67W4GWMRF57</lei><vermelding>Coca-Cola Europacific Partners plc - Lusk S. - </vermelding></vermelding><vermelding><meldingid>2026110389A7BD17-C37D-4072-8996-EF9A09F8D9C1</meldingid><transactiedatum>11/3/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>STMicroelectronics N.V.</uitgevendeinstelling><meldingsplichtige>Gualandris F.</meldingsplichtige><meldingsplichtigeachternaam>Gualandris</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>President Quality, Manufacturing and Technolohy; Member of the Executive Committee</functie><lei>213800Z8NOHIKRI42W10</lei><vermelding>STMicroelectronics N.V. - Gualandris F. - </vermelding></vermelding><vermelding><meldingid>202610310796E68F-1715-4087-B3F9-DEC2DC890C2B</meldingid><transactiedatum>10/31/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Tetragon Financial Group Limited</uitgevendeinstelling><meldingsplichtige>Prince S.</meldingsplichtige><meldingsplichtigeachternaam>Prince</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CEO</functie><lei>14URO7KANNWKTLQY7F55</lei><vermelding>Tetragon Financial Group Limited - Prince S. - </vermelding></vermelding><vermelding><meldingid>2026103009B3496E-05A2-4A17-827C-5A96DB174D70</meldingid><transactiedatum>10/30/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Shell Plc</uitgevendeinstelling><meldingsplichtige>Smith A.</meldingsplichtige><meldingsplichtigeachternaam>Smith</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>President, Trading and Supply</functie><lei>21380068P1DRHM",
+ "at": "2026-11-06T22:22:39.037217+00:00"
+}

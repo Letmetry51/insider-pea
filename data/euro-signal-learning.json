@@ -1,0 +1,79 @@
+{
+ "month": "2026-11",
+ "version": 0,
+ "weights": {},
+ "log": [],
+ "stats": [
+  {
+   "feature": "discountBig",
+   "label": "Décote ≥ 40 %",
+   "nWith": 19,
+   "nWithout": 91,
+   "meanWith": 3.066161613512661,
+   "meanWithout": 3.931771825469289,
+   "t": -0.17340969872739415,
+   "action": "pas assez de cas (19 / 60 requis)"
+  },
+  {
+   "feature": "discountMedium",
+   "label": "Décote 25 à 40 %",
+   "nWith": 34,
+   "nWithout": 76,
+   "meanWith": 2.967685747892419,
+   "meanWithout": 4.146670938764522,
+   "t": -0.375812538461305,
+   "action": "pas assez de cas (34 / 60 requis)"
+  },
+  {
+   "feature": "panic",
+   "label": "Achat dans la panique",
+   "nWith": 27,
+   "nWithout": 83,
+   "meanWith": 5.446894828008187,
+   "meanWithout": 3.2407487520268052,
+   "t": 0.5750498620159182,
+   "action": "pas assez de cas (27 / 60 requis)"
+  },
+  {
+   "feature": "ceo",
+   "label": "Achat du DG ou du DAF",
+   "nWith": 52,
+   "nWithout": 66,
+   "meanWith": 1.5705825200055314,
+   "meanWithout": 4.115134880363859,
+   "t": -0.7375885338249801,
+   "action": "pas assez de cas (52 / 60 requis)"
+  },
+  {
+   "feature": "cluster",
+   "label": "Cluster de dirigeants",
+   "nWith": 3,
+   "nWithout": 115,
+   "meanWith": -8.956629301447805,
+   "meanWithout": 3.3055572265099626,
+   "t": -2.515140098043835,
+   "action": "pas assez de cas (3 / 60 requis)"
+  },
+  {
+   "feature": "trend",
+   "label": "Tendance de fond haussière (MM50 > MM200)",
+   "nWith": 53,
+   "nWithout": 64,
+   "meanWith": 4.363517825723071,
+   "meanWithout": 1.9180938248861137,
+   "t": 0.7046296353228907,
+   "action": "pas assez de cas (53 / 60 requis)"
+  },
+  {
+   "feature": "relStrong",
+   "label": "Plus fort que le marché sur 6 mois",
+   "nWith": 30,
+   "nWithout": 87,
+   "meanWith": 2.353801427960867,
+   "meanWithout": 3.2575908818069883,
+   "t": -0.1832596864730264,
+   "action": "pas assez de cas (30 / 60 requis)"
+  }
+ ],
+ "updatedAt": "2026-11-06T22:46:17.739Z"
+}
