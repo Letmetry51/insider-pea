@@ -130,7 +130,10 @@ def main():
             tally["errors"].append(type(e).__name__)
             print("  ÉCHEC :", rec["subject"], rec["error"])
         except Exception as e:
-            if phase["v"] in ("envoi", "accepte"):
+            # réponse d'erreur de Gmail pendant l'envoi (SMTPDataError : « 421 Try again later », refus 55x) : message refusé, donc
+            # retenté demain ; avant le 07/11/2026, compté « incertain », c'est-à-dire envoyé, et jamais renvoyé
+            refused = isinstance(e, smtplib.SMTPResponseException) and phase["v"] == "envoi"
+            if phase["v"] in ("envoi", "accepte") and not refused:
                 rec["status"] = "incertain"  # le message a pu partir : pas de renvoi automatique
                 tally["uncertain"] += 1
                 print("  INCERTAIN :", rec["subject"], type(e).__name__)
@@ -138,7 +141,7 @@ def main():
                 rec["status"] = "echec"  # rien n'a été transmis : sera retentée à la prochaine exécution
                 tally["failed"] += 1
                 tally["errors"].append(type(e).__name__)
-                print("  ÉCHEC (connexion) :", rec["subject"], type(e).__name__)
+                print("  ÉCHEC (" + ("refusé par Gmail" if refused else "connexion") + ") :", rec["subject"], type(e).__name__)
             rec["error"] = phase["v"] + " — " + type(e).__name__ + " : " + redact(str(e))[:160]
         rec["doneAt"] = now()
         save(STATE, state)

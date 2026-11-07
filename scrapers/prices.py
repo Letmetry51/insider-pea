@@ -210,8 +210,11 @@ def coherent(h, paid):
     """Le cours de la cotation trouvée colle au prix déclaré par le dirigeant (sinon : autre titre, droits, bons)."""
     if not paid:
         return True
+    rows = (h or {}).get("rows") or []
+    if not rows:  # Yahoo a répondu sans aucune clôture valable : rien à comparer, cotation refusée (sans arrêter la collecte)
+        return False
     d, price = paid
-    ref = [r[4] for r in h["rows"] if r[0] <= d][-1:] or [h["rows"][-1][4]]
+    ref = [r[4] for r in rows if r[0] <= d][-1:] or [rows[-1][4]]
     return bool(ref and ref[0] and 0.6 <= price / ref[0] <= 1.6)
 
 

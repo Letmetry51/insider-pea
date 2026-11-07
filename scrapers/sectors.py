@@ -30,6 +30,7 @@ import json
 import math
 import sys
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -615,6 +616,19 @@ def fx_now():
     return out
 
 
+def shrunk(old, new):
+    """Univers reconstruit nettement plus petit que le précédent (une région du filtre Yahoo en erreur, réponses coupées) :
+    la raison, sinon None. Sans ce garde-fou, les sociétés d'un pays entier sortiraient du classement pour une semaine."""
+    if len(old) < 200:
+        return None
+    if len(new) < 0.8 * len(old):
+        return f"{len(new)} sociétés contre {len(old)} la semaine précédente"
+    count = lambda d: Counter((it or {}).get("country") for it in d.values() if isinstance(it, dict))  # noqa: E731
+    was, now = count(old), count(new)
+    gone = sorted(c for c, n in was.items() if c and n >= 20 and now.get(c, 0) < 0.5 * n)
+    return f"pays presque absents : {', '.join(gone)}" if gone else None
+
+
 def build_universe():
     t0 = time.time()
     fx = fx_now()
@@ -675,6 +689,10 @@ def build_universe():
                 extra[s] = it  # cotation citée gardée telle quelle (petite valeur, ou capitalisation absente de sa fiche)
             elif k and k in by_name:
                 alias[s] = by_name[k]
+    lost = shrunk((read_json(UNIVERSE, {}) or {}).get("items") or {}, uni)
+    if lost:  # filtre Yahoo coupé pour une région : univers précédent gardé (date inchangée, nouvel essai la nuit suivante)
+        log(f"Univers : filtre Yahoo incomplet ({lost}), univers précédent gardé, nouvel essai la nuit prochaine")
+        return
     write_json(UNIVERSE, {"generatedAt": datetime.now(timezone.utc).isoformat(), "minCapEur": MIN_CAP_EUR, "fx": fx, "items": uni,
                           "themeAlias": alias, "themeExtra": extra, "homeV": HOME_V})
     log(f"Univers : {len(raw)} cotations → {len(uni)} sociétés éligibles PEA d'au moins {MIN_CAP_EUR / 1e6:.0f} M€ ({time.time() - t0:.0f} s)")
@@ -777,6 +795,19 @@ def refresh_estimates():
             if pp:
                 e["past"] = sorted(pp)[-16:]  # publications passées gardées au-delà des 16 lignes de Yahoo
             est[s] = e
+    n_old = sum(1 for v in old.values() if isinstance(v, dict) and v.get("rev"))
+    n_new = sum(1 for v in est.values() if v.get("rev"))
+    if n_old >= 50 and n_new < n_old / 2:
+        # Yahoo bloqué ou en panne cette semaine : révisions de la semaine précédente gardées (datées), instantané et archive
+        # non enregistrés — une semaine creuse fausserait le test futur des révisions
+        for s, e in est.items():
+            o = old.get(s) or {}
+            if not e.get("rev") and o.get("rev"):
+                e["rev"], e["revAt"] = o["rev"], o.get("revAt") or o.get("fetched")
+        write_json(ESTIMATES, est)
+        log(f"Révisions : collecte partielle ({n_new} sociétés contre {n_old} la semaine précédente), révisions précédentes "
+            "gardées, instantané et archive de la semaine non enregistrés")
+        return
     write_json(ESTIMATES, est)
     # instantané hebdomadaire de la largeur des révisions par groupe : constitue l'historique qui permettra de valider ce signal
     groups = groups_of(uni)
@@ -880,11 +911,32 @@ def fetch_prices():
     us = sorted({s for th in THEMES for s in th["us"]})
     t0 = time.time()
     W, V = download_weekly(list(allu) + us + [BENCH, US_BENCH] + list(FX_PAIRS.values()))
-    W = to_eur(W, allu)
-    # titres absents ce soir : séries de la veille (fichier gardé d'un soir à l'autre par le cache GitHub), réalignées
+    W0 = None
     if WEEKLY.exists():
         try:
             W0 = pd.read_csv(WEEKLY, index_col=0, parse_dates=True, compression="gzip").sort_index()
+        except Exception as e:
+            log(f"Cours hebdomadaires de la veille illisibles : {str(e)[:80]}")
+    # taux de change absents ce soir (Yahoo limité : les paires EUR…=X passent après les titres) : ceux de la veille, AVANT la
+    # conversion. Sinon les titres en SEK, NOK… restaient en devise locale, puis la fiche société les remultipliait par le taux
+    # repris de la veille : cours ×11 en SEK, ×7,5 en DKK (relecture du 07/11/2026). Sans taux du tout, ces titres reprennent leur
+    # série de la veille (déjà en euros) plutôt que d'être publiés dans la mauvaise devise.
+    no_fx = []
+    for cur, pair in FX_PAIRS.items():
+        if not W.empty and (pair not in W.columns or W[pair].notna().sum() < 30):
+            if W0 is not None and pair in W0.columns and W0[pair].notna().sum() >= 30:
+                W[pair] = W0[pair].reindex(W.index, method="nearest", tolerance=pd.Timedelta(days=3)).ffill()
+                log(f"Taux {pair} absent de Yahoo ce soir : taux de la veille")
+            else:
+                no_fx.append(cur)
+    if no_fx:
+        drop = [c for c, it in allu.items() if c in W.columns and str(it.get("currency") or "").upper() in no_fx]
+        W = W.drop(columns=drop)
+        log(f"Taux de change introuvables ({', '.join(no_fx)}) : {len(drop)} séries écartées ce soir")
+    W = to_eur(W, allu)
+    # titres absents ce soir : séries de la veille (fichier gardé d'un soir à l'autre par le cache GitHub), réalignées
+    if W0 is not None:
+        try:
             lost = [c for c in W0.columns if c not in W.columns or W[c].notna().sum() < 30]
             if lost and not W.empty:
                 W = W.drop(columns=[c for c in lost if c in W.columns]).join(W0[lost].reindex(W.index, method="nearest", tolerance=pd.Timedelta(days=3)), how="left")
@@ -895,7 +947,7 @@ def fetch_prices():
                 W = W0
                 log("Cours hebdomadaires : Yahoo indisponible, fichier de la veille conservé")
         except Exception as e:
-            log(f"Cours hebdomadaires de la veille illisibles : {str(e)[:80]}")
+            log(f"Cours hebdomadaires de la veille non repris : {str(e)[:80]}")
     miss = [s for s in list(uni) + us + [BENCH] if s not in W.columns or W[s].notna().sum() < 30]
     W.to_csv(WEEKLY, compression="gzip", float_format="%.5g")
     if not V.empty:
@@ -1405,14 +1457,34 @@ DV_DAYS = 60  # volumes journaliers gardés dans les fiches (📣 bond du jour :
 
 
 def daily_series(tickers):
-    """Clôtures (ajustées, devise locale) et volumes journaliers sur un an : deux DataFrame dates × titres, même téléchargement
-    (les volumes ne coûtent aucune requête de plus)."""
+    """Clôtures (ajustées, devise locale), volumes et dividendes journaliers sur un an : trois DataFrame dates × titres, même
+    téléchargement (volumes et dividendes ne coûtent aucune requête de plus)."""
     import yahoo
-    F = yahoo.download(tickers, "journalier", period="1y", interval="1d", fields=("Close", "Volume"))
-    X, V = F.get("Close", pd.DataFrame()), F.get("Volume", pd.DataFrame())
+    F = yahoo.download(tickers, "journalier", period="1y", interval="1d", fields=("Close", "Volume", "Dividends"), actions=True)
+    X, V, DIV = F.get("Close", pd.DataFrame()), F.get("Volume", pd.DataFrame()), F.get("Dividends", pd.DataFrame())
     if X.empty:
-        return X, V
-    return X.where(X > 0), (V.reindex(index=X.index).where(V > 0) if not V.empty else V)
+        return X, V, DIV
+    # avec les dividendes, yfinance ajoute une ligne sans cours pour un détachement hors des séances reçues (annoncé pour
+    # demain, place fermée) : écartée, sinon chaque fiche finirait par une séance vide (« dernière clôture manquante »)
+    X = X.where(X > 0).dropna(how="all")
+    return X, (V.reindex(index=X.index).where(V > 0) if not V.empty else V), DIV
+
+
+def daily_dividends(DIV, sym, since):
+    """Dividendes détachés depuis `since` (AAAA-MM-JJ) : [[date, montant par action en devise de cotation]], None sans dividende.
+    Emails de revente : un détachement n'est pas une perte (cours ajustés des tests ; relecture du 07/11/2026)."""
+    if DIV is None or DIV.empty or sym not in DIV.columns:
+        return None
+    out = []
+    for d, v in DIV[sym].items():
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            continue
+        ds = pd.Timestamp(d).strftime("%Y-%m-%d")
+        if np.isfinite(v) and v > 0 and ds >= since:
+            out.append([ds, float(f"{v:.6g}")])
+    return out or None
 
 
 def daily_volumes(V, sym, index, n=DV_DAYS):
@@ -1506,10 +1578,10 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             cols = [c for c in syms if c in Wl.columns and str((uni.get(c) or extra.get(c) or {}).get("currency") or "").upper() == cur]
             if cols:
                 Wl[cols] = Wl[cols].mul(Wl[pair].ffill(), axis=0)
-    D, DV = pd.DataFrame(), pd.DataFrame()
+    D, DV, DD = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     if fetch_daily:
         t0 = time.time()
-        D, DV = daily_series(syms)
+        D, DV, DD = daily_series(syms)
         log(f"Cours journaliers des fiches : {D.shape[1]} titres, {D.shape[0]} séances, {time.time() - t0:.0f} s")
         miss = [x for x in cat_only if x not in Wl.columns]
         if miss:
@@ -1575,6 +1647,9 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             dv = daily_volumes(DV, sym, D.index)
             if dv:
                 rec["dv"] = dv
+            dvd = daily_dividends(DD, sym, D.index[0].strftime("%Y-%m-%d"))
+            if dvd:
+                rec["dvd"] = dvd
         items[sym] = rec
         cap = rec.get("capEur")
         index.append([sym, rec.get("name"), rec.get("country"), round(cap / 1e6) if cap else None, rec.get("sector"), g,
@@ -1606,6 +1681,8 @@ def companies(uni, extra, stock, W, groups, out_groups, themes, fetch_daily=True
             v = realign(old["d"], odd, dd_new)
             if v:
                 rec["d"] = v; took = True
+                if old.get("dvd"):  # dividendes de la veille (dates, pas d'alignement)
+                    rec["dvd"] = old["dvd"]
                 if old.get("dv"):  # volumes de la veille, alignés par la fin sur les dates de la veille
                     m = dict(zip(odd[-len(old["dv"]):], old["dv"]))
                     dv = [m.get(d) for d in dd_new[-DV_DAYS:]]

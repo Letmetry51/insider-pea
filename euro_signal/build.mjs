@@ -2451,6 +2451,51 @@ export function build(opts = {}) {
     }
     // Sélection de la semaine : les premières sociétés non écartées au-dessus du seuil ; suivi depuis l'envoi
     state.rankSelections = isObj(state.rankSelections) ? state.rankSelections : {};
+    // sélection enregistrée abîmée (sans liste ou sans date) : retirée ; sinon le classement entier tombait chaque soir, sans retour
+    Object.keys(state.rankSelections).forEach((w) => {
+      const S0 = state.rankSelections[w];
+      if (!isObj(S0) || !Array.isArray(S0.items) || typeof S0.date !== 'string') delete state.rankSelections[w];
+      else S0.items = S0.items.filter((x) => isObj(x) && typeof x.key === 'string');
+    });
+    // Une société change de clé quand elle gagne ou perd un dossier Euro Signal (symbole ↔ ISIN, JCDecaux et Lotus Bakeries par
+    // exemple) : sélections passées, journaux du suivi réel et emails déjà envoyés sont ramenés chaque soir à la clé du moment.
+    // Sinon la ligne disparaissait du suivi réel et un feu vert ou un bond pouvait repartir (relecture du 07/11/2026).
+    {
+      const keyNow = {};
+      rows.forEach((r) => {
+        // ISIN aussi quand la société n'a pas (ou plus) de dossier : fiche du catalogue, listes des bourses, ventes à découvert
+        [r.key, r.sym, r.isin, (co[r.sym] || {}).isin, isinOfSymAll[r.sym]].forEach((k) => {
+          if (typeof k === 'string' && k && !keyNow[k]) keyNow[k] = r.key;
+        });
+      });
+      const reKey = (k) => (typeof k === 'string' && keyNow[k]) || k;
+      [state.rankSelections, state.pickLog, state.valueLog].forEach((M) => {
+        if (!isObj(M)) return;
+        Object.keys(M).forEach((w) => {
+          const L = M[w];
+          if (isObj(L) && Array.isArray(L.items))
+            L.items.forEach((x) => {
+              if (isObj(x) && typeof x.key === 'string') x.key = reKey(x.key);
+            });
+        });
+      });
+      [
+        ['pickWaitSeen', (a, b) => (a < b ? a : b)], // première vue : la plus ancienne
+        ['feuVertSent', (a, b) => (a > b ? a : b)], // emails envoyés : le plus récent
+        ['bondSent', (a, b) => (a > b ? a : b)],
+        ['dayBondSent', (a, b) => (a > b ? a : b)],
+      ].forEach(([nm, keep]) => {
+        const M = state[nm];
+        if (!isObj(M)) return;
+        const out = {};
+        Object.keys(M).forEach((k) => {
+          const nk = reKey(k),
+            v = String(M[k]);
+          out[nk] = nk in out ? keep(out[nk], v) : v;
+        });
+        state[nm] = out;
+      });
+    }
     const week = ES.isoWeek(today),
       mkLink = (r) => (dashUrl ? dashUrl + '#' + (r.isin || 'co=' + r.sym) : null);
     const lastOf = {},
@@ -2891,6 +2936,9 @@ export function build(opts = {}) {
     // garde-fou : comptes annuels illisibles ce soir (fichier tronqué, panne Yahoo) → pas d'email « aucune société » trompeur ;
     // la sélection attend le soir suivant (contrôle du soir : alerte « comptes lus »)
     const accOk = !(rank && rank.counts && rank.counts.ranked >= 200 && rank.counts.accRead < 0.4 * rank.counts.ranked);
+    // garde-fou : classement effondré (moins de 200 sociétés classées : fiches illisibles, volumes inconnus) : la sélection attend
+    // aussi ; avant le 07/11/2026, le contrôle des comptes ne s'appliquait justement plus dans ce cas
+    const rankedOk = !!(rank && rank.counts && rank.counts.ranked >= 200);
     if (rank && !accOk)
       console.warn(
         '  Sélection reportée : comptes lus pour ' +
@@ -2901,9 +2949,11 @@ export function build(opts = {}) {
       );
     // garde-fou : dernière clôture manquante sur une place (calcul tardif après minuit, panne de Yahoo et du secours) : la sélection
     // attend le soir suivant, au plus tard le vendredi (19/10/2026 : 97 % des fiches sans la clôture du jour, sélection envoyée)
+    // contrôle de ce soir seulement : date UTC du contrôle égale au jour du calcul, ou le lendemain après minuit (−1) ; jusqu'au
+    // 07/11/2026, le fichier de la veille (+1) passait aussi quand l'étape 3c n'avait rien écrit
     const BK = readJSON(path.join(DATA, 'diagnostics', 'backup.json'), null);
     const holes =
-      BK && isObj(BK.complete) && isObj(BK.complete.catalogue) && ES.daysBetween(String(BK.date || ''), today) <= 1
+      BK && isObj(BK.complete) && isObj(BK.complete.catalogue) && ES.daysBetween(String(BK.date || ''), today) <= 0
         ? Object.keys(BK.complete.catalogue).filter((k) => {
             const v = BK.complete.catalogue[k] || {};
             // Londres et Zurich hors PEA : sans effet sur une sélection PEA, elles ne la retiennent pas (03/11/2026)
@@ -2914,9 +2964,11 @@ export function build(opts = {}) {
       console.warn(
         '  Sélection reportée : dernière clôture manquante sur ' + holes.join(', ') + ' (au plus tard vendredi)'
       );
-    const coOk = !!(rank && rank.coFresh && accOk && !holes.length),
-      wait = !coOk && dow < 5;
-    if ((resend && coOk) || (!done && !wait && dow >= (selCfg.weekday || 1) && dow <= 5 && coOk)) {
+    // vendredi : la sélection part quand même si les cours du catalogue sont frais (clôture manquante sur une place ou comptes peu
+    // lus), avec la raison en tête de l'email ; avant le 07/11/2026, la semaine était perdue sans le dire
+    const coOk = !!(rank && rank.coFresh && accOk && rankedOk && !holes.length),
+      lastCall = !coOk && dow === 5 && !!(rank && rank.coFresh && rank._sel && rank._sel.length);
+    if ((resend && coOk) || (!done && dow >= (selCfg.weekday || 1) && dow <= 5 && (coOk || lastCall))) {
       // Depuis le barème 3.0 : la sélection envoyée est celle du classement tendance + comptes (l'ancienne, fondée sur les dirigeants,
       // reste calculée et affichée pour comparaison jusqu'à la revue du 31/01/2027)
       const mail = rank
@@ -2932,6 +2984,23 @@ export function build(opts = {}) {
         : null;
       if (!mail) {
         console.warn('  Sélection de la semaine non envoyée : classement indisponible');
+      } else if (lastCall) {
+        const why = holes.length
+          ? 'clôture de la dernière séance manquante sur ' + holes.join(', ')
+          : !rankedOk
+            ? 'seulement ' + ((rank.counts && rank.counts.ranked) || 0) + ' sociétés classées'
+            : 'comptes annuels lus pour trop peu de sociétés';
+        const note =
+          '⚠️ Données incomplètes ce soir (' +
+          why +
+          ') : sélection envoyée quand même, le vendredi au plus tard. À revérifier lundi.';
+        mail.text = note + '\n\n' + mail.text;
+        mail.html =
+          '<p style="background:#FFF4E5;border-left:4px solid #E8A33D;padding:8px 10px;margin:0 0 12px">' +
+          ES.esc(note) +
+          '</p>' +
+          mail.html;
+        console.warn('  Sélection envoyée vendredi malgré des données incomplètes : ' + why);
       }
       if (rank)
         state.rankSelections[week] = {
@@ -3004,18 +3073,26 @@ export function build(opts = {}) {
               ? 'clôture de la dernière séance manquante à ' + holes.map((k) => PL[k] || k).join(', ')
               : !accOk
                 ? 'comptes annuels lus pour trop peu de sociétés'
-                : rank && !rank.coFresh
-                  ? 'cours du catalogue trop anciens'
-                  : 'classement indisponible',
+                : rank && rank.coFresh && !rankedOk
+                  ? 'trop peu de sociétés classées'
+                  : rank && !rank.coFresh
+                    ? 'cours du catalogue trop anciens'
+                    : 'classement indisponible',
           }
         : null;
     if (rank && rank.selection) rank.selection.postponed = postponed || undefined;
+    // week-end sans sélection envoyée cette semaine : dit dans le contrôle du soir (avant le 07/11/2026, rien ne le signalait)
+    const missed =
+      !sentWeek && dow > 5
+        ? { why: rank && !rank.coFresh ? 'cours du catalogue trop anciens' : 'données incomplètes toute la semaine' }
+        : null;
     writeJSON(path.join(DATA, 'diagnostics', 'selection.json'), {
       week,
       date: today,
       at: new Date().toISOString(),
       sent: sentWeek,
       postponed,
+      missed,
     });
   }
 

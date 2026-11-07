@@ -54,6 +54,7 @@ def _():
     h = {"rows": [["2026-10-01", 0, 0, 0, 10.0]]}
     assert P.coherent(h, ("2026-10-02", 11)) and P.coherent(h, None)
     assert not P.coherent(h, ("2026-10-02", 100)) and not P.coherent(h, ("2026-10-02", 2))
+    assert not P.coherent({"rows": []}, ("2026-10-02", 11))  # aucune clôture valable : refus, pas de plantage
 
 
 @case("Liste officielle de la bourse : ISIN introuvable chez Yahoo ou cours figé, retenue si cours frais et prix déclaré cohérent")

@@ -444,8 +444,10 @@ FI_COLS = {
 }
 
 
-def fi_parse(headers, body, since):
-    """Lignes de l'export FI -> enregistrements au format commun (partagé avec le collecteur d'historique)."""
+def fi_parse(headers, body, since, dropped=None):
+    """Lignes de l'export FI -> enregistrements au format commun (partagé avec le collecteur d'historique). `dropped` (liste)
+    reçoit les identifiants des lignes annulées ou remplacées par une version corrigée, pour retirer celles déjà retenues un
+    soir précédent (sinon l'achat compterait deux fois)."""
     headers = [h.strip().lstrip("\ufeff") for h in headers]
     nh = [norm(h) for h in headers]
     colmap = {}
@@ -461,16 +463,18 @@ def fi_parse(headers, body, since):
         tx, pub = iso_date(get("txDate")), iso_date(get("published"))
         if not tx or (pub or tx) < since:
             continue
-        if norm(get("status")) in ("revoked", "makulerad", "cancelled", "revised", "reviderad"):
-            continue  # « Revised » : remplacée par une version corrigée, présente elle aussi dans l'export
         yes = lambda v: norm(v) in ("yes", "ja", "true", "x")
         assoc = yes(get("associated"))
         person = (get("notifier") if assoc else get("pdmr")) or get("pdmr") or get("notifier")
+        rid = f"{tx}-{norm(get('issuer'))[:30]}-{norm(person)[:30]}-{get('isin') or ''}-{get('price') or ''}-{get('quantity') or ''}-{pub or ''}"
+        if norm(get("status")) in ("revoked", "makulerad", "cancelled", "revised", "reviderad"):
+            if dropped is not None:
+                dropped.append(re.sub(r"[^A-Za-z0-9_.:-]", "_", rid)[:150])
+            continue  # « Revised » : remplacée par une version corrigée, présente elle aussi dans l'export
         role = (get("role") or "") + (" (closely associated person, linked to " + (get("pdmr") or "?") + ")" if assoc else "")
         nature = (get("nature") or "") + (" (share option programme)" if yes(get("program")) else "")
         unit = norm(get("unit"))
         qty = get("quantity") if unit in ("", "quantity", "antal", "st", "styck", "number") else None  # volumes en montant nominal (obligations) ignorés
-        rid = f"{tx}-{norm(get('issuer'))[:30]}-{norm(person)[:30]}-{get('isin') or ''}-{get('price') or ''}-{get('quantity') or ''}-{pub or ''}"
         # lien vers la déclaration : formulaire de recherche FI rempli (société, dirigeant, date de transaction)
         url = ("https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search?SearchFunctionType=Insyn&Utgivare=" + quote(get("issuer") or "")
                + "&PersonILedandeSt%C3%A4llningNamn=" + quote(get("pdmr") or person or "") + "&Transaktionsdatum.From=" + tx + "&Transaktionsdatum.To=" + tx)
@@ -537,8 +541,14 @@ def fi_collect(st):
         if not headers:
             raise RuntimeError(cut or "export vide")
         rows = [headers] + body
-        headers, colmap, recs = fi_parse(headers, body, since)
+        gone = []
+        headers, colmap, recs = fi_parse(headers, body, since, gone)
         d.update({"headers": headers, "columnMap": {k: headers[v] for k, v in colmap.items()}, "rowCount": max(0, len(rows) - 1), "sampleRows": rows[1:3]})
+        # déclarations annulées ou corrigées depuis : version retenue un soir précédent retirée (avant d'ajouter la version corrigée,
+        # qui peut porter le même identifiant)
+        removed = sum(1 for i in set(gone) if st["records"].pop(f"FI:{i}", None) is not None)
+        if removed:
+            print(f"FI (Suède) : {removed} déclaration(s) annulée(s) ou corrigée(s) depuis, retirée(s)")
         kept = 0
         for rec in recs:
             st["records"][f"FI:{rec['id']}"] = rec

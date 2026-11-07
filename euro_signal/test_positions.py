@@ -151,6 +151,29 @@ def _():
     assert P.plan_txt(c) == "ajusté à la main (entrée 12,50, stop 11,00, objectif 15,00)", P.plan_txt(c)
 
 
+@case("Dividendes détachés depuis l'achat (relecture du 07/11/2026) : comptés dans la performance, pas de fausse protection −30 %")
+def _():
+    pos = {"isin": "WAWI.OL", "price": 100.0, "date": "2026-06-01"}
+    d = date(2026, 9, 4)
+    adj = [["2026-06-01", 0, 0, 0, 100.0, 0], ["2026-07-15", 0, 0, 0, 80.0, 0], ["2026-09-03", 0, 0, 0, 69.0, 0]]
+    ev0, info0 = P.evaluate(pos, adj, {}, [], d, adjusted=True)
+    assert "stop30" in {k for k, _ in ev0} and abs(info0["perf"] + 31) < 0.01, (ev0, info0)  # sans dividende : −31 %
+    divs = [{"date": "2026-05-20", "amount": 9.0}, {"date": "2026-07-15", "amount": 12.0}, {"date": "2026-09-10", "amount": 5.0}]
+    ev, info = P.evaluate(pos, adj, {}, [], d, adjusted=True, dividends=divs)  # seul le dividende du 15/07 compte (avant : déjà payé ; après : pas encore)
+    keys = {k for k, _ in ev}
+    assert "stop30" not in keys and "baisse10" in keys and abs(info["perf"] + 19) < 0.01 and info["div"] == 12.0, (ev, info)
+    # cours bruts d'Euro Signal : dividende de 4 au cours d'avant la division par 2, soit 2 par action d'aujourd'hui
+    raw = [["2026-06-01", 0, 0, 0, 100.0, 0], ["2026-07-14", 0, 0, 0, 90.0, 0], ["2026-07-15", 0, 0, 0, 45.0, 0], ["2026-09-03", 0, 0, 0, 34.0, 0]]
+    ev2, info2 = P.evaluate(pos, raw, {}, [], d, splits=[{"date": "2026-07-15", "ratio": 2.0}], dividends=[{"date": "2026-06-20", "amount": 4.0}])
+    assert abs(info2["perf"] - ((34 + 2) / 50 - 1) * 100) < 0.01 and "stop30" not in {k for k, _ in ev2}, (ev2, info2)
+    ev3, _ = P.evaluate(pos, adj, {}, [], d, adjusted=True, dividends=[{"date": "x"}, None, {"date": "2026-07-01", "amount": "abc"}])
+    assert "stop30" in {k for k, _ in ev3}, "dividendes illisibles : ignorés"
+    # catalogue, division par 2 depuis l'achat : base = cours ajusté du jour de l'achat, qui compte déjà les dividendes
+    split = [["2026-06-01", 0, 0, 0, 48.5, 0], ["2026-09-03", 0, 0, 0, 52.0, 0]]
+    _, info4 = P.evaluate(pos, split, {}, [], d, adjusted=True, dividends=[{"date": "2026-07-01", "amount": 1.5}])
+    assert abs(info4["perf"] - (52 / 48.5 - 1) * 100) < 0.01 and info4["div"] == 0, info4
+
+
 @case("Division ou regroupement d'actions après l'achat : pas de fausse protection −30 % ni de faux objectif")
 def _():
     pos = {"isin": "FR0000054470", "price": 100.0, "date": "2026-06-01"}

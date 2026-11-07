@@ -37,6 +37,21 @@ def tx(n, d):
     return {"declaration_number": n, "date": d, "date_published": d, "insider": "X", "amount": 1, "is_purchase": True}
 
 
+@case("FI (Suède) : déclaration retenue un soir puis corrigée ou annulée par le registre, ancienne version retirée")
+def _():
+    head = ["Publication date", "Issuer", "Person discharging managerial responsibilities", "Position", "Closely associated",
+            "Nature of transaction", "Instrument type", "ISIN", "Transaction date", "Volume", "Unit", "Price", "Currency", "Status"]
+    row = ["2026-11-02", "Volvo AB", "Anna Berg", "CEO", "No", "Acquisition", "Share", "SE0000115446", "2026-10-30", "1000",
+           "Quantity", "250", "SEK"]
+    _, _, first = EU.fi_parse(head, [row + ["Current"]], "2026-10-01")
+    assert len(first) == 1
+    gone = []
+    fixed = row[:9] + ["10000"] + row[10:]  # volume corrigé : nouvelle déclaration, l'ancienne passe en « Revised »
+    _, _, recs = EU.fi_parse(head, [row + ["Revised"], fixed + ["Current"], row + ["Cancelled"]], "2026-10-01", gone)
+    assert [r["quantity"] for r in recs] == ["10000"] and gone == [first[0]["id"]] * 2, (recs, gone)
+    assert EU.fi_parse(head, [row + ["Revised"]], "2026-10-01")[2] == []  # collecteur d'historique : sans liste, inchangé
+
+
 @case("AMF : déclarations de la veille gardées (fenêtre, doublons, ordre)")
 def _():
     fresh = [tx("A", "2026-10-20"), tx("B", "2026-10-19")]

@@ -231,14 +231,29 @@ def shard_of(sym, n=32):
     return h % n
 
 
-def catalogue_rows(sym):
-    """Clôtures journalières (un an) d'une société du catalogue, au format [date, o, h, l, close, v]."""
+def catalogue_item(sym):
+    """Fiche d'une société du catalogue et dates de ses cours journaliers ({} et [] si absente)."""
     try:
         sh = json.loads((DATA / "societes" / ("%d.json" % shard_of(sym))).read_text(encoding="utf-8"))
     except Exception:
-        return []
-    x = (sh.get("items") or {}).get(sym) or {}
-    return [[d, c, c, c, c, None] for d, c in zip(sh.get("dDates") or [], x.get("d") or []) if d and c]
+        return {}, []
+    return ((sh.get("items") or {}).get(sym) or {}), (sh.get("dDates") or [])
+
+
+def catalogue_rows(sym):
+    """Clôtures journalières (un an) d'une société du catalogue, au format [date, o, h, l, close, v]."""
+    x, dd = catalogue_item(sym)
+    return [[d, c, c, c, c, None] for d, c in zip(dd, x.get("d") or []) if d and c]
+
+
+def catalogue_dividends(sym):
+    """Dividendes détachés sur un an d'une société du catalogue : [{date, amount}] (champ « dvd » des fiches, [[date, montant]])."""
+    x, _ = catalogue_item(sym)
+    out = []
+    for v in x.get("dvd") or []:
+        if isinstance(v, (list, tuple)) and len(v) == 2 and isinstance(v[0], str) and isinstance(v[1], (int, float)) and v[1] > 0:
+            out.append({"date": v[0], "amount": float(v[1])})
+    return out
 
 
 def death_cross(rows, since):
@@ -267,10 +282,14 @@ def split_base(price, adj):
     return adj if f < 0.8 or f > 1.25 else price
 
 
-def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=False):
+def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=False, dividends=None):
     """Événements de revente pour une position. rows : [[date, o, h, l, close, v], …] : cours bruts publiés (cours d'Euro Signal,
     divisions et regroupements dans « splits » : [{date, ratio}]) ou cours ajustés (catalogue, adjusted=True). Dans les deux cas,
-    prix d'achat et cours sont ramenés à la même base : une division par 2 ne compte plus pour une baisse de 50 %."""
+    prix d'achat et cours sont ramenés à la même base : une division par 2 ne compte plus pour une baisse de 50 %.
+    dividends : [{date, amount}] détachés (montant par action au jour du détachement pour les cours bruts, à la base du jour pour
+    le catalogue) : ceux détachés depuis l'achat comptent dans la performance, comme dans les tests (cours ajustés des dividendes).
+    Sans cela, un dividende de 8 % déclenchait l'email de baisse trop tôt, et un dividende exceptionnel la protection à −30 %
+    (relecture du 07/11/2026 ; Wallenius Wilhelmsen, Frontline : 3 à 9 % par détachement)."""
     closes = [(r[0], r[4]) for r in rows if r and r[4]]
     sp = [(x["date"], float(x["ratio"])) for x in (splits or []) if isinstance(x, dict) and x.get("date") and (x.get("ratio") or 0) > 0]
 
@@ -285,9 +304,20 @@ def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=F
     buy = now_basis(pos["price"], pos["date"])
     if adjusted:
         at_buy = [c for d, c in closes if d <= pos["date"]][-1:] or [None]
-        buy = split_base(buy, at_buy[0])
+        paid, buy = buy, split_base(buy, at_buy[0])
+        if buy != paid:  # prix d'achat remplacé par le cours ajusté (division depuis l'achat) : dividendes déjà compris dedans
+            dividends = None
+    div = 0.0
+    last_day = closes[-1][0] if closes else None
+    for x in dividends or []:
+        try:
+            d, amt = str(x.get("date") or ""), float(x.get("amount") or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if amt > 0 and pos["date"] < d and (last_day is None or d <= last_day):  # détaché après l'achat, connu au dernier cours
+            div += amt if adjusted else now_basis(amt, d)
     last, peak = after[-1], max(after)
-    perf = (last / buy - 1) * 100
+    perf = ((last + div) / buy - 1) * 100
     ev = []
     if pos.get("target") and perf >= pos["target"]:
         ev.append(("obj" + str(int(pos["target"])), "objectif de +%d %% atteint (%s depuis votre achat)" % (pos["target"], pc(perf))))
@@ -318,7 +348,7 @@ def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=F
         else:
             nxt = "vendre, puis racheter seulement si elle figure encore dans le 🎯"
         ev.append(("6mois", "6 mois depuis votre achat (%s) : c'est l'horizon testé (62 %% de gagnants sur 29 ans) ; %s" % (pc(perf), nxt)))
-    return ev, {"last": last, "perf": perf, "peak": peak}
+    return ev, {"last": last, "perf": perf, "peak": peak, "div": div}
 
 
 SECTORS_FR = {"Basic Materials": "Matériaux de base", "Communication Services": "Médias et télécoms", "Consumer Cyclical": "Consommation cyclique",
@@ -415,19 +445,21 @@ def main():
         name = inst.get("name") or pos.get("name") or isin
         if not p and not ISIN_RE.fullmatch(isin):  # société du catalogue : cours du catalogue, MM50 / MM200 recalculées ici
             rows = catalogue_rows(isin)
-            p = {"rows": rows} if rows else None
+            p = {"rows": rows, "dividends": catalogue_dividends(isin)} if rows else None
             stats = {"deathCrossDate": death_cross(rows, pos["date"])} if rows else {}
         else:
             stats = inst.get("stats") or {}
         if not p:
             continue
         evs, info = evaluate(pos, p.get("rows") or [], stats, (state.get("txArchive") or {}).get(isin) or [], today,
-                             (isin in picks) if picks is not None else None, splits=p.get("splits"), adjusted="splits" not in p)
+                             (isin in picks) if picks is not None else None, splits=p.get("splits"), adjusted="splits" not in p,
+                             dividends=p.get("dividends"))
         for key, label in evs:
             ref = "%s:%s:%s" % (isin, pos["date"].replace("-", ""), key)
             if ref in refs:
                 continue
-            body = ("%s — %s.\n\nVotre achat : %s le %s. Dernier cours : %s (%s).\n"
+            body = ("%s — %s.\n\nVotre achat : %s le %s. Dernier cours : %s (%s" + (", dividendes détachés depuis l'achat compris : "
+                    + ("%.2f" % info["div"]).replace(".", ",") + " par action" if info.get("div") else "") + ").\n"
                     "Règles testées : garder 6 mois, vendre sous -30 %%. Ce n'est pas un ordre : à décider selon votre stratégie.\n"
                     "Pour arrêter le suivi : bouton « Je l'ai vendu » dans la fiche%s.") % (
                 name, label, ("%.2f" % pos["price"]).replace(".", ","), pos["date"], ("%.2f" % info["last"]).replace(".", ","), pc(info["perf"]),
