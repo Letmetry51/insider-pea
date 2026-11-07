@@ -29,7 +29,7 @@ CULTURES = {"ble": "Blé tendre", "escourgeon": "Escourgeon brassicole", "orge_p
 SIGNAUX = {"VENDRE": "🟢 VENDRE UNE TRANCHE", "TENIR": "🟡 TENIR LE PLAN", "ATTENDRE": "🔴 ATTENDRE-STOCKER", "COUVRIR": "🛡️ COUVRIR"}
 PROXY = {"EBM": "ZW=F", "ECO": "ZL=F", "EMA": "ZC=F"}  # colza : huile de soja (le canola ICE n'est pas sur Yahoo)
 # conversion en $/t : blé 36,744 boisseaux/t, maïs 39,368 boisseaux/t (cents/boisseau) ; huile de soja 2 204,62 livres/t (cents/livre)
-TONNE = {"ZW=F": 36.744, "KE=F": 36.744, "ZC=F": 39.368, "ZS=F": 36.744, "ZL=F": 22.0462}
+TONNE = {"ZW=F": 36.744, "KE=F": 36.744, "ZC=F": 39.368, "ZS=F": 36.744, "ZL=F": 2204.62}
 SIG_ENGRAIS = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER", "ATTENDRE": "🔴 ATTENDRE"}
 
 

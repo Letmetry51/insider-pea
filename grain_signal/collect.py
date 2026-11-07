@@ -279,15 +279,16 @@ def collect_euronext(today):
 def yahoo_series(tk):
     """Clôtures journalières sur 5 ans : yfinance (gère les jetons de Yahoo, comme Euro Signal), sinon accès direct."""
     errs = []
-    for attempt in range(3):  # Yahoo renvoie parfois une seule séance ou refuse (429) : nouvel essai après une pause
+    # Yahoo renvoie parfois une seule séance (gaz TTF sur 5 ans) ou refuse (429) : période plus courte, puis nouvel essai
+    for attempt, period in enumerate(("5y", "2y", "1y")):
         try:
             import yfinance as yf
 
-            h = yf.Ticker(tk).history(period="5y", interval="1d", auto_adjust=False)
+            h = yf.Ticker(tk).history(period=period, interval="1d", auto_adjust=False)
             ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items()}
             if len(ser) >= 50:
-                return ser, "yfinance"
-            errs.append(f"yfinance : {len(ser)} séances")
+                return ser, f"yfinance {period}"
+            errs.append(f"yfinance {period} : {len(ser)} séances")
         except Exception as e:  # noqa: BLE001
             errs.append(f"yfinance : {type(e).__name__} {str(e)[:80]}")
         time.sleep(5 * (attempt + 1))
