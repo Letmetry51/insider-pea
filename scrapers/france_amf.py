@@ -14,6 +14,20 @@ BASE_URL = "https://transactions-amf.swaoo.com"
 # Page vide alors que la liste continue : réponse passagère du site (2 à 4 pages par soir ; 3 de suite le 04/11 et le 05/11/2026,
 # collecte arrêtée à 47 et 55 déclarations sur environ 1 500). Relue après ces pauses (secondes) avant d'être comptée vide.
 EMPTY_RETRY_WAITS = (3, 10)
+_DATE_CELL = re.compile(r"^\d{2}/\d{2}/\d{4}$")
+
+
+def _declaration_rows(soup):
+    """Lignes qui ressemblent à une déclaration (9 cellules ou plus, deux dates JJ/MM/AAAA), retenues ou non par le parser. Une page
+    dont toutes les déclarations sont écartées (sans ISIN d'action : options, BSPCE, autres instruments) n'est pas une page vide :
+    le 06/11/2026, les pages 8, 12 et 13 restaient à 0 déclaration retenue même relues, et 3 pages de ce genre de suite arrêtaient
+    la collecte (47 et 55 déclarations les 04 et 05/11 au lieu d'environ 1 500)."""
+    n = 0
+    for row in soup.find_all("tr"):
+        cells = row.find_all("td")
+        if len(cells) >= 9 and sum(1 for c in cells if _DATE_CELL.match(c.get_text(strip=True))) >= 2:
+            n += 1
+    return n
 
 PURCHASE_NATURES = {"Acquisition", "Souscription"}
 SELL_NATURES = {"Cession"}
@@ -241,7 +255,8 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80, status: dict | 
         
         soup = BeautifulSoup(response.text, "html.parser")
         page_txs = _extract_transactions_from_soup(soup)
-        for wait in EMPTY_RETRY_WAITS if not page_txs else ():
+        rows_seen = _declaration_rows(soup) if not page_txs else 0
+        for wait in EMPTY_RETRY_WAITS if not page_txs and not rows_seen else ():
             time.sleep(wait)
             try:
                 again = requests.get(BASE_URL + "/", params=params, headers=headers, timeout=30)
@@ -249,12 +264,26 @@ def scrape_all_recent(days_back: int = 180, max_pages: int = 80, status: dict | 
             except requests.RequestException:
                 continue
             response = again
-            page_txs = _extract_transactions_from_soup(BeautifulSoup(again.text, "html.parser"))
-            if page_txs:
+            again_soup = BeautifulSoup(again.text, "html.parser")
+            page_txs = _extract_transactions_from_soup(again_soup)
+            rows_seen = _declaration_rows(again_soup) if not page_txs else 0
+            if page_txs or rows_seen:
                 print(f"  Page {page}: relue après {wait} s")
                 status["retried"] = status.get("retried", 0) + 1
                 break
 
+        if not page_txs and rows_seen:
+            # déclarations toutes écartées (pas d'action identifiable) : la liste continue
+            empty_pages = 0
+            status["pages"] = page
+            status["filtered"] = status.get("filtered", 0) + 1
+            print(f"  Page {page}: {rows_seen} déclaration(s) sans action identifiable, écartée(s)")
+            if "Page suivante" not in response.text:
+                print("  Dernière page atteinte")
+                status["complete"] = True
+                break
+            time.sleep(0.3)
+            continue
         if not page_txs:
             empty_pages += 1
             print(f"  Page {page}: 0 tx parsées (page vide ou format inconnu)")
