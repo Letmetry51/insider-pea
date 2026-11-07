@@ -7,8 +7,8 @@
   "scripts": {
     "test": "node euro_signal/tests.js",
     "lint": "eslint .",
-    "format": "prettier --write \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" sw.js",
-    "format:check": "prettier --check \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" sw.js",
+    "format": "prettier --write \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" \"grain_signal/web/*.{js,css}\" sw.js",
+    "format:check": "prettier --check \"euro_signal/**/*.{js,mjs}\" \"app/**/*.{js,css}\" \"tools/**/*.mjs\" \"grain_signal/web/*.{js,css}\" sw.js",
     "stamp": "node tools/stamp.mjs"
   },
   "devDependencies": {

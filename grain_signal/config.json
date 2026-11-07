@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "dashboardUrl": "https://letmetry51.github.io/insider-pea/grain-signal.html",
+  "euronext": {
+    "EBM": {
+      "nom": "Blé meunier",
+      "culture": "ble",
+      "mois": [3, 5, 9, 12],
+      "expiration": { "regle": "jour", "jour": 10 },
+      "terrenet": "https://www.terre-net.fr/marche-agricole/ble-tendre/terme",
+      "secours": "https://live.euronext.com/en/ajax/getPricesFutures/commodities-futures/EBM/DPAR"
+    },
+    "ECO": {
+      "nom": "Colza",
+      "culture": "colza",
+      "mois": [2, 5, 8, 11],
+      "expiration": { "regle": "fin_mois_precedent" },
+      "terrenet": "https://www.terre-net.fr/marche-agricole/colza/terme",
+      "secours": "https://live.euronext.com/en/ajax/getPricesFutures/commodities-futures/ECO/DPAR"
+    },
+    "EMA": {
+      "nom": "Maïs",
+      "culture": "mais",
+      "mois": [3, 6, 9, 11],
+      "expiration": { "regle": "jour", "jour": 5 },
+      "terrenet": "https://www.terre-net.fr/marche-agricole/mais/terme",
+      "secours": "https://live.euronext.com/en/ajax/getPricesFutures/commodities-futures/EMA/DPAR"
+    }
+  },
+  "rollJours": 5,
+  "yahoo": {
+    "ZW=F": "Blé CBOT (SRW)",
+    "KE=F": "Blé KC (HRW)",
+    "ZC=F": "Maïs CBOT",
+    "ZS=F": "Soja CBOT",
+    "ZL=F": "Huile de soja CBOT",
+    "TTF=F": "Gaz TTF",
+    "BZ=F": "Brent",
+    "EURUSD=X": "EUR/USD"
+  },
+  "cftc": {
+    "dataset": "https://publicreporting.cftc.gov/resource/72hh-3qpy.json",
+    "marches": {
+      "001602": { "nom": "Blé CBOT (SRW)", "culture": "ble" },
+      "001612": { "nom": "Blé KC (HRW)", "culture": "ble" },
+      "002602": { "nom": "Maïs CBOT", "culture": "mais" },
+      "005602": { "nom": "Soja CBOT", "culture": "colza" },
+      "007601": { "nom": "Huile de soja CBOT", "culture": "colza" }
+    }
+  },
+  "engraisFrance": {
+    "uree": { "nom": "Urée 46", "url": "https://www.terre-net.fr/marche-agricole/uree/engrais", "titre": 0.46 },
+    "ammonitrate": {
+      "nom": "Ammonitrate 33,5",
+      "url": "https://www.terre-net.fr/marche-agricole/ammonitrate-33-5/engrais",
+      "titre": 0.335
+    },
+    "solution": {
+      "nom": "Solution azotée",
+      "url": "https://www.terre-net.fr/marche-agricole/solution-azotee/engrais",
+      "titre": 0.3
+    },
+    "uree_egypte": {
+      "nom": "Urée FOB Égypte",
+      "url": "https://www.terre-net.fr/marche-agricole/uree-egypte/engrais",
+      "titre": null
+    }
+  },
+  "physique": {
+    "ble": "https://www.terre-net.fr/marche-agricole/ble-tendre/physique",
+    "orge": "https://www.terre-net.fr/marche-agricole/orge-fourragere/physique",
+    "colza": "https://www.terre-net.fr/marche-agricole/colza/physique",
+    "mais": "https://www.terre-net.fr/marche-agricole/mais/physique"
+  },
+  "banqueMondiale": {
+    "page": "https://www.worldbank.org/en/research/commodity-markets",
+    "joursEntreTelechargements": 7
+  },
+  "poids": { "technique": 0.5, "cot": 0.25, "macro": 0.25 },
+  "poidsComite": { "technique": 0.1, "cot": 0.1, "macro": 0.1 },
+  "matrice": { "vendre": -1, "attendre": 0.5 },
+  "engrais": {
+    "ratioBas": 20,
+    "ratioMoyen": 60,
+    "ratioHaut": 80,
+    "rattrapage": 15,
+    "ttfHaut": 100,
+    "ttfBas": 75,
+    "ttfBasSeances": 10,
+    "saisonAchat": [4, 5, 6, 7],
+    "saisonChere": [9, 10, 11]
+  },
+  "comite": {
+    "modele": "claude-opus-5-5",
+    "maxTokens": 16000,
+    "recherchesMax": 20,
+    "jourHebdo": 0,
+    "alerteMaxParSemaine": 2,
+    "joursValidite": 8
+  }
+}

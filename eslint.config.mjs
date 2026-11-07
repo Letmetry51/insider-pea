@@ -53,6 +53,12 @@ export default [
     rules: { ...bugs, 'no-redeclare': ['error', { builtinGlobals: false }] },
   },
   {
+    // Grain Signal : page à part (grain-signal.html), un seul script
+    files: ['grain_signal/web/**/*.js'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'script', globals: { ...globals.browser } },
+    rules: bugs,
+  },
+  {
     files: ['sw.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'script', globals: { ...globals.serviceworker } },
     rules: bugs,
