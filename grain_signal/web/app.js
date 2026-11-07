@@ -115,14 +115,18 @@ function chart(rows, opts = {}) {
   const clip = svgEl(defs, 'clipPath', { id: 'c' + Math.random().toString(36).slice(2, 8) });
   svgEl(clip, 'rect', { x: P.l, y: P.t, width: W - P.l - P.r, height: H - P.t - P.b });
   const clipUrl = `url(#${clip.id})`;
-  for (let k = 0; k <= 4; k++) {
-    const v = lo + ((hi - lo) * k) / 4;
+  // graduations rondes (pas de 1, 2, 2,5 ou 5 × puissance de 10) : des prix lisibles sur l'axe
+  const raw = (hi - lo) / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((st) => st >= raw) || 10 * mag;
+  const dec = step >= 1 ? (Number.isInteger(step) ? 0 : 1) : step >= 0.1 ? 1 : 2;
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
     svgEl(svg, 'line', { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), stroke: 'var(--line)', 'stroke-width': 1 });
     svgEl(
       svg,
       'text',
       { x: P.l - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' },
-      fmt(v, hi - lo < 8 ? 1 : v > 100 ? 0 : 1)
+      fmt(v, dec)
     );
   }
   [...new Set(pts.length < 5 ? [0, pts.length - 1] : [0, Math.floor((pts.length - 1) / 2), pts.length - 1])].forEach(
@@ -748,14 +752,7 @@ function chartLevels(niv, a) {
   const lv = [];
   (niv && niv.ordres ? niv.ordres : []).forEach((v, i) => lv.push({ v, c: 'var(--good)', t: `🎯 Ordre ${i + 1}` }));
   if (niv && niv.revision) lv.push({ v: niv.revision, c: 'var(--bad)', t: '🛑 Révision' });
-  if (a && a.bas3m)
-    lv.push({
-      v: a.bas3m,
-      c: 'var(--warn)',
-      t: '🧱 Support',
-      zone: [a.bas3m, a.bas3m * 1.01],
-      fill: 'var(--warn-soft)',
-    });
+  if (a && a.bas3m) lv.push({ v: a.bas3m, c: 'var(--warn)', t: '🧱 Support (plus bas 3 mois)' });
   return lv;
 }
 
