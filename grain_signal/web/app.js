@@ -233,7 +233,7 @@ function chart(rows, opts = {}) {
       svg,
       'text',
       { x: W - P.r - 4, y: ly, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 700, fill: l.c, class: 'halo' },
-      `${l.t} ${fmt(l.v, 2)}`
+      `${l.t} : ${fmt(l.v, 2)}${l.u ? ' ' + l.u : ''}`
     );
   });
   // cours et moyennes mobiles
@@ -671,7 +671,7 @@ function periodPanel(p) {
     box.textContent = '';
     if (per === '3m') {
       const g3 = chart(p.graphique, {
-        levels: chartLevels(p.niveaux, ta, p.mode),
+        levels: chartLevels(p.niveaux, ta, p.unite || '€/t'),
         label: `${p.nom} : 3 mois`,
         mainColor: p.mainColor,
         col4Dots: p.col4Dots,
@@ -748,11 +748,14 @@ function orgeLong(o, eb) {
   };
 }
 
-function chartLevels(niv, a) {
+function chartLevels(niv, a, u = '€/t') {
   const lv = [];
-  (niv && niv.ordres ? niv.ordres : []).forEach((v, i) => lv.push({ v, c: 'var(--good)', t: `🎯 Ordre ${i + 1}` }));
-  if (niv && niv.revision) lv.push({ v: niv.revision, c: 'var(--bad)', t: '🛑 Révision' });
-  if (a && a.bas3m) lv.push({ v: a.bas3m, c: 'var(--warn)', t: '🧱 Support (plus bas 3 mois)' });
+  // « 1er ordre : 235,50 €/t » et non « Ordre 1 235,50 », qui se lisait 1 235,50 €
+  (niv && niv.ordres ? niv.ordres : []).forEach((v, i) =>
+    lv.push({ v, c: 'var(--good)', t: `🎯 ${i === 0 ? '1er' : `${i + 1}e`} ordre`, u })
+  );
+  if (niv && niv.revision) lv.push({ v: niv.revision, c: 'var(--bad)', t: '🛑 Révision', u });
+  if (a && a.bas3m) lv.push({ v: a.bas3m, c: 'var(--warn)', t: '🧱 Support', u });
   return lv;
 }
 
@@ -1446,6 +1449,7 @@ function vEngrais() {
         }),
         periodPanel({
           nom: 'Gaz TTF',
+          unite: '€/MWh',
           graphique: tv.graphique,
           long: tv.long,
           technique: tv.technique,
@@ -1480,11 +1484,11 @@ function vEngrais() {
   const hr = e.histo_ratio;
   if (hr && hr.points && hr.points.length > 12) {
     const lv = [
-      { v: hr.seuils['20'], c: 'var(--good)', t: '20e perc. : acheter large' },
-      { v: hr.seuils['60'], c: 'var(--warn)', t: '60e : fractionner' },
-      { v: hr.seuils['80'], c: 'var(--bad)', t: '80e : attendre' },
+      { v: hr.seuils['20'], c: 'var(--good)', t: 'Acheter large (20e percentile)' },
+      { v: hr.seuils['60'], c: 'var(--warn)', t: 'Fractionner (60e)' },
+      { v: hr.seuils['80'], c: 'var(--bad)', t: 'Attendre (80e)' },
     ];
-    if (hr.estimation) lv.push({ v: hr.estimation, c: 'var(--chart-1)', t: '● estimé ce matin' });
+    if (hr.estimation) lv.push({ v: hr.estimation, c: 'var(--chart-1)', t: '● Estimé ce matin' });
     out.push(h('h2', { text: '⚖️ Ratio urée / blé sur 10 ans' }));
     out.push(
       h(
