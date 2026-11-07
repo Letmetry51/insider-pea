@@ -179,7 +179,20 @@ function vSignaux() {
                 h('dd', { text: `${sgn(cc.score)} au comité → ${sgn(c.score_actualise)} ce matin` }),
               ]
             : null,
-          contrat.dernier_reel !== undefined && contrat.dernier_reel !== null
+          c.physique && c.physique.prix
+            ? [
+                h('dt', { text: 'Physique' }),
+                h('dd', {
+                  text:
+                    `${fmt(c.physique.prix)} €/t ${c.physique.place || ''}` +
+                    (c.physique.prime !== undefined && c.physique.prime !== null
+                      ? `, prime ${sgn(c.physique.prime)} €/t sur la fourragère`
+                      : '') +
+                    `, ${dfr(c.physique.date)}`,
+                }),
+              ]
+            : null,
+          !c.proxy && contrat.dernier_reel !== undefined && contrat.dernier_reel !== null
             ? [
                 h('dt', { text: 'Euronext' }),
                 h('dd', {
@@ -347,7 +360,11 @@ function vTechnique() {
         }),
         c.alerte_raccord ? h('div', { class: 'alert', text: c.alerte_raccord }) : null,
         c.proxy ? h('div', { class: 'alert info', text: c.proxy.texte }) : null,
-        c.graphique ? chart(c.graphique, { levels: lv, label: `${c.nom} : cours, MM20 et MM50` }) : null,
+        c.proxy && c.proxy.graphique
+          ? chart(c.proxy.graphique, { label: `${c.proxy.nom} en €/t : cours, MM20 et MM50` })
+          : c.graphique
+            ? chart(c.graphique, { levels: lv, label: `${c.nom} : cours, MM20 et MM50` })
+            : null,
         h(
           'div',
           { class: 'legend' },
@@ -355,10 +372,75 @@ function vTechnique() {
           h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'MM20'),
           h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'MM50')
         ),
-        a.insuffisant
-          ? h('p', { class: 'note', text: 'Indicateurs Euronext disponibles à partir de 30 séances.' })
-          : techTable(a),
+        a.insuffisant && c.proxy && c.proxy.technique
+          ? techTable(c.proxy.technique)
+          : a.insuffisant
+            ? h('p', { class: 'note', text: 'Indicateurs Euronext disponibles à partir de 30 séances.' })
+            : techTable(a),
         h('p', { class: 'note', text: `Note technique : ${sgn(c.score_technique)} (de −2 à +2)` })
+      )
+    );
+  }
+  for (const o of Object.values(d.orges || {})) {
+    const ble = (d.contrats || {}).EBM || {};
+    grid.append(
+      h(
+        'section',
+        { class: 'card' },
+        h('h3', { text: o.nom }),
+        h('p', {
+          class: 'note',
+          text: "Pas de marché à terme pour les orges : prix physique Creil FOB relevé chaque jour (terre-net) ; le moment de vendre suit le blé Euronext, la prime brassicole dit si l'orge est bien payée.",
+        }),
+        o.graphique && o.graphique.length >= 2
+          ? chart(
+              o.graphique.map((r) => [r[0], r[1], null, null]),
+              { label: `${o.nom} : prix physique` }
+            )
+          : h('p', { class: 'note', text: 'Graphique dès que plusieurs jours de prix sont relevés.' }),
+        h(
+          'table',
+          {},
+          h(
+            'tr',
+            {},
+            h('td', { text: `Prix ${o.place} (${o.echeance || ''})` }),
+            h('td', { class: 'n', text: `${fmt(o.prix)} €/t` })
+          ),
+          o.rouen_rendu
+            ? h('tr', {}, h('td', { text: 'Rouen rendu' }), h('td', { class: 'n', text: `${fmt(o.rouen_rendu)} €/t` }))
+            : null,
+          h(
+            'tr',
+            {},
+            h('td', { text: 'Orge fourragère Creil FOB' }),
+            h('td', { class: 'n', text: o.fourragere ? `${fmt(o.fourragere)} €/t` : '—' })
+          ),
+          h(
+            'tr',
+            {},
+            h('td', { text: 'Prime brassicole' }),
+            h('td', { class: 'n ' + cls(o.prime), text: o.prime !== undefined ? `${sgn(o.prime)} €/t` : '—' })
+          ),
+          h(
+            'tr',
+            {},
+            h('td', { text: 'Écart avec le blé Euronext' }),
+            h('td', {
+              class: 'n ' + cls(o.ecart_ble),
+              text: o.ecart_ble !== undefined ? `${sgn(o.ecart_ble)} €/t` : '—',
+            })
+          ),
+          h(
+            'tr',
+            {},
+            h('td', { text: 'Variation 1 mois / 3 mois' }),
+            h('td', { class: 'n', text: `${pct(o.var1m)} / ${pct(o.var3m)}` })
+          ),
+          h('tr', {}, h('td', { text: 'Cotation' }), h('td', { class: 'n', text: dfr(o.date) }))
+        ),
+        o.technique ? techTable(o.technique) : null,
+        ble.feu ? h('div', { class: 'feu' }, h('b', { text: 'Timing (blé Euronext)' }), ble.feu.texte) : null
       )
     );
   }

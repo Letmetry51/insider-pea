@@ -120,6 +120,8 @@ try:
         dash = json.loads((tmp / "data" / "grain" / "grain-signal.json").read_text(encoding="utf-8"))
         check(set(dash["cultures"]) == {"ble", "escourgeon", "orge_printemps", "colza", "mais"}, "cinq cultures")
         check(dash["cultures"]["ble"]["source"] == "comite", "comité de départ appliqué")
+        check(dash["orges"]["escourgeon"]["prime"] == -6.25 and dash["orges"]["orge_printemps"]["prix"] == 234.25,
+              "orges brassicoles : prix physique et prime sur la fourragère")
         check(dash["engrais"].get("signal") in ("ACHETER_LARGE", "SUIVRE", "FRACTIONNER", "ATTENDRE"), "décision engrais")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0, "emails en simulation")

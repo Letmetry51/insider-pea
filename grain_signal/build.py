@@ -28,6 +28,8 @@ CULTURES = {"ble": "Blé tendre", "escourgeon": "Escourgeon brassicole", "orge_p
             "colza": "Colza", "mais": "Maïs"}
 SIGNAUX = {"VENDRE": "🟢 VENDRE UNE TRANCHE", "TENIR": "🟡 TENIR LE PLAN", "ATTENDRE": "🔴 ATTENDRE-STOCKER", "COUVRIR": "🛡️ COUVRIR"}
 PROXY = {"EBM": "ZW=F", "ECO": "ZL=F", "EMA": "ZC=F"}  # colza : huile de soja (le canola ICE n'est pas sur Yahoo)
+# conversion en $/t : blé 36,744 boisseaux/t, maïs 39,368 boisseaux/t (cents/boisseau) ; huile de soja 2 204,62 livres/t (cents/livre)
+TONNE = {"ZW=F": 36.744, "KE=F": 36.744, "ZC=F": 39.368, "ZS=F": 36.744, "ZL=F": 22.0462}
 SIG_ENGRAIS = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER", "ATTENDRE": "🔴 ATTENDRE"}
 
 
@@ -298,6 +300,68 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
     return out
 
 
+def proxy_eur(yahoo, tk):
+    """Série américaine convertie en €/t (cents → $/t, puis EUR/USD du même jour ou de la veille)."""
+    ser = (yahoo.get(tk) or {}).get("serie") or {}
+    fx = (yahoo.get("EURUSD=X") or {}).get("serie") or {}
+    if not ser or not fx or tk not in TONNE:
+        return [], []
+    fx_d = sorted(fx)
+    dates, vals = [], []
+    for d, c in sorted(ser.items()):
+        i = bisect.bisect_right(fx_d, d) - 1
+        if i < 0:
+            continue
+        dates.append(d)
+        vals.append(c / 100 * TONNE[tk] / fx[fx_d[i]])
+    return dates, vals
+
+
+def orges(today, ble_vals):
+    """Escourgeon (Etincel) et orge de printemps (Planet) brassicoles : prix physiques terre-net, prime sur l'orge
+    fourragère au même endroit (Creil FOB), écart avec le blé Euronext, historique quotidien."""
+    rows = [r for r in read_csv(PRIV / "physique_hist.csv") if fnum(r.get("prix"))]
+    rows.sort(key=lambda r: r["date"])
+    out = {}
+
+    def pick(rs, *keys):
+        return [r for r in rs if all(k.lower() in (r.get("titre", "") + " " + r.get("place", "")).lower() for k in keys)]
+
+    four = pick([r for r in rows if r["page"] == "orge"], "creil")
+    four_by = {r["date"]: float(r["prix"]) for r in four}
+    for cult, var, nom in (("escourgeon", "etincel", "Escourgeon brassicole (Etincel)"), ("orge_printemps", "planet", "Orge de printemps brassicole (Planet)")):
+        rs = pick([r for r in rows if r["page"] == "orge_brassicole"], var, "creil")
+        if not rs:
+            continue
+        by = {}
+        for r in rs:
+            by[r["date"]] = float(r["prix"])
+        dates = sorted(by)
+        last_d = dates[-1]
+        e = {"nom": nom, "prix": by[last_d], "date": last_d, "place": "Creil FOB", "echeance": rs[-1].get("echeance", "")}
+        fd = [d for d in sorted(four_by) if d <= last_d]
+        if fd:
+            e["fourragere"] = four_by[fd[-1]]
+            e["prime"] = round(by[last_d] - four_by[fd[-1]], 2)
+        if ble_vals:
+            e["ecart_ble"] = round(by[last_d] - ble_vals[-1], 2)
+        rouen = pick([r for r in rows if r["page"] == "orge_brassicole" and r["date"] == last_d], var, "rouen")
+        if rouen:
+            e["rouen_rendu"] = float(rouen[-1]["prix"])
+        for lab, days in (("var1m", 30), ("var3m", 91)):
+            ref = [d for d in dates if d <= (date.fromisoformat(last_d) - timedelta(days=days)).isoformat()]
+            if ref:
+                e[lab] = round((by[last_d] / by[ref[-1]] - 1) * 100, 1)
+        e["graphique"] = [[d, by[d], (round(by[d] - four_by[d], 2) if d in four_by else None)] for d in dates[-120:]]
+        if len(dates) >= 30:
+            a = ind.analyse(dates, [by[d] for d in dates])
+            a.pop("_rsi", None)
+            a.pop("_histo", None)
+            e["technique"] = a
+        out[cult] = e
+    return out
+
+
 # --------------------------------------------------------------------------------------------- calcul principal
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
@@ -335,12 +399,22 @@ def main():
         recent = [r for r in rac if r["ajustement"] is None and r["date"] >= d[max(0, len(d) - 63)]]
         if recent:
             info["alerte_raccord"] = f"Changement d'échéance du {recent[-1]['date']} non ajusté (pas de cotation commune) : indicateurs approximatifs"
-        if a.get("insuffisant"):  # historique Euronext encore court : lecture technique du marché américain correspondant
+        if a.get("insuffisant"):  # historique Euronext encore court : lecture technique du marché américain, converti en €/t
             px = PROXY.get(prod)
-            if px in inter:
-                info.update(score_technique=inter[px]["score_technique"], feu=ind.feu_execution(inter[px]["technique"]),
-                            proxy={"ticker": px, "nom": inter[px]["nom"],
-                                   "texte": f"Historique Euronext de {a['seances']} séances (30 nécessaires) : lecture technique de {inter[px]['nom']}"})
+            pd_, pv = proxy_eur(yahoo, px)
+            if len(pv) >= 30:
+                pa = ind.analyse(pd_, pv)
+                pa.pop("_rsi", None)
+                pa.pop("_histo", None)
+                m20, m50 = ind.sma(pv, 20), ind.sma(pv, 50)
+                kk = max(0, len(pv) - 120)
+                nom_px = (yahoo.get(px) or {}).get("nom", px)
+                info.update(score_technique=ind.score_technique(pa), feu=ind.feu_execution(pa),
+                            proxy={"ticker": px, "nom": nom_px, "technique": pa,
+                                   "graphique": [[pd_[i], round(pv[i], 2), round(m20[i], 2) if m20[i] else None,
+                                                  round(m50[i], 2) if m50[i] else None] for i in range(kk, len(pv))],
+                                   "texte": f"Historique Euronext de {a['seances']} séance(s), 30 nécessaires (environ 6 semaines) : en attendant, "
+                                            f"lecture technique de {nom_px} converti en €/t (même tendance, niveau différent d'Euronext)"})
         mm20, mm50 = ind.sma(v, 20), ind.sma(v, 50)
         k = max(0, len(v) - 120)
         info["graphique"] = [[d[i], round(v[i], 2), round(mm20[i], 2) if mm20[i] else None, round(mm50[i], 2) if mm50[i] else None]
@@ -409,6 +483,10 @@ def main():
         entry["libelle"] = SIGNAUX.get(entry["signal"] or "", "—")
         cultures[cult] = entry
 
+    org = orges(today, series_ble[1])
+    for cult, e in org.items():
+        if cult in cultures:
+            cultures[cult]["physique"] = {k: e.get(k) for k in ("prix", "date", "place", "fourragere", "prime", "ecart_ble", "rouen_rendu")}
     engrais = module_engrais(today, series_ble[0], series_ble[1], yahoo)
     if valid_comite and comite.get("engrais", {}).get("signal") in SIG_ENGRAIS:
         engrais["comite"] = comite["engrais"]
@@ -499,6 +577,7 @@ def main():
         "cultures": cultures,
         "contrats": {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")} for k, v in contrats.items()},
         "international": inter,
+        "orges": org,
         "cot": cot,
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},
         "engrais": engrais,
