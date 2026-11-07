@@ -17,7 +17,7 @@ import json
 import re
 import sys
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -62,12 +62,15 @@ def num(txt):
     if txt is None:
         return None
     t = str(txt).replace("\xa0", " ").replace(" ", " ")
-    m = re.search(r"[-+−]?\d{1,3}(?:[ .]\d{3})*(?:,\d+)?|[-+−]?\d+(?:[.,]\d+)?", t)
+    m = re.search(r"[-+−]?\d{1,3}(?:[ .]\d{3})+(?:,\d+)?(?![\d.])|[-+−]?\d+(?:[.,]\d+)?", t)
     if not m:
         return None
     s = m.group(0).replace("−", "-").replace(" ", "")
-    if "," in s:
+    if "," in s:  # format français : 1.234,5 ou 1 234,5
         s = s.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"[-+]?\d{1,3}(?:\.\d{3})+", s):  # 1.234 ou 1.234.567 : séparateur de milliers
+        s = s.replace(".", "")
+    # sinon « 225.50 » : point décimal (pages en anglais), gardé tel quel
     try:
         return float(s)
     except ValueError:
@@ -127,10 +130,7 @@ def parse_futures(html):
             val = None
             if idx is not None and idx < len(r):
                 val = num(r[idx])
-            if val is None:  # pas de colonne repérée : dernier nombre plausible de la ligne
-                vals = [num(c) for c in r[1:]]
-                vals = [v for v in vals if v is not None and 50 < v < 2000]
-                val = vals[-1] if vals else None
+            # pas de colonne « compensation » repérée : on n'invente pas, l'échéance est ignorée (la source sera notée en échec)
             if val is not None and 50 < val < 2000 and mat not in found:
                 found[mat] = val
     return found
@@ -142,7 +142,31 @@ def parse_date_fr(html, default):
     m = re.search(r"Mis à jour le\s*:?\s*(\d{1,2})\s+([a-zéûè]+)\s+(\d{4})", text, re.I)
     if m and m.group(2).lower() in MOIS:
         return date(int(m.group(3)), MOIS[m.group(2).lower()], int(m.group(1)))
+    m = re.search(r"Mis à jour le\s*:?\s*(\d{1,2})/(\d{1,2})/(\d{4})", text, re.I)
+    if m:
+        return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
     return default
+
+
+def seance_precedente(today):
+    """Le calcul tourne le matin : sans date lue sur la page, la cotation est celle du dernier jour ouvré avant aujourd'hui."""
+    d = today - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def date_seance(parsed, now=None):
+    """Date de cotation retenue : celle lue sur la page si elle est plausible, sinon la dernière séance close.
+    Avant 17 h UTC, la séance du jour n'est pas close (clôtures Euronext vers 17 h 30 UTC) : une date du jour est ramenée à la veille."""
+    now = now or datetime.now(timezone.utc)
+    today = now.date()
+    sp = seance_precedente(today)
+    if parsed is None or parsed > today or parsed.weekday() >= 5:
+        return sp if parsed is None or parsed > today else min(parsed, sp)
+    if parsed == today and now.hour < 17:
+        return sp
+    return parsed
 
 
 def day_month(text, today):
@@ -171,7 +195,9 @@ def parse_place_prices(html):
     out = []
     for tb in soup.find_all("table"):
         # textes juste avant la table (titre et date : « 06 novembre », « standard Récolte : 2026 »…)
-        before = [s.strip() for s in tb.find_all_previous(string=True, limit=25) if s.strip()]
+        before = [x.strip() for x in tb.find_all_previous(string=True, limit=40)
+                  if x.strip() and x.parent is not None and x.parent.name not in ("script", "style", "noscript")
+                  and not re.search(r"[{};]|function|window\.|var |=>", x)][:25]
         caption = " ".join(reversed(before))[-200:]
         head, rows = None, []
         for tr in tb.find_all("tr"):
@@ -249,7 +275,7 @@ def collect_euronext(today):
             try:
                 html = get(url).text
                 got = parse_futures(html)
-                d = parse_date_fr(html, today) if label == "terre-net" else today
+                d = date_seance(parse_date_fr(html, None) if label == "terre-net" else None)
                 if len(got) >= 2:
                     src = label
                     break
@@ -260,6 +286,18 @@ def collect_euronext(today):
             note("euronext_" + prod, False, " ; ".join(err))
             continue
         d = d.isoformat()
+        # contrôle de vraisemblance : écart de plus de 12 % avec la dernière cotation connue de la même échéance = rejet
+        prev = {}
+        for r in rows:
+            if r["product"] == prod and r["date"] < d:
+                prev[r["maturity"]] = float(r["settle"])
+        rejet = {m_: v for m_, v in got.items() if m_ in prev and abs(v / prev[m_] - 1) > 0.12}
+        got = {m_: v for m_, v in got.items() if m_ not in rejet}
+        if rejet:
+            err.append("rejetées (écart > 12 % avec la veille) : " + ", ".join(f"{m_} {v:g}" for m_, v in rejet.items()))
+        if len(got) < 2:
+            note("euronext_" + prod, False, " ; ".join(err))
+            continue
         for mat, v in got.items():
             key = (d, prod, mat)
             if key in have:
@@ -270,7 +308,7 @@ def collect_euronext(today):
                 rows.append({"date": d, "product": prod, "maturity": mat, "settle": v})
                 have.add(key)
                 added += 1
-        note("euronext_" + prod, True, f"{src}, séance du {d}, {len(got)} échéances")
+        note("euronext_" + prod, True, f"{src}, séance du {d}, {len(got)} échéances" + (f" ; {err[-1]}" if rejet else ""))
     rows.sort(key=lambda r: (r["product"], r["date"], r["maturity"]))
     write_csv(path, rows, ["date", "product", "maturity", "settle"])
     print(f"Euronext : {added} nouvelles cotations, {len(rows)} au total")
@@ -285,7 +323,8 @@ def yahoo_series(tk):
             import yfinance as yf
 
             h = yf.Ticker(tk).history(period=period, interval="1d", auto_adjust=False)
-            ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items()}
+            # date de la bourse (index yfinance dans son fuseau) ; la barre du jour, pas encore close, est écartée
+            ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items() if i.date() < date.today()}
             if len(ser) >= 50:
                 return ser, f"yfinance {period}"
             errs.append(f"yfinance {period} : {len(ser)} séances")
@@ -297,9 +336,12 @@ def yahoo_series(tk):
             j = get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{tk}?range=5y&interval=1d").json()
             res = j["chart"]["result"][0]
             ser = {}
+            off = int((res.get("meta") or {}).get("gmtoffset") or 0)  # décalage horaire de la bourse
             for t, c in zip(res.get("timestamp") or [], res["indicators"]["quote"][0].get("close") or []):
                 if c is not None:
-                    ser[datetime.fromtimestamp(t, timezone.utc).date().isoformat()] = round(float(c), 4)
+                    dd = datetime.fromtimestamp(t + off, timezone.utc).date()
+                    if dd < datetime.now(timezone.utc).date():
+                        ser[dd.isoformat()] = round(float(c), 4)
             if len(ser) >= 50:
                 return ser, host
             errs.append(f"{host} : {len(ser)} séances")
@@ -361,7 +403,7 @@ def collect_engrais(today):
             p = items[0]["prix"]
             if not (100 < p < 3000):
                 raise RuntimeError(f"prix invraisemblable : {p}")
-            d = (day_month(items[0]["titre"], today) or today).isoformat()
+            d = date_seance(day_month(items[0]["titre"], today)).isoformat()
             rows = [r for r in rows if not (r["date"] == d and r["product"] == prod)]
             rows.append({"date": d, "product": prod, "price": p, "source": "terre-net, " + items[0]["place"]})
             note("engrais_" + prod, True, f"{p} ({items[0]['place']}, cotation du {d})")
@@ -388,7 +430,7 @@ def collect_physique():
         today = datetime.now(timezone.utc).date()
         for k, items in snap.items():
             for it in items:
-                d = (day_month(it["titre"], today) or today).isoformat()
+                d = date_seance(day_month(it["titre"], today)).isoformat()
                 key = (d, k, it["place"], it["titre"][-60:])
                 hist = [h for h in hist if (h["date"], h["page"], h["place"], h["titre"]) != key]
                 hist.append({"date": d, "page": k, "place": it["place"], "echeance": it["echeance"], "titre": it["titre"][-60:], "prix": it["prix"]})

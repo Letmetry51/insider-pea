@@ -21,21 +21,22 @@ def ema(x, n):
 
 
 def rsi(x, n=14):
-    """RSI de Wilder (lissage alpha = 1/n, comme la plupart des plateformes)."""
-    out, au, ad = [None], None, None
-    for i in range(1, len(x)):
-        d = x[i] - x[i - 1]
-        up, dn = max(d, 0.0), max(-d, 0.0)
-        if au is None:
-            au, ad = up, dn
-        else:
-            au, ad = au + (up - au) / n, ad + (dn - ad) / n
-        if i < n:
-            out.append(None)
-        elif ad == 0:
-            out.append(100.0)
-        else:
-            out.append(100 - 100 / (1 + au / ad))
+    """RSI de Wilder : amorçage par la moyenne simple des n premières variations, puis lissage alpha = 1/n."""
+    out = [None] * len(x)
+    if len(x) <= n:
+        return out
+    d = [x[i] - x[i - 1] for i in range(1, len(x))]
+    au = sum(max(v, 0.0) for v in d[:n]) / n
+    ad = sum(max(-v, 0.0) for v in d[:n]) / n
+
+    def val(u, dn):
+        return 100.0 if dn == 0 else 100 - 100 / (1 + u / dn)
+
+    out[n] = val(au, ad)
+    for i in range(n, len(d)):
+        au += (max(d[i], 0.0) - au) / n
+        ad += (max(-d[i], 0.0) - ad) / n
+        out[i + 1] = val(au, ad)
     return out
 
 
@@ -163,7 +164,7 @@ def feu_execution(a):
         return {"code": "attendre", "texte": "Survente : ne pas vendre le creux, placer l'ordre sur un rebond (MM20 ou 38,2-50 %)"}
     hi, lo = a.get("haut3m"), a.get("bas3m")
     pos = (a["dernier"] - lo) / (hi - lo) * 100 if hi and lo and hi > lo else None
-    if rsi_v is not None and rsi_v < 35 and pos is not None and pos <= 20:
+    if rsi_v is not None and rsi_v < 40 and pos is not None and pos <= 20:  # pas de seuil au fil du rasoir
         return {"code": "attendre", "texte": f"Bas du range de 3 mois ({pos:.0f} %) avec RSI faible : placer l'ordre sur un rebond plutôt que vendre"}
     if rsi_v is not None and rsi_v > 70 and (cross.get("sens") == "baissier" or a.get("divergence") == "baissière"):
         return {"code": "accelerer", "texte": "Surachat qui s'essouffle : exécuter la tranche sans attendre"}

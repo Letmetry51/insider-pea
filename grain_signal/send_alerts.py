@@ -42,15 +42,26 @@ def e(t):
     return html.escape(str(t if t is not None else ""), quote=True)
 
 
+def niveaux_txt(ordres, eq, nr):
+    if not ordres:
+        return "—"
+    f = lambda v: f"{v:.2f}".rstrip("0").rstrip(".").replace(".", ",")  # noqa: E731
+    t = " · ".join(f(x) for x in ordres if isinstance(x, (int, float))) + " €/t"
+    if nr.get("sur_ble"):
+        t = "blé à " + t + (f" (≈ {' · '.join(f(x) for x in eq)} €/t d'orge)" if eq else "")
+    return t
+
+
 def table_signaux(dash):
     rows = []
     for c in (dash.get("cultures") or {}).values():
         feu = (c.get("feu") or {}).get("texte", "")
-        niv = c.get("niveaux") or {}
-        ordres = (c.get("comite") or {}).get("ordres") or niv.get("ordres") or []
+        nr = c.get("niveaux_retenus") or {}  # mêmes niveaux que la page (comité, sinon techniques)
+        ordres = nr.get("ordres") or []
+        eq = (nr.get("equivalent_orge") or {}).get("ordres") or []
         rows.append(f"<tr><td style='padding:6px 8px;border-bottom:1px solid #ddd'><b>{e(c['nom'])}</b></td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(c.get('libelle'))}</td>"
-                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(', '.join(f'{x:g}' for x in ordres if isinstance(x, (int, float))))}</td>"
+                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(niveaux_txt(ordres, eq, nr))}</td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd;color:#555'>{e(feu)}</td></tr>")
     eng = dash.get("engrais") or {}
     rows.append(f"<tr><td style='padding:6px 8px'><b>Engrais azotés</b></td><td style='padding:6px 8px'>{e(eng.get('libelle'))}</td>"
