@@ -19,6 +19,10 @@
   --chart-1: #866400;
   --chart-2: #2a78d6;
   --chart-3: #b04a8a;
+  --channel: #7b55b8;
+  --cone-1: rgba(134, 100, 0, 0.16);
+  --cone-2: rgba(134, 100, 0, 0.08);
+  --neutral: #a3a596;
   --display: 'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
   --body: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
@@ -46,6 +50,10 @@
     --chart-1: #e2b84f;
     --chart-2: #5a9ae8;
     --chart-3: #d77fb6;
+    --channel: #b49af0;
+    --cone-1: rgba(226, 184, 79, 0.18);
+    --cone-2: rgba(226, 184, 79, 0.08);
+    --neutral: #5c5f52;
     color-scheme: dark;
   }
 }
@@ -69,6 +77,10 @@
   --chart-1: #e2b84f;
   --chart-2: #5a9ae8;
   --chart-3: #d77fb6;
+  --channel: #b49af0;
+  --cone-1: rgba(226, 184, 79, 0.18);
+  --cone-2: rgba(226, 184, 79, 0.08);
+  --neutral: #5c5f52;
   color-scheme: dark;
 }
 * {
@@ -354,4 +366,180 @@ summary {
   h1 {
     font-size: 20px;
   }
+}
+
+/* Cartes d'indicateurs (lecture du vendeur : vert = bon moment pour vendre) */
+.ititle {
+  font: 600 14px var(--body);
+  margin: 14px 0 8px;
+}
+.igrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.icard {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.ihead {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ihead .i {
+  cursor: help;
+  color: var(--accent);
+  font-size: 14px;
+}
+.ival {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 8px;
+  flex-wrap: wrap;
+}
+.badge {
+  font: 600 15px/1 var(--mono);
+  padding: 5px 9px;
+  border-radius: 6px;
+  color: #fff;
+  background: var(--muted);
+  white-space: nowrap;
+}
+.badge.good {
+  background: var(--good);
+}
+.badge.bad {
+  background: var(--bad);
+}
+.badge.warn {
+  background: var(--warn);
+}
+.badge.info {
+  background: var(--info);
+}
+.badge.neutral {
+  background: #6b6d60;
+}
+.ilabel {
+  font-weight: 600;
+  font-size: 14px;
+}
+.gwrap {
+  margin: 4px 6px 2px;
+}
+.gauge {
+  position: relative;
+  height: 10px;
+  border-radius: 99px;
+  overflow: visible;
+  background: var(--sunk);
+}
+.gauge .seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.gauge .seg:first-child {
+  border-radius: 99px 0 0 99px;
+}
+.gauge .seg:last-of-type {
+  border-radius: 0 99px 99px 0;
+}
+.gauge .knob {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--ink);
+}
+.ticks {
+  position: relative;
+  height: 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ticks span {
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ticks span:first-child:not(:only-child) {
+  transform: none;
+}
+.spark {
+  width: 100%;
+  height: 46px;
+  display: block;
+  margin-top: 6px;
+}
+.imeta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.halo {
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.legend i.cone {
+  height: 8px;
+  background: var(--cone-1);
+  border: 1px solid var(--cone-2);
+}
+.feu-attendre {
+  background: var(--bad-soft);
+}
+.feu-executer {
+  background: var(--good-soft);
+}
+.feu-accelerer {
+  background: var(--good-soft);
+  border-left: 3px solid var(--good);
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+}
+.stack .chart {
+  max-height: 340px;
+}
+
+.minis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+.mini {
+  font: 500 12px/1.2 var(--body);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--sunk);
+  white-space: nowrap;
+}
+.mini.good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.mini.bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.mini.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
 }
