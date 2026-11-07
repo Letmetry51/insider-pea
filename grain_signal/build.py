@@ -242,6 +242,18 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
                                             f"(depuis le {u_ref['date']}) et du blé Euronext (depuis le {ble_dates[i]})"}
     pct = out.get("estimation", {}).get("percentile", out["mondial"]["percentile"])
     out["percentile_retenu"] = pct
+    # historiques mensuels (Banque mondiale) : urée et DAP en $/t avec moyenne 12 mois, ratio urée/blé avec ses seuils
+    ur = [float(r["urea"]) for r in wb]
+    mm12 = ind.sma(ur, 12)
+    dap = [fnum(r.get("dap")) for r in wb]
+    k = max(0, len(wb) - 120)
+    out["histo_uree"] = [[wb[i]["month"] + "-15", round(ur[i], 1), round(mm12[i], 1) if mm12[i] else None,
+                          round(dap[i], 1) if dap[i] else None] for i in range(k, len(wb))]
+    srt = sorted(win)
+    q = lambda p_: round(srt[min(len(srt) - 1, int(p_ / 100 * len(srt)))], 3)  # noqa: E731
+    out["histo_ratio"] = {"points": [[wb[i]["month"] + "-15", round(ratios[i], 3)] for i in range(k, len(wb))],
+                          "seuils": {"20": q(20), "60": q(60), "80": q(80)},
+                          "estimation": round(est, 3) if est else None}
     # gaz TTF (Yahoo) : niveau, tendance, rattrapage du jour
     ttf = (yahoo.get("TTF=F") or {}).get("serie") or {}
     if len(ttf) > 70:
@@ -249,6 +261,7 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
         a = ind.analyse(d, v)
         out["ttf"] = {k: a.get(k) for k in ("dernier", "au", "var1s", "var1m", "var3m", "mm20", "ecart_mm20", "mm50", "rsi", "histo",
                                              "croisement_macd", "haut3m", "bas3m")}
+        out["ttf"]["vues"] = vues(d, v)
         out["ttf"]["sous_seuil_bas"] = sum(1 for x in v[-CFG["engrais"]["ttfBasSeances"]:] if x < CFG["engrais"]["ttfBas"])
         if "uree" in fr and fr["uree"].get("var3m") is not None and a.get("var3m") is not None:
             out["rattrapage"] = round(a["var3m"] - fr["uree"]["var3m"], 1)
@@ -307,6 +320,46 @@ def mini_series(dates, rsi_s, histo_s, n=63):
     k = max(0, len(dates) - n)
     return {"dates": dates[k:], "rsi": [round(x, 1) if x is not None else None for x in rsi_s[k:]],
             "histo": [round(x, 3) if x is not None else None for x in histo_s[k:]]}
+
+
+def decale(a, gap):
+    """Tableau technique du blé ramené au niveau de l'orge : niveaux de prix décalés de l'écart, écarts et oscillateurs inchangés."""
+    if not a:
+        return a
+    b = json.loads(json.dumps(a))
+    for k in ("dernier", "mm20", "mm50", "mm200", "haut3m", "bas3m", "haut3m_hier", "bas3m_hier"):
+        if b.get(k) is not None:
+            b[k] = round(b[k] + gap, 2)
+    for k in ("38.2", "50", "61.8"):
+        if (b.get("fibo") or {}).get(k) is not None:
+            b["fibo"][k] = round(b["fibo"][k] + gap, 2)
+    return b
+
+
+def vues(dates, vals):
+    """Graphique 6 mois (cours, MM20, MM50), séries RSI/MACD de 3 mois, vues 1 an (MM50, MM200) et 5 ans hebdomadaire
+    (MM 10 et 40 semaines) d'une série quotidienne."""
+    if len(vals) < 30:
+        return {}
+    a = ind.analyse(dates, vals)
+    rs_, hs_ = a.pop("_rsi", None), a.pop("_histo", None)
+    m20, m50, m200 = ind.sma(vals, 20), ind.sma(vals, 50), ind.sma(vals, 200)
+    r2 = lambda x: round(x, 2) if x is not None else None  # noqa: E731
+    k6, k1 = max(0, len(vals) - 120), max(0, len(vals) - 252)
+    wk, wd = [], []
+    for d_, v_ in zip(dates, vals):
+        key = date.fromisoformat(d_).isocalendar()[:2]
+        if wd and wd[-1][0] == key:
+            wd[-1], wk[-1] = (key, d_), v_
+        else:
+            wd.append((key, d_))
+            wk.append(v_)
+    w10, w40 = ind.sma(wk, 10), ind.sma(wk, 40)
+    return {"technique": a, "score_technique": ind.score_technique(a), "niveaux": ind.niveaux(a), "series": mini_series(dates, rs_, hs_),
+            "graphique": [[dates[i], r2(vals[i]), r2(m20[i]), r2(m50[i])] for i in range(k6, len(vals))],
+            "long": {"an": [[dates[i], r2(vals[i]), r2(m50[i]), r2(m200[i]), None] for i in range(k1, len(vals))],
+                     "cinq_ans": [[wd[i][1], r2(wk[i]), r2(w10[i]), r2(w40[i]), None] for i in range(max(0, len(wk) - 262), len(wk))],
+                     "depuis": dates[0]}}
 
 
 def vue_longue(yahoo, tk, e_dates, e_vals):
@@ -404,6 +457,104 @@ def orges(today, ble_vals):
             a.pop("_histo", None)
             e["technique"] = a
         out[cult] = e
+    return out
+
+
+MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def ym(harvest_year, rel):
+    """Mois relatif à janvier de l'année de récolte (1 = janvier, 0 = décembre d'avant, 13 = janvier d'après) → (année, mois)."""
+    k = harvest_year * 12 + rel - 1
+    return k // 12, k % 12 + 1
+
+
+def periode(a, b):
+    (y1, m1), (y2, m2) = a, b
+    return f"{MOIS_FR[m1 - 1]}–{MOIS_FR[m2 - 1]} {y2}" if y1 == y2 else f"{MOIS_FR[m1 - 1]} {y1}–{MOIS_FR[m2 - 1]} {y2}"
+
+
+def plan_vente(cult, today, entry, contrats):
+    """Tranches dues ou prochaines, par récolte en cours de vente, avec l'action conseillée selon le signal et le timing."""
+    cal = (CFG.get("calendrier") or {}).get(cult)
+    if not cal:
+        return []
+    now = (today.year, today.month)
+    out = []
+    for hy in (today.year - 1, today.year, today.year + 1):
+        tr = [(ym(hy, a), ym(hy, b), pct) for a, b, pct in cal["tranches"]]
+        if not (tr[0][0] <= now <= tr[-1][1]) and not (now < tr[0][0] and (tr[0][0][0] * 12 + tr[0][0][1]) - (now[0] * 12 + now[1]) <= 2):
+            continue  # récolte hors calendrier (vendue, ou ventes pas encore ouvertes)
+        cum, due, nxt, done = 0, None, None, 0
+        for a, b, pct in tr:
+            if b < now:
+                done += pct
+            elif a <= now <= b and due is None:
+                due = (a, b, pct, done + pct)
+            elif a > now and nxt is None:
+                nxt = (a, b, pct)
+            cum += pct
+        harvest_m = 10 if cult == "mais" else 7
+        pre = (now[0], now[1]) < (hy, harvest_m)
+        e = {"recolte": hy, "avant_moisson": pre, "cumul_fait": done}
+        nr = entry.get("niveaux_retenus") or {}
+        ordres = nr.get("ordres") or []
+        ref = cal.get("reference")
+        if ref:
+            c = contrats.get(ref[0]) or {}
+            mat = f"{hy}-{ref[1]:02d}"
+            pts = {p["echeance"]: p["prix"] for p in ((c.get("courbe") or {}).get("points") or [])}
+            if mat in pts:
+                e["reference"] = {"contrat": ref[0], "echeance": mat, "prix": pts[mat]}
+                # récolte à venir : ordres décalés de l'écart entre son échéance et l'échéance de référence du jour
+                cur = c.get("dernier_reel")
+                if pre and ordres and cur and mat != c.get("echeance"):
+                    ordres = [round((o + pts[mat] - cur) * 4) / 4 for o in ordres]
+        if due:
+            a, b, pct, cible = due
+            e.update(statut="due", periode=periode(a, b), pct=pct, cumul_vise=cible)
+            sig = entry.get("signal")
+            feu = (entry.get("feu") or {}).get("code")
+            contrat = cal.get("contrat") and pre  # orge de printemps avant la moisson : contrats malterie
+            quoi = "la tranche par contrat malterie" if contrat else "la tranche"
+            if sig == "VENDRE":
+                extra = nxt[2] if nxt else 0
+                e["action"] = f"Avancer : vendre {quoi} et la suivante ({pct + extra} %)"
+                e["code"] = "vendre"
+            elif sig == "ATTENDRE":
+                e["action"] = f"Décaler {quoi} : attendre ou stocker"
+                e["code"] = "attendre"
+            elif sig == "COUVRIR":
+                e["action"] = f"Couvrir {quoi} (vente à terme ou option de vente) sans livrer le grain"
+                e["code"] = "couvrir"
+            elif contrat:
+                e["action"] = f"Contractualiser {pct} % avec la malterie si la prime brassicole tient"
+                e["code"] = "executer"
+            elif ordres and (feu == "attendre" or not pre):
+                lieu = "quand le blé Euronext atteint" if nr.get("sur_ble") else "par ordre à"
+                o = f"{ordres[0]:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+                if feu == "attendre":
+                    e["action"] = f"Ne pas vendre au marché (creux) : {pct} % {lieu} {o} €/t"
+                    e["code"] = "ordre"
+                else:
+                    e["action"] = f"Vendre {pct} % maintenant, ou {lieu} {o} €/t"
+                    e["code"] = "executer"
+                e["ordre"] = ordres[0]
+            elif feu == "attendre":
+                e["action"] = f"Ne pas vendre au marché (creux) : attendre un rebond pour ces {pct} %"
+                e["code"] = "ordre"
+            else:
+                e["action"] = f"Vendre {pct} % d'ici fin {MOIS_FR[b[1] - 1]}"
+                e["code"] = "executer"
+            if pre and not contrat and ref:
+                e["action"] += f" (récolte {hy} : sur l'échéance {MOIS_FR[ref[1] - 1]} {hy})"
+        elif nxt:
+            a, b, pct = nxt
+            e.update(statut="prochaine", periode=periode(a, b), pct=pct, cumul_vise=done + pct,
+                     action=f"Rien de prévu avant {MOIS_FR[a[1] - 1]} {a[0]}", code="rien")
+        else:
+            continue
+        out.append(e)
     return out
 
 
@@ -546,13 +697,38 @@ def main():
         entry["libelle"] = SIGNAUX.get(entry["signal"] or "", "—")
         cultures[cult] = entry
 
+    for cult, e in cultures.items():
+        e["plan"] = plan_vente(cult, today, e, contrats)
     for prod, main in (("EBM", "ble"), ("ECO", "colza"), ("EMA", "mais")):
         if prod in contrats and main in cultures:
             contrats[prod]["niveaux_retenus"] = cultures[main]["niveaux_retenus"]
     org = orges(today, series_ble[1])
+    eb = contrats.get("EBM") or {}
+    for cult, e in org.items():
+        gap = e.get("ecart_ble")
+        nrc = (cultures.get(cult) or {}).get("niveaux_retenus") or {}
+        if gap is not None and eb.get("graphique"):
+            sh = lambda r: [r[0]] + [round(x + gap, 2) if x is not None else None for x in r[1:4]]  # noqa: E731
+            phys = {p_[0]: p_[1] for p_ in e.get("graphique") or []}
+            e["estime"] = {
+                "ecart": gap,
+                "graphique": [sh(r) for r in eb["graphique"]],
+                "long": ({"an": [sh(r) + [phys.get(r[0])] for r in eb["long"]["an"]],
+                          "cinq_ans": [sh(r) + [None] for r in eb["long"]["cinq_ans"]],
+                          "nom": eb["long"]["nom"], "euronext_depuis": eb["long"].get("euronext_depuis")} if eb.get("long") else None),
+                "technique": decale(eb.get("technique"), gap), "series": eb.get("series"),
+                # niveaux de la culture (comité ou aucun), exprimés au niveau de l'orge : mêmes chiffres que la carte Signaux
+                "niveaux": ({"ordres": [round(o + gap, 2) for o in (nrc.get("ordres") or [])],
+                             "revision": round(nrc["revision"] + gap, 2) if nrc.get("revision") else None}),
+            }
+            # points physiques réels par-dessus (4e colonne)
+            for r in e["estime"]["graphique"]:
+                r.append(phys.get(r[0]))
     for cult, e in org.items():
         if cult in cultures:
             cultures[cult]["physique"] = {k: e.get(k) for k in ("prix", "date", "place", "fourragere", "prime", "ecart_ble", "rouen_rendu")}
+            if e.get("estime"):
+                cultures[cult]["niveaux_retenus"]["equivalent_orge"] = e["estime"]["niveaux"]
     engrais = module_engrais(today, series_ble[0], series_ble[1], yahoo)
     if valid_comite and comite.get("engrais", {}).get("signal") in SIG_ENGRAIS:
         engrais["comite"] = comite["engrais"]
@@ -654,7 +830,8 @@ def main():
         "comite": {"date": comite.get("date"), "valide": valid_comite, "mode": comite.get("mode"), "resume": comite.get("resume"),
                    "calendrier": comite.get("calendrier"), "modele": comite.get("modele"), "cout_usd": comite.get("cout_usd"),
                    "erreur": comite.get("erreur")},
-        "config": {"poids": W, "engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"]},
+        "config": {"poids": W, "engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"],
+                   "calendrier": {k: v for k, v in (CFG.get("calendrier") or {}).items() if not k.startswith("_")}},
     }
     save_json(OUT / "grain-signal.json", dash)
     new_state = {
