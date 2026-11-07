@@ -9,6 +9,7 @@ import shutil
 import sys
 import tempfile
 import traceback
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -212,8 +213,10 @@ def _():
     est = json.loads(S.ESTIMATES.read_text(encoding="utf-8"))
     est["ASML.AS"]["next"] = "2099-01-28"
     est["SU.PA"]["next"] = "2001-01-01"  # date passée : ignorée
-    est["ASML.AS"]["past"] = ["2025-10-15", "2026-01-28", "2099-12-31"]  # date à venir : pas une publication passée
-    est["ASML.AS"]["surprises"] = [["2025-07-16", 3.0], ["2025-10-15", 1.0]]
+    ago = lambda n: (date.today() - timedelta(days=n)).isoformat()  # noqa: E731
+    # date à venir : pas une publication passée ; plus de 400 jours : écartée
+    est["ASML.AS"]["past"] = [ago(300), ago(200), "2099-12-31", ago(500)]
+    est["ASML.AS"]["surprises"] = [[ago(390), 3.0], [ago(300), 1.0]]
     est["SU.PA"]["surprises"] = []  # aucune publication connue : pas de champ
     S.write_json(S.ESTIMATES, est)
     about = "ASML Holding N.V. develops and sells lithography systems for the semiconductor industry. " * 20
@@ -229,7 +232,7 @@ def _():
     assert a["web"] == "https://www.asml.com" and not any(k in b for k in ("about", "staff", "web")), b
     assert a["nextEarnings"] == "2099-01-28" and a["instPct"] == 0.42 and a.get("insiderPct") is None, a
     assert "fin" not in b and "nextEarnings" not in b, b
-    assert a["earnPast"] == ["2025-07-16", "2025-10-15", "2026-01-28"] and "earnPast" not in b, a.get("earnPast")
+    assert a["earnPast"] == [ago(390), ago(300), ago(200)] and "earnPast" not in b, a.get("earnPast")
     assert S.fin_compact(None) is None and S.fin_compact({"years": [{"date": "2025-12-31", "revenue": float("nan")}]}) is None
     assert S.about_text("x" * 30) is None and S.about_text("Une phrase. " * 200).endswith(".") and len(S.about_text("mot " * 400)) <= 901
 
@@ -246,8 +249,10 @@ def _():
     assert S.next_earnings(naive, "2026-10-23") == "2027-01-30"
     assert S.past_earnings(ed, "2026-10-23") == ["2026-07-24", "2026-10-22"] and S.past_earnings(naive, "2026-10-22") == ["2026-07-24"]
     assert S.past_earnings(None) == [] and S.past_earnings(ed.iloc[:0]) == []
-    ev = {"past": ["2024-01-01", "2026-07-24", "bad"], "surprises": [["2026-04-20", 2.0], ["2027-01-01", 1.0], []]}
-    assert S.past_dates(ev, "2026-10-23") == ["2024-01-01", "2026-04-20", "2026-07-24"] and S.past_dates(ev, "2026-10-23", keep=1) == ["2026-07-24"]
+    ev = {"past": ["2024-01-01", "2025-10-01", "2026-07-24", "bad"], "surprises": [["2026-04-20", 2.0], ["2027-01-01", 1.0], []]}
+    # 2024-01-01 : plus de 400 jours, écartée (Yahoo garde parfois de très vieilles dates)
+    assert S.past_dates(ev, "2026-10-23") == ["2025-10-01", "2026-04-20", "2026-07-24"] and S.past_dates(ev, "2026-10-23", keep=1) == ["2026-07-24"]
+    assert S.past_dates({"past": ["2013-11-13"]}, "2026-11-07") == []
     assert S.past_dates(None, "2026-10-23") == []
 
 

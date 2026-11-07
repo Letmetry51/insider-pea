@@ -65,7 +65,15 @@ def merge_partial(fresh, old, cutoff):
     gardées. Sans cela, le fichier du soir les effacerait, et avec elles les cours des sociétés françaises (scrapers/prices.py
     tire sa liste de ce fichier)."""
     seen = {tx_key(t) for t in fresh}
-    kept = [t for t in old if isinstance(t, dict) and tx_key(t) not in seen and str(t.get("date") or "") >= cutoff]
+    # fenêtre comme une collecte complète, qui lit les publications des 180 derniers jours : une déclaration publiée dans la
+    # fenêtre pour une opération plus ancienne reste (le 04/11/2026, 179 déclarations perdues ainsi pour un soir)
+    kept = [
+        t
+        for t in old
+        if isinstance(t, dict)
+        and tx_key(t) not in seen
+        and max(str(t.get("date") or ""), str(t.get("date_published") or "")) >= cutoff
+    ]
     merged = fresh + kept
     merged.sort(key=lambda t: (str(t.get("date") or ""), str(t.get("date_published") or "")), reverse=True)
     return merged, len(kept)

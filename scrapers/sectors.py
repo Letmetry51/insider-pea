@@ -715,13 +715,18 @@ def past_earnings(ed, today=None):
     return sorted({d.strftime("%Y-%m-%d") for d in idx.normalize() if d < t0})
 
 
-def past_dates(ev, today_s, keep=8):
+def past_dates(ev, today_s, keep=8, max_age=400):
     """Dates des dernières publications d'une société (relevé hebdomadaire : dates passées de Yahoo et dates des surprises), avant
-    aujourd'hui, les keep plus récentes."""
+    aujourd'hui et depuis moins de max_age jours (Yahoo ne garde parfois que de vieilles dates : le 07/11/2026, 201 sociétés dont
+    la dernière date connue datait de 2013 à 2025), les keep plus récentes."""
     ev = ev or {}
+    try:
+        old = (date.fromisoformat(today_s) - timedelta(days=max_age)).isoformat()
+    except ValueError:
+        old = ""
     ds = {d for d in (ev.get("past") or []) if isinstance(d, str)}
     ds |= {x[0] for x in (ev.get("surprises") or []) if isinstance(x, (list, tuple)) and x and isinstance(x[0], str)}
-    return sorted(d for d in ds if len(d) == 10 and d < today_s)[-keep:]
+    return sorted(d for d in ds if len(d) == 10 and old <= d < today_s)[-keep:]
 
 
 def fetch_estimates(s):

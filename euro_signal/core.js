@@ -9283,9 +9283,10 @@
    * déjà dans les règles ; le sens des séances et la tendance des volumes n'y ajoutent rien de sûr.
    */
   ES.volumeBrief = function (daily, dvol, dates) {
-    if (!daily || !dvol || !dates) return null;
+    if (!Array.isArray(daily) || !Array.isArray(dvol) || !Array.isArray(dates)) return null;
+    // valeurs aberrantes écartées (stress test du 07/11/2026 : un volume de 1e300 élargissait la page à 2 657 pixels sur téléphone)
     var pos = function (v) {
-      return typeof v === 'number' && isFinite(v) && v > 0;
+      return typeof v === 'number' && isFinite(v) && v > 0 && v < 1e13;
     };
     var n = dates.length,
       nv = Math.min(dvol.length, n),
@@ -9365,12 +9366,17 @@
    */
   ES.earningsInfo = function (next, past, today, daily, dates) {
     var isD = function (d) {
-      return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+      if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+      var t = new Date(d + 'T00:00:00Z');
+      return !isNaN(t) && t.toISOString().slice(0, 10) === d; // 2026-02-30 ou 2026-13-45 : écartées
     };
-    var P = (past || []).filter(isD);
+    // publications de plus de 400 jours écartées : Yahoo ne garde parfois que de vieilles dates (07/11/2026 : 201 sociétés dont la
+    // dernière date connue datait de 2013 à 2025, affichées « derniers résultats le … » comme récentes)
+    var old = ES.addDays(today, -400);
+    var P = Array.isArray(past) ? past.filter(isD) : [];
     if (isD(next) && next < today) P.push(next); // date annoncée déjà passée : c'est la dernière publication
     P = P.filter(function (d, i, a) {
-      return d < today && a.indexOf(d) === i;
+      return d < today && d >= old && a.indexOf(d) === i;
     }).sort();
     var out = {
       next: isD(next) && next >= today ? next : null,
