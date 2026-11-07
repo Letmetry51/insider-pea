@@ -1,0 +1,128 @@
+# Grain Signal : céréales (blé, escourgeon, orge de printemps, colza, maïs) et engrais azotés.
+# Chaque matin du mardi au samedi (séance de la veille) et le lundi (comité de la semaine) : collecte, calcul, comité IA
+# (lundi et alertes, si le secret ANTHROPIC_API_KEY existe), emails, publication sur la branche site (page grain-signal.html).
+name: Grain Signal (céréales et engrais)
+
+on:
+  schedule:
+    # 4h47 UTC (5h47 ou 6h47 à Paris) : clôtures Euronext, CBOT et CFTC de la veille publiées, emails lus au petit-déjeuner.
+    # Pas à l'heure pile (GitHub y retarde les tâches planifiées)
+    - cron: '47 4 * * 1-6'
+  workflow_dispatch:
+    inputs:
+      comite:
+        description: "Réunir le comité IA maintenant (comité complet)"
+        type: boolean
+        default: false
+      test_email:
+        description: "Envoyer aussi un email de test"
+        type: boolean
+        default: false
+  # essai d'une modification sur la branche grain-signal-essai : tout est calculé, rien n'est envoyé ni publié
+  push:
+    branches: [grain-signal-essai]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: donnees # même groupe qu'Euro Signal : jamais deux publications de la branche site en même temps
+  cancel-in-progress: false
+
+jobs:
+  grain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GS_DRY: ${{ github.ref != 'refs/heads/main' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 0. Données publiées (branche site)
+        timeout-minutes: 5
+        uses: ./.github/actions/restore-data
+
+      # historiques bruts des cours (jamais publiés) gardés d'un matin à l'autre
+      - name: 0b. Historiques Grain Signal (cache)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/grain/prive
+          key: grain-prive-${{ github.run_id }}
+          restore-keys: grain-prive-
+        continue-on-error: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installation
+        timeout-minutes: 5
+        run: pip install "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" "openpyxl>=3.1,<4" "markdown>=3.5,<4"
+
+      - name: 1. Tests Grain Signal
+        id: g1
+        timeout-minutes: 3
+        run: python grain_signal/test_grain.py
+
+      - name: 2. Collecte (Euronext, Yahoo, CFTC, engrais, Banque mondiale)
+        id: g2
+        timeout-minutes: 15
+        run: python grain_signal/collect.py
+        continue-on-error: true
+
+      - name: 3. Calcul (technique, signaux, engrais, déclencheurs)
+        id: g3
+        timeout-minutes: 5
+        run: python grain_signal/build.py
+
+      - name: 4. Comité IA (lundi, alertes, ou à la demande)
+        id: g4
+        timeout-minutes: 25
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GS_COMITE: ${{ inputs.comite && 'force' || '' }}
+        run: python grain_signal/comite.py
+
+      - name: 5. Calcul avec l'avis du comité
+        id: g5
+        timeout-minutes: 5
+        run: python grain_signal/build.py
+
+      - name: 6. Emails (Gmail)
+        id: g6
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+          GS_TEST_EMAIL: ${{ inputs.test_email }}
+        run: python grain_signal/send_alerts.py
+
+      - name: 7a. Historiques Grain Signal (cache)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/grain/prive
+          key: grain-prive-${{ github.run_id }}
+        continue-on-error: true
+
+      - name: 7b. Résultats de l'essai (branche d'essai)
+        if: always() && github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: grain-signal-essai-${{ github.run_id }}
+          path: data/grain/
+          retention-days: 5
+        continue-on-error: true
+
+      - name: 8. Publication du site (branche site)
+        if: always() && github.ref == 'refs/heads/main' && steps.g3.outcome == 'success'
+        timeout-minutes: 15
+        uses: ./.github/actions/publish-site
+        with:
+          message: "🌾 Grain Signal du matin"
+          token: ${{ secrets.GITHUB_TOKEN }}

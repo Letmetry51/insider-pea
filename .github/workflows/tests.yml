@@ -54,7 +54,7 @@ jobs:
           node-version: '20'
       - run: pip install -r requirements.txt ruff==0.16.8
       - name: Erreurs de code (ruff)
-        run: ruff check --select F scrapers euro_signal tools run.py
+        run: ruff check --select F scrapers euro_signal tools run.py grain_signal
       - name: Tests
         run: |
           python euro_signal/test_positions.py
@@ -69,6 +69,7 @@ jobs:
           python scrapers/test_sources.py
           python scrapers/test_news.py
           python tools/test_workflows.py
+          python grain_signal/test_grain.py
 
   # Calcul du soir rejoué sur les données publiées la veille (branche site) avec le code proposé : une modification qui ferait
   # planter le calcul, ou qui changerait le classement d'un côté seulement (moteur ou double calcul), est vue avant la fusion
