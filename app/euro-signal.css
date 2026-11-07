@@ -32,6 +32,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    --logo-edge: #2c3832;
     --bg: #111614;
     --surface: #18201c;
     --sunk: #0d1210;
@@ -60,6 +61,7 @@
   }
 }
 :root[data-theme='dark'] {
+  --logo-edge: #2c3832;
   --bg: #111614;
   --surface: #18201c;
   --sunk: #0d1210;
@@ -263,31 +265,14 @@ textarea.code {
   color: var(--muted);
   font-size: 0.8rem;
 }
+/* logo (app/logo.svg, mêmes couleurs dans les deux thèmes) : liseré en thème sombre pour détacher la tuile du fond */
 .logo {
+  display: block;
   width: 34px;
   height: 34px;
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  padding: 5px;
   border-radius: 8px;
-  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--logo-edge, transparent);
   flex: none;
-}
-.logo i {
-  flex: 1;
-  background: var(--bg);
-  border-radius: 1px;
-}
-.logo i:nth-child(1) {
-  height: 35%;
-}
-.logo i:nth-child(2) {
-  height: 62%;
-}
-.logo i:nth-child(3) {
-  height: 100%;
-  background: var(--accent);
 }
 .chips {
   display: flex;

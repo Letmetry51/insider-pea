@@ -67,7 +67,8 @@ function render() {
           ? 'inities'
           : S.view;
   top.innerHTML =
-    '<div class="brand"><div class="logo" aria-hidden="true"><i></i><i></i><i></i></div><div><h1>Euro Signal</h1><p>' +
+    // logo : le cours revient sur sa moyenne 10 semaines (rail), le feu passe au vert, la tendance repart (coche du ✅ feu vert)
+    '<div class="brand"><img class="logo" src="app/logo.svg" width="34" height="34" alt=""><div><h1>Euro Signal</h1><p>' +
     (S.mode === 'remote'
       ? 'Données du ' + shortDate(S.today) + ' · mises à jour chaque soir de semaine'
       : 'Surveillance des achats de dirigeants') +
