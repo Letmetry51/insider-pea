@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  actions: read # relire la sauvegarde des historiques si le cache a été vidé
 
 concurrency:
   group: donnees # même groupe qu'Euro Signal : jamais deux publications de la branche site en même temps
@@ -46,12 +47,29 @@ jobs:
 
       # historiques bruts des cours (jamais publiés) gardés d'un matin à l'autre
       - name: 0b. Historiques Grain Signal (cache)
+        id: cache
         uses: actions/cache/restore@v4
         with:
           path: data/grain/prive
           key: grain-prive-${{ github.run_id }}
           restore-keys: grain-prive-
         continue-on-error: true
+
+      # cache vidé (plus de 7 jours sans calcul) : dernière sauvegarde des historiques, plutôt que de repartir de zéro
+      - name: 0c. Historiques Grain Signal (sauvegarde, si le cache est vide)
+        if: steps.cache.outputs.cache-matched-key == ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=grain-prive&per_page=1" --jq '.artifacts[0].id // empty')
+          if [ -n "$id" ]; then
+            gh api "repos/${{ github.repository }}/actions/artifacts/$id/zip" > "$RUNNER_TEMP/prive.zip"
+            mkdir -p data/grain/prive && unzip -o -q "$RUNNER_TEMP/prive.zip" -d data/grain/prive
+            echo "Historiques restaurés depuis la sauvegarde $id"
+          else
+            echo "Aucune sauvegarde : historiques de départ"
+          fi
 
       - uses: actions/setup-python@v5
         with:
@@ -108,6 +126,20 @@ jobs:
         with:
           path: data/grain/prive
           key: grain-prive-${{ github.run_id }}
+        continue-on-error: true
+
+      - name: 7c. Sauvegarde des historiques (35 jours)
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: grain-prive
+          # seulement les historiques qu'on ne peut pas retélécharger (cours Yahoo et CFTC exclus : relus chaque matin)
+          path: |
+            data/grain/prive/euronext.csv
+            data/grain/prive/fert_fr.csv
+            data/grain/prive/physique_hist.csv
+          retention-days: 35
+          overwrite: true
         continue-on-error: true
 
       - name: 7b. Résultats de l'essai (branche d'essai)

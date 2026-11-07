@@ -58,7 +58,29 @@ from datetime import date  # noqa: E402
 check(collect.day_month(pp[0]["titre"], date(2026, 11, 7)) == date(2026, 11, 6), "date « 06 novembre » au-dessus de la table")
 check(collect.day_month("30 décembre", date(2026, 1, 3)) == date(2025, 12, 30), "date de fin d'année lue au début de l'année suivante")
 
+check(collect.num("225.50") == 225.5 and collect.num("+1.25") == 1.25, "nombre à point décimal (pages en anglais)")
+check(collect.num("1.234") == 1234 and collect.num("12 345") == 12345, "séparateurs de milliers")
+NOCOL = FUT.replace("Compensation", "Clôture")
+check(collect.parse_futures(NOCOL) == {}, "colonne « compensation » absente : aucune valeur inventée")
+from datetime import datetime as _dt, timezone as _tz  # noqa: E402
+
+check(collect.date_seance(None, _dt(2026, 11, 7, 4, 47, tzinfo=_tz.utc)).isoformat() == "2026-11-06", "sans date lue : dernière séance close")
+check(collect.date_seance(date(2026, 11, 9), _dt(2026, 11, 9, 4, 47, tzinfo=_tz.utc)).isoformat() == "2026-11-06",
+      "date du jour le matin (séance pas close) : ramenée à la séance précédente")
+check(collect.parse_date_fr("Mis à jour le 06/11/2026 à 18h30", None).isoformat() == "2026-11-06", "date au format jj/mm/aaaa")
+
 # ------------------------------------------------------------------ indicateurs
+# RSI de Wilder : valeur de référence (amorçage par la moyenne simple des 14 premières variations)
+_x = [44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28, 46.00, 46.03, 46.41, 46.22, 45.64]
+_r = ind.rsi(_x)
+_d = [b - a for a, b in zip(_x, _x[1:])]
+_g, _l = sum(max(v, 0) for v in _d[:14]) / 14, sum(max(-v, 0) for v in _d[:14]) / 14
+_ref14 = 100 - 100 / (1 + _g / _l)
+for v in _d[14:]:
+    _g, _l = (_g * 13 + max(v, 0)) / 14, (_l * 13 + max(-v, 0)) / 14
+_ref19 = 100 - 100 / (1 + _g / _l)
+check(abs(_r[14] - _ref14) < 1e-9 and abs(_r[19] - _ref19) < 1e-9 and _r[13] is None,
+      f"RSI de Wilder conforme au calcul de référence ({_r[14]:.2f}, {_r[19]:.2f})")
 up = [100 + i for i in range(40)]
 r = ind.rsi(up)
 check(r[-1] == 100.0, "RSI d'une hausse continue = 100")
@@ -201,6 +223,34 @@ if all(r[0] == 0 for r in runs):
     ids = [x["id"] for x in runs[1][2]]
     check(len(ids) == len(set(ids)), "pas d'alerte en double après un second calcul le même jour")
     check(runs[1][1]["declencheurs"] == [], "pas de nouveau déclencheur sans nouvelle séance")
+
+def roll_colza(t, pv):  # changement d'échéance colza nov. → févr. le 02/11 ; comité du 29/10 avec un ordre à 540 sur nov.
+    seeds(t, pv)
+    (t / "data" / "grain" / "comite.json").write_text(json.dumps({
+        "date": "2026-10-29", "modele": "test", "references": {"ECO": "2026-11"},
+        "cultures": {"colza": {"signal": "TENIR", "score": 0, "ordres": [540], "revision_bas": 500}},
+        "declencheurs": [{"contrat": "ECO", "sens": ">", "niveau": 540, "texte": "ordre"}]}), encoding="utf-8")
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"contrats": {"ECO": {"seance": "2026-10-30", "dernier": 527.5}}}), encoding="utf-8")
+
+
+(rc, dash, box, err), = run_build(roll_colza, today="2026-11-03")
+if rc == 0:
+    nr = dash["cultures"]["colza"]["niveaux_retenus"]
+    check(nr["revision"] == 527.75 and nr.get("decalage_echeance") == 27.75, f"niveaux du comité décalés après le changement d'échéance ({nr})")
+    check(not any(":niveau:" in x["id"] for x in dash["declencheurs"]), "pas de faux « niveau franchi » le jour du changement d'échéance")
+else:
+    check(False, "scénario de changement d'échéance : " + err)
+
+
+def comite_change(t, pv):
+    seeds(t, pv)
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"signaux": {"ble": "VENDRE", "escourgeon": "VENDRE"}}), encoding="utf-8")
+
+
+(rc, dash, _, err), = run_build(comite_change)
+ids = [x["id"] for x in (dash or {}).get("declencheurs", [])]
+check(rc == 0 and any(i.endswith("ble:signal") for i in ids) and any(i.endswith("escourgeon:signal") for i in ids),
+      "changement de signal signalé pour toutes les cultures, orges comprises")
 
 for day in ("2027-01-02", "2027-06-30", "2027-07-01", "2027-12-31"):
     (rc, dash, _, err), = run_build(seeds, today=day)

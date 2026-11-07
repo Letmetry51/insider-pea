@@ -194,7 +194,9 @@ def main():
     res = {"date": today.isoformat(), "mode": mode, "consigne": consigne, "modele": CFG["comite"]["modele"], **decision,
            "rapport_md": report, "rapport_html": safe_html(report), "sources": sources[:60], "usage": usage,
            "cout_usd": round(cost, 2), "duree_s": round(time.time() - t0),
-           "chiffres": {k: {"composantes": v.get("composantes")} for k, v in (dash.get("cultures") or {}).items()}}
+           "chiffres": {k: {"composantes": v.get("composantes")} for k, v in (dash.get("cultures") or {}).items()},
+           # échéance de référence de chaque contrat le jour du comité : ses niveaux seront décalés après un changement d'échéance
+           "references": {k: v.get("echeance") for k, v in (dash.get("contrats") or {}).items() if v.get("echeance")}}
     save(OUT / "comite.json", res)
     save(OUT / "comites" / f"{today.isoformat()}-{mode}.json", res)
     arch = sorted((OUT / "comites").glob("*.json"))

@@ -727,6 +727,23 @@ function periodPanel(p) {
   );
 }
 
+// vues 1 an / 5 ans d'une orge : celles du blé décalées de l'écart orge/blé du jour, prix physiques relevés par-dessus
+function orgeLong(o, eb) {
+  if (!o.estime || !o.estime.long_depuis_ble || !eb || !eb.long) return null;
+  const g = o.estime.ecart;
+  const phys = Object.fromEntries((o.graphique || []).map((r) => [r[0], r[1]]));
+  const sh = (r) => [
+    r[0],
+    ...r.slice(1, 4).map((x) => (x === null || x === undefined ? null : Math.round((x + g) * 100) / 100)),
+  ];
+  return {
+    an: eb.long.an.map((r) => [...sh(r), phys[r[0]] ?? null]),
+    cinq_ans: eb.long.cinq_ans.map((r) => [...sh(r), null]),
+    nom: eb.long.nom,
+    euronext_depuis: eb.long.euronext_depuis,
+  };
+}
+
 function chartLevels(niv, a) {
   const lv = [];
   (niv && niv.ordres ? niv.ordres : []).forEach((v, i) => lv.push({ v, c: 'var(--good)', t: `🎯 Ordre ${i + 1}` }));
@@ -1180,7 +1197,7 @@ function vTechnique() {
           ? periodPanel({
               nom: o.nom,
               graphique: o.estime.graphique,
-              long: o.estime.long,
+              long: orgeLong(o, d.contrats.EBM),
               technique: o.estime.technique,
               series: o.estime.series,
               niveaux: o.estime.niveaux,
@@ -1206,7 +1223,7 @@ function vTechnique() {
                 ['var(--muted)', `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`],
                 ['var(--chart-1)', 'Prix physique relevé'],
               ],
-              noteLong: `Tendance longue de l'orge estimée à partir du blé (Euronext, puis ${o.estime.long ? o.estime.long.nom : 'Chicago'} recalé) décalé de l'écart du jour : l'écart orge/blé varie dans le temps, ce n'est qu'un repère.`,
+              noteLong: `Tendance longue de l'orge estimée à partir du blé (Euronext, puis ${(d.contrats.EBM.long || {}).nom || 'Chicago'} recalé) décalé de l'écart du jour : l'écart orge/blé varie dans le temps, ce n'est qu'un repère.`,
             })
           : h('p', { class: 'note', text: 'Graphique dès que plusieurs jours de prix sont relevés.' }),
         h(
