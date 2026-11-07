@@ -276,27 +276,47 @@ def collect_euronext(today):
     print(f"Euronext : {added} nouvelles cotations, {len(rows)} au total")
 
 
+def yahoo_series(tk):
+    """Clôtures journalières sur 2 ans : yfinance (gère les jetons de Yahoo, comme Euro Signal), sinon accès direct."""
+    errs = []
+    try:
+        import yfinance as yf
+
+        h = yf.Ticker(tk).history(period="2y", interval="1d", auto_adjust=False)
+        ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items()}
+        if len(ser) >= 50:
+            return ser, "yfinance"
+        errs.append(f"yfinance : {len(ser)} séances")
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"yfinance : {type(e).__name__} {str(e)[:80]}")
+    for host in ("query2", "query1"):
+        try:
+            j = get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{tk}?range=2y&interval=1d").json()
+            res = j["chart"]["result"][0]
+            ser = {}
+            for t, c in zip(res.get("timestamp") or [], res["indicators"]["quote"][0].get("close") or []):
+                if c is not None:
+                    ser[datetime.fromtimestamp(t, timezone.utc).date().isoformat()] = round(float(c), 4)
+            if len(ser) >= 50:
+                return ser, host
+            errs.append(f"{host} : {len(ser)} séances")
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{host} : {e}")
+    raise RuntimeError(" ; ".join(errs))
+
+
 def collect_yahoo():
     path = PRIV / "yahoo.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     out = dict(old)
     for tk, name in CFG["yahoo"].items():
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{tk}?range=2y&interval=1d"
-            j = get(url).json()
-            res = j["chart"]["result"][0]
-            ts = res.get("timestamp") or []
-            cl = res["indicators"]["quote"][0].get("close") or []
-            ser = {}
-            for t, c in zip(ts, cl):
-                if c is not None:
-                    ser[datetime.fromtimestamp(t, timezone.utc).date().isoformat()] = round(float(c), 4)
-            if len(ser) < 50:
-                raise RuntimeError(f"{len(ser)} séances seulement")
-            out[tk] = {"nom": name, "serie": ser}
-            note("yahoo_" + tk, True, f"{len(ser)} séances, dernière {max(ser)}")
+            ser, src = yahoo_series(tk)
+            out[tk] = {"nom": name, "serie": dict(sorted(ser.items()))}
+            note("yahoo_" + tk, True, f"{len(ser)} séances, dernière {max(ser)} ({src})")
         except Exception as e:  # noqa: BLE001
             note("yahoo_" + tk, False, f"{e} (historique précédent gardé)" if tk in old else e)
+        time.sleep(1)
     save_json(path, out)
 
 
