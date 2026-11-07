@@ -132,6 +132,81 @@ try:
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
+# ------------------------------------------------------------------ tests de résistance (données vides, corrompues, relances)
+def run_build(setup, today="2026-11-07", twice=False):
+    t = Path(tempfile.mkdtemp())
+    try:
+        (t / "grain_signal").mkdir()
+        for f in ("build.py", "indicators.py", "config.json"):
+            shutil.copy(HERE / f, t / "grain_signal" / f)
+        shutil.copytree(HERE / "seed", t / "grain_signal" / "seed")
+        pv = t / "data" / "grain" / "prive"
+        pv.mkdir(parents=True)
+        setup(t, pv)
+        env = dict(os.environ, GS_TODAY=today)
+        outs = []
+        for _ in range(2 if twice else 1):
+            r = subprocess.run([sys.executable, str(t / "grain_signal" / "build.py")], capture_output=True, text=True, env=env)
+            dash = json.loads((t / "data" / "grain" / "grain-signal.json").read_text(encoding="utf-8")) if r.returncode == 0 else None
+            box = json.loads((pv / "a-envoyer.json").read_text(encoding="utf-8")) if (pv / "a-envoyer.json").exists() else []
+            outs.append((r.returncode, dash, box, r.stderr[-300:]))
+        return outs
+    finally:
+        shutil.rmtree(t, ignore_errors=True)
+
+
+def seeds(t, pv):
+    for f in ("euronext.csv", "wb_monthly.csv", "fert_fr.csv", "physique_hist.csv"):
+        shutil.copy(HERE / "seed" / f, pv / f)
+
+
+def empty_seed(t, pv):  # aucune donnée, même pas les historiques de départ
+    for f in (t / "grain_signal" / "seed").glob("*"):
+        f.unlink()
+
+
+(rc, dash, _, err), = run_build(empty_seed)
+check(rc == 0 and dash is not None, "calcul sans aucune donnée : pas de plantage" + ("" if rc == 0 else " : " + err))
+
+
+def corrupt(t, pv):
+    seeds(t, pv)
+    (pv / "yahoo.json").write_text("{pas du json", encoding="utf-8")
+    (pv / "cftc.json").write_text("[]", encoding="utf-8")
+    (t / "data" / "grain" / "comite.json").write_text(json.dumps({
+        "date": "2026-11-07", "cultures": {"ble": {"signal": "TENIR", "score": "abc", "ordres": ["x", None, 230]},
+                                            "colza": {"signal": "N'IMPORTE"}},
+        "declencheurs": [{"contrat": "EBM", "sens": ">", "niveau": "nan"}, "texte"], "engrais": "rien"}), encoding="utf-8")
+    with (pv / "euronext.csv").open("a", encoding="utf-8") as fh:
+        fh.write("2026-11-06,EBM,2027-03,nan\n2026-11-06,EBM,2027-05,\n")
+
+
+(rc, dash, _, err), = run_build(corrupt)
+check(rc == 0 and dash is not None, "calcul avec fichiers corrompus (Yahoo illisible, comité malformé, prix vides)" + ("" if rc == 0 else " : " + err))
+if dash:
+    check(dash["cultures"]["ble"]["niveaux_retenus"]["ordres"] == [230.0], "ordres du comité nettoyés (valeurs non numériques ignorées)")
+    check(dash["cultures"]["colza"]["source"] != "comite", "signal du comité invalide ignoré")
+
+
+def one_row(t, pv):
+    (pv / "euronext.csv").write_text("date,product,maturity,settle\n2026-11-06,EBM,2026-12,225.5\n", encoding="utf-8")
+
+
+(rc, dash, _, err), = run_build(one_row)
+check(rc == 0 and dash["contrats"]["EBM"]["technique"].get("insuffisant"), "une seule séance Euronext : indicateurs marqués insuffisants")
+
+runs = run_build(seeds, twice=True)
+check(all(r[0] == 0 for r in runs), "deux calculs le même jour")
+if all(r[0] == 0 for r in runs):
+    ids = [x["id"] for x in runs[1][2]]
+    check(len(ids) == len(set(ids)), "pas d'alerte en double après un second calcul le même jour")
+    check(runs[1][1]["declencheurs"] == [], "pas de nouveau déclencheur sans nouvelle séance")
+
+for day in ("2027-01-02", "2027-06-30", "2027-07-01", "2027-12-31"):
+    (rc, dash, _, err), = run_build(seeds, today=day)
+    ok = rc == 0 and all(sum(1 for p in c["plan"] if p["statut"] == "due") <= 2 for c in dash["cultures"].values())
+    check(ok, f"plan de vente au {day} (passage d'année, moisson)" + ("" if rc == 0 else " : " + err))
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

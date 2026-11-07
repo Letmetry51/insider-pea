@@ -1141,8 +1141,8 @@ function vTechnique() {
             long: c.long,
             technique: c.proxy && c.proxy.technique ? c.proxy.technique : a,
             series: src.series,
-            // lecture de secours (marché américain converti) : pas d'ordres, les niveaux ne valent pas pour Euronext
-            niveaux: c.proxy && c.proxy.graphique ? null : c.niveaux_retenus || c.niveaux,
+            // lecture de secours recalée sur Euronext : les niveaux retenus (en €/t Euronext) s'y lisent directement
+            niveaux: c.niveaux_retenus || c.niveaux,
             longMain: 'var(--muted)',
             legendLong: c.long
               ? [
@@ -1224,13 +1224,19 @@ function vTechnique() {
           h(
             'tr',
             {},
-            h('td', { text: 'Orge fourragère Creil FOB' }),
+            h('td', { text: `Orge fourragère Creil FOB${o.fourragere_echeance ? ` (${o.fourragere_echeance})` : ''}` }),
             h('td', { class: 'n', text: o.fourragere ? `${fmt(o.fourragere)} €/t` : '—' })
           ),
           h(
             'tr',
             {},
-            h('td', { text: 'Prime brassicole' }),
+            h('td', {
+              text:
+                'Prime brassicole' +
+                (o.fourragere_echeance && o.fourragere_echeance !== o.echeance
+                  ? ' (indicative : échéances différentes)'
+                  : ''),
+            }),
             h('td', { class: 'n ' + cls(o.prime), text: o.prime !== undefined ? `${sgn(o.prime)} €/t` : '—' })
           ),
           h(

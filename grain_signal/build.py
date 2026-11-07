@@ -40,6 +40,32 @@ def load_json(p, default):
         return default
 
 
+def as_dict(v):
+    return v if isinstance(v, dict) else {}
+
+
+def clean_comite(c):
+    """Comité relu défensivement : un fichier malformé ne doit ni planter le calcul ni injecter de valeurs absurdes."""
+    c = as_dict(c)
+    out = dict(c)
+    cults = {}
+    for k, v in as_dict(c.get("cultures")).items():
+        if isinstance(v, dict):
+            v = dict(v)
+            v["ordres"] = [float(x) for x in (v.get("ordres") or []) if fnum(x) is not None and 0 < float(x) < 5000] if isinstance(v.get("ordres"), list) else []
+            for key in ("score", "revision_bas", "revision_haut"):
+                if fnum(v.get(key)) is None:
+                    v[key] = None
+            cults[k] = v
+    out["cultures"] = cults
+    out["declencheurs"] = [t for t in (c.get("declencheurs") if isinstance(c.get("declencheurs"), list) else [])
+                           if isinstance(t, dict) and fnum(t.get("niveau")) is not None]
+    out["engrais"] = as_dict(c.get("engrais"))
+    out["chiffres"] = as_dict(c.get("chiffres"))
+    out["calendrier"] = [x for x in (c.get("calendrier") if isinstance(c.get("calendrier"), list) else []) if isinstance(x, dict)]
+    return out
+
+
 def save_json(p, obj):
     p = Path(p)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -369,10 +395,7 @@ def vue_longue(yahoo, tk, e_dates, e_vals):
     if len(pv) < 60:
         return None
     eu = dict(zip(e_dates, e_vals))
-    # recalage sur le niveau Euronext (moyenne du rapport Euronext / américain sur les séances communes) : même échelle à l'écran
-    pmap = dict(zip(pd_, pv))
-    common = [d_ for d_ in e_dates if d_ in pmap][-60:]
-    f = sum(eu[d_] / pmap[d_] for d_ in common) / len(common) if common else 1.0
+    f = recale(pd_, pv, e_dates, e_vals)  # même échelle qu'Euronext, raccord exact au dernier jour commun
     pv = [x * f for x in pv]
     m50, m200 = ind.sma(pv, 50), ind.sma(pv, 200)
     k = max(0, len(pv) - 252)
@@ -396,6 +419,16 @@ def vue_longue(yahoo, tk, e_dates, e_vals):
              round(eu_w[wd[i][0]], 2) if wd[i][0] in eu_w else None] for i in range(max(0, len(wk) - 262), len(wk))]
     return {"ticker": tk, "nom": (yahoo.get(tk) or {}).get("nom", tk), "an": an, "cinq_ans": cinq, "recalage": round(f, 4),
             "depuis": pd_[0], "euronext_depuis": e_dates[0] if e_dates else None}
+
+
+def recale(p_dates, p_vals, e_dates, e_vals):
+    """Facteur qui ramène une série américaine au niveau d'Euronext le DERNIER jour où les deux cotent : la courbe recalée finit
+    exactement au cours Euronext du jour (pas de marche entre les deux courbes)."""
+    pmap = dict(zip(p_dates, p_vals))
+    common = [d_ for d_ in e_dates if pmap.get(d_)]
+    if not common:
+        return 1.0
+    return e_vals[e_dates.index(common[-1])] / pmap[common[-1]]
 
 
 def proxy_eur(yahoo, tk):
@@ -440,6 +473,7 @@ def orges(today, ble_vals):
         fd = [d for d in sorted(four_by) if d <= last_d]
         if fd:
             e["fourragere"] = four_by[fd[-1]]
+            e["fourragere_echeance"] = next((r.get("echeance", "") for r in reversed(four) if r["date"] == fd[-1]), "")
             e["prime"] = round(by[last_d] - four_by[fd[-1]], 2)
         if ble_vals:
             e["ecart_ble"] = round(by[last_d] - ble_vals[-1], 2)
@@ -530,15 +564,20 @@ def plan_vente(cult, today, entry, contrats):
             elif contrat:
                 e["action"] = f"Contractualiser {pct} % avec la malterie si la prime brassicole tient"
                 e["code"] = "executer"
-            elif ordres and (feu == "attendre" or not pre):
+            elif ordres:
                 lieu = "quand le blé Euronext atteint" if nr.get("sur_ble") else "par ordre à"
-                o = f"{ordres[0]:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+                o = f"{ordres[0]:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " €/t"
+                if pre and ref:  # récolte à venir : l'ordre porte sur l'échéance de la nouvelle récolte
+                    o += f" (échéance {MOIS_FR[ref[1] - 1]} {hy})"
                 if feu == "attendre":
-                    e["action"] = f"Ne pas vendre au marché (creux) : {pct} % {lieu} {o} €/t"
+                    e["action"] = f"Ne pas vendre au marché (creux) : {pct} % {lieu} {o}"
                     e["code"] = "ordre"
-                else:
-                    e["action"] = f"Vendre {pct} % maintenant, ou {lieu} {o} €/t"
+                elif feu == "accelerer":
+                    e["action"] = f"Vendre {pct} % maintenant : le marché s'essouffle (sinon {lieu} {o})"
                     e["code"] = "executer"
+                else:
+                    e["action"] = f"Vendre {pct} % {lieu} {o}, au marché seulement si besoin de trésorerie"
+                    e["code"] = "ordre"
                 e["ordre"] = ordres[0]
             elif feu == "attendre":
                 e["action"] = f"Ne pas vendre au marché (creux) : attendre un rebond pour ces {pct} %"
@@ -546,8 +585,8 @@ def plan_vente(cult, today, entry, contrats):
             else:
                 e["action"] = f"Vendre {pct} % d'ici fin {MOIS_FR[b[1] - 1]}"
                 e["code"] = "executer"
-            if pre and not contrat and ref:
-                e["action"] += f" (récolte {hy} : sur l'échéance {MOIS_FR[ref[1] - 1]} {hy})"
+            if pre and not contrat and ref and not e.get("ordre"):
+                e["action"] += f" (échéance {MOIS_FR[ref[1] - 1]} {hy})"
         elif nxt:
             a, b, pct = nxt
             e.update(statut="prochaine", periode=periode(a, b), pct=pct, cumul_vise=done + pct,
@@ -562,17 +601,17 @@ def plan_vente(cult, today, entry, contrats):
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
     eur = read_csv(PRIV / "euronext.csv")
-    yahoo = load_json(PRIV / "yahoo.json", {})
-    cftc = load_json(PRIV / "cftc.json", {})
+    yahoo = {k: v for k, v in as_dict(load_json(PRIV / "yahoo.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), dict)}
+    cftc = {k: v for k, v in as_dict(load_json(PRIV / "cftc.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
     seed_c = load_json(HERE / "seed" / "comite-initial.json", {})
     cur_c = load_json(OUT / "comite.json", {})
     if cur_c.get("date") == seed_c.get("date") and "(session)" in str(cur_c.get("modele")) and cur_c.get("version_seed") != seed_c.get("version_seed"):
         (OUT / "comite.json").unlink()  # comité de départ corrigé : nouvelle version reprise
     if not (OUT / "comite.json").exists() and (HERE / "seed" / "comite-initial.json").exists():
         (OUT / "comite.json").write_bytes((HERE / "seed" / "comite-initial.json").read_bytes())  # premier calcul : comité du 07/11/2026
-    comite = load_json(OUT / "comite.json", {})
-    etat = load_json(OUT / "etat.json", {})
-    collecte = load_json(OUT / "collecte.json", {})
+    comite = clean_comite(load_json(OUT / "comite.json", {}))
+    etat = as_dict(load_json(OUT / "etat.json", {}))
+    collecte = as_dict(load_json(OUT / "collecte.json", {}))
 
     inter = {}
     for tk, y in yahoo.items():
@@ -601,6 +640,8 @@ def main():
         if a.get("insuffisant"):  # historique Euronext encore court : lecture technique du marché américain, converti en €/t
             px = PROXY.get(prod)
             pd_, pv = proxy_eur(yahoo, px)
+            fx_ = recale(pd_, pv, d, v)  # lecture de secours au niveau d'Euronext (sinon 155 €/t affichés pour un maïs à 247)
+            pv = [x * fx_ for x in pv]
             if len(pv) >= 30:
                 pa = ind.analyse(pd_, pv)
                 prs, phs = pa.pop("_rsi", None), pa.pop("_histo", None)
@@ -613,7 +654,7 @@ def main():
                                    "graphique": [[pd_[i], round(pv[i], 2), round(m20[i], 2) if m20[i] else None,
                                                   round(m50[i], 2) if m50[i] else None] for i in range(kk, len(pv))],
                                    "texte": f"Historique Euronext de {a['seances']} séance(s), 30 nécessaires (environ 6 semaines) : en attendant, "
-                                            f"lecture technique de {nom_px} converti en €/t (même tendance, niveau différent d'Euronext)"})
+                                            f"lecture technique de {nom_px} converti en €/t et recalé sur le cours Euronext du jour"})
         mm20, mm50 = ind.sma(v, 20), ind.sma(v, 50)
         k = max(0, len(v) - 120)
         info["graphique"] = [[d[i], round(v[i], 2), round(mm20[i], 2) if mm20[i] else None, round(mm50[i], 2) if mm50[i] else None]
