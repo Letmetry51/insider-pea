@@ -59,6 +59,7 @@ jobs:
         run: |
           python euro_signal/test_positions.py
           python euro_signal/test_health.py
+          python euro_signal/test_send_alerts.py
           python euro_signal/test_twin.py
           python scrapers/test_financials.py
           python scrapers/test_prices.py

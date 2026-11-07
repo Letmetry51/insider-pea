@@ -7,10 +7,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
+const ES = createRequire(import.meta.url)('./core.js');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.join(ROOT, 'data');
-const today = process.env.ES_TODAY || new Date().toISOString().slice(0, 10);
+// jour du calcul à l'heure de Paris, même règle que le calcul (euro_signal/build.mjs) : avant le 07/11/2026, date UTC et
+// contrôle de la date des données inopérant hors des vérifications des PR
+const today = process.env.ES_TODAY || ES.parisDay(new Date());
 const lines = [];
 let fails = 0,
   warns = 0;
@@ -60,11 +64,7 @@ for (const f of [
 }
 const raw = fs.readFileSync(path.join(DATA, 'euro-signal.json'), 'utf8');
 check(!/\bNaN\b|\bInfinity\b/.test(raw), 'aucune valeur NaN ou Infinity dans euro-signal.json');
-check(
-  main.today === today || process.env.ES_TODAY == null,
-  `date des données ${main.today} (aujourd'hui ${today})`,
-  true
-);
+check(main.today === today, `date des données ${main.today} (aujourd'hui ${today})`, true);
 
 // 2. Cours 1 an (fichier détaillé) et 5 ans (fichier long) : présents et réellement différents
 // fiches détaillées : réparties en petits fichiers (data/fiches/N.json), rassemblées ici pour les contrôles
@@ -427,12 +427,24 @@ if (RK) {
       )
   ).length;
   check(badSum === 0, `classement : note égale à la somme des points (${badSum} écart)`);
+  // place 📣 (démarrage sur bond, depuis le 27/10/2026) : tendance de fond haussière au lieu de la pente (ES.pickThree) ; avant le
+  // 07/11/2026, un 📣 à pente légère faisait échouer ce contrôle chaque soir
   const selRows = ((RK.selection && RK.selection.items) || [])
-    .map((x) => (RK.rows || []).find((r) => r.key === x.key))
+    .map((x) => {
+      const r = (RK.rows || []).find((y) => y.key === x.key);
+      return r ? Object.assign({}, r, { bd: x.bd }) : null;
+    })
     .filter(Boolean);
   check(
-    selRows.every((r) => r.pea !== false && r.acc === 'good' && (r.sc === 'strong' || r.sc === 'mid') && r.mom <= 200),
-    `sélection du lundi dans les règles (PEA, comptes solides, pente, hausse ≤ +200 %) : ${selRows.map((r) => r.name).join(', ') || 'aucune'}`
+    selRows.every(
+      (r) =>
+        r.pea !== false &&
+        r.acc === 'good' &&
+        (r.bd ? r.trend === 'up' : r.sc === 'strong' || r.sc === 'mid') &&
+        r.mom != null &&
+        r.mom <= 200
+    ),
+    `sélection du lundi dans les règles (PEA, comptes solides, pente ou tendance pour le 📣, hausse ≤ +200 %) : ${selRows.map((r) => r.name).join(', ') || 'aucune'}`
   );
   check(
     RK.rows.every((r) => r.note >= 0 && r.note <= 100 && r.name),
@@ -690,6 +702,7 @@ if (BK && !BK.__error && tonight(BK) && BK.complete && BK.complete.catalogue) {
     warn(
       `sélection de la semaine ${SD.week} pas encore envoyée : ${SD.postponed.why} ; relance automatique du calcul au petit matin, sinon au calcul suivant (au plus tard vendredi)`
     );
+  else if (SD && !SD.__error && SD.missed) warn(`sélection de la semaine ${SD.week} jamais envoyée : ${SD.missed.why}`);
   else if (SD && !SD.__error && SD.sent) ok(`sélection de la semaine ${SD.week} envoyée`);
 }
 // chaque étape du soir réécrit son fichier : un fichier ancien veut dire une étape en échec (données précédentes gardées)

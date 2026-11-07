@@ -10544,7 +10544,12 @@
       };
     });
     // 📣 : place réservée prise seulement par une note d'au moins selMin (sinon le 🎯 suivant), comme les autres lignes du lundi
-    return ES.pickN(slim, { n: R.selSize, peaOnly: true, bondNoteMin: R.selMin })
+    // même réglage PEA que le 🎯, le 💎 et le feu vert (codé « true » jusqu'au 07/11/2026 : le réglage était ignoré ici seulement)
+    return ES.pickN(slim, {
+      n: R.selSize,
+      peaOnly: ((cfg && cfg.selection) || {}).peaOnly !== false,
+      bondNoteMin: R.selMin,
+    })
       .picks.filter(function (p) {
         return p.pickTier < 2 && p.note >= R.selMin;
       })
@@ -10804,8 +10809,7 @@
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track, values) {
     values = values || [];
-    var nv = values.length,
-      share = Math.round((100 * (items || []).length) / Math.max(1, (items || []).length + nv));
+    var nv = values.length;
     var vtxt = nv
       ? '💎 Et ' +
         nv +
@@ -10815,11 +10819,7 @@
         (items || []).length +
         ' 🎯 + ' +
         nv +
-        ' 💎 ≈ ' +
-        share +
-        '/' +
-        (100 - share) +
-        ') : ' +
+        ' 💎, dosage conseillé 70 % 🎯 / 30 % 💎) : ' +
         values
           .map(function (v) {
             return v.name + ' (F-score ' + v.f9 + ', cours/fonds propres ' + String(v.pb).replace('.', ',') + ')';

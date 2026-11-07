@@ -209,7 +209,7 @@ jobs:
         timeout-minutes: 10
         env:
           ES_RESEND_SELECTION: ${{ github.event.inputs.resend_selection }}
-          ES_MAIL_READY: ${{ secrets.GMAIL_APP_PASSWORD != '' && 'oui' || 'non' }}
+          ES_MAIL_READY: ${{ secrets.GMAIL_APP_PASSWORD != '' && secrets.GMAIL_USER != '' && 'oui' || 'non' }}
         run: node euro_signal/build.mjs
 
       - name: 5c. Archive permanente des résultats et rachats (jamais effacée)

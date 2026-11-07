@@ -69,6 +69,18 @@ def load_json(path, default):
         return default
 
 
+def load_records(path):
+    """Déclarations déjà collectées. Un fichier présent mais illisible arrête tout, sans rien réécrire : sinon il serait
+    remplacé par les seules déclarations de ce soir (le curseur de collecte est déjà plus loin) et des années d'historique
+    seraient perdues. À restaurer depuis l'historique git de la branche site."""
+    if not path.exists():
+        return []
+    recs = load_json(path, None)
+    if not isinstance(recs, list):
+        raise SystemExit(f"ÉCHEC : {path.name} illisible — collecte arrêtée, fichier laissé tel quel (à restaurer depuis git)")
+    return recs
+
+
 def save_json(path, obj):
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
@@ -655,7 +667,7 @@ def main():
     clock = Clock(a.minutes)
     skip = set(x.strip().upper() for x in a.skip.split(",") if x.strip())
     st = load_json(STATE, {})
-    recs = {k: load_json(p, []) for k, p in FILES.items()}
+    recs = {k: load_records(p) for k, p in FILES.items()}
     # Suède d'abord (export rapide), puis France (un PDF par déclaration), puis résultats ; temps partagé
     if "FI" not in skip:
         sub = Clock(min(a.minutes * 0.45, clock.left() / 60))

@@ -80,6 +80,64 @@ def mutate_weekly(fn):
     W.to_csv(S.WEEKLY, compression="gzip")
 
 
+@case("Taux de change absents ce soir (relecture du 07/11/2026) : taux de la veille avant la conversion, jamais de cours ×11")
+def _():
+    idx = pd.date_range("2025-01-03", periods=60, freq="W-FRI")
+    S.UNIVERSE.write_text(json.dumps({"items": {"AAA.ST": {"currency": "SEK"}, "BBB.PA": {"currency": "EUR"}, "CCC.CO": {"currency": "DKK"}}}),
+                          encoding="utf-8")
+    # veille : séries déjà en euros, taux SEK connu (11), pas de taux DKK
+    pd.DataFrame({"AAA.ST": 10.0, "BBB.PA": 50.0, "CCC.CO": 4.0, "EURSEK=X": 11.0}, index=idx).to_csv(S.WEEKLY, compression="gzip")
+    tonight = pd.DataFrame({"AAA.ST": 110.0, "BBB.PA": 51.0, "CCC.CO": 30.0}, index=idx)  # en devise locale, sans aucune paire EUR…=X
+    saved = S.download_weekly
+    try:
+        S.download_weekly = lambda syms, **kw: (tonight.copy(), pd.DataFrame())
+        S.fetch_prices()
+    finally:
+        S.download_weekly = saved
+    W = pd.read_csv(S.WEEKLY, index_col=0, parse_dates=True, compression="gzip")
+    assert abs(W["AAA.ST"].iloc[-1] - 10.0) < 1e-6, W["AAA.ST"].iloc[-1]  # 110 SEK / 11 : converti avec le taux de la veille
+    assert abs(W["EURSEK=X"].iloc[-1] - 11.0) < 1e-6 and abs(W["BBB.PA"].iloc[-1] - 51.0) < 1e-6
+    assert abs(W["CCC.CO"].iloc[-1] - 4.0) < 1e-6, W["CCC.CO"].iloc[-1]  # aucun taux DKK : série de la veille (euros), pas 30 DKK
+
+
+@case("Dividendes des fiches (relecture du 07/11/2026) : même téléchargement que les cours, détachements de l'année seulement")
+def _():
+    import yahoo
+    idx = pd.date_range("2025-11-03", periods=260, freq="B")
+    div = pd.DataFrame(0.0, index=idx, columns=["AAA.OL", "BBB.PA"])
+    div.loc[idx[10], "AAA.OL"] = 7.5
+    div.loc[idx[200], "AAA.OL"] = float("nan")
+    div.loc[idx[250], "AAA.OL"] = 3.25
+    close = pd.DataFrame(100.0, index=idx, columns=["AAA.OL", "BBB.PA"])
+    saved = yahoo.download
+    seen = {}
+    try:
+        def fake(t, section, **kw):
+            seen.update(kw)
+            return {"Close": close, "Volume": close * 10, "Dividends": div}
+        yahoo.download = fake
+        X, V, DIV = S.daily_series(["AAA.OL", "BBB.PA"])
+    finally:
+        yahoo.download = saved
+    assert seen.get("actions") is True and "Dividends" in seen.get("fields", ()), seen
+    out = S.daily_dividends(DIV, "AAA.OL", idx[0].strftime("%Y-%m-%d"))
+    assert out == [[idx[10].strftime("%Y-%m-%d"), 7.5], [idx[250].strftime("%Y-%m-%d"), 3.25]], out
+    assert S.daily_dividends(DIV, "AAA.OL", idx[100].strftime("%Y-%m-%d")) == [[idx[250].strftime("%Y-%m-%d"), 3.25]]
+    assert S.daily_dividends(DIV, "BBB.PA", "2025-01-01") is None and S.daily_dividends(pd.DataFrame(), "AAA.OL", "2025-01-01") is None
+    # détachement annoncé après la dernière séance : yfinance ajoute une ligne sans cours (volume 0), écartée des cours
+    nxt = idx[-1] + pd.Timedelta(days=3)
+    close2 = pd.concat([close, pd.DataFrame(float("nan"), index=[nxt], columns=close.columns)])
+    vol2 = pd.concat([close * 10, pd.DataFrame(0.0, index=[nxt], columns=close.columns)])
+    div2 = pd.concat([div, pd.DataFrame({"AAA.OL": [2.0], "BBB.PA": [0.0]}, index=[nxt])])
+    try:
+        yahoo.download = lambda t, section, **kw: {"Close": close2, "Volume": vol2, "Dividends": div2}
+        X2, V2, DIV2 = S.daily_series(["AAA.OL", "BBB.PA"])
+    finally:
+        yahoo.download = saved
+    assert X2.index[-1] == idx[-1] and len(X2) == len(idx) and V2.index.equals(X2.index), X2.tail(2)
+    assert S.daily_dividends(DIV2, "AAA.OL", "2026-01-01")[-1] == [nxt.strftime("%Y-%m-%d"), 2.0]
+
+
 @case("Données propres : test historique et classement du jour")
 def _():
     d = check_outputs()
@@ -161,6 +219,31 @@ def _():
     S.ESTIMATES.write_text(json.dumps({"ASML.AS": {"rev": {"up30": None}}, "SU.PA": {"surprises": []}}), encoding="utf-8")
     S.WEEKLY_VOL.unlink()
     check_outputs()
+
+
+@case("Révisions des analystes : Yahoo bloqué la semaine suivante, révisions précédentes gardées, semaine creuse jamais archivée")
+def _():
+    syms = [f"X{k}.PA" for k in range(60)]
+    S.write_json(S.UNIVERSE, {"items": {s: {"sector": "Technology", "industry": "Semiconductors"} for s in syms}})
+    S.write_json(S.ESTIMATES, {s: {"rev": {"up7": 0, "up30": 2, "down7": 0, "down30": 1}, "fetched": "2026-10-31"} for s in syms})
+    S.write_json(S.REV_HIST, {"2026-10-31": {}})
+    real = S.fetch_estimates, S.EST_HIST
+    S.EST_HIST = S.SEC / "estimates-archive.json.gz"  # jamais l'archive du dépôt
+    rev = {"up7": 1, "up30": 3, "down7": 0, "down30": 0}
+    try:
+        S.fetch_estimates = lambda s: (s, {"fetched": "2026-11-07", **({"rev": rev} if s < "X2" else {})})  # 12 sur 60
+        S.refresh_estimates()
+        est = S.read_json(S.ESTIMATES, {})
+        assert est["X0.PA"]["rev"] == rev and "revAt" not in est["X0.PA"], est["X0.PA"]
+        assert est["X5.PA"]["rev"]["up30"] == 2 and est["X5.PA"]["revAt"] == "2026-10-31", est["X5.PA"]
+        assert list(S.read_json(S.REV_HIST, {})) == ["2026-10-31"] and not S.EST_HIST.exists()
+        S.fetch_estimates = lambda s: (s, {"fetched": "2026-11-14", "rev": rev})  # semaine normale : tout est relu et archivé
+        S.refresh_estimates()
+        est = S.read_json(S.ESTIMATES, {})
+        assert all(v["rev"] == rev and "revAt" not in v for v in est.values()) and len(S.read_json(S.REV_HIST, {})) == 2
+        assert S.EST_HIST.exists()
+    finally:
+        S.fetch_estimates, S.EST_HIST = real
 
 
 @case("Historique trop court (40 semaines) : rien d'écrit, aucun plantage")
@@ -359,6 +442,27 @@ def _():
     S.dashboard(fetch_daily=False)
     idx = {r[0] for r in json.loads(S.CO_INDEX.read_text(encoding="utf-8"))["rows"]}
     assert "ALV.DE" in idx and "ALV.VI" not in idx and "ALO.PA" in idx and "AOMD.DE" not in idx, sorted(x for x in idx if x[:3] in ("ALV", "ALO", "AOM"))
+
+
+@case("Univers reconstruit amputé (région du filtre Yahoo en erreur) : univers précédent gardé, sinon remplacé")
+def _():
+    old = {f"D{k}.DE": {"country": "DE"} for k in range(150)} | {f"F{k}.PA": {"country": "FR"} for k in range(150)}
+    no_de = {s: v for s, v in old.items() if s.startswith("F")} | {f"N{k}.PA": {"country": "FR"} for k in range(150)}
+    assert S.shrunk(old, old) is None
+    assert S.shrunk(old, dict(list(old.items())[:200])) == "200 sociétés contre 300 la semaine précédente"
+    assert S.shrunk(old, no_de) == "pays presque absents : DE"  # même taille, mais l'Allemagne a disparu
+    assert S.shrunk({}, {}) is None and S.shrunk(dict(list(old.items())[:100]), {}) is None  # premier univers : rien à comparer
+    S.write_json(S.UNIVERSE, {"generatedAt": "2026-10-31T03:00:00+00:00", "items": old})
+    real = S.fx_now, S.screen_universe, S.fetch_info, S.home_supplement
+    try:
+        S.fx_now, S.screen_universe = (lambda: {}), (lambda: {"F1.PA": {"symbol": "F1.PA", "country": "FR"}})
+        S.fetch_info = lambda s: (s, {"fetched": date.today().isoformat(), "v": S.INFO_V, "marketCap": 1e10, "country": "France"})
+        S.home_supplement = lambda screened, cache: ({}, [])
+        S.build_universe()
+    finally:
+        S.fx_now, S.screen_universe, S.fetch_info, S.home_supplement = real
+    u = S.read_json(S.UNIVERSE, {})
+    assert u["generatedAt"] == "2026-10-31T03:00:00+00:00" and len(u["items"]) == 300, (u["generatedAt"], len(u["items"]))
 
 
 @case("Univers des secteurs : la cotation principale remplace la ligne secondaire (Allianz, Alstom, Raiffeisen)")
