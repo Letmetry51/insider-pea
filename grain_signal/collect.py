@@ -279,16 +279,18 @@ def collect_euronext(today):
 def yahoo_series(tk):
     """Clôtures journalières sur 2 ans : yfinance (gère les jetons de Yahoo, comme Euro Signal), sinon accès direct."""
     errs = []
-    try:
-        import yfinance as yf
+    for attempt in range(3):  # Yahoo renvoie parfois une seule séance ou refuse (429) : nouvel essai après une pause
+        try:
+            import yfinance as yf
 
-        h = yf.Ticker(tk).history(period="2y", interval="1d", auto_adjust=False)
-        ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items()}
-        if len(ser) >= 50:
-            return ser, "yfinance"
-        errs.append(f"yfinance : {len(ser)} séances")
-    except Exception as e:  # noqa: BLE001
-        errs.append(f"yfinance : {type(e).__name__} {str(e)[:80]}")
+            h = yf.Ticker(tk).history(period="2y", interval="1d", auto_adjust=False)
+            ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items()}
+            if len(ser) >= 50:
+                return ser, "yfinance"
+            errs.append(f"yfinance : {len(ser)} séances")
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"yfinance : {type(e).__name__} {str(e)[:80]}")
+        time.sleep(5 * (attempt + 1))
     for host in ("query2", "query1"):
         try:
             j = get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{tk}?range=2y&interval=1d").json()

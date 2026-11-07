@@ -52,6 +52,9 @@ runs:
         if [ -f grain-signal.html ]; then
           cp grain-signal.html "$SITE"/
           mkdir -p "$SITE/grain_signal" && cp -r grain_signal/web "$SITE/grain_signal/web"
+          # empreinte des fichiers de la page : le navigateur recharge le script et le style dès qu'ils changent
+          V="$(cat grain_signal/web/app.js grain_signal/web/app.css | sha1sum | cut -c1-10)"
+          sed -i "s#grain_signal/web/app\.js\"#grain_signal/web/app.js?v=$V\"#; s#grain_signal/web/app\.css\"#grain_signal/web/app.css?v=$V\"#" "$SITE/grain-signal.html"
         fi
         # données : tout sauf les fichiers de travail régénérés à chaque calcul (comme le .gitignore du code)
         cp -r data "$SITE/data"
