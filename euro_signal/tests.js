@@ -4388,6 +4388,10 @@ t('Page société : volumes des 5 dernières séances face aux 50 précédentes,
   near(v.last[4].chg, 101 / 100 - 1, 1e-9, 'variation du jour');
   eq(ES.volumeBrief(d, dv.slice(0, 8), dates), null, 'trop peu de séances');
   eq(ES.volumeBrief(d, null, dates), null);
+  const dvx = dv.slice();
+  dvx[58] = 1e300; // volume aberrant : écarté comme un trou
+  eq(ES.volumeBrief(d, dvx, dates).last[3].vol, null, 'volume aberrant');
+  eq(ES.volumeBrief(d, 'pas une liste', dates), null);
 });
 
 t(
@@ -4409,9 +4413,19 @@ t(
     // aucune date
     e = ES.earningsInfo(null, [], '2026-11-05', d, dates);
     ok(e.next === null && e.last === null && !e.react);
-    // publication trop ancienne pour les cours affichés : pas de réaction
-    e = ES.earningsInfo(null, ['2025-01-10'], '2026-11-05', d, dates);
-    ok(e.last === '2025-01-10' && !e.react && e.next === null, 'estimation au-delà de 200 jours écartée');
+    // publication ancienne mais de moins de 400 jours, hors des cours affichés : pas de réaction, estimation déjà passée
+    e = ES.earningsInfo(null, ['2025-10-30'], '2026-11-05', d, dates);
+    ok(e.last === '2025-10-30' && !e.react && e.next === null, JSON.stringify(e));
+    // plus de 400 jours (Yahoo garde parfois des dates de 2013) : écartée, rien d'affiché
+    e = ES.earningsInfo(null, ['2013-11-13', '2025-01-10'], '2026-11-05', d, dates);
+    ok(e.last === null && e.next === null && e.past.length === 0, JSON.stringify(e));
+    // données abîmées : dates impossibles, pas une liste, prochaine date illisible
+    e = ES.earningsInfo('2026-02-30', ['2026-13-45', 5, null, '2026-07-24'], '2026-11-05', d, dates);
+    ok(e.last === '2026-07-24' && e.past.length === 1 && e.next === null, JSON.stringify(e));
+    ok(
+      ES.earningsInfo('bientôt', 'texte', '2026-11-05').last === null &&
+        ES.earningsInfo(null, { a: 1 }, '2026-11-05').next === null
+    );
   }
 );
 

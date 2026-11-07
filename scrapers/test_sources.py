@@ -43,6 +43,9 @@ def _():
     old = [tx("B", "2026-10-19"), tx("C", "2026-09-01"), tx("D", "2026-01-01"), "abîmé"]
     m, kept = R.merge_partial(fresh, old, "2026-04-26")
     assert [t["declaration_number"] for t in m] == ["A", "B", "C"] and kept == 1
+    late = dict(tx("E", "2026-02-01"), date_published="2026-10-01")  # opération ancienne publiée dans la fenêtre : gardée
+    m, kept = R.merge_partial(fresh, old + [late], "2026-04-26")
+    assert [t["declaration_number"] for t in m] == ["A", "B", "C", "E"] and kept == 2, [t["declaration_number"] for t in m]
 
 
 class FakeResp:
