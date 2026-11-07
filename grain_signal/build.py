@@ -300,6 +300,15 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
     return out
 
 
+def mini_series(dates, rsi_s, histo_s, n=63):
+    """RSI et histogramme MACD des 3 derniers mois, pour les petits graphiques de la page."""
+    if not rsi_s or not histo_s:
+        return None
+    k = max(0, len(dates) - n)
+    return {"dates": dates[k:], "rsi": [round(x, 1) if x is not None else None for x in rsi_s[k:]],
+            "histo": [round(x, 3) if x is not None else None for x in histo_s[k:]]}
+
+
 def proxy_eur(yahoo, tk):
     """Série américaine convertie en €/t (cents → $/t, puis EUR/USD du même jour ou de la veille)."""
     ser = (yahoo.get(tk) or {}).get("serie") or {}
@@ -391,9 +400,8 @@ def main():
             contrats[prod] = {"nom": c["nom"], "culture": c["culture"], "erreur": "aucune cotation"}
             continue
         a = ind.analyse(d, v)
-        a.pop("_rsi", None)
-        a.pop("_histo", None)
-        info = {"nom": c["nom"], "culture": c["culture"], "echeance": ref, "technique": a, "score_technique": ind.score_technique(a),
+        rs_, hs_ = a.pop("_rsi", None), a.pop("_histo", None)
+        info = {"nom": c["nom"], "culture": c["culture"], "echeance": ref, "series": mini_series(d, rs_, hs_), "technique": a, "score_technique": ind.score_technique(a),
                 "feu": ind.feu_execution(a), "niveaux": ind.niveaux(a), "courbe": courbe(prod, curve, ref), "raccords": rac[-3:],
                 "dernier_reel": curve.get(ref), "seance": d[-1]}
         recent = [r for r in rac if r["ajustement"] is None and r["date"] >= d[max(0, len(d) - 63)]]
@@ -404,13 +412,13 @@ def main():
             pd_, pv = proxy_eur(yahoo, px)
             if len(pv) >= 30:
                 pa = ind.analyse(pd_, pv)
-                pa.pop("_rsi", None)
-                pa.pop("_histo", None)
+                prs, phs = pa.pop("_rsi", None), pa.pop("_histo", None)
                 m20, m50 = ind.sma(pv, 20), ind.sma(pv, 50)
                 kk = max(0, len(pv) - 120)
                 nom_px = (yahoo.get(px) or {}).get("nom", px)
                 info.update(score_technique=ind.score_technique(pa), feu=ind.feu_execution(pa),
-                            proxy={"ticker": px, "nom": nom_px, "technique": pa,
+                            proxy={"ticker": px, "nom": nom_px, "technique": pa, "series": mini_series(pd_, prs, phs),
+                                   "niveaux": ind.niveaux(pa),
                                    "graphique": [[pd_[i], round(pv[i], 2), round(m20[i], 2) if m20[i] else None,
                                                   round(m50[i], 2) if m50[i] else None] for i in range(kk, len(pv))],
                                    "texte": f"Historique Euronext de {a['seances']} séance(s), 30 nécessaires (environ 6 semaines) : en attendant, "

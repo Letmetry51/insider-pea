@@ -3,6 +3,8 @@
 'use strict';
 
 const GS = { data: null, comite: null, journal: [], tab: 'signaux' };
+const ICON = { ble: '🌾', escourgeon: '🍺', orge_printemps: '🍺', colza: '🌼', mais: '🌽' };
+const FEU = { attendre: '⏸️', executer: '✅', accelerer: '⚡', inconnu: '❔' };
 
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
@@ -40,79 +42,590 @@ function chipFor(sig) {
 }
 
 /* ---------------------------------------------------------------------------------------------- graphique SVG */
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(svg, tag, a, text) {
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(a)) el.setAttribute(k, v);
+  if (text !== undefined) el.textContent = text;
+  svg.appendChild(el);
+  return el;
+}
+
+// droite de régression sur les n derniers points (canal de tendance) et écart-type des résidus
+function regression(vals, n) {
+  const v = vals.slice(-n);
+  const m = v.length;
+  if (m < 15) return null;
+  const xm = (m - 1) / 2,
+    ym = v.reduce((x, y) => x + y, 0) / m;
+  let sxy = 0,
+    sxx = 0;
+  v.forEach((y, i) => {
+    sxy += (i - xm) * (y - ym);
+    sxx += (i - xm) ** 2;
+  });
+  const slope = sxy / sxx,
+    icpt = ym - slope * xm;
+  const sd = Math.sqrt(v.reduce((x, y, i) => x + (y - (icpt + slope * i)) ** 2, 0) / (m - 2));
+  return { slope, icpt, sd, start: vals.length - m };
+}
+
+// volatilité journalière (écart-type des variations log des 63 dernières séances)
+function vol(vals) {
+  const r = [];
+  for (let i = Math.max(1, vals.length - 63); i < vals.length; i++) r.push(Math.log(vals[i] / vals[i - 1]));
+  if (r.length < 15) return null;
+  const m = r.reduce((x, y) => x + y, 0) / r.length;
+  return Math.sqrt(r.reduce((x, y) => x + (y - m) ** 2, 0) / (r.length - 1));
+}
+
+/* Graphique des cours : MM20, MM50, canal de tendance (3 mois), niveaux nommés (ordres, révision, support), fourchette
+   probable à 20 séances (±1 et ±2 écarts-types de la volatilité récente : une marge statistique, pas une prévision). */
 function chart(rows, opts = {}) {
-  const W = 640,
-    H = opts.h || 200,
-    P = { l: 44, r: 8, t: 10, b: 22 };
   const pts = rows.filter((r) => r[1] !== null && r[1] !== undefined);
   if (pts.length < 2) return h('p', { class: 'note', text: 'Historique trop court pour un graphique.' });
+  const closes = pts.map((r) => r[1]);
+  const fut = opts.cone === false ? 0 : 20;
+  const narrow = window.innerWidth < 600; // téléphone : repère plus petit, textes lisibles
+  const W = narrow ? 420 : 680,
+    H = opts.h || (narrow ? 250 : 260),
+    P = { l: 40, r: 6, t: 22, b: 22 };
+  const n = pts.length + fut;
+  const reg = opts.channel === false ? null : regression(closes, Math.min(63, closes.length));
+  const sig = fut ? vol(closes) : null;
+  const last = closes[closes.length - 1];
   const all = pts.flatMap((r) => r.slice(1).filter((v) => v !== null && v !== undefined));
   (opts.levels || []).forEach((l) => all.push(l.v));
+  if (sig) all.push(last * Math.exp(1.6 * sig * Math.sqrt(fut)), last * Math.exp(-1.6 * sig * Math.sqrt(fut)));
   let lo = Math.min(...all),
     hi = Math.max(...all);
-  const pad = (hi - lo) * 0.08 || 1;
+  const pad = (hi - lo) * 0.06 || 1;
   lo -= pad;
   hi += pad;
-  const x = (i) => P.l + (i / (pts.length - 1)) * (W - P.l - P.r);
+  const x = (i) => P.l + (i / (n - 1)) * (W - P.l - P.r);
   const y = (v) => P.t + (1 - (v - lo) / (hi - lo)) * (H - P.t - P.b);
-  const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('class', 'chart');
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', opts.label || 'Graphique des cours');
-  const add = (tag, a) => {
-    const el = document.createElementNS(NS, tag);
-    for (const [k, v] of Object.entries(a)) el.setAttribute(k, v);
-    svg.appendChild(el);
-    return el;
-  };
+  const defs = svgEl(svg, 'defs', {});
+  const clip = svgEl(defs, 'clipPath', { id: 'c' + Math.random().toString(36).slice(2, 8) });
+  svgEl(clip, 'rect', { x: P.l, y: P.t, width: W - P.l - P.r, height: H - P.t - P.b });
+  const clipUrl = `url(#${clip.id})`;
   for (let k = 0; k <= 4; k++) {
     const v = lo + ((hi - lo) * k) / 4;
-    add('line', { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), stroke: 'var(--line)', 'stroke-width': 1 });
-    const t = add('text', { x: P.l - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' });
-    t.textContent = fmt(v, v > 100 ? 0 : 1);
+    svgEl(svg, 'line', { x1: P.l, x2: W - P.r, y1: y(v), y2: y(v), stroke: 'var(--line)', 'stroke-width': 1 });
+    svgEl(
+      svg,
+      'text',
+      { x: P.l - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' },
+      fmt(v, v > 100 ? 0 : 1)
+    );
   }
   [0, Math.floor((pts.length - 1) / 2), pts.length - 1].forEach((i) => {
-    const t = add('text', {
-      x: x(i),
-      y: H - 6,
-      'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle',
-      'font-size': 11,
-      fill: 'var(--muted)',
-    });
-    t.textContent = dfr(pts[i][0]);
+    svgEl(
+      svg,
+      'text',
+      {
+        x: x(i),
+        y: H - 6,
+        'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle',
+        'font-size': 11,
+        fill: 'var(--muted)',
+      },
+      dfr(pts[i][0])
+    );
   });
+  const li = pts.length - 1;
+  // fourchette probable
+  if (sig) {
+    [
+      [2, 'var(--cone-2)'],
+      [1, 'var(--cone-1)'],
+    ].forEach(([k, fill]) => {
+      let up = '',
+        dn = '';
+      for (let j = 0; j <= fut; j++) {
+        const s = k * sig * Math.sqrt(j);
+        up += (j ? 'L' : 'M') + x(li + j).toFixed(1) + ' ' + y(last * Math.exp(s)).toFixed(1);
+        dn = 'L' + x(li + j).toFixed(1) + ' ' + y(last * Math.exp(-s)).toFixed(1) + dn;
+      }
+      svgEl(svg, 'path', { d: up + dn + 'Z', fill, stroke: 'none', 'clip-path': clipUrl });
+    });
+    svgEl(svg, 'line', {
+      x1: x(li),
+      x2: x(li),
+      y1: P.t,
+      y2: H - P.b,
+      stroke: 'var(--muted)',
+      'stroke-width': 1,
+      'stroke-dasharray': '2 4',
+    });
+  }
+  // canal de tendance
+  let canal = null;
+  if (reg) {
+    const yAt = (i) => reg.icpt + reg.slope * (i - reg.start);
+    [-2, 0, 2].forEach((k) => {
+      const i0 = reg.start,
+        i1 = n - 1;
+      svgEl(svg, 'line', {
+        x1: x(i0),
+        x2: x(i1),
+        y1: y(yAt(i0) + k * reg.sd),
+        y2: y(yAt(i1) + k * reg.sd),
+        stroke: 'var(--channel)',
+        'stroke-width': k ? 1.6 : 1,
+        'stroke-dasharray': k ? '7 5' : '2 4',
+        opacity: k ? 1 : 0.7,
+        'clip-path': clipUrl,
+      });
+    });
+    const pctMonth = ((reg.slope * 21) / last) * 100;
+    canal = { pente: pctMonth, sens: pctMonth > 0.8 ? 'haussier' : pctMonth < -0.8 ? 'baissier' : 'horizontal' };
+    canal.position = (last - (yAt(li) - 2 * reg.sd)) / (4 * reg.sd);
+    svgEl(
+      svg,
+      'text',
+      { x: P.l + 6, y: P.t - 6, 'font-size': 12, 'font-weight': 700, fill: 'var(--channel)', class: 'halo' },
+      `Canal ${canal.sens}`
+    );
+  }
+  // niveaux nommés
   const usedY = [];
   (opts.levels || []).forEach((l) => {
-    add('line', {
-      x1: P.l,
-      x2: W - P.r,
-      y1: y(l.v),
-      y2: y(l.v),
-      stroke: l.c,
-      'stroke-width': 1.2,
-      'stroke-dasharray': '5 4',
-    });
-    if (usedY.some((u) => Math.abs(u - y(l.v)) < 13)) return; // étiquettes trop proches : la ligne seule suffit
-    usedY.push(y(l.v));
-    const t = add('text', { x: W - P.r - 2, y: y(l.v) - 4, 'text-anchor': 'end', 'font-size': 11, fill: l.c });
-    t.textContent = l.t + ' ' + fmt(l.v, 2);
+    if (l.zone) {
+      svgEl(svg, 'rect', {
+        x: P.l,
+        y: y(l.zone[1]),
+        width: W - P.l - P.r,
+        height: Math.max(2, y(l.zone[0]) - y(l.zone[1])),
+        fill: l.fill,
+        stroke: l.c,
+        'stroke-width': 1,
+      });
+    } else {
+      svgEl(svg, 'line', {
+        x1: P.l,
+        x2: W - P.r,
+        y1: y(l.v),
+        y2: y(l.v),
+        stroke: l.c,
+        'stroke-width': 1.6,
+        'stroke-dasharray': '3 3',
+      });
+    }
+    const ly = y(l.v) - 5;
+    if (usedY.some((u) => Math.abs(u - ly) < 14)) return;
+    usedY.push(ly);
+    svgEl(
+      svg,
+      'text',
+      { x: W - P.r - 4, y: ly, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 700, fill: l.c, class: 'halo' },
+      `${l.t} ${fmt(l.v, 2)}`
+    );
   });
-  const series = [
-    [1, 'var(--chart-1)', 2.2],
-    [2, 'var(--chart-2)', 1.4],
-    [3, 'var(--chart-3)', 1.4],
-  ];
-  series.forEach(([col, color, w]) => {
+  // cours et moyennes mobiles
+  [
+    [3, 'var(--chart-3)', 1.3],
+    [2, 'var(--chart-2)', 1.3],
+    [1, 'var(--chart-1)', 2.4],
+  ].forEach(([col, color, w]) => {
     let d = '';
     pts.forEach((r, i) => {
       if (r[col] === null || r[col] === undefined) return;
       d += (d ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(r[col]).toFixed(1);
     });
-    if (d) add('path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linejoin': 'round' });
+    if (d) svgEl(svg, 'path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linejoin': 'round' });
   });
+  svgEl(svg, 'circle', {
+    cx: x(li),
+    cy: y(last),
+    r: 5,
+    fill: 'var(--chart-1)',
+    stroke: 'var(--surface)',
+    'stroke-width': 2,
+  });
+  const wrap = h('div', {}, svg);
+  wrap.canal = canal;
+  return wrap;
+}
+
+/* ---------------------------------------------------------------------------------------------- cartes d'indicateurs */
+// jauge horizontale : segments colorés, curseur rond, repères
+function gauge(value, min, max, segs, ticks) {
+  const pos = (v) => Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+  const bar = h('div', { class: 'gauge' });
+  let from = min;
+  segs.forEach(([to, color]) => {
+    bar.append(
+      h('span', { class: 'seg', style: `left:${pos(from)}%;width:${pos(to) - pos(from)}%;background:${color}` })
+    );
+    from = to;
+  });
+  if (value !== null && value !== undefined && !Number.isNaN(value))
+    bar.append(h('span', { class: 'knob', style: `left:${pos(value)}%` }));
+  const tk = h('div', { class: 'ticks' });
+  (ticks || []).forEach(([v, t]) => tk.append(h('span', { style: `left:${pos(v)}%`, text: t })));
+  return h('div', { class: 'gwrap' }, bar, tk);
+}
+
+function spark(values, opts = {}) {
+  const v = values.map((x) => (x === null || x === undefined ? null : x));
+  const ok = v.filter((x) => x !== null);
+  if (ok.length < 5) return null;
+  const W = 300,
+    H = 54;
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'spark');
+  svg.setAttribute('aria-hidden', 'true');
+  const x = (i) => (i / (v.length - 1)) * W;
+  if (opts.bars) {
+    const m = Math.max(...ok.map(Math.abs)) || 1;
+    const bw = W / v.length;
+    v.forEach((val, i) => {
+      if (val === null) return;
+      const hgt = (Math.abs(val) / m) * (H / 2 - 2);
+      svgEl(svg, 'rect', {
+        x: i * bw,
+        y: val >= 0 ? H / 2 - hgt : H / 2,
+        width: Math.max(1, bw - 0.6),
+        height: Math.max(0.8, hgt),
+        fill: val >= 0 ? 'var(--good)' : 'var(--bad)',
+      });
+    });
+    return svg;
+  }
+  const y = (val) => H - 2 - ((val - 0) / 100) * (H - 4);
+  svgEl(svg, 'rect', { x: 0, y: y(100), width: W, height: y(70) - y(100), fill: 'var(--good-soft)' });
+  svgEl(svg, 'rect', { x: 0, y: y(30), width: W, height: y(0) - y(30), fill: 'var(--bad-soft)' });
+  let d = '';
+  v.forEach((val, i) => {
+    if (val === null) return;
+    d += (d ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(val).toFixed(1);
+  });
+  svgEl(svg, 'path', { d, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.4 });
+  const lv = ok[ok.length - 1];
+  svgEl(svg, 'circle', { cx: W - 2, cy: y(lv), r: 3, fill: 'var(--ink)' });
   return svg;
+}
+
+function icard(icon, title, help, badge, badgeCls, label, ...body) {
+  return h(
+    'div',
+    { class: 'icard' },
+    h(
+      'div',
+      { class: 'ihead' },
+      h('span', { text: `${icon} ${title}` }),
+      h('span', { class: 'i', title: help, 'aria-label': help, tabindex: '0', text: 'ⓘ' })
+    ),
+    h(
+      'div',
+      { class: 'ival' },
+      h('span', { class: 'badge ' + badgeCls, text: badge }),
+      h('span', { class: 'ilabel', text: label })
+    ),
+    ...body
+  );
+}
+
+/* Cartes lues du point de vue du vendeur : vert = bon moment pour vendre, rouge = mauvais moment pour vendre. */
+function indicatorCards(a, series, niv, canal) {
+  if (!a || a.insuffisant) return null;
+  const cards = [];
+  const r = a.rsi;
+  if (r !== null && r !== undefined) {
+    const [lab, cl] =
+      r < 30
+        ? ['Survente : ne pas vendre', 'bad']
+        : r > 70
+          ? ['Surachat : vendre', 'good']
+          : r < 40
+            ? ['Faible', 'warn']
+            : r > 60
+              ? ['Fort', 'info']
+              : ['Neutre', 'neutral'];
+    cards.push(
+      icard(
+        '📶',
+        'RSI 14 jours',
+        'Force des hausses face aux baisses sur 14 séances. Sous 30 : marché survendu, rebond fréquent, mauvais moment pour vendre. Au-dessus de 70 : surachat, bon moment pour une tranche.',
+        fmt(r, 0),
+        cl,
+        lab,
+        gauge(
+          r,
+          0,
+          100,
+          [
+            [30, 'var(--bad)'],
+            [70, 'var(--neutral)'],
+            [100, 'var(--good)'],
+          ],
+          [
+            [30, '30'],
+            [70, '70'],
+          ]
+        ),
+        series && series.rsi ? spark(series.rsi) : null,
+        series && series.rsi ? h('div', { class: 'imeta', text: '3 mois' }) : null
+      )
+    );
+  }
+  if (a.histo !== null && a.histo !== undefined) {
+    const up = a.histo > 0;
+    const fading = a.histo_5j !== null && a.histo_5j !== undefined && Math.abs(a.histo) < Math.abs(a.histo_5j);
+    cards.push(
+      icard(
+        '〽️',
+        'MACD',
+        "Écart entre moyennes exponentielles 12 et 26 jours, comparé à sa moyenne 9 jours (signal). Histogramme positif : élan haussier ; négatif : élan baissier ; qui se resserre : l'élan s'essouffle.",
+        up ? '▲ haussier' : '▼ baissier',
+        up ? 'good' : 'bad',
+        up
+          ? fading
+            ? 'Élan haussier qui ralentit'
+            : 'Élan haussier'
+          : fading
+            ? 'Baisse qui s’essouffle'
+            : 'Élan baissier',
+        series && series.histo ? spark(series.histo, { bars: true }) : null,
+        h('div', {
+          class: 'imeta',
+          text: a.croisement_macd ? `Croisement ${a.croisement_macd.sens} le ${dfr(a.croisement_macd.date)}` : '3 mois',
+        })
+      )
+    );
+  }
+  if (a.mm20 !== undefined) {
+    const e20 = a.ecart_mm20,
+      e50 = a.ecart_mm50;
+    const sens =
+      e50 !== undefined
+        ? e20 > 0 && e50 > 0
+          ? 'haussière'
+          : e20 < 0 && e50 < 0
+            ? 'baissière'
+            : 'indécise'
+        : e20 > 0
+          ? 'haussière'
+          : 'baissière';
+    cards.push(
+      icard(
+        sens === 'haussière' ? '📈' : sens === 'baissière' ? '📉' : '➡️',
+        'Tendance (moyennes mobiles)',
+        'Position du cours par rapport à ses moyennes mobiles 20 et 50 séances (et 200 quand l’historique le permet).',
+        pct(e20),
+        e20 > 0 ? 'good' : 'bad',
+        `Tendance ${sens}`,
+        h(
+          'dl',
+          { class: 'kv' },
+          [h('dt', { text: 'MM20' }), h('dd', { text: `${fmt(a.mm20)} (${pct(e20)})` })],
+          a.mm50 ? [h('dt', { text: 'MM50' }), h('dd', { text: `${fmt(a.mm50)} (${pct(e50)})` })] : null,
+          a.mm200 ? [h('dt', { text: 'MM200' }), h('dd', { text: `${fmt(a.mm200)} (${pct(a.ecart_mm200)})` })] : null
+        )
+      )
+    );
+  }
+  if (canal) {
+    const p = Math.round(canal.position * 100);
+    const [lab, cl] =
+      p < 0
+        ? ['Cassure par le bas', 'bad']
+        : p > 100
+          ? ['Cassure par le haut', 'good']
+          : p < 25
+            ? ['Bas du canal', 'warn']
+            : p > 75
+              ? ['Haut du canal', 'good']
+              : ['Milieu du canal', 'neutral'];
+    cards.push(
+      icard(
+        canal.sens === 'haussier' ? '↗️' : canal.sens === 'baissier' ? '↘️' : '↔️',
+        `Canal ${canal.sens}`,
+        'Droite de tendance des 3 derniers mois, ± 2 écarts-types. Haut du canal : zone de vente ; bas du canal : attendre le rebond ; sortie du canal : changement de rythme.',
+        `${p} %`,
+        cl,
+        lab,
+        gauge(
+          p,
+          -20,
+          120,
+          [
+            [0, 'var(--bad)'],
+            [25, 'var(--warn)'],
+            [75, 'var(--neutral)'],
+            [100, 'var(--good)'],
+            [120, 'var(--good)'],
+          ],
+          [
+            [0, 'bas'],
+            [100, 'haut'],
+          ]
+        ),
+        h('div', { class: 'imeta', text: `Pente ${sgn(canal.pente, 1)} % par mois` })
+      )
+    );
+  }
+  if (a.haut3m !== undefined && a.bas3m !== undefined && a.haut3m > a.bas3m) {
+    const p = Math.round(((a.dernier - a.bas3m) / (a.haut3m - a.bas3m)) * 100);
+    const [lab, cl] =
+      p <= 15
+        ? ['Près du support', 'bad']
+        : p >= 85
+          ? ['Près de la résistance', 'good']
+          : ['Entre les deux', 'neutral'];
+    cards.push(
+      icard(
+        '🧱',
+        'Support / résistance',
+        'Position du cours entre le plus bas (support) et le plus haut (résistance) des 3 derniers mois. Vendre près de la résistance, pas sur le support.',
+        `${p} %`,
+        cl,
+        lab,
+        gauge(
+          p,
+          0,
+          100,
+          [
+            [15, 'var(--bad)'],
+            [85, 'var(--neutral)'],
+            [100, 'var(--good)'],
+          ],
+          [
+            [0, `S ${fmt(a.bas3m)}`],
+            [100, `R ${fmt(a.haut3m)}`],
+          ]
+        )
+      )
+    );
+  }
+  if (a.boll_pb !== null && a.boll_pb !== undefined) {
+    const b = a.boll_pb;
+    const [lab, cl] =
+      b < 0.05
+        ? ['Bande basse touchée', 'bad']
+        : b > 0.95
+          ? ['Bande haute touchée', 'good']
+          : b < 0.3
+            ? ['Moitié basse', 'warn']
+            : b > 0.7
+              ? ['Moitié haute', 'info']
+              : ['Au centre', 'neutral'];
+    cards.push(
+      icard(
+        '🎚️',
+        'Bandes de Bollinger',
+        'Position dans les bandes 20 séances ± 2 écarts-types (0 = bande basse, 1 = bande haute). Largeur faible : compression, un mouvement fort se prépare.',
+        fmt(b, 2),
+        cl,
+        lab,
+        gauge(
+          b,
+          0,
+          1,
+          [
+            [0.05, 'var(--bad)'],
+            [0.95, 'var(--neutral)'],
+            [1, 'var(--good)'],
+          ],
+          [
+            [0, 'basse'],
+            [1, 'haute'],
+          ]
+        ),
+        h('div', {
+          class: 'imeta',
+          text: `Largeur ${fmt(a.boll_largeur, 1)} %${a.boll_largeur < 6 ? ' : compression' : ''}`,
+        })
+      )
+    );
+  }
+  if (niv && niv.ordres && niv.ordres.length && niv.revision) {
+    const gain = ((niv.ordres[0] - a.dernier) / a.dernier) * 100,
+      risk = ((a.dernier - niv.revision) / a.dernier) * 100;
+    const ratio = risk > 0 ? gain / risk : null;
+    const [lab, cl] =
+      ratio === null
+        ? ['Sous la révision', 'bad']
+        : ratio >= 1.5
+          ? ['Attendre l’ordre vaut le coup', 'good']
+          : ratio >= 1
+            ? ['Équilibré', 'neutral']
+            : ['Risque supérieur au gain', 'bad'];
+    cards.push(
+      icard(
+        '⚖️',
+        'Attendre l’ordre : gain / risque',
+        "Pour une tranche à vendre : gain si le premier ordre est atteint, rapporté à la perte si le cours tombe au seuil de révision. Au-dessus de 1,5 : attendre l'ordre est favorable ; sous 1 : mieux vaut ne pas trop attendre.",
+        ratio === null ? '—' : fmt(ratio, 1),
+        cl,
+        lab,
+        gauge(
+          ratio === null ? 0 : Math.min(ratio, 4),
+          0,
+          4,
+          [
+            [1, 'var(--bad)'],
+            [1.5, 'var(--warn)'],
+            [4, 'var(--good)'],
+          ],
+          [
+            [1.5, '1,5'],
+            [4, '4+'],
+          ]
+        ),
+        h('div', {
+          class: 'imeta',
+          text: `🎯 Ordre ${fmt(niv.ordres[0])} (${pct(gain)}) · 🛑 révision ${fmt(niv.revision)} (${pct(-risk)})`,
+        })
+      )
+    );
+  }
+  if (a.divergence && a.divergence !== 'aucune') {
+    cards.push(
+      icard(
+        a.divergence === 'haussière' ? '🔄' : '⚠️',
+        'Divergence RSI',
+        'Le prix fait un nouveau plus bas (ou plus haut) sans que le RSI suive : le mouvement perd de sa force, retournement possible.',
+        a.divergence,
+        a.divergence === 'haussière' ? 'warn' : 'good',
+        a.divergence === 'haussière' ? 'La baisse perd de sa force' : 'La hausse perd de sa force'
+      )
+    );
+  }
+  return h('div', {}, h('h4', { class: 'ititle', text: '🧭 Indicateurs' }), h('div', { class: 'igrid' }, cards));
+}
+
+function chartLevels(niv, a) {
+  const lv = [];
+  (niv && niv.ordres ? niv.ordres : []).forEach((v, i) => lv.push({ v, c: 'var(--good)', t: `🎯 Ordre ${i + 1}` }));
+  if (niv && niv.revision) lv.push({ v: niv.revision, c: 'var(--bad)', t: '🛑 Révision' });
+  if (a && a.bas3m)
+    lv.push({
+      v: a.bas3m,
+      c: 'var(--warn)',
+      t: '🧱 Support',
+      zone: [a.bas3m, a.bas3m * 1.01],
+      fill: 'var(--warn-soft)',
+    });
+  return lv;
+}
+
+function chartLegend() {
+  return h(
+    'div',
+    { class: 'legend' },
+    h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Cours'),
+    h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'MM20'),
+    h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'MM50'),
+    h('span', {}, h('i', { style: 'background:var(--channel)' }), 'Canal 3 mois'),
+    h('span', {}, h('i', { class: 'cone' }), 'Fourchette probable 20 séances')
+  );
 }
 
 /* ---------------------------------------------------------------------------------------------- onglets */
@@ -137,7 +650,7 @@ function vSignaux() {
       h('div', { class: 'card wide' }, h('h3', { text: `Comité du ${dfr(com.date)}` }), h('p', { text: com.resume }))
     );
   const grid = h('div', { class: 'grid' });
-  for (const [, c] of Object.entries(d.cultures || {})) {
+  for (const [k, c] of Object.entries(d.cultures || {})) {
     const cc = c.comite || {};
     const niv = c.niveaux || {};
     // escourgeon et orge de printemps : pas de marché à terme, pas d'ordres techniques tirés du blé
@@ -148,7 +661,7 @@ function vSignaux() {
       h(
         'section',
         { class: 'card' },
-        h('h3', { text: c.nom }),
+        h('h3', { text: `${ICON[k] || ''} ${c.nom}` }),
         h('div', { class: 'sig', text: c.libelle || '—' }),
         h(
           'div',
@@ -162,6 +675,36 @@ function vSignaux() {
             ? h('span', { class: 'chip ' + chipFor(c.lecture_marche), text: 'Marché : ' + sgn(c.score_marche) })
             : null
         ),
+        (() => {
+          const ta = contrat.proxy && contrat.proxy.technique ? contrat.proxy.technique : contrat.technique;
+          if (!ta || ta.insuffisant) return null;
+          const pos =
+            ta.haut3m > ta.bas3m ? Math.round(((ta.dernier - ta.bas3m) / (ta.haut3m - ta.bas3m)) * 100) : null;
+          return h(
+            'div',
+            { class: 'minis' },
+            h('span', {
+              class: 'mini ' + (ta.rsi < 30 ? 'bad' : ta.rsi > 70 ? 'good' : ''),
+              title: 'RSI 14 jours',
+              text: `📶 RSI ${fmt(ta.rsi, 0)}`,
+            }),
+            h('span', {
+              class: 'mini ' + (ta.histo > 0 ? 'good' : 'bad'),
+              title: 'MACD',
+              text: `〽️ ${ta.histo > 0 ? '▲' : '▼'} MACD`,
+            }),
+            pos !== null
+              ? h('span', {
+                  class: 'mini ' + (pos <= 15 ? 'bad' : pos >= 85 ? 'good' : ''),
+                  title: 'Position entre support et résistance (3 mois)',
+                  text: `🧱 ${pos} % du range`,
+                })
+              : null,
+            ta.divergence && ta.divergence !== 'aucune'
+              ? h('span', { class: 'mini warn', text: `🔄 divergence ${ta.divergence}` })
+              : null
+          );
+        })(),
         c.a_revoir ? h('div', { class: 'alert', text: c.a_revoir }) : null,
         cc.texte ? h('p', { class: 'note', text: cc.texte }) : c.note ? h('p', { class: 'note', text: c.note }) : null,
         h(
@@ -204,7 +747,14 @@ function vSignaux() {
             ? [h('dt', { text: 'Courbe' }), h('dd', { text: contrat.courbe.lecture })]
             : null
         ),
-        c.feu ? h('div', { class: 'feu' }, h('b', { text: 'Timing technique' }), c.feu.texte) : null
+        c.feu
+          ? h(
+              'div',
+              { class: 'feu feu-' + c.feu.code },
+              h('b', { text: `${FEU[c.feu.code] || ''} Timing technique` }),
+              c.feu.texte
+            )
+          : null
       )
     );
   }
@@ -214,7 +764,7 @@ function vSignaux() {
     h(
       'section',
       { class: 'card' },
-      h('h3', { text: 'Engrais azotés' }),
+      h('h3', { text: '🧪 Engrais azotés' }),
       h('div', {
         class: 'sig',
         text: ec.signal
@@ -343,51 +893,55 @@ function vTechnique() {
       text: "Sur les marchés agricoles, la technique sert au timing d'exécution (où placer les ordres, quand déclencher une tranche) ; elle ne renverse jamais seule un signal fondamental.",
     }),
   ];
-  const grid = h('div', { class: 'grid' });
+  const grid = h('div', { class: 'stack' });
+  const orgGrid = h('div', { class: 'grid' });
   for (const [code, c] of Object.entries(d.contrats || {})) {
     const a = c.technique || {};
-    const lv = [];
-    ((c.niveaux || {}).ordres || []).forEach((v) => lv.push({ v, c: 'var(--good)', t: 'ordre' }));
-    if ((c.niveaux || {}).revision) lv.push({ v: c.niveaux.revision, c: 'var(--bad)', t: 'révision' });
     grid.append(
       h(
         'section',
         { class: 'card' },
-        h('h3', { text: `${c.nom} — Euronext ${code}` }),
+        h('h3', { text: `${ICON[c.culture] || '📊'} ${c.nom} — Euronext ${code}` }),
         h('p', {
           class: 'note',
           text: `Série continue (échéance de référence ${c.echeance || '—'}), ${a.seances || 0} séances, dernière : ${dfr(c.seance)}`,
         }),
         c.alerte_raccord ? h('div', { class: 'alert', text: c.alerte_raccord }) : null,
         c.proxy ? h('div', { class: 'alert info', text: c.proxy.texte }) : null,
-        c.proxy && c.proxy.graphique
-          ? chart(c.proxy.graphique, { label: `${c.proxy.nom} en €/t : cours, MM20 et MM50` })
-          : c.graphique
-            ? chart(c.graphique, { levels: lv, label: `${c.nom} : cours, MM20 et MM50` })
-            : null,
-        h(
-          'div',
-          { class: 'legend' },
-          h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Cours'),
-          h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'MM20'),
-          h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'MM50')
-        ),
-        a.insuffisant && c.proxy && c.proxy.technique
-          ? techTable(c.proxy.technique)
-          : a.insuffisant
-            ? h('p', { class: 'note', text: 'Indicateurs Euronext disponibles à partir de 30 séances.' })
-            : techTable(a),
+        (() => {
+          const src = c.proxy && c.proxy.graphique ? c.proxy : c;
+          const ta = c.proxy && c.proxy.technique ? c.proxy.technique : a;
+          // lecture de secours (marché américain converti) : pas d'ordres, les niveaux ne valent pas pour Euronext
+          const nv = c.proxy && c.proxy.graphique ? null : c.niveaux;
+          if (!src.graphique) return null;
+          const g = chart(src.graphique, {
+            levels: chartLevels(nv, ta),
+            label: `${c.nom} : cours, moyennes mobiles, canal et niveaux`,
+          });
+          return h(
+            'div',
+            {},
+            g,
+            chartLegend(),
+            ta && !ta.insuffisant
+              ? indicatorCards(ta, src.series, nv, g.canal)
+              : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
+            ta && !ta.insuffisant
+              ? h('details', {}, h('summary', { text: '📋 Tous les chiffres' }), techTable(ta))
+              : null
+          );
+        })(),
         h('p', { class: 'note', text: `Note technique : ${sgn(c.score_technique)} (de −2 à +2)` })
       )
     );
   }
   for (const o of Object.values(d.orges || {})) {
     const ble = (d.contrats || {}).EBM || {};
-    grid.append(
+    orgGrid.append(
       h(
         'section',
         { class: 'card' },
-        h('h3', { text: o.nom }),
+        h('h3', { text: `🍺 ${o.nom}` }),
         h('p', {
           class: 'note',
           text: "Pas de marché à terme pour les orges : prix physique Creil FOB relevé chaque jour (terre-net) ; le moment de vendre suit le blé Euronext, la prime brassicole dit si l'orge est bien payée.",
@@ -445,7 +999,8 @@ function vTechnique() {
     );
   }
   out.push(grid);
-  out.push(h('h2', { text: 'Marchés internationaux, énergie, change' }));
+  if (orgGrid.children.length) out.push(h('h2', { text: '🍺 Orges brassicoles' }), orgGrid);
+  out.push(h('h2', { text: '🌍 Marchés internationaux, énergie, change' }));
   const rows = Object.entries(d.international || {}).map(([tk, x]) => {
     const a = x.technique || {};
     return h(
@@ -478,7 +1033,7 @@ function vTechnique() {
       )
     )
   );
-  out.push(h('h2', { text: 'Positions des fonds (CFTC, managed money)' }));
+  out.push(h('h2', { text: '🏦 Positions des fonds (CFTC, managed money)' }));
   const cot = Object.values(d.cot || {});
   out.push(
     cot.length
