@@ -314,18 +314,20 @@ def collect_euronext(today):
     print(f"Euronext : {added} nouvelles cotations, {len(rows)} au total")
 
 
-def yahoo_series(tk):
+def yahoo_series(tk, recent_only=False):
     """Clôtures journalières sur 5 ans : yfinance (gère les jetons de Yahoo, comme Euro Signal), sinon accès direct."""
     errs = []
     # Yahoo renvoie parfois une seule séance (gaz TTF sur 5 ans) ou refuse (429) : période plus courte, puis nouvel essai
-    for attempt, period in enumerate(("5y", "2y", "1y")):
+    # historique déjà en mémoire : seules les dernières semaines sont demandées (requête légère, moins de refus de Yahoo)
+    periods, mini = (("1mo", "3mo"), 5) if recent_only else (("5y", "2y", "1y"), 50)
+    for attempt, period in enumerate(periods):
         try:
             import yfinance as yf
 
             h = yf.Ticker(tk).history(period=period, interval="1d", auto_adjust=False)
             # date de la bourse (index yfinance dans son fuseau) ; la barre du jour, pas encore close, est écartée
             ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items() if i.date() < date.today()}
-            if len(ser) >= 50:
+            if len(ser) >= mini:
                 return ser, f"yfinance {period}"
             errs.append(f"yfinance {period} : {len(ser)} séances")
         except Exception as e:  # noqa: BLE001
@@ -333,7 +335,7 @@ def yahoo_series(tk):
         time.sleep(5 * (attempt + 1))
     for host in ("query2", "query1"):
         try:
-            j = get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{tk}?range=5y&interval=1d").json()
+            j = get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{tk}?range={'3mo' if recent_only else '5y'}&interval=1d").json()
             res = j["chart"]["result"][0]
             ser = {}
             off = int((res.get("meta") or {}).get("gmtoffset") or 0)  # décalage horaire de la bourse
@@ -342,7 +344,7 @@ def yahoo_series(tk):
                     dd = datetime.fromtimestamp(t + off, timezone.utc).date()
                     if dd < datetime.now(timezone.utc).date():
                         ser[dd.isoformat()] = round(float(c), 4)
-            if len(ser) >= 50:
+            if len(ser) >= mini:
                 return ser, host
             errs.append(f"{host} : {len(ser)} séances")
         except Exception as e:  # noqa: BLE001
@@ -354,14 +356,27 @@ def collect_yahoo():
     path = PRIV / "yahoo.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     out = dict(old)
-    for tk, name in CFG["yahoo"].items():
-        try:
-            ser, src = yahoo_series(tk)
-            out[tk] = {"nom": name, "serie": dict(sorted(ser.items()))}
-            note("yahoo_" + tk, True, f"{len(ser)} séances, dernière {max(ser)} ({src})")
-        except Exception as e:  # noqa: BLE001
-            note("yahoo_" + tk, False, f"{e} (historique précédent gardé)" if tk in old else e)
-        time.sleep(1)
+    pending = list(CFG["yahoo"].items())
+    for tour in (1, 2):  # second tour, après une pause, pour les séries refusées au premier (Yahoo limite les requêtes)
+        failed = []
+        for tk, name in pending:
+            prev = ((old.get(tk) or {}).get("serie")) or {}
+            have = len(prev) >= 250  # un an d'historique déjà gardé : mise à jour légère
+            try:
+                ser, src = yahoo_series(tk, recent_only=have)
+                merged = dict(prev)
+                merged.update(ser)
+                out[tk] = {"nom": name, "serie": dict(sorted(merged.items())[-1400:])}
+                note("yahoo_" + tk, True, f"{len(merged)} séances, dernière {max(merged)} ({src}{', mise à jour' if have else ''})")
+            except Exception as e:  # noqa: BLE001
+                failed.append((tk, name))
+                note("yahoo_" + tk, False, f"{e} (historique précédent gardé)" if tk in old else e)
+            time.sleep(3)
+        if not failed:
+            break
+        pending = failed
+        if tour == 1:
+            time.sleep(60)
     save_json(path, out)
 
 

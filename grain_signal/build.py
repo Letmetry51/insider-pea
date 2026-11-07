@@ -213,6 +213,10 @@ def asof(rows, d, key="date"):
     return rows[i] if i >= 0 else None
 
 
+def fr_n(v):
+    return f"{v:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
 def percentile(window, v):
     return round(sum(1 for w in window if w <= v) / len(window) * 100) if window else None
 
@@ -259,17 +263,30 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
     if "uree" in fr and ble_vals:
         # le chiffre Banque mondiale est une moyenne du mois : les bases France et Euronext doivent être prises DANS ce mois
         mo = last["month"]
-        u_m = [float(r["price"]) for r in rows if r["product"] == "uree" and r["date"][:7] == mo and fnum(r["price"])]
+        u_obs = sorted((r["date"], float(r["price"])) for r in rows if r["product"] == "uree" and fnum(r["price"]))
+        u_m = [v_ for d_, v_ in u_obs if d_[:7] == mo]
         b_m = [v_ for d_, v_ in zip(ble_dates, ble_vals) if d_[:7] == mo]
-        if u_m and len(b_m) >= 5:
-            u0, b0 = sum(u_m) / len(u_m), sum(b_m) / len(b_m)
+        u0, how = None, ""
+        if u_m:
+            u0, how = sum(u_m) / len(u_m), f"moyenne de {len(u_m)} cotation(s) du mois"
+        else:  # pas de relevé dans le mois : prix interpolé au 15 du mois entre les relevés qui l'encadrent (45 jours au plus)
+            mid = date.fromisoformat(mo + "-15")
+            av = [(date.fromisoformat(d_), v_) for d_, v_ in u_obs if mid - timedelta(days=45) <= date.fromisoformat(d_) <= mid]
+            ap = [(date.fromisoformat(d_), v_) for d_, v_ in u_obs if mid <= date.fromisoformat(d_) <= mid + timedelta(days=45)]
+            if av and ap:
+                (d1, v1), (d2, v2) = av[-1], ap[0]
+                u0 = v1 if d1 == d2 else v1 + (v2 - v1) * (mid - d1).days / (d2 - d1).days
+                how = f"interpolée au 15 entre {fr_n(v1)} le {d1:%d/%m} et {fr_n(v2)} le {d2:%d/%m}"
+        if u0 and len(b_m) >= 5:
+            b0 = sum(b_m) / len(b_m)
             est = ratios[-1] * (fr["uree"]["prix"] / u0) / (ble_vals[-1] / b0)
             out["estimation"] = {"ratio": round(est, 3), "percentile": percentile(win, est),
-                                 "methode": f"ratio mondial de {mo} (moyenne du mois) corrigé de l'évolution, depuis ce mois, de l'urée "
-                                            f"France ({len(u_m)} cotation(s)) et du blé Euronext ({len(b_m)} séances)"}
+                                 "methode": f"ratio mondial de {mo} (moyenne du mois) corrigé de l'évolution depuis le milieu du mois : "
+                                            f"urée France {fr_n(u0)} → {fr_n(fr['uree']['prix'])} €/t ({how}) ; blé Euronext "
+                                            f"{fr_n(b0)} → {fr_n(ble_vals[-1])} €/t (moyenne de {len(b_m)} séances du mois)"}
         else:
-            out["estimation_absente"] = (f"Pas encore de prix France et Euronext relevés pendant {mo} (mois du dernier chiffre "
-                                         f"Banque mondiale) : ratio mondial retenu tel quel")
+            out["estimation_absente"] = (f"Pas assez de prix France et Euronext autour de {mo} (mois du dernier chiffre Banque "
+                                         f"mondiale) : ratio mondial retenu tel quel")
     pct = out.get("estimation", {}).get("percentile", out["mondial"]["percentile"])
     out["percentile_retenu"] = pct
     out["base"] = "estimation" if "estimation" in out else "mondial"

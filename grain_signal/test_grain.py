@@ -252,6 +252,16 @@ ids = [x["id"] for x in (dash or {}).get("declencheurs", [])]
 check(rc == 0 and any(i.endswith("ble:signal") for i in ids) and any(i.endswith("escourgeon:signal") for i in ids),
       "changement de signal signalé pour toutes les cultures, orges comprises")
 
+def wb_octobre(t, pv):  # chiffre Banque mondiale d'octobre, aucun relevé France en octobre : interpolation au 15
+    seeds(t, pv)
+    with (pv / "wb_monthly.csv").open("a", encoding="utf-8") as fh:
+        fh.write("2026-10,,420.0,,,317.0,\n")
+
+
+(rc, dash, _, err), = run_build(wb_octobre)
+est = (dash or {}).get("engrais", {}).get("estimation") or {}
+check(rc == 0 and "interpolée au 15 entre 555 le 30/09 et 621 le 05/11" in est.get("methode", ""), f"ratio engrais : urée interpolée au milieu du mois ({est})")
+
 for day in ("2027-01-02", "2027-06-30", "2027-07-01", "2027-12-31"):
     (rc, dash, _, err), = run_build(seeds, today=day)
     ok = rc == 0 and all(sum(1 for p in c["plan"] if p["statut"] == "due") <= 2 for c in dash["cultures"].values())
