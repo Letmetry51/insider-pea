@@ -309,6 +309,42 @@ def mini_series(dates, rsi_s, histo_s, n=63):
             "histo": [round(x, 3) if x is not None else None for x in histo_s[k:]]}
 
 
+def vue_longue(yahoo, tk, e_dates, e_vals):
+    """Vues 1 an (quotidien, MM50 et MM200) et 5 ans (hebdomadaire, MM 10 et 40 semaines) : marché américain converti en €/t
+    pour la tendance longue, avec la série Euronext par-dessus là où elle existe."""
+    pd_, pv = proxy_eur(yahoo, tk)
+    if len(pv) < 60:
+        return None
+    eu = dict(zip(e_dates, e_vals))
+    # recalage sur le niveau Euronext (moyenne du rapport Euronext / américain sur les séances communes) : même échelle à l'écran
+    pmap = dict(zip(pd_, pv))
+    common = [d_ for d_ in e_dates if d_ in pmap][-60:]
+    f = sum(eu[d_] / pmap[d_] for d_ in common) / len(common) if common else 1.0
+    pv = [x * f for x in pv]
+    m50, m200 = ind.sma(pv, 50), ind.sma(pv, 200)
+    k = max(0, len(pv) - 252)
+    an = [[pd_[i], round(pv[i], 2), round(m50[i], 2) if m50[i] else None, round(m200[i], 2) if m200[i] else None,
+           round(eu[pd_[i]], 2) if pd_[i] in eu else None] for i in range(k, len(pv))]
+    # hebdomadaire : dernier cours de chaque semaine (vendredi ou dernière séance)
+    wk, wd = [], []
+    for d_, v_ in zip(pd_, pv):
+        key = date.fromisoformat(d_).isocalendar()[:2]
+        if wd and wd[-1][0] == key:
+            wd[-1] = (key, d_)
+            wk[-1] = v_
+        else:
+            wd.append((key, d_))
+            wk.append(v_)
+    w10, w40 = ind.sma(wk, 10), ind.sma(wk, 40)
+    eu_w = {}
+    for d_, v_ in zip(e_dates, e_vals):
+        eu_w[date.fromisoformat(d_).isocalendar()[:2]] = v_
+    cinq = [[wd[i][1], round(wk[i], 2), round(w10[i], 2) if w10[i] else None, round(w40[i], 2) if w40[i] else None,
+             round(eu_w[wd[i][0]], 2) if wd[i][0] in eu_w else None] for i in range(max(0, len(wk) - 262), len(wk))]
+    return {"ticker": tk, "nom": (yahoo.get(tk) or {}).get("nom", tk), "an": an, "cinq_ans": cinq, "recalage": round(f, 4),
+            "depuis": pd_[0], "euronext_depuis": e_dates[0] if e_dates else None}
+
+
 def proxy_eur(yahoo, tk):
     """Série américaine convertie en €/t (cents → $/t, puis EUR/USD du même jour ou de la veille)."""
     ser = (yahoo.get(tk) or {}).get("serie") or {}
@@ -377,6 +413,10 @@ def main():
     eur = read_csv(PRIV / "euronext.csv")
     yahoo = load_json(PRIV / "yahoo.json", {})
     cftc = load_json(PRIV / "cftc.json", {})
+    seed_c = load_json(HERE / "seed" / "comite-initial.json", {})
+    cur_c = load_json(OUT / "comite.json", {})
+    if cur_c.get("date") == seed_c.get("date") and "(session)" in str(cur_c.get("modele")) and cur_c.get("version_seed") != seed_c.get("version_seed"):
+        (OUT / "comite.json").unlink()  # comité de départ corrigé : nouvelle version reprise
     if not (OUT / "comite.json").exists() and (HERE / "seed" / "comite-initial.json").exists():
         (OUT / "comite.json").write_bytes((HERE / "seed" / "comite-initial.json").read_bytes())  # premier calcul : comité du 07/11/2026
     comite = load_json(OUT / "comite.json", {})
@@ -427,6 +467,7 @@ def main():
         k = max(0, len(v) - 120)
         info["graphique"] = [[d[i], round(v[i], 2), round(mm20[i], 2) if mm20[i] else None, round(mm50[i], 2) if mm50[i] else None]
                              for i in range(k, len(v))]
+        info["long"] = vue_longue(yahoo, PROXY.get(prod), d, v)
         contrats[prod] = info
         if prod == "EBM":
             series_ble = (d, v)
@@ -488,9 +529,26 @@ def main():
         else:
             entry.update(signal="TENIR", source="sans_comite",
                          note="Pas d'avis du comité valide : plan calendaire par défaut ; la lecture de marché seule ne suffit pas à vendre")
+        # une seule série de niveaux par culture : ceux du comité s'il en a fixé, sinon les niveaux techniques
+        tech = ci.get("niveaux") or {}
+        cc_ = entry.get("comite") or {}
+        c_ord = [float(x) for x in (cc_.get("ordres") or []) if fnum(x) is not None]
+        cur = (ci.get("technique") or {}).get("dernier")
+        if c_ord or fnum(cc_.get("revision_bas")) is not None:
+            ret = {"source": "comite", "ordres": sorted(x for x in c_ord if cur is None or x > cur),
+                   "revision": fnum(cc_.get("revision_bas"))}
+        elif cult not in ("escourgeon", "orge_printemps") and not ci.get("proxy"):
+            ret = {"source": "technique", "ordres": tech.get("ordres") or [], "revision": tech.get("revision")}
+        else:
+            ret = {"source": "aucun", "ordres": [], "revision": None}
+        ret.update(contrat=prod, echeance=ci.get("echeance"), sur_ble=cult in ("escourgeon", "orge_printemps"))
+        entry["niveaux_retenus"] = ret
         entry["libelle"] = SIGNAUX.get(entry["signal"] or "", "—")
         cultures[cult] = entry
 
+    for prod, main in (("EBM", "ble"), ("ECO", "colza"), ("EMA", "mais")):
+        if prod in contrats and main in cultures:
+            contrats[prod]["niveaux_retenus"] = cultures[main]["niveaux_retenus"]
     org = orges(today, series_ble[1])
     for cult, e in org.items():
         if cult in cultures:
