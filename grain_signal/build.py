@@ -27,7 +27,7 @@ CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
 CULTURES = {"ble": "Blé tendre", "escourgeon": "Escourgeon brassicole", "orge_printemps": "Orge de printemps brassicole",
             "colza": "Colza", "mais": "Maïs"}
 SIGNAUX = {"VENDRE": "🟢 VENDRE UNE TRANCHE", "TENIR": "🟡 TENIR LE PLAN", "ATTENDRE": "🔴 ATTENDRE-STOCKER", "COUVRIR": "🛡️ COUVRIR"}
-PROXY = {"EBM": "ZW=F", "ECO": "RS=F", "EMA": "ZC=F"}
+PROXY = {"EBM": "ZW=F", "ECO": "ZL=F", "EMA": "ZC=F"}  # colza : huile de soja (le canola ICE n'est pas sur Yahoo)
 SIG_ENGRAIS = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER", "ATTENDRE": "🔴 ATTENDRE"}
 
 
