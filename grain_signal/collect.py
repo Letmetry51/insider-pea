@@ -379,7 +379,18 @@ def collect_physique():
             note("physique_" + k, True, f"{len(items)} places")
         except Exception as e:  # noqa: BLE001
             note("physique_" + k, False, e)
-    if snap:
+    if snap:  # historique quotidien (escourgeon et orge de printemps n'ont pas de marché à terme : leur seule série de prix)
+        hp = seed("physique_hist.csv")
+        hist = read_csv(hp)
+        today = datetime.now(timezone.utc).date()
+        for k, items in snap.items():
+            for it in items:
+                d = (day_month(it["titre"], today) or today).isoformat()
+                key = (d, k, it["place"], it["titre"][-60:])
+                hist = [h for h in hist if (h["date"], h["page"], h["place"], h["titre"]) != key]
+                hist.append({"date": d, "page": k, "place": it["place"], "echeance": it["echeance"], "titre": it["titre"][-60:], "prix": it["prix"]})
+        hist.sort(key=lambda h: (h["date"], h["page"], h["place"]))
+        write_csv(hp, hist, ["date", "page", "place", "echeance", "titre", "prix"])
         old_path = OUT / "physique.json"
         old = json.loads(old_path.read_text(encoding="utf-8")) if old_path.exists() else {}
         old.update(snap)

@@ -69,6 +69,7 @@
   "physique": {
     "ble": "https://www.terre-net.fr/marche-agricole/ble-tendre/physique",
     "orge": "https://www.terre-net.fr/marche-agricole/orge-fourragere/physique",
+    "orge_brassicole": "https://www.terre-net.fr/marche-agricole/orge-brassicole/physique",
     "colza": "https://www.terre-net.fr/marche-agricole/colza/physique",
     "mais": "https://www.terre-net.fr/marche-agricole/mais/physique"
   },
