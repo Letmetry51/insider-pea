@@ -242,6 +242,18 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
                                             f"(depuis le {u_ref['date']}) et du blé Euronext (depuis le {ble_dates[i]})"}
     pct = out.get("estimation", {}).get("percentile", out["mondial"]["percentile"])
     out["percentile_retenu"] = pct
+    # historiques mensuels (Banque mondiale) : urée et DAP en $/t avec moyenne 12 mois, ratio urée/blé avec ses seuils
+    ur = [float(r["urea"]) for r in wb]
+    mm12 = ind.sma(ur, 12)
+    dap = [fnum(r.get("dap")) for r in wb]
+    k = max(0, len(wb) - 120)
+    out["histo_uree"] = [[wb[i]["month"] + "-15", round(ur[i], 1), round(mm12[i], 1) if mm12[i] else None,
+                          round(dap[i], 1) if dap[i] else None] for i in range(k, len(wb))]
+    srt = sorted(win)
+    q = lambda p_: round(srt[min(len(srt) - 1, int(p_ / 100 * len(srt)))], 3)  # noqa: E731
+    out["histo_ratio"] = {"points": [[wb[i]["month"] + "-15", round(ratios[i], 3)] for i in range(k, len(wb))],
+                          "seuils": {"20": q(20), "60": q(60), "80": q(80)},
+                          "estimation": round(est, 3) if est else None}
     # gaz TTF (Yahoo) : niveau, tendance, rattrapage du jour
     ttf = (yahoo.get("TTF=F") or {}).get("serie") or {}
     if len(ttf) > 70:
@@ -249,6 +261,7 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
         a = ind.analyse(d, v)
         out["ttf"] = {k: a.get(k) for k in ("dernier", "au", "var1s", "var1m", "var3m", "mm20", "ecart_mm20", "mm50", "rsi", "histo",
                                              "croisement_macd", "haut3m", "bas3m")}
+        out["ttf"]["vues"] = vues(d, v)
         out["ttf"]["sous_seuil_bas"] = sum(1 for x in v[-CFG["engrais"]["ttfBasSeances"]:] if x < CFG["engrais"]["ttfBas"])
         if "uree" in fr and fr["uree"].get("var3m") is not None and a.get("var3m") is not None:
             out["rattrapage"] = round(a["var3m"] - fr["uree"]["var3m"], 1)
@@ -307,6 +320,46 @@ def mini_series(dates, rsi_s, histo_s, n=63):
     k = max(0, len(dates) - n)
     return {"dates": dates[k:], "rsi": [round(x, 1) if x is not None else None for x in rsi_s[k:]],
             "histo": [round(x, 3) if x is not None else None for x in histo_s[k:]]}
+
+
+def decale(a, gap):
+    """Tableau technique du blé ramené au niveau de l'orge : niveaux de prix décalés de l'écart, écarts et oscillateurs inchangés."""
+    if not a:
+        return a
+    b = json.loads(json.dumps(a))
+    for k in ("dernier", "mm20", "mm50", "mm200", "haut3m", "bas3m", "haut3m_hier", "bas3m_hier"):
+        if b.get(k) is not None:
+            b[k] = round(b[k] + gap, 2)
+    for k in ("38.2", "50", "61.8"):
+        if (b.get("fibo") or {}).get(k) is not None:
+            b["fibo"][k] = round(b["fibo"][k] + gap, 2)
+    return b
+
+
+def vues(dates, vals):
+    """Graphique 6 mois (cours, MM20, MM50), séries RSI/MACD de 3 mois, vues 1 an (MM50, MM200) et 5 ans hebdomadaire
+    (MM 10 et 40 semaines) d'une série quotidienne."""
+    if len(vals) < 30:
+        return {}
+    a = ind.analyse(dates, vals)
+    rs_, hs_ = a.pop("_rsi", None), a.pop("_histo", None)
+    m20, m50, m200 = ind.sma(vals, 20), ind.sma(vals, 50), ind.sma(vals, 200)
+    r2 = lambda x: round(x, 2) if x is not None else None  # noqa: E731
+    k6, k1 = max(0, len(vals) - 120), max(0, len(vals) - 252)
+    wk, wd = [], []
+    for d_, v_ in zip(dates, vals):
+        key = date.fromisoformat(d_).isocalendar()[:2]
+        if wd and wd[-1][0] == key:
+            wd[-1], wk[-1] = (key, d_), v_
+        else:
+            wd.append((key, d_))
+            wk.append(v_)
+    w10, w40 = ind.sma(wk, 10), ind.sma(wk, 40)
+    return {"technique": a, "score_technique": ind.score_technique(a), "niveaux": ind.niveaux(a), "series": mini_series(dates, rs_, hs_),
+            "graphique": [[dates[i], r2(vals[i]), r2(m20[i]), r2(m50[i])] for i in range(k6, len(vals))],
+            "long": {"an": [[dates[i], r2(vals[i]), r2(m50[i]), r2(m200[i]), None] for i in range(k1, len(vals))],
+                     "cinq_ans": [[wd[i][1], r2(wk[i]), r2(w10[i]), r2(w40[i]), None] for i in range(max(0, len(wk) - 262), len(wk))],
+                     "depuis": dates[0]}}
 
 
 def vue_longue(yahoo, tk, e_dates, e_vals):
@@ -650,9 +703,32 @@ def main():
         if prod in contrats and main in cultures:
             contrats[prod]["niveaux_retenus"] = cultures[main]["niveaux_retenus"]
     org = orges(today, series_ble[1])
+    eb = contrats.get("EBM") or {}
+    for cult, e in org.items():
+        gap = e.get("ecart_ble")
+        nrc = (cultures.get(cult) or {}).get("niveaux_retenus") or {}
+        if gap is not None and eb.get("graphique"):
+            sh = lambda r: [r[0]] + [round(x + gap, 2) if x is not None else None for x in r[1:4]]  # noqa: E731
+            phys = {p_[0]: p_[1] for p_ in e.get("graphique") or []}
+            e["estime"] = {
+                "ecart": gap,
+                "graphique": [sh(r) for r in eb["graphique"]],
+                "long": ({"an": [sh(r) + [phys.get(r[0])] for r in eb["long"]["an"]],
+                          "cinq_ans": [sh(r) + [None] for r in eb["long"]["cinq_ans"]],
+                          "nom": eb["long"]["nom"], "euronext_depuis": eb["long"].get("euronext_depuis")} if eb.get("long") else None),
+                "technique": decale(eb.get("technique"), gap), "series": eb.get("series"),
+                # niveaux de la culture (comité ou aucun), exprimés au niveau de l'orge : mêmes chiffres que la carte Signaux
+                "niveaux": ({"ordres": [round(o + gap, 2) for o in (nrc.get("ordres") or [])],
+                             "revision": round(nrc["revision"] + gap, 2) if nrc.get("revision") else None}),
+            }
+            # points physiques réels par-dessus (4e colonne)
+            for r in e["estime"]["graphique"]:
+                r.append(phys.get(r[0]))
     for cult, e in org.items():
         if cult in cultures:
             cultures[cult]["physique"] = {k: e.get(k) for k in ("prix", "date", "place", "fourragere", "prime", "ecart_ble", "rouen_rendu")}
+            if e.get("estime"):
+                cultures[cult]["niveaux_retenus"]["equivalent_orge"] = e["estime"]["niveaux"]
     engrais = module_engrais(today, series_ble[0], series_ble[1], yahoo)
     if valid_comite and comite.get("engrais", {}).get("signal") in SIG_ENGRAIS:
         engrais["comite"] = comite["engrais"]

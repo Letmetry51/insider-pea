@@ -122,23 +122,25 @@ function chart(rows, opts = {}) {
       svg,
       'text',
       { x: P.l - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' },
-      fmt(v, v > 100 ? 0 : 1)
+      fmt(v, hi - lo < 8 ? 1 : v > 100 ? 0 : 1)
     );
   }
-  [0, Math.floor((pts.length - 1) / 2), pts.length - 1].forEach((i) => {
-    svgEl(
-      svg,
-      'text',
-      {
-        x: x(i),
-        y: H - 6,
-        'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle',
-        'font-size': 11,
-        fill: 'var(--muted)',
-      },
-      dfr(pts[i][0])
-    );
-  });
+  [...new Set(pts.length < 5 ? [0, pts.length - 1] : [0, Math.floor((pts.length - 1) / 2), pts.length - 1])].forEach(
+    (i) => {
+      svgEl(
+        svg,
+        'text',
+        {
+          x: x(i),
+          y: H - 6,
+          'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle',
+          'font-size': 11,
+          fill: 'var(--muted)',
+        },
+        dfr(pts[i][0])
+      );
+    }
+  );
   const li = pts.length - 1;
   // fourchette probable
   if (sig) {
@@ -244,6 +246,18 @@ function chart(rows, opts = {}) {
     });
     if (d) svgEl(svg, 'path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linejoin': 'round' });
   });
+  if (opts.col4Dots)
+    pts.forEach((r, i) => {
+      if (r[4] !== null && r[4] !== undefined)
+        svgEl(svg, 'circle', {
+          cx: x(i),
+          cy: y(r[4]),
+          r: 3.5,
+          fill: 'var(--chart-1)',
+          stroke: 'var(--surface)',
+          'stroke-width': 1.5,
+        });
+    });
   if (opts.dot !== false)
     svgEl(svg, 'circle', {
       cx: x(li),
@@ -318,7 +332,21 @@ function spark(values, opts = {}) {
   return svg;
 }
 
+let ICMODE = 'vendeur';
+const ACHAT = {
+  'Survente : ne pas vendre': 'Survente : bon moment pour acheter',
+  'Surachat : vendre': 'Surachat : attendre pour acheter',
+  'Élan haussier': 'Élan haussier : ne pas trop attendre',
+  'Élan haussier qui ralentit': 'Hausse qui ralentit',
+  'Élan baissier': 'Élan baissier : attendre peut payer',
+  'Près du support': 'Près du support : bon prix d’achat',
+  'Près de la résistance': 'Près de la résistance : cher',
+};
 function icard(icon, title, help, badge, badgeCls, label, ...body) {
+  if (ICMODE === 'acheteur') {
+    badgeCls = { good: 'bad', bad: 'good' }[badgeCls] || badgeCls;
+    label = ACHAT[label] || label;
+  }
   return h(
     'div',
     { class: 'icard' },
@@ -339,8 +367,9 @@ function icard(icon, title, help, badge, badgeCls, label, ...body) {
 }
 
 /* Cartes lues du point de vue du vendeur : vert = bon moment pour vendre, rouge = mauvais moment pour vendre. */
-function indicatorCards(a, series, niv, canal) {
+function indicatorCards(a, series, niv, canal, mode = 'vendeur') {
   if (!a || a.insuffisant) return null;
+  ICMODE = mode;
   const cards = [];
   const r = a.rsi;
   if (r !== null && r !== undefined) {
@@ -604,7 +633,98 @@ function indicatorCards(a, series, niv, canal) {
       )
     );
   }
-  return h('div', {}, h('h4', { class: 'ititle', text: '🧭 Indicateurs' }), h('div', { class: 'igrid' }, cards));
+  ICMODE = 'vendeur';
+  return h(
+    'div',
+    {},
+    h('h4', {
+      class: 'ititle',
+      text:
+        mode === 'acheteur'
+          ? '🧭 Indicateurs (lecture acheteur : vert = bon moment pour acheter)'
+          : '🧭 Indicateurs (lecture vendeur : vert = bon moment pour vendre)',
+    }),
+    h('div', { class: 'igrid' }, cards)
+  );
+}
+
+/* Graphique à périodes (3 mois, 1 an, 5 ans) + cartes d'indicateurs + tableau complet.
+   p = { nom, graphique, long: { an, cinq_ans }, technique, series, niveaux, mode, legendLong: [[couleur, libellé]], noteLong,
+         legend3m, mainColor, col4Dots } */
+function periodPanel(p) {
+  if (!p.graphique) return null;
+  const ta = p.technique;
+  const box = h('div', {});
+  const periods = [['3m', '3 mois']].concat(
+    p.long
+      ? [
+          ['1a', '1 an'],
+          ['5a', '5 ans'],
+        ]
+      : []
+  );
+  const draw = (per) => {
+    box.textContent = '';
+    if (per === '3m') {
+      const g3 = chart(p.graphique, {
+        levels: chartLevels(p.niveaux, ta, p.mode),
+        label: `${p.nom} : 3 mois`,
+        mainColor: p.mainColor,
+        col4Dots: p.col4Dots,
+        cone: p.cone,
+        channel: p.channel,
+      });
+      box.append(g3, p.legend3m || chartLegend());
+      return g3;
+    }
+    const g = chart(per === '1a' ? p.long.an : p.long.cinq_ans, {
+      channel: false,
+      cone: false,
+      dot: false,
+      mainColor: p.longMain || 'var(--chart-1)',
+      mainWidth: p.longMain ? 1.6 : 2.2,
+      col4Dots: p.col4Dots,
+      label: `${p.nom} : ${per === '1a' ? '1 an' : '5 ans'}`,
+    });
+    const mm = per === '1a' ? ['MM50', 'MM200'] : ['MM 10 sem.', 'MM 40 sem.'];
+    box.append(
+      g,
+      h(
+        'div',
+        { class: 'legend' },
+        (p.legendLong || [['var(--chart-1)', 'Cours']]).map(([c, t]) =>
+          h('span', {}, h('i', { style: `background:${c}` }), t)
+        ),
+        h('span', {}, h('i', { style: 'background:var(--chart-2)' }), mm[0]),
+        h('span', {}, h('i', { style: 'background:var(--chart-3)' }), mm[1])
+      ),
+      p.noteLong ? h('p', { class: 'note', text: p.noteLong }) : null
+    );
+    return g;
+  };
+  const sw = h(
+    'div',
+    { class: 'periods', role: 'group', 'aria-label': 'Période du graphique' },
+    periods.map(([k, t]) => {
+      const b = h('button', { type: 'button', 'aria-pressed': String(k === '3m'), text: t });
+      b.addEventListener('click', () => {
+        sw.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        draw(k);
+      });
+      return b;
+    })
+  );
+  const g = draw('3m');
+  return h(
+    'div',
+    {},
+    periods.length > 1 ? sw : null,
+    box,
+    ta && !ta.insuffisant
+      ? indicatorCards(ta, p.series, p.niveaux, g.canal, p.mode)
+      : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
+    ta && !ta.insuffisant ? h('details', {}, h('summary', { text: '📋 Tous les chiffres' }), techTable(ta)) : null
+  );
 }
 
 function chartLevels(niv, a) {
@@ -800,7 +920,12 @@ function vSignaux() {
                 ? ordres.map((v) => fmt(v)).join(' · ') +
                   ' €/t' +
                   ech +
-                  (nr.sur_ble ? ' : vendre une tranche d’orge' : '')
+                  (nr.sur_ble
+                    ? ' : vendre une tranche d’orge' +
+                      (nr.equivalent_orge && nr.equivalent_orge.ordres.length
+                        ? ` (≈ ${nr.equivalent_orge.ordres.map((v) => fmt(v)).join(' · ')} €/t d'orge)`
+                        : '')
+                    : '')
                 : '—',
             }),
           ],
@@ -994,7 +1119,7 @@ function vTechnique() {
     }),
   ];
   const grid = h('div', { class: 'stack' });
-  const orgGrid = h('div', { class: 'grid' });
+  const orgGrid = h('div', { class: 'stack' });
   for (const [code, c] of Object.entries(d.contrats || {})) {
     const a = c.technique || {};
     grid.append(
@@ -1010,83 +1135,25 @@ function vTechnique() {
         c.proxy ? h('div', { class: 'alert info', text: c.proxy.texte }) : null,
         (() => {
           const src = c.proxy && c.proxy.graphique ? c.proxy : c;
-          const ta = c.proxy && c.proxy.technique ? c.proxy.technique : a;
-          // lecture de secours (marché américain converti) : pas d'ordres, les niveaux ne valent pas pour Euronext
-          const nv = c.proxy && c.proxy.graphique ? null : c.niveaux_retenus || c.niveaux;
-          if (!src.graphique) return null;
-          const box = h('div', {});
-          const periods = [['3m', '3 mois']].concat(
-            c.long
+          return periodPanel({
+            nom: c.nom,
+            graphique: src.graphique,
+            long: c.long,
+            technique: c.proxy && c.proxy.technique ? c.proxy.technique : a,
+            series: src.series,
+            // lecture de secours (marché américain converti) : pas d'ordres, les niveaux ne valent pas pour Euronext
+            niveaux: c.proxy && c.proxy.graphique ? null : c.niveaux_retenus || c.niveaux,
+            longMain: 'var(--muted)',
+            legendLong: c.long
               ? [
-                  ['1a', '1 an'],
-                  ['5a', '5 ans'],
+                  ['var(--chart-1)', `Euronext (depuis le ${dfr(c.long.euronext_depuis)})`],
+                  ['var(--muted)', `${c.long.nom} recalé sur Euronext`],
                 ]
-              : []
-          );
-          const draw = (per) => {
-            box.textContent = '';
-            if (per === '3m') {
-              const g3 = chart(src.graphique, { levels: chartLevels(nv, ta), label: `${c.nom} : 3 mois` });
-              box.append(g3, chartLegend());
-              return g3;
-            }
-            const rows = per === '1a' ? c.long.an : c.long.cinq_ans;
-            const g = chart(rows, {
-              channel: false,
-              cone: false,
-              dot: false,
-              mainColor: 'var(--muted)',
-              mainWidth: 1.6,
-              label: `${c.nom} : ${per === '1a' ? '1 an' : '5 ans'}`,
-            });
-            const mm = per === '1a' ? ['MM50', 'MM200'] : ['MM 10 sem.', 'MM 40 sem.'];
-            box.append(
-              g,
-              h(
-                'div',
-                { class: 'legend' },
-                h(
-                  'span',
-                  {},
-                  h('i', { style: 'background:var(--chart-1)' }),
-                  `Euronext (depuis le ${dfr(c.long.euronext_depuis)})`
-                ),
-                h('span', {}, h('i', { style: 'background:var(--muted)' }), `${c.long.nom} recalé sur Euronext`),
-                h('span', {}, h('i', { style: 'background:var(--chart-2)' }), mm[0]),
-                h('span', {}, h('i', { style: 'background:var(--chart-3)' }), mm[1])
-              ),
-              h('p', {
-                class: 'note',
-                text: `L'historique Euronext se construit chaque jour depuis le ${dfr(c.long.euronext_depuis)}. Pour la tendance longue : ${c.long.nom}, converti en €/t puis recalé sur le niveau d'Euronext des dernières séances (même tendance, écarts possibles entre les deux marchés) ; les moyennes mobiles portent sur cette série.`,
-              })
-            );
-            return g;
-          };
-          const sw = h(
-            'div',
-            { class: 'periods', role: 'group', 'aria-label': 'Période du graphique' },
-            periods.map(([k, t]) => {
-              const b = h('button', { type: 'button', 'aria-pressed': String(k === '3m'), text: t });
-              b.addEventListener('click', () => {
-                sw.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-                draw(k);
-              });
-              return b;
-            })
-          );
-          const g = draw('3m');
-          return h(
-            'div',
-            {},
-            periods.length > 1 ? sw : null,
-            box,
-            ta && !ta.insuffisant
-              ? indicatorCards(ta, src.series, nv, g.canal)
-              : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
-            ta && !ta.insuffisant
-              ? h('details', {}, h('summary', { text: '📋 Tous les chiffres' }), techTable(ta))
-              : null
-          );
+              : null,
+            noteLong: c.long
+              ? `L'historique Euronext se construit chaque jour depuis le ${dfr(c.long.euronext_depuis)}. Pour la tendance longue : ${c.long.nom}, converti en €/t puis recalé sur le niveau d'Euronext des dernières séances (même tendance, écarts possibles entre les deux marchés) ; les moyennes mobiles portent sur cette série.`
+              : null,
+          });
         })(),
         h('p', { class: 'note', text: `Note technique : ${sgn(c.score_technique)} (de −2 à +2)` })
       )
@@ -1103,11 +1170,44 @@ function vTechnique() {
           class: 'note',
           text: "Pas de marché à terme pour les orges : prix physique Creil FOB relevé chaque jour (terre-net) ; le moment de vendre suit le blé Euronext, la prime brassicole dit si l'orge est bien payée.",
         }),
-        o.graphique && o.graphique.length >= 2
-          ? chart(
-              o.graphique.map((r) => [r[0], r[1], null, null]),
-              { label: `${o.nom} : prix physique` }
-            )
+        o.estime
+          ? h('div', {
+              class: 'alert info',
+              text: `Pas encore d'historique de prix d'orge : courbe estimée = blé Euronext ${sgn(o.estime.ecart)} €/t (écart orge/blé du jour). Les points dorés sont les prix physiques réellement relevés ; ils s'accumulent chaque jour.`,
+            })
+          : null,
+        o.estime
+          ? periodPanel({
+              nom: o.nom,
+              graphique: o.estime.graphique,
+              long: o.estime.long,
+              technique: o.estime.technique,
+              series: o.estime.series,
+              niveaux: o.estime.niveaux,
+              mainColor: 'var(--muted)',
+              longMain: 'var(--muted)',
+              col4Dots: true,
+              legend3m: h(
+                'div',
+                { class: 'legend' },
+                h(
+                  'span',
+                  {},
+                  h('i', { style: 'background:var(--muted)' }),
+                  `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`
+                ),
+                h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Prix physique relevé'),
+                h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'MM20'),
+                h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'MM50'),
+                h('span', {}, h('i', { style: 'background:var(--channel)' }), 'Canal 3 mois'),
+                h('span', {}, h('i', { class: 'cone' }), 'Fourchette probable 20 séances')
+              ),
+              legendLong: [
+                ['var(--muted)', `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`],
+                ['var(--chart-1)', 'Prix physique relevé'],
+              ],
+              noteLong: `Tendance longue de l'orge estimée à partir du blé (Euronext, puis ${o.estime.long ? o.estime.long.nom : 'Chicago'} recalé) décalé de l'écart du jour : l'écart orge/blé varie dans le temps, ce n'est qu'un repère.`,
+            })
           : h('p', { class: 'note', text: 'Graphique dès que plusieurs jours de prix sont relevés.' }),
         h(
           'table',
@@ -1313,6 +1413,74 @@ function vEngrais() {
     )
   );
   const fr = Object.values(e.france || {});
+  const tv = (e.ttf || {}).vues;
+  if (tv && tv.graphique) {
+    out.push(h('h2', { text: '⛽ Gaz TTF : graphique et indicateurs' }));
+    out.push(
+      h(
+        'section',
+        { class: 'card' },
+        h('p', {
+          class: 'note',
+          text: "Le gaz fait le prix de l'azote avec environ 1 mois de décalage. Lecture acheteur : un gaz en survente ou au bas de son canal annonce un azote moins cher dans les semaines qui suivent.",
+        }),
+        periodPanel({
+          nom: 'Gaz TTF',
+          graphique: tv.graphique,
+          long: tv.long,
+          technique: tv.technique,
+          series: tv.series,
+          niveaux: null,
+          mode: 'acheteur',
+        })
+      )
+    );
+  }
+  if (e.histo_uree && e.histo_uree.length > 12) {
+    out.push(h('h2', { text: '🧪 Urée et DAP sur 10 ans (Banque mondiale, mensuel, $/t)' }));
+    out.push(
+      h(
+        'section',
+        { class: 'card' },
+        chart(e.histo_uree, { channel: false, cone: false, dot: false, label: 'Urée et DAP sur 10 ans' }),
+        h(
+          'div',
+          { class: 'legend' },
+          h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Urée (Moyen-Orient)'),
+          h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'Urée, moyenne 12 mois'),
+          h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'DAP')
+        ),
+        h('p', {
+          class: 'note',
+          text: `Dernier mois publié : ${e.mondial ? e.mondial.mois : '—'}. Les prix France du jour sont dans le tableau plus bas.`,
+        })
+      )
+    );
+  }
+  const hr = e.histo_ratio;
+  if (hr && hr.points && hr.points.length > 12) {
+    const lv = [
+      { v: hr.seuils['20'], c: 'var(--good)', t: '20e perc. : acheter large' },
+      { v: hr.seuils['60'], c: 'var(--warn)', t: '60e : fractionner' },
+      { v: hr.seuils['80'], c: 'var(--bad)', t: '80e : attendre' },
+    ];
+    if (hr.estimation) lv.push({ v: hr.estimation, c: 'var(--chart-1)', t: '● estimé ce matin' });
+    out.push(h('h2', { text: '⚖️ Ratio urée / blé sur 10 ans' }));
+    out.push(
+      h(
+        'section',
+        { class: 'card' },
+        chart(
+          hr.points.map((r) => [r[0], r[1], null, null]),
+          { channel: false, cone: false, levels: lv, label: 'Ratio urée / blé sur 10 ans' }
+        ),
+        h('p', {
+          class: 'note',
+          text: "Prix de l'urée divisé par celui du blé (Banque mondiale, mensuel). Plus le ratio est bas, plus l'azote est bon marché par rapport à ce que rapporte le blé. Les seuils sont les percentiles des 10 années précédentes.",
+        })
+      )
+    );
+  }
   out.push(h('h2', { text: 'Prix France' }));
   out.push(
     h(
