@@ -31,6 +31,10 @@ des cours restent dans le cache du workflow et ne sont jamais publiés.
 - **Signal par culture** : celui du dernier comité (valable 8 jours). Chaque matin, son score est actualisé par la variation de la
   technique, des fonds et de la macro (10 % chacun) ; un changement de case dans la matrice (≤ −1 vendre, ≥ +0,5 attendre) marque
   la culture « à revoir » et demande un comité d'alerte. Sans comité valide : « tenir le plan ».
+- **Plan de vente** (`config.json`, `calendrier`) : tranches par défaut pour chaque culture (au plus 35 % avant la moisson ;
+  orge de printemps en partie par contrat malterie). Chaque carte affiche la tranche due pour chaque récolte en cours de vente
+  et l'action : vendre, avancer, décaler, couvrir, ou placer un ordre au-dessus du marché quand le cours est au creux. Pour
+  une récolte à venir, les ordres sont décalés de l'écart entre son échéance (septembre, août, novembre) et celle du jour.
 - **Engrais** (`build.py`, `module_engrais`) : ratio urée/blé en percentile sur 10 ans (≤ 20 acheter large, 20-60 suivre le plan,
   60-80 fractionner, ≥ 80 attendre), écart de rattrapage gaz − azote sur 3 mois (±15 pts : avancer ou retarder d'un cran, sauf
   si le gaz repasse sous sa MM20), saisonnalité, seuils du gaz (> 100 €/MWh, < 75 pendant 10 séances). Base : analyse

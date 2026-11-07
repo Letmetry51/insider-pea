@@ -407,6 +407,104 @@ def orges(today, ble_vals):
     return out
 
 
+MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def ym(harvest_year, rel):
+    """Mois relatif à janvier de l'année de récolte (1 = janvier, 0 = décembre d'avant, 13 = janvier d'après) → (année, mois)."""
+    k = harvest_year * 12 + rel - 1
+    return k // 12, k % 12 + 1
+
+
+def periode(a, b):
+    (y1, m1), (y2, m2) = a, b
+    return f"{MOIS_FR[m1 - 1]}–{MOIS_FR[m2 - 1]} {y2}" if y1 == y2 else f"{MOIS_FR[m1 - 1]} {y1}–{MOIS_FR[m2 - 1]} {y2}"
+
+
+def plan_vente(cult, today, entry, contrats):
+    """Tranches dues ou prochaines, par récolte en cours de vente, avec l'action conseillée selon le signal et le timing."""
+    cal = (CFG.get("calendrier") or {}).get(cult)
+    if not cal:
+        return []
+    now = (today.year, today.month)
+    out = []
+    for hy in (today.year - 1, today.year, today.year + 1):
+        tr = [(ym(hy, a), ym(hy, b), pct) for a, b, pct in cal["tranches"]]
+        if not (tr[0][0] <= now <= tr[-1][1]) and not (now < tr[0][0] and (tr[0][0][0] * 12 + tr[0][0][1]) - (now[0] * 12 + now[1]) <= 2):
+            continue  # récolte hors calendrier (vendue, ou ventes pas encore ouvertes)
+        cum, due, nxt, done = 0, None, None, 0
+        for a, b, pct in tr:
+            if b < now:
+                done += pct
+            elif a <= now <= b and due is None:
+                due = (a, b, pct, done + pct)
+            elif a > now and nxt is None:
+                nxt = (a, b, pct)
+            cum += pct
+        harvest_m = 10 if cult == "mais" else 7
+        pre = (now[0], now[1]) < (hy, harvest_m)
+        e = {"recolte": hy, "avant_moisson": pre, "cumul_fait": done}
+        nr = entry.get("niveaux_retenus") or {}
+        ordres = nr.get("ordres") or []
+        ref = cal.get("reference")
+        if ref:
+            c = contrats.get(ref[0]) or {}
+            mat = f"{hy}-{ref[1]:02d}"
+            pts = {p["echeance"]: p["prix"] for p in ((c.get("courbe") or {}).get("points") or [])}
+            if mat in pts:
+                e["reference"] = {"contrat": ref[0], "echeance": mat, "prix": pts[mat]}
+                # récolte à venir : ordres décalés de l'écart entre son échéance et l'échéance de référence du jour
+                cur = c.get("dernier_reel")
+                if pre and ordres and cur and mat != c.get("echeance"):
+                    ordres = [round((o + pts[mat] - cur) * 4) / 4 for o in ordres]
+        if due:
+            a, b, pct, cible = due
+            e.update(statut="due", periode=periode(a, b), pct=pct, cumul_vise=cible)
+            sig = entry.get("signal")
+            feu = (entry.get("feu") or {}).get("code")
+            contrat = cal.get("contrat") and pre  # orge de printemps avant la moisson : contrats malterie
+            quoi = "la tranche par contrat malterie" if contrat else "la tranche"
+            if sig == "VENDRE":
+                extra = nxt[2] if nxt else 0
+                e["action"] = f"Avancer : vendre {quoi} et la suivante ({pct + extra} %)"
+                e["code"] = "vendre"
+            elif sig == "ATTENDRE":
+                e["action"] = f"Décaler {quoi} : attendre ou stocker"
+                e["code"] = "attendre"
+            elif sig == "COUVRIR":
+                e["action"] = f"Couvrir {quoi} (vente à terme ou option de vente) sans livrer le grain"
+                e["code"] = "couvrir"
+            elif contrat:
+                e["action"] = f"Contractualiser {pct} % avec la malterie si la prime brassicole tient"
+                e["code"] = "executer"
+            elif ordres and (feu == "attendre" or not pre):
+                lieu = "quand le blé Euronext atteint" if nr.get("sur_ble") else "par ordre à"
+                o = f"{ordres[0]:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+                if feu == "attendre":
+                    e["action"] = f"Ne pas vendre au marché (creux) : {pct} % {lieu} {o} €/t"
+                    e["code"] = "ordre"
+                else:
+                    e["action"] = f"Vendre {pct} % maintenant, ou {lieu} {o} €/t"
+                    e["code"] = "executer"
+                e["ordre"] = ordres[0]
+            elif feu == "attendre":
+                e["action"] = f"Ne pas vendre au marché (creux) : attendre un rebond pour ces {pct} %"
+                e["code"] = "ordre"
+            else:
+                e["action"] = f"Vendre {pct} % d'ici fin {MOIS_FR[b[1] - 1]}"
+                e["code"] = "executer"
+            if pre and not contrat and ref:
+                e["action"] += f" (récolte {hy} : sur l'échéance {MOIS_FR[ref[1] - 1]} {hy})"
+        elif nxt:
+            a, b, pct = nxt
+            e.update(statut="prochaine", periode=periode(a, b), pct=pct, cumul_vise=done + pct,
+                     action=f"Rien de prévu avant {MOIS_FR[a[1] - 1]} {a[0]}", code="rien")
+        else:
+            continue
+        out.append(e)
+    return out
+
+
 # --------------------------------------------------------------------------------------------- calcul principal
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
@@ -546,6 +644,8 @@ def main():
         entry["libelle"] = SIGNAUX.get(entry["signal"] or "", "—")
         cultures[cult] = entry
 
+    for cult, e in cultures.items():
+        e["plan"] = plan_vente(cult, today, e, contrats)
     for prod, main in (("EBM", "ble"), ("ECO", "colza"), ("EMA", "mais")):
         if prod in contrats and main in cultures:
             contrats[prod]["niveaux_retenus"] = cultures[main]["niveaux_retenus"]
@@ -654,7 +754,8 @@ def main():
         "comite": {"date": comite.get("date"), "valide": valid_comite, "mode": comite.get("mode"), "resume": comite.get("resume"),
                    "calendrier": comite.get("calendrier"), "modele": comite.get("modele"), "cout_usd": comite.get("cout_usd"),
                    "erreur": comite.get("erreur")},
-        "config": {"poids": W, "engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"]},
+        "config": {"poids": W, "engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"],
+                   "calendrier": {k: v for k, v in (CFG.get("calendrier") or {}).items() if not k.startswith("_")}},
     }
     save_json(OUT / "grain-signal.json", dash)
     new_state = {

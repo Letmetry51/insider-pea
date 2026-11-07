@@ -634,6 +634,81 @@ function chartLegend() {
   );
 }
 
+/* ---------------------------------------------------------------------------------------------- plan de vente */
+const PLAN_ICON = { ordre: '🎯', executer: '✅', vendre: '🟢', attendre: '🔴', couvrir: '🛡️', rien: '💤' };
+function planBlock(plan) {
+  if (!plan || !plan.length) return null;
+  return h(
+    'div',
+    { class: 'plan' },
+    h('b', { class: 'plan-t', text: '📅 Plan de vente' }),
+    plan.map((p) =>
+      h(
+        'div',
+        { class: 'plan-l plan-' + p.code },
+        h(
+          'div',
+          { class: 'plan-h' },
+          h('span', { class: 'plan-r', text: `Récolte ${p.recolte}` }),
+          h('span', { text: `${p.statut === 'due' ? 'Tranche due' : 'Prochaine tranche'} : ${p.pct} % · ${p.periode}` })
+        ),
+        h('div', { class: 'plan-a', text: `${PLAN_ICON[p.code] || ''} ${p.action}` }),
+        h(
+          'div',
+          { class: 'imeta' },
+          `Cumul visé ${p.cumul_vise} % de la récolte` +
+            (p.reference
+              ? ` · référence ${p.reference.contrat} ${moisFr(p.reference.echeance)} : ${fmt(p.reference.prix)} €/t`
+              : '')
+        )
+      )
+    )
+  );
+}
+
+function calendarTable() {
+  const cal = ((GS.data || {}).config || {}).calendrier || {};
+  const noms = {
+    ble: '🌾 Blé tendre',
+    escourgeon: '🍺 Escourgeon',
+    orge_printemps: '🍺 Orge de printemps',
+    colza: '🌼 Colza',
+    mais: '🌽 Maïs',
+  };
+  const lab = (r) => {
+    const k = r - 1;
+    const yr = Math.floor(k / 12);
+    return MOIS[((k % 12) + 12) % 12] + (yr < 0 ? ' (N−1)' : yr > 0 ? ' (N+1)' : '');
+  };
+  return h(
+    'div',
+    { class: 'card scroll' },
+    h('h3', { text: '📅 Calendrier de vente par défaut (N = année de récolte)' }),
+    h(
+      'table',
+      {},
+      h('tr', {}, h('th', { text: 'Culture' }), h('th', { text: 'Tranches' })),
+      Object.entries(cal).map(([k, v]) => {
+        let cum = 0;
+        return h(
+          'tr',
+          {},
+          h('td', { text: noms[k] || k }),
+          h('td', {
+            text: v.tranches
+              .map(([a, b, p]) => ((cum += p), `${lab(a)}–${lab(b)} : ${p} % (cumul ${cum} %)`))
+              .join(' · '),
+          })
+        );
+      })
+    ),
+    h('p', {
+      class: 'note',
+      text: "Au plus 35 % vendus avant la moisson. « Tenir le plan » = vendre la tranche due ; « vendre » = avancer la tranche suivante ; « attendre » = décaler ; « couvrir » = protéger le prix sans livrer. Le timing technique décide du moment : au creux, la tranche part par ordre au-dessus du marché. Pour une récolte à venir, les ordres sont décalés de l'écart entre son échéance et l'échéance du jour. Réglable dans grain_signal/config.json.",
+    })
+  );
+}
+
 /* ---------------------------------------------------------------------------------------------- onglets */
 function vSignaux() {
   const d = GS.data;
@@ -717,7 +792,7 @@ function vSignaux() {
         h(
           'dl',
           { class: 'kv' },
-          cc.pct ? [h('dt', { text: 'À vendre' }), h('dd', { text: cc.pct })] : null,
+          cc.pct ? [h('dt', { text: 'Avis du comité' }), h('dd', { text: cc.pct })] : null,
           [
             h('dt', { text: nr.sur_ble ? '🎯 Blé à' : '🎯 Ordres' }),
             h('dd', {
@@ -771,6 +846,7 @@ function vSignaux() {
             ? [h('dt', { text: 'Courbe' }), h('dd', { text: contrat.courbe.lecture })]
             : null
         ),
+        planBlock(c.plan),
         c.feu
           ? h(
               'div',
@@ -1436,6 +1512,7 @@ function vMethode() {
       { class: 'grid' },
       txt.map(([t, p]) => h('section', { class: 'card' }, h('h3', { text: t }), h('p', { text: p })))
     ),
+    h('div', { style: 'margin-top:12px' }, calendarTable()),
   ].concat(sources());
 }
 

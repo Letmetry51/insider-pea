@@ -122,6 +122,10 @@ try:
         check(dash["cultures"]["ble"]["source"] == "comite", "comité de départ appliqué")
         check(dash["orges"]["escourgeon"]["prime"] == -6.25 and dash["orges"]["orge_printemps"]["prix"] == 234.25,
               "orges brassicoles : prix physique et prime sur la fourragère")
+        pl = dash["cultures"]["ble"]["plan"]
+        check([(x["recolte"], x["pct"]) for x in pl] == [(2026, 15), (2027, 10)], f"plan de vente du blé au 07/11/2026 ({pl})")
+        check(pl[1].get("ordre") == 228.0, "ordre de la récolte 2027 décalé de l'écart entre échéances (235,5 − 7,5)")
+        check(all(sum(t[2] for t in v["tranches"]) == 100 for v in dash["config"]["calendrier"].values()), "calendriers à 100 %")
         check(dash["engrais"].get("signal") in ("ACHETER_LARGE", "SUIVRE", "FRACTIONNER", "ATTENDRE"), "décision engrais")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0, "emails en simulation")
