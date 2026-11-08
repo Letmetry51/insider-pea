@@ -2029,6 +2029,12 @@ function vTechnique() {
   return out;
 }
 
+const SIG_ENGRAIS_TXT = {
+  ACHETER_LARGE: '🟢 ACHETER LARGE',
+  SUIVRE: '🟡 SUIVRE LE PLAN',
+  FRACTIONNER: '🟠 FRACTIONNER',
+  ATTENDRE: '🔴 ATTENDRE',
+};
 function vEngrais() {
   const e = GS.data.engrais || {};
   const out = [];
@@ -2040,8 +2046,26 @@ function vEngrais() {
         'section',
         { class: 'card' },
         h('h3', { text: 'Décision du matin' }),
-        h('div', { class: 'sig', text: e.libelle || '—' }),
-        h('p', { text: 'À acheter maintenant : ' + (e.a_acheter || '—') }),
+        // avis du comité d'abord (comme l'onglet Signaux, l'email et le PDF), règles chiffrées en second
+        h('div', {
+          class: 'sig',
+          text: (e.comite && e.comite.signal && SIG_ENGRAIS_TXT[e.comite.signal]) || e.libelle || '—',
+        }),
+        e.comite && e.comite.signal
+          ? h(
+              'div',
+              {},
+              h('span', { class: 'chip good', text: 'Avis du comité' }),
+              e.comite.signal !== e.signal ? h('span', { class: 'chip', text: 'Règles du matin : ' + e.libelle }) : null
+            )
+          : null,
+        h('p', {
+          text:
+            'À acheter maintenant : ' +
+            ((e.comite && e.comite.pct) || e.a_acheter || '—') +
+            (e.comite && e.comite.prix_plafond ? ` (plafond ${fmt(e.comite.prix_plafond, 0)} €/t)` : ''),
+        }),
+        e.comite && e.comite.texte ? h('p', { class: 'note', text: e.comite.texte }) : null,
         h(
           'ul',
           { class: 'list note' },

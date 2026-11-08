@@ -54,16 +54,25 @@ def niveaux_txt(ordres, eq, nr):
 
 
 def jauge(p, acheteur=False):
-    """Percentile en pastille colorée et petite barre (lisible dans un email, sans image) : vert = bon moment pour vendre
-    (ou pour acheter, côté azote)."""
+    """Percentile en pastille colorée et barre en 5 couleurs avec repère (vert = bon moment pour vendre, ou pour acheter côté
+    azote). Tableaux et largeurs fixes seulement : Gmail retire « position » des styles, un curseur positionné resterait à gauche."""
     if p is None:
         return "—"
-    q = 100 - p if acheteur else p
-    col = "#b0281f" if q <= 20 else "#9a5b00" if q <= 40 else "#6b6d60" if q < 60 else "#2a62b8" if q < 80 else "#1f7a3e"
-    return (f"<span style='background:{col};color:#fff;border-radius:5px;padding:2px 6px;font:600 12px monospace'>{p}e</span>"
-            f"<div style='margin-top:4px;width:90px;height:6px;background:#e7e3d6;border-radius:3px;position:relative'>"
-            f"<div style='position:absolute;left:{max(0, min(100, p)) * 0.9 - 4:.0f}px;top:-2px;width:8px;height:8px;border-radius:50%;"
-            f"background:#fff;border:2px solid #1c1a12'></div></div>")
+    v = max(0, min(100, int(round(p))))
+    cols = ["#b0281f", "#9a5b00", "#a3a596", "#2a62b8", "#1f7a3e"]
+    if acheteur:
+        cols = cols[::-1]
+    col = cols[min(4, v // 20 if v < 100 else 4)]
+    if col == "#a3a596":
+        col = "#6b6d60"  # pastille neutre plus foncée que la barre, pour rester lisible en blanc
+    bar = "".join(f"<td style='width:20px;height:6px;background:{c};font-size:0;line-height:0'>&nbsp;</td>" for c in cols)
+    left = max(0, v - 4)  # repère centré sur la valeur (barre de 100 px)
+    return (f"<span style='background:{col};color:#fff;border-radius:5px;padding:2px 6px;font:600 12px monospace'>{v}e</span>"
+            f"<table cellpadding='0' cellspacing='0' role='presentation' style='border-collapse:collapse;margin-top:5px;width:100px'>"
+            f"<tr>{bar}</tr></table>"
+            f"<table cellpadding='0' cellspacing='0' role='presentation' style='border-collapse:collapse;width:100px'><tr>"
+            + (f"<td style='width:{left}px;font-size:0;line-height:0'>&nbsp;</td>" if left else "")
+            + "<td style='font-size:10px;line-height:10px;color:#1c1a12'>▲</td></tr></table>")
 
 
 def table_signaux(dash):
@@ -81,9 +90,15 @@ def table_signaux(dash):
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(niveaux_txt(ordres, eq, nr))}</td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd;color:#555'>{e(feu)}</td></tr>")
     eng = dash.get("engrais") or {}
-    rows.append(f"<tr><td style='padding:6px 8px'><b>Engrais azotés</b></td><td style='padding:6px 8px'>{e(eng.get('libelle'))}</td>"
+    ec = eng.get("comite") or {}  # avis du comité d'abord, comme la page et le PDF ; sinon les règles chiffrées
+    lib = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER",
+           "ATTENDRE": "🔴 ATTENDRE"}.get(ec.get("signal"), eng.get("libelle"))
+    quoi = ec.get("pct") or eng.get("a_acheter")
+    if ec.get("prix_plafond"):
+        quoi = f"{quoi} (plafond {ec['prix_plafond']} €/t)"
+    rows.append(f"<tr><td style='padding:6px 8px'><b>Engrais azotés</b></td><td style='padding:6px 8px'>{e(lib)}</td>"
                 f"<td style='padding:6px 8px'>{jauge(eng.get('percentile_retenu'), acheteur=True)}</td>"
-                f"<td style='padding:6px 8px'>{e(eng.get('a_acheter'))}</td><td style='padding:6px 8px;color:#555'>{e(' ; '.join(eng.get('notes', [])))}</td></tr>")
+                f"<td style='padding:6px 8px'>{e(quoi)}</td><td style='padding:6px 8px;color:#555'>{e(ec.get('texte') or ' ; '.join(eng.get('notes', [])))}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'><th align=left style='padding:6px 8px'>Culture</th>"
             "<th align=left style='padding:6px 8px'>Signal</th><th align=left style='padding:6px 8px'>Prix 5 ans / ratio azote</th>"
             "<th align=left style='padding:6px 8px'>Ordres</th><th align=left style='padding:6px 8px'>Timing</th></tr>"
