@@ -11,11 +11,25 @@ MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "
 
 
 def pctile(window, v):
-    """Rang du dernier chiffre dans sa fenêtre (0 = le plus bas, 100 = le plus haut)."""
+    """Rang du chiffre dans sa fenêtre (0 = le plus bas, 100 = le plus haut), rang moyen pour les égalités : une série
+    constante donne 50 (« normal »), pas 100."""
     w = [x for x in window if x is not None]
     if not w or v is None:
         return None
-    return round(sum(1 for x in w if x <= v) / len(w) * 100)
+    return round((sum(1 for x in w if x < v) + 0.5 * sum(1 for x in w if x == v)) / len(w) * 100)
+
+
+MOIS_COURT = {"janv": 1, "févr": 2, "fevr": 2, "mars": 3, "avr": 4, "mai": 5, "juin": 6, "juil": 7, "août": 8, "aout": 8,
+              "sept": 9, "oct": 10, "nov": 11, "déc": 12, "dec": 12}
+
+
+def mois_debut(periode):
+    """Premier mois d'une période de livraison terre-net (« janv. - mars », « nov. », « mars - juin ») ou None."""
+    t = str(periode or "").lower().replace("\xa0", " ").strip()
+    for k, m in MOIS_COURT.items():
+        if t.startswith(k):
+            return m
+    return None
 
 
 def fr(v, d=2):
@@ -132,7 +146,7 @@ def prime_locale(phys_rows, places, front_fn, mini=40):
                 p = float(r["prix"])
             except (TypeError, ValueError):
                 continue
-            f = front_fn(r["date"])
+            f = front_fn(r["date"], r.get("echeance"))
             if f is not None:
                 if hist and hist[-1][0] == r["date"]:
                     hist[-1] = (r["date"], round(p - f, 2))
@@ -142,16 +156,20 @@ def prime_locale(phys_rows, places, front_fn, mini=40):
             continue
         cur = hist[-1][1]
         e = {"place": place, "date": hist[-1][0], "prime": cur, "jours": len(hist)}
-        if len(hist) >= mini:
+        if len(hist) >= mini and len({h[1] for h in hist[-260:]}) == 1:
+            e["constante"] = True  # prix nominal = Euronext (Rouen) : une prime qui ne varie jamais n'a rien à dire
+        elif len(hist) >= mini:
             e["percentile"] = pctile([h[1] for h in hist[-260:]], cur)
             e["moyenne"] = round(sum(h[1] for h in hist[-260:]) / len(hist[-260:]), 2)
         out.append(e)
     if not out:
         return None
     res = {"places": out}
-    best = max(out, key=lambda e: e["prime"])
-    if len(out) > 1:
-        worst = min(out, key=lambda e: e["prime"])
+    jour = max(e["date"] for e in out)
+    memes = [e for e in out if e["date"] == jour]  # places comparées seulement à la même date
+    best = max(memes, key=lambda e: e["prime"])
+    if len(memes) > 1:
+        worst = min(memes, key=lambda e: e["prime"])
         if best["prime"] - worst["prime"] >= 1:
             res["comparaison"] = f"{best['place']} paie {fr(best['prime'] - worst['prime'])} €/t de plus que {worst['place']} par rapport à Euronext"
     ref = next((e for e in out if e.get("percentile") is not None), None)
@@ -162,6 +180,8 @@ def prime_locale(phys_rows, places, front_fn, mini=40):
         res["texte"] = {"forte": f"Prime {ref['place']} forte ({p}e percentile) : bon moment pour vendre au physique",
                         "faible": f"Prime {ref['place']} faible ({p}e percentile) : vendre via Euronext ou attendre que la prime revienne",
                         "normale": f"Prime {ref['place']} normale ({p}e percentile)"}[res["code"]]
+    elif all(e.get("constante") for e in out):
+        res["texte"] = "Prix physiques cotés au niveau d'Euronext (prime constante) : pas de lecture de la prime"
     else:
         res["texte"] = f"Historique de la prime en constitution ({max(e['jours'] for e in out)} jour(s), {mini} nécessaires pour la situer)"
     return res

@@ -114,6 +114,20 @@ jobs:
         continue-on-error: true
         run: python grain_signal/backtest.py
 
+      # synthèse A4 jointe aux emails du comité (lundi, alertes) et à l'email de test : Chromium installé seulement ces jours-là
+      - name: 5c. Synthèse PDF
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          GS_TEST_EMAIL: ${{ inputs.test_email }}
+        run: |
+          rm -f data/grain/prive/synthese.pdf
+          if python grain_signal/rapport_pdf.py --besoin; then
+            pip install "playwright==1.49.1"
+            python -m playwright install --with-deps chromium
+            python grain_signal/rapport_pdf.py
+          fi
+
       - name: 6. Emails (Gmail)
         id: g6
         timeout-minutes: 5

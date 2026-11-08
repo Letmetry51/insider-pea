@@ -1090,10 +1090,15 @@ const DECISION = {
   rien: ['💤', 'RIEN', 'neutral'],
   patienter: ['⏸️', 'PATIENTER', 'warn'],
 };
-function court(p, sur) {
+// résumé d'une tranche ; orges (sur = vendues selon le blé) : prix de l'orge = ordre sur le blé + écart orge/blé du jour
+function court(p, sur, ecart) {
   if (!p) return '—';
   if (p.code === 'rien') return `Prochaine tranche : ${p.periode}`;
-  const prix = p.ordre ? `${sur ? 'blé ≥ ' : 'à '}${fmt(p.ordre)} €/t` : '';
+  const prix = !p.ordre
+    ? ''
+    : sur && ecart !== undefined && ecart !== null
+      ? `à ≈ ${fmt(p.ordre + ecart)} €/t`
+      : `${sur ? 'blé ≥ ' : 'à '}${fmt(p.ordre)} €/t`;
   if (p.code === 'ordre') return `${p.pct} % ${prix}`;
   if (p.code === 'executer') return `${p.pct} % ${prix || 'cette période'}`.trim();
   if (p.code === 'attendre') return `Décaler les ${p.pct} %`;
@@ -1159,6 +1164,7 @@ function glance(d) {
     const phys = c.physique;
     const cours = phys && phys.prix ? phys.prix : con.dernier_reel;
     const v1 = ta.var1s;
+    const gap = (c.niveaux_retenus || {}).sur_ble ? ((d.orges || {})[k] || {}).ecart_ble : null;
     const tend = ta.ecart_mm20 === undefined ? '' : ta.ecart_mm20 > 0 ? '↗' : '↘';
     tiles.push(
       h(
@@ -1169,7 +1175,7 @@ function glance(d) {
           'div',
           { class: 'gdec' },
           h('span', { class: 'badge ' + cl, text: `${ic} ${lab}` }),
-          h('span', { class: 'gwhat', text: court(due, (c.niveaux_retenus || {}).sur_ble) })
+          h('span', { class: 'gwhat', text: court(due, (c.niveaux_retenus || {}).sur_ble, gap) })
         ),
         h(
           'div',
@@ -1183,10 +1189,13 @@ function glance(d) {
               text: `Récolte ${due.recolte} · ${due.periode}${due.code === 'ordre' ? ' · ne pas vendre au creux' : ''}`,
             })
           : null,
+        due && due.ordre && gap !== null && gap !== undefined
+          ? h('div', { class: 'gsub', text: `🎯 quand le blé Euronext atteint ${fmt(due.ordre)}\u00a0€/t` })
+          : null,
         autre
           ? h('div', {
               class: 'gsub',
-              text: `Récolte ${autre.recolte} : ${court(autre, (c.niveaux_retenus || {}).sur_ble)}`,
+              text: `Récolte ${autre.recolte} : ${court(autre, (c.niveaux_retenus || {}).sur_ble, gap)}`,
             })
           : null,
         con.thermo
@@ -1345,8 +1354,8 @@ function vSignaux() {
               ? pgauge(
                   th.percentile,
                   'vendeur',
-                  `🌡️ Prix sur 5 ans${c.proxy ? ' (blé Euronext)' : /soja/i.test(th.source || '') ? ' (indicatif : huile de soja)' : ''}`,
-                  `Médiane ${fmt(th.mediane, 0)} €/t · 20e–80e : ${fmt(th.p20, 0)}–${fmt(th.p80, 0)} €/t (${th.source} recalé)`
+                  `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : /soja/i.test(th.source || '') ? ' (indicatif : huile de soja)' : ''}`,
+                  `${th.source} converti en €/t, comparé à ses 5 dernières années (l'historique Euronext se construit)`
                 )
               : null,
             pl && pl.percentile !== undefined
@@ -1365,19 +1374,16 @@ function vSignaux() {
           { class: 'kv' },
           cc.pct ? [h('dt', { text: 'Avis du comité' }), h('dd', { text: cc.pct })] : null,
           [
-            h('dt', { text: nr.sur_ble ? '🎯 Blé à' : '🎯 Ordres' }),
+            h('dt', { text: '🎯 Ordres' }),
             h('dd', {
-              text: ordres.length
-                ? ordres.map((v) => fmt(v)).join(' · ') +
-                  ' €/t' +
-                  ech +
-                  (nr.sur_ble
-                    ? ' : vendre une tranche d’orge' +
-                      (nr.equivalent_orge && nr.equivalent_orge.ordres.length
-                        ? ` (≈ ${nr.equivalent_orge.ordres.map((v) => fmt(v)).join(' · ')} €/t d'orge)`
-                        : '')
-                    : '')
-                : '—',
+              text: !ordres.length
+                ? '—'
+                : nr.sur_ble
+                  ? (nr.equivalent_orge && nr.equivalent_orge.ordres.length
+                      ? `≈ ${nr.equivalent_orge.ordres.map((v) => fmt(v)).join(' · ')} €/t d'orge, `
+                      : 'Vendre une tranche d’orge ') +
+                    `quand le blé Euronext atteint ${ordres.map((v) => fmt(v)).join(' · ')} €/t${ech}`
+                  : ordres.map((v) => fmt(v)).join(' · ') + ' €/t' + ech,
             }),
           ],
           [h('dt', { text: '🛑 Révision' }), h('dd', { text: revision ? `sous ${fmt(revision)} €/t${ech}` : '—' })],
@@ -2029,6 +2035,12 @@ function vTechnique() {
   return out;
 }
 
+const SIG_ENGRAIS_TXT = {
+  ACHETER_LARGE: '🟢 ACHETER LARGE',
+  SUIVRE: '🟡 SUIVRE LE PLAN',
+  FRACTIONNER: '🟠 FRACTIONNER',
+  ATTENDRE: '🔴 ATTENDRE',
+};
 function vEngrais() {
   const e = GS.data.engrais || {};
   const out = [];
@@ -2040,8 +2052,26 @@ function vEngrais() {
         'section',
         { class: 'card' },
         h('h3', { text: 'Décision du matin' }),
-        h('div', { class: 'sig', text: e.libelle || '—' }),
-        h('p', { text: 'À acheter maintenant : ' + (e.a_acheter || '—') }),
+        // avis du comité d'abord (comme l'onglet Signaux, l'email et le PDF), règles chiffrées en second
+        h('div', {
+          class: 'sig',
+          text: (e.comite && e.comite.signal && SIG_ENGRAIS_TXT[e.comite.signal]) || e.libelle || '—',
+        }),
+        e.comite && e.comite.signal
+          ? h(
+              'div',
+              {},
+              h('span', { class: 'chip good', text: 'Avis du comité' }),
+              e.comite.signal !== e.signal ? h('span', { class: 'chip', text: 'Règles du matin : ' + e.libelle }) : null
+            )
+          : null,
+        h('p', {
+          text:
+            'À acheter maintenant : ' +
+            ((e.comite && e.comite.pct) || e.a_acheter || '—') +
+            (e.comite && e.comite.prix_plafond ? ` (plafond ${fmt(e.comite.prix_plafond, 0)} €/t)` : ''),
+        }),
+        e.comite && e.comite.texte ? h('p', { class: 'note', text: e.comite.texte }) : null,
         h(
           'ul',
           { class: 'list note' },

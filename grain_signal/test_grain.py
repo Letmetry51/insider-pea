@@ -128,7 +128,7 @@ check('href="https://example.com/a"' in hs, "lien https conservé")
 tmp = Path(tempfile.mkdtemp())
 try:
     (tmp / "grain_signal").mkdir()
-    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py"):
+    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py", "rapport_pdf.py"):
         shutil.copy(HERE / f, tmp / "grain_signal" / f)
     shutil.copytree(HERE / "seed", tmp / "grain_signal" / "seed")
     priv = tmp / "data" / "grain" / "prive"
@@ -156,6 +156,15 @@ try:
         check(len(cb_) == 6 and {x["cle"] for x in cb_} == {"ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais"},
               "carnet de bord : avis du comité de départ notés (5 cultures et l'azote)")
         check("meteo" in dash["cultures"]["ble"]["composantes"], "note météo dans les composantes du score")
+        hp = tmp / "synthese.html"
+        p3 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "rapport_pdf.py"), "--html", str(hp)], capture_output=True, text=True, env=env)
+        page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
+        import re as _re
+        check(p3.returncode == 0 and "Décisions du jour" in page and page.count("<section class='bloc'>") == 3
+              and "235,50 €/t" in page and "1er ordre : 235,50 €/t" in page and "quand le blé Euronext atteint" in page
+              and "Prime faible" not in page.replace("Prime faible : vendre via Euronext", ""),
+              "synthèse PDF : page complète (décisions, 3 contrats, ordres en €/t)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
+        check(not _re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", page), "synthèse PDF : aucun emoji (carrés vides à l'impression)")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0, "emails en simulation")
 finally:
@@ -230,6 +239,20 @@ if all(r[0] == 0 for r in runs):
     ids = [x["id"] for x in runs[1][2]]
     check(len(ids) == len(set(ids)), "pas d'alerte en double après un second calcul le même jour")
     check(runs[1][1]["declencheurs"] == [], "pas de nouveau déclencheur sans nouvelle séance")
+
+
+def seeds_signal_veille(t, pv):  # la veille, le blé était à « vendre » : changement de signal ce matin
+    seeds(t, pv)
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"signaux": {"ble": "VENDRE"}}), encoding="utf-8")
+
+
+runs = run_build(seeds_signal_veille, twice=True)
+if all(r[0] == 0 for r in runs):
+    t1 = [x["id"] for x in runs[0][1]["declencheurs"]]
+    t2 = [x["id"] for x in runs[1][1]["declencheurs"]]
+    check(any(i.endswith("ble:signal") for i in t1) and t1 == t2,
+          f"déclencheurs du jour encore affichés après le 2e calcul (page et PDF = email) ({t1} / {t2})")
+    check(len([x for x in runs[1][2] if x["id"].endswith("ble:signal")]) == 1, "changement de signal envoyé une seule fois")
 
 def roll_colza(t, pv):  # changement d'échéance colza nov. → févr. le 02/11 ; comité du 29/10 avec un ordre à 540 sur nov.
     seeds(t, pv)
@@ -336,7 +359,10 @@ _c5 = [[f"w{i}", 100 + i] for i in range(200)]
 _t = dec.thermometre(_c5)
 check(_t["percentile"] == 100 and _t["min"] == 100 and _t["max"] == 299, f"thermomètre : prix au plus haut des 5 ans = 100e ({_t})")
 check(dec.thermometre(_c5[:50]) is None, "thermomètre : rien sous 2 ans d'historique")
-check(dec.pctile([1, 2, 3, 4], 2) == 50 and dec.pctile([], 1) is None, "percentile : rang dans la fenêtre")
+check(dec.pctile([1, 2, 3, 4], 2) == 38 and dec.pctile([5] * 40, 5) == 50 and dec.pctile([], 1) is None,
+      "percentile : rang moyen (série constante = 50e, pas 100e)")
+check(dec.mois_debut("janv. - mars") == 1 and dec.mois_debut("nov.") == 11 and dec.mois_debut("mars\xa0-\xa0juin") == 3
+      and dec.mois_debut("") is None, "prime locale : début de la période de livraison lu")
 
 _ds, _vs = [], []
 _d0 = date(2000, 7, 1)
@@ -362,10 +388,10 @@ _s3 = dec.stockage({"2027-09": 220, "2027-12": 230}, "2027-09", _exp, date(2027,
 check(_s3["code"] == "nouvelle", "stocker ou vendre : échéance de la nouvelle récolte → pas de report sur l'ancienne")
 
 _rows = [{"date": f"2026-{9 + i // 28:02d}-{1 + i % 28:02d}", "page": "ble", "place": "Rouen\xa0Rendu", "prix": 200 + (i % 10)} for i in range(50)]
-_pl = dec.prime_locale(_rows, [["ble", "Rouen Rendu"], ["ble", "Inconnue"]], lambda d_: 200.0)
+_pl = dec.prime_locale(_rows, [["ble", "Rouen Rendu"], ["ble", "Inconnue"]], lambda d_, p_=None: 200.0)
 check(_pl and _pl["places"][0]["jours"] == 50 and _pl["percentile"] is not None and len(_pl["places"]) == 1,
       f"prime locale : physique − Euronext (espaces insécables de terre-net), percentile après 40 relevés ({_pl and _pl.get('texte')})")
-_pl2 = dec.prime_locale(_rows[:5], [["ble", "Rouen Rendu"]], lambda d_: 200.0)
+_pl2 = dec.prime_locale(_rows[:5], [["ble", "Rouen Rendu"]], lambda d_, p_=None: 200.0)
 check("percentile" not in _pl2 and "constitution" in _pl2["texte"], "prime locale : historique trop court annoncé")
 
 _serie = {(date(2026, 9, 1) + _td(days=i)).isoformat(): 200 - i * 0.5 for i in range(80)}
@@ -395,6 +421,53 @@ _mc = {"zones": {"A": {"sensible": {"ble": [11]}, "chaleur": {"ble": [11]}}, "B"
        "cultures": {"ble": {"A": 0.5, "B": 0.5}}}
 _ms = dec.meteo_score({"A": _z, "B": {"ratio": 1.0, "chaleur14": 0}}, _mc, _today)
 check(_ms["ble"]["score"] == round((0.5 * 2.3 + 0.5 * -0.3 * 0.25), 2), f"météo : note pondérée, hors saison au quart ({_ms['ble']})")
+
+# ---------------------------------------------------------------- corrections de la revue indépendante
+_eu = [{"date": "2026-11-06", "product": "EBM", "maturity": m, "settle": v} for m, v in (("2026-12", 225.5), ("2027-03", 223.0))]
+_f = build.front_on(_eu, "EBM")
+check(_f("2026-11-06") == 225.5 and _f("2026-11-06", "janv. - mars") == 223.0 and _f("2026-11-06", "nov.") == 225.5,
+      "prime locale : physique « janv. - mars » comparé à mars, « nov. » à décembre")
+_pc = dec.prime_locale([{"date": f"2026-{9 + i // 28:02d}-{1 + i % 28:02d}", "page": "ble", "place": "Rouen Rendu", "prix": 200}
+                        for i in range(45)], [["ble", "Rouen Rendu"]], lambda d_, p_=None: 200.0)
+check("percentile" not in _pc and _pc["places"][0].get("constante") and "constante" in _pc["texte"],
+      "prime locale : prime toujours nulle (prix nominal) sans verdict « prime forte »")
+_old = [{"date": "2026-08-01", "long": 10, "short": 5}] * 30
+check(build.cot_reading(_old, today=date(2026, 11, 8)).get("perime") and build.cot_reading(_old, today=date(2026, 11, 8))["indice"] is None,
+      "positions des fonds : rapport de plus de 3 semaines affiché mais plus compté")
+import send_alerts as _sa  # noqa: E402
+check("#b0281f" in _sa.jauge(20)[:60] and "#9a5b00" in _sa.jauge(40)[:60] and "#6b6d60" in _sa.jauge(50)[:60]
+      and "#6b6d60" in _sa.jauge(30, _sa.ECH_RATIO)[:60] and "#b0281f" in _sa.jauge(85, _sa.ECH_RATIO)[:60],
+      "email : couleurs des jauges = page (20 rouge, 40 orange, ratio 30 normal, ratio 85 rouge)")
+check("position" not in _sa.jauge(55), "email : jauge sans « position » (retiré par Gmail)")
+check(_sa.niveaux_txt([235.5], [219.0], {"sur_ble": True}).startswith("≈ 219 €/t d'orge, quand le blé Euronext atteint 235,5"),
+      "email : ordres d'orge en prix d'orge, le blé comme déclencheur")
+
+# collecte des positions Euronext : une erreur réseau n'est jamais une « semaine sans rapport », mercredi de la même semaine
+_tmp2 = Path(tempfile.mkdtemp())
+try:
+    collect.PRIV = _tmp2
+    _base = {"EBM": {"serie": [{"date": "2026-10-30", "publie": "2026-11-03", "net": 1}], "absents": []}}
+    (_tmp2 / "cot_euronext.json").write_text(json.dumps(_base))
+    _asked = []
+
+    def _down(url):
+        _asked.append(url.rsplit("_", 1)[1][:8])
+        return None  # réseau coupé
+    collect.fetch_pdf = _down
+    collect.collect_cot_euronext(date(2026, 11, 6))
+    _after = json.loads((_tmp2 / "cot_euronext.json").read_text())
+    check(_after["EBM"]["absents"] == [], f"COT Euronext : réseau coupé, aucune semaine marquée absente ({_after['EBM']['absents']})")
+    _asked.clear()
+    collect.fetch_pdf = lambda url: (_asked.append(url.rsplit("_", 1)[1][:8]), "absent")[1]
+    collect.collect_cot_euronext(date(2026, 11, 6))
+    check("20261028" in _asked, f"COT Euronext : rapport du mardi 03/11, la semaine du 28/10 est bien cherchée ({sorted(set(_asked))[:6]})")
+    _stale = {"EBM": {"serie": [{"date": "2026-08-28", "publie": "2026-09-02", "net": 1}], "absents": []}}
+    (_tmp2 / "cot_euronext.json").write_text(json.dumps(_stale))
+    collect.collect_cot_euronext(date(2026, 11, 6))
+    check(collect.status["cot_euronext_EBM"]["ok"] is False and "depuis" in collect.status["cot_euronext_EBM"]["detail"],
+          "COT Euronext : plus aucun rapport depuis 2 mois = source en panne")
+finally:
+    shutil.rmtree(_tmp2, ignore_errors=True)
 
 for st, name in results:
     print(st, name)

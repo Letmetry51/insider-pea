@@ -164,25 +164,31 @@ def courbe(prod, curve, ref):
 
 
 def front_on(rows, prod):
-    """Prix de l'échéance de référence (la plus proche hors fenêtre de changement) à une date, ou à la séance précédente (4 jours)."""
+    """Prix Euronext à une date (ou à la séance précédente, 4 jours au plus) : f(d) = échéance de référence ; f(d, période) = première
+    échéance cotée qui couvre le début de la période de livraison d'un prix physique (« janv. - mars » → mars ; « nov. » → décembre)."""
     by = {}
     for r in rows:
         if r["product"] == prod and fnum(r["settle"]) is not None:
             by.setdefault(r["date"], {})[r["maturity"]] = float(r["settle"])
     ds = sorted(by)
 
-    def f(d):
+    def f(d, periode=None):
         i = bisect.bisect_right(ds, d) - 1
         if i < 0 or (date.fromisoformat(d) - date.fromisoformat(ds[i])).days > 4:
             return None
         dd = date.fromisoformat(ds[i])
         ok = [m for m in sorted(by[ds[i]]) if business_back(expiry(prod, m), CFG["rollJours"]) > dd]
+        mo = dec.mois_debut(periode)
+        if mo:
+            y = dd.year + (1 if mo < dd.month - 2 else 0)  # « janv. » relevé en novembre : janvier de l'année suivante
+            cible = f"{y}-{mo:02d}"
+            ok = [m for m in ok if m >= cible] or ok
         return by[ds[i]][ok[0]] if ok else None
     return f
 
 
 # --------------------------------------------------------------------------------------------- COT et macro
-def cot_reading(serie, mini=20):
+def cot_reading(serie, mini=20, today=None, max_age=21):
     """Position nette des fonds et indice sur 3 ans (0 = la plus vendeuse, 100 = la plus acheteuse).
     Moins de `mini` semaines : position affichée, indice absent (pas de lecture sur un historique trop court)."""
     if not serie or len(serie) < 2:
@@ -191,7 +197,13 @@ def cot_reading(serie, mini=20):
     w = nets[-156:]
     lo, hi = min(w), max(w)
     idx = round((nets[-1] - lo) / (hi - lo) * 100 if hi > lo else 50.0, 0) if len(serie) >= mini else None
-    return {"date": serie[-1]["date"], "net": nets[-1], "variation": nets[-1] - nets[-2], "indice": idx, "semaines": len(serie)}
+    out = {"date": serie[-1]["date"], "net": nets[-1], "variation": nets[-1] - nets[-2], "indice": idx, "semaines": len(serie)}
+    try:
+        if today and (today - date.fromisoformat(serie[-1]["date"][:10])).days > max_age:
+            out.update(indice=None, perime=True)  # rapport de plus de 3 semaines : affiché, plus compté dans la note
+    except ValueError:
+        pass
+    return out
 
 
 COT_EURONEXT = {"EBM": ("Blé tendre Euronext (fonds)", "ble"), "ECO": ("Colza Euronext (fonds)", "colza"),
@@ -768,8 +780,9 @@ def main():
     zones = {}
     for zn in (CFG.get("meteo") or {}).get("zones", {}):
         zr = as_dict(meteo_raw.get(zn))
+        frais = str(zr.get("prevision_au", ""))[:10] >= (today - timedelta(days=2)).isoformat()
         z = dec.meteo_zone({k: tuple(v) for k, v in as_dict(zr.get("archive")).items()},
-                           {k: tuple(v) for k, v in as_dict(zr.get("prevision")).items()}, today)
+                           {k: tuple(v) for k, v in as_dict(zr.get("prevision")).items()} if frais else {}, today)
         if z:
             z["etat"] = dec.meteo_etat(z)[1]
             zones[zn] = z
@@ -777,13 +790,13 @@ def main():
 
     cot = {}
     for code, c in CFG["cftc"]["marches"].items():
-        rd = cot_reading((cftc.get(code) or {}).get("serie"))
+        rd = cot_reading((cftc.get(code) or {}).get("serie"), today=today)
         if rd:
             sc_ = cot_score(rd["indice"])
             rd.update(nom=c["nom"], culture=c["culture"], score=round(sc_, 2) if sc_ is not None else None, source="cftc")
             cot[code] = rd
     for prod, (nom_, cult_) in COT_EURONEXT.items():  # fonds d'investissement sur Euronext : la lecture directe du marché français
-        rd = cot_reading((cot_eu.get(prod) or {}).get("serie"), mini=26)
+        rd = cot_reading((cot_eu.get(prod) or {}).get("serie"), mini=26, today=today)
         if rd:
             sc_ = cot_score(rd["indice"])
             rd.update(nom=nom_, culture=cult_, score=round(sc_, 2) if sc_ is not None else None, source="euronext")
@@ -1018,7 +1031,10 @@ def main():
     if g0 is not None and g1 is not None and ((g0 <= rl) != (g1 <= rl) or (g0 >= -rl) != (g1 >= -rl)):
         add("rattrapage", f"Écart gaz − azote sur 3 mois : {g0:+.0f} → {g1:+.0f} pts", "Seuil de ±15 pts franchi")
 
-    pannes, msgs = suivi_pannes(as_dict(collecte.get("sources")), as_dict(etat.get("pannes")), today)
+    sources = as_dict(collecte.get("sources"))
+    if str(collecte.get("date", ""))[:10] != today.isoformat():  # collecte du jour absente ou coupée : rien n'est daté d'aujourd'hui
+        sources = {"collecte": {"ok": False, "detail": f"pas de collecte du jour (dernière : {str(collecte.get('date', '—'))[:16]})"}}
+    pannes, msgs = suivi_pannes(sources, as_dict(etat.get("pannes")), today)
     for key, titre, detail in msgs:
         add(key, titre, detail)
 
@@ -1046,7 +1062,9 @@ def main():
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},
         "engrais": engrais,
         "physique": load_json(OUT / "physique.json", {}),
-        "declencheurs": trig,
+        # déclencheurs du jour : ceux de ce calcul et ceux d'un calcul précédent du même jour (le workflow calcule deux fois :
+        # au 2e passage, etat.json est déjà à jour et trig est vide, alors que l'email est parti)
+        "declencheurs": [x for x in hist if x["id"].startswith(today.isoformat() + ":")],
         "historique_declencheurs": hist,
         "collecte": collecte,
         "comite": {"date": comite.get("date"), "valide": valid_comite, "mode": comite.get("mode"), "resume": comite.get("resume"),
