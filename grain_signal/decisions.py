@@ -5,6 +5,7 @@ carnet de bord des signaux (noté à 4 et 8 semaines), note météo des zones de
 
 Toutes les fonctions sont pures (données en entrée, dictionnaire en sortie) pour être testées sans réseau.
 """
+import math
 from datetime import date, timedelta
 
 MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -311,3 +312,54 @@ def meteo_score(zones, cfg, today):
         if den:
             out[cult] = {"score": round(max(-1.0, min(2.0, num / den)), 2), "zones": det}
     return out
+
+
+# --------------------------------------------------------------------------------------------- bilans mondiaux (USDA)
+def stocks_conso(bilans, precedent=None, hors_chine=True, fenetre=20):
+    """Rapport stocks de fin / consommation de la dernière campagne (projection USDA), hors Chine par défaut (la Chine garde la
+    moitié des stocks mondiaux de blé et de maïs, peu accessibles au marché), situé en percentile sur les `fenetre` campagnes
+    précédentes, et sa révision depuis le bilan précédent."""
+    def ratio(e):
+        if not e:
+            return None
+        st = e["stocks"] - (e.get("stocks_chine", 0) if hors_chine else 0)
+        co = e["conso"] - (e.get("conso_chine", 0) if hors_chine else 0)
+        return st / co * 100 if co > 0 else None
+    ans = sorted(y for y in (bilans or {}) if ratio(bilans[y]) is not None)
+    if len(ans) < fenetre // 2 + 1:
+        return None
+    cur = ans[-1]
+    r = ratio(bilans[cur])
+    hist = [ratio(bilans[y]) for y in ans[-fenetre - 1:-1]]
+    out = {"campagne": f"{cur}/{int(cur) % 100 + 1:02d}", "ratio": round(r, 1), "percentile": pctile(hist, r),
+           "moyenne": round(sum(hist) / len(hist), 1), "min": round(min(hist), 1), "max": round(max(hist), 1),
+           "stocks": round(bilans[cur]["stocks"] / 1000, 1), "conso": round(bilans[cur]["conso"] / 1000, 1),
+           "prod": round(bilans[cur]["prod"] / 1000, 1), "hors_chine": hors_chine, "campagnes": len(hist)}
+    rp = ratio((precedent or {}).get(cur))
+    if rp is not None:
+        out["revision"] = round(r - rp, 2)
+    p = out["percentile"]
+    out["lecture"] = ("stocks très serrés : risque de flambée, ne pas brader" if p <= 20 else
+                      "stocks plutôt serrés : prix soutenus" if p <= 40 else "stocks dans la moyenne" if p < 60 else
+                      "stocks plutôt confortables : hausses limitées" if p < 80 else
+                      "stocks très confortables : peu de risque de flambée, ne pas trop attendre")
+    return out
+
+
+# --------------------------------------------------------------------------------------------- probabilité d'atteindre un prix
+def proba_toucher(s0, niveau, vol_jour, seances):
+    """Probabilité que le cours touche `niveau` au moins une fois d'ici `seances` séances, marche aléatoire sans tendance de
+    volatilité quotidienne `vol_jour` (principe de réflexion : P = 2 × (1 − Φ(|ln(niveau / cours)| / (σ √T)))). Un ordre de
+    vente au-dessus du cours, un seuil de révision en dessous."""
+    if not s0 or not niveau or not vol_jour or seances <= 0:
+        return None
+    z = abs(math.log(niveau / s0)) / (vol_jour * math.sqrt(seances))
+    return round(2 * (1 - 0.5 * (1 + math.erf(z / math.sqrt(2)))) * 100)
+
+
+def vol_quotidienne(vals, n=63):
+    r = [math.log(vals[i] / vals[i - 1]) for i in range(max(1, len(vals) - n), len(vals)) if vals[i - 1] > 0 and vals[i] > 0]
+    if len(r) < 20:
+        return None
+    m = sum(r) / len(r)
+    return math.sqrt(sum((x - m) ** 2 for x in r) / (len(r) - 1))

@@ -8,7 +8,9 @@ Sorties : data/grain/grain-signal.json (page), data/grain/etat.json (mémoire d'
   python grain_signal/build.py            (GS_TODAY=AAAA-MM-JJ pour rejouer un jour)
 """
 import bisect
+import calendar
 import csv
+import email.utils
 import json
 import math
 import os
@@ -668,7 +670,8 @@ def plan_vente(cult, today, entry, contrats):
                     ordres = [round((o + pts[mat] - cur) * 4) / 4 for o in ordres]
         if due:
             a, b, pct, cible = due
-            e.update(statut="due", periode=periode(a, b), pct=pct, cumul_vise=cible)
+            fin = date(b[0], b[1], calendar.monthrange(b[0], b[1])[1])
+            e.update(statut="due", periode=periode(a, b), pct=pct, cumul_vise=cible, fin=fin.isoformat())
             sig = entry.get("signal")
             feu = (entry.get("feu") or {}).get("code")
             contrat = cal.get("contrat") and pre  # orge de printemps avant la moisson : contrats malterie
@@ -819,6 +822,21 @@ def main():
         if sp:
             sp["source"] = f"{(yahoo.get(tk) or {}).get('nom', tk)} converti en €/t, campagnes {sd[0][:4]}-{sd[-1][:4]}"
             saison[cult] = sp
+    usda = as_dict(load_json(PRIV / "usda.json", {}))
+    bil, prec = as_dict(usda.get("bilans")), as_dict(usda.get("precedent"))
+    stocks = {}
+    for cult in ("ble", "mais", "orge", "colza"):
+        r = dec.stocks_conso(as_dict(bil.get(cult)), as_dict(prec.get(cult)), hors_chine=cult in ("ble", "mais"))
+        if r:
+            stocks[cult] = r
+    if stocks:
+        def jour(h):  # « Fri, 09 Oct 2026 15:40:43 GMT » → 2026-10-09
+            try:
+                return email.utils.parsedate_to_datetime(h).date().isoformat()
+            except (TypeError, ValueError):
+                return None
+        stocks["_source"] = {"dates": {k: jour(v) for k, v in as_dict(usda.get("maj")).items()},
+                             "precedent": {k: jour(v) for k, v in as_dict(usda.get("precedent_maj")).items() if v}}
     meteo_raw = as_dict(load_json(PRIV / "meteo.json", {}))
     zones = {}
     for zn in (CFG.get("meteo") or {}).get("zones", {}):
@@ -934,6 +952,21 @@ def main():
 
     for cult, e in cultures.items():
         e["plan"] = plan_vente(cult, today, e, contrats)
+        # probabilité que chaque ordre (et le seuil de révision) soit touché d'ici la fin de la tranche due (volatilité des
+        # 3 derniers mois, sans tendance) : aide à placer des ordres réalistes
+        nr = e["niveaux_retenus"]
+        ci = contrats.get(nr.get("contrat")) or {}
+        s0, ser = ci.get("dernier_reel"), list((ci.get("_serie") or {}).values())
+        vj = dec.vol_quotidienne(ser) if ser else None
+        due = next((p for p in e["plan"] if p.get("statut") == "due" and not p.get("avant_moisson")), None) or \
+            next((p for p in e["plan"] if p.get("statut") == "due"), None)
+        fin = date.fromisoformat(due["fin"]) if due and due.get("fin") else today + timedelta(days=30)
+        n = max(5, sum(1 for k in range((fin - today).days) if (today + timedelta(days=k + 1)).weekday() < 5))
+        if s0 and vj and (nr.get("ordres") or nr.get("revision")):
+            nr["probas"] = {"horizon": fin.isoformat(), "seances": n, "vol_annuelle": round(vj * math.sqrt(252) * 100, 1),
+                            "ordres": [dec.proba_toucher(s0, o, vj, n) for o in nr.get("ordres") or []],
+                            "revision": dec.proba_toucher(s0, nr["revision"], vj, n) if nr.get("revision") else None,
+                            "cours": s0}
     for prod, main in (("EBM", "ble"), ("ECO", "colza"), ("EMA", "mais")):
         if prod in contrats and main in cultures:
             contrats[prod]["niveaux_retenus"] = cultures[main]["niveaux_retenus"]
@@ -1100,6 +1133,7 @@ def main():
         "orges": org,
         "cot": cot,
         "saison": saison,
+        "stocks_mondiaux": stocks,
         "meteo": {"zones": zones, "cultures": meteo, "source": "Open-Meteo (CC BY 4.0)"},
         "carnet": {"entrees": carnet[-40:], "bilan": dec.carnet_bilan(carnet)},
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},

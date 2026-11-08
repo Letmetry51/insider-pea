@@ -591,6 +591,68 @@ def collect_euronext_histo(today, budget=None, workers=None):
         note("controle_terre_net", True, "prix terre-net identiques aux fichiers officiels d'Euronext")
 
 
+USDA_PSD = {"grains": "https://apps.fas.usda.gov/psdonline/downloads/psd_grains_pulses_csv.zip",
+            "oleagineux": "https://apps.fas.usda.gov/psdonline/downloads/psd_oilseeds_csv.zip"}
+USDA_PRODUITS = {"Wheat": "ble", "Corn": "mais", "Barley": "orge", "Oilseed, Rapeseed": "colza"}
+USDA_ATTR = {"Ending Stocks": "stocks", "Domestic Consumption": "conso", "Production": "prod"}
+
+
+def usda_bilans(content):
+    """Fichier PSD de l'USDA (CSV dans un zip) → par culture et campagne : production, consommation et stocks de fin mondiaux
+    (somme des pays, en milliers de tonnes), et la part de la Chine (stocks peu accessibles au marché)."""
+    import zipfile
+
+    z = zipfile.ZipFile(io.BytesIO(content))
+    out = {}
+    with z.open(z.namelist()[0]) as fh:
+        for r in csv.DictReader(io.TextIOWrapper(fh, encoding="utf-8-sig")):
+            cult, at = USDA_PRODUITS.get(r.get("Commodity_Description")), USDA_ATTR.get(r.get("Attribute_Description"))
+            if not cult or not at or r.get("Unit_Description") != "(1000 MT)":
+                continue
+            try:
+                v = float(r["Value"])
+            except (TypeError, ValueError):
+                continue
+            e = out.setdefault(cult, {}).setdefault(r["Market_Year"], {"stocks": 0.0, "conso": 0.0, "prod": 0.0, "stocks_chine": 0.0,
+                                                                          "conso_chine": 0.0})
+            e[at] += v
+            if r.get("Country_Name") == "China" and at in ("stocks", "conso"):
+                e[at + "_chine"] += v
+    return out
+
+
+def collect_usda(today):
+    """Bilans mondiaux de l'USDA (PSD, mis à jour avec le rapport WASDE mensuel), téléchargés seulement quand ils changent ; le
+    bilan précédent est gardé pour mesurer la révision du mois."""
+    path = PRIV / "usda.json"
+    old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    out = dict(old)
+    msgs, ok = [], 0
+    for k, url in USDA_PSD.items():
+        try:
+            mod = requests.head(url, headers=UA, timeout=30, allow_redirects=True).headers.get("last-modified", "")
+            if mod and mod == (old.get("maj") or {}).get(k) and old.get("bilans"):
+                ok += 1
+                msgs.append(f"{k} inchangé ({mod[5:16]})")
+                continue
+            r = requests.get(url, headers=UA, timeout=120)
+            r.raise_for_status()
+            b = usda_bilans(r.content)
+            if not b:
+                raise RuntimeError("aucune culture lue")
+            prev = dict(out.get("bilans") or {})
+            out.setdefault("precedent", {}).update({c: prev[c] for c in b if c in prev})  # bilan avant cette mise à jour
+            out.setdefault("bilans", {}).update(b)
+            out.setdefault("precedent_maj", {})[k] = (old.get("maj") or {}).get(k)
+            out.setdefault("maj", {})[k] = mod
+            ok += 1
+            msgs.append(f"{k} mis à jour ({mod[5:16]}) : {', '.join(sorted(b))}")
+        except Exception as e:  # noqa: BLE001
+            msgs.append(f"{k} : {str(e)[:80]}")
+    save_json(path, out)
+    note("usda", ok == len(USDA_PSD), " ; ".join(msgs))
+
+
 COT_URL = "https://live.euronext.com/sites/default/files/commodities_reporting/{y}/{m:02d}/{d:02d}/en/cdwpr_{p}_{y}{m:02d}{d:02d}.pdf"
 
 
@@ -918,7 +980,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, collect_cftc_long, lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
+    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, collect_cftc_long, lambda: collect_usda(today), lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
                collect_banque_mondiale):
         try:
             fn()

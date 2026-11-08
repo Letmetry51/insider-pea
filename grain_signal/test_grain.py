@@ -4,6 +4,7 @@ Tests hors ligne de Grain Signal (lecture des pages, indicateurs, séries contin
   python grain_signal/test_grain.py
 """
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -156,6 +157,9 @@ try:
         check(len(cb_) == 6 and {x["cle"] for x in cb_} == {"ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais"},
               "carnet de bord : avis du comité de départ notés (5 cultures et l'azote)")
         check("meteo" in dash["cultures"]["ble"]["composantes"], "note météo dans les composantes du score")
+        pb_ = dash["cultures"]["ble"]["niveaux_retenus"].get("probas") or {}
+        check(len(pb_.get("ordres") or []) == len(dash["cultures"]["ble"]["niveaux_retenus"]["ordres"]) and pb_.get("horizon") == "2026-11-30"
+              and all(0 <= x <= 100 for x in pb_["ordres"]), f"chances d'atteindre les ordres d'ici la fin de la tranche ({pb_})")
         hp = tmp / "synthese.html"
         p3 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "rapport_pdf.py"), "--html", str(hp)], capture_output=True, text=True, env=env)
         page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
@@ -557,6 +561,32 @@ _fe = [{"date": "2026-12-01", "product": "EBM", "maturity": "2026-12", "settle":
        {"date": "2026-12-04", "product": "EBM", "maturity": "2027-03", "settle": "229"}]
 check(build.front_series(_fe, "EBM") == (["2026-12-01", "2026-12-04"], [230.0, 229.0]),
       "prix réel de l'échéance de référence : bascule sur mars 5 jours ouvrés avant l'expiration de décembre")
+
+# ---------------------------------------------------------------- bilans mondiaux USDA et chances d'atteindre un ordre
+import io as _io  # noqa: E402
+import zipfile as _zf  # noqa: E402
+
+_buf = _io.BytesIO()
+with _zf.ZipFile(_buf, "w") as _z:
+    _lines = ["Commodity_Code,Commodity_Description,Country_Code,Country_Name,Market_Year,Calendar_Year,Month,Attribute_ID,"
+              "Attribute_Description,Unit_ID,Unit_Description,Value"]
+    for _y in range(2000, 2027):
+        for _c, _st, _co in (("China", 100, 150), ("European Union", 15 + (_y - 2000), 120)):
+            _lines += [f"0410000,Wheat,XX,{_c},{_y},{_y},10,176,Ending Stocks,21,(1000 MT),{_st}",
+                       f"0410000,Wheat,XX,{_c},{_y},{_y},10,125,Domestic Consumption,21,(1000 MT),{_co}",
+                       f"0410000,Wheat,XX,{_c},{_y},{_y},10,28,Production,21,(1000 MT),{_co}",
+                       f"0410000,Wheat,XX,{_c},{_y},{_y},10,184,Yield,26,(MT/HA),7"]
+    _z.writestr("psd_grains_pulses.csv", "\n".join(_lines))
+_bl = collect.usda_bilans(_buf.getvalue())
+check(_bl["ble"]["2026"]["stocks"] == 141 and _bl["ble"]["2026"]["stocks_chine"] == 100 and _bl["ble"]["2026"]["conso"] == 270,
+      "USDA : bilans mondiaux = somme des pays, part de la Chine gardée, rendements ignorés")
+_sc = dec.stocks_conso(_bl["ble"], {"2026": dict(_bl["ble"]["2026"], stocks=_bl["ble"]["2026"]["stocks"] - 6)})
+check(_sc["campagne"] == "2026/27" and _sc["ratio"] == round(41 / 120 * 100, 1) and _sc["percentile"] == 100
+      and _sc["revision"] == round((41 / 120 - 35 / 120) * 100, 2) and "confortables" in _sc["lecture"],
+      f"USDA : stocks / consommation hors Chine, au plus haut des 20 ans, révision du mois ({_sc})")
+check(dec.proba_toucher(100, 100, 0.01, 25) == 100 and dec.proba_toucher(100, 100 * math.exp(0.05), 0.01, 25) == 32
+      and dec.proba_toucher(100, 100 * math.exp(-0.05), 0.01, 25) == 32 and dec.proba_toucher(100, 150, 0.01, 25) == 0,
+      "chances d'atteindre un prix : 100 % au cours, 32 % à un écart-type, symétrique, ~0 % très loin")
 
 for st, name in results:
     print(st, name)
