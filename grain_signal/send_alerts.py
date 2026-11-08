@@ -1,5 +1,6 @@
 """
-Grain Signal — emails (Gmail SMTP), mêmes secrets qu'Euro Signal : GMAIL_USER, GMAIL_APP_PASSWORD, ALERT_TO.
+Grain Signal — emails (Gmail SMTP). Compte d'envoi : GMAIL_USER, GMAIL_APP_PASSWORD (ceux d'Euro Signal).
+Destinataires : GRAIN_ALERT_TO (propre à Grain Signal), sinon ALERT_TO (Euro Signal), sinon GMAIL_USER.
 Sans secrets : mode simulation (rien n'est envoyé, le contenu est affiché dans le journal).
 
 Deux sortes d'emails, à partir de data/grain/a-envoyer.json :
@@ -80,7 +81,12 @@ def wrap(title, inner):
 def main():
     user = os.environ.get("GMAIL_USER", "").strip()
     pwd = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "").strip()
-    to_list = [a for a in re.split(r"[,;\s]+", os.environ.get("ALERT_TO", "")) if "@" in a] or ([user] if user else [])
+    def adresses(var):
+        return [a for a in re.split(r"[,;\s]+", os.environ.get(var, "")) if "@" in a]
+
+    to_list = adresses("GRAIN_ALERT_TO") or adresses("ALERT_TO") or ([user] if user else [])
+    print("Destinataires :", "GRAIN_ALERT_TO" if adresses("GRAIN_ALERT_TO") else "ALERT_TO (Euro Signal)" if adresses("ALERT_TO")
+          else "GMAIL_USER", f"({len(to_list)} adresse{'s' if len(to_list) > 1 else ''})")
     live = bool(user and pwd and to_list) and not os.environ.get("GS_DRY")  # GS_DRY : essai sur une branche, aucun envoi
     etat = load(OUT / "etat.json", {})
     sent = etat.setdefault("envoyes", {})

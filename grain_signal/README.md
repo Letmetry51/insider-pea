@@ -47,7 +47,10 @@ des cours restent dans le cache du workflow et ne sont jamais publiés.
 `config.json` : sources, poids, seuils engrais, modèle du comité (`claude-opus-5-5` par défaut, ≈ 1 à 2 $ par comité ;
 `claude-sonnet-5-5` divise le coût par deux environ), nombre de recherches web, fréquence des comités d'alerte.
 
-Secrets du dépôt : `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `ALERT_TO` (les mêmes qu'Euro Signal) et `ANTHROPIC_API_KEY` pour le comité.
+Secrets du dépôt :
+- `GMAIL_USER`, `GMAIL_APP_PASSWORD` : compte Gmail d'envoi (le même qu'Euro Signal) ;
+- `GRAIN_ALERT_TO` : destinataires de Grain Signal, séparés par des virgules. S'il est absent, ce sont ceux d'Euro Signal (`ALERT_TO`) ;
+- `ANTHROPIC_API_KEY` : comité IA.
 
 ## Tests
 

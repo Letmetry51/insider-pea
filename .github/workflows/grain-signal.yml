@@ -117,6 +117,7 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
+          GRAIN_ALERT_TO: ${{ secrets.GRAIN_ALERT_TO }} # destinataires propres à Grain Signal (sinon ceux d'Euro Signal)
           GS_TEST_EMAIL: ${{ inputs.test_email }}
         run: python grain_signal/send_alerts.py
 
