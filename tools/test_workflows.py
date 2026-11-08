@@ -3,8 +3,10 @@ Contrôles hors ligne des workflows GitHub (04/11/2026, stress test) :
 - calcul du soir (.github/workflows/update-data.yml) : chaque étape qui exécute du code a son délai, et la somme des délais reste sous
   la limite du job (sinon un soir où Yahoo traîne, GitHub coupe le job avant le calcul : ni calcul ni email) ;
 - publication (.github/actions/publish-site) : trois refus de GitHub font échouer l'étape (sinon page figée sans alerte, journal des
-  alertes perdu et emails renvoyés le lendemain), un fichier de données illisible n'est jamais publié.
-Sans dépendance (lecture ligne à ligne du YAML).
+  alertes perdu et emails renvoyés le lendemain), un fichier de données illisible n'est jamais publié ;
+- garde du soir (.github/workflows/watchdog.yml, 08/11/2026) : script exécuté tel quel avec un faux « gh » ; un calcul annulé dans
+  la file d'attente des données (partagée avec Grain Signal) est relancé, même si la relance a elle aussi été annulée.
+Sans dépendance (lecture ligne à ligne du YAML, Python seul).
 
   python tools/test_workflows.py
 """
@@ -71,6 +73,53 @@ for f in sorted((ROOT / ".github/workflows").glob("*.yml")):
     t = f.read_text(encoding="utf-8")
     if "./.github/actions/publish-site" in t:
         check("persist-credentials: false" in t, f"{f.name} : jeton GitHub non laissé sur le disque (persist-credentials: false)")
+
+# garde du soir (watchdog.yml) : script exécuté tel quel avec un faux « gh » (liste des calculs, relance, état des emails)
+def watchdog(runs):
+    """Lance le script de la garde ; runs : calculs du soir (créés après le départ prévu). → (code, sortie, relancé ?)"""
+    import json
+    import os
+    import subprocess
+    import tempfile
+    import textwrap
+    from datetime import datetime, timedelta, timezone
+    text = (ROOT / ".github/workflows/watchdog.yml").read_text(encoding="utf-8")
+    script = textwrap.dedent(text.split("python3 - <<'PY'\n", 1)[1].split("\n          PY", 1)[0])
+    now = datetime.now(timezone.utc)
+    d = now
+    while not (d.weekday() < 5 and d.replace(hour=17, minute=37, second=0, microsecond=0) <= now):
+        d -= timedelta(days=1)
+    start = d.replace(hour=17, minute=37, second=0, microsecond=0)
+    for k, r in enumerate(runs):
+        r["createdAt"] = (start + timedelta(minutes=5 + k)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = Path(tmp) / "gh"
+        fake.write_text("#!/usr/bin/env python3\nimport os, sys\na = sys.argv[1:]\n"
+                        "if a[:2] == ['run', 'list']: print(os.environ['FAKE_RUNS'])\n"
+                        "elif a[:2] == ['workflow', 'run']: open(os.environ['FAKE_LOG'], 'a').write('relance\\n')\n"
+                        "else: sys.exit(1)\n", encoding="utf-8")
+        fake.chmod(0o755)
+        logf = Path(tmp) / "log"
+        env = dict(os.environ, PATH=tmp + os.pathsep + os.environ.get("PATH", ""), GH_TOKEN="x", REPO="o/r",
+                   FAKE_RUNS=json.dumps(runs), FAKE_LOG=str(logf))
+        p = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=60)
+        return p.returncode, p.stdout + p.stderr, logf.exists()
+
+
+def run_(event, conclusion, status="completed"):
+    return {"event": event, "status": status, "conclusion": conclusion}
+
+
+code, out, again = watchdog([run_("schedule", "cancelled")])
+check(again and code == 0, "garde du soir : calcul du soir annulé dans la file d'attente → relancé")
+code, out, again = watchdog([run_("schedule", "cancelled"), run_("workflow_dispatch", "cancelled")])
+check(again and code == 0, "garde du soir : relance annulée elle aussi dans la file d'attente → relancé encore (au lieu de rien)")
+code, out, again = watchdog([run_("schedule", "success")])
+check(not again and code == 0, "garde du soir : calcul du soir réussi → rien à faire")
+code, out, again = watchdog([run_("schedule", "failure"), run_("workflow_dispatch", "failure")])
+check(not again and code == 1, "garde du soir : relance en échec → pas de nouvelle relance, problème signalé")
+code, out, again = watchdog([run_("schedule", None, "in_progress")])
+check(not again and code == 0, "garde du soir : calcul en cours → rien à faire")
 
 if __name__ == "__main__":
     for st, name in results:
