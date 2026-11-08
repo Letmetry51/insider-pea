@@ -1,0 +1,365 @@
+"""
+Grain Signal — backtest : ce que les règles auraient rapporté sur les campagnes passées.
+
+Ventes de céréales (blé, maïs) : prix quotidiens du marché américain convertis en €/t (Yahoo, depuis 2000, EUR/USD du jour),
+faute d'historique Euronext long ; c'est la TENDANCE qui est testée, pas le niveau exact d'Euronext ni la base locale.
+  S0  tout vendre à la moisson (moyenne du mois de récolte)
+  S1  même quantité chaque mois, de la moisson à juin suivant
+  S2  calendrier de tranches de Grain Signal, chaque tranche vendue en moyenne sur sa période
+  S3  S2 + timing technique (au creux : ordre au-dessus du marché, rempli au rebond ou en fin de période)
+  S4  S3 + tendance (score technique ≤ −1 : tranche suivante avancée ; ≥ +0,5 : tranche décalée), 35 % au plus avant la moisson
+Achats d'azote (urée, mensuel Banque mondiale, depuis 2000) : besoins d'une campagne achetés d'avril à janvier.
+  E0  tout acheter en janvier          E1  même quantité chaque mois
+  E2  saison seule (avril à juillet)   E3  règles Grain Signal (ratio urée/blé, rattrapage du gaz, saison, 50 % au plus tard fin octobre)
+
+Sortie : data/grain/backtest.json (page, onglet Méthode).   python grain_signal/backtest.py
+"""
+import bisect
+import csv
+import json
+import math
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+OUT = ROOT / "data" / "grain"
+PRIV = OUT / "prive"
+CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
+TONNE = {"ZW=F": 36.744, "ZC=F": 39.368}
+CULTURES = {"ble": ("ZW=F", 7, "Blé (Chicago converti en €/t)"), "mais": ("ZC=F", 10, "Maïs (Chicago converti en €/t)")}
+
+
+def load(p, default):
+    try:
+        return json.loads(Path(p).read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return default
+
+
+# ----------------------------------------------------------------------------------------- indicateurs vectorisés
+def sma(x, n):
+    out, s = [None] * len(x), 0.0
+    for i, v in enumerate(x):
+        s += v
+        if i >= n:
+            s -= x[i - n]
+        if i >= n - 1:
+            out[i] = s / n
+    return out
+
+
+def ema(x, n):
+    k, e, out = 2 / (n + 1), None, []
+    for v in x:
+        e = v if e is None else v * k + e * (1 - k)
+        out.append(e)
+    return out
+
+
+def rsi(x, n=14):
+    out = [None] * len(x)
+    if len(x) <= n:
+        return out
+    d = [x[i] - x[i - 1] for i in range(1, len(x))]
+    au = sum(max(v, 0) for v in d[:n]) / n
+    ad = sum(max(-v, 0) for v in d[:n]) / n
+    out[n] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
+    for i in range(n, len(d)):
+        au += (max(d[i], 0) - au) / n
+        ad += (max(-d[i], 0) - ad) / n
+        out[i + 1] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
+    return out
+
+
+def indicateurs(p):
+    n = len(p)
+    m20, m50 = sma(p, 20), sma(p, 50)
+    macd = [a - b for a, b in zip(ema(p, 12), ema(p, 26))]
+    sig = ema(macd, 9)
+    hist = [a - b for a, b in zip(macd, sig)]
+    r = rsi(p)
+    pb, hi, lo = [None] * n, [None] * n, [None] * n
+    for i in range(n):
+        if i >= 19:
+            w = p[i - 19:i + 1]
+            mu = sum(w) / 20
+            sd = math.sqrt(sum((v - mu) ** 2 for v in w) / 19)
+            pb[i] = (p[i] - (mu - 2 * sd)) / (4 * sd) if sd else 0.5
+        w3 = p[max(0, i - 62):i + 1]
+        hi[i], lo[i] = max(w3), min(w3)
+    return {"m20": m20, "m50": m50, "hist": hist, "rsi": r, "pb": pb, "hi": hi, "lo": lo}
+
+
+def feu(I, p, i, rsi_creux=40, pos_creux=20):
+    """Même logique que indicators.feu_execution, sur des tableaux."""
+    r, pb = I["rsi"][i], I["pb"][i]
+    if r is None:
+        return "executer"
+    if r < 30 or (pb is not None and pb < 0.05):
+        return "attendre"
+    hi, lo = I["hi"][i], I["lo"][i]
+    pos = (p[i] - lo) / (hi - lo) * 100 if hi > lo else 50
+    if r < rsi_creux and pos <= pos_creux:
+        return "attendre"
+    if r > 70 and i >= 5 and I["hist"][i] < I["hist"][i - 5]:
+        return "accelerer"
+    return "executer"
+
+
+def score(I, p, i):
+    """Note technique de −2 à +2 (tendance MM50, MACD, excès RSI), comme indicators.score_technique (sans divergence)."""
+    s = 0.0
+    m50 = I["m50"]
+    if m50[i] is not None and i >= 10 and m50[i - 10] is not None:
+        e, pente = p[i] / m50[i] - 1, m50[i] / m50[i - 10] - 1
+        s += 1 if (e > 0 and pente > 0) else -1 if (e < 0 and pente < 0) else 0
+    h = I["hist"]
+    s += 0.5 if h[i] > 0 else -0.5
+    if i >= 5:
+        s += 0.25 if h[i] > h[i - 5] else -0.25
+    r = I["rsi"][i]
+    if r is not None:
+        s += 0.5 if r < 30 else -0.5 if r > 70 else 0
+    return max(-2, min(2, s))
+
+
+# ----------------------------------------------------------------------------------------- ventes
+def ym_idx(dates):
+    """Index du premier et du dernier jour de chaque mois (année, mois)."""
+    idx = {}
+    for i, d in enumerate(dates):
+        k = (int(d[:4]), int(d[5:7]))
+        if k not in idx:
+            idx[k] = [i, i]
+        idx[k][1] = i
+    return idx
+
+
+def rel(hy, r):
+    k = hy * 12 + r - 1
+    return k // 12, k % 12 + 1
+
+
+def window(idx, hy, a, b):
+    s, e = idx.get(rel(hy, a)), idx.get(rel(hy, b))
+    return (s[0], e[1]) if s and e else None
+
+
+def campagne(p, I, idx, hy, tranches, harvest_m, opts):
+    """Prix moyen obtenu (€/t) par chaque stratégie pour la récolte hy. None si la campagne n'est pas complète."""
+    wins = [window(idx, hy, a, b) for a, b, _ in tranches]
+    if any(w is None for w in wins):
+        return None
+    pcts = [pct for _, _, pct in tranches]
+    res = {}
+    hm = idx.get((hy, harvest_m + 1 if harvest_m < 12 else 12))  # mois qui suit le début de la moisson (août, novembre)
+    if not hm:
+        return None
+    res["S0"] = sum(p[hm[0]:hm[1] + 1]) / (hm[1] - hm[0] + 1)
+    months = [idx.get(rel(hy, m)) for m in range(harvest_m, 19)]
+    if any(m is None for m in months):
+        return None
+    res["S1"] = sum(sum(p[a:b + 1]) / (b - a + 1) for a, b in months) / len(months)
+    res["S2"] = sum(pct * sum(p[a:b + 1]) / (b - a + 1) for (a, b), pct in zip(wins, pcts)) / 100
+
+    def run(use_trend):
+        recette, reste_report = 0.0, 0.0
+        vendu_avant = 0.0
+        for k, ((a, b), pct) in enumerate(zip(wins, pcts)):
+            pre = rel(hy, tranches[k][1]) < (hy, harvest_m)
+            q = pct + reste_report
+            reste_report = 0.0
+            if use_trend:
+                sc = score(I, p, a)
+                last = k == len(wins) - 1
+                if sc >= 0.5 and not last:
+                    reste_report, q = q, 0.0  # tranche décalée sur la suivante
+                elif sc <= -1 and not last:
+                    extra = pcts[k + 1]
+                    if pre:
+                        extra = max(0.0, min(extra, 35 - vendu_avant - q))
+                    pcts[k + 1] -= extra  # tranche suivante avancée
+                    recette += extra * p[a]
+                    if pre:
+                        vendu_avant += extra
+            if q <= 0:
+                continue
+            if pre:
+                vendu_avant += q
+            # timing dans la période : au creux, ordre au-dessus du marché ; sinon vente étalée sur la période
+            ndays = b - a + 1
+            reste, niveau = q, None
+            for i in range(a, b + 1):
+                if reste <= 1e-9:
+                    break
+                f = feu(I, p, i, opts["rsi"], opts["pos"])
+                if niveau is not None and p[i] >= niveau:
+                    recette += reste * niveau
+                    reste = 0
+                    break
+                if f == "attendre":
+                    if niveau is None:
+                        m20 = I["m20"][i]
+                        lo, hi = I["lo"][i], I["hi"][i]
+                        cand = [x for x in (m20, lo + 0.382 * (hi - lo)) if x and x > p[i] * 1.003]
+                        niveau = min(cand) if cand else p[i] * 1.02
+                    continue
+                if f == "accelerer":
+                    recette += reste * p[i]
+                    reste = 0
+                    break
+                if niveau is None:
+                    part = min(reste, q / ndays)
+                    recette += part * p[i]
+                    reste -= part
+            if reste > 1e-9:
+                recette += reste * p[b]  # fin de période : le reste part au dernier cours
+        return recette / 100
+
+    pcts_orig = list(pcts)
+    res["S3"] = run(False)
+    pcts[:] = pcts_orig
+    res["S4"] = run(True)
+    pcts[:] = pcts_orig
+    return res
+
+
+def serie_eur(yahoo, tk):
+    s = (yahoo.get(tk) or {}).get("serie") or {}
+    fx = (yahoo.get("EURUSD=X") or {}).get("serie") or {}
+    if not s or not fx:
+        return [], []
+    fd = sorted(fx)
+    dates, vals = [], []
+    for d, c in sorted(s.items()):
+        j = bisect.bisect_right(fd, d) - 1
+        if j < 0 or not c or c <= 0:
+            continue
+        dates.append(d)
+        vals.append(c / 100 * TONNE[tk] / fx[fd[j]])
+    return dates, vals
+
+
+def bilan(rows, keys, ref, achat=False):
+    """Écart moyen avec la référence, en €/t (ventes : + = mieux vendu ; achats : + = moins cher payé)."""
+    out = {}
+    for k in keys:
+        diffs = [(r[ref] - r[k]) if achat else (r[k] - r[ref]) for r in rows]
+        out[k] = {"moyenne": round(sum(r[k] for r in rows) / len(rows), 1),
+                  "ecart_moyen": round(sum(diffs) / len(diffs), 1),
+                  "gagnantes": sum(1 for x in diffs if x > 0.05), "campagnes": len(rows),
+                  "pire": round(min(diffs), 1), "meilleure": round(max(diffs), 1)}
+    return out
+
+
+def backtest_ventes(yahoo):
+    res = {}
+    for cult, (tk, hm, nom) in CULTURES.items():
+        d, p = serie_eur(yahoo, tk)
+        if len(p) < 800:
+            res[cult] = {"nom": nom, "erreur": f"historique trop court ({len(p)} séances)"}
+            continue
+        I = indicateurs(p)
+        idx = ym_idx(d)
+        tr = CFG["calendrier"][cult]["tranches"]
+        rows = []
+        base = {"rsi": 40, "pos": 20}
+        for hy in range(int(d[0][:4]) + 1, int(d[-1][:4])):
+            r = campagne(p, I, idx, hy, [list(t) for t in tr], hm, base)
+            if r:
+                rows.append({"recolte": hy, **{k: round(v, 1) for k, v in r.items()}})
+        if len(rows) < 3:
+            res[cult] = {"nom": nom, "erreur": "moins de 3 campagnes complètes"}
+            continue
+        keys = ["S0", "S1", "S2", "S3", "S4"]
+        variantes = []
+        for rc in (30, 35, 40, 45):
+            for pc in (15, 20, 30):
+                vals = [campagne(p, I, idx, r["recolte"], [list(t) for t in tr], hm, {"rsi": rc, "pos": pc}) for r in rows]
+                ok = [(v["S3"] - v["S2"]) for v in vals if v]
+                variantes.append({"rsi": rc, "pos": pc, "ecart_moyen_vs_S2": round(sum(ok) / len(ok), 2),
+                                  "gagnantes": sum(1 for x in ok if x > 0.05), "campagnes": len(ok)})
+        variantes.sort(key=lambda v: -v["ecart_moyen_vs_S2"])
+        res[cult] = {"nom": nom, "depuis": d[0], "campagnes": rows, "bilan_vs_S1": bilan(rows, keys, "S1"),
+                     "bilan_vs_S2": bilan(rows, keys, "S2"), "variantes_timing": variantes}
+    return res
+
+
+# ----------------------------------------------------------------------------------------- achats d'azote
+def backtest_engrais():
+    path = PRIV / "wb_monthly.csv"
+    if not path.exists():
+        path = HERE / "seed" / "wb_monthly.csv"
+    rows = []
+    with path.open(encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            try:
+                rows.append((r["month"], float(r["urea"]), float(r["wheat_hrw"]), float(r["gas_eu"]) if r.get("gas_eu") else None))
+            except (ValueError, KeyError):
+                continue
+    rows.sort()
+    by = {m: (u, w, g) for m, u, w, g in rows}
+    months = [m for m, *_ in rows]
+    E = CFG["engrais"]
+    out = []
+    for y in range(int(months[0][:4]) + 11, int(months[-1][:4]) + 1):
+        season = [f"{y - 1}-{m:02d}" for m in range(4, 13)] + [f"{y}-01"]
+        if not all(m in by for m in season):
+            continue
+        price = [by[m][0] for m in season]
+        r = {"campagne": y, "E0": price[-1], "E1": sum(price) / len(price), "E2": sum(price[:4]) / 4}
+        bought, cost = 0.0, 0.0
+        for k, m in enumerate(season):
+            i = months.index(m)
+            hist = [by[x][0] / by[x][1] for x in months[max(0, i - 120):i]]
+            ratio = by[m][0] / by[m][1]
+            pct = sum(1 for h in hist if h <= ratio) / len(hist) * 100 if hist else 50
+            step = 0 if pct > E["ratioHaut"] else 1 if pct > E["ratioMoyen"] else 2 if pct > E["ratioBas"] else 3
+            if i >= 3 and by[m][2] and by[months[i - 3]][2]:
+                gap = (by[m][2] / by[months[i - 3]][2] - 1) * 100 - (by[m][0] / by[months[i - 3]][0] - 1) * 100
+                step = min(3, step + 1) if gap > E["rattrapage"] else max(0, step - 1) if gap < -E["rattrapage"] else step
+            frac = [0.0, 5.0, 10.0, 30.0][step]
+            if int(m[5:]) in E["saisonChere"] and step <= 2:
+                frac /= 2
+            q = min(frac, 100 - bought)
+            if m == f"{y - 1}-10" and bought + q < 50:
+                q = 50 - bought  # au moins la moitié couverte fin octobre
+            if k == len(season) - 1:
+                q = 100 - bought  # le reste en janvier
+            bought += q
+            cost += q * by[m][0]
+        r["E3"] = cost / 100
+        out.append({k: (round(v, 1) if isinstance(v, float) else v) for k, v in r.items()})
+    if len(out) < 3:
+        return {"erreur": "historique insuffisant"}
+    return {"nom": "Urée (Banque mondiale, $/t, Moyen-Orient)", "campagnes": out, "bilan_vs_E1": bilan(out, ["E0", "E1", "E2", "E3"], "E1", achat=True)}
+
+
+def main():
+    longue = load(PRIV / "yahoo_long.json", {})
+    yahoo = longue if all(k in longue for k in ("ZW=F", "ZC=F", "EURUSD=X")) else load(PRIV / "yahoo.json", {})
+    res = {"genere": datetime.now(timezone.utc).isoformat(timespec="seconds"), "ventes": backtest_ventes(yahoo), "engrais": backtest_engrais(),
+           "limites": ["Ventes testées sur le marché américain converti en €/t : la tendance d'Euronext, pas son niveau ni la base locale.",
+                       "Pas de frais, pas de coût de stockage, pas de fiscalité ; échéance continue non ajustée des changements de contrat.",
+                       "Le score des stratégies S4 ne contient que la technique : les fondamentaux et le comité ne sont pas rejoués.",
+                       "Achats d'azote testés sur l'urée mondiale mensuelle, pas sur les prix rendus France.",
+                       "Le passé ne garantit pas l'avenir : ce test sert à écarter les mauvais réglages, pas à promettre un gain."]}
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "backtest.json").write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    for cult, v in res["ventes"].items():
+        if "erreur" in v:
+            print(cult, ":", v["erreur"])
+            continue
+        b = v["bilan_vs_S1"]
+        print(f"{v['nom']} — {len(v['campagnes'])} campagnes ; écart moyen vs vente mensuelle (€/t) :",
+              {k: b[k]["ecart_moyen"] for k in b}, "| meilleur timing :", v["variantes_timing"][0])
+    e = res["engrais"]
+    if "erreur" not in e:
+        print("Azote —", len(e["campagnes"]), "campagnes ; écart moyen vs achat mensuel ($/t) :", {k: e["bilan_vs_E1"][k]["ecart_moyen"] for k in e["bilan_vs_E1"]})
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

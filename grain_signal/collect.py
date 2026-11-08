@@ -380,6 +380,37 @@ def collect_yahoo():
     save_json(path, out)
 
 
+def collect_yahoo_long():
+    """Historique complet (depuis 2000) du blé et du maïs de Chicago et de l'EUR/USD, pour le backtest. Une fois par semaine."""
+    path = PRIV / "yahoo_long.json"
+    old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    stamp = old.get("_telecharge")
+    if stamp and (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).days < 7:
+        note("yahoo_historique_long", True, f"déjà téléchargé le {stamp[:10]}")
+        return
+    out, ok = dict(old), 0
+    try:
+        import yfinance as yf
+    except ImportError as e:
+        note("yahoo_historique_long", False, e)
+        return
+    for tk in ("ZW=F", "ZC=F", "EURUSD=X"):
+        try:
+            h = yf.Ticker(tk).history(period="max", interval="1d", auto_adjust=False)
+            ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items() if i.date() < date.today()}
+            if len(ser) < 2000:
+                raise RuntimeError(f"{len(ser)} séances")
+            out[tk] = {"serie": ser}
+            ok += 1
+        except Exception as e:  # noqa: BLE001
+            print(f"Historique long {tk} : {e}")
+        time.sleep(5)
+    if ok == 3:
+        out["_telecharge"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    save_json(path, out)
+    note("yahoo_historique_long", ok == 3, f"{ok}/3 séries complètes" + (" (historique précédent gardé pour les autres)" if ok < 3 else ""))
+
+
 def collect_cftc():
     path = PRIV / "cftc.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -514,7 +545,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_cftc, lambda: collect_engrais(today), collect_physique,
+    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_engrais(today), collect_physique,
                collect_banque_mondiale):
         try:
             fn()

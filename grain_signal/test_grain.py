@@ -267,6 +267,24 @@ for day in ("2027-01-02", "2027-06-30", "2027-07-01", "2027-12-31"):
     ok = rc == 0 and all(sum(1 for p in c["plan"] if p["statut"] == "due") <= 2 for c in dash["cultures"].values())
     check(ok, f"plan de vente au {day} (passage d'année, moisson)" + ("" if rc == 0 else " : " + err))
 
+# ------------------------------------------------------------------ backtest : prix constant → toutes les stratégies au même prix
+import backtest as bt  # noqa: E402
+from datetime import timedelta as _td  # noqa: E402
+
+_d0, _ds = date(2015, 1, 1), []
+while _d0 < date(2019, 12, 31):
+    if _d0.weekday() < 5:
+        _ds.append(_d0.isoformat())
+    _d0 += _td(days=1)
+_p = [200.0] * len(_ds)
+_r = bt.campagne(_p, bt.indicateurs(_p), bt.ym_idx(_ds), 2017, [list(t) for t in bt.CFG["calendrier"]["ble"]["tranches"]], 7,
+                 {"rsi": 40, "pos": 20})
+check(_r and all(abs(v - 200) < 1e-6 for v in _r.values()), f"backtest : prix constant, toutes les stratégies à 200 €/t ({_r})")
+_p2 = [100 + i * 0.05 for i in range(len(_ds))]  # hausse régulière : vendre tout à la moisson doit être battu par l'étalement
+_r2 = bt.campagne(_p2, bt.indicateurs(_p2), bt.ym_idx(_ds), 2017, [list(t) for t in bt.CFG["calendrier"]["ble"]["tranches"]], 7,
+                  {"rsi": 40, "pos": 20})
+check(_r2 and _r2["S1"] > _r2["S0"], "backtest : marché haussier, la vente étalée bat la vente à la moisson")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

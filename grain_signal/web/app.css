@@ -587,7 +587,8 @@ summary {
   padding: 7px 10px;
   margin: 6px 0;
 }
-.plan-ordre {
+.plan-ordre,
+.plan-patienter {
   border-left-color: var(--warn);
 }
 .plan-executer,
@@ -615,4 +616,67 @@ summary {
   font-weight: 600;
   font-size: 14px;
   margin: 3px 0 1px;
+}
+
+/* Décisions du jour (en un coup d'œil) */
+.glance {
+  margin: 14px 0 6px;
+}
+.ghead h2 {
+  margin: 0 0 2px;
+}
+.gmeta {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.ggrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+.gtile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--neutral);
+  border-radius: var(--r);
+  padding: 10px 12px;
+}
+.g-good {
+  border-left-color: var(--good);
+}
+.g-bad {
+  border-left-color: var(--bad);
+}
+.g-warn {
+  border-left-color: var(--warn);
+}
+.g-info {
+  border-left-color: var(--info);
+}
+.gname {
+  font-weight: 600;
+  font-size: 14px;
+}
+.gdec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0 4px;
+}
+.gwhat {
+  font: 700 16px/1.2 var(--display);
+}
+.gline {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.gsub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+tr.best td {
+  font-weight: 600;
 }
