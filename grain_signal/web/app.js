@@ -1546,8 +1546,10 @@ function vTechnique() {
       )
     )
   );
-  out.push(h('h2', { text: '🏦 Positions des fonds (CFTC, managed money)' }));
-  const cot = Object.values(d.cot || {});
+  out.push(h('h2', { text: '🏦 Positions des fonds (Euronext et CFTC)' }));
+  const cot = Object.values(d.cot || {}).sort(
+    (a, b) => (a.source === 'euronext' ? 0 : 1) - (b.source === 'euronext' ? 0 : 1)
+  );
   out.push(
     cot.length
       ? h(
@@ -1575,21 +1577,23 @@ function vTechnique() {
                 h('td', {
                   class: 'n',
                   text:
-                    c.indice <= 15
-                      ? 'fonds très vendeurs : rachat possible'
-                      : c.indice >= 85
-                        ? 'fonds très acheteurs : liquidation possible'
-                        : 'neutre',
+                    c.indice === null || c.indice === undefined
+                      ? `historique en constitution (${c.semaines || 0}/26 semaines)`
+                      : c.indice <= 15
+                        ? 'fonds très vendeurs : rachat possible'
+                        : c.indice >= 85
+                          ? 'fonds très acheteurs : liquidation possible'
+                          : 'neutre',
                 })
               )
             )
           ),
           h('p', {
             class: 'note',
-            text: 'Lecture à contre-courant : un positionnement extrême annonce souvent un retournement.',
+            text: "Lecture à contre-courant : un positionnement extrême annonce souvent un retournement. Euronext : fonds d'investissement (rapport officiel du mercredi), compte pour 70 % de la note des fonds ; CFTC (managed money, États-Unis) pour 30 %.",
           })
         )
-      : h('p', { class: 'muted', text: 'Positions CFTC non disponibles ce matin.' })
+      : h('p', { class: 'muted', text: 'Positions des fonds non disponibles ce matin.' })
   );
   return out;
 }
@@ -1912,7 +1916,7 @@ function vMethode() {
   const txt = [
     [
       'Chaque matin',
-      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (CFTC), les prix des engrais en France et le Pink Sheet de la Banque mondiale. Il calcule la technique (RSI 14, MACD 12/26/9, moyennes mobiles 20/50/200, Bollinger 20/2, Fibonacci, divergences), le module engrais et les déclencheurs, puis envoie un email s'il se passe quelque chose.",
+      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (rapport Euronext et CFTC), les prix des engrais en France et le Pink Sheet de la Banque mondiale. Il calcule la technique (RSI 14, MACD 12/26/9, moyennes mobiles 20/50/200, Bollinger 20/2, Fibonacci, divergences), le module engrais et les déclencheurs, puis envoie un email s'il se passe quelque chose.",
     ],
     [
       'Le comité',

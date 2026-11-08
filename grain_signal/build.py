@@ -163,14 +163,43 @@ def courbe(prod, curve, ref):
 
 
 # --------------------------------------------------------------------------------------------- COT et macro
-def cot_reading(serie):
-    if not serie or len(serie) < 20:
+def cot_reading(serie, mini=20):
+    """Position nette des fonds et indice sur 3 ans (0 = la plus vendeuse, 100 = la plus acheteuse).
+    Moins de `mini` semaines : position affichée, indice absent (pas de lecture sur un historique trop court)."""
+    if not serie or len(serie) < 2:
         return None
-    nets = [s["long"] - s["short"] for s in serie]
+    nets = [s["net"] if "net" in s else s["long"] - s["short"] for s in serie]
     w = nets[-156:]
     lo, hi = min(w), max(w)
-    idx = (nets[-1] - lo) / (hi - lo) * 100 if hi > lo else 50.0
-    return {"date": serie[-1]["date"], "net": nets[-1], "variation": nets[-1] - nets[-2], "indice": round(idx, 0)}
+    idx = round((nets[-1] - lo) / (hi - lo) * 100 if hi > lo else 50.0, 0) if len(serie) >= mini else None
+    return {"date": serie[-1]["date"], "net": nets[-1], "variation": nets[-1] - nets[-2], "indice": idx, "semaines": len(serie)}
+
+
+COT_EURONEXT = {"EBM": ("Blé tendre Euronext (fonds)", "ble"), "ECO": ("Colza Euronext (fonds)", "colza"),
+                "EMA": ("Maïs Euronext (fonds)", "mais")}
+
+
+def suivi_pannes(sources, avant, today):
+    """Sources en échec : date de début et jours distincts d'échec. Alerte au 2e jour, une seule fois ; message au rétablissement.
+    Renvoie (nouvel état, [(clé, titre, détail)])."""
+    jour = today.isoformat()
+    etat, msgs = {}, []
+    for src in sorted(set(sources) | set(avant)):
+        st, p = sources.get(src), avant.get(src) or {}
+        if isinstance(st, dict) and st.get("ok") is False:
+            jours = sorted(set(p.get("jours") or []) | {jour})[-10:]
+            e = {"debut": p.get("debut") or jour, "jours": jours, "alerte": p.get("alerte", False), "detail": st.get("detail", "")}
+            if len(jours) >= 2 and not e["alerte"]:
+                msgs.append((f"panne:{src}", f"⚠️ Source en panne : {src} depuis {len(jours)} jours",
+                             f"Échec depuis le {e['debut']} : {e['detail'] or 'sans détail'}. Les calculs continuent sans elle."))
+                e["alerte"] = True
+            etat[src] = e
+        elif st is None:  # source non interrogée ce jour-là (collecte hebdomadaire ou mensuelle) : état inchangé
+            if p:
+                etat[src] = p
+        elif p.get("alerte"):
+            msgs.append((f"retablie:{src}", f"✅ Source rétablie : {src}", f"De nouveau lue après une panne commencée le {p.get('debut')}."))
+    return etat, msgs
 
 
 def cot_score(idx):
@@ -629,6 +658,7 @@ def main():
     eur = read_csv(PRIV / "euronext.csv")
     yahoo = {k: v for k, v in as_dict(load_json(PRIV / "yahoo.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), dict)}
     cftc = {k: v for k, v in as_dict(load_json(PRIV / "cftc.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
+    cot_eu = {k: v for k, v in as_dict(load_json(PRIV / "cot_euronext.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
     seed_c = load_json(HERE / "seed" / "comite-initial.json", {})
     cur_c = load_json(OUT / "comite.json", {})
     if cur_c.get("date") == seed_c.get("date") and "(session)" in str(cur_c.get("modele")) and cur_c.get("version_seed") != seed_c.get("version_seed"):
@@ -696,8 +726,14 @@ def main():
         rd = cot_reading((cftc.get(code) or {}).get("serie"))
         if rd:
             sc_ = cot_score(rd["indice"])
-            rd.update(nom=c["nom"], culture=c["culture"], score=round(sc_, 2) if sc_ is not None else None)
+            rd.update(nom=c["nom"], culture=c["culture"], score=round(sc_, 2) if sc_ is not None else None, source="cftc")
             cot[code] = rd
+    for prod, (nom_, cult_) in COT_EURONEXT.items():  # fonds d'investissement sur Euronext : la lecture directe du marché français
+        rd = cot_reading((cot_eu.get(prod) or {}).get("serie"), mini=26)
+        if rd:
+            sc_ = cot_score(rd["indice"])
+            rd.update(nom=nom_, culture=cult_, score=round(sc_, 2) if sc_ is not None else None, source="euronext")
+            cot["EURONEXT_" + prod] = rd
 
     eurusd = (yahoo.get("EURUSD=X") or {}).get("serie") or {}
     brent = (yahoo.get("BZ=F") or {}).get("serie") or {}
@@ -739,10 +775,13 @@ def main():
         prod = {"ble": "EBM", "escourgeon": "EBM", "orge_printemps": "EBM", "colza": "ECO", "mais": "EMA"}[cult]
         ci = contrats.get(prod, {})
         base = "ble" if cult in ("escourgeon", "orge_printemps") else cult
-        cots = [x["score"] for x in cot.values() if x["culture"] == base and x["score"] is not None]
+        cots = [x["score"] for x in cot.values() if x["culture"] == base and x["score"] is not None and x.get("source") == "cftc"]
         cs = sum(cots) / len(cots) if cots else None
         if base == "colza" and cs is not None:
             cs *= 0.5  # soja et huile de soja US : lecture indirecte pour le colza
+        eu = (cot.get("EURONEXT_" + prod) or {}).get("score")
+        if eu is not None:  # Euronext 70 %, États-Unis 30 %
+            cs = round(0.7 * eu + 0.3 * cs, 2) if cs is not None else eu
         parts = {"technique": ci.get("score_technique"), "cot": cs, "macro": macro(base)}
         num = sum(W[k] * v for k, v in parts.items() if v is not None)
         den = sum(W[k] for k, v in parts.items() if v is not None)
@@ -904,6 +943,10 @@ def main():
     if g0 is not None and g1 is not None and ((g0 <= rl) != (g1 <= rl) or (g0 >= -rl) != (g1 >= -rl)):
         add("rattrapage", f"Écart gaz − azote sur 3 mois : {g0:+.0f} → {g1:+.0f} pts", "Seuil de ±15 pts franchi")
 
+    pannes, msgs = suivi_pannes(as_dict(collecte.get("sources")), as_dict(etat.get("pannes")), today)
+    for key, titre, detail in msgs:
+        add(key, titre, detail)
+
     # ------------------------------------------------------------------- comité d'alerte demandé
     graves = [x for x in trig if x["grave"]]
     if graves:
@@ -945,6 +988,7 @@ def main():
         "engrais": {"signal": engrais.get("signal"), "percentile": engrais.get("percentile_retenu"), "base": engrais.get("base"), "rattrapage": engrais.get("rattrapage"),
                     "ttf": (engrais.get("ttf") or {}).get("dernier"), "ttf_au": (engrais.get("ttf") or {}).get("au"),
                     "sous_seuil_bas": (engrais.get("ttf") or {}).get("sous_seuil_bas", 0)},
+        "pannes": pannes,
         "envoyes": etat.get("envoyes", {}),
     }
     save_json(OUT / "etat.json", new_state)

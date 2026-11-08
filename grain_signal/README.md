@@ -19,9 +19,13 @@ et un comité de 10 experts réuni par l'API Claude.
 ## Sources
 
 Euronext blé, colza et maïs (prix de compensation, via terre-net ; secours : Euronext live) · Yahoo Finance (blé CBOT et KC, maïs,
-soja, huile de soja, canola, gaz TTF, Brent, EUR/USD) · CFTC (positions des fonds, *managed money*) · terre-net (urée, ammonitrate,
+soja, huile de soja, canola, gaz TTF, Brent, EUR/USD) · Euronext (rapport hebdomadaire des positions, fonds d'investissement, PDF officiel) · CFTC (positions des fonds, *managed money*) · terre-net (urée, ammonitrate,
 solution azotée, urée Égypte, prix physiques) · Banque mondiale (Pink Sheet mensuel, licence CC BY 4.0). Les historiques bruts
 des cours restent dans le cache du workflow et ne sont jamais publiés.
+
+Note des fonds : rapport Euronext 70 %, CFTC 30 % (indice Euronext calculé à partir de 26 semaines d'historique, rattrapé
+progressivement sur 3 ans). Une source en échec deux jours distincts de suite déclenche un email « Source en panne » (une seule
+fois par incident), puis un email « Source rétablie ».
 
 ## Règles
 
