@@ -411,6 +411,131 @@ def collect_yahoo_long():
     note("yahoo_historique_long", ok == 3, f"{ok}/3 séries complètes" + (" (historique précédent gardé pour les autres)" if ok < 3 else ""))
 
 
+COT_URL = "https://live.euronext.com/sites/default/files/commodities_reporting/{y}/{m:02d}/{d:02d}/en/cdwpr_{p}_{y}{m:02d}{d:02d}.pdf"
+
+
+def cot_num(cell):
+    t = (cell or "").replace("\xa0", " ").replace("\u202f", " ").strip()
+    if not re.fullmatch(r"-?\d{1,3}(?: \d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?", t):
+        return None
+    return float(t.replace(" ", ""))
+
+
+def parse_cot_pdf(content):
+    """Rapport hebdomadaire Euronext (MiFID II) : positions des fonds d'investissement et des opérateurs commerciaux.
+    Colonnes (long, court) : établissements de crédit, fonds d'investissement, autres financiers, commerciaux, quotas CO2.
+    Contrôle : pour chaque colonne, total = couverture + autres, sinon le rapport est rejeté (rien n'est deviné)."""
+    import pdfplumber
+
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        text = "\n".join(pg.extract_text() or "" for pg in pdf.pages)
+        rows = []
+        for pg in pdf.pages:
+            for tb in pg.extract_tables():
+                rows += [[(c or "").replace("\n", " ").strip() for c in r] for r in tb]
+    return parse_cot_rows(text, rows)
+
+
+def parse_cot_rows(text, rows):
+    """Lignes du tableau (cellules texte) → positions ; séparé de la lecture du PDF pour être testé sans pdfplumber."""
+    m = re.search(r"Report date\D{0,20}(\d{2})/(\d{2})/(\d{4})", text, re.I) or re.search(r"(\d{2})/(\d{2})/(\d{4})", text)
+    if not m:
+        raise RuntimeError("date du rapport introuvable")
+    rdate = date(int(m.group(3)), int(m.group(2)), int(m.group(1))).isoformat()
+    found = {}
+    for r in rows:
+        label = " ".join(c for c in r if cot_num(c) is None).lower()
+        vals = [cot_num(c) for c in r if cot_num(c) is not None]
+        if len(vals) < 10:
+            continue
+        key = "rr" if "risk" in label else "autres" if "other" in label else "total" if "total" in label else None
+        if key and key not in found:  # premier bloc = nombre de positions (lots)
+            found[key] = vals[-10:]
+    if len(found) < 3:
+        raise RuntimeError(f"tableau des positions introuvable ({sorted(found)})")
+    if any(abs(found["total"][i] - found["rr"][i] - found["autres"][i]) > 1 for i in range(10)):
+        raise RuntimeError("contrôle total = couverture + autres non vérifié")
+    t = found["total"]
+    return {"date": rdate, "fonds_long": round(t[2]), "fonds_short": round(t[3]), "net": round(t[2] - t[3]),
+            "commerciaux_net": round(t[6] - t[7])}
+
+
+def fetch_pdf(url):
+    try:
+        r = requests.get(url, headers=UA, timeout=20)
+        return r.content if r.status_code == 200 and r.content[:4] == b"%PDF" else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def collect_cot_euronext(today, budget=150):
+    """Positions des fonds sur Euronext (blé, colza, maïs), rapport publié le mercredi (mardi ou jeudi en semaine fériée).
+    Historique rattrapé progressivement (6 semaines par calcul, jusqu'à 3 ans), dans la limite de `budget` secondes."""
+    path = PRIV / "cot_euronext.json"
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    t0 = time.monotonic()
+    for prod in ("EBM", "ECO", "EMA"):
+        cur = data.get(prod) if isinstance(data.get(prod), dict) else {}
+        serie = [x for x in (cur.get("serie") or []) if isinstance(x, dict) and x.get("publie")]
+        absents = set(cur.get("absents") or [])  # semaines déjà cherchées sans rapport (avant le début de la publication)
+        pubs = {x["publie"] for x in serie}
+        nouveaux, err_recent, err_histo = 0, None, 0
+
+        def essai(d):
+            """(rapport trouvé, nouveau rapport lu, erreur de lecture éventuelle) pour cette date de publication."""
+            if d.isoformat() in pubs:
+                return True, False, None
+            pdf = fetch_pdf(COT_URL.format(y=d.year, m=d.month, d=d.day, p=prod))
+            if not pdf:
+                return False, False, None
+            try:
+                rec = parse_cot_pdf(pdf)
+            except Exception as e:  # noqa: BLE001
+                return True, False, f"{d} : {e}"
+            rec["publie"] = d.isoformat()
+            pubs.add(d.isoformat())
+            if rec["date"] in {x["date"] for x in serie}:  # même semaine de positions déjà lue (rapport republié)
+                return True, False, None
+            serie.append(rec)
+            return True, True, None
+
+        last = max(pubs) if pubs else None
+        if not last or (today - date.fromisoformat(last)).days >= 6:
+            for back in range(14):  # dernier rapport publié (mardi, mercredi ou jeudi)
+                d = today - timedelta(days=back)
+                if d.weekday() in (1, 2, 3):
+                    found, neuf, err_recent = essai(d)
+                    if found:
+                        nouveaux += neuf
+                        break
+        avant_debut = sum(1 for a in absents if pubs and a < min(pubs))
+        if pubs and len(serie) < 156 and avant_debut < 8:  # 8 semaines vides avant le 1er rapport : début de la publication atteint
+            first = date.fromisoformat(min(pubs | absents))
+            first -= timedelta(days=(first.weekday() - 2) % 7)  # mercredi de cette semaine
+            for k in range(1, 7):
+                if time.monotonic() - t0 > budget:
+                    break
+                wed = first - timedelta(weeks=k)
+                for dd in (0, 1, -1):
+                    found, neuf, e = essai(wed + timedelta(days=dd))
+                    if found:
+                        err_histo += e is not None
+                        nouveaux += neuf
+                        break
+                else:
+                    absents.add(wed.isoformat())
+        serie.sort(key=lambda x: x["date"])
+        data[prod] = {"serie": serie, "absents": sorted(absents)[:40]}
+        detail = f"{len(serie)} rapports, dernier au {serie[-1]['date']} (+{nouveaux})" if serie else ""
+        if err_histo:
+            detail += f", {err_histo} rapport(s) ancien(s) illisible(s)"
+        if serie and not err_recent:
+            note("cot_euronext_" + prod, True, detail)
+        else:
+            note("cot_euronext_" + prod, False, err_recent or "aucun rapport trouvé")
+    save_json(path, data)
+
+
 def collect_cftc():
     path = PRIV / "cftc.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -545,7 +670,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_engrais(today), collect_physique,
+    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_cot_euronext(today), lambda: collect_engrais(today), collect_physique,
                collect_banque_mondiale):
         try:
             fn()

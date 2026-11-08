@@ -285,6 +285,43 @@ _r2 = bt.campagne(_p2, bt.indicateurs(_p2), bt.ym_idx(_ds), 2017, [list(t) for t
                   {"rsi": 40, "pos": 20})
 check(_r2 and _r2["S1"] > _r2["S0"], "backtest : marché haussier, la vente étalée bat la vente à la moisson")
 
+# ---------------------------------------------------------------- COT Euronext (tableau du rapport hebdomadaire)
+_rr = ["52", "270", "0", "0", "0", "0", "185 796.15", "344 744.46", "0", "0"]
+_ot = ["172 644.28", "166 309.95", "121 518.82", "5 175.75", "127 540.71", "78 075.64", "51 059.05", "93 017.99", "0", "0"]
+_tot = [f"{collect.cot_num(a) + collect.cot_num(b):,.2f}".replace(",", " ") for a, b in zip(_rr, _ot)]
+_rows = [["", "Long", "Short"] * 3, ["Number of positions"], ["Risk Reducing directly related to commercial activities", *_rr],
+         ["Other", *_ot], ["Total", *_tot], ["Changes (+/-)"], ["Risk Reducing", *["0"] * 10], ["Other", *["1 000"] * 10],
+         ["Total", *["1 000"] * 10]]
+_c = collect.parse_cot_rows("Report date: 19/11/2021 Publication date: 24/11/2021", _rows)
+check(_c["date"] == "2021-11-19" and _c["fonds_long"] == 121519 and _c["fonds_short"] == 5176 and _c["net"] == 116343,
+      f"COT Euronext : fonds d'investissement lus, milliers séparés par des espaces ({_c})")
+check(collect.cot_num("1 234.5") == 1234.5 and collect.cot_num("12 34") is None and collect.cot_num("Long") is None,
+      "COT Euronext : nombres (espace = milliers, point = décimales), texte rejeté")
+_bad = [list(r) for r in _rows]
+_bad[4] = ["Total", *(["1"] * 10)]
+try:
+    collect.parse_cot_rows("Report date: 19/11/2021", _bad)
+    check(False, "COT Euronext : total incohérent rejeté")
+except RuntimeError:
+    check(True, "COT Euronext : total incohérent rejeté (rien n'est deviné)")
+_ser = [{"date": f"2026-{1 + i // 4:02d}-{1 + (i % 4) * 7:02d}", "net": i * 100} for i in range(30)]
+check(build.cot_reading(_ser[:10], mini=26)["indice"] is None and build.cot_reading(_ser, mini=26)["indice"] == 100,
+      "COT Euronext : pas d'indice avant 26 semaines, indice 100 au plus haut")
+
+# ---------------------------------------------------------------- pannes de source
+_j1, _j2, _j3 = date(2026, 11, 2), date(2026, 11, 3), date(2026, 11, 4)
+_ko = {"x": {"ok": False, "detail": "HTTP 500"}, "y": {"ok": True}}
+_e1, _m1 = build.suivi_pannes(_ko, {}, _j1)
+_e1b, _m1b = build.suivi_pannes(_ko, _e1, _j1)  # second calcul le même jour : toujours un seul jour
+_e2, _m2 = build.suivi_pannes(_ko, _e1b, _j2)
+_e3, _m3 = build.suivi_pannes(_ko, _e2, _j3)
+check(not _m1 and not _m1b and len(_m2) == 1 and "panne" in _m2[0][1] and not _m3,
+      "pannes : alerte au 2e jour distinct, une seule fois par incident")
+_e4, _m4 = build.suivi_pannes({"y": {"ok": True}}, _e3, _j3)  # x non interrogée ce jour-là
+check(not _m4 and _e4.get("x") == _e3["x"], "pannes : source non interrogée, état gardé, pas de faux rétablissement")
+_e5, _m5 = build.suivi_pannes({"x": {"ok": True}}, _e3, _j3)
+check(len(_m5) == 1 and "rétablie" in _m5[0][1] and "x" not in _e5, "pannes : message au rétablissement, incident clos")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]
