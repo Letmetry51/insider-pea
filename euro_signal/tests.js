@@ -3932,6 +3932,16 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
         ES.signalTrack(log, {}, null, 30)[0].ok === null,
       'auto-contrôle des règles en réel : avec / sans, verdict seulement avec assez de lignes'
     );
+    // place 📣 réservée (bd, notée depuis le 27/10/2026) : contrôlée comme les autres règles, verdict à 30 lignes
+    log.w1.items[0].bd = 0; // noté 0 ou 1 depuis le 27/10/2026 ; les lignes d'avant (sans la marque) ne comptent d'aucun côté
+    log.w1.items[1].bd = 0;
+    log.w1.items[2].bd = 1;
+    const bd = ES.signalTrack(log, {}, null, 1).find((x) => x.k === 'bd');
+    ok(bd && bd.yes.m6.n === 1 && bd.no.m6.n === 2 && bd.yes.m6.avg === 20, 'place 📣 : lignes avec et sans');
+    ok(
+      ES.signalTrack(log, {}, null, 30).find((x) => x.k === 'bd').ok === null,
+      'place 📣 : pas de verdict avant 30 lignes'
+    );
     const snaps = [];
     for (let w = 0; w < 45; w++) {
       const it = {};

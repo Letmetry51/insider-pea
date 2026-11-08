@@ -2804,7 +2804,7 @@ export function build(opts = {}) {
           delete state.pickLog[w];
         });
       rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mTrack);
-      rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mTrack, 30); // auto-contrôle 🔊 📣 ⏸️ sur les vraies sélections
+      rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mTrack, 30); // auto-contrôle 🔊 📣 ⏸️ et place 📣 sur les vraies sélections
       rank.pick10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks.map((p) => p.isin || p.sym); // lu par positions.py (rappel à 6 mois)
       // 💎 valeur : même suivi réel que le 🎯
       const V10 = ES.pickValue(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;

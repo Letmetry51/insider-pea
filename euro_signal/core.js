@@ -2947,6 +2947,9 @@
     { k: 'hot', icon: '🔊', label: 'volumes en hausse', want: 1 },
     { k: 'bp', icon: '📣', label: 'bond sur gros volume', want: 1 },
     { k: 'wait', icon: '⏸️', label: 'attente sous la moyenne 10 semaines', want: -1 },
+    // place réservée au meilleur 📣 démarrage (27/10/2026), gardée le 08/11/2026 jusqu'à ce que le suivi réel tranche : revenir à
+    // 5 🎯 ne bat pas la règle actuelle sur chaque période (research/README.md)
+    { k: 'bd', icon: '📣', label: 'place réservée au démarrage sur bond', want: 1 },
   ];
   ES.signalTrack = function (log, lastOf, benchNow, minN) {
     var m = minN || 30;
@@ -6752,7 +6755,7 @@
       },
       {
         k: 'rules',
-        label: 'Aucune règle démentie en réel (🔊, 📣, ⏸️ : 30 lignes de chaque côté à 6 mois)',
+        label: 'Aucune règle démentie en réel (🔊, 📣, ⏸️, place 📣 : 30 lignes de chaque côté à 6 mois)',
         now: bad.length ? badTxt + ' ✗' : 'aucune règle démentie',
         ok: !bad.length,
       },
