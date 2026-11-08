@@ -17,6 +17,7 @@
   --info: #2a62b8;
   --info-soft: #dde7f7;
   --chart-1: #866400;
+  --tag-ink: #ffffff; /* texte des étiquettes de prix (fond coloré) */
   --chart-2: #2a78d6;
   --chart-3: #b04a8a;
   --channel: #7b55b8;
@@ -48,6 +49,8 @@
     --info: #7fa9f0;
     --info-soft: #1a2640;
     --chart-1: #e2b84f;
+    --tag-ink: #12110c;
+    --tag-ink: #12110c;
     --chart-2: #5a9ae8;
     --chart-3: #d77fb6;
     --channel: #b49af0;
@@ -797,4 +800,32 @@ td.pgcell {
   .sm {
     font-size: 9.5px;
   }
+}
+
+/* niveaux sous le graphique : nom et prix en clair (le graphique ne porte que l'étiquette de prix) */
+.lvls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 2px 0 6px;
+  font-size: 13.5px;
+}
+.lvl {
+  white-space: nowrap;
+}
+.lvl i {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2.5px dashed currentColor;
+  vertical-align: 4px;
+  margin-right: 5px;
+}
+.lvl i.now {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ink);
+  vertical-align: -1px;
 }

@@ -89,9 +89,11 @@ function chart(rows, opts = {}) {
   const closes = pts.map((r) => r[1]);
   const fut = opts.cone === false ? 0 : 20;
   const narrow = window.innerWidth < 600; // téléphone : repère plus petit, textes lisibles
+  const fs = narrow ? 13 : 11; // textes du graphique (le repère du téléphone est réduit d'environ 15 % à l'écran)
+  const tags = (opts.levels || []).length > 0 || opts.priceTag;
   const W = narrow ? 420 : 680,
-    H = opts.h || (narrow ? 250 : 260),
-    P = { l: 40, r: 6, t: 22, b: 22 };
+    H = opts.h || (narrow ? 290 : 270),
+    P = { l: narrow ? 44 : 40, r: tags ? (narrow ? 66 : 70) : 6, t: 22, b: 22 }; // marge droite : étiquettes de prix
   const n = pts.length + fut;
   const reg = opts.channel === false ? null : regression(closes, Math.min(63, closes.length));
   const sig = fut ? vol(closes) : null;
@@ -125,7 +127,7 @@ function chart(rows, opts = {}) {
     svgEl(
       svg,
       'text',
-      { x: P.l - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)' },
+      { x: P.l - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': fs, fill: 'var(--muted)' },
       fmt(v, dec)
     );
   }
@@ -138,7 +140,7 @@ function chart(rows, opts = {}) {
           x: x(i),
           y: H - 6,
           'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle',
-          'font-size': 11,
+          'font-size': fs,
           fill: 'var(--muted)',
         },
         dfr(pts[i][0])
@@ -184,9 +186,9 @@ function chart(rows, opts = {}) {
         y1: y(yAt(i0) + k * reg.sd),
         y2: y(yAt(i1) + k * reg.sd),
         stroke: 'var(--channel)',
-        'stroke-width': k ? 1.6 : 1,
+        'stroke-width': k ? 1.3 : 1,
         'stroke-dasharray': k ? '7 5' : '2 4',
-        opacity: k ? 1 : 0.7,
+        opacity: k ? 0.75 : 0.5,
         'clip-path': clipUrl,
       });
     });
@@ -196,12 +198,13 @@ function chart(rows, opts = {}) {
     svgEl(
       svg,
       'text',
-      { x: P.l + 6, y: P.t - 6, 'font-size': 12, 'font-weight': 700, fill: 'var(--channel)', class: 'halo' },
+      { x: P.l + 6, y: P.t - 6, 'font-size': fs, 'font-weight': 700, fill: 'var(--channel)', class: 'halo' },
       `Canal ${canal.sens}`
     );
   }
-  // niveaux nommés
-  const usedY = [];
+  // niveaux nommés : ligne dans le graphique, prix dans une étiquette colorée à droite (hors du tracé), nom dans la liste
+  // sous le graphique ; plus aucun texte posé sur les courbes
+  const tagList = [];
   (opts.levels || []).forEach((l) => {
     if (l.zone) {
       svgEl(svg, 'rect', {
@@ -220,21 +223,12 @@ function chart(rows, opts = {}) {
         y1: y(l.v),
         y2: y(l.v),
         stroke: l.c,
-        'stroke-width': 1.6,
-        'stroke-dasharray': '3 3',
+        'stroke-width': 1.4,
+        'stroke-dasharray': '4 3',
+        opacity: 0.9,
       });
     }
-    // étiquettes jamais superposées : décalées vers le haut ou le bas jusqu'à trouver une place libre
-    let ly = y(l.v) - 5;
-    for (let k = 1; usedY.some((u) => Math.abs(u - ly) < 14) && k < 12; k++)
-      ly = y(l.v) - 5 + (k % 2 ? -1 : 1) * Math.ceil(k / 2) * 14;
-    usedY.push(ly);
-    svgEl(
-      svg,
-      'text',
-      { x: W - P.r - 4, y: ly, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 700, fill: l.c, class: 'halo' },
-      `${l.t} : ${fmt(l.v, 2)}${l.u ? ' ' + l.u : ''}`
-    );
+    tagList.push({ v: l.v, c: l.c, ink: 'var(--tag-ink)' });
   });
   // cours et moyennes mobiles
   [
@@ -282,7 +276,64 @@ function chart(rows, opts = {}) {
       stroke: 'var(--surface)',
       'stroke-width': 2,
     });
+  // étiquettes de prix dans la marge droite, écartées les unes des autres (cours du jour compris)
+  if (tags) {
+    if (opts.dot !== false) tagList.push({ v: last, c: 'var(--ink)', ink: 'var(--surface)', cours: true }); // cours du jour : noir sur clair, blanc sur sombre
+    const th = fs + 6,
+      gap = th + 2;
+    tagList.forEach((t) => (t.y = y(t.v)));
+    tagList.sort((a, b) => a.y - b.y);
+    for (let k = 1; k < tagList.length; k++) tagList[k].y = Math.max(tagList[k].y, tagList[k - 1].y + gap);
+    const over = tagList.length ? tagList[tagList.length - 1].y - (H - P.b - th / 2) : 0;
+    if (over > 0) tagList.forEach((t) => (t.y -= over));
+    for (let k = tagList.length - 2; k >= 0; k--) tagList[k].y = Math.min(tagList[k].y, tagList[k + 1].y - gap);
+    const x0 = W - P.r + 3,
+      tw = P.r - 5;
+    tagList.forEach((t) => {
+      if (Math.abs(t.y - y(t.v)) > 1)
+        svgEl(svg, 'line', { x1: W - P.r, x2: x0, y1: y(t.v), y2: t.y, stroke: t.c, 'stroke-width': 1.2 });
+      svgEl(svg, 'rect', { x: x0, y: t.y - th / 2, width: tw, height: th, rx: 4, fill: t.c });
+      svgEl(
+        svg,
+        'text',
+        {
+          x: x0 + tw / 2,
+          y: t.y + fs / 2 - 1.5,
+          'text-anchor': 'middle',
+          'font-size': fs - 1,
+          'font-weight': 700,
+          fill: t.ink,
+        },
+        fmt(t.v, t.v >= 1000 ? 0 : t.v >= 100 ? 1 : 2)
+      );
+    });
+  }
   const wrap = h('div', {}, svg);
+  if ((opts.levels || []).length)
+    wrap.appendChild(
+      h(
+        'div',
+        { class: 'lvls' },
+        opts.dot !== false
+          ? h(
+              'span',
+              { class: 'lvl' },
+              h('i', { class: 'now' }),
+              'Cours du jour : ',
+              h('b', { text: `${fmt(last, 2)}${opts.levels[0].u ? ' ' + opts.levels[0].u : ''}` })
+            )
+          : null,
+        opts.levels.map((l) =>
+          h(
+            'span',
+            { class: 'lvl' },
+            h('i', { style: `color:${l.c}` }),
+            `${l.t} : `,
+            h('b', { text: `${fmt(l.v, 2)}${l.u ? ' ' + l.u : ''}` })
+          )
+        )
+      )
+    );
   wrap.canal = canal;
   return wrap;
 }
