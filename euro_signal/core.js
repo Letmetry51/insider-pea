@@ -2852,6 +2852,30 @@
    * à 3 mois puis à 6 mois, leur cours et celui de l'indice sont figés. log : { semaine: { date, b0, b3, b6, items: [{ key, name, p0, p3, p6 }] } }.
    * Renvoie { since, weeks, open, m3, m6 } avec pour chaque horizon : n, moyenne, indice, part battant l'indice, part en hausse.
    */
+  /**
+   * Indice du 📒 suivi réel et des bilans de sélection (08/11/2026) : le STOXX Europe 600 seulement. Un soir de repli sur le CAC 40
+   * (scrapers/prices.py), ou de dernière valeur aberrante (plus de 15 % en une séance, jamais vu sur le STOXX 600 : −11,5 % au pire le
+   * 12/03/2020), la comparaison mêlerait deux séries et un niveau figé à 3 ou 6 mois le resterait. Avant, un soir de repli aurait
+   * affiché « indice +1 100 % » et faussé le suivi réel pour toujours. ref : { ticker, rows } du fichier des cours.
+   * → { last : dernière clôture sûre, sinon null ; at(d) : clôture du jour d ou de la dernière séance avant (5 jours au plus) }.
+   */
+  ES.trackIndex = function (ref, ticker) {
+    var rows = ref && Array.isArray(ref.rows) ? ES.normalizeSeries(ref.rows) : [];
+    var n = rows.length,
+      last = n ? rows[n - 1][4] : null,
+      prev = n > 1 ? rows[n - 2][4] : null;
+    var ok =
+      !!ref && ref.ticker === (ticker || '^STOXX') && last > 0 && !(prev > 0 && Math.abs(last / prev - 1) > 0.15);
+    return {
+      last: ok ? last : null,
+      at: function (d) {
+        if (!ok || typeof d !== 'string') return null;
+        for (var k = n - 1; k >= 0; k--)
+          if (rows[k][0] <= d) return ES.daysBetween(rows[k][0], d) <= 5 ? rows[k][4] : null;
+        return null;
+      },
+    };
+  };
   ES.pickTrack = function (log, lastOf, benchNow, pred) {
     var ws = Object.keys(log || {}).sort();
     if (!ws.length) return null;

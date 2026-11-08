@@ -28,6 +28,27 @@ function near(a, b, eps, m) {
 const TODAY = '2026-10-07';
 const cfg = ES.mergeConfig(ES.DEFAULT_CONFIG, { insiders: { minBuyerEur: 0 } });
 
+/* ---------- Indice du suivi réel ---------- */
+t('indice du suivi réel : STOXX 600 seulement, jamais un repli CAC 40 ni une valeur aberrante (08/11/2026)', () => {
+  const rows = (vals, d0) =>
+    vals.map((v, i) => {
+      const d = ES.addDays(d0 || '2026-11-02', i);
+      return [d, v, v, v, v, null];
+    });
+  const good = ES.trackIndex({ ticker: '^STOXX', rows: rows([640, 641, 643, 645]) });
+  eq(good.last, 645);
+  eq(good.at('2026-11-03'), 641, 'clôture du jour');
+  eq(good.at('2026-11-08'), 645, 'week-end : dernière séance avant');
+  eq(good.at('2026-11-20'), null, 'plus de 5 jours après la dernière séance');
+  eq(good.at('2026-10-01'), null, 'avant la série');
+  const cac = ES.trackIndex({ ticker: '^FCHI', rows: rows([7900, 8000, 8050]) });
+  ok(cac.last === null && cac.at('2026-11-03') === null, 'repli CAC 40 : ignoré');
+  const jump = ES.trackIndex({ ticker: '^STOXX', rows: rows([640, 645, 139]) });
+  ok(jump.last === null && jump.at('2026-11-02') === null, 'saut de −78 % en une séance : série ignorée ce soir');
+  eq(ES.trackIndex({ ticker: '^STOXX', rows: rows([600, 560]) }).last, 560, 'baisse de 7 % : réelle, gardée');
+  ok(ES.trackIndex(null).last === null && ES.trackIndex({ ticker: '^STOXX' }).last === null, 'indice absent');
+});
+
 /* ---------- Dates ---------- */
 t('fenêtre de 3 mois calendaires (pas 90 jours)', () => {
   eq(ES.addMonths('2026-10-07', -3), '2026-07-07');
