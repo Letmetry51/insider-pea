@@ -2515,8 +2515,18 @@ export function build(opts = {}) {
       return null;
     };
     const baseOf = (key, d, p0) => ES.splitBase(p0, adjAt(key, d));
-    const mRows = mRef && Array.isArray(mRef.rows) ? ES.normalizeSeries(mRef.rows) : [],
-      mLast = mRows.length ? mRows[mRows.length - 1][4] : null;
+    // indice du 📒 suivi réel et des bilans : STOXX Europe 600 seulement, jamais un soir de repli ou de valeur aberrante (ES.trackIndex)
+    const TI = ES.trackIndex(mRef),
+      mTrack = TI.last;
+    const fillB0 = (L) => {
+      if (isObj(L) && !(L.b0 > 0)) {
+        const b = TI.at(L.date);
+        if (b > 0) L.b0 = b;
+      }
+    };
+    if (!mTrack && mRef)
+      console.warn('  Indice européen douteux ce soir (' + mRef.ticker + ') : ignoré pour le suivi réel');
+    Object.values(state.rankSelections).forEach(fillB0);
     const prevW = Object.keys(state.rankSelections)
         .filter((w) => w < week)
         .sort()
@@ -2534,7 +2544,7 @@ export function build(opts = {}) {
         return {
           week: w,
           date: S0.date,
-          bench: S0.b0 && mLast ? (mLast / S0.b0 - 1) * 100 : null,
+          bench: S0.b0 && mTrack ? (mTrack / S0.b0 - 1) * 100 : null,
           items: S0.items.map((x) => ({
             key: x.key,
             name: x.name,
@@ -2741,13 +2751,15 @@ export function build(opts = {}) {
           delete state.pickLog[w];
           return;
         }
+        fillB0(L);
         const a = ES.daysBetween(L.date, today);
         [
           [91, 'p3', 'b3'],
           [182, 'p6', 'b6'],
         ].forEach(([dd, pk, bk]) => {
           if (a < dd || L[pk + 'Done']) return;
-          if (mLast > 0) L[bk] = mLast;
+          if (!(mTrack > 0) && a < dd + 10) return; // indice douteux ce soir : relevé remis au lendemain (10 jours au plus)
+          if (mTrack > 0) L[bk] = mTrack;
           L.items.forEach((x) => {
             if (x[pk] == null && lastOf[x.key] > 0) {
               x[pk] = lastOf[x.key];
@@ -2769,7 +2781,7 @@ export function build(opts = {}) {
         if (P10.length)
           state.pickLog[week] = {
             date: today,
-            b0: mLast || null,
+            b0: mTrack || null,
             items: P10.map((r) => ({
               key: r.key,
               name: r.name,
@@ -2791,8 +2803,8 @@ export function build(opts = {}) {
         .forEach((w) => {
           delete state.pickLog[w];
         });
-      rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mLast);
-      rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mLast, 30); // auto-contrôle 🔊 📣 ⏸️ sur les vraies sélections
+      rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mTrack);
+      rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mTrack, 30); // auto-contrôle 🔊 📣 ⏸️ sur les vraies sélections
       rank.pick10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks.map((p) => p.isin || p.sym); // lu par positions.py (rappel à 6 mois)
       // 💎 valeur : même suivi réel que le 🎯
       const V10 = ES.pickValue(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;
@@ -2804,13 +2816,15 @@ export function build(opts = {}) {
           delete state.valueLog[w];
           return;
         }
+        fillB0(L);
         const a = ES.daysBetween(L.date, today);
         [
           [91, 'p3', 'b3'],
           [182, 'p6', 'b6'],
         ].forEach(([dd, pk, bk]) => {
           if (a < dd || L[pk + 'Done']) return;
-          if (mLast > 0) L[bk] = mLast;
+          if (!(mTrack > 0) && a < dd + 10) return; // indice douteux ce soir : relevé remis au lendemain (10 jours au plus)
+          if (mTrack > 0) L[bk] = mTrack;
           L.items.forEach((x) => {
             if (x[pk] == null && lastOf[x.key] > 0) {
               x[pk] = lastOf[x.key];
@@ -2830,7 +2844,7 @@ export function build(opts = {}) {
       if (!state.valueLog[week] && rank.coFresh && V10.length)
         state.valueLog[week] = {
           date: today,
-          b0: mLast || null,
+          b0: mTrack || null,
           items: V10.map((r) => ({
             key: r.key,
             name: r.name,
@@ -2846,7 +2860,7 @@ export function build(opts = {}) {
         .forEach((w) => {
           delete state.valueLog[w];
         });
-      rank.valueTrack = ES.pickTrack(state.valueLog, lastOf, mLast);
+      rank.valueTrack = ES.pickTrack(state.valueLog, lastOf, mTrack);
     } catch (e) {
       console.warn('  Suivi du 🎯 indisponible : ' + e.message);
     }
@@ -2900,7 +2914,7 @@ export function build(opts = {}) {
         ' s)'
     );
     rank._sel = sel;
-    rank._b0 = mLast;
+    rank._b0 = mTrack;
     rank._rows = rows; // lignes complètes du moteur (📣 bond du jour), jamais publiées
     rank._dDates = dDates;
   } catch (e) {
