@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import decisions as dec  # noqa: E402
 import indicators as ind  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -162,6 +163,24 @@ def courbe(prod, curve, ref):
     return out
 
 
+def front_on(rows, prod):
+    """Prix de l'échéance de référence (la plus proche hors fenêtre de changement) à une date, ou à la séance précédente (4 jours)."""
+    by = {}
+    for r in rows:
+        if r["product"] == prod and fnum(r["settle"]) is not None:
+            by.setdefault(r["date"], {})[r["maturity"]] = float(r["settle"])
+    ds = sorted(by)
+
+    def f(d):
+        i = bisect.bisect_right(ds, d) - 1
+        if i < 0 or (date.fromisoformat(d) - date.fromisoformat(ds[i])).days > 4:
+            return None
+        dd = date.fromisoformat(ds[i])
+        ok = [m for m in sorted(by[ds[i]]) if business_back(expiry(prod, m), CFG["rollJours"]) > dd]
+        return by[ds[i]][ok[0]] if ok else None
+    return f
+
+
 # --------------------------------------------------------------------------------------------- COT et macro
 def cot_reading(serie, mini=20):
     """Position nette des fonds et indice sur 3 ans (0 = la plus vendeuse, 100 = la plus acheteuse).
@@ -260,8 +279,10 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
     ratios = [float(r["urea"]) / float(r["wheat_hrw"]) for r in wb]
     last = wb[-1]
     win = ratios[-121:-1]
+    ur_all = [float(r["urea"]) for r in wb]
     out["mondial"] = {"mois": last["month"], "uree": float(last["urea"]), "ble_hrw": float(last["wheat_hrw"]),
-                      "ratio": round(ratios[-1], 3), "percentile": percentile(win, ratios[-1])}
+                      "ratio": round(ratios[-1], 3), "percentile": percentile(win, ratios[-1]),
+                      "uree_percentile": percentile(ur_all[-121:-1], ur_all[-1])}  # prix de l'urée seul, sur 10 ans
     # écart mensuel gaz − urée sur 3 mois (Banque mondiale)
     gas = [fnum(r.get("gas_eu")) for r in wb]
     if len(wb) > 3 and gas[-1] and gas[-4]:
@@ -340,6 +361,7 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
         out["ttf"] = {k: a.get(k) for k in ("dernier", "au", "var1s", "var1m", "var3m", "mm20", "ecart_mm20", "mm50", "rsi", "histo",
                                              "croisement_macd", "haut3m", "bas3m")}
         out["ttf"]["vues"] = vu
+        out["ttf"]["percentile_5ans"] = percentile(v[-1260:], v[-1])
         out["ttf"]["sous_seuil_bas"] = sum(1 for x in v[-CFG["engrais"]["ttfBasSeances"]:] if x < CFG["engrais"]["ttfBas"])
         if "uree" in fr and fr["uree"].get("var3m") is not None and a.get("var3m") is not None:
             out["rattrapage"] = round(a["var3m"] - fr["uree"]["var3m"], 1)
@@ -721,6 +743,38 @@ def main():
         if prod == "EBM":
             series_ble = (d, v)
 
+    moisson = {"EBM": 7, "ECO": 7, "EMA": 10}
+    for prod, info in contrats.items():
+        if info.get("long"):
+            info["thermo"] = dec.thermometre(info["long"].get("cinq_ans"))
+            if info["thermo"]:
+                info["thermo"]["source"] = info["long"].get("nom")
+        if info.get("_curve") and info.get("echeance"):
+            info["stockage"] = dec.stockage(info["_curve"], info["echeance"], lambda m, p=prod: expiry(p, m), today, moisson[prod],
+                                           {k: v for k, v in CFG["stockage"].items() if not k.startswith("_")})
+        places = (CFG.get("primeLocale") or {}).get(info.get("culture"))
+        if places:
+            info["prime_locale"] = dec.prime_locale(read_csv(PRIV / "physique_hist.csv"), places, front_on(eur, prod))
+    longue = as_dict(load_json(PRIV / "yahoo_long.json", {}))
+    src_s = longue if all(k in longue for k in ("ZW=F", "ZC=F", "EURUSD=X")) else yahoo
+    saison = {}
+    for cult, tk, deb in (("ble", "ZW=F", 7), ("mais", "ZC=F", 10)):
+        sd, sv = proxy_eur(src_s, tk)
+        sp = dec.saisonnier(sd, sv, deb) if sv else None
+        if sp:
+            sp["source"] = f"{(yahoo.get(tk) or {}).get('nom', tk)} converti en €/t, campagnes {sd[0][:4]}-{sd[-1][:4]}"
+            saison[cult] = sp
+    meteo_raw = as_dict(load_json(PRIV / "meteo.json", {}))
+    zones = {}
+    for zn in (CFG.get("meteo") or {}).get("zones", {}):
+        zr = as_dict(meteo_raw.get(zn))
+        z = dec.meteo_zone({k: tuple(v) for k, v in as_dict(zr.get("archive")).items()},
+                           {k: tuple(v) for k, v in as_dict(zr.get("prevision")).items()}, today)
+        if z:
+            z["etat"] = dec.meteo_etat(z)[1]
+            zones[zn] = z
+    meteo = dec.meteo_score(zones, CFG["meteo"], today) if zones else {}
+
     cot = {}
     for code, c in CFG["cftc"]["marches"].items():
         rd = cot_reading((cftc.get(code) or {}).get("serie"))
@@ -782,7 +836,7 @@ def main():
         eu = (cot.get("EURONEXT_" + prod) or {}).get("score")
         if eu is not None:  # Euronext 70 %, États-Unis 30 %
             cs = round(0.7 * eu + 0.3 * cs, 2) if cs is not None else eu
-        parts = {"technique": ci.get("score_technique"), "cot": cs, "macro": macro(base)}
+        parts = {"technique": ci.get("score_technique"), "cot": cs, "macro": macro(base), "meteo": (meteo.get(base) or {}).get("score")}
         num = sum(W[k] * v for k, v in parts.items() if v is not None)
         den = sum(W[k] for k, v in parts.items() if v is not None)
         q = round(num / den, 2) if den else None
@@ -856,6 +910,27 @@ def main():
     engrais = module_engrais(today, series_ble[0], series_ble[1], yahoo)
     if valid_comite and comite.get("engrais", {}).get("signal") in SIG_ENGRAIS:
         engrais["comite"] = comite["engrais"]
+
+    # ------------------------------------------------------------------- carnet de bord : chaque avis du comité, noté à 4 et 8 semaines
+    carnet = [x for x in (load_json(OUT / "carnet.json", []) or []) if isinstance(x, dict) and x.get("id")]
+    cdate = str(comite.get("date", ""))[:10]
+    for cult, e in cultures.items():
+        ci = contrats.get(e["contrat"]) or {}
+        if e.get("source") == "comite" and ci.get("seance"):
+            px = (e.get("physique") or {}).get("prix") if e.get("proxy") else ci.get("dernier_reel")
+            dec.carnet_ajoute(carnet, cult, ci["seance"], e["signal"], px, cdate, (e.get("comite") or {}).get("pct") or "")
+    uree = {r["date"]: float(r["price"]) for r in read_csv(PRIV / "fert_fr.csv") if r.get("product") == "uree" and fnum(r.get("price"))}
+    if (engrais.get("comite") or {}).get("signal") and uree:
+        last_u = max(uree)
+        dec.carnet_ajoute(carnet, "engrais", last_u, engrais["comite"]["signal"], uree[last_u], cdate, engrais["comite"].get("pct") or "")
+    for x in carnet:
+        if x["cle"] == "engrais":
+            dec.carnet_note(x, uree, today, engrais=True)
+        else:
+            prod = {"ble": "EBM", "escourgeon": "EBM", "orge_printemps": "EBM", "colza": "ECO", "mais": "EMA"}.get(x["cle"])
+            dec.carnet_note(x, (contrats.get(prod) or {}).get("_serie") or {}, today)
+    carnet = sorted(carnet, key=lambda x: (x["date"], x["cle"]))[-120:]
+    save_json(OUT / "carnet.json", carnet)
 
     # ------------------------------------------------------------------- déclencheurs (comparaison avec la veille)
     trig = []
@@ -965,6 +1040,9 @@ def main():
         "international": inter,
         "orges": org,
         "cot": cot,
+        "saison": saison,
+        "meteo": {"zones": zones, "cultures": meteo, "source": "Open-Meteo (CC BY 4.0)"},
+        "carnet": {"entrees": carnet[-40:], "bilan": dec.carnet_bilan(carnet)},
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},
         "engrais": engrais,
         "physique": load_json(OUT / "physique.json", {}),
@@ -975,7 +1053,8 @@ def main():
                    "calendrier": comite.get("calendrier"), "modele": comite.get("modele"), "cout_usd": comite.get("cout_usd"),
                    "erreur": comite.get("erreur")},
         "config": {"poids": W, "engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"],
-                   "calendrier": {k: v for k, v in (CFG.get("calendrier") or {}).items() if not k.startswith("_")}},
+                   "calendrier": {k: v for k, v in (CFG.get("calendrier") or {}).items() if not k.startswith("_")},
+                   "stockage": {k: v for k, v in CFG["stockage"].items() if not k.startswith("_")}},
     }
     save_json(OUT / "grain-signal.json", dash)
     new_state = {

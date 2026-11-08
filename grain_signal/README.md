@@ -23,6 +23,11 @@ soja, huile de soja, canola, gaz TTF, Brent, EUR/USD) · Euronext (rapport hebdo
 solution azotée, urée Égypte, prix physiques) · Banque mondiale (Pink Sheet mensuel, licence CC BY 4.0). Les historiques bruts
 des cours restent dans le cache du workflow et ne sont jamais publiés.
 
+Aides à la décision (grain_signal/decisions.py) : prix sur 5 ans en percentile, stocker ou vendre (frais réglables dans
+config.json, section stockage), prime locale physique − Euronext, saisonnalité (Chicago depuis 2000), météo Open-Meteo de 10
+zones (15 % de la lecture de marché), carnet de bord des avis du comité jugés à 4 et 8 semaines (data/grain/carnet.json).
+La page s'installe sur le téléphone (grain-signal.webmanifest).
+
 Note des fonds : rapport Euronext 70 %, CFTC 30 % (indice Euronext calculé à partir de 26 semaines d'historique, rattrapé
 progressivement sur 3 ans). Une source en échec deux jours distincts de suite déclenche un email « Source en panne » (une seule
 fois par incident), puis un email « Source rétablie ».

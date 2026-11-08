@@ -262,6 +262,17 @@ function chart(rows, opts = {}) {
           'stroke-width': 1.5,
         });
     });
+  // pastilles des avis passés (carnet de bord) : couleur du signal, détail au survol
+  (opts.marks || []).forEach((m) => {
+    const i = pts.findIndex((r) => r[0] >= m.d);
+    if (i < 0) return;
+    const cy = y(pts[i][1]);
+    const g = svgEl(svg, 'g', { class: 'mark' });
+    svgEl(g, 'title', {}, m.t);
+    const k = cy - 25 >= P.t ? -1 : 1; // au-dessus du cours, en dessous s'il n'y a pas la place
+    svgEl(g, 'line', { x1: x(i), x2: x(i), y1: cy + 7 * k, y2: cy + 19 * k, stroke: m.c, 'stroke-width': 1.5 });
+    svgEl(g, 'circle', { cx: x(i), cy: cy + 25 * k, r: 6, fill: m.c, stroke: 'var(--surface)', 'stroke-width': 1.5 });
+  });
   if (opts.dot !== false)
     svgEl(svg, 'circle', {
       cx: x(li),
@@ -293,6 +304,123 @@ function gauge(value, min, max, segs, ticks) {
   const tk = h('div', { class: 'ticks' });
   (ticks || []).forEach(([v, t]) => tk.append(h('span', { style: `left:${pos(v)}%`, text: t })));
   return h('div', { class: 'gwrap' }, bar, tk);
+}
+
+/* percentile en jauge (même forme que le RSI) : pastille chiffrée, libellé, barre colorée et curseur.
+   vendeur / prime : vert = bon moment pour vendre ; ratio / acheteur : vert = bon moment pour acheter ; cot : lecture à contre-courant */
+const SEG5V = [
+  [20, 'var(--bad)'],
+  [40, 'var(--warn)'],
+  [60, 'var(--neutral)'],
+  [80, 'var(--info)'],
+  [100, 'var(--good)'],
+];
+const SEG5A = [
+  [20, 'var(--good)'],
+  [40, 'var(--info)'],
+  [60, 'var(--neutral)'],
+  [80, 'var(--warn)'],
+  [100, 'var(--bad)'],
+];
+const T5 = [
+  [20, '20'],
+  [50, '50'],
+  [80, '80'],
+];
+const lab5 = (v, t) => (v <= 20 ? t[0] : v <= 40 ? t[1] : v < 60 ? t[2] : v < 80 ? t[3] : t[4]);
+const PG = {
+  vendeur: {
+    segs: SEG5V,
+    ticks: T5,
+    lab: (v) =>
+      lab5(v, [
+        ['Prix bas : ne pas brader', 'bad'],
+        ['Plutôt bas', 'warn'],
+        ['Dans la moyenne', 'neutral'],
+        ['Plutôt haut', 'info'],
+        ['Prix haut : bon pour vendre', 'good'],
+      ]),
+  },
+  prime: {
+    segs: SEG5V,
+    ticks: T5,
+    lab: (v) =>
+      lab5(v, [
+        ['Prime faible : vendre via Euronext', 'bad'],
+        ['Prime plutôt faible', 'warn'],
+        ['Prime normale', 'neutral'],
+        ['Prime plutôt forte', 'info'],
+        ['Prime forte : vendre au physique', 'good'],
+      ]),
+  },
+  acheteur: {
+    segs: SEG5A,
+    ticks: T5,
+    lab: (v) =>
+      lab5(v, [
+        ['Bas : bon prix d’achat', 'good'],
+        ['Plutôt bas', 'info'],
+        ['Dans la moyenne', 'neutral'],
+        ['Plutôt cher', 'warn'],
+        ['Cher : le minimum', 'bad'],
+      ]),
+  },
+  ratio: {
+    segs: [
+      [20, 'var(--good)'],
+      [60, 'var(--neutral)'],
+      [80, 'var(--warn)'],
+      [100, 'var(--bad)'],
+    ],
+    ticks: [
+      [20, '20'],
+      [60, '60'],
+      [80, '80'],
+    ],
+    lab: (v) =>
+      v <= 20
+        ? ['Azote bon marché : acheter large', 'good']
+        : v <= 60
+          ? ['Normal : suivre le plan', 'neutral']
+          : v <= 80
+            ? ['Cher : fractionner', 'warn']
+            : ['Très cher : attendre', 'bad'],
+  },
+  cot: {
+    segs: [
+      [15, 'var(--bad)'],
+      [85, 'var(--neutral)'],
+      [100, 'var(--good)'],
+    ],
+    ticks: [
+      [15, '15'],
+      [85, '85'],
+    ],
+    lab: (v) =>
+      v <= 15
+        ? ['Fonds très vendeurs : rebond possible', 'bad']
+        : v >= 85
+          ? ['Fonds très acheteurs : vendre', 'good']
+          : ['Neutre', 'neutral'],
+  },
+};
+function pgauge(v, kind, title, note, compact) {
+  if (v === null || v === undefined || Number.isNaN(v)) return null;
+  const k = PG[kind];
+  const [lab, cl] = k.lab(v);
+  return h(
+    'div',
+    { class: 'pg' + (compact ? ' compact' : '') },
+    title ? h('div', { class: 'pg-t', text: title }) : null,
+    h(
+      'div',
+      { class: 'ival' },
+      h('span', { class: 'badge ' + cl, text: `${Math.round(v)}e`, title: `${Math.round(v)}e percentile` }),
+      h('span', { class: 'ilabel', text: lab })
+    ),
+    gauge(v, 0, 100, k.segs, compact ? [] : k.ticks),
+    note ? h('div', { class: 'pg-n', text: note }) : null
+  );
 }
 
 function spark(values, opts = {}) {
@@ -677,6 +805,7 @@ function periodPanel(p) {
         col4Dots: p.col4Dots,
         cone: p.cone,
         channel: p.channel,
+        marks: p.marks,
       });
       box.append(g3, p.legend3m || chartLegend());
       return g3;
@@ -688,6 +817,7 @@ function periodPanel(p) {
       mainColor: p.longMain || 'var(--chart-1)',
       mainWidth: p.longMain ? 1.6 : 2.2,
       col4Dots: p.col4Dots,
+      marks: per === '1a' ? p.marks : null,
       label: `${p.nom} : ${per === '1a' ? '1 an' : '5 ans'}`,
     });
     const mm = per === '1a' ? ['MM50', 'MM200'] : ['MM 10 sem.', 'MM 40 sem.'];
@@ -971,6 +1101,51 @@ function court(p, sur) {
   if (p.code === 'couvrir') return `Couvrir ${p.pct} %`;
   return `${p.pct} %`;
 }
+const SIGC = { VENDRE: 'var(--good)', COUVRIR: 'var(--info)', TENIR: 'var(--warn)', ATTENDRE: 'var(--bad)' };
+const SIGT = {
+  VENDRE: 'vendre une tranche',
+  COUVRIR: 'couvrir',
+  TENIR: 'tenir le plan',
+  ATTENDRE: 'attendre-stocker',
+  ACHETER_LARGE: 'acheter large',
+  SUIVRE: 'suivre le plan',
+  FRACTIONNER: 'fractionner',
+};
+const BASE = { ble: 'ble', escourgeon: 'ble', orge_printemps: 'ble', colza: 'colza', mais: 'mais' };
+// résultat d'un avis du carnet à 4 ou 8 semaines : ✅ bon, ❌ mauvais, ➖ neutre, ⏳ pas encore jugé
+function verdict(r, unite) {
+  if (!r) return '—';
+  if (r.variation === undefined) return `⏳ ${dfr(r.le)}`;
+  const ic = { bon: '✅', mauvais: '❌' }[r.verdict] || '➖';
+  if (r.gain === undefined) return `${ic} cours ${pct(r.pct)}`;
+  return `${ic} ${fmt(Math.abs(r.gain))} ${unite} ${r.gain >= 0 ? 'gagnés' : 'perdus'}`;
+}
+function marksFor(cle) {
+  return ((GS.data.carnet || {}).entrees || [])
+    .filter((x) => x.cle === cle)
+    .map((x) => ({
+      d: x.date,
+      c: SIGC[x.signal] || 'var(--muted)',
+      t: `${dfr(x.date)} : comité « ${SIGT[x.signal] || x.signal} »${x.prix ? ` à ${fmt(x.prix)} €/t` : ''}${
+        x.s8 && x.s8.variation !== undefined ? ` · 8 semaines après : ${verdict(x.s8, '€/t')}` : ''
+      }`,
+    }));
+}
+const STOCK = {
+  stocker: ['📦', 'good'],
+  vendre: ['🚚', 'bad'],
+  neutre: ['⚖️', 'neutral'],
+  nouvelle: ['🌱', 'neutral'],
+};
+function stockShort(st) {
+  if (!st || !st.code) return '';
+  const b = st.meilleure;
+  if (st.code === 'stocker') return `📦 Stocker jusqu'à ${moisFr(b.echeance)} : ${sgn(b.gain)} €/t net`;
+  if (st.code === 'vendre') return '🚚 Stockage non payé : vendre plutôt que stocker';
+  if (st.code === 'neutre') return `⚖️ Stockage à peine payé (${sgn(b.gain)} €/t net)`;
+  return '';
+}
+
 function glance(d) {
   const tiles = [];
   for (const [k, c] of Object.entries(d.cultures || {})) {
@@ -1013,6 +1188,12 @@ function glance(d) {
               class: 'gsub',
               text: `Récolte ${autre.recolte} : ${court(autre, (c.niveaux_retenus || {}).sur_ble)}`,
             })
+          : null,
+        con.thermo
+          ? pgauge(con.thermo.percentile, 'vendeur', `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : ''}`, null, true)
+          : null,
+        con.stockage && con.stockage.code !== 'nouvelle' && !c.proxy
+          ? h('div', { class: 'gsub', text: stockShort(con.stockage) })
           : null
       )
     );
@@ -1045,10 +1226,8 @@ function glance(d) {
           ? `Urée ${fmt(ur.prix)} €/t ${ur.var1m !== undefined ? (ur.var1m > 0 ? '↗' : '↘') + ' ' + pct(ur.var1m) + ' sur 1 mois' : ''}`
           : '',
       }),
-      h('div', {
-        class: 'gsub',
-        text: `Ratio azote/blé : ${e.percentile_retenu ?? '—'}e percentile${ec.prix_plafond ? ` · plafond ${fmt(ec.prix_plafond, 0)} €/t` : ''}`,
-      })
+      pgauge(e.percentile_retenu, 'ratio', '⚖️ Ratio azote/blé sur 10 ans', null, true),
+      ec.prix_plafond ? h('div', { class: 'gsub', text: `Plafond d'achat : ${fmt(ec.prix_plafond, 0)} €/t` }) : null
     )
   );
   const cal = ((d.comite || {}).calendrier || [])
@@ -1157,6 +1336,28 @@ function vSignaux() {
               : null
           );
         })(),
+        (() => {
+          const th = contrat.thermo;
+          const pl = !c.proxy ? contrat.prime_locale : null;
+          const ceu = ((d.cot || {})['EURONEXT_' + c.contrat] || {}).indice;
+          const kids = [
+            th
+              ? pgauge(
+                  th.percentile,
+                  'vendeur',
+                  `🌡️ Prix sur 5 ans${c.proxy ? ' (blé Euronext)' : /soja/i.test(th.source || '') ? ' (indicatif : huile de soja)' : ''}`,
+                  `Médiane ${fmt(th.mediane, 0)} €/t · 20e–80e : ${fmt(th.p20, 0)}–${fmt(th.p80, 0)} €/t (${th.source} recalé)`
+                )
+              : null,
+            pl && pl.percentile !== undefined
+              ? pgauge(pl.percentile, 'prime', '📍 Prime locale (physique − Euronext)', pl.comparaison || null)
+              : null,
+            ceu !== undefined && ceu !== null && !c.proxy
+              ? pgauge(ceu, 'cot', '🏦 Fonds sur Euronext (3 ans)', null)
+              : null,
+          ].filter(Boolean);
+          return kids.length ? h('div', { class: 'pgrid' }, kids) : null;
+        })(),
         c.a_revoir ? h('div', { class: 'alert', text: c.a_revoir }) : null,
         cc.texte ? h('p', { class: 'note', text: cc.texte }) : c.note ? h('p', { class: 'note', text: c.note }) : null,
         h(
@@ -1217,8 +1418,56 @@ function vSignaux() {
                 }),
               ]
             : null,
-          contrat.courbe && contrat.courbe.lecture
-            ? [h('dt', { text: 'Courbe' }), h('dd', { text: contrat.courbe.lecture })]
+          contrat.stockage && contrat.stockage.texte
+            ? [
+                h('dt', { text: `${(STOCK[contrat.stockage.code] || ['📦'])[0]} Stocker ?` }),
+                h('dd', {
+                  text: c.proxy
+                    ? 'Selon la courbe du blé : ' +
+                      contrat.stockage.texte.charAt(0).toLowerCase() +
+                      contrat.stockage.texte.slice(1)
+                    : contrat.stockage.texte,
+                }),
+              ]
+            : contrat.courbe && contrat.courbe.lecture
+              ? [h('dt', { text: 'Courbe' }), h('dd', { text: contrat.courbe.lecture })]
+              : null,
+          !c.proxy && contrat.prime_locale && contrat.prime_locale.percentile === undefined
+            ? [
+                h('dt', { text: '📍 Prime locale' }),
+                h('dd', {
+                  text:
+                    contrat.prime_locale.places.map((x) => `${x.place} ${sgn(x.prime)} €/t`).join(' · ') +
+                    ` — ${contrat.prime_locale.texte}`,
+                }),
+              ]
+            : null,
+          ((d.meteo || {}).cultures || {})[BASE[k]]
+            ? [
+                h('dt', { text: '🌦️ Météo' }),
+                h('dd', {
+                  text: (() => {
+                    const m = d.meteo.cultures[BASE[k]];
+                    const en = m.zones.filter((z) => z.etat !== 'normal' && z.saison);
+                    const hors = m.zones.filter((z) => z.etat !== 'normal' && !z.saison);
+                    return (
+                      `Note ${sgn(m.score)} : ` +
+                      (en.length ? en.map((z) => `${z.zone} ${z.etat}`).join(', ') : 'rien à signaler en saison') +
+                      (hors.length ? ` (hors saison : ${hors.map((z) => `${z.zone} ${z.etat}`).join(', ')})` : '')
+                    );
+                  })(),
+                }),
+              ]
+            : null,
+          (d.saison || {})[BASE[k]]
+            ? [
+                h('dt', { text: '📅 Mois chers' }),
+                h('dd', {
+                  text:
+                    d.saison[BASE[k]].plus_chers.map((m) => MOIS[m - 1]).join(', ') +
+                    ` (moins chers : ${d.saison[BASE[k]].moins_chers.map((m) => MOIS[m - 1]).join(', ')})`,
+                }),
+              ]
             : null
         ),
         planBlock(c.plan),
@@ -1259,18 +1508,15 @@ function vSignaux() {
         ? h('span', { class: 'chip', text: 'Règles du matin : ' + (e.libelle || '—') })
         : null,
       h(
+        'div',
+        { class: 'pgrid' },
+        pgauge(e.percentile_retenu, 'ratio', '⚖️ Ratio azote/blé sur 10 ans'),
+        e.ttf ? pgauge(e.ttf.percentile_5ans, 'acheteur', '⛽ Gaz TTF sur 5 ans') : null
+      ),
+      h(
         'dl',
         { class: 'kv' },
         [h('dt', { text: 'À acheter' }), h('dd', { text: ec.pct || e.a_acheter || '—' })],
-        [
-          h('dt', { text: 'Ratio azote/blé' }),
-          h('dd', {
-            text:
-              e.percentile_retenu !== undefined && e.percentile_retenu !== null
-                ? e.percentile_retenu + 'e percentile (10 ans)'
-                : '—',
-          }),
-        ],
         [
           h('dt', { text: 'Rattrapage gaz' }),
           h('dd', { text: e.rattrapage !== undefined ? sgn(e.rattrapage, 0) + ' pts sur 3 mois' : '—' }),
@@ -1319,6 +1565,7 @@ function vSignaux() {
         )
       )
     );
+  out.push(...carnetSection(d));
   if (com.calendrier && com.calendrier.length) {
     out.push(h('h2', { text: 'Calendrier' }));
     out.push(
@@ -1332,6 +1579,192 @@ function vSignaux() {
     );
   }
   return out;
+}
+
+/* carnet de bord : chaque avis du comité, jugé 4 et 8 semaines plus tard sur le cours réel */
+function carnetSection(d) {
+  const cb = d.carnet || {};
+  const rows = (cb.entrees || []).slice().reverse();
+  if (!rows.length) return [];
+  const b = cb.bilan || {};
+  const noms = Object.fromEntries(
+    Object.entries(d.cultures || {}).map(([k, c]) => [k, c.nom.replace(' brassicole', '')])
+  );
+  noms.engrais = 'Azote (urée)';
+  const prochain = rows
+    .map((x) => (x.s4 && x.s4.variation === undefined ? x.s4.le : null))
+    .filter(Boolean)
+    .sort()[0];
+  return [
+    h('h2', { text: '📓 Carnet de bord des avis' }),
+    h(
+      'div',
+      { class: 'card scroll' },
+      h('p', {
+        class: 'cbilan',
+        text: b.juges
+          ? `Avis jugés à 8 semaines : ✅ ${b.bons} bon${b.bons > 1 ? 's' : ''} · ❌ ${b.mauvais} mauvais${
+              b.gain_moyen !== null && b.gain_moyen !== undefined
+                ? ` · gain moyen ${sgn(b.gain_moyen)} €/t par avis suivi`
+                : ''
+            }`
+          : `Premiers résultats le ${dfr(prochain || d.date)} : chaque avis est jugé 4 et 8 semaines après, sur le cours réel.`,
+      }),
+      h(
+        'table',
+        {},
+        h(
+          'tr',
+          {},
+          ['Date', 'Culture', 'Avis du comité', 'Prix', '4 semaines', '8 semaines'].map((t, i) =>
+            h('th', { class: i === 3 ? 'n' : '', text: t })
+          )
+        ),
+        rows.map((x) => {
+          const u = '€/t';
+          return h(
+            'tr',
+            {},
+            h('td', { text: dfr(x.date) }),
+            h('td', { text: `${ICON[x.cle] || (x.cle === 'engrais' ? '🧪' : '')} ${noms[x.cle] || x.cle}` }),
+            h(
+              'td',
+              {},
+              h('span', { class: 'dot', style: `background:${SIGC[x.signal] || 'var(--muted)'}` }),
+              SIGT[x.signal] || x.signal
+            ),
+            h('td', { class: 'n', text: x.prix ? fmt(x.prix) : '—' }),
+            h('td', { text: verdict(x.s4, u) }),
+            h('td', { text: verdict(x.s8, u) })
+          );
+        })
+      ),
+      h('p', {
+        class: 'note',
+        text: "Vendre (ou couvrir) est jugé bon si le cours a baissé ensuite, attendre si le cours a monté ; pour l'azote, acheter large est bon si l'urée a monté, attendre si elle a baissé. « Tenir le plan », « suivre » et « fractionner » ne parient pas sur un sens : seul le mouvement du cours est indiqué. Les orges sont jugées sur le blé Euronext. Écart de moins de 0,5 % : neutre (➖).",
+      })
+    ),
+  ];
+}
+
+/* profil saisonnier : écart habituel de chaque mois au prix moyen de la campagne */
+function saisonSection(d) {
+  const sa = d.saison || {};
+  if (!Object.keys(sa).length) return [];
+  const now = +d.date.slice(5, 7);
+  const cards = Object.entries(sa).map(([k, p]) => {
+    const order = Array.from({ length: 12 }, (_, i) => ((p.debut_campagne - 1 + i) % 12) + 1);
+    const m = Math.max(...p.mois.map(Math.abs)) || 1;
+    return h(
+      'section',
+      { class: 'card' },
+      h('h3', { text: `${ICON[k] || ''} ${k === 'ble' ? 'Blé (et orges)' : 'Maïs'} : mois chers et mois bon marché` }),
+      h(
+        'div',
+        { class: 'season' },
+        order.map((mo) => {
+          const v = p.mois[mo - 1];
+          const a = Math.min(1, Math.abs(v) / m);
+          return h(
+            'div',
+            {
+              class: 'smonth' + (mo === now ? ' now' : ''),
+              title: `${MOIS[mo - 1]} : ${pct(v)} par rapport à la moyenne de la campagne (médiane de ${p.campagnes} campagnes)`,
+            },
+            h('span', {
+              class: 'sbar',
+              style: `background:${v >= 0 ? 'var(--good)' : 'var(--bad)'};opacity:${(0.25 + 0.75 * a).toFixed(2)}`,
+            }),
+            h('span', { class: 'sm', text: MOIS[mo - 1].replace('.', '') }),
+            h('span', { class: 'sv', text: (v > 0 ? '+' : '') + fmt(v, 1) })
+          );
+        })
+      ),
+      h('p', {
+        class: 'note',
+        text: `🟩 mois habituellement plus chers que la moyenne de la campagne, 🟥 moins chers (en %, médiane de ${p.campagnes} campagnes ; mois en cours encadré). Plus chers : ${p.plus_chers
+          .map((x) => MOIS[x - 1])
+          .join(
+            ', '
+          )} ; moins chers : ${p.moins_chers.map((x) => MOIS[x - 1]).join(', ')}. Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
+      })
+    );
+  });
+  return [h('h2', { text: '📅 Saisonnalité' }), h('div', { class: 'stack' }, cards)];
+}
+
+/* météo des zones de production : pluie des 60 derniers jours par rapport à la normale, chaleur prévue */
+function meteoSection(d) {
+  const m = d.meteo || {};
+  const zs = Object.entries(m.zones || {});
+  if (!zs.length) return [];
+  const notes = Object.entries(m.cultures || {}).map(
+    ([k, c]) => `${ICON[k] || ''} ${{ ble: 'blé', mais: 'maïs' }[k] || k} ${sgn(c.score)}`
+  );
+  return [
+    h('h2', { text: '🌦️ Météo des zones de production' }),
+    h(
+      'div',
+      { class: 'card scroll' },
+      h('p', {
+        class: 'cbilan',
+        text: `Note météo (de −1 à +2, positive = risque de hausse des prix) : ${notes.join(' · ')}`,
+      }),
+      h(
+        'table',
+        {},
+        h(
+          'tr',
+          {},
+          ['Zone', 'État', 'Pluie 60 jours / normale', 'Pluie prévue 14 j', 'Jours ≥ 32 °C prévus'].map((t, i) =>
+            h('th', { class: i > 2 ? 'n' : '', text: t })
+          )
+        ),
+        zs.map(([zn, z]) =>
+          h(
+            'tr',
+            {},
+            h('td', { text: zn }),
+            h('td', {
+              text:
+                ({ 'très sec': '🔥 ', sec: '🟠 ', 'un peu sec': '🟡 ', normal: '🟢 ', 'très humide': '💧 ' }[z.etat] ||
+                  '') + z.etat,
+            }),
+            h(
+              'td',
+              { class: 'pgcell' },
+              h(
+                'div',
+                { class: 'pg compact' },
+                h(
+                  'div',
+                  { class: 'ival' },
+                  h('span', {
+                    class:
+                      'badge ' + (z.ratio < 0.6 ? 'bad' : z.ratio < 0.8 ? 'warn' : z.ratio > 1.5 ? 'info' : 'good'),
+                    text: `${Math.round(z.ratio * 100)} %`,
+                  }),
+                  h('span', { class: 'ilabel', text: `${z.pluie60} mm pour ${z.normale60} mm` })
+                ),
+                gauge(Math.min(z.ratio * 100, 200), 0, 200, [
+                  [40, 'var(--bad)'],
+                  [80, 'var(--warn)'],
+                  [150, 'var(--good)'],
+                  [200, 'var(--info)'],
+                ])
+              )
+            ),
+            h('td', { class: 'n', text: `${z.pluie14} mm` }),
+            h('td', { class: 'n ' + (z.chaleur14 >= 3 ? 'down' : ''), text: String(z.chaleur14) })
+          )
+        )
+      ),
+      h('p', {
+        class: 'note',
+        text: `Normale : moyenne des 10 années précédentes sur la même fenêtre. Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
+      })
+    ),
+  ];
 }
 
 function techTable(a) {
@@ -1393,6 +1826,7 @@ function vTechnique() {
             series: src.series,
             // lecture de secours recalée sur Euronext : les niveaux retenus (en €/t Euronext) s'y lisent directement
             niveaux: c.niveaux_retenus || c.niveaux,
+            marks: marksFor({ EBM: 'ble', ECO: 'colza', EMA: 'mais' }[code]),
             longMain: 'var(--muted)',
             legendLong: c.long
               ? [
@@ -1434,6 +1868,7 @@ function vTechnique() {
               technique: o.estime.technique,
               series: o.estime.series,
               niveaux: o.estime.niveaux,
+              marks: marksFor(Object.keys(d.orges).find((k) => d.orges[k] === o)),
               mainColor: 'var(--muted)',
               longMain: 'var(--muted)',
               col4Dots: true,
@@ -1561,8 +1996,8 @@ function vTechnique() {
             h(
               'tr',
               {},
-              ['Marché', 'Rapport', 'Net', 'Semaine', 'Indice 3 ans', 'Lecture'].map((t, i) =>
-                h('th', { class: i > 1 ? 'n' : '', text: t })
+              ['Marché', 'Rapport', 'Net', 'Semaine', 'Positionnement sur 3 ans'].map((t, i) =>
+                h('th', { class: i > 1 && i < 4 ? 'n' : '', text: t })
               )
             ),
             cot.map((c) =>
@@ -1573,18 +2008,13 @@ function vTechnique() {
                 h('td', { text: dfr(c.date) }),
                 h('td', { class: 'n', text: fmt(c.net, 0) }),
                 h('td', { class: 'n ' + cls(c.variation), text: sgn(c.variation, 0) }),
-                h('td', { class: 'n', text: fmt(c.indice, 0) }),
-                h('td', {
-                  class: 'n',
-                  text:
-                    c.indice === null || c.indice === undefined
-                      ? `historique en constitution (${c.semaines || 0}/26 semaines)`
-                      : c.indice <= 15
-                        ? 'fonds très vendeurs : rachat possible'
-                        : c.indice >= 85
-                          ? 'fonds très acheteurs : liquidation possible'
-                          : 'neutre',
-                })
+                h(
+                  'td',
+                  { class: 'pgcell' },
+                  c.indice === null || c.indice === undefined
+                    ? h('span', { class: 'muted', text: `historique en constitution (${c.semaines || 0}/26 semaines)` })
+                    : pgauge(c.indice, 'cot', null, null, true)
+                )
               )
             )
           ),
@@ -1595,6 +2025,7 @@ function vTechnique() {
         )
       : h('p', { class: 'muted', text: 'Positions des fonds non disponibles ce matin.' })
   );
+  out.push(...saisonSection(d), ...meteoSection(d));
   return out;
 }
 
@@ -1622,20 +2053,25 @@ function vEngrais() {
         { class: 'card' },
         h('h3', { text: 'Ratio urée / blé' }),
         h(
+          'div',
+          { class: 'pgrid' },
+          e.estimation
+            ? pgauge(e.estimation.percentile, 'ratio', `Estimé ce matin : ${fmt(e.estimation.ratio, 3)}`)
+            : null,
+          e.mondial
+            ? pgauge(e.mondial.percentile, 'ratio', `Mondial (${moisFr(e.mondial.mois)}) : ${fmt(e.mondial.ratio, 3)}`)
+            : null,
+          e.mondial
+            ? pgauge(
+                e.mondial.uree_percentile,
+                'acheteur',
+                `Urée mondiale seule sur 10 ans : ${fmt(e.mondial.uree, 0)} $/t`
+              )
+            : null
+        ),
+        h(
           'dl',
           { class: 'kv' },
-          e.mondial
-            ? [
-                h('dt', { text: `Mondial (${e.mondial.mois})` }),
-                h('dd', { text: `${fmt(e.mondial.ratio, 3)} — ${e.mondial.percentile}e percentile` }),
-              ]
-            : null,
-          e.estimation
-            ? [
-                h('dt', { text: 'Estimé ce matin' }),
-                h('dd', { text: `${fmt(e.estimation.ratio, 3)} — ${e.estimation.percentile}e percentile` }),
-              ]
-            : null,
           [
             h('dt', { text: 'Rattrapage' }),
             h('dd', { text: e.rattrapage !== undefined ? sgn(e.rattrapage, 0) + ' pts' : '—' }),
@@ -1653,6 +2089,7 @@ function vEngrais() {
             'section',
             { class: 'card' },
             h('h3', { text: 'Gaz TTF' }),
+            pgauge(e.ttf.percentile_5ans, 'acheteur', `Prix sur 5 ans : ${fmt(e.ttf.dernier)} €/MWh`),
             h(
               'dl',
               { class: 'kv' },
@@ -1916,7 +2353,7 @@ function vMethode() {
   const txt = [
     [
       'Chaque matin',
-      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (rapport Euronext et CFTC), les prix des engrais en France et le Pink Sheet de la Banque mondiale. Il calcule la technique (RSI 14, MACD 12/26/9, moyennes mobiles 20/50/200, Bollinger 20/2, Fibonacci, divergences), le module engrais et les déclencheurs, puis envoie un email s'il se passe quelque chose.",
+      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (rapport Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale et la météo de 10 zones de production. Il calcule la technique (RSI 14, MACD 12/26/9, moyennes mobiles 20/50/200, Bollinger 20/2, Fibonacci, divergences), le module engrais et les déclencheurs, puis envoie un email s'il se passe quelque chose.",
     ],
     [
       'Le comité',
@@ -1924,11 +2361,27 @@ function vMethode() {
     ],
     [
       'Entre deux comités',
-      "Le score du comité est actualisé chaque matin par la variation de la technique, des fonds et de la macro (10 % chacun, comme dans la grille du comité). Si cela suffit à changer de case dans la matrice, la culture est marquée « à revoir » et un comité d'alerte est demandé.",
+      "Le score du comité est actualisé chaque matin par la variation de la technique, des fonds, de la macro et de la météo (10 % chacun, comme dans la grille du comité). Si cela suffit à changer de case dans la matrice, la culture est marquée « à revoir » et un comité d'alerte est demandé.",
     ],
     [
       'Matrice',
       "Score ≤ −1 : vendre une tranche ou couvrir · entre −1 et +0,5 : tenir le plan · ≥ +0,5 : attendre ou stocker. Le timing technique décide du moment : pas de vente en survente ou au bas du range de 3 mois, accélération en surachat qui s'essouffle.",
+    ],
+    [
+      'Jauges en percentile',
+      'Un percentile situe le chiffre du jour dans son histoire : 10e = plus bas que 90 % des valeurs passées, 90e = plus haut. Prix sur 5 ans (marché mondial en €/t recalé sur Euronext), ratio azote/blé et urée sur 10 ans, gaz sur 5 ans, positions des fonds sur 3 ans, prime locale sur un an. Vert = bon moment pour vendre (céréales) ou pour acheter (azote).',
+    ],
+    [
+      'Stocker ou vendre',
+      "Écart entre l'échéance Euronext de référence et chaque échéance plus lointaine de la même récolte, moins le coût du stockage (0,6 €/t/mois de frais et 4 %/an pour l'argent immobilisé, réglables). Gain net ≥ 3 €/t : stocker ; négatif : vendre plutôt que stocker.",
+    ],
+    [
+      'Prime locale, saisonnalité, météo',
+      "Prime locale : prix physique (Rouen, Moselle, Creil, Rhin) moins l'échéance Euronext du même jour, situé sur son historique après 40 relevés. Saisonnalité : écart habituel de chaque mois au prix moyen de la campagne, médiane de plus de 20 campagnes à Chicago. Météo : pluie des 60 derniers jours par rapport à la normale sur 10 ans et chaleur prévue à 14 jours, notée de −1 à +2 et comptée pour 15 % de la lecture de marché.",
+    ],
+    [
+      'Carnet de bord',
+      "Chaque avis du comité est noté avec le cours du jour, puis jugé 4 et 8 semaines plus tard : vendre est bon si le cours a baissé, attendre s'il a monté ; pour l'azote, acheter large est bon si l'urée a monté. Les pastilles de couleur sur les graphiques montrent où les avis ont été donnés.",
     ],
     [
       'Limites',
@@ -2007,6 +2460,9 @@ async function getJSON(path) {
 }
 
 async function init() {
+  // page installable sur le téléphone : même service worker qu'Euro Signal (réseau d'abord, copie locale hors connexion)
+  if ('serviceWorker' in navigator && location.protocol === 'https:')
+    navigator.serviceWorker.register('sw.js').catch(() => {});
   const tab = (location.hash || '').slice(1);
   if (['signaux', 'technique', 'engrais', 'comite', 'methode'].includes(tab)) GS.tab = tab;
   document.querySelectorAll('.tabs button').forEach((b) =>

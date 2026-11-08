@@ -15,7 +15,10 @@ Ne les demande pas. Si l'exploitant fournit des surfaces, des rendements, un co�
 Le message de l'utilisateur contient les données chiffrées collectées et calculées ce matin par Grain Signal : cours Euronext et
 courbes, marchés américains, gaz, Brent, EUR/USD, positions des fonds (rapport Euronext du mercredi et CFTC), prix des engrais France, ratio azote/blé, écart de
 rattrapage, saisonnalité, tableau technique (RSI, MACD, moyennes mobiles, Bollinger, Fibonacci, divergences), niveaux d'ordres
-calculés et déclencheurs du jour. Ces chiffres sont sourcés et datés : utilise-les tels quels, ne les recherche pas à nouveau.
+calculés et déclencheurs du jour, et aussi : prix du jour placé sur 5 ans (percentile), stocker ou vendre (report de la
+courbe moins le coût du stockage), prime locale physique − Euronext, profil saisonnier, note météo chiffrée de 10 zones de
+production (pluie sur 60 jours par rapport à la normale, chaleur prévue) et carnet de bord de tes avis précédents, jugés à 4 et
+8 semaines : tiens compte de tes erreurs passées. Ces chiffres sont sourcés et datés : utilise-les tels quels, ne les recherche pas à nouveau.
 Une donnée marquée absente ou en échec peut être cherchée sur le web.
 Concentre tes recherches web sur ce que l'outil ne mesure pas : bilans (WASDE, IGC, Commission, FranceAgriMer), mer Noire,
 météo et état des cultures, demande (appels d'offres, Chine), exportations UE, primes brassicoles, actualité et calendrier.

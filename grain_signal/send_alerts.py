@@ -53,22 +53,40 @@ def niveaux_txt(ordres, eq, nr):
     return t
 
 
+def jauge(p, acheteur=False):
+    """Percentile en pastille colorée et petite barre (lisible dans un email, sans image) : vert = bon moment pour vendre
+    (ou pour acheter, côté azote)."""
+    if p is None:
+        return "—"
+    q = 100 - p if acheteur else p
+    col = "#b0281f" if q <= 20 else "#9a5b00" if q <= 40 else "#6b6d60" if q < 60 else "#2a62b8" if q < 80 else "#1f7a3e"
+    return (f"<span style='background:{col};color:#fff;border-radius:5px;padding:2px 6px;font:600 12px monospace'>{p}e</span>"
+            f"<div style='margin-top:4px;width:90px;height:6px;background:#e7e3d6;border-radius:3px;position:relative'>"
+            f"<div style='position:absolute;left:{max(0, min(100, p)) * 0.9 - 4:.0f}px;top:-2px;width:8px;height:8px;border-radius:50%;"
+            f"background:#fff;border:2px solid #1c1a12'></div></div>")
+
+
 def table_signaux(dash):
     rows = []
+    contrats = dash.get("contrats") or {}
     for c in (dash.get("cultures") or {}).values():
+        th = (contrats.get(c.get("contrat")) or {}).get("thermo") or {}
         feu = (c.get("feu") or {}).get("texte", "")
         nr = c.get("niveaux_retenus") or {}  # mêmes niveaux que la page (comité, sinon techniques)
         ordres = nr.get("ordres") or []
         eq = (nr.get("equivalent_orge") or {}).get("ordres") or []
         rows.append(f"<tr><td style='padding:6px 8px;border-bottom:1px solid #ddd'><b>{e(c['nom'])}</b></td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(c.get('libelle'))}</td>"
+                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{jauge(th.get('percentile'))}</td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(niveaux_txt(ordres, eq, nr))}</td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd;color:#555'>{e(feu)}</td></tr>")
     eng = dash.get("engrais") or {}
     rows.append(f"<tr><td style='padding:6px 8px'><b>Engrais azotés</b></td><td style='padding:6px 8px'>{e(eng.get('libelle'))}</td>"
+                f"<td style='padding:6px 8px'>{jauge(eng.get('percentile_retenu'), acheteur=True)}</td>"
                 f"<td style='padding:6px 8px'>{e(eng.get('a_acheter'))}</td><td style='padding:6px 8px;color:#555'>{e(' ; '.join(eng.get('notes', [])))}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'><th align=left style='padding:6px 8px'>Culture</th>"
-            "<th align=left style='padding:6px 8px'>Signal</th><th align=left style='padding:6px 8px'>Ordres</th><th align=left style='padding:6px 8px'>Timing</th></tr>"
+            "<th align=left style='padding:6px 8px'>Signal</th><th align=left style='padding:6px 8px'>Prix 5 ans / ratio azote</th>"
+            "<th align=left style='padding:6px 8px'>Ordres</th><th align=left style='padding:6px 8px'>Timing</th></tr>"
             + "".join(rows) + "</table>")
 
 

@@ -1,0 +1,17 @@
+{
+ "id": "grain-signal.html",
+ "name": "Grain Signal",
+ "short_name": "Grain Signal",
+ "description": "Quand vendre ses céréales et acheter son azote : décisions du matin, jauges et alertes",
+ "lang": "fr",
+ "start_url": "grain-signal.html",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#f1efe7",
+ "theme_color": "#1c1a12",
+ "icons": [
+  { "src": "grain_signal/web/icon-192.png", "sizes": "192x192", "type": "image/png" },
+  { "src": "grain_signal/web/icon-512.png", "sizes": "512x512", "type": "image/png" },
+  { "src": "grain_signal/web/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+ ]
+}

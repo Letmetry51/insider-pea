@@ -85,8 +85,8 @@
     "colza": { "reference": ["ECO", 8], "tranches": [[-1, 0, 10], [3, 4, 10], [5, 6, 10], [7, 8, 15], [10, 11, 15], [13, 14, 15], [15, 16, 15], [17, 18, 10]] },
     "mais": { "reference": ["EMA", 11], "tranches": [[3, 4, 10], [5, 6, 10], [7, 8, 10], [11, 12, 15], [13, 14, 20], [15, 16, 20], [17, 18, 15]] }
   },
-  "poids": { "technique": 0.5, "cot": 0.25, "macro": 0.25 },
-  "poidsComite": { "technique": 0.1, "cot": 0.1, "macro": 0.1 },
+  "poids": { "technique": 0.45, "cot": 0.2, "macro": 0.2, "meteo": 0.15 },
+  "poidsComite": { "technique": 0.1, "cot": 0.1, "macro": 0.1, "meteo": 0.1 },
   "matrice": { "vendre": -1, "attendre": 0.5 },
   "engrais": {
     "ratioBas": 20,
@@ -106,5 +106,37 @@
     "jourHebdo": 0,
     "alerteMaxParSemaine": 2,
     "joursValidite": 8
+  },
+  "stockage": {
+    "_aide": "Stocker ou vendre : frais de stockage en €/t/mois (ventilation, assurance, freinte), coût de l'argent immobilisé (taux annuel en %), gain net minimal en €/t pour conseiller de stocker. Valeurs modifiables.",
+    "fraisMensuels": 0.6,
+    "tauxAnnuel": 4.0,
+    "seuilGain": 3.0
+  },
+  "primeLocale": {
+    "_aide": "Places physiques (page terre-net, place) comparées à l'échéance Euronext de référence du même jour.",
+    "ble": [["ble", "Rouen Rendu"], ["ble", "Moselle Fob"]],
+    "colza": [["colza", "Rouen Rendu"], ["colza", "Moselle Fob"]],
+    "mais": [["mais", "Creil Fob"], ["mais", "Rhin Fob"]]
+  },
+  "meteo": {
+    "_aide": "Zones de production (Open-Meteo, CC BY 4.0). sensible : mois où la météo pèse sur les prix ; chaleur : mois où 3 jours prévus à 32 °C ou plus comptent. cultures : poids de chaque zone.",
+    "zones": {
+      "Champagne": { "lat": 48.95, "lon": 4.36, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
+      "Beauce": { "lat": 48.3, "lon": 1.6, "sensible": { "ble": [3, 4, 5, 6, 10] }, "chaleur": { "ble": [5, 6] } },
+      "Sud-Ouest": { "lat": 43.7, "lon": 0.3, "sensible": { "mais": [6, 7, 8] }, "chaleur": { "mais": [7, 8] } },
+      "Ukraine sud": { "lat": 46.9, "lon": 33.0, "sensible": { "ble": [4, 5, 6, 9, 10, 11] }, "chaleur": { "ble": [5, 6] } },
+      "Ukraine centre": { "lat": 49.0, "lon": 32.0, "sensible": { "mais": [6, 7, 8] }, "chaleur": { "mais": [7, 8] } },
+      "Russie sud": { "lat": 46.0, "lon": 39.5, "sensible": { "ble": [4, 5, 6, 9, 10, 11] }, "chaleur": { "ble": [5, 6] } },
+      "Kansas": { "lat": 38.5, "lon": -98.5, "sensible": { "ble": [3, 4, 5, 10, 11] }, "chaleur": { "ble": [5] } },
+      "Iowa": { "lat": 42.0, "lon": -93.5, "sensible": { "mais": [6, 7, 8] }, "chaleur": { "mais": [7, 8] } },
+      "Allemagne-Pologne": { "lat": 52.5, "lon": 14.5, "sensible": { "colza": [3, 4, 5, 9, 10] }, "chaleur": { "colza": [4, 5] } },
+      "Saskatchewan": { "lat": 52.0, "lon": -106.0, "sensible": { "colza": [6, 7, 8] }, "chaleur": { "colza": [7] } }
+    },
+    "cultures": {
+      "ble": { "Champagne": 0.175, "Beauce": 0.175, "Russie sud": 0.3, "Ukraine sud": 0.15, "Kansas": 0.2 },
+      "mais": { "Iowa": 0.45, "Ukraine centre": 0.3, "Sud-Ouest": 0.25 },
+      "colza": { "Champagne": 0.3, "Allemagne-Pologne": 0.35, "Saskatchewan": 0.35 }
+    }
   }
 }

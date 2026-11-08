@@ -50,7 +50,7 @@ runs:
         mkdir -p "$SITE/euro_signal" && cp euro_signal/core.js "$SITE/euro_signal/"
         # Grain Signal (céréales et engrais) : sa page et ses fichiers, à côté d'Euro Signal
         if [ -f grain-signal.html ]; then
-          cp grain-signal.html "$SITE"/
+          cp grain-signal.html grain-signal.webmanifest "$SITE"/
           mkdir -p "$SITE/grain_signal" && cp -r grain_signal/web "$SITE/grain_signal/web"
           # empreinte des fichiers de la page : le navigateur recharge le script et le style dès qu'ils changent
           V="$(cat grain_signal/web/app.js grain_signal/web/app.css | sha1sum | cut -c1-10)"
