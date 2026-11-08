@@ -469,6 +469,74 @@ try:
 finally:
     shutil.rmtree(_tmp2, ignore_errors=True)
 
+# ---------------------------------------------------------------- historique officiel Euronext (fichiers statistiques publics)
+from datetime import date as _date  # noqa: E402
+
+_H = ["Date", "Market Place", "Product Group", "_", "Contract Type", "Contract Name", "Contract Code", "Last Trading Date",
+      "Expiration Date", "Exercise Price", "Instrument Type", "Valuation Coefficient", "Exercise Type", "AMR", "ISIN", "Currency",
+      "First Price", "Highest Price", "Lowest Price", "Last Price", "Settlement Price"]
+
+
+def _row(code, amr, ltd, sp):
+    r = [None] * len(_H)
+    r[6], r[13], r[7], r[20] = code, amr, ltd, sp
+    return r
+
+
+_rows = [["Euronext Derivatives - Series"], _H,
+         _row("EBM", "YFEBM 2612A000000F", _date(2026, 12, 10), 223),
+         _row("EBM", "YFEBMT2611K000000F", _date(2026, 11, 20), 0),  # contrat TAS : écarté
+         _row("ECO", "YFECO 2701T000000F", _date(2027, 1, 29), 526),  # colza février 2027 (expire fin janvier)
+         _row("EMA", "YFEMA 27035000000F", _date(2027, 3, 5), 246),
+         _row("EMA", "YFEMA 28036000000F", _date(2028, 3, 6), 0),  # prix nul : écarté
+         _row("IS6", "AFIS6 2611F000000F", _date(2026, 11, 20), 16.5)]
+_ps = {(x["product"], x["maturity"]): x["settle"] for x in collect.parse_series(_rows, _date(2026, 11, 5))}
+check(_ps == {("EBM", "2026-12"): 223.0, ("ECO", "2027-02"): 526.0, ("EMA", "2027-03"): 246.0},
+      f"historique Euronext : compensation par échéance, colza décalé d'un mois, TAS et prix nuls écartés ({_ps})")
+_H2 = [h.replace("Expiration Date", "Expiry Month") for h in _H]  # format 2019-2023
+_r2 = [_H2, _row("EBM", "YFEBM191200000F", _date(2019, 12, 10), 178.5)]
+check(collect.parse_series(_r2, _date(2019, 11, 8))[0]["maturity"] == "2019-12", "historique Euronext : ancien format (2019) lu")
+
+_tmp3 = Path(tempfile.mkdtemp())
+try:
+    collect.PRIV = _tmp3
+    (_tmp3 / "euronext.csv").write_text("date,product,maturity,settle\n2026-11-05,EBM,2026-12,223.5\n", encoding="utf-8")
+    _calls = []
+
+    class _R:
+        def __init__(self, code, content=b""):
+            self.status_code, self.content = code, content
+
+    def _get(url, **kw):
+        d_ = url.rsplit("%20", 1)[1][:8]
+        _calls.append(d_)
+        if d_ in ("20261105", "20261104"):
+            return _R(200, b"PK" + d_.encode())
+        return _R(404)
+    _orig_get, _orig_rows = collect.requests.get, collect.stats_rows
+    collect.requests.get = _get
+    collect.stats_rows = lambda content, d: [{"date": d.isoformat(), "product": "EBM", "maturity": "2026-12", "settle": 223.0}]
+    collect.HISTO_DEBUT = _date(2026, 10, 20)
+    collect.collect_euronext_histo(_date(2026, 11, 7), budget=30)
+    _st = json.loads((_tmp3 / "euronext_histo.json").read_text())["faits"]
+    _csv = collect.read_csv(_tmp3 / "euronext.csv")
+    check("2026-11-06" not in _st and "2026-11-05" in _st and "2026-10-23" in _st,
+          f"historique Euronext : fichier récent absent redemandé demain, ancien absent = jour férié ({_st[-4:]})")
+    check(any(r["date"] == "2026-11-04" for r in _csv) and len([r for r in _csv if r["date"] == "2026-11-05"]) == 1,
+          "historique Euronext : séances ajoutées sans doublon")
+    check(collect.status["controle_terre_net"]["ok"] is False and "223.5" in collect.status["controle_terre_net"]["detail"],
+          "contrôle croisé : écart entre terre-net et Euronext signalé")
+    collect.requests.get, collect.stats_rows = _orig_get, _orig_rows
+finally:
+    shutil.rmtree(_tmp3, ignore_errors=True)
+
+_fe = [{"date": "2026-12-01", "product": "EBM", "maturity": "2026-12", "settle": "230"},
+       {"date": "2026-12-01", "product": "EBM", "maturity": "2027-03", "settle": "228"},
+       {"date": "2026-12-04", "product": "EBM", "maturity": "2026-12", "settle": "231"},
+       {"date": "2026-12-04", "product": "EBM", "maturity": "2027-03", "settle": "229"}]
+check(build.front_series(_fe, "EBM") == (["2026-12-01", "2026-12-04"], [230.0, 229.0]),
+      "prix réel de l'échéance de référence : bascule sur mars 5 jours ouvrés avant l'expiration de décembre")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

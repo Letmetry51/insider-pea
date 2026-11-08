@@ -18,7 +18,7 @@ et un comité de 10 experts réuni par l'API Claude.
 
 ## Sources
 
-Euronext blé, colza et maïs (prix de compensation, via terre-net ; secours : Euronext live) · Yahoo Finance (blé CBOT et KC, maïs,
+Euronext blé, colza et maïs (prix de compensation, via terre-net ; secours : Euronext live ; historique depuis novembre 2019 : fichiers statistiques quotidiens publics d'Euronext, avec contrôle croisé) · Yahoo Finance (blé CBOT et KC, maïs,
 soja, huile de soja, canola, gaz TTF, Brent, EUR/USD) · Euronext (rapport hebdomadaire des positions, fonds d'investissement, PDF officiel) · CFTC (positions des fonds, *managed money*) · terre-net (urée, ammonitrate,
 solution azotée, urée Égypte, prix physiques) · Banque mondiale (Pink Sheet mensuel, licence CC BY 4.0). Les historiques bruts
 des cours restent dans le cache du workflow et ne sont jamais publiés.
