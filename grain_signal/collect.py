@@ -314,12 +314,13 @@ def collect_euronext(today):
     print(f"Euronext : {added} nouvelles cotations, {len(rows)} au total")
 
 
-def yahoo_series(tk, recent_only=False):
+def yahoo_series(tk, recent_only=False, mini=None):
     """Clôtures journalières sur 5 ans : yfinance (gère les jetons de Yahoo, comme Euro Signal), sinon accès direct."""
     errs = []
     # Yahoo renvoie parfois une seule séance (gaz TTF sur 5 ans) ou refuse (429) : période plus courte, puis nouvel essai
     # historique déjà en mémoire : seules les dernières semaines sont demandées (requête légère, moins de refus de Yahoo)
-    periods, mini = (("1mo", "3mo"), 5) if recent_only else (("5y", "2y", "1y"), 50)
+    periods, mini_ = (("1mo", "3mo"), 5) if recent_only else (("5y", "2y", "1y"), 50)
+    mini = mini or mini_
     for attempt, period in enumerate(periods):
         try:
             import yfinance as yf
@@ -363,11 +364,15 @@ def collect_yahoo():
             prev = ((old.get(tk) or {}).get("serie")) or {}
             have = len(prev) >= 250  # un an d'historique déjà gardé : mise à jour légère
             try:
-                ser, src = yahoo_series(tk, recent_only=have)
+                # historique gardé : une seule séance nouvelle suffit (Yahoo ne renvoie parfois que la dernière séance du gaz TTF)
+                ser, src = yahoo_series(tk, recent_only=have, mini=1 if have else None)
                 merged = dict(prev)
                 merged.update(ser)
                 out[tk] = {"nom": name, "serie": dict(sorted(merged.items())[-1400:])}
-                note("yahoo_" + tk, True, f"{len(merged)} séances, dernière {max(merged)} ({src}{', mise à jour' if have else ''})")
+                last = max(merged)
+                if (datetime.now(timezone.utc).date() - date.fromisoformat(last)).days > 6:
+                    raise RuntimeError(f"série figée au {last}")
+                note("yahoo_" + tk, True, f"{len(merged)} séances, dernière {last} ({src}{', mise à jour' if have else ''})")
             except Exception as e:  # noqa: BLE001
                 failed.append((tk, name))
                 note("yahoo_" + tk, False, f"{e} (historique précédent gardé)" if tk in old else e)
@@ -536,6 +541,45 @@ def collect_cot_euronext(today, budget=150):
     save_json(path, data)
 
 
+METEO_ARCH = ("https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={a}&end_date={b}"
+              "&daily=precipitation_sum,temperature_2m_max&timezone=UTC")
+METEO_PREV = ("https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=precipitation_sum,temperature_2m_max"
+              "&past_days=10&forecast_days=14&timezone=UTC")
+
+
+def om_daily(j):
+    d = j["daily"]
+    return {t: [p, x] for t, p, x in zip(d["time"], d["precipitation_sum"], d["temperature_2m_max"])}
+
+
+def collect_meteo(today):
+    """Pluie et température maximale des zones de production (Open-Meteo) : 11 ans d'observations (une fois par semaine)
+    et prévision à 14 jours (chaque jour). Une seule source notée pour toutes les zones (pas dix alertes de panne)."""
+    path = PRIV / "meteo.json"
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    ok, errs = 0, []
+    for zn, z in CFG["meteo"]["zones"].items():
+        cur = data.get(zn) if isinstance(data.get(zn), dict) else {}
+        try:
+            au = cur.get("archive_au")
+            if not au or (today - date.fromisoformat(au)).days >= 7 or len(cur.get("archive") or {}) < 3000:
+                url = METEO_ARCH.format(lat=z["lat"], lon=z["lon"], a=(today - timedelta(days=11 * 366)).isoformat(),
+                                        b=(today - timedelta(days=6)).isoformat())
+                arch = {k: v for k, v in om_daily(get(url).json()).items() if v[0] is not None}
+                if len(arch) < 3000:
+                    raise RuntimeError(f"archive de {len(arch)} jours")
+                cur.update(archive=arch, archive_au=today.isoformat())
+            cur.update(prevision=om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"])).json()), prevision_au=today.isoformat())
+            ok += 1
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{zn} : {str(e)[:80]}")
+        data[zn] = cur
+        time.sleep(1)
+    save_json(path, data)
+    n = len(CFG["meteo"]["zones"])
+    note("meteo", ok >= 0.7 * n, f"{ok}/{n} zones" + (" ; " + " ; ".join(errs[:3]) if errs else ""))
+
+
 def collect_cftc():
     path = PRIV / "cftc.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -670,7 +714,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_cot_euronext(today), lambda: collect_engrais(today), collect_physique,
+    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
                collect_banque_mondiale):
         try:
             fn()

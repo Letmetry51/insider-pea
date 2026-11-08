@@ -128,7 +128,7 @@ check('href="https://example.com/a"' in hs, "lien https conservé")
 tmp = Path(tempfile.mkdtemp())
 try:
     (tmp / "grain_signal").mkdir()
-    for f in ("build.py", "indicators.py", "config.json", "comite.py", "send_alerts.py"):
+    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py"):
         shutil.copy(HERE / f, tmp / "grain_signal" / f)
     shutil.copytree(HERE / "seed", tmp / "grain_signal" / "seed")
     priv = tmp / "data" / "grain" / "prive"
@@ -149,6 +149,13 @@ try:
         check(pl[1].get("ordre") == 228.0, "ordre de la récolte 2027 décalé de l'écart entre échéances (235,5 − 7,5)")
         check(all(sum(t[2] for t in v["tranches"]) == 100 for v in dash["config"]["calendrier"].values()), "calendriers à 100 %")
         check(dash["engrais"].get("signal") in ("ACHETER_LARGE", "SUIVRE", "FRACTIONNER", "ATTENDRE"), "décision engrais")
+        st_ = dash["contrats"]["EBM"].get("stockage") or {}
+        check(st_.get("code") in ("stocker", "vendre", "neutre") and st_.get("reference") == "2026-12",
+              f"stocker ou vendre calculé sur la courbe du blé ({st_.get('texte')})")
+        cb_ = dash["carnet"]["entrees"]
+        check(len(cb_) == 6 and {x["cle"] for x in cb_} == {"ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais"},
+              "carnet de bord : avis du comité de départ notés (5 cultures et l'azote)")
+        check("meteo" in dash["cultures"]["ble"]["composantes"], "note météo dans les composantes du score")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0, "emails en simulation")
 finally:
@@ -159,7 +166,7 @@ def run_build(setup, today="2026-11-07", twice=False):
     t = Path(tempfile.mkdtemp())
     try:
         (t / "grain_signal").mkdir()
-        for f in ("build.py", "indicators.py", "config.json"):
+        for f in ("build.py", "indicators.py", "decisions.py", "config.json"):
             shutil.copy(HERE / f, t / "grain_signal" / f)
         shutil.copytree(HERE / "seed", t / "grain_signal" / "seed")
         pv = t / "data" / "grain" / "prive"
@@ -321,6 +328,73 @@ _e4, _m4 = build.suivi_pannes({"y": {"ok": True}}, _e3, _j3)  # x non interrogé
 check(not _m4 and _e4.get("x") == _e3["x"], "pannes : source non interrogée, état gardé, pas de faux rétablissement")
 _e5, _m5 = build.suivi_pannes({"x": {"ok": True}}, _e3, _j3)
 check(len(_m5) == 1 and "rétablie" in _m5[0][1] and "x" not in _e5, "pannes : message au rétablissement, incident clos")
+
+# ---------------------------------------------------------------- aides à la décision (decisions.py)
+import decisions as dec  # noqa: E402
+
+_c5 = [[f"w{i}", 100 + i] for i in range(200)]
+_t = dec.thermometre(_c5)
+check(_t["percentile"] == 100 and _t["min"] == 100 and _t["max"] == 299, f"thermomètre : prix au plus haut des 5 ans = 100e ({_t})")
+check(dec.thermometre(_c5[:50]) is None, "thermomètre : rien sous 2 ans d'historique")
+check(dec.pctile([1, 2, 3, 4], 2) == 50 and dec.pctile([], 1) is None, "percentile : rang dans la fenêtre")
+
+_ds, _vs = [], []
+_d0 = date(2000, 7, 1)
+while _d0 < date(2020, 7, 1):
+    _ds.append(_d0.isoformat())
+    _vs.append(100 * (1.1 if _d0.month == 3 else 1.0))
+    _d0 += _td(days=1)
+_sp = dec.saisonnier(_ds, _vs, 7)
+check(_sp and _sp["campagnes"] == 20 and _sp["plus_chers"][0] == 3 and _sp["mois"][2] > 8, f"saisonnalité : mars repéré comme le mois cher ({_sp and _sp['mois']})")
+
+
+def _exp(m):
+    return date(int(m[:4]), int(m[5:]), 10)
+
+
+_cfg = {"fraisMensuels": 0.6, "tauxAnnuel": 4.0, "seuilGain": 3.0}
+_s1 = dec.stockage({"2026-12": 220, "2027-03": 232, "2027-05": 236, "2027-09": 240}, "2026-12", _exp, date(2026, 11, 7), 7, _cfg)
+check(_s1["code"] == "stocker" and all(o["echeance"] != "2027-09" for o in _s1["options"]),
+      f"stocker ou vendre : report de +16 €/t → stocker, échéance de la nouvelle récolte exclue ({_s1['texte']})")
+_s2 = dec.stockage({"2026-12": 220, "2027-03": 219, "2027-05": 218}, "2026-12", _exp, date(2026, 11, 7), 7, _cfg)
+check(_s2["code"] == "vendre", "stocker ou vendre : déport → vendre plutôt que stocker")
+_s3 = dec.stockage({"2027-09": 220, "2027-12": 230}, "2027-09", _exp, date(2027, 6, 20), 7, _cfg)
+check(_s3["code"] == "nouvelle", "stocker ou vendre : échéance de la nouvelle récolte → pas de report sur l'ancienne")
+
+_rows = [{"date": f"2026-{9 + i // 28:02d}-{1 + i % 28:02d}", "page": "ble", "place": "Rouen Rendu", "prix": 200 + (i % 10)} for i in range(50)]
+_pl = dec.prime_locale(_rows, [["ble", "Rouen Rendu"], ["ble", "Inconnue"]], lambda d_: 200.0)
+check(_pl and _pl["places"][0]["jours"] == 50 and _pl["percentile"] is not None and len(_pl["places"]) == 1,
+      f"prime locale : physique − Euronext, percentile après 40 relevés ({_pl and _pl.get('texte')})")
+_pl2 = dec.prime_locale(_rows[:5], [["ble", "Rouen Rendu"]], lambda d_: 200.0)
+check("percentile" not in _pl2 and "constitution" in _pl2["texte"], "prime locale : historique trop court annoncé")
+
+_serie = {(date(2026, 9, 1) + _td(days=i)).isoformat(): 200 - i * 0.5 for i in range(80)}
+_cb = []
+check(dec.carnet_ajoute(_cb, "ble", "2026-09-01", "VENDRE", 200, "2026-09-01") and
+      not dec.carnet_ajoute(_cb, "ble", "2026-09-02", "VENDRE", 200, "2026-09-01"), "carnet : un avis n'est noté qu'une fois")
+dec.carnet_note(_cb[0], _serie, date(2026, 11, 20))
+check(_cb[0]["s4"]["verdict"] == "bon" and _cb[0]["s4"]["gain"] == 14.0 and _cb[0]["s8"]["verdict"] == "bon",
+      f"carnet : vendre avant une baisse = bon avis ({_cb[0]['s4']})")
+_cw = [{"id": "a", "cle": "colza", "date": "2026-09-01", "signal": "ATTENDRE", "prix": 200}]
+dec.carnet_note(_cw[0], _serie, date(2026, 10, 10))
+check(_cw[0]["s4"]["verdict"] == "mauvais" and "variation" not in _cw[0]["s8"], "carnet : attendre avant une baisse = mauvais ; 8 semaines pas encore jugées")
+_ce = [{"id": "e", "cle": "engrais", "date": "2026-09-01", "signal": "ATTENDRE", "prix": 200}]
+dec.carnet_note(_ce[0], _serie, date(2026, 11, 20), engrais=True)
+check(_ce[0]["s4"]["verdict"] == "bon", "carnet : azote, attendre avant une baisse = bon avis")
+
+_today = date(2026, 11, 7)
+_obs, _k = {}, _today - _td(days=4100)
+while _k <= _today - _td(days=6):
+    _obs[_k.isoformat()] = (2.0 if _k < _today - _td(days=80) else 0.4, 15.0)
+    _k += _td(days=1)
+_prev = {(_today + _td(days=i)).isoformat(): (0.4, 33.0) for i in range(-10, 14)}
+_z = dec.meteo_zone(_obs, _prev, _today)
+check(_z and _z["ratio"] == 0.2 and _z["chaleur14"] == 14 and dec.meteo_etat(_z)[1] == "très sec",
+      f"météo : 60 jours à 20 % de la normale = très sec ({_z})")
+_mc = {"zones": {"A": {"sensible": {"ble": [11]}, "chaleur": {"ble": [11]}}, "B": {"sensible": {"ble": [5]}}},
+       "cultures": {"ble": {"A": 0.5, "B": 0.5}}}
+_ms = dec.meteo_score({"A": _z, "B": {"ratio": 1.0, "chaleur14": 0}}, _mc, _today)
+check(_ms["ble"]["score"] == round((0.5 * 2.3 + 0.5 * -0.3 * 0.25), 2), f"météo : note pondérée, hors saison au quart ({_ms['ble']})")
 
 for st, name in results:
     print(st, name)
