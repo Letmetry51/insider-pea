@@ -358,10 +358,15 @@ def collect_yahoo():
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     out = dict(old)
     pending = list(CFG["yahoo"].items())
+    t0 = time.monotonic()
     for tour in (1, 2):  # second tour, après une pause, pour les séries refusées au premier (Yahoo limite les requêtes)
         failed = []
         for tk, name in pending:
             prev = ((old.get(tk) or {}).get("serie")) or {}
+            if time.monotonic() - t0 > 420:  # 7 minutes : Yahoo refuse tout, les autres sources doivent passer
+                failed.append((tk, name))
+                note("yahoo_" + tk, False, "Yahoo trop lent ou refuse (historique précédent gardé)")
+                continue
             have = len(prev) >= 250  # un an d'historique déjà gardé : mise à jour légère
             try:
                 # historique gardé : une seule séance nouvelle suffit (Yahoo ne renvoie parfois que la dernière séance du gaz TTF)
@@ -377,7 +382,7 @@ def collect_yahoo():
                 failed.append((tk, name))
                 note("yahoo_" + tk, False, f"{e} (historique précédent gardé)" if tk in old else e)
             time.sleep(3)
-        if not failed:
+        if not failed or time.monotonic() - t0 > 420:
             break
         pending = failed
         if tour == 1:
@@ -466,11 +471,15 @@ def parse_cot_rows(text, rows):
 
 
 def fetch_pdf(url):
+    """Contenu du PDF ; "absent" si Euronext répond qu'il n'existe pas (404) ; None si erreur (réseau, 5xx, réponse anormale) :
+    une erreur n'est jamais prise pour une semaine sans rapport (elle sera réessayée)."""
     try:
         r = requests.get(url, headers=UA, timeout=20)
-        return r.content if r.status_code == 200 and r.content[:4] == b"%PDF" else None
     except Exception:  # noqa: BLE001
         return None
+    if r.status_code == 200 and r.content[:4] == b"%PDF":
+        return r.content
+    return "absent" if r.status_code in (403, 404, 410) else None
 
 
 def collect_cot_euronext(today, budget=150):
@@ -491,7 +500,9 @@ def collect_cot_euronext(today, budget=150):
             if d.isoformat() in pubs:
                 return True, False, None
             pdf = fetch_pdf(COT_URL.format(y=d.year, m=d.month, d=d.day, p=prod))
-            if not pdf:
+            if pdf is None:
+                raise ConnectionError(f"Euronext injoignable ({d})")
+            if pdf == "absent":
                 return False, False, None
             try:
                 rec = parse_cot_pdf(pdf)
@@ -505,30 +516,38 @@ def collect_cot_euronext(today, budget=150):
             return True, True, None
 
         last = max(pubs) if pubs else None
-        if not last or (today - date.fromisoformat(last)).days >= 6:
-            for back in range(14):  # dernier rapport publié (mardi, mercredi ou jeudi)
-                d = today - timedelta(days=back)
-                if d.weekday() in (1, 2, 3):
-                    found, neuf, err_recent = essai(d)
-                    if found:
-                        nouveaux += neuf
-                        break
+        try:
+            if not last or (today - date.fromisoformat(last)).days >= 6:
+                for back in range(14):  # dernier rapport publié (mardi, mercredi ou jeudi)
+                    d = today - timedelta(days=back)
+                    if d.weekday() in (1, 2, 3):
+                        found, neuf, err_recent = essai(d)
+                        if found:
+                            nouveaux += neuf
+                            break
+        except ConnectionError as ex:
+            err_recent = str(ex)
+        if pubs and (today - date.fromisoformat(max(pubs))).days > 10 and not err_recent:
+            err_recent = f"aucun rapport publié depuis le {max(pubs)}"  # source muette : notée en panne (alerte au 2e jour)
         avant_debut = sum(1 for a in absents if pubs and a < min(pubs))
-        if pubs and len(serie) < 156 and avant_debut < 8:  # 8 semaines vides avant le 1er rapport : début de la publication atteint
+        if pubs and len(serie) < 156 and avant_debut < 8 and not err_recent:  # 8 semaines vides : début de la publication atteint
             first = date.fromisoformat(min(pubs | absents))
-            first -= timedelta(days=(first.weekday() - 2) % 7)  # mercredi de cette semaine
-            for k in range(1, 7):
-                if time.monotonic() - t0 > budget:
-                    break
-                wed = first - timedelta(weeks=k)
-                for dd in (0, 1, -1):
-                    found, neuf, e = essai(wed + timedelta(days=dd))
-                    if found:
-                        err_histo += e is not None
-                        nouveaux += neuf
+            first += timedelta(days=2 - first.weekday())  # mercredi de la même semaine (rapport publié mardi ou jeudi en semaine fériée)
+            try:
+                for k in range(1, 7):
+                    if time.monotonic() - t0 > budget:
                         break
-                else:
-                    absents.add(wed.isoformat())
+                    wed = first - timedelta(weeks=k)
+                    for dd in (0, 1, -1):
+                        found, neuf, e = essai(wed + timedelta(days=dd))
+                        if found:
+                            err_histo += e is not None
+                            nouveaux += neuf
+                            break
+                    else:
+                        absents.add(wed.isoformat())  # trois « absent » d'Euronext : semaine sans rapport (jamais sur une erreur)
+            except ConnectionError:
+                pass  # Euronext injoignable : rattrapage repris au prochain calcul
         serie.sort(key=lambda x: x["date"])
         data[prod] = {"serie": serie, "absents": sorted(absents)[:40]}
         detail = f"{len(serie)} rapports, dernier au {serie[-1]['date']} (+{nouveaux})" if serie else ""
@@ -557,7 +576,7 @@ def collect_meteo(today):
     et prévision à 14 jours (chaque jour). Une seule source notée pour toutes les zones (pas dix alertes de panne)."""
     path = PRIV / "meteo.json"
     data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    ok, errs = 0, []
+    ok, errs, perimees = 0, [], []
     for zn, z in CFG["meteo"]["zones"].items():
         cur = data.get(zn) if isinstance(data.get(zn), dict) else {}
         try:
@@ -569,15 +588,29 @@ def collect_meteo(today):
                 if len(arch) < 3000:
                     raise RuntimeError(f"archive de {len(arch)} jours")
                 cur.update(archive=arch, archive_au=today.isoformat())
-            cur.update(prevision=om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"])).json()), prevision_au=today.isoformat())
-            ok += 1
         except Exception as e:  # noqa: BLE001
-            errs.append(f"{zn} : {str(e)[:80]}")
+            errs.append(f"{zn} (archive) : {str(e)[:70]}")  # archive de la semaine précédente gardée (moins de 14 jours : sans effet)
+        try:
+            cur.update(prevision=om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"])).json()), prevision_au=today.isoformat())
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{zn} (prévision) : {str(e)[:70]}")
+        # zone utilisable : archive de moins de 14 jours et prévision de moins de 3 jours
+        def recent(k, jours):
+            try:
+                return (today - date.fromisoformat(cur.get(k, ""))).days < jours
+            except ValueError:
+                return False
+        if recent("archive_au", 14) and recent("prevision_au", 3):
+            ok += 1
+        else:
+            perimees.append(zn)
         data[zn] = cur
         time.sleep(1)
     save_json(path, data)
     n = len(CFG["meteo"]["zones"])
-    note("meteo", ok >= 0.7 * n, f"{ok}/{n} zones" + (" ; " + " ; ".join(errs[:3]) if errs else ""))
+    # en panne dès qu'une zone n'a plus de données fraîches (une seule zone peut peser 45 % d'une culture)
+    note("meteo", not perimees, f"{ok}/{n} zones à jour" + (f" ; sans données fraîches : {', '.join(perimees)}" if perimees else "")
+         + (" ; " + " ; ".join(errs[:3]) if errs else ""))
 
 
 def collect_cftc():

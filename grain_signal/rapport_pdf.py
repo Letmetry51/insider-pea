@@ -86,10 +86,12 @@ LAB = {
     ("Dans la moyenne", "neutral") if v < 60 else ("Plutôt cher", "warn") if v < 80 else ("Cher : le minimum", "bad"),
     "ratio": lambda v: ("Azote bon marché : acheter large", "good") if v <= 20 else ("Normal : suivre le plan", "neutral") if v <= 60
     else ("Cher : fractionner", "warn") if v <= 80 else ("Très cher : attendre", "bad"),
+    "prime": lambda v: ("Prime faible : vendre via Euronext", "bad") if v <= 20 else ("Prime plutôt faible", "warn") if v <= 40 else
+    ("Prime normale", "neutral") if v < 60 else ("Prime plutôt forte", "info") if v < 80 else ("Prime forte : vendre au physique", "good"),
     "cot": lambda v: ("Fonds très vendeurs : rebond possible", "bad") if v <= 15 else ("Fonds très acheteurs : vendre", "good")
     if v >= 85 else ("Neutre", "neutral"),
 }
-SEGS = {"vendeur": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C}
+SEGS = {"vendeur": SEG_V, "prime": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C}
 
 
 def gauge_svg(v, segs, w=150):
@@ -164,13 +166,16 @@ def chart_svg(rows, ordres=(), revision=None, w=440, h=165):
 
 
 # --------------------------------------------------------------------------------------------- contenu
-def court(p, sur_ble):
-    """Même résumé de la tranche que la page (tuiles « Décisions du jour »)."""
+def court(p, sur_ble, ecart=None):
+    """Même résumé de la tranche que la page (tuiles « Décisions du jour ») ; orges : prix de l'orge (blé + écart du jour)."""
     if not p:
         return "—"
     if p.get("code") == "rien":
         return f"Prochaine tranche : {p.get('periode', '')}"
-    prix = f"{'blé ≥ ' if sur_ble else 'à '}{n(p['ordre'])} €/t" if p.get("ordre") else ""
+    if sur_ble and p.get("ordre") and ecart is not None:
+        prix = f"à ≈ {n(p['ordre'] + ecart)} €/t"
+    else:
+        prix = f"{'blé ≥ ' if sur_ble else 'à '}{n(p['ordre'])} €/t" if p.get("ordre") else ""
     return {"ordre": f"{p['pct']} % {prix}", "executer": f"{p['pct']} % {prix or 'cette période'}".strip(),
             "attendre": f"Décaler les {p['pct']} %", "patienter": f"{p['pct']} % au prochain rebond",
             "couvrir": f"Couvrir {p['pct']} %"}.get(p.get("code"), f"{p.get('pct', '')} %")
@@ -206,19 +211,22 @@ def page_html(d):
         v1 = (con.get("technique") or {}).get("var1s")
         th = con.get("thermo") or {}
         sur = (c.get("niveaux_retenus") or {}).get("sur_ble")
+        gap = ((d.get("orges") or {}).get(k) or {}).get("ecart_ble") if sur else None
         sous = f"Récolte {due['recolte']} · {due['periode']}" if due and due.get("periode") else ""
+        if sur and due and due.get("ordre"):
+            sous += f"<br>quand le blé Euronext atteint {n(due['ordre'])}&nbsp;€/t"
         autre = next((p for p in plan if p is not due and p.get("statut") == "due"), None)
         if autre:
-            sous += f"<br>Récolte {autre['recolte']} : {e(court(autre, sur))}"
+            sous += f"<br>Récolte {autre['recolte']} : {e(court(autre, sur, gap))}"
         st = "" if c.get("proxy") else stock_txt(con.get("stockage"))
         rows.append(
             f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', ''))}</b>"
             f"<div class='muted'>{e(SIGNAL.get(c.get('signal'), ('—',))[0])}{' · suit le blé' if c.get('proxy') else ''}</div></td>"
-            f"<td>{badge(lab, cl)}<div class='quoi'>{e(court(due, sur))}</div><div class='muted'>{sous}</div></td>"
+            f"<td>{badge(lab, cl)}<div class='quoi'>{e(court(due, sur, gap))}</div><div class='muted'>{sous}</div></td>"
             f"<td class='r'><b>{n(cours)} €/t</b>{'<div class=muted>physique</div>' if phys.get('prix') else ''}"
             f"{f'<div class=muted>{sg(v1, 1)} % en 1 sem.</div>' if v1 is not None and not c.get('proxy') else ''}</td>"
             f"<td>{jauge(th.get('percentile'), 'vendeur', compact=True) if th else '—'}"
-            f"{'<div class=muted>selon le blé Euronext</div>' if c.get('proxy') and th else ''}{f'<div class=muted>{e(st)}</div>' if st else ''}</td></tr>")
+            f"{'<div class=muted>selon le blé</div>' if c.get('proxy') and th else ''}{f'<div class=muted>{e(st)}</div>' if st else ''}</td></tr>")
     ec = eng.get("comite") or {}
     elab, ecl = ENGRAIS.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
     ur = (eng.get("france") or {}).get("uree") or {}
@@ -261,11 +269,11 @@ def page_html(d):
                        f"{sg(ta.get('ecart_mm20'), 1)} % vs MM20"))
         ceu = ((d.get("cot") or {}).get("EURONEXT_" + prod) or {}).get("indice")
         jauges = jauge(th.get("percentile"), "vendeur", "Prix sur 5 ans" + (" (indicatif : huile de soja)" if "soja" in str(th.get("source", "")).lower() else ""),
-                       f"Médiane {n(th.get('mediane'), 0)} €/t · habituel {n(th.get('p20'), 0)}–{n(th.get('p80'), 0)} €/t") if th else ""
+                       f"{th.get('source', 'marché mondial')} en €/t, 5 ans") if th else ""
         if ceu is not None:
             jauges += jauge(ceu, "cot", "Fonds sur Euronext (3 ans)")
         if pl.get("percentile") is not None:
-            jauges += jauge(pl["percentile"], "vendeur", "Prime locale (1 an)")
+            jauges += jauge(pl["percentile"], "prime", "Prime locale (1 an)")
         sig, scl = SIGNAL.get(c.get("signal"), ("—", "neutral"))
         # historique Euronext encore court : lecture de secours (marché américain recalé), comme sur la page
         src = (con.get("proxy") or {}).get("graphique") or con.get("graphique") or []

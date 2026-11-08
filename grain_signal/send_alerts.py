@@ -48,24 +48,35 @@ def niveaux_txt(ordres, eq, nr):
         return "—"
     f = lambda v: f"{v:.2f}".rstrip("0").rstrip(".").replace(".", ",")  # noqa: E731
     t = " · ".join(f(x) for x in ordres if isinstance(x, (int, float))) + " €/t"
-    if nr.get("sur_ble"):
-        t = "blé à " + t + (f" (≈ {' · '.join(f(x) for x in eq)} €/t d'orge)" if eq else "")
+    if nr.get("sur_ble"):  # orges : prix de l'orge d'abord, le blé Euronext n'est que le déclencheur
+        t = (f"≈ {' · '.join(f(x) for x in eq)} €/t d'orge, quand le blé Euronext atteint {t}" if eq
+             else f"quand le blé Euronext atteint {t}")
     return t
 
 
-def jauge(p, acheteur=False):
-    """Percentile en pastille colorée et barre en 5 couleurs avec repère (vert = bon moment pour vendre, ou pour acheter côté
-    azote). Tableaux et largeurs fixes seulement : Gmail retire « position » des styles, un curseur positionné resterait à gauche."""
+# mêmes seuils et couleurs que la page et le PDF : (borne haute, couleur de la barre, couleur de la pastille)
+ECH_VENDEUR = [(20, "#b0281f", "#b0281f"), (40, "#9a5b00", "#9a5b00"), (60, "#a3a596", "#6b6d60"), (80, "#2a62b8", "#2a62b8"),
+               (100, "#1f7a3e", "#1f7a3e")]
+ECH_RATIO = [(20, "#1f7a3e", "#1f7a3e"), (60, "#a3a596", "#6b6d60"), (80, "#9a5b00", "#9a5b00"), (100, "#b0281f", "#b0281f")]
+
+
+def jauge(p, echelle=None):
+    """Percentile en pastille colorée et barre colorée avec repère (vert = bon moment pour vendre ; pour l'azote, échelle du ratio).
+    Tableaux et largeurs fixes seulement : Gmail retire « position » des styles, un curseur positionné resterait à gauche."""
     if p is None:
         return "—"
     v = max(0, min(100, int(round(p))))
-    cols = ["#b0281f", "#9a5b00", "#a3a596", "#2a62b8", "#1f7a3e"]
-    if acheteur:
-        cols = cols[::-1]
-    col = cols[min(4, v // 20 if v < 100 else 4)]
-    if col == "#a3a596":
-        col = "#6b6d60"  # pastille neutre plus foncée que la barre, pour rester lisible en blanc
-    bar = "".join(f"<td style='width:20px;height:6px;background:{c};font-size:0;line-height:0'>&nbsp;</td>" for c in cols)
+    ech = echelle or ECH_VENDEUR
+    # bornes incluses comme sur la page : ≤ 20, ≤ 40, < 60, < 80 (vendeur) ; ≤ 20, ≤ 60, ≤ 80 (ratio)
+    if ech is ECH_VENDEUR:
+        i = 0 if v <= 20 else 1 if v <= 40 else 2 if v < 60 else 3 if v < 80 else 4
+    else:
+        i = 0 if v <= 20 else 1 if v <= 60 else 2 if v <= 80 else 3
+    col = ech[i][2]
+    bar, lo = "", 0
+    for hi, c, _ in ech:
+        bar += f"<td style='width:{hi - lo}px;height:6px;background:{c};font-size:0;line-height:0'>&nbsp;</td>"
+        lo = hi
     left = max(0, v - 4)  # repère centré sur la valeur (barre de 100 px)
     return (f"<span style='background:{col};color:#fff;border-radius:5px;padding:2px 6px;font:600 12px monospace'>{v}e</span>"
             f"<table cellpadding='0' cellspacing='0' role='presentation' style='border-collapse:collapse;margin-top:5px;width:100px'>"
@@ -86,7 +97,10 @@ def table_signaux(dash):
         eq = (nr.get("equivalent_orge") or {}).get("ordres") or []
         rows.append(f"<tr><td style='padding:6px 8px;border-bottom:1px solid #ddd'><b>{e(c['nom'])}</b></td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(c.get('libelle'))}</td>"
-                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{jauge(th.get('percentile'))}</td>"
+                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{jauge(th.get('percentile'))}"
+                    + ("<div style='color:#777;font-size:11px'>selon le blé</div>" if c.get("proxy") and th else
+                       "<div style='color:#777;font-size:11px'>indicatif (huile de soja)</div>" if "soja" in str(th.get("source", "")).lower() else "")
+                    + "</td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(niveaux_txt(ordres, eq, nr))}</td>"
                     f"<td style='padding:6px 8px;border-bottom:1px solid #ddd;color:#555'>{e(feu)}</td></tr>")
     eng = dash.get("engrais") or {}
@@ -97,7 +111,7 @@ def table_signaux(dash):
     if ec.get("prix_plafond"):
         quoi = f"{quoi} (plafond {ec['prix_plafond']} €/t)"
     rows.append(f"<tr><td style='padding:6px 8px'><b>Engrais azotés</b></td><td style='padding:6px 8px'>{e(lib)}</td>"
-                f"<td style='padding:6px 8px'>{jauge(eng.get('percentile_retenu'), acheteur=True)}</td>"
+                f"<td style='padding:6px 8px'>{jauge(eng.get('percentile_retenu'), ECH_RATIO)}</td>"
                 f"<td style='padding:6px 8px'>{e(quoi)}</td><td style='padding:6px 8px;color:#555'>{e(ec.get('texte') or ' ; '.join(eng.get('notes', [])))}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'><th align=left style='padding:6px 8px'>Culture</th>"
             "<th align=left style='padding:6px 8px'>Signal</th><th align=left style='padding:6px 8px'>Prix 5 ans / ratio azote</th>"
