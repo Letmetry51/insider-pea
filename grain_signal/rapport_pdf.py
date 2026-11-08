@@ -269,7 +269,8 @@ def page_html(d):
                        f"{sg(ta.get('ecart_mm20'), 1)} % vs MM20"))
         ceu = ((d.get("cot") or {}).get("EURONEXT_" + prod) or {}).get("indice")
         jauges = jauge(th.get("percentile"), "vendeur", "Prix sur 5 ans" + (" (indicatif : huile de soja)" if "soja" in str(th.get("source", "")).lower() else ""),
-                       f"{th.get('source', 'marché mondial')} en €/t, 5 ans") if th else ""
+                       (f"Médiane {n(th.get('mediane'), 0)} €/t · habituel {n(th.get('p20'), 0)}–{n(th.get('p80'), 0)} €/t (Euronext, 5 ans)"
+                        if th.get("euronext") else f"{th.get('source', 'marché mondial')} en €/t, 5 ans")) if th else ""
         if ceu is not None:
             jauges += jauge(ceu, "cot", "Fonds sur Euronext (3 ans)")
         if pl.get("percentile") is not None:

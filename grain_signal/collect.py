@@ -421,6 +421,107 @@ def collect_yahoo_long():
     note("yahoo_historique_long", ok == 3, f"{ok}/3 séries complètes" + (" (historique précédent gardé pour les autres)" if ok < 3 else ""))
 
 
+STATS_URL = "https://live.euronext.com/sites/default/files/statistics/derivatives/daily/2017/Derivatives%20{:%Y%m%d}.xlsx"
+HISTO_DEBUT = date(2019, 11, 1)  # premiers fichiers statistiques quotidiens publiés (2018 : accès refusé)
+
+
+def stats_rows(content, d):
+    """Fichier statistique quotidien d'Euronext (feuille « Series ») → prix de compensation des contrats à terme blé, colza,
+    maïs, par échéance. Les contrats « T » (Trading at Settlement) et les prix nuls sont écartés. Échéance déduite du dernier jour
+    de cotation et de la règle du contrat (blé et maïs : dans le mois de l'échéance ; colza : dernier jour du mois précédent)."""
+    try:
+        from python_calamine import CalamineWorkbook
+
+        rows = CalamineWorkbook.from_filelike(io.BytesIO(content)).get_sheet_by_name("Series").to_python()
+    except ImportError:  # secours plus lent
+        import openpyxl
+
+        rows = list(openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)["Series"].iter_rows(values_only=True))
+    return parse_series(rows, d)
+
+
+def parse_series(rows, d):
+    """Lignes de la feuille « Series » (anciens et nouveaux formats d'Euronext) → prix de compensation par échéance."""
+    head = next((r for r in rows if r and r[0] == "Date"), None)
+    if not head:
+        raise RuntimeError("feuille Series sans entête")
+    hd = [str(c or "").replace("\n", " ").strip() for c in head]
+    ic, ia, il, isp = (hd.index(k) for k in ("Contract Code", "AMR", "Last Trading Date", "Settlement Price"))
+    out = []
+    for r in rows:
+        if len(r) <= isp or r[ic] not in CFG["euronext"]:
+            continue
+        code, amr = r[ic], str(r[ia] or "")
+        if not amr.startswith("YF" + code) or amr[len(code) + 2:len(code) + 3] == "T":
+            continue  # pas un contrat à terme standard (TAS, options)
+        try:
+            sp, ltd = float(r[isp] or 0), r[il]
+        except (TypeError, ValueError):
+            continue
+        if sp <= 0 or not hasattr(ltd, "year"):
+            continue
+        y, m = ltd.year, ltd.month
+        if CFG["euronext"][code]["expiration"]["regle"] != "jour":  # colza : expire le mois précédent l'échéance
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        out.append({"date": d.isoformat(), "product": code, "maturity": f"{y}-{m:02d}", "settle": round(sp, 4)})
+    return out
+
+
+def collect_euronext_histo(today, budget=480):
+    """Historique officiel d'Euronext depuis novembre 2019 (fichiers statistiques quotidiens publics, un par séance), repris du plus
+    récent au plus ancien dans la limite de `budget` secondes par calcul ; contrôle croisé avec les prix lus sur terre-net."""
+    st_path = PRIV / "euronext_histo.json"
+    st = json.loads(st_path.read_text(encoding="utf-8")) if st_path.exists() else {}
+    faits = set(st.get("faits") or [])
+    path = seed("euronext.csv")
+    rows = read_csv(path)
+    have = {(r["date"], r["product"], r["maturity"]): r for r in rows}
+    t0, lus, absents, ecarts, err = time.monotonic(), 0, 0, [], None
+    d = today - timedelta(days=1)
+    while d >= HISTO_DEBUT and time.monotonic() - t0 < budget:
+        k = d.isoformat()
+        if d.weekday() < 5 and k not in faits:
+            try:
+                r = requests.get(STATS_URL.format(d), headers=UA, timeout=60)
+            except Exception as e:  # noqa: BLE001
+                err = f"{k} : {type(e).__name__}"
+                break  # Euronext injoignable : repris au prochain calcul
+            if r.status_code in (403, 404):
+                if (today - d).days > 7:  # séance fermée (jour férié) ; fichier récent pas encore publié : redemandé demain
+                    faits.add(k)
+                    absents += 1
+            elif r.status_code == 200 and r.content[:2] == b"PK":
+                try:
+                    new = stats_rows(r.content, d)
+                except Exception as e:  # noqa: BLE001
+                    err = f"{k} : {e}"
+                    break
+                for x in new:
+                    key = (x["date"], x["product"], x["maturity"])
+                    old = have.get(key)
+                    if old is None:
+                        rows.append(x)
+                        have[key] = x
+                    elif abs(float(old["settle"]) - x["settle"]) > 0.001:
+                        ecarts.append(f"{k} {x['product']} {x['maturity']} : terre-net {old['settle']} / Euronext {x['settle']}")
+                faits.add(k)
+                lus += 1
+            else:
+                err = f"{k} : HTTP {r.status_code}"
+                break
+        d -= timedelta(days=1)
+    rows.sort(key=lambda r: (r["product"], r["date"], r["maturity"]))
+    write_csv(path, rows, ["date", "product", "maturity", "settle"])
+    save_json(st_path, {"faits": sorted(faits)})
+    total = sum(1 for x in faits if x >= HISTO_DEBUT.isoformat())
+    detail = f"{lus} séance(s) lue(s), {absents} sans fichier ; {total} jours traités depuis le {HISTO_DEBUT:%d/%m/%Y}"
+    note("euronext_historique", err is None, detail + (f" ; arrêt : {err}" if err else ""))
+    if ecarts:  # même séance, même échéance : terre-net doit donner le prix officiel d'Euronext
+        note("controle_terre_net", False, f"{len(ecarts)} écart(s) avec Euronext : " + " ; ".join(ecarts[:3]))
+    elif lus:
+        note("controle_terre_net", True, "prix terre-net identiques aux fichiers officiels d'Euronext")
+
+
 COT_URL = "https://live.euronext.com/sites/default/files/commodities_reporting/{y}/{m:02d}/{d:02d}/en/cdwpr_{p}_{y}{m:02d}{d:02d}.pdf"
 
 
@@ -747,7 +848,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
+    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
                collect_banque_mondiale):
         try:
             fn()

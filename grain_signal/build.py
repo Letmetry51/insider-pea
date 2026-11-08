@@ -145,6 +145,42 @@ def continuous(rows, prod):
     return dates, vals, (refs[-1] if refs else None), raccords, curve
 
 
+def front_series(rows, prod):
+    """Prix réel (sans ajustement) de l'échéance de référence de chaque séance : le prix que l'agriculteur voyait ce jour-là. Sert aux
+    vues longues et au thermomètre ; la série ajustée (continuous) sert aux indicateurs techniques."""
+    by = {}
+    for r in rows:
+        if r["product"] == prod and fnum(r["settle"]) is not None:
+            by.setdefault(r["date"], {})[r["maturity"]] = float(r["settle"])
+    dates, vals = [], []
+    for d in sorted(by):
+        dd = date.fromisoformat(d)
+        avail = sorted(by[d])
+        ok = [m for m in avail if business_back(expiry(prod, m), CFG["rollJours"]) > dd]
+        dates.append(d)
+        vals.append(by[d][ok[0] if ok else avail[-1]])
+    return dates, vals
+
+
+def long_views(dates, vals):
+    """Vues 1 an (quotidien, MM50 et MM200) et 5 ans (dernier cours de chaque semaine, MM 10 et 40 semaines)."""
+    r2 = lambda x: round(x, 2) if x is not None else None  # noqa: E731
+    m50, m200 = ind.sma(vals, 50), ind.sma(vals, 200)
+    k1 = max(0, len(vals) - 252)
+    wk, wd = [], []
+    for d_, v_ in zip(dates, vals):
+        key = date.fromisoformat(d_).isocalendar()[:2]
+        if wd and wd[-1][0] == key:
+            wd[-1], wk[-1] = (key, d_), v_
+        else:
+            wd.append((key, d_))
+            wk.append(v_)
+    w10, w40 = ind.sma(wk, 10), ind.sma(wk, 40)
+    return {"an": [[dates[i], r2(vals[i]), r2(m50[i]), r2(m200[i]), None] for i in range(k1, len(vals))],
+            "cinq_ans": [[wd[i][1], r2(wk[i]), r2(w10[i]), r2(w40[i]), None] for i in range(max(0, len(wk) - 262), len(wk))],
+            "depuis": dates[0], "semaines": len(wk)}
+
+
 def courbe(prod, curve, ref):
     """Structure de la courbe : report (le marché paie le stockage) ou déport."""
     mats = sorted(m for m in curve if m >= (ref or ""))
@@ -750,7 +786,12 @@ def main():
         k = max(0, len(v) - 120)
         info["graphique"] = [[d[i], round(v[i], 2), round(mm20[i], 2) if mm20[i] else None, round(mm50[i], 2) if mm50[i] else None]
                              for i in range(k, len(v))]
-        info["long"] = vue_longue(yahoo, PROXY.get(prod), d, v)
+        fd, fv = front_series(eur, prod)
+        lv = long_views(fd, fv) if len(fd) >= 260 else None
+        if lv and lv["semaines"] >= 104:  # au moins 2 ans de cours officiels Euronext : vues longues et thermomètre sur Euronext
+            info["long"] = {**lv, "source": "euronext", "nom": "Euronext (échéance la plus proche)", "euronext_depuis": fd[0]}
+        else:  # historique encore court : marché américain converti en €/t et recalé sur Euronext
+            info["long"] = vue_longue(yahoo, PROXY.get(prod), d, v)
         contrats[prod] = info
         if prod == "EBM":
             series_ble = (d, v)
@@ -758,9 +799,11 @@ def main():
     moisson = {"EBM": 7, "ECO": 7, "EMA": 10}
     for prod, info in contrats.items():
         if info.get("long"):
-            info["thermo"] = dec.thermometre(info["long"].get("cinq_ans"))
+            info["thermo"] = dec.thermometre(info["long"].get("cinq_ans"), info.get("dernier_reel")
+                                             if info["long"].get("source") == "euronext" else None)
             if info["thermo"]:
-                info["thermo"]["source"] = info["long"].get("nom")
+                info["thermo"]["source"] = "Euronext" if info["long"].get("source") == "euronext" else info["long"].get("nom")
+                info["thermo"]["euronext"] = info["long"].get("source") == "euronext"
         if info.get("_curve") and info.get("echeance"):
             info["stockage"] = dec.stockage(info["_curve"], info["echeance"], lambda m, p=prod: expiry(p, m), today, moisson[prod],
                                            {k: v for k, v in CFG["stockage"].items() if not k.startswith("_")})

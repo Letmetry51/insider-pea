@@ -1355,7 +1355,9 @@ function vSignaux() {
                   th.percentile,
                   'vendeur',
                   `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : /soja/i.test(th.source || '') ? ' (indicatif : huile de soja)' : ''}`,
-                  `${th.source} converti en €/t, comparé à ses 5 dernières années (l'historique Euronext se construit)`
+                  th.euronext
+                    ? `Médiane ${fmt(th.mediane, 0)} €/t · habituel (20e–80e) ${fmt(th.p20, 0)}–${fmt(th.p80, 0)} €/t · cours Euronext depuis ${dfr(th.depuis)}`
+                    : `${th.source} converti en €/t, comparé à ses 5 dernières années (l'historique Euronext se construit)`
                 )
               : null,
             pl && pl.percentile !== undefined
@@ -1833,16 +1835,20 @@ function vTechnique() {
             // lecture de secours recalée sur Euronext : les niveaux retenus (en €/t Euronext) s'y lisent directement
             niveaux: c.niveaux_retenus || c.niveaux,
             marks: marksFor({ EBM: 'ble', ECO: 'colza', EMA: 'mais' }[code]),
-            longMain: 'var(--muted)',
-            legendLong: c.long
-              ? [
-                  ['var(--chart-1)', `Euronext (depuis le ${dfr(c.long.euronext_depuis)})`],
-                  ['var(--muted)', `${c.long.nom} recalé sur Euronext`],
-                ]
-              : null,
-            noteLong: c.long
-              ? `L'historique Euronext se construit chaque jour depuis le ${dfr(c.long.euronext_depuis)}. Pour la tendance longue : ${c.long.nom}, converti en €/t puis recalé sur le niveau d'Euronext des dernières séances (même tendance, écarts possibles entre les deux marchés) ; les moyennes mobiles portent sur cette série.`
-              : null,
+            longMain: c.long && c.long.source === 'euronext' ? null : 'var(--muted)',
+            legendLong: !c.long
+              ? null
+              : c.long.source === 'euronext'
+                ? [['var(--chart-1)', 'Euronext, échéance la plus proche']]
+                : [
+                    ['var(--chart-1)', `Euronext (depuis le ${dfr(c.long.euronext_depuis)})`],
+                    ['var(--muted)', `${c.long.nom} recalé sur Euronext`],
+                  ],
+            noteLong: !c.long
+              ? null
+              : c.long.source === 'euronext'
+                ? `Prix de compensation officiels d'Euronext depuis le ${dfr(c.long.euronext_depuis)} (fichiers statistiques publics), échéance la plus proche, sans ajustement : ce sont les prix réellement cotés, les petits sauts aux changements d'échéance sont réels.`
+                : `L'historique Euronext se construit depuis le ${dfr(c.long.euronext_depuis)}. Pour la tendance longue : ${c.long.nom}, converti en €/t puis recalé sur le niveau d'Euronext des dernières séances (même tendance, écarts possibles entre les deux marchés) ; les moyennes mobiles portent sur cette série.`,
           });
         })(),
         h('p', { class: 'note', text: `Note technique : ${sgn(c.score_technique)} (de −2 à +2)` })
@@ -1897,7 +1903,7 @@ function vTechnique() {
                 ['var(--muted)', `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`],
                 ['var(--chart-1)', 'Prix physique relevé'],
               ],
-              noteLong: `Tendance longue de l'orge estimée à partir du blé (Euronext, puis ${(d.contrats.EBM.long || {}).nom || 'Chicago'} recalé) décalé de l'écart du jour : l'écart orge/blé varie dans le temps, ce n'est qu'un repère.`,
+              noteLong: `Tendance longue de l'orge estimée à partir du blé (${(d.contrats.EBM.long || {}).source === 'euronext' ? 'cours Euronext' : `Euronext, puis ${(d.contrats.EBM.long || {}).nom || 'Chicago'} recalé`}) décalé de l'écart du jour : l'écart orge/blé varie dans le temps, ce n'est qu'un repère.`,
             })
           : h('p', { class: 'note', text: 'Graphique dès que plusieurs jours de prix sont relevés.' }),
         h(
@@ -2399,7 +2405,7 @@ function vMethode() {
     ],
     [
       'Jauges en percentile',
-      'Un percentile situe le chiffre du jour dans son histoire : 10e = plus bas que 90 % des valeurs passées, 90e = plus haut. Prix sur 5 ans (marché mondial en €/t recalé sur Euronext), ratio azote/blé et urée sur 10 ans, gaz sur 5 ans, positions des fonds sur 3 ans, prime locale sur un an. Vert = bon moment pour vendre (céréales) ou pour acheter (azote).',
+      'Un percentile situe le chiffre du jour dans son histoire : 10e = plus bas que 90 % des valeurs passées, 90e = plus haut. Prix sur 5 ans (cours officiels Euronext de l’échéance la plus proche ; marché mondial en €/t tant que cet historique est trop court), ratio azote/blé et urée sur 10 ans, gaz sur 5 ans, positions des fonds sur 3 ans, prime locale sur un an. Vert = bon moment pour vendre (céréales) ou pour acheter (azote).',
     ],
     [
       'Stocker ou vendre',
@@ -2415,7 +2421,7 @@ function vMethode() {
     ],
     [
       'Limites',
-      "Les historiques Euronext sont reconstitués chaque jour (indicateurs complets après 30 séances, MM200 après 200) ; avant, la technique s'appuie sur le marché américain correspondant. Les escourgeons et orges de printemps n'ont pas de marché à terme : ils suivent le blé, avec l'avis du comité sur les primes brassicoles. Les résultats historiques du module engrais portent sur l'urée mondiale et le blé US en dollars. L'outil ne connaît ni vos coûts ni vos volumes : il raisonne en pourcentages.",
+      "Les cours Euronext du jour viennent de terre-net (prix de compensation officiel) ; l'historique depuis novembre 2019 est repris des fichiers statistiques publics d'Euronext, et chaque séance commune sert de contrôle croisé avec terre-net. Tant que cet historique est trop court, la technique et les vues longues s'appuient sur le marché américain correspondant. Les escourgeons et orges de printemps n'ont pas de marché à terme : ils suivent le blé, avec l'avis du comité sur les primes brassicoles. Les résultats historiques du module engrais portent sur l'urée mondiale et le blé US en dollars. L'outil ne connaît ni vos coûts ni vos volumes : il raisonne en pourcentages.",
     ],
   ];
   return [
