@@ -90,6 +90,22 @@ def table_signaux(dash):
             + "".join(rows) + "</table>")
 
 
+PDF_NOTE = "<!--synthese-pdf-->"  # remplacé à l'envoi par la mention de la pièce jointe, ou retiré s'il n'y a pas de PDF
+PDF_TXT = "<p style='color:#555;font-size:13px'>📄 La synthèse du jour est jointe en PDF (à imprimer ou à garder).</p>"
+
+
+def synthese(dash):
+    """PDF fabriqué ce matin par rapport_pdf.py (jamais un ancien) : contenu et nom de fichier, sinon (None, None)."""
+    p = OUT / "prive" / "synthese.pdf"
+    try:
+        if p.exists() and (datetime.now(timezone.utc).timestamp() - p.stat().st_mtime) < 6 * 3600:
+            return p.read_bytes(), f"Grain-Signal-synthese-{dash.get('date', 'du-jour')}.pdf"
+    except OSError:
+        pass
+    print("Synthèse PDF absente : emails envoyés sans pièce jointe")
+    return None, None
+
+
 def wrap(title, inner):
     return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>{inner}"
             f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir Grain Signal</a></p>"
@@ -133,11 +149,11 @@ def main():
             subj = f"🌾 {x['titre']} — {sig}"[:180]
             inner = (f"<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>{table_signaux(dash)}"
                      f"<hr style='margin:18px 0'>{comite['rapport_html']}")
-            mails.append(([x["id"]], subj, wrap(x["titre"], inner)))
+            mails.append(([x["id"]], subj, wrap(x["titre"], inner + PDF_NOTE)))
         elif x.get("type") == "comite":
             sent[x["id"]] = "sans rapport"
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true":
-        mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash))))
+        mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash) + PDF_NOTE)))
     if not mails:
         print("Emails : rien à envoyer")
         save(OUT / "etat.json", etat)
@@ -148,17 +164,22 @@ def main():
         save(OUT / "etat.json", etat)
         return 0
     failed = 0
+    pdf, pdf_nom = synthese(dash)
     ctx = ssl.create_default_context()
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=60) as s:
             s.login(user, pwd)
             for ids, subj, body in mails:
+                joint = PDF_NOTE in body and pdf
+                body = body.replace(PDF_NOTE, PDF_TXT if joint else "")
                 msg = EmailMessage()
                 msg["Subject"] = re.sub(r"[\x00-\x1f\x7f-\x9f  ]+", " ", subj).strip()
                 msg["From"], msg["To"] = user, ", ".join(to_list)
                 text = re.sub(r"<[^>]+>", " ", body)
                 msg.set_content(re.sub(r"\s+\n", "\n", html.unescape(text))[:20000])
                 msg.add_alternative(body, subtype="html")
+                if joint:  # synthèse PDF jointe aux emails du comité et à l'email de test
+                    msg.add_attachment(pdf, maintype="application", subtype="pdf", filename=pdf_nom)
                 try:
                     s.send_message(msg)
                     for i in ids:

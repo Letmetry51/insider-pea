@@ -128,7 +128,7 @@ check('href="https://example.com/a"' in hs, "lien https conservé")
 tmp = Path(tempfile.mkdtemp())
 try:
     (tmp / "grain_signal").mkdir()
-    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py"):
+    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py", "rapport_pdf.py"):
         shutil.copy(HERE / f, tmp / "grain_signal" / f)
     shutil.copytree(HERE / "seed", tmp / "grain_signal" / "seed")
     priv = tmp / "data" / "grain" / "prive"
@@ -156,6 +156,14 @@ try:
         check(len(cb_) == 6 and {x["cle"] for x in cb_} == {"ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais"},
               "carnet de bord : avis du comité de départ notés (5 cultures et l'azote)")
         check("meteo" in dash["cultures"]["ble"]["composantes"], "note météo dans les composantes du score")
+        hp = tmp / "synthese.html"
+        p3 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "rapport_pdf.py"), "--html", str(hp)], capture_output=True, text=True, env=env)
+        page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
+        import re as _re
+        check(p3.returncode == 0 and "Décisions du jour" in page and page.count("<section class='bloc'>") == 3
+              and "235,50 €/t" in page and "1er ordre : 235,50 €/t" in page,
+              "synthèse PDF : page complète (décisions, 3 contrats, ordres en €/t)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
+        check(not _re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", page), "synthèse PDF : aucun emoji (carrés vides à l'impression)")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0, "emails en simulation")
 finally:
