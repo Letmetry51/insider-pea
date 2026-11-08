@@ -120,10 +120,14 @@ def stockage(curve, ref, expiry_fn, today, moisson, cfg):
 def prime_locale(phys_rows, places, front_fn, mini=40):
     """Prix physique − échéance Euronext de référence du même jour, par place. Percentile sur l'historique quand il est assez long.
     phys_rows : lignes de physique_hist (date, page, place, prix) ; places : [[page, place], …] ; front_fn(date) → prix ou None."""
+    def norm(t):  # terre-net sépare les mots par des espaces insécables
+        return " ".join(str(t or "").replace("\xa0", " ").split()).lower()
+
     out = []
     for page, place in places:
         hist = []
-        for r in sorted((r for r in phys_rows if r.get("page") == page and r.get("place") == place), key=lambda r: r["date"]):
+        rows = (r for r in phys_rows if r.get("page") == page and norm(r.get("place")) == norm(place))
+        for r in sorted(rows, key=lambda r: r["date"]):
             try:
                 p = float(r["prix"])
             except (TypeError, ValueError):

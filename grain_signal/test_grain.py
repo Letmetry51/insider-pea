@@ -361,10 +361,10 @@ check(_s2["code"] == "vendre", "stocker ou vendre : déport → vendre plutôt q
 _s3 = dec.stockage({"2027-09": 220, "2027-12": 230}, "2027-09", _exp, date(2027, 6, 20), 7, _cfg)
 check(_s3["code"] == "nouvelle", "stocker ou vendre : échéance de la nouvelle récolte → pas de report sur l'ancienne")
 
-_rows = [{"date": f"2026-{9 + i // 28:02d}-{1 + i % 28:02d}", "page": "ble", "place": "Rouen Rendu", "prix": 200 + (i % 10)} for i in range(50)]
+_rows = [{"date": f"2026-{9 + i // 28:02d}-{1 + i % 28:02d}", "page": "ble", "place": "Rouen\xa0Rendu", "prix": 200 + (i % 10)} for i in range(50)]
 _pl = dec.prime_locale(_rows, [["ble", "Rouen Rendu"], ["ble", "Inconnue"]], lambda d_: 200.0)
 check(_pl and _pl["places"][0]["jours"] == 50 and _pl["percentile"] is not None and len(_pl["places"]) == 1,
-      f"prime locale : physique − Euronext, percentile après 40 relevés ({_pl and _pl.get('texte')})")
+      f"prime locale : physique − Euronext (espaces insécables de terre-net), percentile après 40 relevés ({_pl and _pl.get('texte')})")
 _pl2 = dec.prime_locale(_rows[:5], [["ble", "Rouen Rendu"]], lambda d_: 200.0)
 check("percentile" not in _pl2 and "constitution" in _pl2["texte"], "prime locale : historique trop court annoncé")
 
