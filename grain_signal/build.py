@@ -607,7 +607,7 @@ def plan_vente(cult, today, entry, contrats):
                 e["ordre"] = ordres[0]
             elif feu == "attendre":
                 e["action"] = f"Ne pas vendre au marché (creux) : attendre un rebond pour ces {pct} %"
-                e["code"] = "ordre"
+                e["code"] = "patienter"
             else:
                 e["action"] = f"Vendre {pct} % d'ici fin {MOIS_FR[b[1] - 1]}"
                 e["code"] = "executer"

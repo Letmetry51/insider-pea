@@ -772,7 +772,15 @@ function chartLegend() {
 }
 
 /* ---------------------------------------------------------------------------------------------- plan de vente */
-const PLAN_ICON = { ordre: '🎯', executer: '✅', vendre: '🟢', attendre: '🔴', couvrir: '🛡️', rien: '💤' };
+const PLAN_ICON = {
+  patienter: '⏸️',
+  ordre: '🎯',
+  executer: '✅',
+  vendre: '🟢',
+  attendre: '🔴',
+  couvrir: '🛡️',
+  rien: '💤',
+};
 function planBlock(plan) {
   if (!plan || !plan.length) return null;
   return h(
@@ -801,6 +809,101 @@ function planBlock(plan) {
       )
     )
   );
+}
+
+const STRAT = {
+  S0: 'Tout vendre à la moisson',
+  S1: 'Même quantité chaque mois',
+  S2: 'Calendrier Grain Signal',
+  S3: 'Calendrier + timing technique',
+  S4: 'Calendrier + timing + tendance',
+  E0: 'Tout acheter en janvier',
+  E1: 'Même quantité chaque mois',
+  E2: 'Saison seule (avril-juillet)',
+  E3: 'Règles Grain Signal',
+};
+function btTable(b, unite, achat) {
+  const best = Object.entries(b).sort((x, y) => y[1].ecart_moyen - x[1].ecart_moyen)[0][0];
+  return h(
+    'div',
+    { class: 'scroll' },
+    h(
+      'table',
+      {},
+      h(
+        'tr',
+        {},
+        [
+          'Stratégie',
+          `Prix moyen (${unite})`,
+          achat ? 'Économie / mensuel' : 'Gain / mensuel',
+          'Campagnes gagnantes',
+          'Pire / meilleure',
+        ].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
+      ),
+      Object.entries(b).map(([k, v]) =>
+        h(
+          'tr',
+          { class: k === best ? 'best' : '' },
+          h('td', { text: `${k === best ? '🏆 ' : ''}${STRAT[k] || k}` }),
+          h('td', { class: 'n', text: fmt(v.moyenne, 1) }),
+          h('td', { class: 'n ' + cls(v.ecart_moyen), text: `${sgn(v.ecart_moyen, 1)}` }),
+          h('td', { class: 'n', text: `${v.gagnantes} / ${v.campagnes}` }),
+          h('td', { class: 'n', text: `${sgn(v.pire, 1)} / ${sgn(v.meilleure, 1)}` })
+        )
+      )
+    )
+  );
+}
+function backtestSection() {
+  const bt = GS.backtest;
+  if (!bt)
+    return h(
+      'div',
+      { class: 'card', style: 'margin-top:12px' },
+      h('h3', { text: '🧪 Backtest' }),
+      h('p', { class: 'note', text: 'Résultats au prochain calcul.' })
+    );
+  const parts = [h('h3', { text: '🧪 Backtest : ce que les règles auraient rapporté' })];
+  for (const v of Object.values(bt.ventes || {})) {
+    if (v.erreur) {
+      parts.push(h('p', { class: 'note', text: `${v.nom} : ${v.erreur}` }));
+      continue;
+    }
+    const b = v.bilan_vs_S1;
+    const g = (k) => `${sgn(b[k].ecart_moyen, 1)} €/t (gagnant ${b[k].gagnantes} fois sur ${b[k].campagnes})`;
+    parts.push(
+      h('h4', { class: 'ititle', text: `${v.nom} — ${v.campagnes.length} campagnes depuis ${v.campagnes[0].recolte}` }),
+      h('p', {
+        text: `Par rapport à une vente mensuelle régulière : calendrier ${g('S2')} ; avec le timing technique ${g('S3')} ; avec la tendance ${g('S4')}.`,
+      }),
+      btTable(b, '€/t'),
+      h('p', {
+        class: 'note',
+        text: `Meilleur réglage du timing testé : RSI < ${v.variantes_timing[0].rsi} et bas du range ≤ ${v.variantes_timing[0].pos} % (${sgn(v.variantes_timing[0].ecart_moyen_vs_S2)} €/t par rapport au calendrier seul). Réglage actuel : RSI < 40 et ≤ 20 %.`,
+      })
+    );
+  }
+  const e = bt.engrais || {};
+  if (e.bilan_vs_E1) {
+    parts.push(
+      h('h4', { class: 'ititle', text: `🧪 Achats d'azote — ${e.campagnes.length} campagnes (${e.nom})` }),
+      btTable(e.bilan_vs_E1, '$/t', true)
+    );
+  }
+  parts.push(
+    h(
+      'details',
+      {},
+      h('summary', { text: 'Limites du test' }),
+      h(
+        'ul',
+        { class: 'list note' },
+        (bt.limites || []).map((t) => h('li', { text: t }))
+      )
+    )
+  );
+  return h('div', { class: 'card', style: 'margin-top:12px' }, parts);
 }
 
 function calendarTable() {
@@ -847,9 +950,138 @@ function calendarTable() {
 }
 
 /* ---------------------------------------------------------------------------------------------- onglets */
+/* ---------------------------------------------------------------------------------------------- en un coup d'œil */
+const DECISION = {
+  ordre: ['🎯', 'ORDRE', 'warn'],
+  executer: ['✅', 'VENDRE', 'good'],
+  vendre: ['🟢', 'AVANCER', 'good'],
+  attendre: ['🔴', 'ATTENDRE', 'bad'],
+  couvrir: ['🛡️', 'COUVRIR', 'info'],
+  rien: ['💤', 'RIEN', 'neutral'],
+  patienter: ['⏸️', 'PATIENTER', 'warn'],
+};
+function court(p, sur) {
+  if (!p) return '—';
+  if (p.code === 'rien') return `Prochaine tranche : ${p.periode}`;
+  const prix = p.ordre ? `${sur ? 'blé ≥ ' : 'à '}${fmt(p.ordre)} €/t` : '';
+  if (p.code === 'ordre') return `${p.pct} % ${prix}`;
+  if (p.code === 'executer') return `${p.pct} % ${prix || 'cette période'}`.trim();
+  if (p.code === 'attendre') return `Décaler les ${p.pct} %`;
+  if (p.code === 'patienter') return `${p.pct} % au prochain rebond`;
+  if (p.code === 'couvrir') return `Couvrir ${p.pct} %`;
+  return `${p.pct} %`;
+}
+function glance(d) {
+  const tiles = [];
+  for (const [k, c] of Object.entries(d.cultures || {})) {
+    const plan = c.plan || [];
+    const due =
+      plan.find((p) => p.statut === 'due' && !p.avant_moisson) || plan.find((p) => p.statut === 'due') || plan[0];
+    const autre = plan.find((p) => p !== due && p.statut === 'due');
+    const [ic, lab, cl] = DECISION[(due || {}).code] || ['❔', '—', 'neutral'];
+    const con = (d.contrats || {})[c.contrat] || {};
+    const ta = con.technique || {};
+    const phys = c.physique;
+    const cours = phys && phys.prix ? phys.prix : con.dernier_reel;
+    const v1 = ta.var1s;
+    const tend = ta.ecart_mm20 === undefined ? '' : ta.ecart_mm20 > 0 ? '↗' : '↘';
+    tiles.push(
+      h(
+        'div',
+        { class: 'gtile g-' + cl },
+        h('div', { class: 'gname', text: `${ICON[k] || ''} ${c.nom.replace(' brassicole', '')}` }),
+        h(
+          'div',
+          { class: 'gdec' },
+          h('span', { class: 'badge ' + cl, text: `${ic} ${lab}` }),
+          h('span', { class: 'gwhat', text: court(due, (c.niveaux_retenus || {}).sur_ble) })
+        ),
+        h(
+          'div',
+          { class: 'gline' },
+          cours ? `${fmt(cours)} €/t${phys && phys.prix ? ' (physique)' : ''}` : '',
+          tend && !c.proxy ? ` ${tend} ${pct(v1)} sur 1 sem.` : ''
+        ),
+        due
+          ? h('div', {
+              class: 'gsub',
+              text: `Récolte ${due.recolte} · ${due.periode}${due.code === 'ordre' ? ' · ne pas vendre au creux' : ''}`,
+            })
+          : null,
+        autre
+          ? h('div', {
+              class: 'gsub',
+              text: `Récolte ${autre.recolte} : ${court(autre, (c.niveaux_retenus || {}).sur_ble)}`,
+            })
+          : null
+      )
+    );
+  }
+  const e = d.engrais || {};
+  const ec = e.comite || {};
+  const sig = ec.signal || e.signal;
+  const ED = {
+    ACHETER_LARGE: ['🟢', 'ACHETER', 'good'],
+    SUIVRE: ['🟡', 'SUIVRE', 'info'],
+    FRACTIONNER: ['🟠', 'FRACTIONNER', 'warn'],
+    ATTENDRE: ['🔴', 'ATTENDRE', 'bad'],
+  };
+  const [eic, elab, ecl] = ED[sig] || ['❔', '—', 'neutral'];
+  const ur = (e.france || {}).uree || {};
+  tiles.push(
+    h(
+      'div',
+      { class: 'gtile g-' + ecl },
+      h('div', { class: 'gname', text: '🧪 Azote (achat)' }),
+      h(
+        'div',
+        { class: 'gdec' },
+        h('span', { class: 'badge ' + ecl, text: `${eic} ${elab}` }),
+        h('span', { class: 'gwhat', text: ec.pct ? ec.pct.split('(')[0].trim() : e.a_acheter || '' })
+      ),
+      h('div', {
+        class: 'gline',
+        text: ur.prix
+          ? `Urée ${fmt(ur.prix)} €/t ${ur.var1m !== undefined ? (ur.var1m > 0 ? '↗' : '↘') + ' ' + pct(ur.var1m) + ' sur 1 mois' : ''}`
+          : '',
+      }),
+      h('div', {
+        class: 'gsub',
+        text: `Ratio azote/blé : ${e.percentile_retenu ?? '—'}e percentile${ec.prix_plafond ? ` · plafond ${fmt(ec.prix_plafond, 0)} €/t` : ''}`,
+      })
+    )
+  );
+  const cal = ((d.comite || {}).calendrier || [])
+    .filter((x) => x.date >= d.date)
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const nAl = (d.declencheurs || []).length;
+  return h(
+    'section',
+    { class: 'glance' },
+    h(
+      'div',
+      { class: 'ghead' },
+      h('h2', { text: '🧭 Décisions du jour' }),
+      h(
+        'div',
+        { class: 'gmeta' },
+        `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}`,
+        cal.length ? ` · 📅 ${dfr(cal[0].date)} : ${cal[0].evenement}` : '',
+        nAl ? ` · ⚠️ ${nAl} alerte${nAl > 1 ? 's' : ''}` : ' · aucune alerte'
+      )
+    ),
+    h('div', { class: 'ggrid' }, tiles),
+    h(
+      'p',
+      { class: 'note' },
+      '🎯 ORDRE = placer un ordre de vente au prix indiqué (ne pas vendre au prix du jour) · ⏸️ PATIENTER = attendre un rebond · ✅ VENDRE = la tranche peut partir · 🔴 ATTENDRE = décaler · 💤 RIEN = pas de tranche prévue maintenant. Détails, raisons et niveaux plus bas.'
+    )
+  );
+}
+
 function vSignaux() {
   const d = GS.data;
-  const out = [];
+  const out = [glance(d)];
   const com = d.comite || {};
   if (!com.valide) {
     out.push(
@@ -867,6 +1099,7 @@ function vSignaux() {
     out.push(
       h('div', { class: 'card wide' }, h('h3', { text: `Comité du ${dfr(com.date)}` }), h('p', { text: com.resume }))
     );
+  out.push(h('h2', { text: '🔎 Détails par culture' }));
   const grid = h('div', { class: 'grid' });
   for (const [k, c] of Object.entries(d.cultures || {})) {
     const cc = c.comite || {};
@@ -1705,6 +1938,7 @@ function vMethode() {
       txt.map(([t, p]) => h('section', { class: 'card' }, h('h3', { text: t }), h('p', { text: p })))
     ),
     h('div', { style: 'margin-top:12px' }, calendarTable()),
+    backtestSection(),
   ].concat(sources());
 }
 
@@ -1786,11 +2020,13 @@ async function init() {
       render();
     }
   });
-  const [d, c, j] = await Promise.all([
+  const [d, c, j, bt] = await Promise.all([
     getJSON('data/grain/grain-signal.json'),
     getJSON('data/grain/comite.json'),
     getJSON('data/grain/comites-journal.json'),
+    getJSON('data/grain/backtest.json'),
   ]);
+  GS.backtest = bt;
   GS.data = d;
   GS.comite = c || {};
   GS.journal = Array.isArray(j) ? j : [];

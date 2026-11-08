@@ -109,6 +109,11 @@ jobs:
         timeout-minutes: 5
         run: python grain_signal/build.py
 
+      - name: 5b. Backtest des règles (ventes et achats d'azote)
+        timeout-minutes: 5
+        continue-on-error: true
+        run: python grain_signal/backtest.py
+
       - name: 6. Emails (Gmail)
         id: g6
         timeout-minutes: 5
