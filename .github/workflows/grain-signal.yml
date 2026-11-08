@@ -18,6 +18,10 @@ on:
         description: "Envoyer aussi un email de test"
         type: boolean
         default: false
+      rattrapage:
+        description: "Récupérer l'historique Euronext depuis 2019 (jusqu'à 45 minutes au lieu de 8)"
+        type: boolean
+        default: false
   # essai d'une modification sur la branche grain-signal-essai : tout est calculé, rien n'est envoyé ni publié
   push:
     branches: [grain-signal-essai]
@@ -33,7 +37,7 @@ concurrency:
 jobs:
   grain:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       GS_DRY: ${{ github.ref != 'refs/heads/main' && '1' || '' }}
     steps:
@@ -86,7 +90,9 @@ jobs:
 
       - name: 2. Collecte (Euronext, Yahoo, CFTC, engrais, Banque mondiale)
         id: g2
-        timeout-minutes: 25
+        timeout-minutes: ${{ inputs.rattrapage && 60 || 25 }}
+        env:
+          GS_HISTO_BUDGET: ${{ inputs.rattrapage && '2700' || '480' }}
         run: python grain_signal/collect.py
         continue-on-error: true
 

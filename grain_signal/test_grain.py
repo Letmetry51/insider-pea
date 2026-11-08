@@ -315,6 +315,27 @@ _r2 = bt.campagne(_p2, bt.indicateurs(_p2), bt.ym_idx(_ds), 2017, [list(t) for t
                   {"rsi": 40, "pos": 20})
 check(_r2 and _r2["S1"] > _r2["S0"], "backtest : marché haussier, la vente étalée bat la vente à la moisson")
 
+# note de marché rejouée (S5) : technique, fonds (indice sur 3 ans au dernier rapport publié) et macro, pondérés comme build.py
+_cf = {"001602": {"culture": "ble", "serie": [{"date": (date(2015, 1, 6) + _td(weeks=k)).isoformat(), "long": 100, "short": 100 + k * 10}
+                                            for k in range(200)]}}
+_fx = {"EURUSD=X": {"serie": {d_: 1.20 - i * 0.0005 for i, d_ in enumerate(_ds)}}}
+_nf = bt.note_marche(_ds, _p, bt.indicateurs(_p), "ble", _cf, _fx)
+_i = _ds.index("2018-06-01")
+_t = bt.score(bt.indicateurs(_p), _p, _i)
+W_ = bt.CFG["poids"]
+_cot_attendu = 1.5  # dernière position nette = la plus vendeuse des 3 ans → indice 0 → +1,5
+_e20 = (_fx["EURUSD=X"]["serie"][_ds[_i]] / _fx["EURUSD=X"]["serie"][_ds[_i - 20]] - 1) * 100
+_mac = -max(-1, min(1, _e20 / 2)) * 0.5
+_att = (W_["technique"] * _t + W_["cot"] * _cot_attendu + W_["macro"] * _mac) / (W_["technique"] + W_["cot"] + W_["macro"])
+check(abs(_nf(_i) - _att) < 1e-9, f"backtest S5 : note rejouée = technique + fonds + macro pondérés ({_nf(_i):.3f} / {_att:.3f})")
+_r3 = bt.campagne(_p, bt.indicateurs(_p), bt.ym_idx(_ds), 2017, [list(t) for t in bt.CFG["calendrier"]["ble"]["tranches"]], 7,
+                  {"rsi": 40, "pos": 20}, _nf)
+check(_r3 and "S5" in _r3 and abs(_r3["S5"] - 200) < 1e-6, "backtest S5 : prix constant, l'outil complet vend aussi à 200 €/t")
+_rows = [{"recolte": y, "S1": 200, "S2": 200 + (y % 3)} for y in range(2001, 2024)]
+_pp = bt.par_periode(_rows, ["S1", "S2"], "S1")
+check(set(_pp) == {"2000-2009", "2010-2019", "2020 et après"} and _pp["2020 et après"]["S2"]["campagnes"] == 4,
+      "backtest : bilan par période")
+
 # ---------------------------------------------------------------- COT Euronext (tableau du rapport hebdomadaire)
 _rr = ["52", "270", "0", "0", "0", "0", "185 796.15", "344 744.46", "0", "0"]
 _ot = ["172 644.28", "166 309.95", "121 518.82", "5 175.75", "127 540.71", "78 075.64", "51 059.05", "93 017.99", "0", "0"]
@@ -517,7 +538,7 @@ try:
     collect.requests.get = _get
     collect.stats_rows = lambda content, d: [{"date": d.isoformat(), "product": "EBM", "maturity": "2026-12", "settle": 223.0}]
     collect.HISTO_DEBUT = _date(2026, 10, 20)
-    collect.collect_euronext_histo(_date(2026, 11, 7), budget=30)
+    collect.collect_euronext_histo(_date(2026, 11, 7), budget=30, workers=1)
     _st = json.loads((_tmp3 / "euronext_histo.json").read_text())["faits"]
     _csv = collect.read_csv(_tmp3 / "euronext.csv")
     check("2026-11-06" not in _st and "2026-11-05" in _st and "2026-10-23" in _st,
