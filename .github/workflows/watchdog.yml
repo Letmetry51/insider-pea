@@ -45,9 +45,15 @@ jobs:
                                          "--limit", "40", "--json", "createdAt,status,conclusion,event"])
           runs = [r for r in json.loads(out)
                   if datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00")) >= start - timedelta(minutes=30)]
+          # annulé dans la file d'attente des données (groupe « donnees », partagé depuis le 07/11/2026 avec Grain Signal, dont un
+          # calcul peut durer 90 minutes : GitHub ne garde qu'un calcul en attente, le suivant annule le précédent) : jamais exécuté,
+          # ne compte ni comme fait ni comme relance (avant le 08/11/2026, une relance annulée bloquait toute nouvelle relance)
+          gone = [r for r in runs if r["conclusion"] == "cancelled"]
+          runs = [r for r in runs if r["conclusion"] != "cancelled"]
           live = [r for r in runs if r["status"] != "completed" or r["conclusion"] == "success"]
           again = [r for r in runs if r["event"] == "workflow_dispatch"]
-          print(f"Départ prévu : {start:%d/%m %H:%M} UTC ; exécutions depuis : {len(runs)} ; réussies ou en cours : {len(live)}")
+          print(f"Départ prévu : {start:%d/%m %H:%M} UTC ; exécutions depuis : {len(runs)} ; réussies ou en cours : {len(live)}"
+                f" ; annulées en file d'attente : {len(gone)}")
           problems = []
           if live:
               print("Calcul du soir fait ou en cours : rien à faire")
