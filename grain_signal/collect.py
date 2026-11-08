@@ -13,6 +13,7 @@ Les historiques bruts (cours) restent dans data/grain/prive/ : jamais publiés s
 """
 import csv
 import io
+import os
 import json
 import re
 import sys
@@ -390,12 +391,50 @@ def collect_yahoo():
     save_json(path, out)
 
 
+LONG_TICKERS = ("ZW=F", "ZC=F", "EURUSD=X", "BZ=F")  # blé, maïs, euro-dollar, Brent : tout l'historique de Yahoo
+
+
+def collect_cftc_long():
+    """Positions des fonds (managed money, CFTC) depuis 2006 pour le blé et le maïs, une fois par semaine : backtest de la note des
+    fonds."""
+    path = PRIV / "cftc_long.json"
+    old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    stamp = old.get("_telecharge")
+    if stamp and (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).days < 7:
+        note("cftc_historique", True, f"déjà téléchargé le {stamp[:10]}")
+        return
+    out, ok = dict(old), 0
+    codes = [c for c, m in CFG["cftc"]["marches"].items() if m.get("culture") in ("ble", "mais")]
+    for code in codes:
+        try:
+            params = {"cftc_contract_market_code": code, "$order": "report_date_as_yyyy_mm_dd ASC", "$limit": "5000",
+                      "$select": "report_date_as_yyyy_mm_dd,m_money_positions_long_all,m_money_positions_short_all"}
+            j = get(CFG["cftc"]["dataset"], params=params, timeout=90).json()
+            ser = []
+            for r in j:
+                try:
+                    ser.append({"date": r["report_date_as_yyyy_mm_dd"][:10], "long": int(float(r["m_money_positions_long_all"])),
+                                "short": int(float(r["m_money_positions_short_all"]))})
+                except (KeyError, ValueError, TypeError):
+                    continue
+            if len(ser) < 500:
+                raise RuntimeError(f"{len(ser)} rapports seulement")
+            out[code] = {"culture": CFG["cftc"]["marches"][code]["culture"], "nom": CFG["cftc"]["marches"][code]["nom"], "serie": ser}
+            ok += 1
+        except Exception as e:  # noqa: BLE001
+            print(f"CFTC historique {code} : {e}")
+    if ok == len(codes):
+        out["_telecharge"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    save_json(path, out)
+    note("cftc_historique", ok == len(codes), f"{ok}/{len(codes)} marchés" + (f", depuis {min(v['serie'][0]['date'] for k, v in out.items() if not k.startswith('_'))}" if ok else ""))
+
+
 def collect_yahoo_long():
     """Historique complet (depuis 2000) du blé et du maïs de Chicago et de l'EUR/USD, pour le backtest. Une fois par semaine."""
     path = PRIV / "yahoo_long.json"
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     stamp = old.get("_telecharge")
-    if stamp and (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).days < 7:
+    if stamp and (datetime.now(timezone.utc) - datetime.fromisoformat(stamp)).days < 7 and "BZ=F" in old:
         note("yahoo_historique_long", True, f"déjà téléchargé le {stamp[:10]}")
         return
     out, ok = dict(old), 0
@@ -404,7 +443,7 @@ def collect_yahoo_long():
     except ImportError as e:
         note("yahoo_historique_long", False, e)
         return
-    for tk in ("ZW=F", "ZC=F", "EURUSD=X"):
+    for tk in LONG_TICKERS:
         try:
             h = yf.Ticker(tk).history(period="max", interval="1d", auto_adjust=False)
             ser = {i.date().isoformat(): round(float(v), 4) for i, v in h["Close"].dropna().items() if i.date() < date.today()}
@@ -415,10 +454,11 @@ def collect_yahoo_long():
         except Exception as e:  # noqa: BLE001
             print(f"Historique long {tk} : {e}")
         time.sleep(5)
-    if ok == 3:
+    n = len(LONG_TICKERS)
+    if ok == n:
         out["_telecharge"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     save_json(path, out)
-    note("yahoo_historique_long", ok == 3, f"{ok}/3 séries complètes" + (" (historique précédent gardé pour les autres)" if ok < 3 else ""))
+    note("yahoo_historique_long", ok == n, f"{ok}/{n} séries complètes" + (" (historique précédent gardé pour les autres)" if ok < n else ""))
 
 
 STATS_URL = "https://live.euronext.com/sites/default/files/statistics/derivatives/daily/2017/Derivatives%20{:%Y%m%d}.xlsx"
@@ -467,9 +507,30 @@ def parse_series(rows, d):
     return out
 
 
-def collect_euronext_histo(today, budget=480):
+def stats_jour(k):
+    """Une séance (AAAA-MM-JJ) : ("ok", lignes) | ("absent", None) | ("erreur", message). Fonction de premier niveau : exécutée
+    en parallèle dans des processus séparés (téléchargement et lecture du fichier de 10 à 33 Mo)."""
+    d = date.fromisoformat(k)
+    try:
+        r = requests.get(STATS_URL.format(d), headers=UA, timeout=60)
+    except Exception as e:  # noqa: BLE001
+        return "erreur", type(e).__name__
+    if r.status_code in (403, 404):
+        return "absent", None
+    if r.status_code != 200 or r.content[:2] != b"PK":
+        return "erreur", f"HTTP {r.status_code}"
+    try:
+        return "ok", stats_rows(r.content, d)
+    except Exception as e:  # noqa: BLE001
+        return "erreur", str(e)[:120]
+
+
+def collect_euronext_histo(today, budget=None, workers=None):
     """Historique officiel d'Euronext depuis novembre 2019 (fichiers statistiques quotidiens publics, un par séance), repris du plus
-    récent au plus ancien dans la limite de `budget` secondes par calcul ; contrôle croisé avec les prix lus sur terre-net."""
+    récent au plus ancien dans la limite de `budget` secondes (8 minutes ; GS_HISTO_BUDGET pour un rattrapage), plusieurs fichiers
+    à la fois ; contrôle croisé avec les prix lus sur terre-net."""
+    budget = budget or int(os.environ.get("GS_HISTO_BUDGET") or 480)
+    workers = workers or int(os.environ.get("GS_HISTO_WORKERS") or 4)
     st_path = PRIV / "euronext_histo.json"
     st = json.loads(st_path.read_text(encoding="utf-8")) if st_path.exists() else {}
     faits = set(st.get("faits") or [])
@@ -477,44 +538,52 @@ def collect_euronext_histo(today, budget=480):
     rows = read_csv(path)
     have = {(r["date"], r["product"], r["maturity"]): r for r in rows}
     t0, lus, absents, ecarts, err = time.monotonic(), 0, 0, [], None
-    d = today - timedelta(days=1)
-    while d >= HISTO_DEBUT and time.monotonic() - t0 < budget:
-        k = d.isoformat()
-        if d.weekday() < 5 and k not in faits:
-            try:
-                r = requests.get(STATS_URL.format(d), headers=UA, timeout=60)
-            except Exception as e:  # noqa: BLE001
-                err = f"{k} : {type(e).__name__}"
-                break  # Euronext injoignable : repris au prochain calcul
-            if r.status_code in (403, 404):
-                if (today - d).days > 7:  # séance fermée (jour férié) ; fichier récent pas encore publié : redemandé demain
-                    faits.add(k)
-                    absents += 1
-            elif r.status_code == 200 and r.content[:2] == b"PK":
-                try:
-                    new = stats_rows(r.content, d)
-                except Exception as e:  # noqa: BLE001
-                    err = f"{k} : {e}"
-                    break
-                for x in new:
-                    key = (x["date"], x["product"], x["maturity"])
-                    old = have.get(key)
-                    if old is None:
-                        rows.append(x)
-                        have[key] = x
-                    elif abs(float(old["settle"]) - x["settle"]) > 0.001:
-                        ecarts.append(f"{k} {x['product']} {x['maturity']} : terre-net {old['settle']} / Euronext {x['settle']}")
-                faits.add(k)
-                lus += 1
-            else:
-                err = f"{k} : HTTP {r.status_code}"
-                break
+    todo, d = [], today - timedelta(days=1)
+    while d >= HISTO_DEBUT:
+        if d.weekday() < 5 and d.isoformat() not in faits:
+            todo.append(d.isoformat())
         d -= timedelta(days=1)
+    pool = None
+    if workers > 1 and len(todo) > 1:
+        from concurrent.futures import ProcessPoolExecutor
+
+        pool = ProcessPoolExecutor(max_workers=workers)
+    try:
+        for i in range(0, len(todo), max(1, workers)):
+            if time.monotonic() - t0 > budget:
+                break
+            lot = todo[i:i + max(1, workers)]
+            res = list(pool.map(stats_jour, lot)) if pool else [stats_jour(k) for k in lot]
+            for k, (etat, val) in zip(lot, res):
+                if etat == "absent":
+                    if (today - date.fromisoformat(k)).days > 7:  # jour férié ; fichier récent pas encore publié : redemandé demain
+                        faits.add(k)
+                        absents += 1
+                elif etat == "ok":
+                    for x in val:
+                        key = (x["date"], x["product"], x["maturity"])
+                        old = have.get(key)
+                        if old is None:
+                            rows.append(x)
+                            have[key] = x
+                        elif abs(float(old["settle"]) - x["settle"]) > 0.001:
+                            ecarts.append(f"{k} {x['product']} {x['maturity']} : terre-net {old['settle']} / Euronext {x['settle']}")
+                    faits.add(k)
+                    lus += 1
+                else:
+                    err = f"{k} : {val}"
+            if err:
+                break  # Euronext injoignable ou fichier illisible : repris au prochain calcul
+    finally:
+        if pool:
+            pool.shutdown(cancel_futures=True)
     rows.sort(key=lambda r: (r["product"], r["date"], r["maturity"]))
     write_csv(path, rows, ["date", "product", "maturity", "settle"])
     save_json(st_path, {"faits": sorted(faits)})
     total = sum(1 for x in faits if x >= HISTO_DEBUT.isoformat())
-    detail = f"{lus} séance(s) lue(s), {absents} sans fichier ; {total} jours traités depuis le {HISTO_DEBUT:%d/%m/%Y}"
+    reste = sum(1 for k in todo if k not in faits)
+    detail = (f"{lus} séance(s) lue(s), {absents} sans fichier en {time.monotonic() - t0:.0f} s ; {total} jours traités depuis le "
+              f"{HISTO_DEBUT:%d/%m/%Y}, {reste} restant(s)")
     note("euronext_historique", err is None, detail + (f" ; arrêt : {err}" if err else ""))
     if ecarts:  # même séance, même échéance : terre-net doit donner le prix officiel d'Euronext
         note("controle_terre_net", False, f"{len(ecarts)} écart(s) avec Euronext : " + " ; ".join(ecarts[:3]))
@@ -800,7 +869,8 @@ def collect_banque_mondiale():
     meta_p = PRIV / "wb_meta.json"
     meta = json.loads(meta_p.read_text(encoding="utf-8")) if meta_p.exists() else {}
     last = meta.get("telecharge")
-    if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days < CFG["banqueMondiale"]["joursEntreTelechargements"]:
+    premier = (read_csv(path)[:1] or [{}])[0].get("month", "9999")
+    if last and premier < "1961" and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).days < CFG["banqueMondiale"]["joursEntreTelechargements"]:
         note("banque_mondiale", True, f"déjà téléchargé le {last[:10]}")
         return
     try:
@@ -827,7 +897,7 @@ def collect_banque_mondiale():
             if not r or not isinstance(r[0], str) or not re.match(r"^\d{4}M\d{2}$", r[0]):
                 continue
             mo = r[0].replace("M", "-")
-            if mo < "2000-01":
+            if mo < "1960-01":  # tout l'historique (backtest des achats d'azote) ; le calcul du matin ne lit que les 10 dernières années
                 continue
             row = {"month": mo}
             for k, i in idx.items():
@@ -848,7 +918,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
+    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, collect_cftc_long, lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
                collect_banque_mondiale):
         try:
             fn()

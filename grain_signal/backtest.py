@@ -8,7 +8,10 @@ faute d'historique Euronext long ; c'est la TENDANCE qui est testée, pas le niv
   S2  calendrier de tranches de Grain Signal, chaque tranche vendue en moyenne sur sa période
   S3  S2 + timing technique (au creux : ordre au-dessus du marché, rempli au rebond ou en fin de période)
   S4  S3 + tendance (score technique ≤ −1 : tranche suivante avancée ; ≥ +0,5 : tranche décalée), 35 % au plus avant la moisson
-Achats d'azote (urée, mensuel Banque mondiale, depuis 2000) : besoins d'une campagne achetés d'avril à janvier.
+  S5  outil complet sans le comité : S3 + note de marché du matin (technique 45 %, fonds CFTC 20 % dès 2006, macro 20 % :
+      euro-dollar et Brent), mêmes seuils ; la météo et le comité IA ne sont pas rejouables sur le passé
+Même test sur les cours officiels d'Euronext (blé, colza, maïs, échéance la plus proche) depuis novembre 2019, et par période.
+Achats d'azote (urée, mensuel Banque mondiale, depuis 1960) : besoins d'une campagne achetés d'avril à janvier.
   E0  tout acheter en janvier          E1  même quantité chaque mois
   E2  saison seule (avril à juillet)   E3  règles Grain Signal (ratio urée/blé, rattrapage du gaz, saison, 50 % au plus tard fin octobre)
 
@@ -19,7 +22,7 @@ import csv
 import json
 import math
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -147,7 +150,7 @@ def window(idx, hy, a, b):
     return (s[0], e[1]) if s and e else None
 
 
-def campagne(p, I, idx, hy, tranches, harvest_m, opts):
+def campagne(p, I, idx, hy, tranches, harvest_m, opts, note_fn=None):
     """Prix moyen obtenu (€/t) par chaque stratégie pour la récolte hy. None si la campagne n'est pas complète."""
     wins = [window(idx, hy, a, b) for a, b, _ in tranches]
     if any(w is None for w in wins):
@@ -164,7 +167,7 @@ def campagne(p, I, idx, hy, tranches, harvest_m, opts):
     res["S1"] = sum(sum(p[a:b + 1]) / (b - a + 1) for a, b in months) / len(months)
     res["S2"] = sum(pct * sum(p[a:b + 1]) / (b - a + 1) for (a, b), pct in zip(wins, pcts)) / 100
 
-    def run(use_trend):
+    def run(use_trend, fn=None):
         recette, reste_report = 0.0, 0.0
         vendu_avant = 0.0
         for k, ((a, b), pct) in enumerate(zip(wins, pcts)):
@@ -172,7 +175,8 @@ def campagne(p, I, idx, hy, tranches, harvest_m, opts):
             q = pct + reste_report
             reste_report = 0.0
             if use_trend:
-                sc = score(I, p, a)
+                sc = fn(a) if fn else score(I, p, a)
+                sc = score(I, p, a) if sc is None else sc
                 last = k == len(wins) - 1
                 if sc >= 0.5 and not last:
                     reste_report, q = q, 0.0  # tranche décalée sur la suivante
@@ -223,7 +227,71 @@ def campagne(p, I, idx, hy, tranches, harvest_m, opts):
     pcts[:] = pcts_orig
     res["S4"] = run(True)
     pcts[:] = pcts_orig
+    if note_fn:
+        res["S5"] = run(True, note_fn)
+        pcts[:] = pcts_orig
     return res
+
+
+def note_marche(dates, p, I, cult, cftc, yahoo):
+    """Note de marché du matin rejouée jour par jour (comme build.py) : technique 45 %, fonds 20 %, macro 20 % (poids de config.json),
+    renormalisés sur les parties disponibles ce jour-là. Fonds : indice de la position nette des fonds sur 3 ans au dernier rapport
+    publié (vendredi pour le mardi : 3 jours de décalage), lu à contre-courant. Macro : variation sur 20 séances de l'euro-dollar
+    (et du Brent pour le colza et le maïs)."""
+    W = CFG["poids"]
+    series = [v["serie"] for v in cftc.values() if isinstance(v, dict) and v.get("culture") == cult and v.get("serie")]
+    cot = []
+    for ser in series:
+        dd = [x["date"] for x in ser]
+        nets = [x["long"] - x["short"] for x in ser]
+        cot.append((dd, nets))
+    fx = (yahoo.get("EURUSD=X") or {}).get("serie") or {}
+    br = (yahoo.get("BZ=F") or {}).get("serie") or {}
+    fxd, brd = sorted(fx), sorted(br)
+
+    def chg20(keys, ser, d):
+        j = bisect.bisect_right(keys, d) - 1
+        if j < 20:
+            return None
+        return (ser[keys[j]] / ser[keys[j - 20]] - 1) * 100
+
+    def cot_at(d):
+        lim = (datetime.fromisoformat(d) - timedelta(days=3)).date().isoformat()
+        sc = []
+        for dd, nets in cot:
+            j = bisect.bisect_right(dd, lim) - 1
+            if j < 19:
+                continue
+            w = nets[max(0, j - 155):j + 1]
+            lo, hi = min(w), max(w)
+            idx = (nets[j] - lo) / (hi - lo) * 100 if hi > lo else 50.0
+            sc.append(1.5 if idx <= 15 else -1.5 if idx >= 85 else max(-1.0, min(1.0, -(idx - 50) / 35)))
+        return sum(sc) / len(sc) if sc else None
+
+    def fn(i):
+        d = dates[i]
+        parts = {"technique": score(I, p, i), "cot": cot_at(d)}
+        e20, b20 = chg20(fxd, fx, d), chg20(brd, br, d)
+        if e20 is not None or b20 is not None:
+            m = -max(-1, min(1, (e20 or 0) / 2)) * 0.5
+            if cult == "colza":
+                m += max(-1, min(1, (b20 or 0) / 10)) * 0.75
+            elif cult == "mais":
+                m += max(-1, min(1, (b20 or 0) / 10)) * 0.25
+            parts["macro"] = m
+        den = sum(W[k] for k, v in parts.items() if v is not None)
+        return sum(W[k] * v for k, v in parts.items() if v is not None) / den if den else None
+    return fn
+
+
+def par_periode(rows, keys, ref):
+    """Bilan par décennie (et la dernière période en cours) : un réglage qui ne gagne que sur une période est fragile."""
+    out = {}
+    for lab, a, b in (("2000-2009", 2000, 2009), ("2010-2019", 2010, 2019), ("2020 et après", 2020, 2100)):
+        sub = [r for r in rows if a <= r["recolte"] <= b]
+        if len(sub) >= 3:
+            out[lab] = bilan(sub, keys, ref)
+    return out
 
 
 def serie_eur(yahoo, tk):
@@ -254,7 +322,7 @@ def bilan(rows, keys, ref, achat=False):
     return out
 
 
-def backtest_ventes(yahoo):
+def backtest_ventes(yahoo, cftc):
     res = {}
     for cult, (tk, hm, nom) in CULTURES.items():
         d, p = serie_eur(yahoo, tk)
@@ -266,14 +334,15 @@ def backtest_ventes(yahoo):
         tr = CFG["calendrier"][cult]["tranches"]
         rows = []
         base = {"rsi": 40, "pos": 20}
+        nf = note_marche(d, p, I, cult, cftc, yahoo)
         for hy in range(int(d[0][:4]) + 1, int(d[-1][:4])):
-            r = campagne(p, I, idx, hy, [list(t) for t in tr], hm, base)
+            r = campagne(p, I, idx, hy, [list(t) for t in tr], hm, base, nf)
             if r:
                 rows.append({"recolte": hy, **{k: round(v, 1) for k, v in r.items()}})
         if len(rows) < 3:
             res[cult] = {"nom": nom, "erreur": "moins de 3 campagnes complètes"}
             continue
-        keys = ["S0", "S1", "S2", "S3", "S4"]
+        keys = ["S0", "S1", "S2", "S3", "S4", "S5"]
         variantes = []
         for rc in (30, 35, 40, 45):
             for pc in (15, 20, 30):
@@ -283,8 +352,63 @@ def backtest_ventes(yahoo):
                                   "gagnantes": sum(1 for x in ok if x > 0.05), "campagnes": len(ok)})
         variantes.sort(key=lambda v: -v["ecart_moyen_vs_S2"])
         res[cult] = {"nom": nom, "depuis": d[0], "campagnes": rows, "bilan_vs_S1": bilan(rows, keys, "S1"),
-                     "bilan_vs_S2": bilan(rows, keys, "S2"), "variantes_timing": variantes}
+                     "bilan_vs_S2": bilan(rows, keys, "S2"), "variantes_timing": variantes, "periodes": par_periode(rows, keys, "S1")}
     return res
+
+
+EURONEXT = {"ble": ("EBM", 7, "Blé tendre (Euronext)"), "colza": ("ECO", 7, "Colza (Euronext)"), "mais": ("EMA", 10, "Maïs (Euronext)")}
+
+
+def backtest_euronext(cftc, yahoo):
+    """Mêmes stratégies sur les cours officiels d'Euronext (prix réel de l'échéance la plus proche), depuis novembre 2019."""
+    sys.path.insert(0, str(HERE))
+    import build  # noqa: E402  (front_series : même choix d'échéance que la page)
+
+    path = PRIV / "euronext.csv"
+    rows_e = list(csv.DictReader(path.open(encoding="utf-8"))) if path.exists() else []
+    res = {}
+    for cult, (prod, hm, nom) in EURONEXT.items():
+        d, p = build.front_series(rows_e, prod)
+        if len(p) < 500:
+            res[cult] = {"nom": nom, "erreur": f"historique Euronext encore court ({len(p)} séances) : récupération en cours"}
+            continue
+        I = indicateurs(p)
+        idx = ym_idx(d)
+        tr = CFG["calendrier"][cult]["tranches"]
+        nf = note_marche(d, p, I, cult, cftc, yahoo)
+        rows = []
+        for hy in range(int(d[0][:4]), int(d[-1][:4]) + 1):
+            r = campagne(p, I, idx, hy, [list(t) for t in tr], hm, {"rsi": 40, "pos": 20}, nf)
+            if r:
+                rows.append({"recolte": hy, **{k: round(v, 1) for k, v in r.items()}})
+        if len(rows) < 3:
+            res[cult] = {"nom": nom, "depuis": d[0], "erreur": f"{len(rows)} campagne(s) complète(s) seulement depuis le {d[0]}"}
+            continue
+        keys = ["S0", "S1", "S2", "S3", "S4", "S5"]
+        res[cult] = {"nom": nom, "depuis": d[0], "campagnes": rows, "bilan_vs_S1": bilan(rows, keys, "S1")}
+    return res
+
+
+def comparaison(chicago, euronext):
+    """Campagnes communes : les écarts des stratégies sur Chicago et sur Euronext vont-ils dans le même sens ?"""
+    out = {}
+    for cult in ("ble", "mais"):
+        c, e = chicago.get(cult) or {}, euronext.get(cult) or {}
+        if "campagnes" not in c or "campagnes" not in e:
+            continue
+        cc = {r["recolte"]: r for r in c["campagnes"]}
+        com = [r for r in e["campagnes"] if r["recolte"] in cc]
+        if len(com) < 3:
+            continue
+        o = {}
+        for k in ("S2", "S3", "S4", "S5"):
+            ec = [cc[r["recolte"]][k] - cc[r["recolte"]]["S1"] for r in com if k in cc[r["recolte"]] and k in r]
+            ee = [r[k] - r["S1"] for r in com if k in r]
+            if ec and ee:
+                o[k] = {"chicago": round(sum(ec) / len(ec), 1), "euronext": round(sum(ee) / len(ee), 1),
+                        "meme_sens": sum(1 for a, b in zip(ec, ee) if (a > 0) == (b > 0)), "campagnes": len(ee)}
+        out[cult] = o
+    return out
 
 
 # ----------------------------------------------------------------------------------------- achats d'azote
@@ -340,10 +464,18 @@ def backtest_engrais():
 def main():
     longue = load(PRIV / "yahoo_long.json", {})
     yahoo = longue if all(k in longue for k in ("ZW=F", "ZC=F", "EURUSD=X")) else load(PRIV / "yahoo.json", {})
-    res = {"genere": datetime.now(timezone.utc).isoformat(timespec="seconds"), "ventes": backtest_ventes(yahoo), "engrais": backtest_engrais(),
+    cftc = load(PRIV / "cftc_long.json", {}) or load(PRIV / "cftc.json", {})
+    for k, v in list(cftc.items()):  # fichier court (calcul du matin) : culture prise dans la configuration
+        if isinstance(v, dict) and "culture" not in v and k in CFG["cftc"]["marches"]:
+            v["culture"] = CFG["cftc"]["marches"][k]["culture"]
+    ventes = backtest_ventes(yahoo, cftc)
+    eu = backtest_euronext(cftc, yahoo)
+    res = {"genere": datetime.now(timezone.utc).isoformat(timespec="seconds"), "ventes": ventes, "ventes_euronext": eu,
+           "comparaison": comparaison(ventes, eu), "engrais": backtest_engrais(),
            "limites": ["Ventes testées sur le marché américain converti en €/t : la tendance d'Euronext, pas son niveau ni la base locale.",
                        "Pas de frais, pas de coût de stockage, pas de fiscalité ; échéance continue non ajustée des changements de contrat.",
-                       "Le score des stratégies S4 ne contient que la technique : les fondamentaux et le comité ne sont pas rejoués.",
+                       "S4 ne contient que la technique ; S5 ajoute les fonds (CFTC, depuis 2006) et la macro (euro-dollar, Brent) : la météo et le comité IA ne sont pas rejoués.",
+                       "Cours Euronext : prix réel de l'échéance la plus proche, depuis novembre 2019 seulement (fichiers statistiques publics).",
                        "Achats d'azote testés sur l'urée mondiale mensuelle, pas sur les prix rendus France.",
                        "Le passé ne garantit pas l'avenir : ce test sert à écarter les mauvais réglages, pas à promettre un gain."]}
     OUT.mkdir(parents=True, exist_ok=True)
@@ -355,6 +487,12 @@ def main():
         b = v["bilan_vs_S1"]
         print(f"{v['nom']} — {len(v['campagnes'])} campagnes ; écart moyen vs vente mensuelle (€/t) :",
               {k: b[k]["ecart_moyen"] for k in b}, "| meilleur timing :", v["variantes_timing"][0])
+        for lab, bp in v["periodes"].items():
+            print(f"   {lab} : ", {k: bp[k]["ecart_moyen"] for k in bp})
+    for cult, v in res["ventes_euronext"].items():
+        print(v["nom"], ":", v.get("erreur") or {k: x["ecart_moyen"] for k, x in v["bilan_vs_S1"].items()},
+              f"({len(v.get('campagnes', []))} campagnes)" if "campagnes" in v else "")
+    print("Chicago / Euronext, campagnes communes :", res["comparaison"])
     e = res["engrais"]
     if "erreur" not in e:
         print("Azote —", len(e["campagnes"]), "campagnes ; écart moyen vs achat mensuel ($/t) :", {k: e["bilan_vs_E1"][k]["ecart_moyen"] for k in e["bilan_vs_E1"]})

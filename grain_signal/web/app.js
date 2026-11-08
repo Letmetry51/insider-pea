@@ -947,6 +947,7 @@ const STRAT = {
   S2: 'Calendrier Grain Signal',
   S3: 'Calendrier + timing technique',
   S4: 'Calendrier + timing + tendance',
+  S5: 'Outil complet (sans comité)',
   E0: 'Tout acheter en janvier',
   E1: 'Même quantité chaque mois',
   E2: 'Saison seule (avril-juillet)',
@@ -985,6 +986,34 @@ function btTable(b, unite, achat) {
     )
   );
 }
+// bilan par décennie : une stratégie qui ne gagne que sur une période est fragile
+function periodTable(per) {
+  const P = Object.entries(per || {});
+  if (!P.length) return null;
+  const keys = Object.keys(P[0][1]).filter((k) => k !== 'S1');
+  return h(
+    'div',
+    { class: 'scroll' },
+    h(
+      'table',
+      {},
+      h(
+        'tr',
+        {},
+        h('th', { text: 'Gain / mensuel (€/t) par période' }),
+        keys.map((k) => h('th', { class: 'n', text: STRAT[k] || k }))
+      ),
+      P.map(([lab, b]) =>
+        h(
+          'tr',
+          {},
+          h('td', { text: `${lab} (${b[keys[0]].campagnes} camp.)` }),
+          keys.map((k) => h('td', { class: 'n ' + cls(b[k].ecart_moyen), text: sgn(b[k].ecart_moyen, 1) }))
+        )
+      )
+    )
+  );
+}
 function backtestSection() {
   const bt = GS.backtest;
   if (!bt)
@@ -1005,14 +1034,45 @@ function backtestSection() {
     parts.push(
       h('h4', { class: 'ititle', text: `${v.nom} — ${v.campagnes.length} campagnes depuis ${v.campagnes[0].recolte}` }),
       h('p', {
-        text: `Par rapport à une vente mensuelle régulière : calendrier ${g('S2')} ; avec le timing technique ${g('S3')} ; avec la tendance ${g('S4')}.`,
+        text: `Par rapport à une vente mensuelle régulière : calendrier ${g('S2')} ; avec le timing technique ${g('S3')} ; avec la tendance ${g('S4')}${b.S5 ? ` ; outil complet ${g('S5')}` : ''}.`,
       }),
       btTable(b, '€/t'),
+      periodTable(v.periodes),
       h('p', {
         class: 'note',
         text: `Meilleur réglage du timing testé : RSI < ${v.variantes_timing[0].rsi} et bas du range ≤ ${v.variantes_timing[0].pos} % (${sgn(v.variantes_timing[0].ecart_moyen_vs_S2)} €/t par rapport au calendrier seul). Réglage actuel : RSI < 40 et ≤ 20 %.`,
       })
     );
+  }
+  const eu = Object.values(bt.ventes_euronext || {});
+  if (eu.length) {
+    parts.push(h('h4', { class: 'ititle', text: '🇪🇺 Sur les cours officiels Euronext (depuis novembre 2019)' }));
+    for (const v of eu) {
+      if (v.erreur) {
+        parts.push(h('p', { class: 'note', text: `${v.nom} : ${v.erreur}` }));
+        continue;
+      }
+      parts.push(
+        h('p', { text: `${v.nom} — ${v.campagnes.length} campagnes depuis ${v.campagnes[0].recolte}` }),
+        btTable(v.bilan_vs_S1, '€/t')
+      );
+    }
+    const cmp = bt.comparaison || {};
+    const lignes = Object.entries(cmp).flatMap(([cult, o]) =>
+      Object.entries(o).map(
+        ([k, x]) =>
+          `${cult === 'ble' ? 'Blé' : 'Maïs'}, ${STRAT[k]} : Chicago ${sgn(x.chicago, 1)}, Euronext ${sgn(x.euronext, 1)} €/t (même sens ${x.meme_sens} fois sur ${x.campagnes})`
+      )
+    );
+    if (lignes.length)
+      parts.push(
+        h('p', { class: 'note', text: 'Campagnes communes, écart par rapport à la vente mensuelle :' }),
+        h(
+          'ul',
+          { class: 'list note' },
+          lignes.map((t) => h('li', { text: t }))
+        )
+      );
   }
   const e = bt.engrais || {};
   if (e.bilan_vs_E1) {
