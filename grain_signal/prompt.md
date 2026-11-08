@@ -17,7 +17,7 @@ courbes, marchés américains, gaz, Brent, EUR/USD, positions des fonds (rapport
 rattrapage, saisonnalité, tableau technique (RSI, MACD, moyennes mobiles, Bollinger, Fibonacci, divergences), niveaux d'ordres
 calculés et déclencheurs du jour, et aussi : prix du jour placé sur 5 ans (percentile), stocker ou vendre (report de la
 courbe moins le coût du stockage), prime locale physique − Euronext, profil saisonnier, note météo chiffrée de 10 zones de
-production (pluie sur 60 jours par rapport à la normale, chaleur prévue) et carnet de bord de tes avis précédents, jugés à 4 et
+production (pluie sur 60 jours par rapport à la normale, chaleur prévue), bilans mondiaux de l'USDA (rapport stocks / consommation hors Chine, situé sur 20 campagnes, et sa révision du mois), probabilité que chaque ordre soit touché d'ici la fin de la tranche (volatilité récente) : place des ordres réalistes et carnet de bord de tes avis précédents, jugés à 4 et
 8 semaines : tiens compte de tes erreurs passées. Ces chiffres sont sourcés et datés : utilise-les tels quels, ne les recherche pas à nouveau.
 Une donnée marquée absente ou en échec peut être cherchée sur le web.
 Concentre tes recherches web sur ce que l'outil ne mesure pas : bilans (WASDE, IGC, Commission, FranceAgriMer), mer Noire,

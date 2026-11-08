@@ -329,7 +329,8 @@ function chart(rows, opts = {}) {
             { class: 'lvl' },
             h('i', { style: `color:${l.c}` }),
             `${l.t} : `,
-            h('b', { text: `${fmt(l.v, 2)}${l.u ? ' ' + l.u : ''}` })
+            h('b', { text: `${fmt(l.v, 2)}${l.u ? ' ' + l.u : ''}` }),
+            l.p ? h('span', { class: 'muted', text: ` · ${l.p}` }) : null
           )
         )
       )
@@ -436,6 +437,18 @@ const PG = {
           : v <= 80
             ? ['Cher : fractionner', 'warn']
             : ['Très cher : attendre', 'bad'],
+  },
+  stocks: {
+    segs: SEG5V,
+    ticks: T5,
+    lab: (v) =>
+      lab5(v, [
+        ['Stocks très serrés : risque de flambée', 'bad'],
+        ['Stocks plutôt serrés', 'warn'],
+        ['Stocks dans la moyenne', 'neutral'],
+        ['Stocks plutôt confortables', 'info'],
+        ['Stocks confortables : peu de risque de flambée', 'good'],
+      ]),
   },
   cot: {
     segs: [
@@ -931,11 +944,29 @@ function orgeLong(o, eb) {
 
 function chartLevels(niv, a, u = '€/t') {
   const lv = [];
+  const pb = (niv && niv.probas) || {};
+  const hz = pb.horizon ? ` d'ici le ${dfr(pb.horizon)}` : '';
   // « 1er ordre : 235,50 €/t » et non « Ordre 1 235,50 », qui se lisait 1 235,50 €
   (niv && niv.ordres ? niv.ordres : []).forEach((v, i) =>
-    lv.push({ v, c: 'var(--good)', t: `🎯 ${i === 0 ? '1er' : `${i + 1}e`} ordre`, u })
+    lv.push({
+      v,
+      c: 'var(--good)',
+      t: `🎯 ${i === 0 ? '1er' : `${i + 1}e`} ordre`,
+      u,
+      p:
+        (pb.ordres || [])[i] !== undefined && (pb.ordres || [])[i] !== null
+          ? `${pb.ordres[i]} % de chances${hz}`
+          : null,
+    })
   );
-  if (niv && niv.revision) lv.push({ v: niv.revision, c: 'var(--bad)', t: '🛑 Révision', u });
+  if (niv && niv.revision)
+    lv.push({
+      v: niv.revision,
+      c: 'var(--bad)',
+      t: '🛑 Révision',
+      u,
+      p: pb.revision !== undefined && pb.revision !== null ? `${pb.revision} % de risque${hz}` : null,
+    });
   if (a && a.bas3m) lv.push({ v: a.bas3m, c: 'var(--warn)', t: '🧱 Support', u });
   return lv;
 }
@@ -1228,6 +1259,17 @@ const SIGT = {
   FRACTIONNER: 'fractionner',
 };
 const BASE = { ble: 'ble', escourgeon: 'ble', orge_printemps: 'ble', colza: 'colza', mais: 'mais' };
+const BASE_USDA = { ble: 'ble', escourgeon: 'orge', orge_printemps: 'orge', colza: 'colza', mais: 'mais' };
+// « 1er ordre : 42 % de chances d'être touché d'ici le 30 nov. » (volatilité des 3 derniers mois, sans tendance)
+function probaTxt(pb) {
+  if (!pb || !pb.ordres || !pb.ordres.length) return '';
+  const o = pb.ordres
+    .map((p, i) => (p === null || p === undefined ? null : `${i === 0 ? '1er' : `${i + 1}e`} ordre ${p} %`))
+    .filter(Boolean);
+  const rv =
+    pb.revision !== null && pb.revision !== undefined ? ` ; risque de passer sous la révision : ${pb.revision} %` : '';
+  return o.length ? `${o.join(' · ')} de chances d'être touchés d'ici le ${dfr(pb.horizon)}${rv}` : '';
+}
 // résultat d'un avis du carnet à 4 ou 8 semaines : ✅ bon, ❌ mauvais, ➖ neutre, ⏳ pas encore jugé
 function verdict(r, unite) {
   if (!r) return '—';
@@ -1477,6 +1519,19 @@ function vSignaux() {
             ceu !== undefined && ceu !== null && !c.proxy
               ? pgauge(ceu, 'cot', '🏦 Fonds sur Euronext (3 ans)', null)
               : null,
+            (() => {
+              const st = (d.stocks_mondiaux || {})[BASE_USDA[k]];
+              return st
+                ? pgauge(
+                    st.percentile,
+                    'stocks',
+                    `🌍 Stocks mondiaux / consommation${st.hors_chine ? ' (hors Chine)' : ''}`,
+                    `${fmt(st.ratio, 1)} % en ${st.campagne} (moyenne ${fmt(st.moyenne, 1)} % sur ${st.campagnes} ans)${
+                      st.revision !== undefined ? ` · révision ${sgn(st.revision, 1)} pt` : ''
+                    } · USDA`
+                  )
+                : null;
+            })(),
           ].filter(Boolean);
           return kids.length ? h('div', { class: 'pgrid' }, kids) : null;
         })(),
@@ -1499,6 +1554,7 @@ function vSignaux() {
                   : ordres.map((v) => fmt(v)).join(' · ') + ' €/t' + ech,
             }),
           ],
+          probaTxt(nr.probas) ? [h('dt', { text: '🎲 Chances' }), h('dd', { text: probaTxt(nr.probas) })] : null,
           [h('dt', { text: '🛑 Révision' }), h('dd', { text: revision ? `sous ${fmt(revision)} €/t${ech}` : '—' })],
           nr.source && nr.source !== 'aucun'
             ? [
@@ -1761,6 +1817,54 @@ function carnetSection(d) {
       h('p', {
         class: 'note',
         text: "Vendre (ou couvrir) est jugé bon si le cours a baissé ensuite, attendre si le cours a monté ; pour l'azote, acheter large est bon si l'urée a monté, attendre si elle a baissé. « Tenir le plan », « suivre » et « fractionner » ne parient pas sur un sens : seul le mouvement du cours est indiqué. Les orges sont jugées sur le blé Euronext. Écart de moins de 0,5 % : neutre (➖).",
+      })
+    ),
+  ];
+}
+
+/* bilans mondiaux de l'USDA : le rapport stocks / consommation situe le niveau de prix par rapport aux fondamentaux */
+function stocksSection(d) {
+  const sm = d.stocks_mondiaux || {};
+  const rows = ['ble', 'orge', 'mais', 'colza'].filter((k) => sm[k]);
+  if (!rows.length) return [];
+  const noms = { ble: '🌾 Blé', orge: '🍺 Orge', mais: '🌽 Maïs', colza: '🌼 Colza' };
+  const maj = Object.values((sm._source || {}).dates || {}).filter(Boolean)[0];
+  return [
+    h('h2', { text: '🌍 Bilans mondiaux (USDA)' }),
+    h(
+      'div',
+      { class: 'card scroll' },
+      h(
+        'table',
+        {},
+        h(
+          'tr',
+          {},
+          ['Culture', 'Campagne', 'Production', 'Stocks de fin', 'Stocks / consommation', 'Révision', 'Sur 20 ans'].map(
+            (t, i) => h('th', { class: i > 1 && i < 6 ? 'n' : '', text: t })
+          )
+        ),
+        rows.map((k) => {
+          const st = sm[k];
+          return h(
+            'tr',
+            {},
+            h('td', { text: noms[k] }),
+            h('td', { text: st.campagne }),
+            h('td', { class: 'n', text: `${fmt(st.prod, 0)} Mt` }),
+            h('td', { class: 'n', text: `${fmt(st.stocks, 0)} Mt` }),
+            h('td', { class: 'n', text: `${fmt(st.ratio, 1)} %${st.hors_chine ? ' hors Chine' : ''}` }),
+            h('td', {
+              class: 'n ' + (st.revision > 0 ? 'down' : st.revision < 0 ? 'up' : ''),
+              text: st.revision !== undefined ? `${sgn(st.revision, 1)} pt` : '—',
+            }),
+            h('td', { class: 'pgcell' }, pgauge(st.percentile, 'stocks', null, null, true))
+          );
+        })
+      ),
+      h('p', {
+        class: 'note',
+        text: `Stocks de fin de campagne rapportés à la consommation de l'année, projection de l'USDA${maj ? ` (mise à jour du ${dfr(maj)})` : ''}. Hors Chine pour le blé et le maïs : la Chine détient environ la moitié des stocks mondiaux, peu accessibles au marché. Plus le rapport est bas, plus les prix sont hauts et nerveux ; il situe le niveau de prix, il ne dit pas quand il bougera. Une révision à la baisse des stocks (en vert) soutient les prix.`,
       })
     ),
   ];
@@ -2148,7 +2252,7 @@ function vTechnique() {
         )
       : h('p', { class: 'muted', text: 'Positions des fonds non disponibles ce matin.' })
   );
-  out.push(...saisonSection(d), ...meteoSection(d));
+  out.push(...stocksSection(d), ...saisonSection(d), ...meteoSection(d));
   return out;
 }
 
@@ -2525,6 +2629,10 @@ function vMethode() {
     [
       'Prime locale, saisonnalité, météo',
       "Prime locale : prix physique (Rouen, Moselle, Creil, Rhin) moins l'échéance Euronext du même jour, situé sur son historique après 40 relevés. Saisonnalité : écart habituel de chaque mois au prix moyen de la campagne, médiane de plus de 20 campagnes à Chicago. Météo : pluie des 60 derniers jours par rapport à la normale sur 10 ans et chaleur prévue à 14 jours, notée de −1 à +2 et comptée pour 15 % de la lecture de marché.",
+    ],
+    [
+      'Bilans mondiaux et chances d’atteindre un ordre',
+      "Bilans : rapport stocks de fin / consommation de l'USDA (rapport mensuel WASDE, fichiers PSD publics), hors Chine pour le blé et le maïs, situé sur les 20 campagnes précédentes. Chances : probabilité que le cours touche chaque ordre (ou le seuil de révision) au moins une fois d'ici la fin de la tranche, d'après la volatilité des 3 derniers mois et sans supposer de tendance ; une probabilité faible signale un ordre trop ambitieux pour la période.",
     ],
     [
       'Carnet de bord',

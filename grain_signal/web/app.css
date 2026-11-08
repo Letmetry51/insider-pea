@@ -810,7 +810,7 @@ td.pgcell {
   margin: 2px 0 6px;
   font-size: 13.5px;
 }
-.lvl {
+.lvl b {
   white-space: nowrap;
 }
 .lvl i {

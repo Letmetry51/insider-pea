@@ -88,10 +88,13 @@ LAB = {
     else ("Cher : fractionner", "warn") if v <= 80 else ("Très cher : attendre", "bad"),
     "prime": lambda v: ("Prime faible : vendre via Euronext", "bad") if v <= 20 else ("Prime plutôt faible", "warn") if v <= 40 else
     ("Prime normale", "neutral") if v < 60 else ("Prime plutôt forte", "info") if v < 80 else ("Prime forte : vendre au physique", "good"),
+    "stocks": lambda v: ("Stocks très serrés : risque de flambée", "bad") if v <= 20 else ("Stocks plutôt serrés", "warn") if v <= 40
+    else ("Stocks dans la moyenne", "neutral") if v < 60 else ("Stocks plutôt confortables", "info") if v < 80 else
+    ("Stocks confortables : peu de risque de flambée", "good"),
     "cot": lambda v: ("Fonds très vendeurs : rebond possible", "bad") if v <= 15 else ("Fonds très acheteurs : vendre", "good")
     if v >= 85 else ("Neutre", "neutral"),
 }
-SEGS = {"vendeur": SEG_V, "prime": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C}
+SEGS = {"vendeur": SEG_V, "prime": SEG_V, "stocks": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C}
 
 
 def gauge_svg(v, segs, w=150):
@@ -253,7 +256,10 @@ def page_html(d):
         ta = con.get("technique") or {}
         met = ((d.get("meteo") or {}).get("cultures") or {}).get(main)
         sa = (d.get("saison") or {}).get(main)
+        pb = nr.get("probas") or {}
+        chances = " · ".join(f"{'1er' if i == 0 else f'{i + 1}e'} ordre {p} %" for i, p in enumerate(pb.get("ordres") or []) if p is not None)
         kv = [("Ordres", " · ".join(n(o) for o in nr.get("ordres") or []) + (f" €/t ({mfr(nr.get('echeance'))})" if nr.get("ordres") else "") or "—"),
+              ("Chances", f"{chances} d'être touchés d'ici le {dfr(pb.get('horizon'))}" if chances else "—"),
               ("Révision", f"sous {n(nr['revision'])} €/t" if nr.get("revision") else "—"),
               ("Timing", (c.get("feu") or {}).get("texte", "—")),
               ("Stocker ?", (con.get("stockage") or {}).get("texte", "—"))]
@@ -275,6 +281,10 @@ def page_html(d):
             jauges += jauge(ceu, "cot", "Fonds sur Euronext (3 ans)")
         if pl.get("percentile") is not None:
             jauges += jauge(pl["percentile"], "prime", "Prime locale (1 an)")
+        stm = (d.get("stocks_mondiaux") or {}).get(main)
+        if stm:
+            jauges += jauge(stm["percentile"], "stocks", f"Stocks mondiaux / conso{' hors Chine' if stm.get('hors_chine') else ''}",
+                            f"{n(stm['ratio'], 1)} % en {stm['campagne']} (moy. {n(stm['moyenne'], 1)} %) · USDA")
         sig, scl = SIGNAL.get(c.get("signal"), ("—", "neutral"))
         # historique Euronext encore court : lecture de secours (marché américain recalé), comme sur la page
         src = (con.get("proxy") or {}).get("graphique") or con.get("graphique") or []
