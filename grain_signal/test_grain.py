@@ -755,6 +755,42 @@ finally:
             os.environ[_k] = _v
     shutil.rmtree(_tc, ignore_errors=True)
 
+# comité : rapport coupé par la limite de longueur → seconde demande du seul bloc JSON, décisions gardées
+_tc = Path(tempfile.mkdtemp())
+try:
+    _old_out, _old_call = comite.OUT, comite.call
+    comite.OUT = _tc
+    (_tc / "grain-signal.json").write_text(json.dumps({"cultures": {"ble": {"nom": "Blé"}}}), encoding="utf-8")
+    _appels = []
+    _bloc = json.dumps({"resume": "R", "cultures": {"ble": {"signal": "TENIR", "score": 0.1, "ordres": [235.5]}},
+                        "engrais": {"signal": "SUIVRE"}, "declencheurs": [], "calendrier": []})
+
+    def _faux2(messages, system, key, recherche=True, max_tokens=None):
+        _appels.append(recherche)
+        if recherche:
+            return {"content": [{"type": "text", "text": "# Rapport\n\nTrès long rapport coupé au milieu d'une phr"}],
+                    "stop_reason": "max_tokens", "usage": {"input_tokens": 10, "output_tokens": 32000}}
+        return {"content": [{"type": "text", "text": "```json\n" + _bloc + "\n```"}], "stop_reason": "end_turn", "usage": {}}
+    comite.call = _faux2
+    _env = {k: os.environ.get(k) for k in ("GS_TODAY", "ANTHROPIC_API_KEY", "GS_COMITE", "GS_DRY")}
+    os.environ.update(GS_TODAY="2026-11-09", ANTHROPIC_API_KEY="test", GS_COMITE="force")
+    os.environ.pop("GS_DRY", None)
+    with _cl.redirect_stdout(_io.StringIO()):
+        _rc = comite.main()
+    _cj = json.loads((_tc / "comite.json").read_text(encoding="utf-8"))
+    check(_rc == 0 and _appels == [True, False] and _cj["cultures"]["ble"]["signal"] == "TENIR" and "Rapport coupé" in _cj["rapport_md"]
+          and not _cj.get("erreur"), "comité : rapport coupé, décisions reprises par une seconde demande sans recherche web")
+    check(json.loads(comite.bloc_json('texte {"resume": "x", "cultures": {"ble": {"signal": "VENDRE"}}} fin'))["cultures"]["ble"]["signal"] == "VENDRE",
+          "comité : bloc JSON final retrouvé même sans balise ```json")
+finally:
+    comite.OUT, comite.call = _old_out, _old_call
+    for _k, _v in _env.items():
+        if _v is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _v
+    shutil.rmtree(_tc, ignore_errors=True)
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]
