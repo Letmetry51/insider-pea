@@ -7,6 +7,11 @@ et un comité de 11 experts réuni par l'API Claude.
 
 > Aide à la décision automatique, pas un conseil en investissement. La décision finale revient à l'exploitant.
 
+La page tient en 4 onglets : **Aujourd'hui** (une ligne par culture : que faire, combien, à quel prix ; l'avis du comité),
+**Cultures** (une culture à la fois : graphique, 4 repères, plan ; le reste replié), **Actualité** (synthèse et nouvelles
+qui comptent) et **Méthode** (fonctionnement, backtest, carnet de bord, sources, tout replié). Emails et synthèse PDF
+reprennent les mêmes mots et les mêmes chiffres.
+
 ## Ce qui tourne, et quand
 
 | Quand | Quoi |

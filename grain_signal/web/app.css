@@ -926,3 +926,139 @@ ul.biais li {
     width: 100%;
   }
 }
+
+/* vue simplifiée : une ligne par culture, détail replié */
+.meta {
+  margin: 14px 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.alist {
+  margin: 0;
+  padding-left: 18px;
+}
+.alist li {
+  margin: 2px 0;
+}
+.drows {
+  display: grid;
+  gap: 8px;
+}
+.drow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'name go' 'main go' 'sous go';
+  gap: 4px 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--neutral);
+  border-radius: var(--r);
+  color: var(--ink);
+  text-decoration: none;
+}
+.drow:hover {
+  border-color: var(--ink);
+}
+.drow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.d-good {
+  border-left-color: var(--good);
+}
+.d-warn {
+  border-left-color: var(--warn);
+}
+.d-bad {
+  border-left-color: var(--bad);
+}
+.d-info {
+  border-left-color: var(--info);
+}
+.dname {
+  grid-area: name;
+  font-weight: 600;
+  font-size: 15px;
+}
+.dmain {
+  grid-area: main;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.dquoi {
+  font-weight: 700;
+  font-size: 16px;
+}
+.dsous {
+  grid-area: sous;
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 0;
+}
+.dgo {
+  grid-area: go;
+  align-self: center;
+  font-size: 26px;
+  color: var(--muted);
+}
+.card.head {
+  border-left: 6px solid var(--neutral);
+}
+.card.head.d-good {
+  border-left-color: var(--good);
+}
+.card.head.d-warn {
+  border-left-color: var(--warn);
+}
+.card.head.d-bad {
+  border-left-color: var(--bad);
+}
+.card.head.d-info {
+  border-left-color: var(--info);
+}
+.card.head h2 {
+  margin: 0 0 8px;
+}
+.card.head .dsous {
+  margin-top: 6px;
+}
+.cnav {
+  margin: 14px 0 12px;
+}
+a.filt {
+  text-decoration: none;
+}
+a.filt[aria-current='page'] {
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+}
+details.acc,
+details.more-data {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 4px 14px;
+  margin: 8px 0;
+}
+details.more-data {
+  margin-top: 16px;
+}
+details.acc > summary,
+details.more-data > summary {
+  padding: 10px 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+details.acc[open],
+details.more-data[open] {
+  padding-bottom: 12px;
+}
+.pgrid.tight {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+}
