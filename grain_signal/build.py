@@ -18,6 +18,8 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from commun import load as load_json, save as save_json  # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import decisions as dec  # noqa: E402
 import indicators as ind  # noqa: E402
@@ -36,13 +38,6 @@ TONNE = {"ZW=F": 36.744, "KE=F": 36.744, "ZC=F": 39.368, "ZS=F": 36.744, "ZL=F":
 SIG_ENGRAIS = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER", "ATTENDRE": "🔴 ATTENDRE"}
 
 
-def load_json(p, default):
-    try:
-        return json.loads(Path(p).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        return default
-
-
 def as_dict(v):
     return v if isinstance(v, dict) else {}
 
@@ -55,7 +50,13 @@ def clean_comite(c):
     for k, v in as_dict(c.get("cultures")).items():
         if isinstance(v, dict):
             v = dict(v)
-            v["ordres"] = [float(x) for x in (v.get("ordres") or []) if fnum(x) is not None and 0 < float(x) < 5000] if isinstance(v.get("ordres"), list) else []
+            # ordres et % de la récolte par ordre (facultatif) filtrés ensemble : ils restent alignés
+            raw = v.get("ordres") if isinstance(v.get("ordres"), list) else []
+            pcs = v.get("ordres_pct") if isinstance(v.get("ordres_pct"), list) else [None] * len(raw)
+            ok = [(float(x), fnum(q)) for x, q in zip(raw, pcs + [None] * len(raw)) if fnum(x) is not None and 0 < float(x) < 5000]
+            v["ordres"] = [x for x, _ in ok]
+            v["ordres_pct"] = [q for _, q in ok] if any(q for _, q in ok) else None
+            v["maintenant_pct"] = fnum(v.get("maintenant_pct"))
             for key in ("score", "revision_bas", "revision_haut"):
                 if fnum(v.get(key)) is None:
                     v[key] = None
@@ -67,14 +68,6 @@ def clean_comite(c):
     out["chiffres"] = as_dict(c.get("chiffres"))
     out["calendrier"] = [x for x in (c.get("calendrier") if isinstance(c.get("calendrier"), list) else []) if isinstance(x, dict)]
     return out
-
-
-def save_json(p, obj):
-    p = Path(p)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(p)
 
 
 def read_csv(p):
@@ -648,7 +641,7 @@ def plan_vente(cult, today, entry, contrats):
         tr = [(ym(hy, a), ym(hy, b), pct) for a, b, pct in cal["tranches"]]
         if not (tr[0][0] <= now <= tr[-1][1]) and not (now < tr[0][0] and (tr[0][0][0] * 12 + tr[0][0][1]) - (now[0] * 12 + now[1]) <= 2):
             continue  # récolte hors calendrier (vendue, ou ventes pas encore ouvertes)
-        cum, due, nxt, done = 0, None, None, 0
+        due, nxt, done = None, None, 0
         for a, b, pct in tr:
             if b < now:
                 done += pct
@@ -656,7 +649,6 @@ def plan_vente(cult, today, entry, contrats):
                 due = (a, b, pct, done + pct)
             elif a > now and nxt is None:
                 nxt = (a, b, pct)
-            cum += pct
         harvest_m = 10 if cult == "mais" else 7
         pre = (now[0], now[1]) < (hy, harvest_m)
         e = {"recolte": hy, "avant_moisson": pre, "cumul_fait": done}
@@ -963,8 +955,12 @@ def main():
             dl = com_shift(prod)
             q4 = lambda x: round(x * 4) / 4  # noqa: E731
             rv = fnum(cc_.get("revision_bas"))
-            ret = {"source": "comite", "ordres": sorted(q4(x + dl) for x in c_ord if cur is None or x + dl > cur),
+            paires = sorted(((q4(x + dl), q) for x, q in zip(c_ord, (cc_.get("ordres_pct") or [None] * len(c_ord)))
+                             if cur is None or x + dl > cur), key=lambda t: t[0])
+            ret = {"source": "comite", "ordres": [x for x, _ in paires],
                    "revision": q4(rv + dl) if rv is not None else None, "decalage_echeance": round(dl, 2)}
+            if any(q for _, q in paires):
+                ret["ordres_pct"] = [q for _, q in paires]
         elif cult not in ("escourgeon", "orge_printemps") and not ci.get("proxy"):
             ret = {"source": "technique", "ordres": tech.get("ordres") or [], "revision": tech.get("revision")}
         else:
@@ -1038,6 +1034,13 @@ def main():
     engrais = module_engrais(today, series_ble[0], series_ble[1], yahoo)
     if valid_comite and comite.get("engrais", {}).get("signal") in SIG_ENGRAIS:
         engrais["comite"] = comite["engrais"]
+    # décision du jour, calculée une seule fois pour la page, l'email et la synthèse PDF
+    for cult, e in cultures.items():
+        gap = (org.get(cult) or {}).get("ecart_ble") if (e.get("niveaux_retenus") or {}).get("sur_ble") else None
+        e["decision"] = dec.decision_jour(e, contrats.get(e["contrat"]), gap)
+        for p_ in e.get("plan") or []:
+            p_["resume"] = dec.tranche_txt(p_, (e.get("niveaux_retenus") or {}).get("sur_ble"), gap)
+    engrais["decision"] = dec.decision_azote(engrais)
 
     # ------------------------------------------------------------------- carnet de bord : chaque avis du comité, noté à 4 et 8 semaines
     carnet = [x for x in (load_json(OUT / "carnet.json", []) or []) if isinstance(x, dict) and x.get("id")]

@@ -1,4 +1,5 @@
-/* Grain Signal — feuille de style (même famille de polices qu'Euro Signal, accent blé mûr). */
+/* Grain Signal — feuille de style (même famille de polices qu'Euro Signal,
+accent blé mûr). */
 :root {
   --bg: #f1efe7;
   --surface: #fbfaf5;
@@ -171,11 +172,6 @@ h3 {
 }
 .pad {
   padding: 24px 0;
-}
-.grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 .card {
   background: var(--surface);
@@ -363,9 +359,6 @@ summary {
   font-weight: 500;
 }
 @media (max-width: 520px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
   h1 {
     font-size: 20px;
   }
@@ -375,30 +368,6 @@ summary {
 .ititle {
   font: 600 14px var(--body);
   margin: 14px 0 8px;
-}
-.igrid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-}
-.icard {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 10px 12px;
-  min-width: 0;
-}
-.ihead {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.ihead .i {
-  cursor: help;
-  color: var(--accent);
-  font-size: 14px;
 }
 .ival {
   display: flex;
@@ -480,17 +449,6 @@ summary {
 .ticks span:first-child:not(:only-child) {
   transform: none;
 }
-.spark {
-  width: 100%;
-  height: 46px;
-  display: block;
-  margin-top: 6px;
-}
-.imeta {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 4px;
-}
 .halo {
   paint-order: stroke;
   stroke: var(--surface);
@@ -502,16 +460,6 @@ summary {
   background: var(--cone-1);
   border: 1px solid var(--cone-2);
 }
-.feu-attendre {
-  background: var(--bad-soft);
-}
-.feu-executer {
-  background: var(--good-soft);
-}
-.feu-accelerer {
-  background: var(--good-soft);
-  border-left: 3px solid var(--good);
-}
 
 .stack {
   display: grid;
@@ -519,32 +467,6 @@ summary {
 }
 .stack .chart {
   max-height: 340px;
-}
-
-.minis {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 2px;
-}
-.mini {
-  font: 500 12px/1.2 var(--body);
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--sunk);
-  white-space: nowrap;
-}
-.mini.good {
-  background: var(--good-soft);
-  color: var(--good);
-}
-.mini.bad {
-  background: var(--bad-soft);
-  color: var(--bad);
-}
-.mini.warn {
-  background: var(--warn-soft);
-  color: var(--warn);
 }
 
 .periods {
@@ -575,116 +497,13 @@ summary {
   border-top: 1px solid var(--line);
   padding-top: 8px;
 }
-.plan-t {
-  display: block;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-.plan-l {
-  border-left: 4px solid var(--line);
-  background: var(--bg);
-  border-radius: 0 6px 6px 0;
-  padding: 7px 10px;
-  margin: 6px 0;
-}
-.plan-ordre,
-.plan-patienter {
-  border-left-color: var(--warn);
-}
-.plan-executer,
-.plan-vendre {
-  border-left-color: var(--good);
-}
-.plan-attendre {
-  border-left-color: var(--bad);
-}
-.plan-couvrir {
-  border-left-color: var(--info);
-}
-.plan-h {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.plan-r {
-  font-weight: 600;
-  color: var(--ink);
-}
-.plan-a {
-  font-weight: 600;
-  font-size: 14px;
-  margin: 3px 0 1px;
-}
-
-/* Décisions du jour (en un coup d'œil) */
-.glance {
-  margin: 14px 0 6px;
-}
-.ghead h2 {
-  margin: 0 0 2px;
-}
-.gmeta {
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-.ggrid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-}
-.gtile {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 6px solid var(--neutral);
-  border-radius: var(--r);
-  padding: 10px 12px;
-}
-.g-good {
-  border-left-color: var(--good);
-}
-.g-bad {
-  border-left-color: var(--bad);
-}
-.g-warn {
-  border-left-color: var(--warn);
-}
-.g-info {
-  border-left-color: var(--info);
-}
-.gname {
-  font-weight: 600;
-  font-size: 14px;
-}
-.gdec {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 6px 0 4px;
-}
-.gwhat {
-  font: 700 16px/1.2 var(--display);
-}
-.gline {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.gsub {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
-}
 tr.best td {
   font-weight: 600;
 }
 
-/* percentiles en jauge (pastille, libellé, barre et curseur) */
+/* percentiles en jauge (pastille,
+libellé,
+barre et curseur) */
 .pgrid {
   display: grid;
   gap: 10px;
@@ -927,7 +746,8 @@ ul.biais li {
   }
 }
 
-/* vue simplifiée : une ligne par culture, détail replié */
+/* vue simplifiée : une ligne par culture,
+détail replié */
 .meta {
   margin: 14px 0 8px;
   color: var(--muted);

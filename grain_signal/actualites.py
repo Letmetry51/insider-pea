@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
+from commun import load, save  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -73,21 +74,6 @@ Réponds UNIQUEMENT par un objet JSON, sans texte autour :
 {"articles": [{"id": "...", "pertinent": true, "titre_fr": "...", "theme": "...", "nature": "...", "importance": 1,
   "impacts": {"ble": 0, "orge": 0, "colza": 0, "mais": 0, "engrais": 0}, "horizon": "...", "impact": "...", "doublon_de": null}],
  "synthese": "..."}"""
-
-
-def load(p, default):
-    try:
-        return json.loads(Path(p).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        return default
-
-
-def save(p, obj):
-    p = Path(p)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(p)
 
 
 def contexte(dash):

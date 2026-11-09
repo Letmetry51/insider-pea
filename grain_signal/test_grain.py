@@ -129,7 +129,7 @@ check('href="https://example.com/a"' in hs, "lien https conservé")
 tmp = Path(tempfile.mkdtemp())
 try:
     (tmp / "grain_signal").mkdir()
-    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py", "rapport_pdf.py", "actualites.py"):
+    for f in ("build.py", "indicators.py", "decisions.py", "commun.py", "config.json", "comite.py", "send_alerts.py", "rapport_pdf.py", "actualites.py"):
         shutil.copy(HERE / f, tmp / "grain_signal" / f)
     shutil.copytree(HERE / "seed", tmp / "grain_signal" / "seed")
     priv = tmp / "data" / "grain" / "prive"
@@ -218,7 +218,7 @@ try:
         page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
         import re as _re
         check(p3.returncode == 0 and "Que faire aujourd'hui" in page and page.count("<section class='bloc'>") == 3
-              and "235,50 €/t" in page and "1er ordre : 235,50 €/t" in page and "quand le blé Euronext atteint" in page
+              and "235,50 €/t" in page and "1er ordre : 235,50 €/t" in page
               and "Prime faible" not in page.replace("Prime faible : vendre via Euronext", ""),
               "synthèse PDF : page complète (décisions, 3 contrats, ordres en €/t)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
         check(not _re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", page), "synthèse PDF : aucun emoji (carrés vides à l'impression)")
@@ -236,7 +236,7 @@ def run_build(setup, today="2026-11-07", twice=False):
     t = Path(tempfile.mkdtemp())
     try:
         (t / "grain_signal").mkdir()
-        for f in ("build.py", "indicators.py", "decisions.py", "config.json"):
+        for f in ("build.py", "indicators.py", "decisions.py", "commun.py", "config.json"):
             shutil.copy(HERE / f, t / "grain_signal" / f)
         shutil.copytree(HERE / "seed", t / "grain_signal" / "seed")
         pv = t / "data" / "grain" / "prive"
@@ -526,9 +526,14 @@ _dash = {"cultures": {"ble": {"nom": "Blé tendre", "contrat": "EBM", "plan": [{
                                       "niveaux_retenus": {"sur_ble": True, "ordres": [235.5]}}},
          "orges": {"escourgeon": {"ecart_ble": -16.5}}, "contrats": {"EBM": {"dernier_reel": 225.5}},
          "engrais": {"comite": {"signal": "FRACTIONNER", "pct": "15 % max (urée)", "prix_plafond": 640}, "france": {"uree": {"prix": 613.75}}}}
-_ts = _sa.table_signaux(_dash)
-check("ORDRE" in _ts and "15 % à 235,50 €/t" in _ts and "45 % de chances" in _ts and "15 % à ≈ 219,00 €/t" in _ts
-      and "quand le blé Euronext atteint 235,50" in _ts and "FRACTIONNER" in _ts and "plafond d'achat 640" in _ts and "Comité : 7,5 % maintenant" in _ts and "TENIR" not in _ts
+for _k, _c in _dash["cultures"].items():
+    _c["decision"] = dec.decision_jour(_c, _dash["contrats"]["EBM"], _dash["orges"].get(_k, {}).get("ecart_ble") if _c["niveaux_retenus"].get("sur_ble") else None)
+_dash["engrais"]["decision"] = dec.decision_azote(_dash["engrais"])
+import html as _html  # noqa: E402
+
+_ts = _html.unescape(_sa.table_signaux(_dash))
+check("VENDRE" in _ts and "7,5 % maintenant + 7,5 % par ordre" in _ts and "Comité :" not in _ts and "45 % de chances" not in _ts and "15 % à ≈ 219,00 €/t" in _ts
+      and "quand le blé Euronext atteint 235,50" in _ts and "FRACTIONNER" in _ts and "plafond d'achat 640" in _ts and "TENIR" not in _ts
       and "position" not in _ts, "email : mêmes décisions que la page (orge en prix d'orge, blé déclencheur, azote), sans « position »")
 
 # collecte des positions Euronext : une erreur réseau n'est jamais une « semaine sans rapport », mercredi de la même semaine
@@ -807,6 +812,48 @@ finally:
         else:
             os.environ[_k] = _v
     shutil.rmtree(_tc, ignore_errors=True)
+
+# décision du jour : avis chiffré du comité (vendre maintenant, % par ordre), sinon tranche du plan
+_e = {"source": "comite", "comite": {"signal": "TENIR", "pct": "texte libre", "maintenant_pct": 7.5}, "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 255.0}],
+      "niveaux_retenus": {"ordres": [255.0, 260.0], "ordres_pct": [7.5, 5], "probas": {"ordres": [80, 68], "horizon": "2026-12-31"}}}
+_d1 = dec.decision_jour(_e, {"dernier_reel": 247.25, "technique": {"var1s": -4.4}})
+check(_d1["code"] == "executer" and _d1["libelle"] == "VENDRE" and _d1["quoi"] == "7,5 % maintenant · 7,5 % à 255,00 €/t · 5 % à 260,00 €/t"
+      and _d1["consigne"] is None and _d1["chance"] is None and _d1["cours"] == 247.25, f"décision du jour : avis chiffré du comité ({_d1['quoi']})")
+_d2 = dec.decision_jour({"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}], "niveaux_retenus": {"ordres": [235.5], "probas": {"ordres": [45], "horizon": "2026-11-30"}}},
+                        {"dernier_reel": 225.5})
+check(_d2["libelle"] == "ORDRE" and _d2["quoi"] == "15 % à 235,50 €/t" and _d2["chance"] == 45, "décision du jour : sans comité, tranche du plan et chances")
+_cc = build.clean_comite({"cultures": {"mais": {"signal": "TENIR", "ordres": [255, "x", 260], "ordres_pct": [7.5, 3, 5], "maintenant_pct": "?"}}})["cultures"]["mais"]
+check(_cc["ordres"] == [255.0, 260.0] and _cc["ordres_pct"] == [7.5, 5.0] and _cc["maintenant_pct"] is None,
+      "comité relu : ordres et % par ordre filtrés ensemble (restent alignés), valeur illisible écartée")
+
+# relecture : texte libre du comité, avis chiffré incomplet, chance de l'ordre affiché, tri des ordres, % en texte
+_pl = {"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}], "source": "comite",
+       "niveaux_retenus": {"ordres": [235.5, 244.5], "probas": {"ordres": [35, 8], "horizon": "2026-11-30"}}}
+_r1 = dec.decision_jour(dict(_pl, comite={"pct": "0 % (pas sur le creux)"}), {"dernier_reel": 225.5})
+check(_r1["quoi"] == "15 % à 235,50 €/t" and _r1["consigne"] == "0 % (pas sur le creux)" and _r1["chance"] == 35,
+      "décision : consigne libre du comité à côté de la tranche du plan (prix et chances gardés)")
+_r2 = dec.decision_jour(dict(_pl, comite={"maintenant_pct": 0}), {"dernier_reel": 225.5})
+check(_r2["code"] == "ordre" and _r2["quoi"] == "15 % à 235,50 €/t", "décision : « 0 % maintenant » sans % par ordre → tranche du plan, pas « rien »")
+_r3 = dec.decision_jour(dict(_pl, comite={}, niveaux_retenus=dict(_pl["niveaux_retenus"], ordres_pct=[None, 5])), {"dernier_reel": 225.5})
+check(_r3["quoi"] == "5 % à 244,50 €/t" and _r3["chance"] == 8, "décision : chance de l'ordre affiché (8 %), pas du premier ordre")
+_d4 = dec.decision_jour({"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5, "recolte": 2026},
+                                  {"statut": "due", "code": "ordre", "pct": 10, "ordre": 228.0, "recolte": 2027}], "niveaux_retenus": {}}, {})
+check(_d4["autre"] == "Récolte 2027 : 10 % à 228,00 €/t", "décision : tranche due de l'autre récolte gardée (PDF)")
+check(build.clean_comite({"cultures": {"ble": {"ordres": [240], "maintenant_pct": "7.5"}}})["cultures"]["ble"]["maintenant_pct"] == 7.5,
+      "comité relu : « 7.5 » en texte lu comme 7,5")
+
+
+
+def _comite_pareil(t, pv):
+    seeds(t, pv)
+    c = json.loads((HERE / "seed" / "comite-initial.json").read_text(encoding="utf-8"))
+    c["cultures"]["ble"].update(ordres=[240.0, 240.1], ordres_pct=[5, "?"])
+    (t / "data" / "grain" / "comite.json").write_text(json.dumps(c), encoding="utf-8")
+
+
+_o = run_build(_comite_pareil)[0]
+check(_o[0] == 0 and _o[1]["cultures"]["ble"]["niveaux_retenus"]["ordres"] == [240.0, 240.0],
+      "comité : deux ordres arrondis au même quart d'euro avec un % illisible, sans plantage" + ("" if _o[0] == 0 else " : " + _o[3]))
 
 for st, name in results:
     print(st, name)
