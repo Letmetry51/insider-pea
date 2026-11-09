@@ -540,8 +540,9 @@ def actu_pression(articles, now, demi_vie=3.0, jours=7):
     return out
 
 
-def actu_majeur(a, now, heures=36):
-    """Événement majeur : fait avéré, importance 3, impact fort (±2) sur au moins une culture ou les engrais, de moins de 36 h."""
+def actu_majeur(a, now, heures=72):
+    """Événement majeur : fait avéré, importance 3, impact fort (±2) sur au moins une culture ou les engrais, de moins de 72 h
+    (le week-end n'a pas de calcul le dimanche : un fait du samedi matin est encore alerté le lundi)."""
     age = actu_age(a, now)
     return (actu_compte(a) and int(a.get("importance") or 0) >= 3 and a.get("nature") == "fait" and age is not None
             and age <= heures / 24 and any(abs(v) >= 2 for v in (a.get("impacts") or {}).values() if isinstance(v, (int, float))))

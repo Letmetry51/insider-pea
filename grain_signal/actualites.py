@@ -105,6 +105,14 @@ def contexte(dash):
     return "\n".join(lignes)
 
 
+def entier(v, lo, hi):
+    """Nombre du modèle (3, 3.0, « 3 ») → entier borné ; sinon la borne basse."""
+    try:
+        return max(lo, min(hi, int(round(float(v)))))
+    except (TypeError, ValueError):
+        return lo
+
+
 def impacts(imp):
     """Effets −2 à +2 par culture (entiers), cultures inconnues et effets nuls écartés."""
     out = {}
@@ -121,14 +129,16 @@ def valide(x):
     """Classement rendu par le modèle → champs vérifiés (rien d'inattendu ne passe vers la page)."""
     if not isinstance(x, dict) or not isinstance(x.get("id"), str):
         return None
-    out = {"pertinent": bool(x.get("pertinent")), "titre_fr": str(x.get("titre_fr") or "")[:220]}
+    pert = x.get("pertinent")
+    pert = pert is True or (isinstance(pert, str) and pert.strip().lower() in ("true", "oui", "1"))  # « false » en texte : non pertinent
+    out = {"pertinent": pert, "titre_fr": str(x.get("titre_fr") or "")[:220]}
     if not out["pertinent"]:
         return out
     imp = x.get("impacts") if isinstance(x.get("impacts"), dict) else {}
     out.update(
         theme=x.get("theme") if x.get("theme") in THEMES else "offre",
         nature=x.get("nature") if x.get("nature") in NATURES else "opinion",
-        importance=max(1, min(3, int(x.get("importance") or 1))) if str(x.get("importance") or "1").isdigit() else 1,
+        importance=entier(x.get("importance"), 1, 3),
         impacts=impacts(imp),
         horizon=x.get("horizon") if x.get("horizon") in HORIZONS else "jours",
         impact=str(x.get("impact") or "")[:300],
@@ -142,9 +152,9 @@ def appel(key, user):
     body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"], "system": SYSTEME, "messages": [{"role": "user", "content": user}]}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None
-    for i in range(3):
+    for i in range(2):  # 2 essais de 150 s au plus : sous la limite de 10 minutes de l'étape, les fichiers sont toujours écrits
         try:
-            r = requests.post(API, headers=headers, json=body, timeout=300)
+            r = requests.post(API, headers=headers, json=body, timeout=150)
             if r.status_code == 200:
                 return r.json()
             last = f"HTTP {r.status_code} : {r.text[:200]}"
@@ -172,8 +182,10 @@ def main():
     prev = load(OUT / "actualites.json", {})
     dash = load(OUT / "grain-signal.json", {})
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    recents = [a for a in brut if (dec.actu_age(a, now) or 99) <= cfg["joursGarde"]]
-    a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True) if a["id"] not in cache][: cfg["maxNouveaux"]]
+    recents = [a for a in brut if dec.actu_age(a, now) is not None and dec.actu_age(a, now) <= cfg["joursGarde"]]
+    # essai sur une branche : 10 titres au plus (moins d'un centime), pour vérifier la chaîne sans dépenser
+    maxi = 10 if os.environ.get("GS_DRY") else cfg["maxNouveaux"]
+    a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True) if a["id"] not in cache][:maxi]
     usage, erreur, synthese = {"input": 0, "output": 0}, None, None
     if key and a_lire:
         deja = [f"- {cache[a['id']].get('titre_fr') or a['titre']} ({a['date'][:10]}, {cache[a['id']].get('theme')}, "
@@ -221,8 +233,13 @@ def main():
         articles.append(x)
     classes = [a for a in articles if not a.get("non_classe")]
     pression = dec.actu_pression(classes, now, cfg["demiVieJours"]) if classes else None
-    deja_alerte = set(prev.get("alertes_envoyees") or [])
-    majeurs = [a for a in classes if dec.actu_majeur(a, now)]
+    # alertes déjà envoyées {id: date} (ancien format : liste d'ids), oubliées après 14 jours
+    ae = prev.get("alertes_envoyees") or {}
+    deja_alerte = ae if isinstance(ae, dict) else {i: today.isoformat() for i in ae}
+    deja_alerte = {i: d for i, d in deja_alerte.items() if str(d) >= (today - timedelta(days=14)).isoformat()}
+    # fait majeur de moins de 72 h : couvre le week-end (pas de calcul le dimanche) et un jour de panne de l'API ;
+    # une seule alerte par fait (alertes_envoyees)
+    majeurs = [a for a in classes if dec.actu_majeur(a, now, heures=72)]
     nouveaux_majeurs = [a for a in majeurs if a["id"] not in deja_alerte]
     pin, pout = PRIX.get(cfg["modele"], (2, 10))
     res = {
@@ -236,7 +253,7 @@ def main():
         "compte": {"lus": len(recents), "pertinents": len(classes), "nouveaux": len(a_lire)},
         "cout_usd": round(usage["input"] / 1e6 * pin + usage["output"] / 1e6 * pout, 3),
         "erreur": erreur, "sans_ia": not key,
-        "alertes_envoyees": sorted(deja_alerte | {a["id"] for a in nouveaux_majeurs})[-200:],
+        "alertes_envoyees": {**deja_alerte, **{a["id"]: today.isoformat() for a in nouveaux_majeurs}},
         # pression de chaque jour (90 jours) : la page montre l'évolution, plus parlante que le niveau
         "historique": ([h for h in prev.get("historique") or [] if isinstance(h, dict) and h.get("date") != today.isoformat()]
                        + ([{"date": today.isoformat(), **{c: v["valeur"] for c, v in pression.items()}}] if pression else []))[-90:],

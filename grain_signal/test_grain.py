@@ -674,7 +674,8 @@ _p5 = dec.actu_pression([_a(str(k), 3) for k in range(30)], _now)["ble"]["valeur
 check(_p1 > _p2 > 0 and _p1 > _p3 > 0 and _p4 == 0 and 1.9 < _p5 <= 2,
       f"pression de l'actualité : fait > rumeur, récent > ancien, séances, doublons, hors sujet et > 7 jours exclus, bornée à 2 ({_p1}, {_p2}, {_p3}, {_p5})")
 check(dec.actu_majeur(_a("x", 3), _now) and not dec.actu_majeur(_a("x", 2), _now) and not dec.actu_majeur(_a("x", 3, nat="prevision"), _now)
-      and not dec.actu_majeur(_a("x", 3, age_h=48), _now), "événement majeur : fait, importance 3, effet fort, moins de 36 h")
+      and dec.actu_majeur(_a("x", 3, age_h=47), _now) and not dec.actu_majeur(_a("x", 3, age_h=80), _now),
+      "événement majeur : fait, importance 3, effet fort, moins de 72 h (fait du samedi matin alerté le lundi)")
 check(dec.actu_doublon("Russia raises wheat export tax - Reuters", "Russia raises its wheat export tax again")
       and not dec.actu_doublon("Russia raises wheat export tax", "Egypt buys French wheat in tender")
       and dec.actu_norm("Le blé Euronext reste bloqué - Terre-net") == "le ble euronext reste bloque", "actualités : doublons et titres normalisés")
@@ -710,9 +711,49 @@ import actualites as _act  # noqa: E402
 
 _ok = _act.valide({"id": "a", "pertinent": True, "titre_fr": "T", "theme": "inconnu", "nature": "fait", "importance": 7,
                    "impacts": {"ble": 5, "orge": "-1", "colza": None, "pirate": 2}, "horizon": "siècles", "impact": "x" * 500, "doublon_de": 3})
+check(_act.valide({"id": "b", "pertinent": "false"})["pertinent"] is False
+      and _act.valide({"id": "c", "pertinent": True, "importance": 3.0, "impacts": {"ble": 2.0}})["importance"] == 3,
+      "actualités : « false » en texte non pertinent, importance 3.0 lue comme 3")
 check(_ok["theme"] == "offre" and _ok["importance"] == 3 and _ok["impacts"] == {"ble": 2, "orge": -1} and _ok["horizon"] == "jours"
       and len(_ok["impact"]) == 300 and _ok["doublon_de"] is None and _act.valide({"pertinent": True}) is None,
       "actualités : réponse de l'IA vérifiée champ par champ (bornes, valeurs inconnues écartées)")
+
+# comité : il reçoit la pression et la synthèse de l'actualité du jour (le premier calcul a lu celles de la veille)
+_tc = Path(tempfile.mkdtemp())
+try:
+    _old_out, _old_call = comite.OUT, comite.call
+    comite.OUT = _tc
+    (_tc / "grain-signal.json").write_text(json.dumps({"cultures": {"ble": {"nom": "Blé", "actualite": {"valeur": 1.77, "sens": "haussière"}},
+                                                                    "colza": {"nom": "Colza", "actualite": {"valeur": 0.9}}},
+                                                       "actualites": {"date": "2026-11-08", "synthese": "VIEILLE SYNTHÈSE"}}), encoding="utf-8")
+    (_tc / "actualites.json").write_text(json.dumps({"date": "2026-11-09", "synthese": "Synthèse du jour", "majeurs": ["a1"],
+                                                     "pression": {"ble": {"valeur": -1.25, "sens": "baissière"}},
+                                                     "articles": [{"id": "a1", "pertinent": True, "importance": 3, "titre": "T", "titre_fr": "Fait majeur du jour",
+                                                                   "date": "2026-11-09T05:00+00:00", "impacts": {"ble": -2}, "impact": "x"}]}), encoding="utf-8")
+    _vu = {}
+
+    def _faux(messages, system, key):
+        _vu["user"] = messages[0]["content"]
+        raise RuntimeError("arrêt du test")
+    comite.call = _faux
+    _env = {k: os.environ.get(k) for k in ("GS_TODAY", "ANTHROPIC_API_KEY", "GS_COMITE", "GS_DRY")}
+    os.environ.update(GS_TODAY="2026-11-09", ANTHROPIC_API_KEY="test", GS_COMITE="force")
+    os.environ.pop("GS_DRY", None)
+    import contextlib as _cl
+    with _cl.redirect_stdout(_io.StringIO()):
+        comite.main()
+    _u = _vu.get("user", "")
+    check("-1.25" in _u and "1.77" not in _u and "0.9" not in _u and "VIEILLE" not in _u and "Synthèse du jour" in _u
+          and "Fait majeur du jour" in _u and _u.count("Rends le rapport") == 1,
+          "comité : actualité du jour (pression, synthèse, titres) à la place de celle de la veille, consigne finale unique")
+finally:
+    comite.OUT, comite.call = _old_out, _old_call
+    for _k, _v in _env.items():
+        if _v is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _v
+    shutil.rmtree(_tc, ignore_errors=True)
 
 for st, name in results:
     print(st, name)

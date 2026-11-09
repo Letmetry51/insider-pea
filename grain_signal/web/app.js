@@ -471,12 +471,13 @@ const PG = {
 // humeur du marché (0 peur → 100 euphorie), pression de l'actualité (−2 → +2), risque géopolitique (percentile sur 10 ans)
 const SEG_ACTU = [
   [25, 'var(--bad)'],
-  [40, 'var(--warn)'],
-  [60, 'var(--neutral)'],
+  [37.5, 'var(--warn)'],
+  [62.5, 'var(--neutral)'],
   [75, 'var(--info)'],
   [100, 'var(--good)'],
 ];
-const actuLab = (v, t) => (v <= 25 ? t[0] : v <= 40 ? t[1] : v < 60 ? t[2] : v < 75 ? t[3] : t[4]);
+// mêmes seuils que le calcul (±0,5 = 37,5 et 62,5 ; ±1 = 25 et 75)
+const actuLab = (v, t) => (v <= 25 ? t[0] : v <= 37.5 ? t[1] : v < 62.5 ? t[2] : v < 75 ? t[3] : t[4]);
 Object.assign(PG, {
   psy: {
     segs: SEG5V,
@@ -2959,7 +2960,6 @@ function geoSection(d) {
   const g = d.geopolitique;
   if (!g) return [];
   const bt = (GS.backtest || {}).geopolitique || {};
-  const b60 = bt['60'];
   return [
     h('h2', { text: '🌐 Risque géopolitique' }),
     h(
