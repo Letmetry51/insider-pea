@@ -976,12 +976,212 @@ def collect_banque_mondiale():
         note("banque_mondiale", False, f"{e} (fichier précédent gardé)")
 
 
+# ------------------------------------------------------------------------------------------------ actualités et géopolitique
+ACTU_MOTS = re.compile(
+    r"\b(bl[eé]s?|orges?|escourgeons?|malt\w*|brassicole\w*|colza|ma[iï]s|c[eé]r[eé]al\w*|grains?|ol[ée]agineu\w*|tournesol|"
+    r"soja|engrais|azot\w*|ur[ée]e|ammoni\w*|potasse|phosphat\w*|euronext|matif|mer noire|moisson|semis|wheat|barley|malting|"
+    r"rapeseed|canola|corn|maize|oilseeds?|soybeans?|fertili[sz]ers?|urea|ammonia|potash|wasde|usda|black sea|harvest)\b", re.I)
+ATOM = "{http://www.w3.org/2005/Atom}"
+
+
+def rss_items(content):
+    """Articles d'un flux RSS ou Atom : titre, lien, date (ISO UTC), site d'origine quand le flux le donne (Google Actualités)."""
+    import email.utils
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(content)
+    out = []
+    for it in root.findall(".//item") or root.findall(f".//{ATOM}entry"):
+        titre = (it.findtext("title") or it.findtext(f"{ATOM}title") or "").strip()
+        lien = (it.findtext("link") or "").strip()
+        if not lien:
+            el = it.find(f"{ATOM}link")
+            lien = (el.get("href") if el is not None else "") or ""
+        brut = it.findtext("pubDate") or it.findtext(f"{ATOM}updated") or it.findtext(f"{ATOM}published") or ""
+        try:
+            d = email.utils.parsedate_to_datetime(brut) if "," in brut or brut[:3].isalpha() else datetime.fromisoformat(brut.replace("Z", "+00:00"))
+            d = (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            d = None
+        src = it.find("source")
+        site = (src.text or "").strip() if src is not None and src.text else ""
+        if site and titre.endswith(" - " + site):
+            titre = titre[: -len(site) - 3].strip()
+        if titre and lien.startswith("http"):
+            out.append({"titre": re.sub(r"\s+", " ", html_unescape(titre))[:220], "url": lien[:600],
+                        "date": d.isoformat(timespec="minutes") if d else None, "source": site[:60]})
+    return out
+
+
+def html_unescape(t):
+    import html as _h
+    return _h.unescape(t)
+
+
+def actu_ajoute(arts, it, now, garde, **extra):
+    """Ajoute un article s'il est récent et nouveau (même titre, ou même événement le même jour, déjà présent : ignoré)."""
+    import hashlib
+    sys.path.insert(0, str(HERE))
+    import decisions as dec
+
+    if not it.get("date"):
+        it["date"] = now.isoformat(timespec="minutes")
+    try:
+        age = (now - datetime.fromisoformat(it["date"])).total_seconds() / 86400
+    except ValueError:
+        return False
+    if age > garde or age < -1:
+        return False
+    norm = dec.actu_norm(it["titre"])
+    if len(norm) < 12:
+        return False
+    i = hashlib.sha1(norm.encode()).hexdigest()[:12]
+    if i in arts:
+        return False
+    for a in arts.values():
+        if abs((datetime.fromisoformat(a["date"]) - datetime.fromisoformat(it["date"])).total_seconds()) < 86400 * 1.5 \
+                and dec.actu_doublon(a["titre"], it["titre"]):
+            a.setdefault("autres_sources", [])
+            if it.get("source") and it["source"] not in a["autres_sources"] and it["source"] != a.get("source"):
+                a["autres_sources"].append(it["source"])  # même événement repris ailleurs : signe d'importance, pas un 2e article
+            return False
+    arts[i] = {"id": i, **it, **extra, "collecte": now.isoformat(timespec="minutes")}
+    return True
+
+
+def collect_actualites(now=None):
+    """Titres du jour sur les marchés des grains et des engrais : recherches Google Actualités (français et anglais) et flux de la
+    presse agricole (titres filtrés par mots-clés). Gardés 7 jours, sans doublon ; traduits en impacts par actualites.py."""
+    from urllib.parse import quote
+
+    cfg = CFG["actualites"]
+    now = now or datetime.now(timezone.utc)
+    path = PRIV / "actualites_brut.json"
+    old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    arts = {a["id"]: a for a in old.get("articles") or [] if isinstance(a, dict) and a.get("id") and a.get("date")}
+    garde = cfg["joursGarde"]
+    arts = {k: a for k, a in arts.items() if (now - datetime.fromisoformat(a["date"])).total_seconds() / 86400 <= garde}
+    lus, total, nouveaux, echecs = 0, 0, 0, []
+    for q, hl in cfg["google"]:
+        total += 1
+        gl = "FR" if hl == "fr" else "US"
+        url = f"https://news.google.com/rss/search?q={quote(q + ' when:' + cfg['periode'])}&hl={hl}&gl={gl}&ceid={gl}:{hl}"
+        try:
+            items = rss_items(get(url, timeout=30).content)
+            lus += 1
+        except Exception as e:  # noqa: BLE001
+            echecs.append(f"Google « {q} » : {str(e)[:60]}")
+            continue
+        for it in items[:15]:
+            nouveaux += actu_ajoute(arts, it, now, garde, origine="google", requete=q, langue=hl)
+        time.sleep(0.6)
+    for nom, url in cfg["flux"].items():
+        total += 1
+        try:
+            items = rss_items(get(url, timeout=30).content)
+            lus += 1
+        except Exception as e:  # noqa: BLE001
+            echecs.append(f"{nom} : {str(e)[:60]}")
+            continue
+        en = nom in ("World-Grain", "farmdoc daily")
+        for it in items[:40]:
+            if ACTU_MOTS.search(it["titre"]):
+                it["source"] = it.get("source") or nom
+                nouveaux += actu_ajoute(arts, it, now, garde, origine="flux", requete=nom, langue="en" if en else "fr")
+    liste = sorted(arts.values(), key=lambda a: a["date"], reverse=True)[:400]
+    save_json(path, {"maj": now.isoformat(timespec="minutes"), "articles": liste})
+    note("actualites", lus >= total * 0.6, f"{nouveaux} nouveaux titres, {len(liste)} sur {garde} jours ; {lus}/{total} recherches et flux lus"
+         + (" ; " + " ; ".join(echecs[:3]) if echecs else ""))
+
+
+def gpr_quotidien(rows):
+    """Feuille quotidienne de l'indice de risque géopolitique → [(date, valeur)], [(date, événement)]."""
+    head = [str(c).strip() for c in rows[0]]
+    iday, ival = head.index("DAY"), head.index("GPRD")
+    iev = head.index("event") if "event" in head else None
+    jours, evts = [], []
+    for r in rows[1:]:
+        try:
+            dd = str(int(float(r[iday])))
+            d = f"{dd[:4]}-{dd[4:6]}-{dd[6:8]}"
+            v = float(r[ival])
+        except (TypeError, ValueError, IndexError):
+            continue
+        jours.append((d, round(v, 2)))
+        if iev is not None and iev < len(r) and str(r[iev] or "").strip() not in ("", "nan", "None"):
+            evts.append((d, str(r[iev]).strip()[:160]))
+    return jours, evts
+
+
+def gpr_mensuel(rows, codes):
+    """Feuille mensuelle → {code pays: [(mois AAAA-MM, valeur)]}."""
+    head = [str(c).strip() for c in rows[0]]
+    im = head.index("month")
+    cols = {c: head.index("GPRC_" + c) for c in codes if "GPRC_" + c in head}
+    out = {c: [] for c in cols}
+    for r in rows[1:]:
+        m = r[im]
+        if hasattr(m, "strftime"):
+            mo = m.strftime("%Y-%m")
+        elif isinstance(m, (int, float)):  # date Excel (jours depuis le 30/12/1899)
+            mo = (date(1899, 12, 30) + timedelta(days=int(m))).strftime("%Y-%m")
+        else:
+            mo = str(m)[:7]
+        if not re.match(r"^\d{4}-\d{2}$", mo):
+            continue
+        for c, i in cols.items():
+            try:
+                out[c].append((mo, round(float(r[i]), 3)))
+            except (TypeError, ValueError, IndexError):
+                pass
+    return out
+
+
+def collect_gpr(today):
+    """Indice de risque géopolitique (quotidien et par pays), téléchargé seulement quand il change (mise à jour hebdomadaire)."""
+    from python_calamine import CalamineWorkbook
+
+    cfg = CFG["geopolitique"]
+    path = PRIV / "gpr.json"
+    old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    out, msgs, ok = dict(old), [], 0
+    lim = (today - timedelta(days=365 * 12)).isoformat()
+    for k in ("quotidien", "mensuel"):
+        try:
+            mod = requests.head(cfg[k], headers=UA, timeout=30, allow_redirects=True).headers.get("last-modified", "")
+            if mod and mod == (old.get("maj") or {}).get(k) and old.get(k):
+                ok += 1
+                msgs.append(f"{k} inchangé ({mod[5:16]})")
+                continue
+            r = get(cfg[k], timeout=120)
+            rows = CalamineWorkbook.from_filelike(io.BytesIO(r.content)).get_sheet_by_index(0).to_python()
+            if k == "quotidien":
+                jours, evts = gpr_quotidien(rows)
+                if len(jours) < 1000:
+                    raise RuntimeError(f"{len(jours)} jours seulement")
+                out["quotidien"] = [list(x) for x in jours if x[0] >= "2000-01-01"]  # depuis 2000 : backtest sur le blé de Chicago
+                out["evenements"] = [list(x) for x in evts if x[0] >= lim]
+                msgs.append(f"quotidien jusqu'au {jours[-1][0]}")
+            else:
+                pays = gpr_mensuel(rows, list(cfg["pays"]))
+                if not any(pays.values()):
+                    raise RuntimeError("aucun pays lu")
+                out["mensuel"] = {c: [list(x) for x in v if x[0] >= lim[:7]] for c, v in pays.items()}
+                msgs.append(f"{len(pays)} pays jusqu'à {max(v[-1][0] for v in pays.values() if v)}")
+            out.setdefault("maj", {})[k] = mod
+            ok += 1
+        except Exception as e:  # noqa: BLE001
+            msgs.append(f"{k} : {str(e)[:80]}")
+    save_json(path, out)
+    note("geopolitique", ok == 2, " ; ".join(msgs))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
     for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, collect_cftc_long, lambda: collect_usda(today), lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
-               collect_banque_mondiale):
+               collect_banque_mondiale, lambda: collect_gpr(today), collect_actualites):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

@@ -138,5 +138,37 @@
       "mais": { "Iowa": 0.45, "Ukraine centre": 0.3, "Sud-Ouest": 0.25 },
       "colza": { "Champagne": 0.3, "Allemagne-Pologne": 0.35, "Saskatchewan": 0.35 }
     }
+  },
+  "actualites": {
+    "_": "Titres collectés chaque matin (Google Actualités et flux de la presse agricole), traduits en impacts par culture par l'API Claude (sans recherche web). Pression : impacts pondérés par l'importance, la nature et la fraîcheur.",
+    "modele": "claude-sonnet-5-5",
+    "maxTokens": 16000,
+    "maxNouveaux": 60,
+    "joursGarde": 7,
+    "demiVieJours": 3,
+    "periode": "2d",
+    "google": [
+      ["blé Euronext", "fr"], ["marché des céréales", "fr"], ["blé exportations Russie", "fr"], ["mer Noire céréales", "fr"],
+      ["colza prix", "fr"], ["orge brassicole malterie", "fr"], ["maïs récolte prix", "fr"], ["engrais azotés prix", "fr"],
+      ["wheat export Russia", "en"], ["Black Sea grain ports", "en"], ["wheat tender Egypt Algeria Saudi", "en"],
+      ["wheat crop weather", "en"], ["rapeseed canola prices", "en"], ["corn crop Brazil Argentina", "en"],
+      ["urea ammonia fertilizer prices", "en"], ["grain tariffs China trade", "en"], ["fertilizer sanctions Hormuz", "en"]
+    ],
+    "flux": {
+      "Terre-net": "https://www.terre-net.fr/rss",
+      "Réussir": "https://www.reussir.fr/grandes-cultures/rss.xml",
+      "La France Agricole": "https://www.lafranceagricole.fr/rss",
+      "Web-agri": "https://www.web-agri.fr/rss",
+      "Agri-mutuel": "https://www.agri-mutuel.com/feed/",
+      "World-Grain": "https://www.world-grain.com/rss/articles",
+      "farmdoc daily": "https://farmdocdaily.illinois.edu/feed"
+    }
+  },
+  "geopolitique": {
+    "_": "Indice de risque géopolitique de Caldara et Iacoviello (Réserve fédérale), quotidien et par pays, mis à jour chaque semaine.",
+    "quotidien": "https://www.matteoiacoviello.com/gpr_files/data_gpr_daily_recent.xls",
+    "mensuel": "https://www.matteoiacoviello.com/gpr_files/data_gpr_export.xls",
+    "pays": { "RUS": "Russie", "UKR": "Ukraine", "CHN": "Chine", "USA": "États-Unis", "EGY": "Égypte", "ISR": "Israël",
+              "SAU": "Arabie saoudite", "TUR": "Turquie", "IND": "Inde" }
   }
 }

@@ -119,6 +119,36 @@ def table_signaux(dash):
             + "".join(rows) + "</table>")
 
 
+ACTU_NOMS = {"ble": "blé", "orge": "orges", "colza": "colza", "mais": "maïs", "engrais": "azote"}
+
+
+def bloc_actu(n=4):
+    """Synthèse de l'actualité et les nouvelles qui comptent (importance 2 et 3, hors comptes rendus de séance), avec leur effet."""
+    ac = load(OUT / "actualites.json", {})
+    arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
+            and (a.get("importance") or 0) >= 2]
+    arts.sort(key=lambda a: ((a.get("importance") or 0), str(a.get("date"))), reverse=True)  # le plus important, puis le plus récent
+    if not arts and not ac.get("synthese"):
+        return ""
+    lis = []
+    for a in arts[:n]:
+        fx = []
+        for c, v in (a.get("impacts") or {}).items():
+            if v:
+                fav = v < 0 if c == "engrais" else v > 0
+                fx.append(f"<span style='color:{'#1f7a3e' if fav else '#b0281f'}'>{e(ACTU_NOMS.get(c, c))} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>")
+        lien = a.get("url") if str(a.get("url", "")).startswith("http") else None
+        titre = e(a.get("titre_fr") or a.get("titre"))
+        if lien:
+            titre = f"<a href='{e(lien)}' style='color:#17201c'>{titre}</a>"
+        lis.append(f"<li style='margin:6px 0'><b>{titre}</b>"
+                   f" <span style='color:#777;font-size:12px'>({e(a.get('source') or '')})</span><br>{e(a.get('impact'))}"
+                   + (f"<br><span style='font-size:12px'>{' · '.join(fx)}</span>" if fx else "") + "</li>")
+    return ("<h3>📰 Ce que l'actualité change</h3>"
+            + (f"<p style='background:#f4f1e6;padding:10px;border-radius:6px'>{e(ac['synthese'])}</p>" if ac.get("synthese") else "")
+            + (f"<ul style='padding-left:18px'>{''.join(lis)}</ul>" if lis else ""))
+
+
 PDF_NOTE = "<!--synthese-pdf-->"  # remplacé à l'envoi par la mention de la pièce jointe, ou retiré s'il n'y a pas de PDF
 PDF_TXT = "<p style='color:#555;font-size:13px'>📄 La synthèse du jour est jointe en PDF (à imprimer ou à garder).</p>"
 
@@ -167,22 +197,26 @@ def main():
     mails = []
     trig = [x for x in outbox if x.get("type") != "comite"]
     if trig:
-        first = sorted(trig, key=lambda x: not x.get("grave"))[0]
-        subj = f"🌾 Grain Signal — {len(trig)} déclencheur{'s' if len(trig) > 1 else ''} : {first['titre']}"
-        items = "".join(f"<li style='margin:4px 0'>{'⚠️ ' if x.get('grave') else ''}<b>{e(x['titre'])}</b><br><span style='color:#555'>{e(x.get('detail'))}</span></li>"
-                        for x in trig)
-        mails.append(([x["id"] for x in trig], subj, wrap("Déclencheurs du jour", f"<ul style='padding-left:18px'>{items}</ul><h3>Signaux</h3>{table_signaux(dash)}")))
+        # actualité majeure d'abord (elle convoque le comité), puis les déclencheurs graves
+        first = sorted(trig, key=lambda x: (x.get("type") != "actu", not x.get("grave")))[0]
+        mot = "alerte" if any(x.get("type") == "actu" for x in trig) else "déclencheur"
+        subj = f"🌾 Grain Signal — {len(trig)} {mot}{'s' if len(trig) > 1 else ''} : {first['titre']}"
+        items = "".join(f"<li style='margin:4px 0'>{'📰 ' if x.get('type') == 'actu' else '⚠️ ' if x.get('grave') else ''}<b>{e(x['titre'])}</b>"
+                        f"<br><span style='color:#555'>{e(x.get('detail'))}</span>"
+                        + (f" <a href='{e(x['url'])}' style='color:#0d6a56'>Lire</a>" if str(x.get("url", "")).startswith("http") else "")
+                        + "</li>" for x in trig)
+        mails.append(([x["id"] for x in trig], subj, wrap("Alertes du jour", f"<ul style='padding-left:18px'>{items}</ul>{bloc_actu()}<h3>Signaux</h3>{table_signaux(dash)}")))
     for x in outbox:
         if x.get("type") == "comite" and comite.get("rapport_html"):
             sig = ", ".join(f"{v.get('nom', k)} {v.get('libelle', '')}" for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
             subj = f"🌾 {x['titre']} — {sig}"[:180]
-            inner = (f"<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>{table_signaux(dash)}"
+            inner = (f"<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>{table_signaux(dash)}{bloc_actu()}"
                      f"<hr style='margin:18px 0'>{comite['rapport_html']}")
             mails.append(([x["id"]], subj, wrap(x["titre"], inner + PDF_NOTE)))
         elif x.get("type") == "comite":
             sent[x["id"]] = "sans rapport"
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true":
-        mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash) + PDF_NOTE)))
+        mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash) + bloc_actu() + PDF_NOTE)))
     if not mails:
         print("Emails : rien à envoyer")
         save(OUT / "etat.json", etat)

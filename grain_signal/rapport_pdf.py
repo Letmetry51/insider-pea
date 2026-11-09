@@ -94,7 +94,66 @@ LAB = {
     "cot": lambda v: ("Fonds très vendeurs : rebond possible", "bad") if v <= 15 else ("Fonds très acheteurs : vendre", "good")
     if v >= 85 else ("Neutre", "neutral"),
 }
-SEGS = {"vendeur": SEG_V, "prime": SEG_V, "stocks": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C}
+LAB.update({
+    "psy": lambda v: ("Peur extrême : ne pas vendre dans la panique", "bad") if v <= 20 else ("Peur : pas de vente forcée", "warn")
+    if v <= 40 else ("Humeur neutre", "neutral") if v < 60 else ("Optimisme : bonne fenêtre", "info") if v < 80 else
+    ("Euphorie : ne pas laisser passer une tranche", "good"),
+    "geo": lambda v: ("Monde calme", "good") if v <= 30 else ("Tensions habituelles", "neutral") if v < 70 else
+    ("Tensions élevées : marchés nerveux", "warn") if v < 90 else ("Tensions très élevées", "bad"),
+})
+SEG_G = [(30, "good"), (70, "neutral"), (90, "warn"), (100, "bad")]  # risque géopolitique
+SEGS = {"vendeur": SEG_V, "prime": SEG_V, "stocks": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C, "psy": SEG_V, "geo": SEG_G}
+ACTU_NOMS = {"ble": "Blé", "orge": "Orges", "colza": "Colza", "mais": "Maïs", "engrais": "Azote"}
+
+
+def actu_html(d):
+    """Actualité et géopolitique : synthèse, pression par culture, humeur des marchés, risque géopolitique, nouvelles qui comptent."""
+    ac = load(OUT / "actualites.json", {}) or {}
+    ad = d.get("actualites") or {}
+    pr = ad.get("pression") or {}
+    contrats = d.get("contrats") or {}
+    psy = {"ble": contrats.get("EBM"), "orge": contrats.get("EBM"), "colza": contrats.get("ECO"), "mais": contrats.get("EMA")}
+    rows = []
+    for c in ("ble", "orge", "colza", "mais", "engrais"):
+        p = pr.get(c)
+        ps = (psy.get(c) or {}).get("psychologie") if c != "engrais" else None
+        if not p and not ps:
+            continue
+        if p:
+            fav = p["valeur"] <= -0.5 if c == "engrais" else p["valeur"] >= 0.5
+            dfav = p["valeur"] >= 0.5 if c == "engrais" else p["valeur"] <= -0.5
+            sens = (f"{p['sens']}{' (azote plus cher)' if c == 'engrais' and p['valeur'] >= 0.5 else ' (azote moins cher)' if c == 'engrais' and p['valeur'] <= -0.5 else ''}")
+            pc = badge(f"{p['valeur']:+.1f}".replace(".", ","), "good" if fav else "bad" if dfav else "neutral") + f" {e(sens)}"
+            pc += f"<div class='muted'>{p['hausse']} en hausse · {p['baisse']} en baisse</div>"
+        else:
+            pc = "—"
+        rows.append(f"<tr><td class='cn'><b>{ACTU_NOMS[c]}</b></td><td>{pc}</td>"
+                    f"<td>{jauge(ps['indice'], 'psy', compact=True) if ps else '—'}</td></tr>")
+    arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
+            and (a.get("importance") or 0) >= 2]
+    arts.sort(key=lambda a: ((a.get("importance") or 0), str(a.get("date"))), reverse=True)
+    lis = []
+    for a in arts[:6]:
+        fx = " · ".join(
+            f"<span style='color:{COUL['good'] if ((v < 0) if c == 'engrais' else (v > 0)) else COUL['bad']}'>{ACTU_NOMS.get(c, c)} "
+            f"{'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>" for c, v in (a.get("impacts") or {}).items() if v)
+        lis.append(f"<li><b>{e(a.get('titre_fr') or a.get('titre'))}</b> <span class='muted'>({e(a.get('source') or '')}, {dfr(a['date'][:10])})</span>"
+                   f"<br>{e(a.get('impact'))}{f'<br>{fx}' if fx else ''}</li>")
+    g = d.get("geopolitique") or {}
+    geo = ""
+    if g:
+        indice_txt = f"Indice {g.get('mois')} (100 = moyenne 1985-2019)"
+        pays = ", ".join(f"{e(x['nom'])} {x['percentile']}e" for x in (g.get("pays") or [])[:5] if x.get("percentile") is not None)
+        geo = (f"<div class='duo' style='grid-template-columns:230px 1fr'><div>{jauge(g.get('percentile'), 'geo', 'Risque géopolitique mondial (sur 10 ans)', indice_txt)}</div>"
+               f"<div class='muted small'>Pays les plus tendus (sur 10 ans) : {pays or '—'}. Mesure la tension, pas son effet : sans effet mesurable sur le prix du blé à 1-3 mois depuis 2000 ; chaque événement se juge au cas par cas.</div></div>")
+    if not rows and not lis and not geo and not ac.get("synthese"):
+        return ""
+    syn = f"<div class='resume'><b>Synthèse de l'actualité</b> — {e(ac['synthese'])}</div>" if ac.get("synthese") else ""
+    tab = ("<table class='tab'><thead><tr><th>Culture</th><th>Actualité des 7 derniers jours</th><th>Humeur du marché</th></tr></thead><tbody>"
+           + "".join(rows) + "</tbody></table>") if rows else ""
+    return (syn + tab + (f"<ul class='news'>{''.join(lis)}</ul>" if lis else "") + geo
+            + "<p class='muted small'>Titres de Google Actualités et de la presse agricole, classés par l'IA d'après leur seul titre ; "
+              "humeur de 0 (peur) à 100 (euphorie) : éclairage pour le rythme des ventes, elle n'annonce pas la suite des prix.</p>")
 
 
 def gauge_svg(v, segs, w=150):
@@ -116,7 +175,8 @@ def jauge(v, kind, titre=None, note=None, compact=False):
     lab, cl = LAB[kind](v)
     t = f"<div class='jt'>{e(titre)}</div>" if titre else ""
     nt = f"<div class='jn'>{e(note)}</div>" if note else ""
-    return (f"<div class='jauge{' compact' if compact else ''}'>{t}<div class='jl'>{badge(f'{round(v)}e', cl)}"
+    txt = str(round(v)) if kind == "psy" else f"{round(v)}e"  # humeur : indice de 0 à 100, pas un percentile
+    return (f"<div class='jauge{' compact' if compact else ''}'>{t}<div class='jl'>{badge(txt, cl)}"
             f"<span class='jlab'>{e(lab)}</span></div>{gauge_svg(v, SEGS[kind], 130 if compact else 170)}{nt}</div>")
 
 
@@ -351,6 +411,7 @@ def page_html(d):
     cal_h = ("<table class='tab'><tbody>" + "".join(f"<tr><td class='nw'><b>{dfr(x['date'])}</b></td><td>{e(x.get('evenement'))}</td></tr>" for x in cal)
              + "</tbody></table>") if cal else ""
 
+    actu = actu_html(d)
     resume = f"<div class='resume'><b>Comité du {dfr(com.get('date'))}</b> — {e(com.get('resume'))}</div>" if com.get("resume") else ""
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Grain Signal — synthèse du {dfr(d.get('date'))}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -366,6 +427,7 @@ VENDRE : la tranche peut partir · ATTENDRE : décaler · RIEN : pas de tranche 
 <h2>Détail par culture</h2>{''.join(blocs)}
 {f'<h2>Orges brassicoles</h2>{orges}' if orges else ''}
 <h2>Engrais azotés</h2>{engrais}
+{f'<h2>Actualité, psychologie et géopolitique</h2>{actu}' if actu else ''}
 <div class="two"><section><h2>Déclencheurs du jour</h2>{trig_h}</section><section><h2>Calendrier</h2>{cal_h or '<p class=muted>—</p>'}</section></div>
 {f'<h2>Carnet de bord des avis</h2>{carnet}' if carnet else ''}
 <p class="foot">Aide à la décision automatique, pas un conseil en investissement : la décision finale revient à l'exploitant.
@@ -374,6 +436,7 @@ Page complète : {e(d.get('url') or 'letmetry51.github.io/insider-pea/grain-sign
 
 
 CSS = """
+ul.news { margin: 4px 0 8px; padding-left: 16px; } ul.news li { margin: 3px 0; break-inside: avoid; }
 @page { size: A4; margin: 13mm 12mm 15mm; }
 * { box-sizing: border-box; }
 body { font-family: 'IBM Plex Sans', 'DejaVu Sans', 'Liberation Sans', Arial, sans-serif; font-size: 9.6pt; color: #1c1a12;

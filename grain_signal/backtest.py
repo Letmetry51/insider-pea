@@ -411,6 +411,181 @@ def comparaison(chicago, euronext):
     return out
 
 
+# ----------------------------------------------------------------------------------------- psychologie et géopolitique
+def _rang(x):
+    o = sorted(range(len(x)), key=lambda i: x[i])
+    r = [0] * len(x)
+    for k, i in enumerate(o):
+        r[i] = k
+    return r
+
+
+def spearman(a, b):
+    """Corrélation de rang (−1 à +1) : l'indicateur classe-t-il les rendements suivants ?"""
+    n = len(a)
+    if n < 30:
+        return None
+    ra, rb = _rang(a), _rang(b)
+    m = (n - 1) / 2
+    cov = sum((x - m) * (y - m) for x, y in zip(ra, rb))
+    var = sum((x - m) ** 2 for x in ra)
+    return round(cov / var, 3) if var else None
+
+
+def fonds_indice(cftc, cult):
+    """Indice 0-100 de la position nette des fonds sur 3 ans (CFTC, rapport publié 3 jours après), à une date donnée."""
+    cot = [([x["date"] for x in v["serie"]], [x["long"] - x["short"] for x in v["serie"]])
+           for v in cftc.values() if isinstance(v, dict) and v.get("culture") == cult and v.get("serie")]
+
+    def f(d):
+        lim = (datetime.fromisoformat(d) - timedelta(days=3)).date().isoformat()
+        sc = []
+        for dd, nets in cot:
+            j = bisect.bisect_right(dd, lim) - 1
+            if j < 52:
+                continue
+            w = nets[max(0, j - 155):j + 1]
+            lo, hi = min(w), max(w)
+            sc.append((nets[j] - lo) / (hi - lo) * 100 if hi > lo else 50.0)
+        return sum(sc) / len(sc) if sc else None
+    return f if cot else None
+
+
+def par_humeur(dates, p, idx, horizons=(20, 60)):
+    """Rendement moyen des `h` séances suivantes selon l'humeur du jour (tranches de 20 points), et par période."""
+    sys.path.insert(0, str(HERE))
+    import decisions as dec  # noqa: E402
+
+    out = {}
+    for h in horizons:
+        pts = [(idx[i], p[i + h] / p[i] - 1, dates[i]) for i in range(len(p) - h) if idx[i] is not None]
+        if len(pts) < 200:
+            continue
+        o = {"points": len(pts), "moyenne": round(sum(x[1] for x in pts) / len(pts) * 100, 1),
+             "correlation": spearman([x[0] for x in pts], [x[1] for x in pts]), "tranches": {}, "periodes": {}}
+        for hi_, code, lib in dec.PSY_ETATS:
+            lo_ = {"peur_extreme": 0, "peur": 20, "neutre": 40, "optimisme": 60, "euphorie": 80}[code]
+            sub = [x[1] for x in pts if lo_ <= x[0] < hi_]
+            if len(sub) >= 20:
+                o["tranches"][code] = {"libelle": lib, "moyenne": round(sum(sub) / len(sub) * 100, 1),
+                                       "hausses": round(sum(1 for x in sub if x > 0) / len(sub) * 100), "n": len(sub)}
+        for lab, a, b in (("2000-2012", "2000", "2012"), ("2013-2019", "2013", "2019"), ("2020 et après", "2020", "2100")):
+            sel = [x for x in pts if a <= x[2][:4] <= b]
+            if len(sel) >= 200:
+                o["periodes"][lab] = spearman([x[0] for x in sel], [x[1] for x in sel])
+        out[str(h)] = o
+    return out
+
+
+def bruit(dates, p, essais=30):
+    """Corrélation obtenue par pur hasard : même test sur des marches aléatoires de même longueur et de même volatilité (90e
+    percentile des |corrélations|). Les jours se chevauchent : sur 7 ans, le hasard seul donne souvent ±0,1 ou plus."""
+    import random
+    sys.path.insert(0, str(HERE))
+    import decisions as dec  # noqa: E402
+
+    lr = [math.log(p[i] / p[i - 1]) for i in range(1, len(p)) if p[i] > 0 and p[i - 1] > 0]
+    sd = (sum(x * x for x in lr) / len(lr)) ** 0.5 if lr else 0.015
+    out = {}
+    rng = random.Random(42)
+    rhos = {"20": [], "60": []}
+    for _ in range(essais):
+        v = [100.0]
+        for _ in range(len(p) - 1):
+            v.append(v[-1] * math.exp(rng.gauss(0, sd)))
+        comp = dec.psy_series(v)
+        idx = [dec.psy_indice({k: comp[k][i] for k in ("rsi", "ecart200", "elan20")}) for i in range(len(v))]
+        for h in (20, 60):
+            pts = [(idx[i], v[i + h] / v[i] - 1) for i in range(len(v) - h) if idx[i] is not None]
+            c = spearman([x[0] for x in pts], [x[1] for x in pts])
+            if c is not None:
+                rhos[str(h)].append(abs(c))
+    for h, l in rhos.items():
+        if l:
+            out[h] = round(sorted(l)[int(len(l) * 0.9) - 1], 3)
+    return out
+
+
+def backtest_psychologie(yahoo, cftc):
+    """L'humeur du marché (peur ↔ euphorie) annonce-t-elle la suite ? Blé et maïs de Chicago depuis 2000 (fonds CFTC dès 2006),
+    blé, colza et maïs d'Euronext depuis 2019 (série ajustée des changements d'échéance)."""
+    sys.path.insert(0, str(HERE))
+    import build  # noqa: E402
+    import decisions as dec  # noqa: E402
+
+    res = {}
+
+    def serie(nom, d, p, cult):
+        if len(p) < 800:
+            return
+        comp = dec.psy_series(p)
+        ff = fonds_indice(cftc, cult) if cult in ("ble", "mais") else None
+        idx = [dec.psy_indice({k: comp[k][i] for k in ("rsi", "ecart200", "elan20")}, ff(d[i]) if ff else None) for i in range(len(p))]
+        r = par_humeur(d, p, idx)
+        if r:
+            res[nom] = {"depuis": d[0], "fonds": bool(ff), **r, "bruit": bruit(d, p)}
+    for tk, cult, nom in (("ZW=F", "ble", "Blé Chicago"), ("ZC=F", "mais", "Maïs Chicago")):
+        s = (yahoo.get(tk) or {}).get("serie") or {}
+        d = sorted(s)
+        serie(nom, d, [s[x] for x in d], cult)
+    path = PRIV / "euronext.csv"
+    rows_e = list(csv.DictReader(path.open(encoding="utf-8"))) if path.exists() else []
+    for prod, cult, nom in (("EBM", "ble", "Blé Euronext"), ("ECO", "colza", "Colza Euronext"), ("EMA", "mais", "Maïs Euronext")):
+        d, p, *_ = build.continuous(rows_e, prod)
+        serie(nom, d, p, cult)
+    return res
+
+
+def backtest_geopolitique(yahoo):
+    """Le risque géopolitique (moyenne 30 jours de l'indice quotidien) annonce-t-il le prix du blé à 20 et 60 séances ?"""
+    g = load(PRIV / "gpr.json", {}).get("quotidien") or []
+    s = (yahoo.get("ZW=F") or {}).get("serie") or {}
+    if len(g) < 1000 or len(s) < 1000:
+        return {"erreur": "historiques insuffisants"}
+    gd, gv = [x[0] for x in g], [x[1] for x in g]
+    d = sorted(s)
+    p = [s[x] for x in d]
+
+    def mesure(prix, h):
+        a, b = [], []
+        for i in range(len(prix) - h):
+            j = bisect.bisect_right(gd, d[i]) - 1
+            if j < 30:
+                continue
+            a.append(sum(gv[j - 29:j + 1]) / 30)
+            b.append(prix[i + h] / prix[i] - 1)
+        if len(a) < 200:
+            return None
+        q = sorted(a)[int(len(a) * 0.9)]
+        hi = [y for x, y in zip(a, b) if x >= q]
+        return a, b, spearman(a, b), (sum(hi) / len(hi) - sum(b) / len(b)) * 100, len(hi)
+
+    out = {"depuis": max(gd[0], d[0])}
+    # hasard : même indice géopolitique, cours tirés au sort de même nervosité (90e percentile des écarts obtenus)
+    import random
+    rng = random.Random(7)
+    lr = [math.log(p[i] / p[i - 1]) for i in range(1, len(p)) if p[i] > 0 and p[i - 1] > 0]
+    sd = (sum(x * x for x in lr) / len(lr)) ** 0.5
+    sims = []
+    for _ in range(30):
+        v = [100.0]
+        for _ in range(len(p) - 1):
+            v.append(v[-1] * math.exp(rng.gauss(0, sd)))
+        sims.append(v)
+    for h in (20, 60):
+        m = mesure(p, h)
+        if not m:
+            continue
+        a, b, rho, ecart, n = m
+        br = [mesure(v, h) for v in sims]
+        br = [x for x in br if x]
+        out[str(h)] = {"correlation": rho, "points": len(a), "moyenne": round(sum(b) / len(b) * 100, 1),
+                       "tendu": round(sum(b) / len(b) * 100 + ecart, 1), "n_tendu": n,
+                       "bruit_correlation": round(sorted(abs(x[2]) for x in br)[int(len(br) * 0.9) - 1], 3) if br else None,
+                       "bruit_tendu": round(sorted(abs(x[3]) for x in br)[int(len(br) * 0.9) - 1], 1) if br else None}
+    return out
+
+
 # ----------------------------------------------------------------------------------------- achats d'azote
 def backtest_engrais():
     path = PRIV / "wb_monthly.csv"
@@ -472,11 +647,13 @@ def main():
     eu = backtest_euronext(cftc, yahoo)
     res = {"genere": datetime.now(timezone.utc).isoformat(timespec="seconds"), "ventes": ventes, "ventes_euronext": eu,
            "comparaison": comparaison(ventes, eu), "engrais": backtest_engrais(),
+           "psychologie": backtest_psychologie(yahoo, cftc), "geopolitique": backtest_geopolitique(yahoo),
            "limites": ["Ventes testées sur le marché américain converti en €/t : la tendance d'Euronext, pas son niveau ni la base locale.",
                        "Pas de frais, pas de coût de stockage, pas de fiscalité ; échéance continue non ajustée des changements de contrat.",
                        "S4 ne contient que la technique ; S5 ajoute les fonds (CFTC, depuis 2006) et la macro (euro-dollar, Brent) : la météo et le comité IA ne sont pas rejoués.",
                        "Cours Euronext : prix réel de l'échéance la plus proche, depuis novembre 2019 seulement (fichiers statistiques publics).",
                        "Achats d'azote testés sur l'urée mondiale mensuelle, pas sur les prix rendus France.",
+                       "Humeur du marché et risque géopolitique : rendements des séances suivantes, sans frais ; points qui se chevauchent (corrélations à lire comme des ordres de grandeur).",
                        "Le passé ne garantit pas l'avenir : ce test sert à écarter les mauvais réglages, pas à promettre un gain."]}
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "backtest.json").write_text(json.dumps(res, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -493,6 +670,11 @@ def main():
         print(v["nom"], ":", v.get("erreur") or {k: x["ecart_moyen"] for k, x in v["bilan_vs_S1"].items()},
               f"({len(v.get('campagnes', []))} campagnes)" if "campagnes" in v else "")
     print("Chicago / Euronext, campagnes communes :", res["comparaison"])
+    for nom, v in res["psychologie"].items():
+        for h, o in ((k, x) for k, x in v.items() if k in ("20", "60")):
+            print(f"Humeur — {nom} à {h} séances : corrélation {o['correlation']} (hasard ±{v['bruit'].get(h)}), "
+                  + ", ".join(f"{t['libelle']} {t['moyenne']:+.1f} %" for t in o["tranches"].values()))
+    print("Risque géopolitique → blé :", res["geopolitique"])
     e = res["engrais"]
     if "erreur" not in e:
         print("Azote —", len(e["campagnes"]), "campagnes ; écart moyen vs achat mensuel ($/t) :", {k: e["bilan_vs_E1"][k]["ecart_moyen"] for k in e["bilan_vs_E1"]})
