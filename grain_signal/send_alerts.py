@@ -66,6 +66,9 @@ def table_signaux(dash):
         pb = nr.get("probas") or {}
         ch = (pb.get("ordres") or [None])[0] if (due or {}).get("code") == "ordre" else None
         sous = f"{ch} % de chances d'ici le {rp.dfr(pb.get('horizon'))}" if ch is not None else ""
+        pct_c = (c.get("comite") or {}).get("pct") if c.get("source") == "comite" else None
+        if pct_c:  # consigne exacte du comité : elle peut préciser le plan (« 7,5 % maintenant + 7,5 % par ordre »)
+            sous = f"Comité : {pct_c}" + (" · " + sous if sous else "")
         if sur and (due or {}).get("ordre"):
             sous = (sous + " · " if sous else "") + f"quand le blé Euronext atteint {rp.n(due['ordre'])} €/t"
         rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
