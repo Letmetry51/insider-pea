@@ -196,7 +196,12 @@ def main():
         mails.append((ids, f"🌾 Grain Signal — {len(trig)} {mot}{'s' if len(trig) > 1 else ''} : {first['titre']}",
                       wrap("Alertes du jour", f"{alertes_h}{bloc_actu()}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}")))
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true" and not mails:
-        mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash) + bloc_actu() + PDF_NOTE)))
+        from zoneinfo import ZoneInfo
+
+        h_ = datetime.now(ZoneInfo("Europe/Paris"))
+        # date et heure dans l'objet : Gmail ne range pas l'email sous un envoi précédent (même objet = même conversation)
+        mails.append(([], f"🌾 Grain Signal — synthèse du {jour} à {h_.hour} h {h_.minute:02d}",
+                      wrap("Synthèse à la demande", table_signaux(dash) + bloc_actu() + PDF_NOTE)))
     if not mails:
         print("Emails : rien à envoyer")
         save(OUT / "etat.json", etat)
