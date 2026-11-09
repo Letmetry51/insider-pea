@@ -76,10 +76,11 @@ def compact(dash):
     return d
 
 
-def call(messages, system, key):
-    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": CFG["comite"]["recherchesMax"],
-              "user_location": {"type": "approximate", "country": "FR", "timezone": "Europe/Paris"}}]
-    body = {"model": CFG["comite"]["modele"], "max_tokens": CFG["comite"]["maxTokens"], "system": system, "messages": messages, "tools": tools}
+def call(messages, system, key, recherche=True, max_tokens=None):
+    body = {"model": CFG["comite"]["modele"], "max_tokens": max_tokens or CFG["comite"]["maxTokens"], "system": system, "messages": messages}
+    if recherche:
+        body["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": CFG["comite"]["recherchesMax"],
+                          "user_location": {"type": "approximate", "country": "FR", "timezone": "Europe/Paris"}}]
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None
     for i in range(4):
@@ -111,11 +112,30 @@ def safe_html(md_text):
     return re.sub(r'<a href="([^"]*)"[^>]*>', fix, out)
 
 
+def bloc_json(text):
+    """Dernier bloc ```json du texte ; à défaut, dernier objet JSON qui contient « cultures » (bloc mal balisé)."""
+    blocks = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
+    for b in reversed(blocks):
+        if '"cultures"' in b:
+            return b
+    i = text.rfind('{"resume"')
+    if i < 0:
+        i = text.rfind('"cultures"')
+        i = text.rfind("{", 0, i) if i >= 0 else -1
+    if i >= 0:
+        depth = 0
+        for k in range(i, len(text)):
+            depth += {"{": 1, "}": -1}.get(text[k], 0)
+            if depth == 0:
+                return text[i:k + 1]
+    return None
+
+
 def parse_decision(text):
-    blocks = re.findall(r"```json\s*(\{.*?\})\s*```", text, re.S)
-    if not blocks:
+    bloc = bloc_json(text)
+    if not bloc:
         raise ValueError("bloc JSON final absent")
-    j = json.loads(blocks[-1])
+    j = json.loads(bloc)
     cultures = {}
     for k, v in (j.get("cultures") or {}).items():
         if isinstance(v, dict) and str(v.get("signal", "")).upper() in SIGNAUX:
@@ -131,7 +151,8 @@ def parse_decision(text):
     trig = [t for t in (j.get("declencheurs") or []) if isinstance(t, dict) and t.get("contrat") in ("EBM", "ECO", "EMA", "TTF")
             and t.get("sens") in (">", "<") and isinstance(t.get("niveau"), (int, float))]
     cal = [c for c in (j.get("calendrier") or []) if isinstance(c, dict) and re.match(r"^\d{4}-\d{2}-\d{2}$", str(c.get("date", "")))]
-    report = text[: text.rfind("```json")].strip()
+    cut = text.rfind("```json")
+    report = (text[:cut] if cut >= 0 else text).strip()
     return {"resume": str(j.get("resume", ""))[:600], "cultures": cultures, "engrais": eng, "declencheurs": trig[:20], "calendrier": cal[:20]}, report
 
 
@@ -187,9 +208,11 @@ def main():
     usage = {"input": 0, "output": 0, "searches": 0}
     texts, sources, assistant = [], [], []
     t0 = time.time()
+    stop = None
     try:
         for _ in range(8):
             resp = call(messages, system, key)
+            stop = resp.get("stop_reason")
             u = resp.get("usage") or {}
             usage["input"] += u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
             usage["output"] += u.get("output_tokens", 0)
@@ -206,7 +229,24 @@ def main():
                 continue
             break
         text = "".join(texts)
-        decision, report = parse_decision(text)
+        print(f"Comité : réponse terminée ({stop}), {usage['output']} jetons rédigés, {usage['searches']} recherches")
+        try:
+            decision, report = parse_decision(text)
+        except ValueError as ex:
+            # rapport coupé (limite de longueur) ou rendu sans le bloc final : seconde demande courte, sans recherche web, du
+            # seul bloc JSON, à partir du rapport déjà rédigé
+            print(f"Comité : {ex} (fin de réponse : {stop}) — demande du seul bloc JSON")
+            rep = call([messages[0], {"role": "assistant", "content": text.strip() or "(rapport vide)"},
+                        {"role": "user", "content": "Ton rapport ci-dessus a été coupé ou ne se termine pas par le bloc JSON final. Rends "
+                                                    "maintenant UNIQUEMENT ce bloc ```json, au format exact de la SORTIE MACHINE, cohérent avec "
+                                                    "ton rapport (aucun texte avant ni après)."}],
+                       system, key, recherche=False, max_tokens=6000)
+            u = rep.get("usage") or {}
+            usage["input"] += u.get("input_tokens", 0)
+            usage["output"] += u.get("output_tokens", 0)
+            extra = "".join(b.get("text", "") for b in rep.get("content") or [] if b.get("type") == "text")
+            decision, _ = parse_decision(extra)
+            report = text.strip() + ("\n\n*(Rapport coupé : décisions reprises par une seconde demande.)*" if stop == "max_tokens" else "")
     except Exception as e:  # noqa: BLE001
         print("Comité : échec —", e)
         err = dict(last) if last.get("date") else {}
