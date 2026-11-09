@@ -2045,6 +2045,8 @@ function resumeCulture(k, d) {
   const v1 = (con.technique || {}).var1s;
   const pb = nr.probas || {};
   const ch = due && due.code === 'ordre' && pb.ordres && pb.ordres[0] !== undefined ? pb.ordres[0] : null;
+  // consigne exacte du comité d'abord : elle peut préciser le plan (« 7,5 % maintenant + 7,5 % par ordre »)
+  const cc = c.source === 'comite' ? c.comite || {} : {};
   const sous = [
     cours
       ? `${phys.prix ? 'Prix physique' : 'Cours'} ${fmt(cours)} €/t` +
@@ -2053,7 +2055,19 @@ function resumeCulture(k, d) {
     ch !== null ? `${ch} % de chances d’atteindre l’ordre d’ici le ${dfr(pb.horizon)}` : null,
     due && due.ordre && nr.sur_ble ? `ordre déclenché par le blé Euronext à ${fmt(due.ordre)} €/t` : null,
   ].filter(Boolean);
-  return { c, due, ic, lab, cl, quoi: court(due, nr.sur_ble, gap), sous: sous.join(' · '), con, nr, gap };
+  return {
+    c,
+    due,
+    ic,
+    lab,
+    cl,
+    quoi: court(due, nr.sur_ble, gap),
+    com: cc.pct ? `Comité : ${cc.pct}` : '',
+    sous: sous.join(' · '),
+    con,
+    nr,
+    gap,
+  };
 }
 
 function resumeAzote(d) {
@@ -2079,6 +2093,7 @@ function decisionRow(href, nom, r) {
       h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
       h('span', { class: 'dquoi', text: r.quoi })
     ),
+    r.com ? h('span', { class: 'dcom', text: r.com }) : null,
     r.sous ? h('span', { class: 'dsous', text: r.sous }) : null,
     h('span', { class: 'dgo', 'aria-hidden': 'true', text: '›' })
   );
@@ -2255,6 +2270,7 @@ function cultureView(k, d) {
         h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
         h('span', { class: 'dquoi', text: r.quoi })
       ),
+      r.com ? h('p', { class: 'dcom', text: r.com }) : null,
       r.sous ? h('p', { class: 'dsous', text: r.sous }) : null,
       cc.texte ? h('p', { text: cc.texte }) : c.note ? h('p', { class: 'note', text: c.note }) : null,
       c.a_revoir ? h('div', { class: 'alert', text: c.a_revoir }) : null

@@ -947,7 +947,7 @@ ul.biais li {
 .drow {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas: 'name go' 'main go' 'sous go';
+  grid-template-areas: 'name go' 'main go' 'com go' 'sous go';
   gap: 4px 10px;
   padding: 12px 14px;
   background: var(--surface);
@@ -1061,4 +1061,10 @@ details.more-data[open] {
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 6px 14px;
   margin: 0;
+}
+
+.dcom {
+  grid-area: com;
+  font-size: 14px;
+  margin: 2px 0 0;
 }

@@ -259,6 +259,9 @@ def page_html(d):
         sur = (c.get("niveaux_retenus") or {}).get("sur_ble")
         gap = ((d.get("orges") or {}).get(k) or {}).get("ecart_ble") if sur else None
         sous = f"Récolte {due['recolte']} · {due['periode']}" if due and due.get("periode") else ""
+        pct_c = (c.get("comite") or {}).get("pct") if c.get("source") == "comite" else None
+        if pct_c:  # consigne exacte du comité, en premier
+            sous = f"Comité : {e(pct_c)}" + ("<br>" + sous if sous else "")
         if sur and due and due.get("ordre"):
             sous += f"<br>quand le blé Euronext atteint {n(due['ordre'])}&nbsp;€/t"
         autre = next((p for p in plan if p is not due and p.get("statut") == "due"), None)

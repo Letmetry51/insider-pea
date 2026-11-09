@@ -519,6 +519,7 @@ check(build.cot_reading(_old, today=date(2026, 11, 8)).get("perime") and build.c
 import send_alerts as _sa  # noqa: E402
 _dash = {"cultures": {"ble": {"nom": "Blé tendre", "contrat": "EBM", "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5,
                                                                           "recolte": 2026, "periode": "oct.–nov. 2026"}],
+                               "source": "comite", "comite": {"pct": "7,5 % maintenant + 7,5 % par ordre"},
                                "niveaux_retenus": {"ordres": [235.5], "probas": {"ordres": [45], "horizon": "2026-11-30"}}},
                        "escourgeon": {"nom": "Escourgeon brassicole", "contrat": "EBM", "physique": {"prix": 209.0},
                                       "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}],
@@ -527,7 +528,7 @@ _dash = {"cultures": {"ble": {"nom": "Blé tendre", "contrat": "EBM", "plan": [{
          "engrais": {"comite": {"signal": "FRACTIONNER", "pct": "15 % max (urée)", "prix_plafond": 640}, "france": {"uree": {"prix": 613.75}}}}
 _ts = _sa.table_signaux(_dash)
 check("ORDRE" in _ts and "15 % à 235,50 €/t" in _ts and "45 % de chances" in _ts and "15 % à ≈ 219,00 €/t" in _ts
-      and "quand le blé Euronext atteint 235,50" in _ts and "FRACTIONNER" in _ts and "plafond d'achat 640" in _ts and "TENIR" not in _ts
+      and "quand le blé Euronext atteint 235,50" in _ts and "FRACTIONNER" in _ts and "plafond d'achat 640" in _ts and "Comité : 7,5 % maintenant" in _ts and "TENIR" not in _ts
       and "position" not in _ts, "email : mêmes décisions que la page (orge en prix d'orge, blé déclencheur, azote), sans « position »")
 
 # collecte des positions Euronext : une erreur réseau n'est jamais une « semaine sans rapport », mercredi de la même semaine
