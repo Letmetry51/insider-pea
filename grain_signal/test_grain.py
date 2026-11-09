@@ -226,7 +226,8 @@ try:
               and "Carnet de bord" not in page and "Orges brassicoles" not in page and "Engrais France" not in page,
               "synthèse PDF : resserrée (décisions, comité, actualité traduite, cultures), texte échappé")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
-        check(p2.returncode == 0 and "alerte" in p2.stdout and "Actualité majeure" in p2.stdout, "emails en simulation (alerte d'actualité en tête)"
+        check(p2.returncode == 0 and p2.stdout.count("SIMULATION") == 1 and "Grain Signal — samedi 7 nov. : Actualité majeure" in p2.stdout,
+              "rapport du matin : un seul email, l'alerte d'actualité en tête" + (": " + p2.stdout[-400:] if p2.returncode == 0 else "")
               + ("" if p2.returncode == 0 else " : " + p2.stderr[-300:]))
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
@@ -854,6 +855,31 @@ def _comite_pareil(t, pv):
 _o = run_build(_comite_pareil)[0]
 check(_o[0] == 0 and _o[1]["cultures"]["ble"]["niveaux_retenus"]["ordres"] == [240.0, 240.0],
       "comité : deux ordres arrondis au même quart d'euro avec un % illisible, sans plantage" + ("" if _o[0] == 0 else " : " + _o[3]))
+
+# rapport du matin : un par jour, du lundi au samedi, seulement sur le calcul du jour
+_tr = Path(tempfile.mkdtemp())
+try:
+    import send_alerts as _sa2  # noqa: E402
+
+    (_tr / "grain-signal.json").write_text(json.dumps({"date": "2026-11-10"}), encoding="utf-8")
+    _old_today = os.environ.get("GS_TODAY")
+    os.environ["GS_TODAY"] = "2026-11-10"
+    _a1 = _sa2.rapport_attendu(_tr)
+    (_tr / "etat.json").write_text(json.dumps({"envoyes": {"rapport:2026-11-10": "2026-11-10T06:31:00+00:00"}}), encoding="utf-8")
+    _a2 = _sa2.rapport_attendu(_tr)
+    os.environ["GS_TODAY"] = "2026-11-11"
+    _a3 = _sa2.rapport_attendu(_tr)  # données de la veille : calcul du jour pas encore passé
+    os.environ["GS_TODAY"] = "2026-11-15"
+    (_tr / "grain-signal.json").write_text(json.dumps({"date": "2026-11-15"}), encoding="utf-8")
+    _a4 = _sa2.rapport_attendu(_tr)  # dimanche
+    check(_a1 == "rapport:2026-11-10" and _a2 is None and _a3 is None and _a4 is None,
+          "rapport du matin : attendu une fois par jour, pas sur des données de la veille ni le dimanche")
+finally:
+    if _old_today is None:
+        os.environ.pop("GS_TODAY", None)
+    else:
+        os.environ["GS_TODAY"] = _old_today
+    shutil.rmtree(_tr, ignore_errors=True)
 
 for st, name in results:
     print(st, name)

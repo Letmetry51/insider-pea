@@ -22,6 +22,29 @@ from pathlib import Path
 
 from commun import load, save  # noqa: E402
 
+JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def aujourdhui():
+    """Date du jour à Paris (GS_TODAY pour les tests)."""
+    from datetime import date
+    from zoneinfo import ZoneInfo
+
+    if os.environ.get("GS_TODAY"):
+        return date.fromisoformat(os.environ["GS_TODAY"])
+    return datetime.now(ZoneInfo("Europe/Paris")).date()
+
+
+def rapport_attendu(out=None):
+    """Identifiant du rapport du matin s'il reste à envoyer aujourd'hui (un par jour, du lundi au samedi, sur le calcul du jour)."""
+    out = out or OUT
+    j = aujourdhui()
+    dash = load(out / "grain-signal.json", {}) or {}
+    sent = (load(out / "etat.json", {}) or {}).get("envoyes") or {}
+    rid = f"rapport:{j.isoformat()}"
+    return rid if j.weekday() < 6 and str(dash.get("date")) == j.isoformat() and rid not in sent else None
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "grain"
 CFG = json.loads((Path(__file__).resolve().parent / "config.json").read_text(encoding="utf-8"))
@@ -137,31 +160,48 @@ def main():
     comite = load(OUT / "comite.json", {})
     mails = []
     trig = [x for x in outbox if x.get("type") != "comite"]
-    if trig:
-        # actualité majeure d'abord (elle convoque le comité), puis les déclencheurs graves
-        first = sorted(trig, key=lambda x: (x.get("type") != "actu", not x.get("grave")))[0]
-        mot = "alerte" if any(x.get("type") == "actu" for x in trig) else "déclencheur"
-        subj = f"🌾 Grain Signal — {len(trig)} {mot}{'s' if len(trig) > 1 else ''} : {first['titre']}"
-        items = "".join(f"<li style='margin:4px 0'>{'📰 ' if x.get('type') == 'actu' else '⚠️ ' if x.get('grave') else ''}<b>{e(x['titre'])}</b>"
-                        f"<br><span style='color:#555'>{e(x.get('detail'))}</span>"
-                        + (f" <a href='{e(x['url'])}' style='color:#0d6a56'>Lire</a>" if str(x.get("url", "")).startswith("http") else "")
-                        + "</li>" for x in trig)
-        mails.append(([x["id"] for x in trig], subj, wrap("Alertes du jour", f"<ul style='padding-left:18px'>{items}</ul>{bloc_actu()}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}")))
-    coms = [x for x in outbox if x.get("type") == "comite"]
+    rid = rapport_attendu()
+    j = aujourdhui()
+    jour = f"{JOURS[j.weekday()]} {j.day} {MOIS[j.month - 1]}"
+    items = "".join(f"<li style='margin:4px 0'>{'📰 ' if x.get('type') == 'actu' else '⚠️ ' if x.get('grave') else ''}<b>{e(x['titre'])}</b>"
+                    f"<br><span style='color:#555'>{e(x.get('detail'))}</span>"
+                    + (f" <a href='{e(x['url'])}' style='color:#0d6a56'>Lire</a>" if str(x.get("url", "")).startswith("http") else "")
+                    + "</li>" for x in sorted(trig, key=lambda x: (x.get("type") != "actu", not x.get("grave"))))
+    alertes_h = f"<h3>⚠️ Alertes</h3><ul style='padding-left:18px'>{items}</ul>" if trig else ""
+    coms = [x for x in outbox if x.get("type") == "comite" and comite.get("rapport_html")]
+    for x in [x for x in outbox if x.get("type") == "comite" and not comite.get("rapport_html")]:
+        sent[x["id"]] = "sans rapport"
     for x in coms[:-1]:  # plusieurs comités en attente (envoi en échec la veille) : seul le dernier rapport part, il remplace les autres
         sent[x["id"]] = "remplacé"
-    for x in coms[-1:]:
-        if comite.get("rapport_html"):
-            sig = ", ".join(f"{v.get('nom', k).replace(' tendre', '')} {(v.get('decision') or {}).get('libelle', '')}"
-                            for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
-            subj = f"🌾 {x['titre']} — {sig}"[:180]
-            inner = (f"<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>{table_signaux(dash)}{bloc_actu()}"
-                     f"<hr style='margin:18px 0'>{comite['rapport_html']}")
-            mails.append(([x["id"]], subj, wrap(x["titre"], inner + PDF_NOTE)))
-        else:
-            sent[x["id"]] = "sans rapport"
-    if os.environ.get("GS_TEST_EMAIL", "").lower() == "true":
-        mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash) + bloc_actu() + PDF_NOTE)))
+    ids = [x["id"] for x in trig] + ([rid] if rid else [])
+    # un seul email par calcul : celui du comité s'il s'est réuni, sinon le rapport du matin (une fois par jour), sinon les alertes
+    # d'un calcul relancé dans la journée ; chacun emporte les alertes du calcul
+    if coms:
+        x = coms[-1]
+        sig = ", ".join(f"{v.get('nom', k).replace(' tendre', '')} {(v.get('decision') or {}).get('libelle', '')}"
+                        for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
+        inner = (f"{alertes_h}<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>"
+                 f"<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}{bloc_actu()}<hr style='margin:18px 0'>{comite['rapport_html']}")
+        mails.append(([x["id"]] + ids, f"🌾 {x['titre']} — {sig}"[:180], wrap(x["titre"], inner + PDF_NOTE)))
+    elif rid:
+        dec_ = [f"{v.get('nom', k).replace(' tendre', '').replace(' brassicole', '')} {(v.get('decision') or {}).get('libelle', '')}"
+                for k, v in (dash.get("cultures") or {}).items()
+                if (v.get("decision") or {}).get("code") in ("executer", "vendre", "attendre")]
+        tete = trig[0]["titre"] if trig else (" · ".join(dec_) if dec_ else "rien d'urgent, ordres en place")
+        mails.append((ids, f"🌾 Grain Signal — {jour} : {tete}"[:180],
+                      wrap(f"Rapport du {jour}", f"{alertes_h}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}{bloc_actu()}{PDF_NOTE}")))
+    elif trig:
+        first = sorted(trig, key=lambda x: (x.get("type") != "actu", not x.get("grave")))[0]
+        mot = "alerte" if any(x.get("type") == "actu" for x in trig) else "déclencheur"
+        mails.append((ids, f"🌾 Grain Signal — {len(trig)} {mot}{'s' if len(trig) > 1 else ''} : {first['titre']}",
+                      wrap("Alertes du jour", f"{alertes_h}{bloc_actu()}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}")))
+    if os.environ.get("GS_TEST_EMAIL", "").lower() == "true" and not mails:
+        from zoneinfo import ZoneInfo
+
+        h_ = datetime.now(ZoneInfo("Europe/Paris"))
+        # date et heure dans l'objet : Gmail ne range pas l'email sous un envoi précédent (même objet = même conversation)
+        mails.append(([], f"🌾 Grain Signal — synthèse du {jour} à {h_.hour} h {h_.minute:02d}",
+                      wrap("Synthèse à la demande", table_signaux(dash) + bloc_actu() + PDF_NOTE)))
     if not mails:
         print("Emails : rien à envoyer")
         save(OUT / "etat.json", etat)

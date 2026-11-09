@@ -19,6 +19,7 @@ reprennent les mêmes mots et les mêmes chiffres.
 | Du mardi au samedi, 5h47 (heure d'hiver) | collecte, calcul, déclencheurs, email s'il y a lieu, publication |
 | Le lundi, même heure | idem + **comité complet** (rapport envoyé par email) |
 | Chaque matin, avant le comité | **actualités traduites** : titres du jour classés par l'IA (quelques centimes) |
+| Chaque matin du lundi au samedi, vers 7 h 30 | **rapport du matin** par email, synthèse PDF jointe (le lundi : l'email du comité) ; calcul lancé à 7 h 03 par une tâche planifiée Claude, GitHub en secours |
 | Quand un déclencheur important saute ou qu'un fait majeur tombe | **comité d'alerte**, au plus 2 fois par semaine |
 | À la demande | onglet Actions → « Grain Signal » → Run workflow (cases « comité » et « email de test ») |
 
