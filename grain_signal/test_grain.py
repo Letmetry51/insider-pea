@@ -129,14 +129,58 @@ check('href="https://example.com/a"' in hs, "lien https conservé")
 tmp = Path(tempfile.mkdtemp())
 try:
     (tmp / "grain_signal").mkdir()
-    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py", "rapport_pdf.py"):
+    for f in ("build.py", "indicators.py", "decisions.py", "config.json", "comite.py", "send_alerts.py", "rapport_pdf.py", "actualites.py"):
         shutil.copy(HERE / f, tmp / "grain_signal" / f)
     shutil.copytree(HERE / "seed", tmp / "grain_signal" / "seed")
     priv = tmp / "data" / "grain" / "prive"
     priv.mkdir(parents=True)
     for f in ("euronext.csv", "wb_monthly.csv", "fert_fr.csv"):
         shutil.copy(HERE / "seed" / f, priv / f)
-    env = dict(os.environ, GS_TODAY="2026-11-07", GS_DRY="1")
+    # actualités déjà collectées et classées (sans appel à l'API : classement en cache), indice géopolitique
+    _arts = [{"id": "a1", "titre": "Russia halts wheat exports from Novorossiysk after drone strike", "url": "https://example.com/1",
+              "date": "2026-11-07T04:00+00:00", "source": "Reuters", "langue": "en", "autres_sources": ["Bloomberg", "AFP"]},
+             {"id": "a2", "titre": "Le blé Euronext recule encore", "url": "https://example.com/2", "date": "2026-11-06T16:00+00:00",
+              "source": "Terre-net", "langue": "fr"},
+             {"id": "a3", "titre": "Urea prices climb as Egypt gas cuts bite", "url": "https://example.com/3", "date": "2026-11-05T10:00+00:00",
+              "source": "DTN", "langue": "en"},
+             {"id": "a4", "titre": "Recette de la tarte aux pommes", "url": "https://example.com/4", "date": "2026-11-06T10:00+00:00",
+              "source": "Web-agri", "langue": "fr"},
+             {"id": "a5", "titre": "<script>alert(1)</script> canola", "url": "javascript:alert(1)", "date": "2026-11-06T10:00+00:00",
+              "source": "X", "langue": "en"}]
+    (priv / "actualites_brut.json").write_text(json.dumps({"articles": _arts}), encoding="utf-8")
+    _cls = {"a1": {"pertinent": True, "titre_fr": "La Russie suspend ses exportations de blé à Novorossiisk après une attaque de drones",
+                   "theme": "geopolitique", "nature": "fait", "importance": 3, "impacts": {"ble": 2, "orge": 1, "mais": 1, "colza": 0, "engrais": 0},
+                   "horizon": "semaines", "impact": "Moins de blé russe : soutien pour vos ventes de blé", "doublon_de": None, "classe_le": "2026-11-07"},
+            "a2": {"pertinent": True, "titre_fr": "Le blé Euronext recule encore", "theme": "marche", "nature": "fait", "importance": 1,
+                   "impacts": {"ble": -1}, "horizon": "jours", "impact": "Séance en baisse", "doublon_de": None, "classe_le": "2026-11-07"},
+            "a3": {"pertinent": True, "titre_fr": "L'urée monte avec les coupures de gaz en Égypte", "theme": "engrais", "nature": "fait",
+                   "importance": 2, "impacts": {"engrais": 2}, "horizon": "semaines", "impact": "Azote plus cher : couvrir la tranche",
+                   "doublon_de": None, "classe_le": "2026-11-07"},
+            "a4": {"pertinent": False, "titre_fr": "Recette", "classe_le": "2026-11-07"},
+            "a5": {"pertinent": True, "titre_fr": "<script>alert(1)</script>", "theme": "demande", "nature": "rumeur", "importance": 1,
+                   "impacts": {"colza": 1}, "horizon": "jours", "impact": "x", "doublon_de": None, "classe_le": "2026-11-07"}}
+    (priv / "actualites_classees.json").write_text(json.dumps(_cls), encoding="utf-8")
+    _gj = [[f"{2014 + i // 365:04d}-{(i % 365) // 31 % 12 + 1:02d}-{i % 28 + 1:02d}", 100.0 + (i % 50)] for i in range(4000)]
+    _gj = sorted({x[0]: x for x in _gj}.values())
+    _gj += [["2026-11-0" + str(k), 400.0] for k in range(1, 7)]
+    (priv / "gpr.json").write_text(json.dumps({"quotidien": _gj, "mensuel": {"RUS": [[f"{2015 + m // 12}-{m % 12 + 1:02d}", 1.0 + m / 100] for m in range(140)]},
+                                               "evenements": [["2026-10-20", "Attack on port"]]}), encoding="utf-8")
+    env = dict(os.environ, GS_TODAY="2026-11-07", GS_NOW="2026-11-07T06:00:00+00:00", GS_DRY="1", ANTHROPIC_API_KEY="")
+    pa = subprocess.run([sys.executable, str(tmp / "grain_signal" / "actualites.py")], capture_output=True, text=True, env=env)
+    ac_ = json.loads((tmp / "data" / "grain" / "actualites.json").read_text(encoding="utf-8")) if pa.returncode == 0 else {}
+    check(pa.returncode == 0 and [a["id"] for a in ac_.get("articles", [])] == ["a1", "a2", "a5", "a3"],
+          "actualités : titres classés publiés, non pertinents écartés" + ("" if pa.returncode == 0 else " : " + pa.stderr[-300:]))
+    pr_ = ac_.get("pression") or {}
+    check(pr_.get("ble", {}).get("valeur", 0) > 0.5 and pr_["ble"]["baisse"] == 0 and pr_.get("engrais", {}).get("valeur", 0) > 0.3,
+          f"actualités : pression haussière sur le blé (compte rendu de séance exclu), azote plus cher ({pr_.get('ble')}, {pr_.get('engrais')})")
+    _box = json.loads((priv / "a-envoyer.json").read_text(encoding="utf-8")) if (priv / "a-envoyer.json").exists() else []
+    _dem = json.loads((tmp / "data" / "grain" / "demande-comite.json").read_text(encoding="utf-8")) if (tmp / "data" / "grain" / "demande-comite.json").exists() else {}
+    check(ac_.get("majeurs") == ["a1"] and any(x["id"] == "2026-11-07:actu:a1" and x["grave"] for x in _box)
+          and any("Novorossiisk" in m for m in _dem.get("motifs", [])),
+          "actualité majeure : alerte email et comité d'alerte demandés")
+    pa2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "actualites.py")], capture_output=True, text=True, env=env)
+    _box2 = json.loads((priv / "a-envoyer.json").read_text(encoding="utf-8"))
+    check(pa2.returncode == 0 and len([x for x in _box2 if ":actu:" in x["id"]]) == 1, "actualité majeure : une seule alerte, même relancé")
     p = subprocess.run([sys.executable, str(tmp / "grain_signal" / "build.py")], capture_output=True, text=True, env=env)
     check(p.returncode == 0, "calcul complet sur les historiques de départ" + ("" if p.returncode == 0 else " : " + p.stderr[-400:]))
     if p.returncode == 0:
@@ -160,6 +204,14 @@ try:
         pb_ = dash["cultures"]["ble"]["niveaux_retenus"].get("probas") or {}
         check(len(pb_.get("ordres") or []) == len(dash["cultures"]["ble"]["niveaux_retenus"]["ordres"]) and pb_.get("horizon") == "2026-11-30"
               and all(0 <= x <= 100 for x in pb_["ordres"]), f"chances d'atteindre les ordres d'ici la fin de la tranche ({pb_})")
+        check((dash["cultures"]["ble"].get("actualite") or {}).get("sens") == "haussière" and dash["cultures"]["escourgeon"].get("actualite")
+              and (dash.get("actualites") or {}).get("majeurs") == 1, "actualités : pression reprise par culture dans le calcul du matin")
+        g_ = dash.get("geopolitique") or {}
+        check(g_.get("percentile", 0) >= 90 and g_.get("etat") == "très élevé" and g_.get("pays", [{}])[0].get("nom") == "Russie"
+              and g_.get("evenements"), f"géopolitique : pic récent au-dessus de 10 ans d'historique, pays et événements ({ {k: g_.get(k) for k in ('mois', 'percentile', 'etat')} })")
+        bi_ = dash["cultures"]["ble"].get("biais") or {}
+        check(bi_.get("plus_haut") is not None and bi_.get("depuis") == "2026-07-01" and 0 <= (bi_.get("gagner5") or -1) <= 100,
+              f"biais d'ancrage : plus haut de la campagne et chances de gagner ou perdre 5 € ({bi_})")
         hp = tmp / "synthese.html"
         p3 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "rapport_pdf.py"), "--html", str(hp)], capture_output=True, text=True, env=env)
         page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
@@ -169,8 +221,11 @@ try:
               and "Prime faible" not in page.replace("Prime faible : vendre via Euronext", ""),
               "synthèse PDF : page complète (décisions, 3 contrats, ordres en €/t)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
         check(not _re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", page), "synthèse PDF : aucun emoji (carrés vides à l'impression)")
+        check("Actualité, psychologie et géopolitique" in page and "Novorossiisk" in page and "<script>alert" not in page
+              and "Risque géopolitique mondial" in page, "synthèse PDF : actualité traduite et géopolitique, texte échappé")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
-        check(p2.returncode == 0, "emails en simulation")
+        check(p2.returncode == 0 and "alerte" in p2.stdout and "Actualité majeure" in p2.stdout, "emails en simulation (alerte d'actualité en tête)"
+              + ("" if p2.returncode == 0 else " : " + p2.stderr[-300:]))
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
@@ -587,6 +642,76 @@ check(_sc["campagne"] == "2026/27" and _sc["ratio"] == round(41 / 120 * 100, 1) 
 check(dec.proba_toucher(100, 100, 0.01, 25) == 100 and dec.proba_toucher(100, 100 * math.exp(0.05), 0.01, 25) == 32
       and dec.proba_toucher(100, 100 * math.exp(-0.05), 0.01, 25) == 32 and dec.proba_toucher(100, 150, 0.01, 25) == 0,
       "chances d'atteindre un prix : 100 % au cours, 32 % à un écart-type, symétrique, ~0 % très loin")
+
+# ------------------------------------------------------------------ psychologie, géopolitique, actualités
+import random as _rnd  # noqa: E402
+
+_rnd.seed(7)
+_v = [200.0]
+for _i in range(900):
+    _v.append(_v[-1] * math.exp(_rnd.gauss(0, 0.012)))
+_up = _v + [_v[-1] * (1.006 ** k) for k in range(1, 41)]  # 40 séances de hausse régulière
+_dn = _v + [_v[-1] * (0.994 ** k) for k in range(1, 41)]
+_pu, _pd = dec.psychologie(_up, 90), dec.psychologie(_dn, 10)
+check(_pu["etat"] == "euphorie" and _pd["etat"] == "peur_extreme" and _pu["composantes"]["fonds"] == 90,
+      f"humeur du marché : euphorie après une hausse régulière, peur extrême après une baisse ({_pu['indice']}, {_pd['indice']})")
+check(dec.psychologie(_v[:300]) is None, "humeur du marché : rien sous 460 séances d'historique")
+_s = dec.psy_series(_v)
+check(all(x is None or 0 <= x <= 100 for k in ("rsi", "ecart200", "elan20") for x in _s[k]) and _s["rsi"][150] is None and _s["rsi"][300] is not None,
+      "humeur du marché : percentiles bornés, calculés après 200 points de fenêtre")
+from datetime import datetime as _dt, timezone as _tz  # noqa: E402
+
+_now = _dt(2026, 11, 9, 8, tzinfo=_tz.utc)
+_a = lambda i, imp, nat="fait", th="offre", age_h=2, doub=None, pert=True: {  # noqa: E731
+    "id": i, "pertinent": pert, "theme": th, "nature": nat, "importance": imp, "impacts": {"ble": 2}, "doublon_de": doub,
+    "date": (_now - __import__("datetime").timedelta(hours=age_h)).isoformat()}
+_p1 = dec.actu_pression([_a("x", 3)], _now)["ble"]["valeur"]
+_p2 = dec.actu_pression([_a("x", 3, nat="rumeur")], _now)["ble"]["valeur"]
+_p3 = dec.actu_pression([_a("x", 3, age_h=24 * 6)], _now)["ble"]["valeur"]
+_p4 = dec.actu_pression([_a("x", 3, th="marche"), _a("y", 3, doub="x"), _a("z", 3, pert=False), _a("w", 3, age_h=24 * 8)], _now)["ble"]["valeur"]
+_p5 = dec.actu_pression([_a(str(k), 3) for k in range(30)], _now)["ble"]["valeur"]
+check(_p1 > _p2 > 0 and _p1 > _p3 > 0 and _p4 == 0 and 1.9 < _p5 <= 2,
+      f"pression de l'actualité : fait > rumeur, récent > ancien, séances, doublons, hors sujet et > 7 jours exclus, bornée à 2 ({_p1}, {_p2}, {_p3}, {_p5})")
+check(dec.actu_majeur(_a("x", 3), _now) and not dec.actu_majeur(_a("x", 2), _now) and not dec.actu_majeur(_a("x", 3, nat="prevision"), _now)
+      and not dec.actu_majeur(_a("x", 3, age_h=48), _now), "événement majeur : fait, importance 3, effet fort, moins de 36 h")
+check(dec.actu_doublon("Russia raises wheat export tax - Reuters", "Russia raises its wheat export tax again")
+      and not dec.actu_doublon("Russia raises wheat export tax", "Egypt buys French wheat in tender")
+      and dec.actu_norm("Le blé Euronext reste bloqué - Terre-net") == "le ble euronext reste bloque", "actualités : doublons et titres normalisés")
+_rss = (b'<?xml version="1.0"?><rss><channel><item><title>Russia raises wheat export quota - Reuters</title>'
+        b'<link>https://news.google.com/rss/articles/x</link><pubDate>Mon, 09 Nov 2026 06:40:49 GMT</pubDate>'
+        b'<source url="https://reuters.com">Reuters</source></item><item><title>Le bl&#233; recule</title><link>https://t.fr/a</link>'
+        b'<pubDate>Fri, 06 Nov 2026 13:00:00 +0100</pubDate></item><item><title>Sans lien</title><link>javascript:x</link></item></channel></rss>')
+_it = collect.rss_items(_rss)
+check(len(_it) == 2 and _it[0]["titre"] == "Russia raises wheat export quota" and _it[0]["source"] == "Reuters"
+      and _it[0]["date"] == "2026-11-09T06:40+00:00" and _it[1]["date"] == "2026-11-06T12:00+00:00" and _it[1]["titre"] == "Le blé recule",
+      "flux RSS : titre sans le nom du site, date en UTC, liens non http écartés")
+_at = collect.rss_items(b'<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Urea up</title><link href="https://x.com/a"/>'
+                        b'<updated>2026-11-08T10:00:00Z</updated></entry></feed>')
+check(_at == [{"titre": "Urea up", "url": "https://x.com/a", "date": "2026-11-08T10:00+00:00", "source": ""}], "flux Atom")
+_arts = {}
+check(collect.actu_ajoute(_arts, dict(_it[0]), _now, 7, origine="google")
+      and not collect.actu_ajoute(_arts, {"titre": "Russia raises its wheat export quota again", "url": "https://b", "date": "2026-11-09T07:00+00:00",
+                                         "source": "Bloomberg"}, _now, 7)
+      and list(_arts.values())[0]["autres_sources"] == ["Bloomberg"]
+      and not collect.actu_ajoute(_arts, {"titre": "Old wheat news from Egypt", "url": "https://c", "date": "2026-10-01T07:00+00:00"}, _now, 7),
+      "actualités : même événement compté une fois (autres sites notés), titres trop anciens ignorés")
+check(collect.ACTU_MOTS.search("Prix du colza en hausse") and collect.ACTU_MOTS.search("Urea demand slows")
+      and not collect.ACTU_MOTS.search("Le secteur agricole recrute"), "presse agricole : filtre des titres sur les marchés")
+check(collect.gpr_quotidien([["DAY", "GPRD", "event"], [20261101.0, 77.6, None], [20261102.0, 97.6, "Attack on port"], ["x", "y", None]])
+      == ([("2026-11-01", 77.6), ("2026-11-02", 97.6)], [("2026-11-02", "Attack on port")]), "risque géopolitique : feuille quotidienne")
+import datetime as _dtm  # noqa: E402
+
+check(collect.gpr_mensuel([["month", "GPR", "GPRC_RUS", "GPRC_UKR"], [_dtm.datetime(2026, 9, 1), 100, 1.2, 0.8], [46296.0, 99, 1.3, "x"]],
+                          ["RUS", "UKR", "CHN"]) == {"RUS": [("2026-09", 1.2), ("2026-10", 1.3)], "UKR": [("2026-09", 0.8)]},
+      "risque géopolitique : feuille mensuelle par pays (dates Excel et dates)")
+sys.path.insert(0, str(HERE))
+import actualites as _act  # noqa: E402
+
+_ok = _act.valide({"id": "a", "pertinent": True, "titre_fr": "T", "theme": "inconnu", "nature": "fait", "importance": 7,
+                   "impacts": {"ble": 5, "orge": "-1", "colza": None, "pirate": 2}, "horizon": "siècles", "impact": "x" * 500, "doublon_de": 3})
+check(_ok["theme"] == "offre" and _ok["importance"] == 3 and _ok["impacts"] == {"ble": 2, "orge": -1} and _ok["horizon"] == "jours"
+      and len(_ok["impact"]) == 300 and _ok["doublon_de"] is None and _act.valide({"pertinent": True}) is None,
+      "actualités : réponse de l'IA vérifiée champ par champ (bornes, valeurs inconnues écartées)")
 
 for st, name in results:
     print(st, name)

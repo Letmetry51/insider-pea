@@ -13,7 +13,6 @@ Résultat : out/grain_actu_probe.txt
 import bisect
 import csv
 import io
-import json
 import math
 import os
 import re

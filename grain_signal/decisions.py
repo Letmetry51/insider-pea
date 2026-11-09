@@ -363,3 +363,207 @@ def vol_quotidienne(vals, n=63):
         return None
     m = sum(r) / len(r)
     return math.sqrt(sum((x - m) ** 2 for x in r) / (len(r) - 1))
+
+
+# --------------------------------------------------------------------------------------------- psychologie des marchés
+PSY_ETATS = ((20, "peur_extreme", "Peur extrême"), (40, "peur", "Peur"), (60, "neutre", "Neutre"), (80, "optimisme", "Optimisme"),
+             (101, "euphorie", "Euphorie"))
+
+
+def psy_etat(v):
+    for hi, code, lib in PSY_ETATS:
+        if v < hi:
+            return code, lib
+    return PSY_ETATS[-1][1], PSY_ETATS[-1][2]
+
+
+def _rsi(x, n=14):
+    out = [None] * len(x)
+    if len(x) <= n:
+        return out
+    d = [x[i] - x[i - 1] for i in range(1, len(x))]
+    au = sum(max(v, 0) for v in d[:n]) / n
+    ad = sum(max(-v, 0) for v in d[:n]) / n
+    out[n] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
+    for i in range(n, len(d)):
+        au += (max(d[i], 0) - au) / n
+        ad += (max(-d[i], 0) - ad) / n
+        out[i + 1] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
+    return out
+
+
+def psy_series(vals, win=756):
+    """Composantes de l'humeur du marché, chacune en percentile sur 3 ans glissants (jour par jour, fenêtre des `win` séances
+    précédentes) : RSI 14, écart à la moyenne 200 séances, élan sur 20 séances. Sert au calcul du matin (dernier jour) et au
+    backtest (tous les jours). Fenêtre triée tenue à jour (insertion et retrait par dichotomie)."""
+    import bisect
+    n = len(vals)
+    r = _rsi(vals)
+    s, m200 = 0.0, [None] * n
+    for i, v in enumerate(vals):
+        s += v
+        if i >= 200:
+            s -= vals[i - 200]
+        if i >= 199:
+            m200[i] = s / 200
+    raw = {"rsi": r, "ecart200": [vals[i] / m200[i] - 1 if m200[i] else None for i in range(n)],
+           "elan20": [vals[i] / vals[i - 20] - 1 if i >= 20 and vals[i - 20] else None for i in range(n)]}
+    out = {}
+    for k, ser in raw.items():
+        res, win_l, q = [None] * n, [], []
+        for i, v in enumerate(ser):
+            if v is not None and len(win_l) >= 200:
+                lo = bisect.bisect_left(win_l, v)
+                hi = bisect.bisect_right(win_l, v)
+                res[i] = (lo + 0.5 * (hi - lo)) / len(win_l) * 100
+            if v is not None:
+                bisect.insort(win_l, v)
+                q.append(v)
+                if len(q) > win:
+                    old = q.pop(0)
+                    del win_l[bisect.bisect_left(win_l, old)]
+        out[k] = res
+    out["_brut"] = raw
+    return out
+
+
+def psy_indice(comp, fonds=None):
+    """Indice 0 (peur) → 100 (euphorie) : moyenne des composantes disponibles (3 au moins), position des fonds comprise."""
+    vals = [v for v in comp.values() if v is not None]
+    if fonds is not None:
+        vals.append(fonds)
+    return sum(vals) / len(vals) if len(vals) >= 3 else None
+
+
+def psychologie(vals, fonds=None, win=756):
+    """Humeur du marché du dernier jour. `fonds` : indice 0-100 de la position nette des fonds (le plus acheteur = 100)."""
+    if not vals or len(vals) < 460:
+        return None
+    s = psy_series(vals, win)
+    comp = {k: (round(s[k][-1]) if s[k][-1] is not None else None) for k in ("rsi", "ecart200", "elan20")}
+    idx = psy_indice(comp, fonds)
+    if idx is None:
+        return None
+    code, lib = psy_etat(idx)
+    b = s["_brut"]
+    lecture = {"peur_extreme": "Le marché panique : historiquement un mauvais moment pour vendre dans la précipitation",
+               "peur": "Le marché est pessimiste : pas de vente forcée sur ce creux",
+               "neutre": "Humeur ordinaire : aucun excès à exploiter",
+               "optimisme": "Le marché est optimiste : bonne fenêtre pour exécuter une tranche prévue",
+               "euphorie": "Le marché s'emballe : ne pas laisser passer une tranche prévue en attendant encore plus haut"}[code]
+    return {"indice": round(idx), "etat": code, "libelle": lib, "lecture": lecture,
+            "composantes": {**comp, "fonds": round(fonds) if fonds is not None else None},
+            "valeurs": {"rsi": round(b["rsi"][-1], 1) if b["rsi"][-1] is not None else None,
+                        "ecart200": round(b["ecart200"][-1] * 100, 1) if b["ecart200"][-1] is not None else None,
+                        "elan20": round(b["elan20"][-1] * 100, 1) if b["elan20"][-1] is not None else None}}
+
+
+# --------------------------------------------------------------------------------------------- risque géopolitique
+def geopolitique(jours, pays=None, noms=None, evenements=None, today=None):
+    """Indice de risque géopolitique de Caldara et Iacoviello (articles de presse sur guerres, menaces, terrorisme ; 100 =
+    moyenne 1985-2019). `jours` : [(date, valeur)] quotidien ; `pays` : {code: [(mois, valeur)]}. Niveau du mois (moyenne
+    30 jours) situé en percentile sur 10 ans, tendance sur 30 jours, pays qui comptent pour les grains et les engrais."""
+    j = sorted((d, v) for d, v in (jours or []) if v is not None)
+    if len(j) < 400:
+        return None
+    vals = [v for _, v in j]
+
+    def ma(k, n=30):
+        w = vals[max(0, k - n + 1):k + 1]
+        return sum(w) / len(w)
+    last = len(vals) - 1
+    m30 = [ma(k) for k in range(max(0, last - 3650), last + 1)]
+    cur = m30[-1]
+    out = {"au": j[-1][0], "jour": round(vals[-1]), "semaine": round(ma(last, 7)), "mois": round(cur),
+           "percentile": pctile(m30[:-1], cur), "il_y_a_30j": round(m30[-31]) if len(m30) > 31 else None}
+    p = out["percentile"]
+    out["etat"] = ("très élevé" if p >= 90 else "élevé" if p >= 70 else "normal" if p > 30 else "calme")
+    pl = []
+    for code, ser in (pays or {}).items():
+        s = sorted((m, v) for m, v in ser if v is not None)
+        if len(s) < 24:
+            continue
+        pl.append({"code": code, "nom": (noms or {}).get(code, code), "mois": s[-1][0], "valeur": round(s[-1][1], 2),
+                   "percentile": pctile([v for _, v in s[-121:-1]], s[-1][1])})
+    out["pays"] = sorted(pl, key=lambda x: -(x["percentile"] or 0))
+    if evenements:
+        lim = (today - timedelta(days=120)).isoformat() if today else ""
+        out["evenements"] = [{"date": d, "texte": t} for d, t in sorted(evenements, reverse=True) if d >= lim][:4]
+    return out
+
+
+# --------------------------------------------------------------------------------------------- actualités
+ACTU_CULTURES = ("ble", "orge", "colza", "mais", "engrais")
+POIDS_IMPORTANCE = {1: 0.3, 2: 0.6, 3: 1.0}
+POIDS_NATURE = {"fait": 1.0, "prevision": 0.7, "opinion": 0.5, "rumeur": 0.4}
+
+
+def actu_age(a, now):
+    """Âge d'un article en jours (date ISO avec heure UTC)."""
+    from datetime import datetime
+    try:
+        d = datetime.fromisoformat(str(a.get("date")).replace("Z", "+00:00"))
+        return max(0.0, (now - d).total_seconds() / 86400)
+    except (TypeError, ValueError):
+        return None
+
+
+def actu_compte(a):
+    """Un article compte dans la pression s'il est pertinent, classé, pas un doublon, et pas un simple compte rendu de séance
+    (le cours du jour l'a déjà intégré)."""
+    return bool(a.get("pertinent")) and a.get("impacts") and not a.get("doublon_de") and a.get("theme") != "marche"
+
+
+def actu_pression(articles, now, demi_vie=3.0, jours=7):
+    """Pression de l'actualité par culture, de −2 (baissière) à +2 (haussière) : somme des impacts pondérés par l'importance,
+    la nature (un fait pèse plus qu'une rumeur) et la fraîcheur (demi-vie de `demi_vie` jours), ramenée sur ±2 (tangente
+    hyperbolique). Engrais : + = engrais plus chers."""
+    out = {}
+    for c in ACTU_CULTURES:
+        s, nh, nb, top = 0.0, 0, 0, []
+        for a in articles:
+            if not actu_compte(a):
+                continue
+            age = actu_age(a, now)
+            imp = (a.get("impacts") or {}).get(c)
+            if age is None or age > jours or not isinstance(imp, (int, float)) or imp == 0:
+                continue
+            w = POIDS_IMPORTANCE.get(int(a.get("importance") or 1), 0.3) * POIDS_NATURE.get(a.get("nature"), 0.5) * 0.5 ** (age / demi_vie)
+            s += max(-2, min(2, imp)) * w
+            nh += imp > 0
+            nb += imp < 0
+            top.append((abs(imp) * w, a.get("id")))
+        v = 2 * math.tanh(s / 3)
+        out[c] = {"valeur": round(v, 2), "hausse": nh, "baisse": nb,
+                  "sens": "haussière" if v >= 0.5 else "baissière" if v <= -0.5 else "équilibrée",
+                  "principaux": [i for _, i in sorted(top, reverse=True)[:3]]}
+    return out
+
+
+def actu_majeur(a, now, heures=36):
+    """Événement majeur : fait avéré, importance 3, impact fort (±2) sur au moins une culture ou les engrais, de moins de 36 h."""
+    age = actu_age(a, now)
+    return (actu_compte(a) and int(a.get("importance") or 0) >= 3 and a.get("nature") == "fait" and age is not None
+            and age <= heures / 24 and any(abs(v) >= 2 for v in (a.get("impacts") or {}).values() if isinstance(v, (int, float))))
+
+
+def actu_norm(titre):
+    """Titre réduit pour repérer les doublons : minuscules, sans accents, sans le nom du site (« … - Terre-net »)."""
+    import re
+    import unicodedata
+    t = str(titre or "")
+    for sep in (" - ", " | ", " – "):
+        if sep in t and len(t.rsplit(sep, 1)[1]) <= 40:
+            t = t.rsplit(sep, 1)[0]
+            break
+    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", " ", t).strip()
+
+
+def actu_doublon(a, b):
+    """Deux titres sur le même événement (mots communs ≥ 70 % du plus court)."""
+    wa = {w for w in actu_norm(a).split() if len(w) > 3}
+    wb = {w for w in actu_norm(b).split() if len(w) > 3}
+    if not wa or not wb:
+        return False
+    return len(wa & wb) / min(len(wa), len(wb)) >= 0.7

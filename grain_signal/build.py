@@ -244,6 +244,7 @@ def cot_reading(serie, mini=20, today=None, max_age=21):
     return out
 
 
+ACTU_CLE = {"ble": "ble", "escourgeon": "orge", "orge_printemps": "orge", "colza": "colza", "mais": "mais"}
 COT_EURONEXT = {"EBM": ("Blé tendre Euronext (fonds)", "ble"), "ECO": ("Colza Euronext (fonds)", "colza"),
                 "EMA": ("Maïs Euronext (fonds)", "mais")}
 
@@ -877,6 +878,25 @@ def main():
             s += clamp((b20 or 0) / 10, -1, 1) * 0.25
         return round(s, 2)
 
+    # ------------------------------------------------------------------- psychologie des marchés : humeur peur ↔ euphorie
+    # (RSI, écart à la MM200, élan sur 20 séances, position des fonds) ; éclairage seulement : sur Euronext depuis 2019, elle
+    # n'a pas annoncé la suite des prix (backtest, onglet Méthode), elle n'entre donc pas dans la note de marché
+    for prod, ci in contrats.items():
+        ser = list((ci.get("_serie") or {}).values())
+        f, fsrc = (cot.get("EURONEXT_" + prod) or {}).get("indice"), "fonds sur Euronext"
+        if f is None and ci.get("culture") in ("ble", "mais"):
+            us = [x["indice"] for x in cot.values() if x.get("culture") == ci["culture"] and x.get("source") == "cftc" and x.get("indice") is not None]
+            f, fsrc = (sum(us) / len(us), "fonds à Chicago (CFTC)") if us else (None, None)
+        ps = dec.psychologie(ser, f)
+        if ps:
+            ps["fonds_source"] = fsrc if f is not None else None
+            ci["psychologie"] = ps
+    gp = as_dict(load_json(PRIV / "gpr.json", {}))
+    geo = dec.geopolitique(gp.get("quotidien"), as_dict(gp.get("mensuel")), CFG["geopolitique"]["pays"], gp.get("evenements"), today)
+    actu = as_dict(load_json(OUT / "actualites.json", {}))
+    actu_frais = str(actu.get("date", "")) >= (today - timedelta(days=2)).isoformat()
+    pression = as_dict(actu.get("pression")) if actu_frais else {}
+
     W, WC = CFG["poids"], CFG["poidsComite"]
     com_refs = as_dict(comite.get("references"))
 
@@ -962,6 +982,21 @@ def main():
             next((p for p in e["plan"] if p.get("statut") == "due"), None)
         fin = date.fromisoformat(due["fin"]) if due and due.get("fin") else today + timedelta(days=30)
         n = max(5, sum(1 for k in range((fin - today).days) if (today + timedelta(days=k + 1)).weekday() < 5))
+        # biais d'ancrage : le plus haut de la campagne (série ajustée, au niveau de l'échéance du jour) et la chance de le revoir
+        # d'ici la fin de la tranche ; « attendre encore 5 € » : chances de les voir, et risque de voir le cours reculer de 5 €
+        if s0 and vj:
+            deb = 10 if cult == "mais" else 7
+            y0 = today.year if today.month >= deb else today.year - 1
+            camp = {d_: v_ for d_, v_ in (ci.get("_serie") or {}).items() if d_ >= f"{y0}-{deb:02d}-01"}
+            if len(camp) >= 10:
+                dh = max(camp, key=camp.get)
+                hi = camp[dh]
+                e["biais"] = {"plus_haut": round(hi, 2), "plus_haut_le": dh, "ecart": round(s0 - hi, 2), "depuis": f"{y0}-{deb:02d}-01",
+                              "chance_plus_haut": dec.proba_toucher(s0, hi, vj, n) if hi > s0 * 1.005 else None,
+                              "gagner5": dec.proba_toucher(s0, s0 + 5, vj, n), "perdre5": dec.proba_toucher(s0, s0 - 5, vj, n),
+                              "horizon": fin.isoformat(), "sur_ble": cult in ("escourgeon", "orge_printemps")}
+        if pression.get(ACTU_CLE.get(cult)):
+            e["actualite"] = pression[ACTU_CLE[cult]]
         if s0 and vj and (nr.get("ordres") or nr.get("revision")):
             nr["probas"] = {"horizon": fin.isoformat(), "seances": n, "vol_annuelle": round(vj * math.sqrt(252) * 100, 1),
                             "ordres": [dec.proba_toucher(s0, o, vj, n) for o in nr.get("ordres") or []],
@@ -1134,6 +1169,10 @@ def main():
         "cot": cot,
         "saison": saison,
         "stocks_mondiaux": stocks,
+        "geopolitique": geo,
+        "actualites": ({"date": actu.get("date"), "synthese": actu.get("synthese"), "synthese_du": actu.get("synthese_du"),
+                        "pression": pression or None, "majeurs": len(actu.get("majeurs") or []), "compte": actu.get("compte"),
+                        "sans_ia": actu.get("sans_ia"), "erreur": actu.get("erreur")} if actu_frais else None),
         "meteo": {"zones": zones, "cultures": meteo, "source": "Open-Meteo (CC BY 4.0)"},
         "carnet": {"entrees": carnet[-40:], "bilan": dec.carnet_bilan(carnet)},
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},

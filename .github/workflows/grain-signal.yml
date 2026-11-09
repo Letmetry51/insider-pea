@@ -1,5 +1,5 @@
 # Grain Signal : céréales (blé, escourgeon, orge de printemps, colza, maïs) et engrais azotés.
-# Chaque matin du mardi au samedi (séance de la veille) et le lundi (comité de la semaine) : collecte, calcul, comité IA
+# Chaque matin du mardi au samedi (séance de la veille) et le lundi (comité de la semaine) : collecte, calcul, actualités traduites, comité IA
 # (lundi et alertes, si le secret ANTHROPIC_API_KEY existe), emails, publication sur la branche site (page grain-signal.html).
 name: Grain Signal (céréales et engrais)
 
@@ -100,6 +100,16 @@ jobs:
         id: g3
         timeout-minutes: 5
         run: python grain_signal/build.py
+
+      # titres du jour traduits en impacts par l'API Claude (sans recherche web, quelques centimes) : avant le comité, qui les lit,
+      # et qui est convoqué en alerte si un fait majeur tombe
+      - name: 3b. Actualités traduites en impacts
+        id: g3b
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python grain_signal/actualites.py
 
       - name: 4. Comité IA (lundi, alertes, ou à la demande)
         id: g4

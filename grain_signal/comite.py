@@ -141,6 +141,9 @@ def main():
     last = load(OUT / "comite.json", {})
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     mode = decide_mode(today, dash, last)
+    if mode and os.environ.get("GS_DRY") and os.environ.get("GS_COMITE", "").strip().lower() != "force":
+        print(f"Comité : essai sur une branche, comité {mode} non réuni (aucun appel payant)")
+        return 0
     if not mode:
         print("Comité : pas de réunion aujourd'hui")
         return 0
@@ -159,6 +162,16 @@ def main():
             f"Données chiffrées du matin (Grain Signal, JSON) :\n```json\n{json.dumps(compact(dash), ensure_ascii=False)}\n```\n\n"
             + (f"Avis du comité précédent, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False)}\n```\n\n" if previous else "")
             + "Rends le rapport au format de sortie du prompt, puis le bloc JSON final.")
+    actu = load(OUT / "actualites.json", {})
+    arts = [a for a in actu.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and (a.get("importance") or 0) >= 2][:40]
+    if arts:
+        user += ("\n\nActualités des 7 derniers jours traduites en impacts (Grain Signal ; −2 baisse forte à +2 hausse forte du prix ; "
+                 "engrais : + = plus cher) :\n" + "\n".join(
+                     f"- {a['date'][:10]} ({a.get('source') or '?'}{' + ' + str(len(a['autres_sources'])) + ' autres sites' if a.get('autres_sources') else ''}) "
+                     f"{a.get('titre_fr') or a['titre']} — {a.get('theme')}, {a.get('nature')}, importance {a.get('importance')}, "
+                     f"impacts {json.dumps(a.get('impacts'), ensure_ascii=False)} : {a.get('impact')}" for a in arts)
+                 + (f"\nSynthèse de l'actualité : {actu['synthese']}" if actu.get("synthese") else "")
+                 + "\n\nRends le rapport au format de sortie du prompt, puis le bloc JSON final.")
     messages = [{"role": "user", "content": user}]
     usage = {"input": 0, "output": 0, "searches": 0}
     texts, sources, assistant = [], [], []

@@ -468,10 +468,94 @@ const PG = {
           : ['Neutre', 'neutral'],
   },
 };
+// humeur du marché (0 peur → 100 euphorie), pression de l'actualité (−2 → +2), risque géopolitique (percentile sur 10 ans)
+const SEG_ACTU = [
+  [25, 'var(--bad)'],
+  [40, 'var(--warn)'],
+  [60, 'var(--neutral)'],
+  [75, 'var(--info)'],
+  [100, 'var(--good)'],
+];
+const actuLab = (v, t) => (v <= 25 ? t[0] : v <= 40 ? t[1] : v < 60 ? t[2] : v < 75 ? t[3] : t[4]);
+Object.assign(PG, {
+  psy: {
+    segs: SEG5V,
+    ticks: T5,
+    badge: (v) => String(Math.round(v)),
+    lab: (v) =>
+      lab5(v, [
+        ['Peur extrême : ne pas vendre dans la panique', 'bad'],
+        ['Peur : pas de vente forcée', 'warn'],
+        ['Humeur neutre', 'neutral'],
+        ['Optimisme : bonne fenêtre pour une tranche', 'info'],
+        ['Euphorie : ne pas laisser passer une tranche', 'good'],
+      ]),
+  },
+  actu: {
+    segs: SEG_ACTU,
+    ticks: [
+      [0, '−2'],
+      [50, '0'],
+      [100, '+2'],
+    ],
+    map: (v) => Math.max(0, Math.min(100, ((v + 2) / 4) * 100)),
+    badge: (v) => sgn(v, 1),
+    lab: (v) =>
+      actuLab(v, [
+        ['Actualité très baissière', 'bad'],
+        ['Actualité plutôt baissière', 'warn'],
+        ['Actualité équilibrée', 'neutral'],
+        ['Actualité plutôt haussière', 'info'],
+        ['Actualité très haussière', 'good'],
+      ]),
+  },
+  actuEngrais: {
+    segs: SEG_ACTU.map(([b], i) => [b, SEG_ACTU[SEG_ACTU.length - 1 - i][1]]),
+    ticks: [
+      [0, '−2'],
+      [50, '0'],
+      [100, '+2'],
+    ],
+    map: (v) => Math.max(0, Math.min(100, ((v + 2) / 4) * 100)),
+    badge: (v) => sgn(v, 1),
+    lab: (v) =>
+      actuLab(v, [
+        ['Azote nettement moins cher en vue', 'good'],
+        ['Azote plutôt moins cher', 'info'],
+        ['Actualité équilibrée', 'neutral'],
+        ['Azote plutôt plus cher', 'warn'],
+        ['Azote nettement plus cher en vue', 'bad'],
+      ]),
+  },
+  geo: {
+    segs: [
+      [30, 'var(--good)'],
+      [70, 'var(--neutral)'],
+      [90, 'var(--warn)'],
+      [100, 'var(--bad)'],
+    ],
+    ticks: [
+      [30, '30'],
+      [70, '70'],
+      [90, '90'],
+    ],
+    lab: (v) =>
+      v <= 30
+        ? ['Monde calme', 'good']
+        : v < 70
+          ? ['Tensions habituelles', 'neutral']
+          : v < 90
+            ? ['Tensions élevées : marchés nerveux', 'warn']
+            : ['Tensions très élevées : risque de chocs', 'bad'],
+  },
+});
 function pgauge(v, kind, title, note, compact) {
   if (v === null || v === undefined || Number.isNaN(v)) return null;
   const k = PG[kind];
+  const raw = v;
+  if (k.map) v = k.map(v); // échelle propre (pression de l'actualité de −2 à +2) ramenée sur 0-100
   const [lab, cl] = k.lab(v);
+  const txt = k.badge ? k.badge(raw) : `${Math.round(v)}e`;
   return h(
     'div',
     { class: 'pg' + (compact ? ' compact' : '') },
@@ -479,7 +563,7 @@ function pgauge(v, kind, title, note, compact) {
     h(
       'div',
       { class: 'ival' },
-      h('span', { class: 'badge ' + cl, text: `${Math.round(v)}e`, title: `${Math.round(v)}e percentile` }),
+      h('span', { class: 'badge ' + cl, text: txt, title: k.badge ? txt : `${Math.round(v)}e percentile` }),
       h('span', { class: 'ilabel', text: lab })
     ),
     gauge(v, 0, 100, k.segs, compact ? [] : k.ticks),
@@ -1518,6 +1602,22 @@ function vSignaux() {
               : null,
             ceu !== undefined && ceu !== null && !c.proxy
               ? pgauge(ceu, 'cot', '🏦 Fonds sur Euronext (3 ans)', null)
+              : null,
+            contrat.psychologie
+              ? pgauge(
+                  contrat.psychologie.indice,
+                  'psy',
+                  `🧠 Humeur du marché${c.proxy ? ' (blé)' : ''}`,
+                  'Éclairage : n’annonce pas la suite des prix (onglet Actualité)'
+                )
+              : null,
+            c.actualite
+              ? pgauge(
+                  c.actualite.valeur,
+                  'actu',
+                  `📰 Actualité des 7 derniers jours${c.proxy ? ' (orges)' : ''}`,
+                  `${c.actualite.hausse} nouvelle${c.actualite.hausse > 1 ? 's' : ''} haussière${c.actualite.hausse > 1 ? 's' : ''}, ${c.actualite.baisse} baissière${c.actualite.baisse > 1 ? 's' : ''}`
+                )
               : null,
             (() => {
               const st = (d.stocks_mondiaux || {})[BASE_USDA[k]];
@@ -2608,7 +2708,7 @@ function vMethode() {
     ],
     [
       'Le comité',
-      "Chaque lundi, et quand un déclencheur important saute (au plus deux fois par semaine), un comité de 10 experts (bilans, mer Noire, physique, macro, positions des fonds, météo, technique, risque, avocat du diable, achat d'engrais) est réuni par l'API Claude avec la recherche web. Il reçoit les chiffres du matin et cherche ce que l'outil ne mesure pas : bilans, mer Noire, météo, demande, actualité. Son avis fixe le signal de chaque culture pour 8 jours.",
+      "Chaque lundi, et quand un déclencheur important saute ou qu'un fait majeur tombe dans l'actualité (au plus deux fois par semaine), un comité de 11 experts (bilans, mer Noire, physique, macro, positions des fonds, météo, technique, risque, avocat du diable, achat d'engrais, psychologie des marchés) est réuni par l'API Claude avec la recherche web. Il reçoit les chiffres du matin et cherche ce que l'outil ne mesure pas : bilans, mer Noire, météo, demande, actualité. Son avis fixe le signal de chaque culture pour 8 jours.",
     ],
     [
       'Entre deux comités',
@@ -2633,6 +2733,10 @@ function vMethode() {
     [
       'Bilans mondiaux et chances d’atteindre un ordre',
       "Bilans : rapport stocks de fin / consommation de l'USDA (rapport mensuel WASDE, fichiers PSD publics), hors Chine pour le blé et le maïs, situé sur les 20 campagnes précédentes. Chances : probabilité que le cours touche chaque ordre (ou le seuil de révision) au moins une fois d'ici la fin de la tranche, d'après la volatilité des 3 derniers mois et sans supposer de tendance ; une probabilité faible signale un ordre trop ambitieux pour la période.",
+    ],
+    [
+      'Actualité, géopolitique et psychologie',
+      "Chaque matin, une centaine de titres (Google Actualités en français et en anglais, presse agricole) sont lus par l'IA d'après leur seul titre : pertinent ou non, thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur le prix de chaque culture et de l'azote, et ce que cela change pour vous. La pression de l'actualité additionne ces effets sur 7 jours (un fait pèse plus qu'une rumeur, moitié du poids après 3 jours, comptes rendus de séance exclus car déjà dans les cours). Un fait majeur (importance 3, effet fort, moins de 36 h) envoie une alerte et convoque le comité, qui vérifie le fait sur le web. Géopolitique : indice de risque de Caldara et Iacoviello (presse mondiale, quotidien et par pays). Psychologie : humeur de 0 (peur) à 100 (euphorie) à partir du RSI, de l'écart à la moyenne 200 séances, de l'élan sur 20 séances et des fonds. Ni l'indice géopolitique ni l'humeur n'ont annoncé les prix mieux que le hasard sur l'historique : ils éclairent le comité et le rythme des ventes, sans entrer dans la note de marché.",
     ],
     [
       'Carnet de bord',
@@ -2684,6 +2788,413 @@ function sources() {
   ];
 }
 
+/* ---------------------------------------------------------------------------------------------- onglet Actualité */
+const THEME = {
+  geopolitique: ['🌐', 'Géopolitique'],
+  meteo: ['🌦️', 'Météo'],
+  offre: ['📦', 'Offre'],
+  demande: ['🛒', 'Demande'],
+  politique: ['🏛️', 'Politique'],
+  macro: ['💱', 'Macro'],
+  engrais: ['🧪', 'Engrais'],
+  logistique: ['🚢', 'Logistique'],
+  psychologie: ['🧠', 'Psychologie'],
+  marche: ['📈', 'Séance'],
+};
+const NATURE = { fait: 'Fait', prevision: 'Prévision', rumeur: 'Rumeur', opinion: 'Avis' };
+const ACTU_NOM = { ble: '🌾 Blé', orge: '🍺 Orges', colza: '🌼 Colza', mais: '🌽 Maïs', engrais: '🧪 Azote' };
+const FILTRES = [
+  ['tout', 'Tout'],
+  ['ble', '🌾 Blé'],
+  ['orge', '🍺 Orges'],
+  ['colza', '🌼 Colza'],
+  ['mais', '🌽 Maïs'],
+  ['engrais', '🧪 Azote'],
+  ['geopolitique', '🌐 Géopolitique'],
+];
+
+function ilya(iso) {
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const hrs = (Date.now() - t) / 3600000;
+  if (hrs < 1) return 'il y a moins d’une heure';
+  if (hrs < 24) return `il y a ${Math.round(hrs)} h`;
+  const j = Math.round(hrs / 24);
+  return `il y a ${j} jour${j > 1 ? 's' : ''}`;
+}
+
+// effet sur chaque prix : vert = favorable à l'exploitation (grain plus cher à la vente, azote moins cher à l'achat)
+function impactChips(imp) {
+  return Object.entries(imp || {})
+    .filter(([, v]) => v)
+    .map(([c, v]) => {
+      const fav = c === 'engrais' ? v < 0 : v > 0;
+      const fl = v > 0 ? '↑'.repeat(Math.abs(v)) : '↓'.repeat(Math.abs(v));
+      return h('span', {
+        class: 'chip ' + (fav ? 'good' : 'bad'),
+        title:
+          c === 'engrais'
+            ? v > 0
+              ? 'azote plus cher'
+              : 'azote moins cher'
+            : v > 0
+              ? 'prix en hausse'
+              : 'prix en baisse',
+        text: `${ACTU_NOM[c] || c} ${fl}`,
+      });
+    });
+}
+
+function articleRow(a) {
+  const th = THEME[a.theme] || ['📰', 'Actualité'];
+  const imp = Math.max(1, Math.min(3, a.importance || 1));
+  const majeur = ((GS.actu || {}).majeurs || []).includes(a.id);
+  return h(
+    'article',
+    { class: 'news' + (majeur ? ' major' : '') + (a.non_classe ? ' raw' : '') },
+    h(
+      'div',
+      { class: 'news-h' },
+      h('span', { class: 'news-th', text: `${th[0]} ${th[1]}` }),
+      a.non_classe
+        ? null
+        : h('span', {
+            class: 'news-imp',
+            title: `Importance ${imp} sur 3`,
+            text: '●'.repeat(imp) + '○'.repeat(3 - imp),
+          }),
+      a.nature ? h('span', { class: 'chip', text: NATURE[a.nature] || a.nature }) : null,
+      majeur ? h('span', { class: 'chip bad', text: '⚠️ Majeur' }) : null,
+      h('span', {
+        class: 'news-src',
+        text: `${a.source || ''}${a.autres_sources && a.autres_sources.length ? ` + ${a.autres_sources.length} autre${a.autres_sources.length > 1 ? 's' : ''}` : ''} · ${ilya(a.date)}`,
+      })
+    ),
+    h(
+      'a',
+      {
+        class: 'news-t',
+        href: /^https?:\/\//.test(a.url || '') ? a.url : null,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: a.titre_fr && a.titre_fr !== a.titre ? `Titre d’origine : ${a.titre}` : null,
+      },
+      a.titre_fr || a.titre
+    ),
+    a.impact ? h('p', { class: 'news-i', text: a.impact }) : null,
+    a.impacts ? h('div', { class: 'news-c' }, impactChips(a.impacts)) : null
+  );
+}
+
+function newsList(ac) {
+  const f = GS.actuFiltre || 'tout';
+  const all = (ac.articles || []).filter((a) => !a.doublon_de);
+  const keep = all.filter((a) =>
+    f === 'tout'
+      ? true
+      : f === 'geopolitique'
+        ? a.theme === 'geopolitique' || a.theme === 'politique'
+        : a.impacts && a.impacts[f]
+  );
+  // le plus important d'abord, puis le plus récent ; comptes rendus de séance en dernier
+  keep.sort(
+    (a, b) =>
+      (b.theme !== 'marche') - (a.theme !== 'marche') ||
+      (b.importance || 0) - (a.importance || 0) ||
+      String(b.date).localeCompare(String(a.date))
+  );
+  const n = GS.actuTout ? keep.length : 12;
+  const bar = h(
+    'div',
+    { class: 'filters', role: 'group', 'aria-label': 'Filtrer les actualités' },
+    FILTRES.map(([k, t]) => {
+      const b = h('button', { class: 'filt', 'aria-pressed': String(k === f), text: t });
+      b.addEventListener('click', () => {
+        GS.actuFiltre = k;
+        GS.actuTout = false;
+        render();
+      });
+      return b;
+    })
+  );
+  const more =
+    keep.length > n
+      ? (() => {
+          const b = h('button', { class: 'more', text: `Afficher les ${keep.length} titres` });
+          b.addEventListener('click', () => {
+            GS.actuTout = true;
+            render();
+          });
+          return b;
+        })()
+      : null;
+  return h(
+    'div',
+    { class: 'card wide' },
+    bar,
+    keep.length ? keep.slice(0, n).map(articleRow) : h('p', { class: 'muted', text: 'Aucun titre pour ce filtre.' }),
+    more
+  );
+}
+
+function geoSection(d) {
+  const g = d.geopolitique;
+  if (!g) return [];
+  const bt = (GS.backtest || {}).geopolitique || {};
+  const b60 = bt['60'];
+  return [
+    h('h2', { text: '🌐 Risque géopolitique' }),
+    h(
+      'div',
+      { class: 'card wide' },
+      h(
+        'div',
+        { class: 'pgrid' },
+        pgauge(
+          g.percentile,
+          'geo',
+          '🌍 Monde (moyenne 30 jours, sur 10 ans)',
+          `Indice ${g.mois} (100 = moyenne 1985-2019) · il y a 30 jours ${g.il_y_a_30j ?? '—'} · cette semaine ${g.semaine} · au ${dfr(g.au)}`
+        )
+      ),
+      g.pays && g.pays.length
+        ? h(
+            'table',
+            { class: 'geo' },
+            h(
+              'tr',
+              {},
+              ['Pays', 'Mois', 'Sur 10 ans'].map((t) => h('th', { text: t }))
+            ),
+            g.pays.map((p) =>
+              h(
+                'tr',
+                {},
+                h('td', { text: p.nom }),
+                h('td', { text: moisFr(p.mois) }),
+                h('td', { class: 'pgcell' }, pgauge(p.percentile, 'geo', null, null, true))
+              )
+            )
+          )
+        : null,
+      g.evenements && g.evenements.length
+        ? h(
+            'p',
+            { class: 'note' },
+            'Pics récents notés par les auteurs : ',
+            g.evenements.map((e) => `${dfr(e.date)} ${e.texte}`).join(' · ')
+          )
+        : null,
+      h('p', {
+        class: 'note',
+        text:
+          'Indice de risque géopolitique de Caldara et Iacoviello (Réserve fédérale) : part des articles de grands journaux qui parlent de guerre, de menace militaire ou de terrorisme, chaque jour et par pays. Il mesure la tension, pas son effet sur les grains' +
+          (b60
+            ? ` : depuis ${String(bt.depuis || '').slice(0, 4)}, il n’a pas annoncé le prix du blé à 3 mois (corrélation ${sgn(b60.correlation, 2)} ; après les 10 % de jours les plus tendus, ${pct(b60.tendu)} en moyenne contre ${pct(b60.moyenne)} d’habitude).`
+            : '.') +
+          ' Chaque événement se juge donc au cas par cas : c’est le rôle des actualités traduites ci-dessus et de l’expert géopolitique du comité.',
+      })
+    ),
+  ];
+}
+
+function psySection(d) {
+  const noms = { EBM: '🌾 Blé (et orges)', ECO: '🌼 Colza', EMA: '🌽 Maïs' };
+  const rows = Object.entries(d.contrats || {}).filter(([, c]) => c.psychologie);
+  if (!rows.length) return [];
+  const CMP = [
+    ['rsi', 'RSI'],
+    ['ecart200', 'Écart MM200'],
+    ['elan20', 'Élan 20 j'],
+    ['fonds', 'Fonds'],
+  ];
+  const bt = (GS.backtest || {}).psychologie || {};
+  const evid = Object.entries(bt).filter(([, v]) => v && v['60']);
+  return [
+    h('h2', { text: '🧠 Psychologie des marchés' }),
+    h(
+      'div',
+      { class: 'grid' },
+      rows.map(([k, c]) => {
+        const ps = c.psychologie;
+        return h(
+          'section',
+          { class: 'card' },
+          h('h3', { text: noms[k] || c.nom }),
+          pgauge(ps.indice, 'psy', null, ps.lecture),
+          h(
+            'div',
+            { class: 'minis' },
+            CMP.filter(([ck]) => ps.composantes[ck] !== null && ps.composantes[ck] !== undefined).map(([ck, t]) =>
+              h('span', {
+                class: 'mini ' + (ps.composantes[ck] <= 20 ? 'bad' : ps.composantes[ck] >= 80 ? 'good' : ''),
+                title:
+                  ck === 'fonds'
+                    ? `Position nette des ${ps.fonds_source || 'fonds'} sur 3 ans`
+                    : ck === 'rsi'
+                      ? `RSI ${fmt(ps.valeurs.rsi, 0)}, situé sur 3 ans`
+                      : ck === 'ecart200'
+                        ? `${pct(ps.valeurs.ecart200)} par rapport à la moyenne 200 séances, situé sur 3 ans`
+                        : `${pct(ps.valeurs.elan20)} en 20 séances, situé sur 3 ans`,
+                text: `${t} ${ps.composantes[ck]}`,
+              })
+            )
+          )
+        );
+      })
+    ),
+    evid.length
+      ? h(
+          'div',
+          { class: 'card wide scroll' },
+          h('h3', { text: 'L’humeur annonce-t-elle la suite ? (60 séances après)' }),
+          h(
+            'table',
+            {},
+            h(
+              'tr',
+              {},
+              ['Marché', 'Verdict', 'Corrélation', 'Hasard seul', 'Après peur extrême', 'Après euphorie', 'Depuis'].map(
+                (t, i) => h('th', { class: i > 1 && i < 6 ? 'n' : '', text: t })
+              )
+            ),
+            evid.map(([nom, v]) => {
+              const o = v['60'];
+              const br = (v.bruit || {})['60'];
+              const tr = o.tranches || {};
+              const sig = br !== undefined && o.correlation !== null && Math.abs(o.correlation) > br;
+              return h(
+                'tr',
+                {},
+                h('td', { text: nom }),
+                h('td', {
+                  class: sig ? '' : 'muted',
+                  text: !sig
+                    ? 'pas distinct du hasard'
+                    : o.correlation < 0
+                      ? 'à contre-courant'
+                      : 'dans le sens de la tendance',
+                }),
+                h('td', { class: 'n', text: sgn(o.correlation, 2) }),
+                h('td', { class: 'n', text: br !== undefined ? `±${fmt(br, 2)}` : '—' }),
+                h('td', { class: 'n', text: tr.peur_extreme ? pct(tr.peur_extreme.moyenne) : '—' }),
+                h('td', { class: 'n', text: tr.euphorie ? pct(tr.euphorie.moyenne) : '—' }),
+                h('td', { text: String(v.depuis || '').slice(0, 4) })
+              );
+            })
+          ),
+          h('p', {
+            class: 'note',
+            text: 'Humeur de 0 (peur extrême) à 100 (euphorie) : moyenne des percentiles sur 3 ans du RSI, de l’écart à la moyenne 200 séances, de l’élan sur 20 séances et de la position des fonds. « Hasard seul » : corrélation atteinte par pur hasard (90 % des cas) sur des cours tirés au sort de même longueur et de même nervosité, car les périodes de 60 séances se chevauchent. Une humeur qui ne bat pas le hasard n’entre pas dans la note de marché : elle sert à ne pas vendre dans la panique et à ne pas laisser passer une tranche dans l’euphorie.',
+          })
+        )
+      : null,
+  ];
+}
+
+function biaisSection(d) {
+  // escourgeon et orge de printemps suivent le blé Euronext : mêmes chiffres, une seule ligne
+  const rows = Object.entries(d.cultures || {}).filter(([, c]) => c.biais && !c.biais.sur_ble);
+  if (!rows.length) return [];
+  return [
+    h('h2', { text: '🪞 Vos biais à surveiller' }),
+    h(
+      'div',
+      { class: 'card wide' },
+      h(
+        'ul',
+        { class: 'biais' },
+        rows.map(([k, c]) => {
+          const b = c.biais;
+          const nm = k === 'ble' ? `${ICON[k]} ${c.nom} (et orges)` : `${ICON[k] || ''} ${c.nom}`;
+          return h(
+            'li',
+            {},
+            h('b', { text: nm + ' : ' }),
+            b.chance_plus_haut !== null && b.chance_plus_haut !== undefined
+              ? `plus haut de la campagne ${fmt(b.plus_haut)} €/t le ${dfr(b.plus_haut_le)} (${sgn(b.ecart, 2)} €/t), ${b.chance_plus_haut} % de chances de le revoir d’ici le ${dfr(b.horizon)}. `
+              : `le cours est au plus haut de la campagne (${fmt(b.plus_haut)} €/t). `,
+            `Attendre encore 5 € : ${b.gagner5} % de chances de les voir, et ${b.perdre5} % de risque de voir le cours reculer de 5 €.`
+          );
+        })
+      ),
+      h('p', {
+        class: 'note',
+        text: 'Ancrage : on garde en tête le plus haut de la campagne et l’on refuse de vendre en dessous ; ce prix n’a aucune raison de revenir. Regret et « j’attends encore 5 € » : sans information nouvelle, gagner ou perdre 5 € est à peu près aussi probable, d’où les tranches et les ordres placés à l’avance. Chances calculées sur la nervosité des 3 derniers mois, sans tendance, jusqu’à la fin de la tranche due.',
+      })
+    ),
+  ];
+}
+
+function vActualite() {
+  const d = GS.data;
+  const ac = GS.actu || {};
+  const ad = d.actualites || {};
+  const out = [];
+  const pr = ad.pression || ac.pression;
+  const maj = (ac.articles || []).filter((a) => (ac.majeurs || []).includes(a.id));
+  out.push(h('h2', { text: '📰 Ce que l’actualité change pour vous' }));
+  if (!ac.date) {
+    out.push(h('div', { class: 'alert info', text: 'Première revue de presse au prochain calcul du matin.' }));
+  } else {
+    if (ac.sans_ia)
+      out.push(
+        h('div', {
+          class: 'alert info',
+          text: 'Titres sans traduction : ajouter le secret ANTHROPIC_API_KEY pour que chaque nouvelle soit classée et traduite en impacts.',
+        })
+      );
+    if (ac.erreur) out.push(h('div', { class: 'alert', text: ac.erreur }));
+    maj.forEach((a) =>
+      out.push(
+        h(
+          'div',
+          { class: 'alert' },
+          h('b', { text: '⚠️ Événement majeur : ' }),
+          `${a.titre_fr || a.titre}. ${a.impact || ''}`
+        )
+      )
+    );
+    out.push(
+      h(
+        'div',
+        { class: 'card wide' },
+        ac.synthese
+          ? [
+              h('h3', {
+                text: `Synthèse${ac.synthese_du && ac.synthese_du !== ac.date ? ` du ${dfr(ac.synthese_du)}` : ' du jour'}`,
+              }),
+              h('p', { text: ac.synthese }),
+            ]
+          : null,
+        pr
+          ? h(
+              'div',
+              { class: 'pgrid' },
+              ['ble', 'orge', 'colza', 'mais', 'engrais']
+                .filter((c) => pr[c])
+                .map((c) =>
+                  pgauge(
+                    pr[c].valeur,
+                    c === 'engrais' ? 'actuEngrais' : 'actu',
+                    ACTU_NOM[c],
+                    `${pr[c].hausse} en hausse · ${pr[c].baisse} en baisse${c === 'engrais' ? ' (prix de l’azote)' : ''}`
+                  )
+                )
+            )
+          : null,
+        h('p', {
+          class: 'note',
+          text: `${(ac.compte || {}).lus || 0} titres lus sur 7 jours (Google Actualités en français et en anglais, Terre-net, Réussir, La France Agricole, Web-agri, Agri-mutuel, World-Grain, farmdoc), ${(ac.compte || {}).pertinents || 0} retenus. Chaque titre est classé par l’IA (thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur chaque prix) d’après son seul titre. Pression : effets pondérés par l’importance, la nature et la fraîcheur (moitié du poids après 3 jours), sans les comptes rendus de séance déjà dans les cours. Elle éclaire le comité et ne vend rien seule ; un fait majeur déclenche une alerte et un comité.${ac.cout_usd ? ` Coût du jour : ${fmt(ac.cout_usd, 2)} $.` : ''}`,
+        })
+      )
+    );
+    out.push(newsList(ac));
+  }
+  out.push(...geoSection(d), ...psySection(d), ...biaisSection(d));
+  return out;
+}
+
 function render() {
   const main = document.getElementById('main');
   main.textContent = '';
@@ -2697,8 +3208,14 @@ function render() {
     return;
   }
   const v =
-    { signaux: vSignaux, technique: vTechnique, engrais: vEngrais, comite: vComite, methode: vMethode }[GS.tab] ||
-    vSignaux;
+    {
+      signaux: vSignaux,
+      technique: vTechnique,
+      engrais: vEngrais,
+      actualite: vActualite,
+      comite: vComite,
+      methode: vMethode,
+    }[GS.tab] || vSignaux;
   main.append(...v());
   document
     .querySelectorAll('.tabs button')
@@ -2719,7 +3236,7 @@ async function init() {
   if ('serviceWorker' in navigator && location.protocol === 'https:')
     navigator.serviceWorker.register('sw.js').catch(() => {});
   const tab = (location.hash || '').slice(1);
-  if (['signaux', 'technique', 'engrais', 'comite', 'methode'].includes(tab)) GS.tab = tab;
+  if (['signaux', 'technique', 'engrais', 'actualite', 'comite', 'methode'].includes(tab)) GS.tab = tab;
   document.querySelectorAll('.tabs button').forEach((b) =>
     b.addEventListener('click', () => {
       GS.tab = b.dataset.tab;
@@ -2730,18 +3247,20 @@ async function init() {
   );
   window.addEventListener('hashchange', () => {
     const t = (location.hash || '').slice(1);
-    if (['signaux', 'technique', 'engrais', 'comite', 'methode'].includes(t) && t !== GS.tab) {
+    if (['signaux', 'technique', 'engrais', 'actualite', 'comite', 'methode'].includes(t) && t !== GS.tab) {
       GS.tab = t;
       render();
     }
   });
-  const [d, c, j, bt] = await Promise.all([
+  const [d, c, j, bt, ac] = await Promise.all([
     getJSON('data/grain/grain-signal.json'),
     getJSON('data/grain/comite.json'),
     getJSON('data/grain/comites-journal.json'),
     getJSON('data/grain/backtest.json'),
+    getJSON('data/grain/actualites.json'),
   ]);
   GS.backtest = bt;
+  GS.actu = ac;
   GS.data = d;
   GS.comite = c || {};
   GS.journal = Array.isArray(j) ? j : [];
