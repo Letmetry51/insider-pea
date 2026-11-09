@@ -230,6 +230,8 @@ def page_html(d):
             sous.append(f"quand le blé Euronext atteint {n(x['declencheur_ble'])}&nbsp;€/t")
         if x.get("plafond"):
             sous.append(f"Plafond d'achat : {n(x['plafond'], 0)} €/t")
+        if x.get("autre"):
+            sous.append(e(x["autre"]))
         var = x.get("var1m") if c.get("azote") else x.get("var1s")
         cours = (f"<b>{n(x['cours'])} €/t</b>" + ("<div class=muted>urée</div>" if c.get("azote") else "<div class=muted>physique</div>" if x.get("physique") else "")
                  + (f"<div class=muted>{sg(var, 1)} % en 1 {'mois' if c.get('azote') else 'sem.'}</div>" if var is not None else "")) if x.get("cours") else "—"

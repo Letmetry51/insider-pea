@@ -56,8 +56,7 @@ def clean_comite(c):
             ok = [(float(x), fnum(q)) for x, q in zip(raw, pcs + [None] * len(raw)) if fnum(x) is not None and 0 < float(x) < 5000]
             v["ordres"] = [x for x, _ in ok]
             v["ordres_pct"] = [q for _, q in ok] if any(q for _, q in ok) else None
-            if fnum(v.get("maintenant_pct")) is None:
-                v["maintenant_pct"] = None
+            v["maintenant_pct"] = fnum(v.get("maintenant_pct"))
             for key in ("score", "revision_bas", "revision_haut"):
                 if fnum(v.get(key)) is None:
                     v[key] = None
@@ -956,8 +955,8 @@ def main():
             dl = com_shift(prod)
             q4 = lambda x: round(x * 4) / 4  # noqa: E731
             rv = fnum(cc_.get("revision_bas"))
-            paires = sorted((q4(x + dl), q) for x, q in zip(c_ord, (cc_.get("ordres_pct") or [None] * len(c_ord)))
-                            if cur is None or x + dl > cur)
+            paires = sorted(((q4(x + dl), q) for x, q in zip(c_ord, (cc_.get("ordres_pct") or [None] * len(c_ord)))
+                             if cur is None or x + dl > cur), key=lambda t: t[0])
             ret = {"source": "comite", "ordres": [x for x, _ in paires],
                    "revision": q4(rv + dl) if rv is not None else None, "decalage_echeance": round(dl, 2)}
             if any(q for _, q in paires):

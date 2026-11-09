@@ -1222,8 +1222,8 @@ function vEngrais() {
           technique: tv.technique,
           series: tv.series,
           niveaux: null,
-          mode: 'acheteur',
-        })
+        }),
+        tv.technique && !tv.technique.insuffisant ? techTable(tv.technique) : null
       )
     );
   }
@@ -1529,6 +1529,29 @@ const ICONE = {
   FRACTIONNER: '🟠',
   ATTENDRE: '🔴',
 };
+// données publiées par un calcul plus ancien que la page (sans « decision ») : action du plan et cours, en attendant le prochain calcul
+function repli(c, d) {
+  if (!c) {
+    const e = d.engrais || {};
+    return {
+      code: e.signal,
+      libelle: (e.libelle || '—').replace(/^\S+\s/, ''),
+      couleur: 'neutral',
+      quoi: e.a_acheter || '',
+    };
+  }
+  const plan = c.plan || [];
+  const due = plan.find((p) => p.statut === 'due') || plan[0] || {};
+  const con = (d.contrats || {})[c.contrat] || {};
+  return {
+    code: due.code,
+    libelle: '—',
+    couleur: 'neutral',
+    quoi: due.action || '',
+    cours: (c.physique || {}).prix || con.dernier_reel,
+    physique: Boolean((c.physique || {}).prix),
+  };
+}
 function resume(dec, azote) {
   const x = dec || {};
   const sous = azote
@@ -1620,10 +1643,10 @@ function vAujourdhui() {
     decisionRow(
       `#cultures/${k}`,
       `${ICON[k] || ''} ${NOM_COURT[k] || d.cultures[k].nom}`,
-      resume(d.cultures[k].decision)
+      resume(d.cultures[k].decision || repli(d.cultures[k], d))
     )
   );
-  rows.push(decisionRow('#cultures/azote', '🧪 Azote', resume((d.engrais || {}).decision, true)));
+  rows.push(decisionRow('#cultures/azote', '🧪 Azote', resume((d.engrais || {}).decision || repli(null, d), true)));
   out.push(h('nav', { class: 'drows', 'aria-label': 'Décisions par culture' }, rows));
   out.push(
     h('p', {
@@ -1645,7 +1668,11 @@ function vAujourdhui() {
               'details',
               {},
               h('summary', { text: 'Rapport complet' }),
-              h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html))
+              h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html)),
+              h('p', {
+                class: 'note',
+                text: `${(cj.sources || []).filter((x) => /^https?:\/\//i.test(x.url)).length} pages consultées · ${cj.modele || ''}${cj.cout_usd !== undefined ? ` · ≈ ${fmt(cj.cout_usd)} $` : ''}`,
+              })
             )
           : null
       )
@@ -1685,7 +1712,7 @@ function cultureView(k, d) {
   const c = d.cultures[k];
   const con = (d.contrats || {})[c.contrat] || {};
   const nr = c.niveaux_retenus || {};
-  const r = resume(c.decision);
+  const r = resume(c.decision || repli(c, d));
   const cc = c.comite || {};
   const ech = nr.echeance ? ` (${c.contrat} ${moisFr(nr.echeance)})` : '';
   const ordres = nr.ordres || [];
@@ -1836,6 +1863,14 @@ function cultureView(k, d) {
                 }),
               ]
             : null,
+          con.psychologie
+            ? [
+                h('dt', { text: '🧠 Humeur' }),
+                h('dd', {
+                  text: `${con.psychologie.indice} (${con.psychologie.libelle}) : ${con.psychologie.lecture}. RSI ${con.psychologie.composantes.rsi}, écart MM200 ${con.psychologie.composantes.ecart200}, élan 20 j ${con.psychologie.composantes.elan20}${con.psychologie.composantes.fonds !== null && con.psychologie.composantes.fonds !== undefined ? `, fonds ${con.psychologie.composantes.fonds}` : ''} (percentiles sur 3 ans)`,
+                }),
+              ]
+            : null,
           b
             ? [
                 h('dt', { text: '🪞 Vos biais' }),
@@ -1865,7 +1900,7 @@ function cultureView(k, d) {
 
 function azoteView(d) {
   const e = d.engrais || {};
-  const r = resume(e.decision, true);
+  const r = resume(e.decision || repli(null, d), true);
   return [
     h(
       'section',

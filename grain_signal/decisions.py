@@ -597,44 +597,44 @@ def tranche_due(plan):
 
 
 def decision_jour(e, contrat, ecart=None):
-    """Que faire aujourd'hui pour une culture. Avis du comité chiffré (vendre maintenant, % par ordre) s'il le donne, sinon
-    tranche du plan (ordre, patienter, vendre…) avec la consigne du comité en clair."""
+    """Que faire aujourd'hui pour une culture. Avis chiffré du comité (vendre maintenant, % par ordre) s'il le donne ; sinon la
+    tranche du plan (ordre, patienter, vendre…) avec la consigne du comité en clair à côté, sauf « N % maintenant » (vendre)."""
+    import re
+
     nr = e.get("niveaux_retenus") or {}
     sur = bool(nr.get("sur_ble"))
-    due = tranche_due(e.get("plan"))
+    plan = e.get("plan") or []
+    due = tranche_due(plan)
     code, quoi = (due or {}).get("code") or "rien", tranche_txt(due, sur, ecart)
     cc = (e.get("comite") or {}) if e.get("source") == "comite" else {}
     consigne = cc.get("pct") or None
-    libre = False  # consigne du comité en texte libre : les chances et le déclencheur du plan n'y correspondent pas forcément
+    pb = nr.get("probas") or {}
+    ordres, pcts, chances = nr.get("ordres") or [], nr.get("ordres_pct") or [], pb.get("ordres") or []
+    ch = chances[0] if chances and code == "ordre" else None  # chance du 1er ordre du plan
+    decl = (due or {}).get("ordre") if sur and code == "ordre" else None
     m = cc.get("maintenant_pct")
     m = float(m) if isinstance(m, (int, float)) and 0 <= m <= 100 else None
-    paires = [(o, p) for o, p in zip(nr.get("ordres") or [], nr.get("ordres_pct") or []) if isinstance(p, (int, float)) and p > 0]
-    if m is not None or paires:
-        parts = ([f"{pct_txt(m)} % maintenant"] if m else []) + [
-            f"{pct_txt(p)} % {'quand le blé atteint' if sur else 'à'} {nfr(o)} €/t" for o, p in paires]
-        if parts:
-            code, quoi, consigne = ("executer" if m else "ordre"), " · ".join(parts), None
-        elif cc.get("signal") in ("ATTENDRE", "COUVRIR"):
-            code, quoi = cc["signal"].lower(), cc.get("pct") or quoi
-        else:
-            code, quoi = "rien", "Rien à vendre maintenant"
+    # ordre, % et chance gardés ensemble : la chance affichée est celle de l'ordre affiché
+    paires = [(o, p, chances[i] if i < len(chances) else None) for i, (o, p) in enumerate(zip(ordres, pcts))
+              if isinstance(p, (int, float)) and p > 0]
+    parts = ([f"{pct_txt(m)} % maintenant"] if m else []) + [
+        f"{pct_txt(p)} % {'quand le blé atteint' if sur else 'à'} {nfr(o)} €/t" for o, p, _ in paires]
+    if parts:  # avis chiffré : il remplace la tranche du plan
+        code, quoi, consigne = ("executer" if m else "ordre"), " · ".join(parts), None
+        ch = paires[0][2] if paires and not m else None
+        decl = None
     elif consigne:
-        # avis du comité en texte libre (comités d'avant les champs chiffrés) : c'est lui la consigne, la tranche du plan n'est
-        # pas répétée ; « 7,5 % maintenant » = vendre tout de suite
-        import re
         mm = re.match(r"\s*(\d+(?:[.,]\d+)?)\s*%\s*maintenant", consigne)
-        if mm and float(mm.group(1).replace(",", ".")) > 0:
-            code = "executer"
-        quoi, consigne, libre = consigne, None, True
+        if mm and float(mm.group(1).replace(",", ".")) > 0:  # « 7,5 % maintenant… » : vendre tout de suite, la consigne fait foi
+            code, quoi, consigne, ch, decl = "executer", consigne, None, None, None
     lab, coul = DECISIONS.get(code, ("—", "neutral"))
     phys = (e.get("physique") or {}).get("prix")
-    pb = nr.get("probas") or {}
-    ch = (pb.get("ordres") or [None])[0] if code == "ordre" and not libre else None
+    autre = next((p for p in plan if p is not due and p.get("statut") == "due"), None)
     return {"code": code, "libelle": lab, "couleur": coul, "quoi": quoi, "consigne": consigne,
             "cours": phys or (contrat or {}).get("dernier_reel"), "physique": bool(phys),
             "var1s": None if e.get("proxy") else ((contrat or {}).get("technique") or {}).get("var1s"),
-            "chance": ch, "horizon": pb.get("horizon") if ch is not None else None,
-            "declencheur_ble": (due or {}).get("ordre") if sur and code == "ordre" and not libre else None}
+            "chance": ch, "horizon": pb.get("horizon") if ch is not None else None, "declencheur_ble": decl,
+            "autre": f"Récolte {autre['recolte']} : {tranche_txt(autre, sur, ecart)}" if autre else None}
 
 
 def decision_azote(eng):

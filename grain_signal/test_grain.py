@@ -826,6 +826,35 @@ _cc = build.clean_comite({"cultures": {"mais": {"signal": "TENIR", "ordres": [25
 check(_cc["ordres"] == [255.0, 260.0] and _cc["ordres_pct"] == [7.5, 5.0] and _cc["maintenant_pct"] is None,
       "comité relu : ordres et % par ordre filtrés ensemble (restent alignés), valeur illisible écartée")
 
+# relecture : texte libre du comité, avis chiffré incomplet, chance de l'ordre affiché, tri des ordres, % en texte
+_pl = {"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}], "source": "comite",
+       "niveaux_retenus": {"ordres": [235.5, 244.5], "probas": {"ordres": [35, 8], "horizon": "2026-11-30"}}}
+_r1 = dec.decision_jour(dict(_pl, comite={"pct": "0 % (pas sur le creux)"}), {"dernier_reel": 225.5})
+check(_r1["quoi"] == "15 % à 235,50 €/t" and _r1["consigne"] == "0 % (pas sur le creux)" and _r1["chance"] == 35,
+      "décision : consigne libre du comité à côté de la tranche du plan (prix et chances gardés)")
+_r2 = dec.decision_jour(dict(_pl, comite={"maintenant_pct": 0}), {"dernier_reel": 225.5})
+check(_r2["code"] == "ordre" and _r2["quoi"] == "15 % à 235,50 €/t", "décision : « 0 % maintenant » sans % par ordre → tranche du plan, pas « rien »")
+_r3 = dec.decision_jour(dict(_pl, comite={}, niveaux_retenus=dict(_pl["niveaux_retenus"], ordres_pct=[None, 5])), {"dernier_reel": 225.5})
+check(_r3["quoi"] == "5 % à 244,50 €/t" and _r3["chance"] == 8, "décision : chance de l'ordre affiché (8 %), pas du premier ordre")
+_d4 = dec.decision_jour({"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5, "recolte": 2026},
+                                  {"statut": "due", "code": "ordre", "pct": 10, "ordre": 228.0, "recolte": 2027}], "niveaux_retenus": {}}, {})
+check(_d4["autre"] == "Récolte 2027 : 10 % à 228,00 €/t", "décision : tranche due de l'autre récolte gardée (PDF)")
+check(build.clean_comite({"cultures": {"ble": {"ordres": [240], "maintenant_pct": "7.5"}}})["cultures"]["ble"]["maintenant_pct"] == 7.5,
+      "comité relu : « 7.5 » en texte lu comme 7,5")
+
+
+
+def _comite_pareil(t, pv):
+    seeds(t, pv)
+    c = json.loads((HERE / "seed" / "comite-initial.json").read_text(encoding="utf-8"))
+    c["cultures"]["ble"].update(ordres=[240.0, 240.1], ordres_pct=[5, "?"])
+    (t / "data" / "grain" / "comite.json").write_text(json.dumps(c), encoding="utf-8")
+
+
+_o = run_build(_comite_pareil)[0]
+check(_o[0] == 0 and _o[1]["cultures"]["ble"]["niveaux_retenus"]["ordres"] == [240.0, 240.0],
+      "comité : deux ordres arrondis au même quart d'euro avec un % illisible, sans plantage" + ("" if _o[0] == 0 else " : " + _o[3]))
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]
