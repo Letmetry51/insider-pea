@@ -533,7 +533,7 @@ def actu_pression(articles, now, demi_vie=3.0, jours=7):
             nh += imp > 0
             nb += imp < 0
             top.append((abs(imp) * w, a.get("id")))
-        v = 2 * math.tanh(s / 3)
+        v = 2 * math.tanh(s / 4)  # un fait d'importance 3 à effet fort du jour ≈ +0,9 ; une dizaine de nouvelles modérées ≈ +1,5
         out[c] = {"valeur": round(v, 2), "hausse": nh, "baisse": nb,
                   "sens": "haussière" if v >= 0.5 else "baissière" if v <= -0.5 else "équilibrée",
                   "principaux": [i for _, i in sorted(top, reverse=True)[:3]]}

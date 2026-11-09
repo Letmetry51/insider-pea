@@ -3142,6 +3142,18 @@ function biaisSection(d) {
   ];
 }
 
+// pression de la même culture une semaine plus tôt (historique quotidien de actualites.json)
+function avant(ac, c) {
+  const hist = (ac.historique || []).filter((x) => x[c] !== undefined && x.date <= isoMoins(ac.date, 7));
+  const x = hist[hist.length - 1];
+  return x ? ` · il y a 7 jours ${sgn(x[c], 1)}` : '';
+}
+function isoMoins(iso, j) {
+  const d = new Date((iso || '') + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - j);
+  return d.toISOString().slice(0, 10);
+}
+
 function vActualite() {
   const d = GS.data;
   const ac = GS.actu || {};
@@ -3194,14 +3206,14 @@ function vActualite() {
                     pr[c].valeur,
                     c === 'engrais' ? 'actuEngrais' : 'actu',
                     ACTU_NOM[c],
-                    `${pr[c].hausse} en hausse · ${pr[c].baisse} en baisse${c === 'engrais' ? ' (prix de l’azote)' : ''}`
+                    `${pr[c].hausse} en hausse · ${pr[c].baisse} en baisse${c === 'engrais' ? ' (prix de l’azote)' : ''}${avant(ac, c)}`
                   )
                 )
             )
           : null,
         h('p', {
           class: 'note',
-          text: `${(ac.compte || {}).lus || 0} titres lus sur 7 jours (Google Actualités en français et en anglais, Terre-net, Réussir, La France Agricole, Web-agri, Agri-mutuel, World-Grain, farmdoc), ${(ac.compte || {}).pertinents || 0} retenus. Chaque titre est classé par l’IA (thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur chaque prix) d’après son seul titre. Pression : effets pondérés par l’importance, la nature et la fraîcheur (moitié du poids après 3 jours), sans les comptes rendus de séance déjà dans les cours. Elle éclaire le comité et ne vend rien seule ; un fait majeur déclenche une alerte et un comité.${ac.cout_usd ? ` Coût du jour : ${fmt(ac.cout_usd, 2)} $.` : ''}`,
+          text: `${(ac.compte || {}).lus || 0} titres lus sur 7 jours (Google Actualités en français et en anglais, Terre-net, Réussir, La France Agricole, Web-agri, Agri-mutuel, World-Grain, farmdoc), ${(ac.compte || {}).pertinents || 0} retenus. Chaque titre est classé par l’IA (thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur chaque prix) d’après son seul titre. Pression : effets pondérés par l’importance, la nature et la fraîcheur (moitié du poids après 3 jours), sans les comptes rendus de séance déjà dans les cours. Les titres penchent vers les risques de hausse (attaques, déficits) ; une offre abondante fait rarement la une : à lire avec les cours. Elle éclaire le comité et ne vend rien seule ; un fait majeur déclenche une alerte et un comité.${ac.cout_usd ? ` Coût du jour : ${fmt(ac.cout_usd, 2)} $.` : ''}`,
         })
       )
     );

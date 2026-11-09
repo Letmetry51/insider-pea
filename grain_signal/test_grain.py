@@ -171,6 +171,7 @@ try:
     check(pa.returncode == 0 and [a["id"] for a in ac_.get("articles", [])] == ["a1", "a2", "a5", "a3"],
           "actualités : titres classés publiés, non pertinents écartés" + ("" if pa.returncode == 0 else " : " + pa.stderr[-300:]))
     pr_ = ac_.get("pression") or {}
+    check(len(ac_.get("historique") or []) == 1 and ac_["historique"][0]["date"] == "2026-11-07", "actualités : pression du jour gardée en historique")
     check(pr_.get("ble", {}).get("valeur", 0) > 0.5 and pr_["ble"]["baisse"] == 0 and pr_.get("engrais", {}).get("valeur", 0) > 0.3,
           f"actualités : pression haussière sur le blé (compte rendu de séance exclu), azote plus cher ({pr_.get('ble')}, {pr_.get('engrais')})")
     _box = json.loads((priv / "a-envoyer.json").read_text(encoding="utf-8")) if (priv / "a-envoyer.json").exists() else []

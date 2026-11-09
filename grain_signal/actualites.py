@@ -237,6 +237,9 @@ def main():
         "cout_usd": round(usage["input"] / 1e6 * pin + usage["output"] / 1e6 * pout, 3),
         "erreur": erreur, "sans_ia": not key,
         "alertes_envoyees": sorted(deja_alerte | {a["id"] for a in nouveaux_majeurs})[-200:],
+        # pression de chaque jour (90 jours) : la page montre l'évolution, plus parlante que le niveau
+        "historique": ([h for h in prev.get("historique") or [] if isinstance(h, dict) and h.get("date") != today.isoformat()]
+                       + ([{"date": today.isoformat(), **{c: v["valeur"] for c, v in pression.items()}}] if pression else []))[-90:],
     }
     save(OUT / "actualites.json", res)
 
