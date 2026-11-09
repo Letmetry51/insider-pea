@@ -27,7 +27,7 @@
       "secours": "https://live.euronext.com/en/ajax/getPricesFutures/commodities-futures/EMA/DPAR"
     }
   },
-  "rollJours": 5,
+  "rollJours": 15,
   "yahoo": {
     "ZW=F": "Blé CBOT (SRW)",
     "KE=F": "Blé KC (HRW)",

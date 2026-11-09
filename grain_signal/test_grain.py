@@ -619,12 +619,21 @@ try:
 finally:
     shutil.rmtree(_tmp3, ignore_errors=True)
 
-_fe = [{"date": "2026-12-01", "product": "EBM", "maturity": "2026-12", "settle": "230"},
-       {"date": "2026-12-01", "product": "EBM", "maturity": "2027-03", "settle": "228"},
-       {"date": "2026-12-04", "product": "EBM", "maturity": "2026-12", "settle": "231"},
-       {"date": "2026-12-04", "product": "EBM", "maturity": "2027-03", "settle": "229"}]
-check(build.front_series(_fe, "EBM") == (["2026-12-01", "2026-12-04"], [230.0, 229.0]),
-      "prix réel de l'échéance de référence : bascule sur mars 5 jours ouvrés avant l'expiration de décembre")
+_fe = [{"date": "2026-11-18", "product": "EBM", "maturity": "2026-12", "settle": "230"},
+       {"date": "2026-11-18", "product": "EBM", "maturity": "2027-03", "settle": "228"},
+       {"date": "2026-11-19", "product": "EBM", "maturity": "2026-12", "settle": "231"},
+       {"date": "2026-11-19", "product": "EBM", "maturity": "2027-03", "settle": "229"}]
+check(build.front_series(_fe, "EBM") == (["2026-11-18", "2026-11-19"], [230.0, 228.0 + 1]),
+      "prix réel de l'échéance de référence : bascule sur mars 15 jours ouvrés avant l'expiration de décembre (avant la fin de vie agitée)")
+# raccord : écart médian des 5 dernières séances communes, pas celui du seul jour du changement (fin de vie agitée de l'échéance proche)
+_rc = []
+for _i, (_d, _nov, _mar) in enumerate((("2026-10-09", 280, 275), ("2026-10-12", 281, 275), ("2026-10-13", 282, 276), ("2026-10-14", 290, 276),
+                                       ("2026-10-15", 330, 277))):
+    _rc += [{"date": _d, "product": "EMA", "maturity": "2026-11", "settle": str(_nov)},
+            {"date": _d, "product": "EMA", "maturity": "2027-03", "settle": str(_mar)}]
+_cd, _cv, _cref, _crac, _ = build.continuous(_rc, "EMA")
+check(_cref == "2027-03" and _crac and _crac[-1]["ajustement"] == -6.0 and _cv[0] == 274.0,
+      f"raccord sur l'écart médian des dernières séances (−6), pas sur le −53 du jour du changement ({_crac})")
 
 # ---------------------------------------------------------------- bilans mondiaux USDA et chances d'atteindre un ordre
 import io as _io  # noqa: E402

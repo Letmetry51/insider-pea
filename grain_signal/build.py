@@ -135,9 +135,13 @@ def continuous(rows, prod):
     raccords = []
     for i in range(1, len(dates)):
         if refs[i] != refs[i - 1]:
-            old = by_date[dates[i]].get(refs[i - 1])
-            if old is not None:
-                adj = vals[i] - old
+            # écart nouvelle − ancienne échéance : médiane des 5 dernières séances où les deux cotent (une séance agitée de
+            # fin de vie de l'échéance proche ne fausse plus toute la série ; maïs octobre 2026 : −49,5 €/t un seul jour)
+            ec = [by_date[dates[k]][refs[i]] - by_date[dates[k]][refs[i - 1]] for k in range(max(0, i - 4), i + 1)
+                  if refs[i] in by_date[dates[k]] and refs[i - 1] in by_date[dates[k]]]
+            if ec:
+                ec.sort()
+                adj = ec[len(ec) // 2] if len(ec) % 2 else (ec[len(ec) // 2 - 1] + ec[len(ec) // 2]) / 2
                 for j in range(i):
                     vals[j] += adj
                 raccords.append({"date": dates[i], "de": refs[i - 1], "vers": refs[i], "ajustement": round(adj, 2)})

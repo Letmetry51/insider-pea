@@ -47,3 +47,19 @@ for prod in ("EBM", "ECO", "EMA"):
         log(f"-- {x['date']} {old} → {new} : ajustement retenu {x['ajustement']} ; médiane de l'écart 20 à 5 séances avant : {med}")
         log("   " + " | ".join(f"{s[0][5:]} {s[1]:.2f}/{s[2]:.2f} ({s[3]:+.2f})" for s in sp[-14:]))
 open(os.path.join(OUT, "grain_roll_probe.txt"), "w", encoding="utf-8").write("\n".join(lines))
+
+# effet de la correction (raccord 15 jours ouvrés avant l'expiration, écart médian de 5 séances) : nouveaux raccords, humeur,
+# plus haut de la campagne
+import decisions as dec  # noqa: E402
+
+log("\n===== Après correction")
+for prod, deb in (("EBM", 7), ("ECO", 7), ("EMA", 10)):
+    d, v, ref, rac, _ = build.continuous(rows, prod)
+    log(f"-- {prod} : échéance {ref}, {len(rac)} raccords ; derniers : " + " | ".join(f"{x['date']} {x['de']}→{x['vers']} {x['ajustement']}" for x in rac[-5:]))
+    ps = dec.psychologie(v)
+    log(f"   humeur (sans les fonds) : {ps and ps['indice']} {ps and ps['libelle']} {ps and ps['composantes']}")
+    y0 = int(d[-1][:4]) if int(d[-1][5:7]) >= deb else int(d[-1][:4]) - 1
+    camp = {a: b for a, b in zip(d, v) if a >= f"{y0}-{deb:02d}-01"}
+    hd = max(camp, key=camp.get)
+    log(f"   plus haut de la campagne : {camp[hd]:.2f} le {hd} ; cours {v[-1]:.2f}")
+open(os.path.join(OUT, "grain_roll_probe.txt"), "w", encoding="utf-8").write("\n".join(lines))
