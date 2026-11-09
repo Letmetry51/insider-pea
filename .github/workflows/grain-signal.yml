@@ -5,9 +5,10 @@ name: Grain Signal (céréales et engrais)
 
 on:
   schedule:
-    # 4h47 UTC (5h47 ou 6h47 à Paris) : clôtures Euronext, CBOT et CFTC de la veille publiées, emails lus au petit-déjeuner.
-    # Pas à l'heure pile (GitHub y retarde les tâches planifiées)
-    - cron: '47 4 * * 1-6'
+    # Le calcul est lancé à 7h03 (heure de Paris) par une tâche planifiée Claude « Grain Signal : démarrage du matin » : le rapport du
+    # matin part vers 7h30, avant l'ouverture des grains sur Euronext (10h45). Ce créneau GitHub (6h47 UTC) n'est qu'un filet de
+    # sécurité : ses tâches planifiées partent souvent avec des heures de retard (8h30 le 9/11/2026).
+    - cron: '47 6 * * 1-6'
   workflow_dispatch:
     inputs:
       comite:

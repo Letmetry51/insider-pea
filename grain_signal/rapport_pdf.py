@@ -6,7 +6,7 @@ Mise en page HTML/CSS imprimée par Chromium (Playwright) : jauges et graphiques
 sur les serveurs), coupures de page maîtrisées (un bloc n'est jamais coupé en deux).
 
   python grain_signal/rapport_pdf.py            fabrique le PDF
-  python grain_signal/rapport_pdf.py --besoin   code 0 si un email de la file en a besoin (comité ou email de test), 1 sinon
+  python grain_signal/rapport_pdf.py --besoin   code 0 si un email en a besoin (rapport du matin, comité, email de test), 1 sinon
   python grain_signal/rapport_pdf.py --html F   écrit seulement la page HTML (contrôle de la mise en page)
 """
 import html
@@ -365,13 +365,16 @@ def besoin():
     outbox = load(OUT / "prive" / "a-envoyer.json", [])
     sent = (load(OUT / "etat.json", {}) or {}).get("envoyes") or {}
     comite = any(x.get("type") == "comite" and x.get("id") not in sent for x in outbox if isinstance(x, dict))
-    return comite or os.environ.get("GS_TEST_EMAIL", "").lower() == "true"
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import send_alerts
+
+    return comite or bool(send_alerts.rapport_attendu(OUT)) or os.environ.get("GS_TEST_EMAIL", "").lower() == "true"
 
 
 def main():
     if "--besoin" in sys.argv:
         ok = besoin()
-        print("Synthèse PDF :", "à joindre" if ok else "pas d'email du comité aujourd'hui")
+        print("Synthèse PDF :", "à joindre" if ok else "aucun email ne la joint aujourd'hui")
         return 0 if ok else 1
     d = load(OUT / "grain-signal.json", None)
     if not d:
