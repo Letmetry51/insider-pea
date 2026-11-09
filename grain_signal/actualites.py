@@ -260,6 +260,11 @@ def main():
         print(f"Actualités : {len(nouveaux_majeurs)} événement(s) majeur(s), alerte et comité demandés")
     if pression:
         print("Pression de l'actualité :", ", ".join(f"{k} {v['valeur']:+.2f}" for k, v in pression.items()))
+    for a in sorted(classes, key=lambda a: (a.get("importance") or 0, a["date"]), reverse=True)[:10]:  # journal : les titres qui comptent
+        print(f"  [{a.get('importance')}] {a['date'][:10]} {a.get('theme')}/{a.get('nature')} {a.get('impacts')} — {a.get('titre_fr') or a['titre']}"
+              f" ({a.get('source')}) → {a.get('impact')}")
+    if synthese:
+        print("Synthèse :", synthese)
     return 0
 
 

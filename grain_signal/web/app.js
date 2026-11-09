@@ -2937,6 +2937,24 @@ function newsList(ac) {
   );
 }
 
+// ce que l'indice a annoncé sur le blé (Chicago) : comparé à des cours tirés au sort de même nervosité
+function geoBt(bt) {
+  const r = [
+    ['20', 'un mois'],
+    ['60', 'trois mois'],
+  ]
+    .filter(([k]) => bt[k])
+    .map(([k, t]) => {
+      const o = bt[k];
+      const ec = o.tendu - o.moyenne;
+      const sig = o.bruit_tendu !== undefined && o.bruit_tendu !== null && Math.abs(ec) > o.bruit_tendu;
+      return `à ${t}, après les 10 % de jours les plus tendus, ${pct(o.tendu)} contre ${pct(o.moyenne)} d’habitude (${
+        sig ? 'écart plus grand que le hasard' : `écart à la portée du hasard, ±${fmt(o.bruit_tendu, 1)} pt`
+      })`;
+    });
+  return r.length ? ` : depuis ${String(bt.depuis || '').slice(0, 4)}, sur le blé de Chicago, ${r.join(' ; ')}.` : '.';
+}
+
 function geoSection(d) {
   const g = d.geopolitique;
   if (!g) return [];
@@ -2989,9 +3007,7 @@ function geoSection(d) {
         class: 'note',
         text:
           'Indice de risque géopolitique de Caldara et Iacoviello (Réserve fédérale) : part des articles de grands journaux qui parlent de guerre, de menace militaire ou de terrorisme, chaque jour et par pays. Il mesure la tension, pas son effet sur les grains' +
-          (b60
-            ? ` : depuis ${String(bt.depuis || '').slice(0, 4)}, il n’a pas annoncé le prix du blé à 3 mois (corrélation ${sgn(b60.correlation, 2)} ; après les 10 % de jours les plus tendus, ${pct(b60.tendu)} en moyenne contre ${pct(b60.moyenne)} d’habitude).`
-            : '.') +
+          geoBt(bt) +
           ' Chaque événement se juge donc au cas par cas : c’est le rôle des actualités traduites ci-dessus et de l’expert géopolitique du comité.',
       })
     ),

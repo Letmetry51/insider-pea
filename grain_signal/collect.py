@@ -1159,7 +1159,7 @@ def collect_gpr(today):
                 jours, evts = gpr_quotidien(rows)
                 if len(jours) < 1000:
                     raise RuntimeError(f"{len(jours)} jours seulement")
-                out["quotidien"] = [list(x) for x in jours if x[0] >= lim]
+                out["quotidien"] = [list(x) for x in jours if x[0] >= "2000-01-01"]  # depuis 2000 : backtest sur le blé de Chicago
                 out["evenements"] = [list(x) for x in evts if x[0] >= lim]
                 msgs.append(f"quotidien jusqu'au {jours[-1][0]}")
             else:

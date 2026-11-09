@@ -545,20 +545,44 @@ def backtest_geopolitique(yahoo):
     gd, gv = [x[0] for x in g], [x[1] for x in g]
     d = sorted(s)
     p = [s[x] for x in d]
-    out = {"depuis": max(gd[0], d[0])}
-    for h in (20, 60):
+
+    def mesure(prix, h):
         a, b = [], []
-        for i in range(len(p) - h):
+        for i in range(len(prix) - h):
             j = bisect.bisect_right(gd, d[i]) - 1
             if j < 30:
                 continue
             a.append(sum(gv[j - 29:j + 1]) / 30)
-            b.append(p[i + h] / p[i] - 1)
-        if len(a) >= 200:
-            q = sorted(a)[int(len(a) * 0.9)]
-            hi = [y for x, y in zip(a, b) if x >= q]
-            out[str(h)] = {"correlation": spearman(a, b), "points": len(a), "moyenne": round(sum(b) / len(b) * 100, 1),
-                           "tendu": round(sum(hi) / len(hi) * 100, 1), "n_tendu": len(hi)}
+            b.append(prix[i + h] / prix[i] - 1)
+        if len(a) < 200:
+            return None
+        q = sorted(a)[int(len(a) * 0.9)]
+        hi = [y for x, y in zip(a, b) if x >= q]
+        return a, b, spearman(a, b), (sum(hi) / len(hi) - sum(b) / len(b)) * 100, len(hi)
+
+    out = {"depuis": max(gd[0], d[0])}
+    # hasard : même indice géopolitique, cours tirés au sort de même nervosité (90e percentile des écarts obtenus)
+    import random
+    rng = random.Random(7)
+    lr = [math.log(p[i] / p[i - 1]) for i in range(1, len(p)) if p[i] > 0 and p[i - 1] > 0]
+    sd = (sum(x * x for x in lr) / len(lr)) ** 0.5
+    sims = []
+    for _ in range(30):
+        v = [100.0]
+        for _ in range(len(p) - 1):
+            v.append(v[-1] * math.exp(rng.gauss(0, sd)))
+        sims.append(v)
+    for h in (20, 60):
+        m = mesure(p, h)
+        if not m:
+            continue
+        a, b, rho, ecart, n = m
+        br = [mesure(v, h) for v in sims]
+        br = [x for x in br if x]
+        out[str(h)] = {"correlation": rho, "points": len(a), "moyenne": round(sum(b) / len(b) * 100, 1),
+                       "tendu": round(sum(b) / len(b) * 100 + ecart, 1), "n_tendu": n,
+                       "bruit_correlation": round(sorted(abs(x[2]) for x in br)[int(len(br) * 0.9) - 1], 3) if br else None,
+                       "bruit_tendu": round(sorted(abs(x[3]) for x in br)[int(len(br) * 0.9) - 1], 1) if br else None}
     return out
 
 
