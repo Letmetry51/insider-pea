@@ -217,13 +217,14 @@ try:
         p3 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "rapport_pdf.py"), "--html", str(hp)], capture_output=True, text=True, env=env)
         page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
         import re as _re
-        check(p3.returncode == 0 and "Décisions du jour" in page and page.count("<section class='bloc'>") == 3
+        check(p3.returncode == 0 and "Que faire aujourd'hui" in page and page.count("<section class='bloc'>") == 3
               and "235,50 €/t" in page and "1er ordre : 235,50 €/t" in page and "quand le blé Euronext atteint" in page
               and "Prime faible" not in page.replace("Prime faible : vendre via Euronext", ""),
               "synthèse PDF : page complète (décisions, 3 contrats, ordres en €/t)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
         check(not _re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", page), "synthèse PDF : aucun emoji (carrés vides à l'impression)")
-        check("Actualité, psychologie et géopolitique" in page and "Novorossiisk" in page and "<script>alert" not in page
-              and "Risque géopolitique mondial" in page, "synthèse PDF : actualité traduite et géopolitique, texte échappé")
+        check("<h2>Actualité</h2>" in page and "Novorossiisk" in page and "<script>alert" not in page
+              and "Carnet de bord" not in page and "Orges brassicoles" not in page and "Engrais France" not in page,
+              "synthèse PDF : resserrée (décisions, comité, actualité traduite, cultures), texte échappé")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0 and "alerte" in p2.stdout and "Actualité majeure" in p2.stdout, "emails en simulation (alerte d'actualité en tête)"
               + ("" if p2.returncode == 0 else " : " + p2.stderr[-300:]))
@@ -516,12 +517,18 @@ _old = [{"date": "2026-08-01", "long": 10, "short": 5}] * 30
 check(build.cot_reading(_old, today=date(2026, 11, 8)).get("perime") and build.cot_reading(_old, today=date(2026, 11, 8))["indice"] is None,
       "positions des fonds : rapport de plus de 3 semaines affiché mais plus compté")
 import send_alerts as _sa  # noqa: E402
-check("#b0281f" in _sa.jauge(20)[:60] and "#9a5b00" in _sa.jauge(40)[:60] and "#6b6d60" in _sa.jauge(50)[:60]
-      and "#6b6d60" in _sa.jauge(30, _sa.ECH_RATIO)[:60] and "#b0281f" in _sa.jauge(85, _sa.ECH_RATIO)[:60],
-      "email : couleurs des jauges = page (20 rouge, 40 orange, ratio 30 normal, ratio 85 rouge)")
-check("position" not in _sa.jauge(55), "email : jauge sans « position » (retiré par Gmail)")
-check(_sa.niveaux_txt([235.5], [219.0], {"sur_ble": True}).startswith("≈ 219 €/t d'orge, quand le blé Euronext atteint 235,5"),
-      "email : ordres d'orge en prix d'orge, le blé comme déclencheur")
+_dash = {"cultures": {"ble": {"nom": "Blé tendre", "contrat": "EBM", "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5,
+                                                                          "recolte": 2026, "periode": "oct.–nov. 2026"}],
+                               "niveaux_retenus": {"ordres": [235.5], "probas": {"ordres": [45], "horizon": "2026-11-30"}}},
+                       "escourgeon": {"nom": "Escourgeon brassicole", "contrat": "EBM", "physique": {"prix": 209.0},
+                                      "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}],
+                                      "niveaux_retenus": {"sur_ble": True, "ordres": [235.5]}}},
+         "orges": {"escourgeon": {"ecart_ble": -16.5}}, "contrats": {"EBM": {"dernier_reel": 225.5}},
+         "engrais": {"comite": {"signal": "FRACTIONNER", "pct": "15 % max (urée)", "prix_plafond": 640}, "france": {"uree": {"prix": 613.75}}}}
+_ts = _sa.table_signaux(_dash)
+check("ORDRE" in _ts and "15 % à 235,50 €/t" in _ts and "45 % de chances" in _ts and "15 % à ≈ 219,00 €/t" in _ts
+      and "quand le blé Euronext atteint 235,50" in _ts and "FRACTIONNER" in _ts and "plafond d'achat 640" in _ts and "TENIR" not in _ts
+      and "position" not in _ts, "email : mêmes décisions que la page (orge en prix d'orge, blé déclencheur, azote), sans « position »")
 
 # collecte des positions Euronext : une erreur réseau n'est jamais une « semaine sans rapport », mercredi de la même semaine
 _tmp2 = Path(tempfile.mkdtemp())

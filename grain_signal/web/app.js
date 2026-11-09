@@ -2,7 +2,7 @@
    comme texte ; seul le rapport du comité est du HTML, déjà nettoyé au calcul et nettoyé une seconde fois ici. */
 'use strict';
 
-const GS = { data: null, comite: null, journal: [], tab: 'signaux' };
+const GS = { data: null, comite: null, journal: [], tab: 'aujourdhui' };
 const ICON = { ble: '🌾', escourgeon: '🍺', orge_printemps: '🍺', colza: '🌼', mais: '🌽' };
 const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 const moisFr = (m) => (m && m.length >= 7 ? `${MOIS[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}` : m || '');
@@ -34,13 +34,6 @@ function dfr(iso) {
   if (!iso) return '—';
   const d = new Date(iso.length === 10 ? iso + 'T12:00:00' : iso);
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-function chipFor(sig) {
-  const s = String(sig || '');
-  if (/VENDRE|ACHETER_LARGE/.test(s)) return 'good';
-  if (/ATTENDRE/.test(s)) return 'bad';
-  if (/FRACTIONNER|COUVRIR/.test(s)) return 'warn';
-  return 'info';
 }
 
 /* ---------------------------------------------------------------------------------------------- graphique SVG */
@@ -503,11 +496,11 @@ Object.assign(PG, {
     badge: (v) => sgn(v, 1),
     lab: (v) =>
       actuLab(v, [
-        ['Actualité très baissière', 'bad'],
-        ['Actualité plutôt baissière', 'warn'],
-        ['Actualité équilibrée', 'neutral'],
-        ['Actualité plutôt haussière', 'info'],
-        ['Actualité très haussière', 'good'],
+        ['Très baissière', 'bad'],
+        ['Plutôt baissière', 'warn'],
+        ['Équilibrée', 'neutral'],
+        ['Plutôt haussière', 'info'],
+        ['Très haussière', 'good'],
       ]),
   },
   actuEngrais: {
@@ -521,11 +514,11 @@ Object.assign(PG, {
     badge: (v) => sgn(v, 1),
     lab: (v) =>
       actuLab(v, [
-        ['Azote nettement moins cher en vue', 'good'],
-        ['Azote plutôt moins cher', 'info'],
-        ['Actualité équilibrée', 'neutral'],
-        ['Azote plutôt plus cher', 'warn'],
-        ['Azote nettement plus cher en vue', 'bad'],
+        ['Nettement moins cher en vue', 'good'],
+        ['Plutôt moins cher', 'info'],
+        ['Équilibrée', 'neutral'],
+        ['Plutôt plus cher', 'warn'],
+        ['Nettement plus cher en vue', 'bad'],
       ]),
   },
   geo: {
@@ -1003,10 +996,14 @@ function periodPanel(p) {
     {},
     periods.length > 1 ? sw : null,
     box,
-    ta && !ta.insuffisant
-      ? indicatorCards(ta, p.series, p.niveaux, g.canal, p.mode)
-      : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
-    ta && !ta.insuffisant ? h('details', {}, h('summary', { text: '📋 Tous les chiffres' }), techTable(ta)) : null
+    p.simple
+      ? null
+      : ta && !ta.insuffisant
+        ? indicatorCards(ta, p.series, p.niveaux, g.canal, p.mode)
+        : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
+    !p.simple && ta && !ta.insuffisant
+      ? h('details', {}, h('summary', { text: '📋 Tous les chiffres' }), techTable(ta))
+      : null
   );
 }
 
@@ -1069,44 +1066,6 @@ function chartLegend() {
 }
 
 /* ---------------------------------------------------------------------------------------------- plan de vente */
-const PLAN_ICON = {
-  patienter: '⏸️',
-  ordre: '🎯',
-  executer: '✅',
-  vendre: '🟢',
-  attendre: '🔴',
-  couvrir: '🛡️',
-  rien: '💤',
-};
-function planBlock(plan) {
-  if (!plan || !plan.length) return null;
-  return h(
-    'div',
-    { class: 'plan' },
-    h('b', { class: 'plan-t', text: '📅 Plan de vente' }),
-    plan.map((p) =>
-      h(
-        'div',
-        { class: 'plan-l plan-' + p.code },
-        h(
-          'div',
-          { class: 'plan-h' },
-          h('span', { class: 'plan-r', text: `Récolte ${p.recolte}` }),
-          h('span', { text: `${p.statut === 'due' ? 'Tranche due' : 'Prochaine tranche'} : ${p.pct} % · ${p.periode}` })
-        ),
-        h('div', { class: 'plan-a', text: `${PLAN_ICON[p.code] || ''} ${p.action}` }),
-        h(
-          'div',
-          { class: 'imeta' },
-          `Cumul visé ${p.cumul_vise} % de la récolte` +
-            (p.reference
-              ? ` · référence ${p.reference.contrat} ${moisFr(p.reference.echeance)} : ${fmt(p.reference.prix)} €/t`
-              : '')
-        )
-      )
-    )
-  );
-}
 
 const STRAT = {
   S0: 'Tout vendre à la moisson',
@@ -1374,488 +1333,6 @@ function marksFor(cle) {
       }`,
     }));
 }
-const STOCK = {
-  stocker: ['📦', 'good'],
-  vendre: ['🚚', 'bad'],
-  neutre: ['⚖️', 'neutral'],
-  nouvelle: ['🌱', 'neutral'],
-};
-function stockShort(st) {
-  if (!st || !st.code) return '';
-  const b = st.meilleure;
-  if (st.code === 'stocker') return `📦 Stocker jusqu'à ${moisFr(b.echeance)} : ${sgn(b.gain)} €/t net`;
-  if (st.code === 'vendre') return '🚚 Stockage non payé : vendre plutôt que stocker';
-  if (st.code === 'neutre') return `⚖️ Stockage à peine payé (${sgn(b.gain)} €/t net)`;
-  return '';
-}
-
-function glance(d) {
-  const tiles = [];
-  for (const [k, c] of Object.entries(d.cultures || {})) {
-    const plan = c.plan || [];
-    const due =
-      plan.find((p) => p.statut === 'due' && !p.avant_moisson) || plan.find((p) => p.statut === 'due') || plan[0];
-    const autre = plan.find((p) => p !== due && p.statut === 'due');
-    const [ic, lab, cl] = DECISION[(due || {}).code] || ['❔', '—', 'neutral'];
-    const con = (d.contrats || {})[c.contrat] || {};
-    const ta = con.technique || {};
-    const phys = c.physique;
-    const cours = phys && phys.prix ? phys.prix : con.dernier_reel;
-    const v1 = ta.var1s;
-    const gap = (c.niveaux_retenus || {}).sur_ble ? ((d.orges || {})[k] || {}).ecart_ble : null;
-    const tend = ta.ecart_mm20 === undefined ? '' : ta.ecart_mm20 > 0 ? '↗' : '↘';
-    tiles.push(
-      h(
-        'div',
-        { class: 'gtile g-' + cl },
-        h('div', { class: 'gname', text: `${ICON[k] || ''} ${c.nom.replace(' brassicole', '')}` }),
-        h(
-          'div',
-          { class: 'gdec' },
-          h('span', { class: 'badge ' + cl, text: `${ic} ${lab}` }),
-          h('span', { class: 'gwhat', text: court(due, (c.niveaux_retenus || {}).sur_ble, gap) })
-        ),
-        h(
-          'div',
-          { class: 'gline' },
-          cours ? `${fmt(cours)} €/t${phys && phys.prix ? ' (physique)' : ''}` : '',
-          tend && !c.proxy ? ` ${tend} ${pct(v1)} sur 1 sem.` : ''
-        ),
-        due
-          ? h('div', {
-              class: 'gsub',
-              text: `Récolte ${due.recolte} · ${due.periode}${due.code === 'ordre' ? ' · ne pas vendre au creux' : ''}`,
-            })
-          : null,
-        due && due.ordre && gap !== null && gap !== undefined
-          ? h('div', { class: 'gsub', text: `🎯 quand le blé Euronext atteint ${fmt(due.ordre)}\u00a0€/t` })
-          : null,
-        autre
-          ? h('div', {
-              class: 'gsub',
-              text: `Récolte ${autre.recolte} : ${court(autre, (c.niveaux_retenus || {}).sur_ble, gap)}`,
-            })
-          : null,
-        con.thermo
-          ? pgauge(con.thermo.percentile, 'vendeur', `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : ''}`, null, true)
-          : null,
-        con.stockage && con.stockage.code !== 'nouvelle' && !c.proxy
-          ? h('div', { class: 'gsub', text: stockShort(con.stockage) })
-          : null
-      )
-    );
-  }
-  const e = d.engrais || {};
-  const ec = e.comite || {};
-  const sig = ec.signal || e.signal;
-  const ED = {
-    ACHETER_LARGE: ['🟢', 'ACHETER', 'good'],
-    SUIVRE: ['🟡', 'SUIVRE', 'info'],
-    FRACTIONNER: ['🟠', 'FRACTIONNER', 'warn'],
-    ATTENDRE: ['🔴', 'ATTENDRE', 'bad'],
-  };
-  const [eic, elab, ecl] = ED[sig] || ['❔', '—', 'neutral'];
-  const ur = (e.france || {}).uree || {};
-  tiles.push(
-    h(
-      'div',
-      { class: 'gtile g-' + ecl },
-      h('div', { class: 'gname', text: '🧪 Azote (achat)' }),
-      h(
-        'div',
-        { class: 'gdec' },
-        h('span', { class: 'badge ' + ecl, text: `${eic} ${elab}` }),
-        h('span', { class: 'gwhat', text: ec.pct ? ec.pct.split('(')[0].trim() : e.a_acheter || '' })
-      ),
-      h('div', {
-        class: 'gline',
-        text: ur.prix
-          ? `Urée ${fmt(ur.prix)} €/t ${ur.var1m !== undefined ? (ur.var1m > 0 ? '↗' : '↘') + ' ' + pct(ur.var1m) + ' sur 1 mois' : ''}`
-          : '',
-      }),
-      pgauge(e.percentile_retenu, 'ratio', '⚖️ Ratio azote/blé sur 10 ans', null, true),
-      ec.prix_plafond ? h('div', { class: 'gsub', text: `Plafond d'achat : ${fmt(ec.prix_plafond, 0)} €/t` }) : null
-    )
-  );
-  const cal = ((d.comite || {}).calendrier || [])
-    .filter((x) => x.date >= d.date)
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
-  const nAl = (d.declencheurs || []).length;
-  return h(
-    'section',
-    { class: 'glance' },
-    h(
-      'div',
-      { class: 'ghead' },
-      h('h2', { text: '🧭 Décisions du jour' }),
-      h(
-        'div',
-        { class: 'gmeta' },
-        `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}`,
-        cal.length ? ` · 📅 ${dfr(cal[0].date)} : ${cal[0].evenement}` : '',
-        nAl ? ` · ⚠️ ${nAl} alerte${nAl > 1 ? 's' : ''}` : ' · aucune alerte'
-      )
-    ),
-    h('div', { class: 'ggrid' }, tiles),
-    h(
-      'p',
-      { class: 'note' },
-      '🎯 ORDRE = placer un ordre de vente au prix indiqué (ne pas vendre au prix du jour) · ⏸️ PATIENTER = attendre un rebond · ✅ VENDRE = la tranche peut partir · 🔴 ATTENDRE = décaler · 💤 RIEN = pas de tranche prévue maintenant. Détails, raisons et niveaux plus bas.'
-    )
-  );
-}
-
-function vSignaux() {
-  const d = GS.data;
-  const out = [glance(d)];
-  const com = d.comite || {};
-  if (!com.valide) {
-    out.push(
-      h(
-        'div',
-        { class: 'alert info' },
-        com.erreur ||
-          "Pas d'avis du comité de moins de 8 jours : les signaux restent sur « tenir le plan », avec la lecture de marché et le timing technique du matin."
-      )
-    );
-  } else if (com.erreur) {
-    out.push(h('div', { class: 'alert' }, com.erreur));
-  }
-  if (com.resume)
-    out.push(
-      h('div', { class: 'card wide' }, h('h3', { text: `Comité du ${dfr(com.date)}` }), h('p', { text: com.resume }))
-    );
-  out.push(h('h2', { text: '🔎 Détails par culture' }));
-  const grid = h('div', { class: 'grid' });
-  for (const [k, c] of Object.entries(d.cultures || {})) {
-    const cc = c.comite || {};
-    // niveaux retenus (comité, sinon technique) ; escourgeon et orge de printemps : niveaux du blé Euronext
-    const nr = c.niveaux_retenus || { ordres: [], revision: null };
-    const ordres = nr.ordres || [];
-    const revision = nr.revision;
-    const ech = nr.echeance ? ` (${c.contrat} ${moisFr(nr.echeance)})` : '';
-    const contrat = (d.contrats || {})[c.contrat] || {};
-    grid.append(
-      h(
-        'section',
-        { class: 'card' },
-        h('h3', { text: `${ICON[k] || ''} ${c.nom}` }),
-        h('div', { class: 'sig', text: c.libelle || '—' }),
-        h(
-          'div',
-          {},
-          h('span', {
-            class: 'chip ' + (c.source === 'comite' ? 'good' : ''),
-            text: c.source === 'comite' ? 'Avis du comité' : 'Sans comité',
-          }),
-          c.proxy ? h('span', { class: 'chip', text: 'suit le blé Euronext' }) : null,
-          c.lecture_marche
-            ? h('span', { class: 'chip ' + chipFor(c.lecture_marche), text: 'Marché : ' + sgn(c.score_marche) })
-            : null
-        ),
-        (() => {
-          const ta = contrat.proxy && contrat.proxy.technique ? contrat.proxy.technique : contrat.technique;
-          if (!ta || ta.insuffisant) return null;
-          const pos =
-            ta.haut3m > ta.bas3m ? Math.round(((ta.dernier - ta.bas3m) / (ta.haut3m - ta.bas3m)) * 100) : null;
-          return h(
-            'div',
-            { class: 'minis' },
-            h('span', {
-              class: 'mini ' + (ta.rsi < 30 ? 'bad' : ta.rsi > 70 ? 'good' : ''),
-              title: 'RSI 14 jours',
-              text: `📶 RSI ${fmt(ta.rsi, 0)}`,
-            }),
-            h('span', {
-              class: 'mini ' + (ta.histo > 0 ? 'good' : 'bad'),
-              title: 'MACD',
-              text: `〽️ ${ta.histo > 0 ? '▲' : '▼'} MACD`,
-            }),
-            pos !== null
-              ? h('span', {
-                  class: 'mini ' + (pos <= 15 ? 'bad' : pos >= 85 ? 'good' : ''),
-                  title: 'Position entre support et résistance (3 mois)',
-                  text: `🧱 ${pos} % du range`,
-                })
-              : null,
-            ta.divergence && ta.divergence !== 'aucune'
-              ? h('span', { class: 'mini warn', text: `🔄 divergence ${ta.divergence}` })
-              : null
-          );
-        })(),
-        (() => {
-          const th = contrat.thermo;
-          const pl = !c.proxy ? contrat.prime_locale : null;
-          const ceu = ((d.cot || {})['EURONEXT_' + c.contrat] || {}).indice;
-          const kids = [
-            th
-              ? pgauge(
-                  th.percentile,
-                  'vendeur',
-                  `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : /soja/i.test(th.source || '') ? ' (indicatif : huile de soja)' : ''}`,
-                  th.euronext
-                    ? `Médiane ${fmt(th.mediane, 0)} €/t · habituel (20e–80e) ${fmt(th.p20, 0)}–${fmt(th.p80, 0)} €/t · cours Euronext depuis ${dfr(th.depuis)}`
-                    : `${th.source} converti en €/t, comparé à ses 5 dernières années (l'historique Euronext se construit)`
-                )
-              : null,
-            pl && pl.percentile !== undefined
-              ? pgauge(pl.percentile, 'prime', '📍 Prime locale (physique − Euronext)', pl.comparaison || null)
-              : null,
-            ceu !== undefined && ceu !== null && !c.proxy
-              ? pgauge(ceu, 'cot', '🏦 Fonds sur Euronext (3 ans)', null)
-              : null,
-            contrat.psychologie
-              ? pgauge(
-                  contrat.psychologie.indice,
-                  'psy',
-                  `🧠 Humeur du marché${c.proxy ? ' (blé)' : ''}`,
-                  'Éclairage : n’annonce pas la suite des prix (onglet Actualité)'
-                )
-              : null,
-            c.actualite
-              ? pgauge(
-                  c.actualite.valeur,
-                  'actu',
-                  `📰 Actualité des 7 derniers jours${c.proxy ? ' (orges)' : ''}`,
-                  `${c.actualite.hausse} nouvelle${c.actualite.hausse > 1 ? 's' : ''} haussière${c.actualite.hausse > 1 ? 's' : ''}, ${c.actualite.baisse} baissière${c.actualite.baisse > 1 ? 's' : ''}`
-                )
-              : null,
-            (() => {
-              const st = (d.stocks_mondiaux || {})[BASE_USDA[k]];
-              return st
-                ? pgauge(
-                    st.percentile,
-                    'stocks',
-                    `🌍 Stocks mondiaux / consommation${st.hors_chine ? ' (hors Chine)' : ''}`,
-                    `${fmt(st.ratio, 1)} % en ${st.campagne} (moyenne ${fmt(st.moyenne, 1)} % sur ${st.campagnes} ans)${
-                      st.revision !== undefined ? ` · révision ${sgn(st.revision, 1)} pt` : ''
-                    } · USDA`
-                  )
-                : null;
-            })(),
-          ].filter(Boolean);
-          return kids.length ? h('div', { class: 'pgrid' }, kids) : null;
-        })(),
-        c.a_revoir ? h('div', { class: 'alert', text: c.a_revoir }) : null,
-        cc.texte ? h('p', { class: 'note', text: cc.texte }) : c.note ? h('p', { class: 'note', text: c.note }) : null,
-        h(
-          'dl',
-          { class: 'kv' },
-          cc.pct ? [h('dt', { text: 'Avis du comité' }), h('dd', { text: cc.pct })] : null,
-          [
-            h('dt', { text: '🎯 Ordres' }),
-            h('dd', {
-              text: !ordres.length
-                ? '—'
-                : nr.sur_ble
-                  ? (nr.equivalent_orge && nr.equivalent_orge.ordres.length
-                      ? `≈ ${nr.equivalent_orge.ordres.map((v) => fmt(v)).join(' · ')} €/t d'orge, `
-                      : 'Vendre une tranche d’orge ') +
-                    `quand le blé Euronext atteint ${ordres.map((v) => fmt(v)).join(' · ')} €/t${ech}`
-                  : ordres.map((v) => fmt(v)).join(' · ') + ' €/t' + ech,
-            }),
-          ],
-          probaTxt(nr.probas) ? [h('dt', { text: '🎲 Chances' }), h('dd', { text: probaTxt(nr.probas) })] : null,
-          [h('dt', { text: '🛑 Révision' }), h('dd', { text: revision ? `sous ${fmt(revision)} €/t${ech}` : '—' })],
-          nr.source && nr.source !== 'aucun'
-            ? [
-                h('dt', { text: 'Niveaux' }),
-                h('dd', {
-                  class: 'muted',
-                  text:
-                    nr.source === 'comite' ? 'fixés par le comité' : 'techniques (MM20, Fibonacci, plus bas 3 mois)',
-                }),
-              ]
-            : null,
-          c.score_actualise !== undefined
-            ? [
-                h('dt', { text: 'Score' }),
-                h('dd', { text: `${sgn(cc.score)} au comité → ${sgn(c.score_actualise)} ce matin` }),
-              ]
-            : null,
-          c.physique && c.physique.prix
-            ? [
-                h('dt', { text: 'Physique' }),
-                h('dd', {
-                  text:
-                    `${fmt(c.physique.prix)} €/t ${c.physique.place || ''}` +
-                    (c.physique.prime !== undefined && c.physique.prime !== null
-                      ? `, prime ${sgn(c.physique.prime)} €/t sur la fourragère`
-                      : '') +
-                    `, ${dfr(c.physique.date)}`,
-                }),
-              ]
-            : null,
-          !c.proxy && contrat.dernier_reel !== undefined && contrat.dernier_reel !== null
-            ? [
-                h('dt', { text: 'Euronext' }),
-                h('dd', {
-                  text: `${fmt(contrat.dernier_reel)} €/t (${contrat.echeance || ''}), ${dfr(contrat.seance)}`,
-                }),
-              ]
-            : null,
-          contrat.stockage && contrat.stockage.texte
-            ? [
-                h('dt', { text: `${(STOCK[contrat.stockage.code] || ['📦'])[0]} Stocker ?` }),
-                h('dd', {
-                  text: c.proxy
-                    ? 'Selon la courbe du blé : ' +
-                      contrat.stockage.texte.charAt(0).toLowerCase() +
-                      contrat.stockage.texte.slice(1)
-                    : contrat.stockage.texte,
-                }),
-              ]
-            : contrat.courbe && contrat.courbe.lecture
-              ? [h('dt', { text: 'Courbe' }), h('dd', { text: contrat.courbe.lecture })]
-              : null,
-          !c.proxy && contrat.prime_locale && contrat.prime_locale.percentile === undefined
-            ? [
-                h('dt', { text: '📍 Prime locale' }),
-                h('dd', {
-                  text:
-                    contrat.prime_locale.places.map((x) => `${x.place} ${sgn(x.prime)} €/t`).join(' · ') +
-                    ` — ${contrat.prime_locale.texte}`,
-                }),
-              ]
-            : null,
-          ((d.meteo || {}).cultures || {})[BASE[k]]
-            ? [
-                h('dt', { text: '🌦️ Météo' }),
-                h('dd', {
-                  text: (() => {
-                    const m = d.meteo.cultures[BASE[k]];
-                    const en = m.zones.filter((z) => z.etat !== 'normal' && z.saison);
-                    const hors = m.zones.filter((z) => z.etat !== 'normal' && !z.saison);
-                    return (
-                      `Note ${sgn(m.score)} : ` +
-                      (en.length ? en.map((z) => `${z.zone} ${z.etat}`).join(', ') : 'rien à signaler en saison') +
-                      (hors.length ? ` (hors saison : ${hors.map((z) => `${z.zone} ${z.etat}`).join(', ')})` : '')
-                    );
-                  })(),
-                }),
-              ]
-            : null,
-          (d.saison || {})[BASE[k]]
-            ? [
-                h('dt', { text: '📅 Mois chers' }),
-                h('dd', {
-                  text:
-                    d.saison[BASE[k]].plus_chers.map((m) => MOIS[m - 1]).join(', ') +
-                    ` (moins chers : ${d.saison[BASE[k]].moins_chers.map((m) => MOIS[m - 1]).join(', ')})`,
-                }),
-              ]
-            : null
-        ),
-        planBlock(c.plan),
-        c.feu
-          ? h(
-              'div',
-              { class: 'feu feu-' + c.feu.code },
-              h('b', { text: `${FEU[c.feu.code] || ''} Timing technique` }),
-              c.feu.texte
-            )
-          : null
-      )
-    );
-  }
-  const e = d.engrais || {};
-  const ec = e.comite || {};
-  grid.append(
-    h(
-      'section',
-      { class: 'card' },
-      h('h3', { text: '🧪 Engrais azotés' }),
-      h('div', {
-        class: 'sig',
-        text: ec.signal
-          ? {
-              ACHETER_LARGE: '🟢 ACHETER LARGE',
-              SUIVRE: '🟡 SUIVRE LE PLAN',
-              FRACTIONNER: '🟠 FRACTIONNER',
-              ATTENDRE: '🔴 ATTENDRE',
-            }[ec.signal]
-          : e.libelle || '—',
-      }),
-      h('span', {
-        class: 'chip ' + (ec.signal ? 'good' : ''),
-        text: ec.signal ? 'Avis du comité' : 'Règles chiffrées',
-      }),
-      ec.signal && ec.signal !== e.signal
-        ? h('span', { class: 'chip', text: 'Règles du matin : ' + (e.libelle || '—') })
-        : null,
-      h(
-        'div',
-        { class: 'pgrid' },
-        pgauge(e.percentile_retenu, 'ratio', '⚖️ Ratio azote/blé sur 10 ans'),
-        e.ttf ? pgauge(e.ttf.percentile_5ans, 'acheteur', '⛽ Gaz TTF sur 5 ans') : null
-      ),
-      h(
-        'dl',
-        { class: 'kv' },
-        [h('dt', { text: 'À acheter' }), h('dd', { text: ec.pct || e.a_acheter || '—' })],
-        [
-          h('dt', { text: 'Rattrapage gaz' }),
-          h('dd', { text: e.rattrapage !== undefined ? sgn(e.rattrapage, 0) + ' pts sur 3 mois' : '—' }),
-        ],
-        [h('dt', { text: 'Saison' }), h('dd', { text: e.saison || '—' })],
-        e.forme_moins_chere ? [h('dt', { text: 'Moins cher/uN' }), h('dd', { text: e.forme_moins_chere })] : null
-      ),
-      h(
-        'ul',
-        { class: 'list note' },
-        (e.notes || []).map((n) => h('li', { text: n }))
-      )
-    )
-  );
-  out.push(grid);
-  out.push(h('h2', { text: 'Déclencheurs' }));
-  const trig = d.declencheurs || [];
-  out.push(
-    trig.length
-      ? h(
-          'ul',
-          { class: 'list' },
-          trig.map((t) =>
-            h(
-              'li',
-              {},
-              h('b', { text: (t.grave ? '⚠️ ' : '') + t.titre }),
-              h('br'),
-              h('span', { class: 'muted', text: t.detail })
-            )
-          )
-        )
-      : h('p', { class: 'muted', text: 'Aucun déclencheur ce matin.' })
-  );
-  const hist = (d.historique_declencheurs || []).filter((t) => !trig.some((x) => x.id === t.id));
-  if (hist.length)
-    out.push(
-      h(
-        'details',
-        {},
-        h('summary', { text: `Déclencheurs précédents (${hist.length})` }),
-        h(
-          'ul',
-          { class: 'list' },
-          hist.map((t) => h('li', { text: `${dfr(t.id.slice(0, 10))} — ${t.titre}` }))
-        )
-      )
-    );
-  out.push(...carnetSection(d));
-  if (com.calendrier && com.calendrier.length) {
-    out.push(h('h2', { text: 'Calendrier' }));
-    out.push(
-      h(
-        'ul',
-        { class: 'list' },
-        com.calendrier
-          .filter((c) => c.date >= d.date)
-          .map((c) => h('li', {}, h('b', { text: dfr(c.date) }), ' — ' + c.evenement))
-      )
-    );
-  }
-  return out;
-}
 
 /* carnet de bord : chaque avis du comité, jugé 4 et 8 semaines plus tard sur le cours réel */
 function carnetSection(d) {
@@ -2117,350 +1594,120 @@ function techTable(a) {
   );
 }
 
-function vTechnique() {
-  const d = GS.data;
-  const out = [
-    h('p', {
-      class: 'note',
-      text: "Sur les marchés agricoles, la technique sert au timing d'exécution (où placer les ordres, quand déclencher une tranche) ; elle ne renverse jamais seule un signal fondamental.",
-    }),
-  ];
-  const grid = h('div', { class: 'stack' });
-  const orgGrid = h('div', { class: 'stack' });
-  for (const [code, c] of Object.entries(d.contrats || {})) {
-    const a = c.technique || {};
-    grid.append(
-      h(
-        'section',
-        { class: 'card' },
-        h('h3', { text: `${ICON[c.culture] || '📊'} ${c.nom} — Euronext ${code}` }),
-        h('p', {
-          class: 'note',
-          text: `Série continue (échéance de référence ${c.echeance || '—'}), ${a.seances || 0} séances, dernière : ${dfr(c.seance)}`,
-        }),
-        c.alerte_raccord ? h('div', { class: 'alert', text: c.alerte_raccord }) : null,
-        c.proxy ? h('div', { class: 'alert info', text: c.proxy.texte }) : null,
-        (() => {
-          const src = c.proxy && c.proxy.graphique ? c.proxy : c;
-          return periodPanel({
-            nom: c.nom,
-            graphique: src.graphique,
-            long: c.long,
-            technique: c.proxy && c.proxy.technique ? c.proxy.technique : a,
-            series: src.series,
-            // lecture de secours recalée sur Euronext : les niveaux retenus (en €/t Euronext) s'y lisent directement
-            niveaux: c.niveaux_retenus || c.niveaux,
-            marks: marksFor({ EBM: 'ble', ECO: 'colza', EMA: 'mais' }[code]),
-            longMain: c.long && c.long.source === 'euronext' ? null : 'var(--muted)',
-            legendLong: !c.long
-              ? null
-              : c.long.source === 'euronext'
-                ? [['var(--chart-1)', 'Euronext, échéance la plus proche']]
-                : [
-                    ['var(--chart-1)', `Euronext (depuis le ${dfr(c.long.euronext_depuis)})`],
-                    ['var(--muted)', `${c.long.nom} recalé sur Euronext`],
-                  ],
-            noteLong: !c.long
-              ? null
-              : c.long.source === 'euronext'
-                ? `Prix de compensation officiels d'Euronext depuis le ${dfr(c.long.euronext_depuis)} (fichiers statistiques publics), échéance la plus proche, sans ajustement : ce sont les prix réellement cotés, les petits sauts aux changements d'échéance sont réels.`
-                : `L'historique Euronext se construit depuis le ${dfr(c.long.euronext_depuis)}. Pour la tendance longue : ${c.long.nom}, converti en €/t puis recalé sur le niveau d'Euronext des dernières séances (même tendance, écarts possibles entre les deux marchés) ; les moyennes mobiles portent sur cette série.`,
-          });
-        })(),
-        h('p', { class: 'note', text: `Note technique : ${sgn(c.score_technique)} (de −2 à +2)` })
-      )
-    );
-  }
-  for (const o of Object.values(d.orges || {})) {
-    const ble = (d.contrats || {}).EBM || {};
-    orgGrid.append(
-      h(
-        'section',
-        { class: 'card' },
-        h('h3', { text: `🍺 ${o.nom}` }),
-        h('p', {
-          class: 'note',
-          text: "Pas de marché à terme pour les orges : prix physique Creil FOB relevé chaque jour (terre-net) ; le moment de vendre suit le blé Euronext, la prime brassicole dit si l'orge est bien payée.",
-        }),
-        o.estime
-          ? h('div', {
-              class: 'alert info',
-              text: `Pas encore d'historique de prix d'orge : courbe estimée = blé Euronext ${sgn(o.estime.ecart)} €/t (écart orge/blé du jour). Les points dorés sont les prix physiques réellement relevés ; ils s'accumulent chaque jour.`,
-            })
-          : null,
-        o.estime
-          ? periodPanel({
-              nom: o.nom,
-              graphique: o.estime.graphique,
-              long: orgeLong(o, d.contrats.EBM),
-              technique: o.estime.technique,
-              series: o.estime.series,
-              niveaux: o.estime.niveaux,
-              marks: marksFor(Object.keys(d.orges).find((k) => d.orges[k] === o)),
-              mainColor: 'var(--muted)',
-              longMain: 'var(--muted)',
-              col4Dots: true,
-              legend3m: h(
-                'div',
-                { class: 'legend' },
-                h(
-                  'span',
-                  {},
-                  h('i', { style: 'background:var(--muted)' }),
-                  `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`
-                ),
-                h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Prix physique relevé'),
-                h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'MM20'),
-                h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'MM50'),
-                h('span', {}, h('i', { style: 'background:var(--channel)' }), 'Canal 3 mois'),
-                h('span', {}, h('i', { class: 'cone' }), 'Fourchette probable 20 séances')
-              ),
-              legendLong: [
-                ['var(--muted)', `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`],
-                ['var(--chart-1)', 'Prix physique relevé'],
-              ],
-              noteLong: `Tendance longue de l'orge estimée à partir du blé (${(d.contrats.EBM.long || {}).source === 'euronext' ? 'cours Euronext' : `Euronext, puis ${(d.contrats.EBM.long || {}).nom || 'Chicago'} recalé`}) décalé de l'écart du jour : l'écart orge/blé varie dans le temps, ce n'est qu'un repère.`,
-            })
-          : h('p', { class: 'note', text: 'Graphique dès que plusieurs jours de prix sont relevés.' }),
-        h(
-          'table',
-          {},
-          h(
-            'tr',
-            {},
-            h('td', { text: `Prix ${o.place} (${o.echeance || ''})` }),
-            h('td', { class: 'n', text: `${fmt(o.prix)} €/t` })
-          ),
-          o.rouen_rendu
-            ? h('tr', {}, h('td', { text: 'Rouen rendu' }), h('td', { class: 'n', text: `${fmt(o.rouen_rendu)} €/t` }))
-            : null,
-          h(
-            'tr',
-            {},
-            h('td', { text: `Orge fourragère Creil FOB${o.fourragere_echeance ? ` (${o.fourragere_echeance})` : ''}` }),
-            h('td', { class: 'n', text: o.fourragere ? `${fmt(o.fourragere)} €/t` : '—' })
-          ),
-          h(
-            'tr',
-            {},
-            h('td', {
-              text:
-                'Prime brassicole' +
-                (o.fourragere_echeance && o.fourragere_echeance !== o.echeance
-                  ? ' (indicative : échéances différentes)'
-                  : ''),
-            }),
-            h('td', { class: 'n ' + cls(o.prime), text: o.prime !== undefined ? `${sgn(o.prime)} €/t` : '—' })
-          ),
-          h(
-            'tr',
-            {},
-            h('td', { text: 'Écart avec le blé Euronext' }),
-            h('td', {
-              class: 'n ' + cls(o.ecart_ble),
-              text: o.ecart_ble !== undefined ? `${sgn(o.ecart_ble)} €/t` : '—',
-            })
-          ),
-          h(
-            'tr',
-            {},
-            h('td', { text: 'Variation 1 mois / 3 mois' }),
-            h('td', { class: 'n', text: `${pct(o.var1m)} / ${pct(o.var3m)}` })
-          ),
-          h('tr', {}, h('td', { text: 'Cotation' }), h('td', { class: 'n', text: dfr(o.date) }))
-        ),
-        o.technique ? techTable(o.technique) : null,
-        ble.feu ? h('div', { class: 'feu' }, h('b', { text: 'Timing (blé Euronext)' }), ble.feu.texte) : null
-      )
-    );
-  }
-  out.push(grid);
-  if (orgGrid.children.length) out.push(h('h2', { text: '🍺 Orges brassicoles' }), orgGrid);
-  out.push(h('h2', { text: '🌍 Marchés internationaux, énergie, change' }));
-  const rows = Object.entries(d.international || {}).map(([tk, x]) => {
-    const a = x.technique || {};
-    return h(
-      'tr',
-      {},
-      h('td', { text: x.nom }),
-      h('td', { class: 'n', text: fmt(a.dernier, a.dernier < 10 ? 4 : 2) }),
-      h('td', { class: 'n ' + cls(a.var1m), text: pct(a.var1m) }),
-      h('td', { class: 'n ' + cls(a.ecart_mm50), text: pct(a.ecart_mm50) }),
-      h('td', { class: 'n', text: fmt(a.rsi, 0) }),
-      h('td', { class: 'n ' + cls(a.histo), text: sgn(a.histo) }),
-      h('td', { class: 'n', text: sgn(x.score_technique) })
-    );
-  });
-  out.push(
-    h(
-      'div',
-      { class: 'card scroll' },
-      h(
-        'table',
-        {},
-        h(
-          'tr',
-          {},
-          ['Marché', 'Dernier', '1 mois', 'vs MM50', 'RSI', 'Histo MACD', 'Note'].map((t, i) =>
-            h('th', { class: i ? 'n' : '', text: t })
-          )
-        ),
-        rows
-      )
-    )
-  );
-  out.push(h('h2', { text: '🏦 Positions des fonds (Euronext et CFTC)' }));
-  const cot = Object.values(d.cot || {}).sort(
-    (a, b) => (a.source === 'euronext' ? 0 : 1) - (b.source === 'euronext' ? 0 : 1)
-  );
-  out.push(
-    cot.length
-      ? h(
-          'div',
-          { class: 'card scroll' },
-          h(
-            'table',
-            {},
-            h(
-              'tr',
-              {},
-              ['Marché', 'Rapport', 'Net', 'Semaine', 'Positionnement sur 3 ans'].map((t, i) =>
-                h('th', { class: i > 1 && i < 4 ? 'n' : '', text: t })
-              )
-            ),
-            cot.map((c) =>
-              h(
-                'tr',
-                {},
-                h('td', { text: c.nom }),
-                h('td', { text: dfr(c.date) }),
-                h('td', { class: 'n', text: fmt(c.net, 0) }),
-                h('td', { class: 'n ' + cls(c.variation), text: sgn(c.variation, 0) }),
-                h(
-                  'td',
-                  { class: 'pgcell' },
-                  c.indice === null || c.indice === undefined
-                    ? h('span', { class: 'muted', text: `historique en constitution (${c.semaines || 0}/26 semaines)` })
-                    : pgauge(c.indice, 'cot', null, null, true)
-                )
-              )
-            )
-          ),
-          h('p', {
-            class: 'note',
-            text: "Lecture à contre-courant : un positionnement extrême annonce souvent un retournement. Euronext : fonds d'investissement (rapport officiel du mercredi), compte pour 70 % de la note des fonds ; CFTC (managed money, États-Unis) pour 30 %.",
-          })
-        )
-      : h('p', { class: 'muted', text: 'Positions des fonds non disponibles ce matin.' })
-  );
-  out.push(...stocksSection(d), ...saisonSection(d), ...meteoSection(d));
-  return out;
-}
-
 const SIG_ENGRAIS_TXT = {
   ACHETER_LARGE: '🟢 ACHETER LARGE',
   SUIVRE: '🟡 SUIVRE LE PLAN',
   FRACTIONNER: '🟠 FRACTIONNER',
   ATTENDRE: '🔴 ATTENDRE',
 };
-function vEngrais() {
+function vEngrais(detail) {
   const e = GS.data.engrais || {};
   const out = [];
-  out.push(
-    h(
-      'div',
-      { class: 'grid' },
+  if (!detail)
+    out.push(
       h(
-        'section',
-        { class: 'card' },
-        h('h3', { text: 'Décision du matin' }),
-        // avis du comité d'abord (comme l'onglet Signaux, l'email et le PDF), règles chiffrées en second
-        h('div', {
-          class: 'sig',
-          text: (e.comite && e.comite.signal && SIG_ENGRAIS_TXT[e.comite.signal]) || e.libelle || '—',
-        }),
-        e.comite && e.comite.signal
-          ? h(
-              'div',
-              {},
-              h('span', { class: 'chip good', text: 'Avis du comité' }),
-              e.comite.signal !== e.signal ? h('span', { class: 'chip', text: 'Règles du matin : ' + e.libelle }) : null
-            )
-          : null,
-        h('p', {
-          text:
-            'À acheter maintenant : ' +
-            ((e.comite && e.comite.pct) || e.a_acheter || '—') +
-            (e.comite && e.comite.prix_plafond ? ` (plafond ${fmt(e.comite.prix_plafond, 0)} €/t)` : ''),
-        }),
-        e.comite && e.comite.texte ? h('p', { class: 'note', text: e.comite.texte }) : null,
+        'div',
+        { class: 'grid' },
         h(
-          'ul',
-          { class: 'list note' },
-          (e.notes || []).map((n) => h('li', { text: n }))
-        )
-      ),
-      h(
-        'section',
-        { class: 'card' },
-        h('h3', { text: 'Ratio urée / blé' }),
-        h(
-          'div',
-          { class: 'pgrid' },
-          e.estimation
-            ? pgauge(e.estimation.percentile, 'ratio', `Estimé ce matin : ${fmt(e.estimation.ratio, 3)}`)
-            : null,
-          e.mondial
-            ? pgauge(e.mondial.percentile, 'ratio', `Mondial (${moisFr(e.mondial.mois)}) : ${fmt(e.mondial.ratio, 3)}`)
-            : null,
-          e.mondial
-            ? pgauge(
-                e.mondial.uree_percentile,
-                'acheteur',
-                `Urée mondiale seule sur 10 ans : ${fmt(e.mondial.uree, 0)} $/t`
+          'section',
+          { class: 'card' },
+          h('h3', { text: 'Décision du matin' }),
+          // avis du comité d'abord (comme l'onglet Signaux, l'email et le PDF), règles chiffrées en second
+          h('div', {
+            class: 'sig',
+            text: (e.comite && e.comite.signal && SIG_ENGRAIS_TXT[e.comite.signal]) || e.libelle || '—',
+          }),
+          e.comite && e.comite.signal
+            ? h(
+                'div',
+                {},
+                h('span', { class: 'chip good', text: 'Avis du comité' }),
+                e.comite.signal !== e.signal
+                  ? h('span', { class: 'chip', text: 'Règles du matin : ' + e.libelle })
+                  : null
               )
-            : null
+            : null,
+          h('p', {
+            text:
+              'À acheter maintenant : ' +
+              ((e.comite && e.comite.pct) || e.a_acheter || '—') +
+              (e.comite && e.comite.prix_plafond ? ` (plafond ${fmt(e.comite.prix_plafond, 0)} €/t)` : ''),
+          }),
+          e.comite && e.comite.texte ? h('p', { class: 'note', text: e.comite.texte }) : null,
+          h(
+            'ul',
+            { class: 'list note' },
+            (e.notes || []).map((n) => h('li', { text: n }))
+          )
         ),
         h(
-          'dl',
-          { class: 'kv' },
-          [
-            h('dt', { text: 'Rattrapage' }),
-            h('dd', { text: e.rattrapage !== undefined ? sgn(e.rattrapage, 0) + ' pts' : '—' }),
-          ],
-          [h('dt', { text: 'Saison' }), h('dd', { text: e.saison || '—' })]
+          'section',
+          { class: 'card' },
+          h('h3', { text: 'Ratio urée / blé' }),
+          h(
+            'div',
+            { class: 'pgrid' },
+            e.estimation
+              ? pgauge(e.estimation.percentile, 'ratio', `Estimé ce matin : ${fmt(e.estimation.ratio, 3)}`)
+              : null,
+            e.mondial
+              ? pgauge(
+                  e.mondial.percentile,
+                  'ratio',
+                  `Mondial (${moisFr(e.mondial.mois)}) : ${fmt(e.mondial.ratio, 3)}`
+                )
+              : null,
+            e.mondial
+              ? pgauge(
+                  e.mondial.uree_percentile,
+                  'acheteur',
+                  `Urée mondiale seule sur 10 ans : ${fmt(e.mondial.uree, 0)} $/t`
+                )
+              : null
+          ),
+          h(
+            'dl',
+            { class: 'kv' },
+            [
+              h('dt', { text: 'Rattrapage' }),
+              h('dd', { text: e.rattrapage !== undefined ? sgn(e.rattrapage, 0) + ' pts' : '—' }),
+            ],
+            [h('dt', { text: 'Saison' }), h('dd', { text: e.saison || '—' })]
+          ),
+          e.estimation ? h('p', { class: 'note', text: e.estimation.methode }) : null,
+          h('p', {
+            class: 'note',
+            text: '≤ 20e percentile : acheter large · 20-60 : suivre le plan · 60-80 : fractionner · ≥ 80 : attendre. Rattrapage > +15 pts : avancer ; < −15 : retarder.',
+          })
         ),
-        e.estimation ? h('p', { class: 'note', text: e.estimation.methode }) : null,
-        h('p', {
-          class: 'note',
-          text: '≤ 20e percentile : acheter large · 20-60 : suivre le plan · 60-80 : fractionner · ≥ 80 : attendre. Rattrapage > +15 pts : avancer ; < −15 : retarder.',
-        })
-      ),
-      e.ttf
-        ? h(
-            'section',
-            { class: 'card' },
-            h('h3', { text: 'Gaz TTF' }),
-            pgauge(e.ttf.percentile_5ans, 'acheteur', `Prix sur 5 ans : ${fmt(e.ttf.dernier)} €/MWh`),
-            h(
-              'dl',
-              { class: 'kv' },
-              [h('dt', { text: 'Dernier' }), h('dd', { text: `${fmt(e.ttf.dernier)} €/MWh (${dfr(e.ttf.au)})` })],
-              [
-                h('dt', { text: '1 sem. / 1 mois / 3 mois' }),
-                h('dd', { text: `${pct(e.ttf.var1s)} / ${pct(e.ttf.var1m)} / ${pct(e.ttf.var3m)}` }),
-              ],
-              [h('dt', { text: 'MM20 / MM50' }), h('dd', { text: `${fmt(e.ttf.mm20)} / ${fmt(e.ttf.mm50)}` })],
-              [h('dt', { text: 'RSI / histo MACD' }), h('dd', { text: `${fmt(e.ttf.rsi, 0)} / ${sgn(e.ttf.histo)}` })],
-              [
-                h('dt', { text: 'Plus haut / bas 3 mois' }),
-                h('dd', { text: `${fmt(e.ttf.haut3m)} / ${fmt(e.ttf.bas3m)}` }),
-              ]
+        e.ttf
+          ? h(
+              'section',
+              { class: 'card' },
+              h('h3', { text: 'Gaz TTF' }),
+              pgauge(e.ttf.percentile_5ans, 'acheteur', `Prix sur 5 ans : ${fmt(e.ttf.dernier)} €/MWh`),
+              h(
+                'dl',
+                { class: 'kv' },
+                [h('dt', { text: 'Dernier' }), h('dd', { text: `${fmt(e.ttf.dernier)} €/MWh (${dfr(e.ttf.au)})` })],
+                [
+                  h('dt', { text: '1 sem. / 1 mois / 3 mois' }),
+                  h('dd', { text: `${pct(e.ttf.var1s)} / ${pct(e.ttf.var1m)} / ${pct(e.ttf.var3m)}` }),
+                ],
+                [h('dt', { text: 'MM20 / MM50' }), h('dd', { text: `${fmt(e.ttf.mm20)} / ${fmt(e.ttf.mm50)}` })],
+                [
+                  h('dt', { text: 'RSI / histo MACD' }),
+                  h('dd', { text: `${fmt(e.ttf.rsi, 0)} / ${sgn(e.ttf.histo)}` }),
+                ],
+                [
+                  h('dt', { text: 'Plus haut / bas 3 mois' }),
+                  h('dd', { text: `${fmt(e.ttf.haut3m)} / ${fmt(e.ttf.bas3m)}` }),
+                ]
+              )
             )
-          )
-        : null
-    )
-  );
+          : null
+      )
+    );
   const fr = Object.values(e.france || {});
   const tv = (e.ttf || {}).vues;
   if (tv && tv.graphique) {
@@ -2642,65 +1889,6 @@ function cleanHtml(src) {
   return root;
 }
 
-function vComite() {
-  const c = GS.comite || {};
-  const out = [];
-  if (!c.date) {
-    out.push(
-      h('div', {
-        class: 'alert info',
-        text:
-          c.erreur ||
-          "Aucun comité pour l'instant : il se réunit chaque lundi matin et quand un déclencheur important saute.",
-      })
-    );
-    return out;
-  }
-  if (c.erreur) out.push(h('div', { class: 'alert', text: c.erreur }));
-  out.push(
-    h(
-      'p',
-      { class: 'note' },
-      `Comité ${c.mode === 'alerte' ? "d'alerte" : 'complet'} du ${dfr(c.date)} — ${c.modele || ''}` +
-        (c.usage ? ` — ${c.usage.searches || 0} recherches web` : '') +
-        (c.cout_usd !== undefined ? `, ≈ ${fmt(c.cout_usd)} $` : '')
-    )
-  );
-  if (c.consigne && c.mode === 'alerte') out.push(h('div', { class: 'alert', text: c.consigne }));
-  out.push(h('article', { class: 'card rapport' }, cleanHtml(c.rapport_html)));
-  if (c.sources && c.sources.length)
-    out.push(
-      h(
-        'details',
-        {},
-        h('summary', { text: `Sources consultées (${c.sources.length})` }),
-        h(
-          'ul',
-          { class: 'list' },
-          c.sources
-            .filter((s) => /^https?:\/\//i.test(s.url))
-            .map((s) =>
-              h('li', {}, h('a', { href: s.url, rel: 'noopener noreferrer', target: '_blank', text: s.titre || s.url }))
-            )
-        )
-      )
-    );
-  if (GS.journal.length)
-    out.push(
-      h(
-        'details',
-        {},
-        h('summary', { text: `Comités précédents (${GS.journal.length})` }),
-        h(
-          'ul',
-          { class: 'list' },
-          GS.journal.map((j) => h('li', {}, h('b', { text: `${dfr(j.date)} (${j.mode})` }), ' — ' + (j.resume || '')))
-        )
-      )
-    );
-  return out;
-}
-
 function vMethode() {
   const txt = [
     [
@@ -2748,15 +1936,49 @@ function vMethode() {
       "Les cours Euronext du jour viennent de terre-net (prix de compensation officiel) ; l'historique depuis novembre 2019 est repris des fichiers statistiques publics d'Euronext, et chaque séance commune sert de contrôle croisé avec terre-net. Tant que cet historique est trop court, la technique et les vues longues s'appuient sur le marché américain correspondant. Les escourgeons et orges de printemps n'ont pas de marché à terme : ils suivent le blé, avec l'avis du comité sur les primes brassicoles. Les résultats historiques du module engrais portent sur l'urée mondiale et le blé US en dollars. L'outil ne connaît ni vos coûts ni vos volumes : il raisonne en pourcentages.",
     ],
   ];
+  const pli = (titre, ...kids) => h('details', { class: 'acc' }, h('summary', { text: titre }), ...kids);
+  const d = GS.data;
+  const hist = d.historique_declencheurs || [];
   return [
-    h(
-      'div',
-      { class: 'grid' },
-      txt.map(([t, p]) => h('section', { class: 'card' }, h('h3', { text: t }), h('p', { text: p })))
+    h('p', { class: 'note', text: 'Comment l’outil décide, ce qu’il aurait rapporté, et d’où viennent les chiffres.' }),
+    pli(
+      'Comment l’outil décide',
+      ...txt
+        .filter(([t]) => t !== 'Carnet de bord')
+        .flatMap(([t, p]) => [h('h4', { class: 'ititle', text: t }), h('p', { text: p })])
     ),
-    h('div', { style: 'margin-top:12px' }, calendarTable()),
-    backtestSection(),
-  ].concat(sources());
+    pli('Calendrier des tranches de vente', calendarTable()),
+    pli('Backtest : ce que les règles auraient rapporté', backtestSection()),
+    pli(
+      'Carnet de bord des avis du comité',
+      h('p', { class: 'note', text: (txt.find(([t]) => t === 'Carnet de bord') || [])[1] || '' }),
+      ...carnetSection(d).slice(1)
+    ),
+    hist.length || GS.journal.length
+      ? pli(
+          'Historique des alertes et des comités',
+          hist.length ? h('h4', { class: 'ititle', text: 'Alertes' }) : null,
+          hist.length
+            ? h(
+                'ul',
+                { class: 'list' },
+                hist.map((t) => h('li', { text: `${dfr(t.id.slice(0, 10))} — ${t.titre}` }))
+              )
+            : null,
+          GS.journal.length ? h('h4', { class: 'ititle', text: 'Comités' }) : null,
+          GS.journal.length
+            ? h(
+                'ul',
+                { class: 'list' },
+                GS.journal.map((j) =>
+                  h('li', {}, h('b', { text: `${dfr(j.date)} (${j.mode})` }), ' — ' + (j.resume || ''))
+                )
+              )
+            : null
+        )
+      : null,
+    pli('Collecte du matin (sources)', ...sources().slice(1)),
+  ];
 }
 
 function sources() {
@@ -2787,6 +2009,512 @@ function sources() {
       )
     ),
   ];
+}
+
+/* ---------------------------------------------------------------------------------------------- vue simplifiée
+   Aujourd'hui : une ligne par culture (que faire, combien, à quel prix) ; Cultures : une culture à la fois, le détail replié. */
+const ED = {
+  ACHETER_LARGE: ['🟢', 'ACHETER', 'good'],
+  SUIVRE: ['🟡', 'SUIVRE LE PLAN', 'info'],
+  FRACTIONNER: ['🟠', 'FRACTIONNER', 'warn'],
+  ATTENDRE: ['🔴', 'ATTENDRE', 'bad'],
+};
+const NOM_COURT = {
+  ble: 'Blé',
+  escourgeon: 'Escourgeon',
+  orge_printemps: 'Orge de printemps',
+  colza: 'Colza',
+  mais: 'Maïs',
+};
+
+function duePlan(c) {
+  const plan = c.plan || [];
+  return plan.find((p) => p.statut === 'due' && !p.avant_moisson) || plan.find((p) => p.statut === 'due') || plan[0];
+}
+
+// ce que la page dit de chaque culture, calculé une fois : action, quantité, prix, cours du jour, chances
+function resumeCulture(k, d) {
+  const c = d.cultures[k];
+  const due = duePlan(c);
+  const [ic, lab, cl] = DECISION[(due || {}).code] || ['❔', '—', 'neutral'];
+  const con = (d.contrats || {})[c.contrat] || {};
+  const nr = c.niveaux_retenus || {};
+  const gap = nr.sur_ble ? ((d.orges || {})[k] || {}).ecart_ble : null;
+  const phys = c.physique || {};
+  const cours = phys.prix ? phys.prix : con.dernier_reel;
+  const v1 = (con.technique || {}).var1s;
+  const pb = nr.probas || {};
+  const ch = due && due.code === 'ordre' && pb.ordres && pb.ordres[0] !== undefined ? pb.ordres[0] : null;
+  const sous = [
+    cours
+      ? `${phys.prix ? 'Prix physique' : 'Cours'} ${fmt(cours)} €/t` +
+        (!c.proxy && v1 !== undefined ? ` (${pct(v1)} en 1 sem.)` : '')
+      : null,
+    ch !== null ? `${ch} % de chances d’atteindre l’ordre d’ici le ${dfr(pb.horizon)}` : null,
+    due && due.ordre && nr.sur_ble ? `ordre déclenché par le blé Euronext à ${fmt(due.ordre)} €/t` : null,
+  ].filter(Boolean);
+  return { c, due, ic, lab, cl, quoi: court(due, nr.sur_ble, gap), sous: sous.join(' · '), con, nr, gap };
+}
+
+function resumeAzote(d) {
+  const e = d.engrais || {};
+  const ec = e.comite || {};
+  const [ic, lab, cl] = ED[ec.signal || e.signal] || ['❔', '—', 'neutral'];
+  const ur = (e.france || {}).uree || {};
+  const sous = [
+    ur.prix ? `Urée ${fmt(ur.prix)} €/t` + (ur.var1m !== undefined ? ` (${pct(ur.var1m)} en 1 mois)` : '') : null,
+    ec.prix_plafond ? `plafond d’achat ${fmt(ec.prix_plafond, 0)} €/t` : null,
+  ].filter(Boolean);
+  return { e, ec, ic, lab, cl, quoi: ec.pct ? ec.pct.split('(')[0].trim() : e.a_acheter || '', sous: sous.join(' · ') };
+}
+
+function decisionRow(href, nom, r) {
+  return h(
+    'a',
+    { class: 'drow d-' + r.cl, href },
+    h('span', { class: 'dname', text: nom }),
+    h(
+      'span',
+      { class: 'dmain' },
+      h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
+      h('span', { class: 'dquoi', text: r.quoi })
+    ),
+    r.sous ? h('span', { class: 'dsous', text: r.sous }) : null,
+    h('span', { class: 'dgo', 'aria-hidden': 'true', text: '›' })
+  );
+}
+
+function alertes(d) {
+  const out = [];
+  const com = d.comite || {};
+  const cj = GS.comite || {};
+  if (cj.erreur && com.valide)
+    out.push(`Le dernier comité n’a pas abouti : l’avis du ${dfr(com.date)} reste appliqué.`);
+  else if (!com.valide) out.push('Pas d’avis du comité de moins de 8 jours : plan de vente par défaut.');
+  for (const a of ((GS.actu || {}).articles || []).filter((x) => ((GS.actu || {}).majeurs || []).includes(x.id)))
+    out.push(`📰 ${a.titre_fr || a.titre}`);
+  for (const t of d.declencheurs || []) out.push(`${t.grave ? '⚠️ ' : ''}${t.titre}`);
+  return out;
+}
+
+function vAujourdhui() {
+  const d = GS.data;
+  const com = d.comite || {};
+  const out = [];
+  const cal = ((com.calendrier || []).filter((x) => x.date >= d.date) || []).sort((a, b) => (a.date < b.date ? -1 : 1));
+  out.push(
+    h(
+      'p',
+      { class: 'meta' },
+      `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}`,
+      cal.length ? ` · prochain rendez-vous : ${cal[0].evenement} (${dfr(cal[0].date)})` : ''
+    )
+  );
+  const al = alertes(d);
+  if (al.length)
+    out.push(
+      h(
+        'div',
+        { class: 'alert' },
+        h(
+          'ul',
+          { class: 'alist' },
+          al.slice(0, 5).map((t) => h('li', { text: t }))
+        )
+      )
+    );
+  out.push(h('h2', { text: 'Que faire aujourd’hui' }));
+  const rows = Object.keys(d.cultures || {}).map((k) =>
+    decisionRow(`#cultures/${k}`, `${ICON[k] || ''} ${NOM_COURT[k] || d.cultures[k].nom}`, resumeCulture(k, d))
+  );
+  rows.push(decisionRow('#cultures/azote', '🧪 Azote', resumeAzote(d)));
+  out.push(h('nav', { class: 'drows', 'aria-label': 'Décisions par culture' }, rows));
+  out.push(
+    h('p', {
+      class: 'note',
+      text: '🎯 ORDRE : placer un ordre de vente à ce prix, pas au prix du jour · ⏸️ PATIENTER : attendre un rebond · ✅ VENDRE : la tranche peut partir · 🔴 ATTENDRE : décaler · 💤 RIEN : pas de tranche maintenant. Touchez une ligne pour le détail.',
+    })
+  );
+  const cj = GS.comite || {};
+  if (com.resume) {
+    out.push(
+      h(
+        'section',
+        { class: 'card wide' },
+        h('h3', { text: `L’avis du comité (${dfr(com.date)})` }),
+        h('p', { text: com.resume }),
+        cj.rapport_html
+          ? h(
+              'details',
+              {},
+              h('summary', { text: 'Lire le rapport complet' }),
+              h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html)),
+              cj.sources && cj.sources.length
+                ? h(
+                    'p',
+                    { class: 'note' },
+                    `Sources consultées : ${cj.sources.filter((x) => /^https?:\/\//i.test(x.url)).length} pages · ${cj.modele || ''}${
+                      cj.cout_usd !== undefined ? ` · ≈ ${fmt(cj.cout_usd)} $` : ''
+                    }`
+                  )
+                : null
+            )
+          : null
+      )
+    );
+  }
+  return out;
+}
+
+// une jauge résumée par sujet, 4 au plus : prix sur 5 ans, stocks mondiaux, actualité, humeur
+function reperes(k, c, con, d) {
+  const th = con.thermo;
+  const st = (d.stocks_mondiaux || {})[BASE_USDA[k]];
+  return [
+    th
+      ? pgauge(
+          th.percentile,
+          'vendeur',
+          `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : ''}`,
+          th.euronext ? `Habituel ${fmt(th.p20, 0)}–${fmt(th.p80, 0)} €/t` : null,
+          true
+        )
+      : null,
+    st
+      ? pgauge(
+          st.percentile,
+          'stocks',
+          '🌍 Stocks mondiaux',
+          `${fmt(st.ratio, 1)} % de la consommation${st.hors_chine ? ' hors Chine' : ''}`,
+          true
+        )
+      : null,
+    c.actualite ? pgauge(c.actualite.valeur, 'actu', '📰 Actualité (7 jours)', null, true) : null,
+    con.psychologie ? pgauge(con.psychologie.indice, 'psy', '🧠 Humeur du marché', null, true) : null,
+  ].filter(Boolean);
+}
+
+function cultureView(k, d) {
+  const r = resumeCulture(k, d);
+  const { c, con, nr } = r;
+  const cc = c.comite || {};
+  const ech = nr.echeance ? ` (${c.contrat} ${moisFr(nr.echeance)})` : '';
+  const ordres = nr.ordres || [];
+  const o = (d.orges || {})[k];
+  const plan = (c.plan || []).map((p) => `Récolte ${p.recolte} : ${court(p, nr.sur_ble, r.gap)} (${p.periode})`);
+  const graph =
+    o && o.estime
+      ? periodPanel({
+          nom: o.nom,
+          graphique: o.estime.graphique,
+          long: orgeLong(o, d.contrats.EBM),
+          technique: o.estime.technique,
+          niveaux: o.estime.niveaux,
+          mainColor: 'var(--muted)',
+          longMain: 'var(--muted)',
+          col4Dots: true,
+          simple: true,
+          legend3m: h(
+            'div',
+            { class: 'legend' },
+            h(
+              'span',
+              {},
+              h('i', { style: 'background:var(--muted)' }),
+              `Orge estimée (blé ${sgn(o.estime.ecart)} €/t)`
+            ),
+            h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Prix physique relevé')
+          ),
+        })
+      : !c.proxy
+        ? periodPanel({
+            nom: con.nom,
+            graphique: (con.proxy && con.proxy.graphique ? con.proxy : con).graphique,
+            long: con.long,
+            technique: con.proxy && con.proxy.technique ? con.proxy.technique : con.technique,
+            niveaux: con.niveaux_retenus || con.niveaux,
+            marks: marksFor(k),
+            longMain: con.long && con.long.source === 'euronext' ? null : 'var(--muted)',
+            simple: true,
+          })
+        : null;
+  const ta = con.proxy && con.proxy.technique ? con.proxy.technique : con.technique;
+  const met = ((d.meteo || {}).cultures || {})[BASE[k]];
+  const sa = (d.saison || {})[BASE[k]];
+  const b = c.biais;
+  const ceu = ((d.cot || {})['EURONEXT_' + c.contrat] || {}).indice;
+  const pl = !c.proxy ? con.prime_locale : null;
+  return [
+    h(
+      'section',
+      { class: 'card wide head d-' + r.cl },
+      h('h2', { text: `${ICON[k] || ''} ${c.nom}` }),
+      h(
+        'div',
+        { class: 'dmain' },
+        h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
+        h('span', { class: 'dquoi', text: r.quoi })
+      ),
+      r.sous ? h('p', { class: 'dsous', text: r.sous }) : null,
+      cc.texte ? h('p', { text: cc.texte }) : c.note ? h('p', { class: 'note', text: c.note }) : null,
+      c.a_revoir ? h('div', { class: 'alert', text: c.a_revoir }) : null
+    ),
+    graph ? h('section', { class: 'card wide' }, graph) : null,
+    (() => {
+      const g = reperes(k, c, con, d);
+      return g.length ? h('div', { class: 'card wide' }, h('div', { class: 'pgrid tight' }, g)) : null;
+    })(),
+    h(
+      'section',
+      { class: 'card wide' },
+      h(
+        'dl',
+        { class: 'kv' },
+        ordres.length && (nr.sur_ble || !graph)
+          ? [
+              h('dt', { text: '🎯 Ordres' }),
+              h('dd', {
+                text: nr.sur_ble
+                  ? `${nr.equivalent_orge && nr.equivalent_orge.ordres.length ? `≈ ${nr.equivalent_orge.ordres.map((v) => fmt(v)).join(' · ')} €/t d’orge, ` : ''}quand le blé Euronext atteint ${ordres.map((v) => fmt(v)).join(' · ')} €/t${ech}`
+                  : `${ordres.map((v) => fmt(v)).join(' · ')} €/t${ech}`,
+              }),
+            ]
+          : null,
+        probaTxt(nr.probas) && (nr.sur_ble || !graph)
+          ? [h('dt', { text: '🎲 Chances' }), h('dd', { text: probaTxt(nr.probas) })]
+          : null,
+        nr.revision && (nr.sur_ble || !graph)
+          ? [h('dt', { text: '🛑 Révision' }), h('dd', { text: `sous ${fmt(nr.revision)} €/t${ech}` })]
+          : null,
+        plan.length
+          ? [
+              h('dt', { text: '📅 Plan' }),
+              h(
+                'dd',
+                {},
+                plan.map((t) => h('div', { text: t }))
+              ),
+            ]
+          : null,
+        c.feu ? [h('dt', { text: `${FEU[c.feu.code] || ''} Timing` }), h('dd', { text: c.feu.texte })] : null,
+        con.stockage && con.stockage.texte
+          ? [
+              h('dt', { text: '📦 Stocker ?' }),
+              h('dd', { text: (c.proxy ? 'Selon le blé : ' : '') + con.stockage.texte }),
+            ]
+          : null
+      ),
+      h(
+        'details',
+        {},
+        h('summary', { text: 'Tous les détails' }),
+        h(
+          'dl',
+          { class: 'kv' },
+          cc.signal
+            ? [
+                h('dt', { text: 'Avis du comité' }),
+                h('dd', {
+                  text: `${c.libelle || ''}${cc.pct ? ` · ${cc.pct}` : ''}${c.score_actualise !== undefined ? ` · score ${sgn(cc.score)} au comité, ${sgn(c.score_actualise)} ce matin` : ''}`,
+                }),
+              ]
+            : null,
+          c.physique && c.physique.prix
+            ? [
+                h('dt', { text: 'Physique' }),
+                h('dd', {
+                  text: `${fmt(c.physique.prix)} €/t ${c.physique.place || ''}${c.physique.prime !== undefined && c.physique.prime !== null ? `, prime brassicole ${sgn(c.physique.prime)} €/t` : ''}, ${dfr(c.physique.date)}`,
+                }),
+              ]
+            : null,
+          met
+            ? [
+                h('dt', { text: '🌦️ Météo' }),
+                h('dd', {
+                  text: `Note ${sgn(met.score)} : ${
+                    met.zones
+                      .filter((z) => z.etat !== 'normal' && z.saison)
+                      .map((z) => `${z.zone} ${z.etat}`)
+                      .join(', ') || 'rien à signaler en saison'
+                  }`,
+                }),
+              ]
+            : null,
+          sa
+            ? [
+                h('dt', { text: '📅 Mois chers' }),
+                h('dd', {
+                  text: `${sa.plus_chers.map((m) => MOIS[m - 1]).join(', ')} (moins chers : ${sa.moins_chers.map((m) => MOIS[m - 1]).join(', ')})`,
+                }),
+              ]
+            : null,
+          b
+            ? [
+                h('dt', { text: '🪞 Vos biais' }),
+                h('dd', {
+                  text:
+                    (b.chance_plus_haut !== null && b.chance_plus_haut !== undefined
+                      ? `Plus haut de la campagne ${fmt(b.plus_haut)} €/t le ${dfr(b.plus_haut_le)} : ${b.chance_plus_haut} % de chances de le revoir d’ici le ${dfr(b.horizon)}. `
+                      : '') +
+                    `Attendre encore 5 € : ${b.gagner5} % de chances de les voir, ${b.perdre5} % de risque de reculer de 5 €.`,
+                }),
+              ]
+            : null
+        ),
+        h(
+          'div',
+          { class: 'pgrid' },
+          ceu !== undefined && ceu !== null && !c.proxy
+            ? pgauge(ceu, 'cot', '🏦 Fonds sur Euronext (3 ans)', null, true)
+            : null,
+          pl && pl.percentile !== undefined ? pgauge(pl.percentile, 'prime', '📍 Prime locale', null, true) : null
+        ),
+        ta && !ta.insuffisant ? indicatorCards(ta, con.series, nr, null) : null,
+        ta && !ta.insuffisant ? techTable(ta) : null
+      )
+    ),
+  ];
+}
+
+function azoteView(d) {
+  const r = resumeAzote(d);
+  const e = r.e;
+  return [
+    h(
+      'section',
+      { class: 'card wide head d-' + r.cl },
+      h('h2', { text: '🧪 Azote' }),
+      h(
+        'div',
+        { class: 'dmain' },
+        h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
+        h('span', { class: 'dquoi', text: r.quoi })
+      ),
+      r.sous ? h('p', { class: 'dsous', text: r.sous }) : null,
+      r.ec.texte ? h('p', { text: r.ec.texte }) : null
+    ),
+    h(
+      'div',
+      { class: 'card wide' },
+      h(
+        'div',
+        { class: 'pgrid tight' },
+        pgauge(e.percentile_retenu, 'ratio', '⚖️ Azote face au blé (10 ans)', null, true),
+        e.ttf
+          ? pgauge(e.ttf.percentile_5ans, 'acheteur', `⛽ Gaz sur 5 ans (${fmt(e.ttf.dernier)} €/MWh)`, null, true)
+          : null
+      )
+    ),
+    h(
+      'section',
+      { class: 'card wide' },
+      h(
+        'dl',
+        { class: 'kv' },
+        e.forme_moins_chere
+          ? [h('dt', { text: 'Forme la moins chère' }), h('dd', { text: e.forme_moins_chere })]
+          : null,
+        e.saison ? [h('dt', { text: 'Saison' }), h('dd', { text: e.saison })] : null,
+        r.ec.signal && r.ec.signal !== e.signal
+          ? [h('dt', { text: 'Règles chiffrées' }), h('dd', { text: e.libelle || '—' })]
+          : null
+      ),
+      h(
+        'details',
+        {},
+        h('summary', { text: 'Tous les détails' }),
+        e.notes && e.notes.length
+          ? h(
+              'ul',
+              { class: 'list note' },
+              e.notes.map((n) => h('li', { text: n }))
+            )
+          : null,
+        ...vEngrais(true)
+      )
+    ),
+  ];
+}
+
+// contexte commun (marchés mondiaux, fonds, bilans, météo, saisons) : replié en bas de l'onglet Cultures
+function autresMarches(d) {
+  const kids = [...stocksSection(d), ...saisonSection(d), ...meteoSection(d)];
+  const inter = Object.entries(d.international || {});
+  const cot = Object.values(d.cot || {}).filter((c) => c.indice !== null && c.indice !== undefined);
+  return h(
+    'details',
+    { class: 'more-data' },
+    h('summary', { text: 'Marchés mondiaux, fonds, bilans, météo' }),
+    inter.length
+      ? h(
+          'div',
+          { class: 'card scroll' },
+          h(
+            'table',
+            {},
+            h(
+              'tr',
+              {},
+              ['Marché', 'Dernier', '1 mois', 'RSI'].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
+            ),
+            inter.map(([, x]) => {
+              const a = x.technique || {};
+              return h(
+                'tr',
+                {},
+                h('td', { text: x.nom }),
+                h('td', { class: 'n', text: fmt(a.dernier, a.dernier < 10 ? 4 : 2) }),
+                h('td', { class: 'n ' + cls(a.var1m), text: pct(a.var1m) }),
+                h('td', { class: 'n', text: fmt(a.rsi, 0) })
+              );
+            })
+          )
+        )
+      : null,
+    cot.length
+      ? h(
+          'div',
+          { class: 'card scroll' },
+          h(
+            'table',
+            {},
+            h(
+              'tr',
+              {},
+              ['Fonds', 'Positionnement sur 3 ans'].map((t) => h('th', { text: t }))
+            ),
+            cot.map((c) =>
+              h(
+                'tr',
+                {},
+                h('td', { text: c.nom }),
+                h('td', { class: 'pgcell' }, pgauge(c.indice, 'cot', null, null, true))
+              )
+            )
+          )
+        )
+      : null,
+    kids
+  );
+}
+
+function vCultures() {
+  const d = GS.data;
+  const keys = Object.keys(d.cultures || {}).concat(['azote']);
+  const k = keys.includes(GS.cult) ? GS.cult : keys[0];
+  const nav = h(
+    'nav',
+    { class: 'filters cnav', 'aria-label': 'Choisir une culture' },
+    keys.map((x) =>
+      h('a', {
+        class: 'filt',
+        href: `#cultures/${x}`,
+        'aria-current': x === k ? 'page' : null,
+        text: x === 'azote' ? '🧪 Azote' : `${ICON[x] || ''} ${NOM_COURT[x] || x}`,
+      })
+    )
+  );
+  return [nav, ...(k === 'azote' ? azoteView(d) : cultureView(k, d)), autresMarches(d)];
 }
 
 /* ---------------------------------------------------------------------------------------------- onglet Actualité */
@@ -2904,7 +2632,7 @@ function newsList(ac) {
       (b.importance || 0) - (a.importance || 0) ||
       String(b.date).localeCompare(String(a.date))
   );
-  const n = GS.actuTout ? keep.length : 12;
+  const n = GS.actuTout ? keep.length : 6;
   const bar = h(
     'div',
     { class: 'filters', role: 'group', 'aria-label': 'Filtrer les actualités' },
@@ -3108,118 +2836,54 @@ function psySection(d) {
   ];
 }
 
-function biaisSection(d) {
-  // escourgeon et orge de printemps suivent le blé Euronext : mêmes chiffres, une seule ligne
-  const rows = Object.entries(d.cultures || {}).filter(([, c]) => c.biais && !c.biais.sur_ble);
-  if (!rows.length) return [];
-  return [
-    h('h2', { text: '🪞 Vos biais à surveiller' }),
-    h(
-      'div',
-      { class: 'card wide' },
-      h(
-        'ul',
-        { class: 'biais' },
-        rows.map(([k, c]) => {
-          const b = c.biais;
-          const nm = k === 'ble' ? `${ICON[k]} ${c.nom} (et orges)` : `${ICON[k] || ''} ${c.nom}`;
-          return h(
-            'li',
-            {},
-            h('b', { text: nm + ' : ' }),
-            b.chance_plus_haut !== null && b.chance_plus_haut !== undefined
-              ? `plus haut de la campagne ${fmt(b.plus_haut)} €/t le ${dfr(b.plus_haut_le)} (${sgn(b.ecart, 2)} €/t), ${b.chance_plus_haut} % de chances de le revoir d’ici le ${dfr(b.horizon)}. `
-              : `le cours est au plus haut de la campagne (${fmt(b.plus_haut)} €/t). `,
-            `Attendre encore 5 € : ${b.gagner5} % de chances de les voir, et ${b.perdre5} % de risque de voir le cours reculer de 5 €.`
-          );
-        })
-      ),
-      h('p', {
-        class: 'note',
-        text: 'Ancrage : on garde en tête le plus haut de la campagne et l’on refuse de vendre en dessous ; ce prix n’a aucune raison de revenir. Regret et « j’attends encore 5 € » : sans information nouvelle, gagner ou perdre 5 € est à peu près aussi probable, d’où les tranches et les ordres placés à l’avance. Chances calculées sur la nervosité des 3 derniers mois, sans tendance, jusqu’à la fin de la tranche due.',
-      })
-    ),
-  ];
-}
-
-// pression de la même culture une semaine plus tôt (historique quotidien de actualites.json)
-function avant(ac, c) {
-  const hist = (ac.historique || []).filter((x) => x[c] !== undefined && x.date <= isoMoins(ac.date, 7));
-  const x = hist[hist.length - 1];
-  return x ? ` · il y a 7 jours ${sgn(x[c], 1)}` : '';
-}
-function isoMoins(iso, j) {
-  const d = new Date((iso || '') + 'T12:00:00Z');
-  d.setUTCDate(d.getUTCDate() - j);
-  return d.toISOString().slice(0, 10);
-}
-
 function vActualite() {
   const d = GS.data;
   const ac = GS.actu || {};
   const ad = d.actualites || {};
   const out = [];
   const pr = ad.pression || ac.pression;
-  const maj = (ac.articles || []).filter((a) => (ac.majeurs || []).includes(a.id));
-  out.push(h('h2', { text: '📰 Ce que l’actualité change pour vous' }));
-  if (!ac.date) {
-    out.push(h('div', { class: 'alert info', text: 'Première revue de presse au prochain calcul du matin.' }));
-  } else {
-    if (ac.sans_ia)
-      out.push(
-        h('div', {
-          class: 'alert info',
-          text: 'Titres sans traduction : ajouter le secret ANTHROPIC_API_KEY pour que chaque nouvelle soit classée et traduite en impacts.',
-        })
-      );
-    if (ac.erreur) out.push(h('div', { class: 'alert', text: ac.erreur }));
-    maj.forEach((a) =>
-      out.push(
-        h(
-          'div',
-          { class: 'alert' },
-          h('b', { text: '⚠️ Événement majeur : ' }),
-          `${a.titre_fr || a.titre}. ${a.impact || ''}`
-        )
-      )
-    );
+  if (!ac.date)
+    return [h('div', { class: 'alert info', text: 'Première revue de presse au prochain calcul du matin.' })];
+  if (ac.sans_ia)
+    out.push(h('div', { class: 'alert info', text: 'Titres non traduits : le secret ANTHROPIC_API_KEY manque.' }));
+  if (ac.erreur) out.push(h('div', { class: 'alert', text: ac.erreur }));
+  out.push(
+    h(
+      'section',
+      { class: 'card wide' },
+      h('h3', {
+        text: `Ce que l’actualité change pour vous${ac.synthese_du && ac.synthese_du !== ac.date ? ` (${dfr(ac.synthese_du)})` : ''}`,
+      }),
+      ac.synthese ? h('p', { text: ac.synthese }) : null,
+      pr
+        ? h(
+            'div',
+            { class: 'pgrid tight' },
+            ['ble', 'orge', 'colza', 'mais', 'engrais']
+              .filter((c) => pr[c])
+              .map((c) => pgauge(pr[c].valeur, c === 'engrais' ? 'actuEngrais' : 'actu', ACTU_NOM[c], null, true))
+          )
+        : null,
+      h('p', {
+        class: 'note',
+        text: `Effet des nouvelles des 7 derniers jours sur chaque prix (azote : + = plus cher). ${(ac.compte || {}).pertinents || 0} titres retenus sur ${(ac.compte || {}).lus || 0}. Les titres parlent plus des risques de hausse que d’une offre abondante : à lire avec les cours.`,
+      })
+    )
+  );
+  out.push(newsList(ac));
+  const geo = geoSection(d).slice(1); // sans le titre : la section est repliée
+  const psy = psySection(d);
+  const ev = psy.length ? psy[psy.length - 1] : null; // tableau « l'humeur annonce-t-elle la suite ? »
+  if (geo.length || ev)
     out.push(
       h(
-        'div',
-        { class: 'card wide' },
-        ac.synthese
-          ? [
-              h('h3', {
-                text: `Synthèse${ac.synthese_du && ac.synthese_du !== ac.date ? ` du ${dfr(ac.synthese_du)}` : ' du jour'}`,
-              }),
-              h('p', { text: ac.synthese }),
-            ]
-          : null,
-        pr
-          ? h(
-              'div',
-              { class: 'pgrid' },
-              ['ble', 'orge', 'colza', 'mais', 'engrais']
-                .filter((c) => pr[c])
-                .map((c) =>
-                  pgauge(
-                    pr[c].valeur,
-                    c === 'engrais' ? 'actuEngrais' : 'actu',
-                    ACTU_NOM[c],
-                    `${pr[c].hausse} en hausse · ${pr[c].baisse} en baisse${c === 'engrais' ? ' (prix de l’azote)' : ''}${avant(ac, c)}`
-                  )
-                )
-            )
-          : null,
-        h('p', {
-          class: 'note',
-          text: `${(ac.compte || {}).lus || 0} titres lus sur 7 jours (Google Actualités en français et en anglais, Terre-net, Réussir, La France Agricole, Web-agri, Agri-mutuel, World-Grain, farmdoc), ${(ac.compte || {}).pertinents || 0} retenus. Chaque titre est classé par l’IA (thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur chaque prix) d’après son seul titre. Pression : effets pondérés par l’importance, la nature et la fraîcheur (moitié du poids après 3 jours), sans les comptes rendus de séance déjà dans les cours. Les titres penchent vers les risques de hausse (attaques, déficits) ; une offre abondante fait rarement la une : à lire avec les cours. Elle éclaire le comité et ne vend rien seule ; un fait majeur déclenche une alerte et un comité.${ac.cout_usd ? ` Coût du jour : ${fmt(ac.cout_usd, 2)} $.` : ''}`,
-        })
+        'details',
+        { class: 'more-data' },
+        h('summary', { text: 'Géopolitique et psychologie des marchés' }),
+        ...geo,
+        ev
       )
     );
-    out.push(newsList(ac));
-  }
-  out.push(...geoSection(d), ...psySection(d), ...biaisSection(d));
   return out;
 }
 
@@ -3236,14 +2900,7 @@ function render() {
     return;
   }
   const v =
-    {
-      signaux: vSignaux,
-      technique: vTechnique,
-      engrais: vEngrais,
-      actualite: vActualite,
-      comite: vComite,
-      methode: vMethode,
-    }[GS.tab] || vSignaux;
+    { aujourdhui: vAujourdhui, cultures: vCultures, actualite: vActualite, methode: vMethode }[GS.tab] || vAujourdhui;
   main.append(...v());
   document
     .querySelectorAll('.tabs button')
@@ -3259,26 +2916,30 @@ async function getJSON(path) {
   }
 }
 
+// #aujourdhui, #cultures/ble, #actualite, #methode ; anciens liens (#signaux, #technique, #engrais, #comite) redirigés
+const ANCIENS = { signaux: 'aujourdhui', comite: 'aujourdhui', technique: 'cultures', engrais: 'cultures/azote' };
+function route() {
+  let [t, x] = (location.hash || '').slice(1).split('/');
+  if (ANCIENS[t]) [t, x] = ANCIENS[t].split('/');
+  GS.tab = ['aujourdhui', 'cultures', 'actualite', 'methode'].includes(t) ? t : 'aujourdhui';
+  if (GS.tab === 'cultures' && x) GS.cult = x;
+}
+
 async function init() {
   // page installable sur le téléphone : même service worker qu'Euro Signal (réseau d'abord, copie locale hors connexion)
   if ('serviceWorker' in navigator && location.protocol === 'https:')
     navigator.serviceWorker.register('sw.js').catch(() => {});
-  const tab = (location.hash || '').slice(1);
-  if (['signaux', 'technique', 'engrais', 'actualite', 'comite', 'methode'].includes(tab)) GS.tab = tab;
+  route();
   document.querySelectorAll('.tabs button').forEach((b) =>
     b.addEventListener('click', () => {
-      GS.tab = b.dataset.tab;
-      history.replaceState(null, '', '#' + GS.tab);
-      render();
-      window.scrollTo({ top: 0 });
+      location.hash = b.dataset.tab === 'cultures' && GS.cult ? `cultures/${GS.cult}` : b.dataset.tab;
     })
   );
   window.addEventListener('hashchange', () => {
-    const t = (location.hash || '').slice(1);
-    if (['signaux', 'technique', 'engrais', 'actualite', 'comite', 'methode'].includes(t) && t !== GS.tab) {
-      GS.tab = t;
-      render();
-    }
+    const avant = GS.tab;
+    route();
+    render();
+    if (avant !== GS.tab || GS.tab === 'cultures') window.scrollTo({ top: 0 });
   });
   const [d, c, j, bt, ac] = await Promise.all([
     getJSON('data/grain/grain-signal.json'),
@@ -3296,9 +2957,10 @@ async function init() {
   if (d) {
     const s = Object.values((d.collecte || {}).sources || {});
     const ok = s.filter((x) => x.ok).length;
+    // une source en panne se signale ; sinon, seulement la date (le détail est dans Méthode)
     sub.textContent =
-      `Calcul du ${dfr(d.date)} · ${ok}/${s.length} sources lues` +
-      (GS.comite.date ? ` · comité du ${dfr(GS.comite.date)}` : '');
+      `Mis à jour le ${dfr(d.date)}` +
+      (ok < s.length ? ` · ${s.length - ok} source${s.length - ok > 1 ? 's' : ''} en panne` : '');
   } else sub.textContent = 'Données indisponibles';
   render();
 }

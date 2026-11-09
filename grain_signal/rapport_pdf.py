@@ -25,8 +25,6 @@ MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sep
 COUL = {"good": "#1f7a3e", "bad": "#b0281f", "warn": "#9a5b00", "info": "#2a62b8", "neutral": "#6b6d60"}
 DECISION = {"ordre": ("ORDRE", "warn"), "executer": ("VENDRE", "good"), "vendre": ("AVANCER", "good"), "attendre": ("ATTENDRE", "bad"),
             "couvrir": ("COUVRIR", "info"), "rien": ("RIEN", "neutral"), "patienter": ("PATIENTER", "warn")}
-SIGNAL = {"VENDRE": ("Vendre une tranche", "good"), "TENIR": ("Tenir le plan", "warn"), "ATTENDRE": ("Attendre / stocker", "bad"),
-          "COUVRIR": ("Couvrir", "info")}
 ENGRAIS = {"ACHETER_LARGE": ("ACHETER LARGE", "good"), "SUIVRE": ("SUIVRE LE PLAN", "info"), "FRACTIONNER": ("FRACTIONNER", "warn"),
            "ATTENDRE": ("ATTENDRE", "bad")}
 
@@ -149,11 +147,8 @@ def actu_html(d):
     if not rows and not lis and not geo and not ac.get("synthese"):
         return ""
     syn = f"<div class='resume'><b>Synthèse de l'actualité</b> — {e(ac['synthese'])}</div>" if ac.get("synthese") else ""
-    tab = ("<table class='tab'><thead><tr><th>Culture</th><th>Actualité des 7 derniers jours</th><th>Humeur du marché</th></tr></thead><tbody>"
-           + "".join(rows) + "</tbody></table>") if rows else ""
-    return (syn + tab + (f"<ul class='news'>{''.join(lis)}</ul>" if lis else "") + geo
-            + "<p class='muted small'>Titres de Google Actualités et de la presse agricole, classés par l'IA d'après leur seul titre ; "
-              "humeur de 0 (peur) à 100 (euphorie) : éclairage pour le rythme des ventes, elle n'annonce pas la suite des prix.</p>")
+    return (syn + (f"<ul class='news'>{''.join(lis[:4])}</ul>" if lis else "")
+            + "<p class='muted small'>Titres de Google Actualités et de la presse agricole, classés par l'IA d'après leur seul titre.</p>")
 
 
 def gauge_svg(v, segs, w=150):
@@ -244,17 +239,6 @@ def court(p, sur_ble, ecart=None):
             "couvrir": f"Couvrir {p['pct']} %"}.get(p.get("code"), f"{p.get('pct', '')} %")
 
 
-def stock_txt(st):
-    if not st or not st.get("code") or st["code"] == "nouvelle":
-        return ""
-    b = st.get("meilleure") or {}
-    if st["code"] == "stocker":
-        return f"Stocker jusqu'à {mfr(b.get('echeance'))} : {sg(b.get('gain'))} €/t net"
-    if st["code"] == "vendre":
-        return "Stockage non payé : vendre plutôt que stocker"
-    return f"Stockage à peine payé ({sg(b.get('gain'))} €/t net)"
-
-
 def page_html(d):
     cultures = d.get("cultures") or {}
     contrats = d.get("contrats") or {}
@@ -272,7 +256,6 @@ def page_html(d):
         phys = c.get("physique") or {}
         cours = phys.get("prix") if phys.get("prix") else con.get("dernier_reel")
         v1 = (con.get("technique") or {}).get("var1s")
-        th = con.get("thermo") or {}
         sur = (c.get("niveaux_retenus") or {}).get("sur_ble")
         gap = ((d.get("orges") or {}).get(k) or {}).get("ecart_ble") if sur else None
         sous = f"Récolte {due['recolte']} · {due['periode']}" if due and due.get("periode") else ""
@@ -281,27 +264,22 @@ def page_html(d):
         autre = next((p for p in plan if p is not due and p.get("statut") == "due"), None)
         if autre:
             sous += f"<br>Récolte {autre['recolte']} : {e(court(autre, sur, gap))}"
-        st = "" if c.get("proxy") else stock_txt(con.get("stockage"))
         rows.append(
-            f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', ''))}</b>"
-            f"<div class='muted'>{e(SIGNAL.get(c.get('signal'), ('—',))[0])}{' · suit le blé' if c.get('proxy') else ''}</div></td>"
+            f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
             f"<td>{badge(lab, cl)}<div class='quoi'>{e(court(due, sur, gap))}</div><div class='muted'>{sous}</div></td>"
             f"<td class='r'><b>{n(cours)} €/t</b>{'<div class=muted>physique</div>' if phys.get('prix') else ''}"
-            f"{f'<div class=muted>{sg(v1, 1)} % en 1 sem.</div>' if v1 is not None and not c.get('proxy') else ''}</td>"
-            f"<td>{jauge(th.get('percentile'), 'vendeur', compact=True) if th else '—'}"
-            f"{'<div class=muted>selon le blé</div>' if c.get('proxy') and th else ''}{f'<div class=muted>{e(st)}</div>' if st else ''}</td></tr>")
+            f"{f'<div class=muted>{sg(v1, 1)} % en 1 sem.</div>' if v1 is not None and not c.get('proxy') else ''}</td></tr>")
     ec = eng.get("comite") or {}
     elab, ecl = ENGRAIS.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
     ur = (eng.get("france") or {}).get("uree") or {}
     plaf = f"<div class='muted'>Plafond d'achat : {n(ec.get('prix_plafond'), 0)} €/t</div>" if ec.get("prix_plafond") else ""
     uree = f"<b>{n(ur.get('prix'))} €/t</b><div class='muted'>urée</div>" if ur.get("prix") else "—"
     rows.append(
-        f"<tr><td class='cn'><b>Azote (achat)</b><div class='muted'>{'avis du comité' if ec.get('signal') else 'règles chiffrées'}</div></td>"
+        f"<tr><td class='cn'><b>Azote (achat)</b></td>"
         f"<td>{badge(elab, ecl)}<div class='quoi'>{e((ec.get('pct') or eng.get('a_acheter') or '').split('(')[0].strip())}</div>"
-        f"{plaf}</td><td class='r'>{uree}</td>"
-        f"<td>{jauge(eng.get('percentile_retenu'), 'ratio', compact=True)}<div class='muted'>ratio azote/blé sur 10 ans</div></td></tr>")
+        f"{plaf}</td><td class='r'>{uree}</td></tr>")
     decisions = ("<table class='dec'><thead><tr><th>Culture</th><th>Que faire</th><th class='r'>Cours</th>"
-                 "<th>Prix sur 5 ans</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
+                 "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
 
     # 2. détail par culture (contrats Euronext)
     blocs = []
@@ -312,40 +290,19 @@ def page_html(d):
         nr = c.get("niveaux_retenus") or {}
         cc = c.get("comite") or {}
         th = con.get("thermo") or {}
-        pl = con.get("prime_locale") or {}
-        ta = con.get("technique") or {}
-        met = ((d.get("meteo") or {}).get("cultures") or {}).get(main)
-        sa = (d.get("saison") or {}).get(main)
         pb = nr.get("probas") or {}
         chances = " · ".join(f"{'1er' if i == 0 else f'{i + 1}e'} ordre {p} %" for i, p in enumerate(pb.get("ordres") or []) if p is not None)
         kv = [("Ordres", " · ".join(n(o) for o in nr.get("ordres") or []) + (f" €/t ({mfr(nr.get('echeance'))})" if nr.get("ordres") else "") or "—"),
               ("Chances", f"{chances} d'être touchés d'ici le {dfr(pb.get('horizon'))}" if chances else "—"),
               ("Révision", f"sous {n(nr['revision'])} €/t" if nr.get("revision") else "—"),
-              ("Timing", (c.get("feu") or {}).get("texte", "—")),
-              ("Stocker ?", (con.get("stockage") or {}).get("texte", "—"))]
-        if pl.get("places"):
-            kv.append(("Prime locale", " · ".join(f"{x['place']} {sg(x['prime'])} €/t" for x in pl["places"])))
-        if met:
-            alertes = [f"{z['zone']} {z['etat']}" for z in met.get("zones", []) if z.get("etat") != "normal" and z.get("saison")]
-            kv.append(("Météo", f"note {sg(met.get('score'))}" + (" : " + ", ".join(alertes) if alertes else " : rien à signaler en saison")))
-        if sa:
-            kv.append(("Mois chers", ", ".join(MOIS[m - 1] for m in sa.get("plus_chers", []))))
-        if ta.get("rsi") is not None:
-            kv.append(("Technique", f"RSI {n(ta.get('rsi'), 0)} · MACD {'haussier' if (ta.get('histo') or 0) > 0 else 'baissier'} · "
-                       f"{sg(ta.get('ecart_mm20'), 1)} % vs MM20"))
-        ceu = ((d.get("cot") or {}).get("EURONEXT_" + prod) or {}).get("indice")
+              ("Timing", (c.get("feu") or {}).get("texte", "—"))]
         jauges = jauge(th.get("percentile"), "vendeur", "Prix sur 5 ans" + (" (indicatif : huile de soja)" if "soja" in str(th.get("source", "")).lower() else ""),
                        (f"Médiane {n(th.get('mediane'), 0)} €/t · habituel {n(th.get('p20'), 0)}–{n(th.get('p80'), 0)} €/t (Euronext, 5 ans)"
                         if th.get("euronext") else f"{th.get('source', 'marché mondial')} en €/t, 5 ans")) if th else ""
-        if ceu is not None:
-            jauges += jauge(ceu, "cot", "Fonds sur Euronext (3 ans)")
-        if pl.get("percentile") is not None:
-            jauges += jauge(pl["percentile"], "prime", "Prime locale (1 an)")
         stm = (d.get("stocks_mondiaux") or {}).get(main)
         if stm:
             jauges += jauge(stm["percentile"], "stocks", f"Stocks mondiaux / conso{' hors Chine' if stm.get('hors_chine') else ''}",
                             f"{n(stm['ratio'], 1)} % en {stm['campagne']} (moy. {n(stm['moyenne'], 1)} %) · USDA")
-        sig, scl = SIGNAL.get(c.get("signal"), ("—", "neutral"))
         # historique Euronext encore court : lecture de secours (marché américain recalé), comme sur la page
         src = (con.get("proxy") or {}).get("graphique") or con.get("graphique") or []
         graph = chart_svg(src, nr.get("ordres") or [], nr.get("revision"))
@@ -356,80 +313,30 @@ def page_html(d):
                       "<i class='d' style='border-color:#b0281f'></i>révision</div>")
         blocs.append(
             f"<section class='bloc'><h3>{e(con.get('nom'))} <span class='muted'>Euronext {prod} · {n(con.get('dernier_reel'))} €/t "
-            f"({mfr(con.get('echeance'))})</span></h3><div class='sigl'>{badge(sig, scl)}"
-            f"<span>{e(cc.get('texte') or c.get('note') or '')}</span></div>"
-            f"<div class='duo'><div>{graph}</div><div class='jcol'>{jauges}</div></div>"
+            f"({mfr(con.get('echeance'))})</span></h3>"
+            + (f"<p class='small'>{e(cc.get('texte') or c.get('note'))}</p>" if cc.get("texte") or c.get("note") else "")
+            + f"<div class='duo'><div>{graph}</div><div class='jcol'>{jauges}</div></div>"
             "<table class='kv'>" + "".join(f"<tr><th>{e(a)}</th><td>{e(b)}</td></tr>" for a, b in kv) + "</table></section>")
 
-    # 3. orges brassicoles
-    org = []
-    for k, o in (d.get("orges") or {}).items():
-        c = cultures.get(k) or {}
-        due = next((p for p in c.get("plan") or [] if p.get("statut") == "due"), None)
-        org.append(f"<tr><td><b>{e(o.get('nom'))}</b></td><td class='r nw'>{n(o.get('prix'))} €/t</td>"
-                   f"<td class='r nw'>{sg(o.get('prime'))} €/t</td><td class='r nw'>{sg(o.get('ecart_ble'))} €/t</td>"
-                   f"<td>{e((due or {}).get('action', '—'))}</td></tr>")
-    orges = ("<table class='tab'><thead><tr><th>Orge (Creil FOB)</th><th class='r nw'>Prix</th><th class='r nw'>Prime</th>"
-             "<th class='r nw'>Écart / blé</th><th>Plan</th></tr></thead><tbody>" + "".join(org) + "</tbody></table>") if org else ""
-
-    # 4. engrais
-    mond, est, ttf = eng.get("mondial") or {}, eng.get("estimation") or {}, eng.get("ttf") or {}
-    ej = "".join([jauge(est.get("percentile"), "ratio", f"Ratio azote/blé estimé ce matin : {n(est.get('ratio'), 3)}") if est else "",
-                  jauge(mond.get("percentile"), "ratio", f"Ratio mondial ({mfr(mond.get('mois'))}) : {n(mond.get('ratio'), 3)}") if mond else "",
-                  jauge(mond.get("uree_percentile"), "acheteur", f"Urée mondiale sur 10 ans : {n(mond.get('uree'), 0)} $/t") if mond else "",
-                  jauge(ttf.get("percentile_5ans"), "acheteur", f"Gaz TTF sur 5 ans : {n(ttf.get('dernier'))} €/MWh") if ttf else ""])
-    fr = "".join(f"<tr><td>{e(v.get('nom'))}</td><td class='r'>{n(v.get('prix'))} €/t</td><td class='r'>{sg(v.get('var1m'), 1) + ' %' if v.get('var1m') is not None else '—'}</td>"
-                 f"<td class='r'>{n(v.get('euro_un'), 3) if v.get('euro_un') else '—'}</td></tr>" for v in (eng.get("france") or {}).values())
-    engrais = (f"<div class='sigl'>{badge(elab, ecl)}<span>{e(ec.get('texte') or '')}</span></div><div class='jrow'>{ej}</div>"
-               "<ul class='notes'>" + "".join(f"<li>{e(x)}</li>" for x in eng.get("notes") or []) + "</ul>"
-               + (("<table class='tab'><thead><tr><th>Engrais France</th><th class='r'>Prix</th><th class='r'>1 mois</th>"
-                   "<th class='r'>€ par kg d'azote</th></tr></thead><tbody>" + fr + "</tbody></table>") if fr else ""))
-
-    # 5. déclencheurs, carnet, calendrier
+    cal = [x for x in com.get("calendrier") or [] if str(x.get("date", "")) >= str(d.get("date", ""))][:1]
     trig = d.get("declencheurs") or []
-    trig_h = ("<ul class='notes'>" + "".join(f"<li><b>{e(t['titre'])}</b> — {e(t.get('detail'))}</li>" for t in trig) + "</ul>") if trig \
-        else "<p class='muted'>Aucun déclencheur ce matin.</p>"
-    cb = (d.get("carnet") or {})
-    juges = [x for x in cb.get("entrees") or [] if isinstance(x.get("s4"), dict) and x["s4"].get("variation") is not None]
-    b = cb.get("bilan") or {}
-    if juges:
-        def ver(r):
-            if not r or r.get("variation") is None:
-                return f"en attente ({dfr((r or {}).get('le'))})"
-            ic = {"bon": "bon", "mauvais": "mauvais"}.get(r.get("verdict"), "neutre")
-            return f"{ic} ({sg(r.get('gain'))} €/t)" if r.get("gain") is not None else f"{ic} (cours {sg(r.get('pct'), 1)} %)"
-        gm = f" · gain moyen {sg(b.get('gain_moyen'))} €/t" if b.get("gain_moyen") is not None else ""
-        carnet = (f"<p>Avis jugés à 8 semaines : {b.get('bons', 0)} bon(s), {b.get('mauvais', 0)} mauvais{gm}.</p>"
-                  "<table class='tab'><thead><tr><th>Date</th><th>Culture</th><th>Avis</th><th class='r'>Prix</th><th>4 semaines</th><th>8 semaines</th></tr></thead><tbody>"
-                  + "".join(f"<tr><td>{dfr(x['date'])}</td><td>{e(x['cle'])}</td><td>{e(x['signal'].lower().replace('_', ' '))}</td>"
-                            f"<td class='r'>{n(x.get('prix'))}</td><td>{e(ver(x.get('s4')))}</td><td>{e(ver(x.get('s8')))}</td></tr>"
-                            for x in reversed(juges[-12:])) + "</tbody></table>")
-    else:
-        attente = sorted(x["s4"]["le"] for x in cb.get("entrees") or [] if isinstance(x.get("s4"), dict) and x["s4"].get("le"))
-        carnet = f"<p class='muted'>Premiers résultats le {dfr(attente[0])} : chaque avis du comité est jugé 4 et 8 semaines après.</p>" if attente else ""
-    cal = [x for x in com.get("calendrier") or [] if str(x.get("date", "")) >= str(d.get("date", ""))][:8]
-    cal_h = ("<table class='tab'><tbody>" + "".join(f"<tr><td class='nw'><b>{dfr(x['date'])}</b></td><td>{e(x.get('evenement'))}</td></tr>" for x in cal)
-             + "</tbody></table>") if cal else ""
 
     actu = actu_html(d)
-    resume = f"<div class='resume'><b>Comité du {dfr(com.get('date'))}</b> — {e(com.get('resume'))}</div>" if com.get("resume") else ""
+    resume = f"<div class='resume'><b>L'avis du comité ({dfr(com.get('date'))})</b> — {e(com.get('resume'))}</div>" if com.get("resume") else ""
+    alerte_h = ("<div class='resume'>" + "<br>".join(e(t["titre"]) for t in trig[:5]) + "</div>") if trig else ""
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Grain Signal — synthèse du {dfr(d.get('date'))}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>{CSS}</style></head><body>
 <header class="top"><div><div class="brand">Grain Signal</div><div class="muted">Synthèse du {dfr(d.get('date'))} · séance du {dfr(seance)}
-{f" · comité du {dfr(com.get('date'))}" if com.get('date') else ''}</div></div>
-<div class="legend">{badge('vert', 'good')} bon moment pour vendre (céréales) ou acheter (azote) · {badge('rouge', 'bad')} mauvais moment</div></header>
-<h2>Décisions du jour</h2>{decisions}
+{f" · prochain rendez-vous : {e(cal[0].get('evenement'))} ({dfr(cal[0]['date'])})" if cal else ''}</div></div>
+</header>
+{alerte_h}<h2>Que faire aujourd'hui</h2>{decisions}
 <p class="muted small">ORDRE : placer un ordre de vente au prix indiqué, pas de vente au prix du jour · PATIENTER : attendre un rebond ·
-VENDRE : la tranche peut partir · ATTENDRE : décaler · RIEN : pas de tranche prévue. Percentile : 10e = plus bas que 90 % des 5 dernières années.</p>
+VENDRE : la tranche peut partir · ATTENDRE : décaler · RIEN : pas de tranche prévue.</p>
 {resume}
-<h2>Détail par culture</h2>{''.join(blocs)}
-{f'<h2>Orges brassicoles</h2>{orges}' if orges else ''}
-<h2>Engrais azotés</h2>{engrais}
-{f'<h2>Actualité, psychologie et géopolitique</h2>{actu}' if actu else ''}
-<div class="two"><section><h2>Déclencheurs du jour</h2>{trig_h}</section><section><h2>Calendrier</h2>{cal_h or '<p class=muted>—</p>'}</section></div>
-{f'<h2>Carnet de bord des avis</h2>{carnet}' if carnet else ''}
+{f'<h2>Actualité</h2>{actu}' if actu else ''}
+<h2>Par culture</h2>{''.join(blocs)}
 <p class="foot">Aide à la décision automatique, pas un conseil en investissement : la décision finale revient à l'exploitant.
 Page complète : {e(d.get('url') or 'letmetry51.github.io/insider-pea/grain-signal.html')}</p>
 </body></html>"""

@@ -43,86 +43,52 @@ def e(t):
     return html.escape(str(t if t is not None else ""), quote=True)
 
 
-def niveaux_txt(ordres, eq, nr):
-    if not ordres:
-        return "—"
-    f = lambda v: f"{v:.2f}".rstrip("0").rstrip(".").replace(".", ",")  # noqa: E731
-    t = " · ".join(f(x) for x in ordres if isinstance(x, (int, float))) + " €/t"
-    if nr.get("sur_ble"):  # orges : prix de l'orge d'abord, le blé Euronext n'est que le déclencheur
-        t = (f"≈ {' · '.join(f(x) for x in eq)} €/t d'orge, quand le blé Euronext atteint {t}" if eq
-             else f"quand le blé Euronext atteint {t}")
-    return t
-
-
-# mêmes seuils et couleurs que la page et le PDF : (borne haute, couleur de la barre, couleur de la pastille)
-ECH_VENDEUR = [(20, "#b0281f", "#b0281f"), (40, "#9a5b00", "#9a5b00"), (60, "#a3a596", "#6b6d60"), (80, "#2a62b8", "#2a62b8"),
-               (100, "#1f7a3e", "#1f7a3e")]
-ECH_RATIO = [(20, "#1f7a3e", "#1f7a3e"), (60, "#a3a596", "#6b6d60"), (80, "#9a5b00", "#9a5b00"), (100, "#b0281f", "#b0281f")]
-
-
-def jauge(p, echelle=None):
-    """Percentile en pastille colorée et barre colorée avec repère (vert = bon moment pour vendre ; pour l'azote, échelle du ratio).
-    Tableaux et largeurs fixes seulement : Gmail retire « position » des styles, un curseur positionné resterait à gauche."""
-    if p is None:
-        return "—"
-    v = max(0, min(100, int(round(p))))
-    ech = echelle or ECH_VENDEUR
-    # bornes incluses comme sur la page : ≤ 20, ≤ 40, < 60, < 80 (vendeur) ; ≤ 20, ≤ 60, ≤ 80 (ratio)
-    if ech is ECH_VENDEUR:
-        i = 0 if v <= 20 else 1 if v <= 40 else 2 if v < 60 else 3 if v < 80 else 4
-    else:
-        i = 0 if v <= 20 else 1 if v <= 60 else 2 if v <= 80 else 3
-    col = ech[i][2]
-    bar, lo = "", 0
-    for hi, c, _ in ech:
-        bar += f"<td style='width:{hi - lo}px;height:6px;background:{c};font-size:0;line-height:0'>&nbsp;</td>"
-        lo = hi
-    left = max(0, v - 4)  # repère centré sur la valeur (barre de 100 px)
-    return (f"<span style='background:{col};color:#fff;border-radius:5px;padding:2px 6px;font:600 12px monospace'>{v}e</span>"
-            f"<table cellpadding='0' cellspacing='0' role='presentation' style='border-collapse:collapse;margin-top:5px;width:100px'>"
-            f"<tr>{bar}</tr></table>"
-            f"<table cellpadding='0' cellspacing='0' role='presentation' style='border-collapse:collapse;width:100px'><tr>"
-            + (f"<td style='width:{left}px;font-size:0;line-height:0'>&nbsp;</td>" if left else "")
-            + "<td style='font-size:10px;line-height:10px;color:#1c1a12'>▲</td></tr></table>")
-
-
 def table_signaux(dash):
+    """Que faire aujourd'hui, une ligne par culture : mêmes mots et mêmes chiffres que la page et le PDF."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import rapport_pdf as rp
+
+    coul = {"good": "#1f7a3e", "bad": "#b0281f", "warn": "#9a5b00", "info": "#2a62b8", "neutral": "#6b6d60"}
+    td = "padding:7px 8px;border-bottom:1px solid #ddd;vertical-align:top"
     rows = []
     contrats = dash.get("contrats") or {}
-    for c in (dash.get("cultures") or {}).values():
-        th = (contrats.get(c.get("contrat")) or {}).get("thermo") or {}
-        feu = (c.get("feu") or {}).get("texte", "")
-        nr = c.get("niveaux_retenus") or {}  # mêmes niveaux que la page (comité, sinon techniques)
-        ordres = nr.get("ordres") or []
-        eq = (nr.get("equivalent_orge") or {}).get("ordres") or []
-        rows.append(f"<tr><td style='padding:6px 8px;border-bottom:1px solid #ddd'><b>{e(c['nom'])}</b></td>"
-                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(c.get('libelle'))}</td>"
-                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{jauge(th.get('percentile'))}"
-                    + ("<div style='color:#777;font-size:11px'>selon le blé</div>" if c.get("proxy") and th else
-                       "<div style='color:#777;font-size:11px'>indicatif (huile de soja)</div>" if "soja" in str(th.get("source", "")).lower() else "")
-                    + "</td>"
-                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd'>{e(niveaux_txt(ordres, eq, nr))}</td>"
-                    f"<td style='padding:6px 8px;border-bottom:1px solid #ddd;color:#555'>{e(feu)}</td></tr>")
+    for k, c in (dash.get("cultures") or {}).items():
+        plan = c.get("plan") or []
+        due = next((p for p in plan if p.get("statut") == "due" and not p.get("avant_moisson")), None) or \
+            next((p for p in plan if p.get("statut") == "due"), None) or (plan[0] if plan else None)
+        lab, cl = rp.DECISION.get((due or {}).get("code"), ("—", "neutral"))
+        nr = c.get("niveaux_retenus") or {}
+        sur = nr.get("sur_ble")
+        gap = ((dash.get("orges") or {}).get(k) or {}).get("ecart_ble") if sur else None
+        con = contrats.get(c.get("contrat")) or {}
+        phys = c.get("physique") or {}
+        cours = phys.get("prix") or con.get("dernier_reel")
+        pb = nr.get("probas") or {}
+        ch = (pb.get("ordres") or [None])[0] if (due or {}).get("code") == "ordre" else None
+        sous = f"{ch} % de chances d'ici le {rp.dfr(pb.get('horizon'))}" if ch is not None else ""
+        if sur and (due or {}).get("ordre"):
+            sous = (sous + " · " if sous else "") + f"quand le blé Euronext atteint {rp.n(due['ordre'])} €/t"
+        rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
+                    f"<td style='{td}'><span style='background:{coul[cl]};color:#fff;border-radius:5px;padding:2px 7px;font:600 12px monospace'>{e(lab)}</span>"
+                    f" <b>{e(rp.court(due, sur, gap))}</b>" + (f"<br><span style='color:#666;font-size:12px'>{e(sous)}</span>" if sous else "") + "</td>"
+                    f"<td style='{td};text-align:right;white-space:nowrap'>{rp.n(cours)} €/t</td></tr>")
     eng = dash.get("engrais") or {}
-    ec = eng.get("comite") or {}  # avis du comité d'abord, comme la page et le PDF ; sinon les règles chiffrées
-    lib = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER",
-           "ATTENDRE": "🔴 ATTENDRE"}.get(ec.get("signal"), eng.get("libelle"))
-    quoi = ec.get("pct") or eng.get("a_acheter")
-    if ec.get("prix_plafond"):
-        quoi = f"{quoi} (plafond {ec['prix_plafond']} €/t)"
-    rows.append(f"<tr><td style='padding:6px 8px'><b>Engrais azotés</b></td><td style='padding:6px 8px'>{e(lib)}</td>"
-                f"<td style='padding:6px 8px'>{jauge(eng.get('percentile_retenu'), ECH_RATIO)}</td>"
-                f"<td style='padding:6px 8px'>{e(quoi)}</td><td style='padding:6px 8px;color:#555'>{e(ec.get('texte') or ' ; '.join(eng.get('notes', [])))}</td></tr>")
-    return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'><th align=left style='padding:6px 8px'>Culture</th>"
-            "<th align=left style='padding:6px 8px'>Signal</th><th align=left style='padding:6px 8px'>Prix 5 ans / ratio azote</th>"
-            "<th align=left style='padding:6px 8px'>Ordres</th><th align=left style='padding:6px 8px'>Timing</th></tr>"
-            + "".join(rows) + "</table>")
-
+    ec = eng.get("comite") or {}
+    lab, cl = rp.ENGRAIS.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
+    ur = ((eng.get("france") or {}).get("uree") or {}).get("prix")
+    quoi = (ec.get("pct") or eng.get("a_acheter") or "").split("(")[0].strip()
+    rows.append(f"<tr><td style='{td}'><b>Azote</b></td>"
+                f"<td style='{td}'><span style='background:{coul[cl]};color:#fff;border-radius:5px;padding:2px 7px;font:600 12px monospace'>{e(lab)}</span>"
+                f" <b>{e(quoi)}</b>" + (f"<br><span style='color:#666;font-size:12px'>plafond d'achat {rp.n(ec['prix_plafond'], 0)} €/t</span>" if ec.get("prix_plafond") else "")
+                + f"</td><td style='{td};text-align:right;white-space:nowrap'>{('urée ' + rp.n(ur) + ' €/t') if ur else '—'}</td></tr>")
+    return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'>"
+            "<th align=left style='padding:6px 8px'>Culture</th><th align=left style='padding:6px 8px'>Que faire</th>"
+            "<th align=right style='padding:6px 8px'>Cours</th></tr>" + "".join(rows) + "</table>")
 
 ACTU_NOMS = {"ble": "blé", "orge": "orges", "colza": "colza", "mais": "maïs", "engrais": "azote"}
 
 
-def bloc_actu(n=4):
+def bloc_actu(n=3):
     """Synthèse de l'actualité et les nouvelles qui comptent (importance 2 et 3, hors comptes rendus de séance), avec leur effet."""
     ac = load(OUT / "actualites.json", {})
     arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
@@ -205,7 +171,7 @@ def main():
                         f"<br><span style='color:#555'>{e(x.get('detail'))}</span>"
                         + (f" <a href='{e(x['url'])}' style='color:#0d6a56'>Lire</a>" if str(x.get("url", "")).startswith("http") else "")
                         + "</li>" for x in trig)
-        mails.append(([x["id"] for x in trig], subj, wrap("Alertes du jour", f"<ul style='padding-left:18px'>{items}</ul>{bloc_actu()}<h3>Signaux</h3>{table_signaux(dash)}")))
+        mails.append(([x["id"] for x in trig], subj, wrap("Alertes du jour", f"<ul style='padding-left:18px'>{items}</ul>{bloc_actu()}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}")))
     for x in outbox:
         if x.get("type") == "comite" and comite.get("rapport_html"):
             sig = ", ".join(f"{v.get('nom', k)} {v.get('libelle', '')}" for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
