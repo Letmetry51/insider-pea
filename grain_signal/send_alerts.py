@@ -20,23 +20,12 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
+from commun import load, save  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "grain"
 CFG = json.loads((Path(__file__).resolve().parent / "config.json").read_text(encoding="utf-8"))
 URL = CFG["dashboardUrl"]
-
-
-def load(p, default):
-    try:
-        return json.loads(Path(p).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        return default
-
-
-def save(p, obj):
-    tmp = Path(p).with_suffix(".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(p)
 
 
 def e(t):
@@ -44,46 +33,29 @@ def e(t):
 
 
 def table_signaux(dash):
-    """Que faire aujourd'hui, une ligne par culture : mêmes mots et mêmes chiffres que la page et le PDF."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import rapport_pdf as rp
-
+    """Que faire aujourd'hui, une ligne par culture : la décision calculée par build.py, comme la page et le PDF."""
     coul = {"good": "#1f7a3e", "bad": "#b0281f", "warn": "#9a5b00", "info": "#2a62b8", "neutral": "#6b6d60"}
     td = "padding:7px 8px;border-bottom:1px solid #ddd;vertical-align:top"
+    f = lambda v, d=2: f"{v:,.{d}f}".replace(",", " ").replace(".", ",")  # noqa: E731
     rows = []
-    contrats = dash.get("contrats") or {}
-    for k, c in (dash.get("cultures") or {}).items():
-        plan = c.get("plan") or []
-        due = next((p for p in plan if p.get("statut") == "due" and not p.get("avant_moisson")), None) or \
-            next((p for p in plan if p.get("statut") == "due"), None) or (plan[0] if plan else None)
-        lab, cl = rp.DECISION.get((due or {}).get("code"), ("—", "neutral"))
-        nr = c.get("niveaux_retenus") or {}
-        sur = nr.get("sur_ble")
-        gap = ((dash.get("orges") or {}).get(k) or {}).get("ecart_ble") if sur else None
-        con = contrats.get(c.get("contrat")) or {}
-        phys = c.get("physique") or {}
-        cours = phys.get("prix") or con.get("dernier_reel")
-        pb = nr.get("probas") or {}
-        ch = (pb.get("ordres") or [None])[0] if (due or {}).get("code") == "ordre" else None
-        sous = f"{ch} % de chances d'ici le {rp.dfr(pb.get('horizon'))}" if ch is not None else ""
-        pct_c = (c.get("comite") or {}).get("pct") if c.get("source") == "comite" else None
-        if pct_c:  # consigne exacte du comité : elle peut préciser le plan (« 7,5 % maintenant + 7,5 % par ordre »)
-            sous = f"Comité : {pct_c}" + (" · " + sous if sous else "")
-        if sur and (due or {}).get("ordre"):
-            sous = (sous + " · " if sous else "") + f"quand le blé Euronext atteint {rp.n(due['ordre'])} €/t"
-        rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
-                    f"<td style='{td}'><span style='background:{coul[cl]};color:#fff;border-radius:5px;padding:2px 7px;font:600 12px monospace'>{e(lab)}</span>"
-                    f" <b>{e(rp.court(due, sur, gap))}</b>" + (f"<br><span style='color:#666;font-size:12px'>{e(sous)}</span>" if sous else "") + "</td>"
-                    f"<td style='{td};text-align:right;white-space:nowrap'>{rp.n(cours)} €/t</td></tr>")
     eng = dash.get("engrais") or {}
-    ec = eng.get("comite") or {}
-    lab, cl = rp.ENGRAIS.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
-    ur = ((eng.get("france") or {}).get("uree") or {}).get("prix")
-    quoi = (ec.get("pct") or eng.get("a_acheter") or "").split("(")[0].strip()
-    rows.append(f"<tr><td style='{td}'><b>Azote</b></td>"
-                f"<td style='{td}'><span style='background:{coul[cl]};color:#fff;border-radius:5px;padding:2px 7px;font:600 12px monospace'>{e(lab)}</span>"
-                f" <b>{e(quoi)}</b>" + (f"<br><span style='color:#666;font-size:12px'>plafond d'achat {rp.n(ec['prix_plafond'], 0)} €/t</span>" if ec.get("prix_plafond") else "")
-                + f"</td><td style='{td};text-align:right;white-space:nowrap'>{('urée ' + rp.n(ur) + ' €/t') if ur else '—'}</td></tr>")
+    for c in list((dash.get("cultures") or {}).values()) + [{"nom": "Azote", "decision": eng.get("decision") or {}, "azote": True}]:
+        x = c.get("decision") or {}
+        sous = [f"Comité : {x['consigne']}"] if x.get("consigne") else []
+        if x.get("chance") is not None:
+            h_ = str(x.get("horizon") or "")
+            mois = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+            sous.append(f"{x['chance']} % de chances d'ici le {int(h_[8:10])} {mois[int(h_[5:7]) - 1]}" if len(h_) >= 10 else f"{x['chance']} % de chances")
+        if x.get("declencheur_ble"):
+            sous.append(f"quand le blé Euronext atteint {f(x['declencheur_ble'])} €/t")
+        if x.get("plafond"):
+            sous.append(f"plafond d'achat {f(x['plafond'], 0)} €/t")
+        cours = (("urée " if c.get("azote") else "") + f(x["cours"]) + " €/t") if x.get("cours") else "—"
+        rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
+                    f"<td style='{td}'><span style='background:{coul.get(x.get('couleur'), coul['neutral'])};color:#fff;border-radius:5px;"
+                    f"padding:2px 7px;font:600 12px monospace'>{e(x.get('libelle', '—'))}</span> <b>{e(x.get('quoi'))}</b>"
+                    + (f"<br><span style='color:#666;font-size:12px'>{e(' · '.join(sous))}</span>" if sous else "") + "</td>"
+                    f"<td style='{td};text-align:right;white-space:nowrap'>{cours}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'>"
             "<th align=left style='padding:6px 8px'>Culture</th><th align=left style='padding:6px 8px'>Que faire</th>"
             "<th align=right style='padding:6px 8px'>Cours</th></tr>" + "".join(rows) + "</table>")
@@ -175,14 +147,18 @@ def main():
                         + (f" <a href='{e(x['url'])}' style='color:#0d6a56'>Lire</a>" if str(x.get("url", "")).startswith("http") else "")
                         + "</li>" for x in trig)
         mails.append(([x["id"] for x in trig], subj, wrap("Alertes du jour", f"<ul style='padding-left:18px'>{items}</ul>{bloc_actu()}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}")))
-    for x in outbox:
-        if x.get("type") == "comite" and comite.get("rapport_html"):
-            sig = ", ".join(f"{v.get('nom', k)} {v.get('libelle', '')}" for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
+    coms = [x for x in outbox if x.get("type") == "comite"]
+    for x in coms[:-1]:  # plusieurs comités en attente (envoi en échec la veille) : seul le dernier rapport part, il remplace les autres
+        sent[x["id"]] = "remplacé"
+    for x in coms[-1:]:
+        if comite.get("rapport_html"):
+            sig = ", ".join(f"{v.get('nom', k).replace(' tendre', '')} {(v.get('decision') or {}).get('libelle', '')}"
+                            for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
             subj = f"🌾 {x['titre']} — {sig}"[:180]
             inner = (f"<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>{table_signaux(dash)}{bloc_actu()}"
                      f"<hr style='margin:18px 0'>{comite['rapport_html']}")
             mails.append(([x["id"]], subj, wrap(x["titre"], inner + PDF_NOTE)))
-        elif x.get("type") == "comite":
+        else:
             sent[x["id"]] = "sans rapport"
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true":
         mails.append(([], "🌾 Grain Signal — email de test", wrap("Email de test", table_signaux(dash) + bloc_actu() + PDF_NOTE)))

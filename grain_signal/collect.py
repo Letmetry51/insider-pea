@@ -23,6 +23,8 @@ from pathlib import Path
 
 import requests
 
+from commun import save as save_json  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT = ROOT / "data" / "grain"
@@ -244,13 +246,6 @@ def write_csv(path, rows, fields):
         w = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
-    tmp.replace(path)
-
-
-def save_json(path, obj):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(path)
 
 

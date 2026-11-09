@@ -565,366 +565,9 @@ function pgauge(v, kind, title, note, compact) {
   );
 }
 
-function spark(values, opts = {}) {
-  const v = values.map((x) => (x === null || x === undefined ? null : x));
-  const ok = v.filter((x) => x !== null);
-  if (ok.length < 5) return null;
-  const W = 300,
-    H = 54;
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('class', 'spark');
-  svg.setAttribute('aria-hidden', 'true');
-  const x = (i) => (i / (v.length - 1)) * W;
-  if (opts.bars) {
-    const m = Math.max(...ok.map(Math.abs)) || 1;
-    const bw = W / v.length;
-    v.forEach((val, i) => {
-      if (val === null) return;
-      const hgt = (Math.abs(val) / m) * (H / 2 - 2);
-      svgEl(svg, 'rect', {
-        x: i * bw,
-        y: val >= 0 ? H / 2 - hgt : H / 2,
-        width: Math.max(1, bw - 0.6),
-        height: Math.max(0.8, hgt),
-        fill: val >= 0 ? 'var(--good)' : 'var(--bad)',
-      });
-    });
-    return svg;
-  }
-  const y = (val) => H - 2 - ((val - 0) / 100) * (H - 4);
-  svgEl(svg, 'rect', { x: 0, y: y(100), width: W, height: y(70) - y(100), fill: 'var(--good-soft)' });
-  svgEl(svg, 'rect', { x: 0, y: y(30), width: W, height: y(0) - y(30), fill: 'var(--bad-soft)' });
-  let d = '';
-  v.forEach((val, i) => {
-    if (val === null) return;
-    d += (d ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(val).toFixed(1);
-  });
-  svgEl(svg, 'path', { d, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.4 });
-  const lv = ok[ok.length - 1];
-  svgEl(svg, 'circle', { cx: W - 2, cy: y(lv), r: 3, fill: 'var(--ink)' });
-  return svg;
-}
-
-let ICMODE = 'vendeur';
-const ACHAT = {
-  'Survente : ne pas vendre': 'Survente : bon moment pour acheter',
-  'Surachat : vendre': 'Surachat : attendre pour acheter',
-  'Élan haussier': 'Élan haussier : ne pas trop attendre',
-  'Élan haussier qui ralentit': 'Hausse qui ralentit',
-  'Élan baissier': 'Élan baissier : attendre peut payer',
-  'Près du support': 'Près du support : bon prix d’achat',
-  'Près de la résistance': 'Près de la résistance : cher',
-};
-function icard(icon, title, help, badge, badgeCls, label, ...body) {
-  if (ICMODE === 'acheteur') {
-    badgeCls = { good: 'bad', bad: 'good' }[badgeCls] || badgeCls;
-    label = ACHAT[label] || label;
-  }
-  return h(
-    'div',
-    { class: 'icard' },
-    h(
-      'div',
-      { class: 'ihead' },
-      h('span', { text: `${icon} ${title}` }),
-      h('span', { class: 'i', title: help, 'aria-label': help, tabindex: '0', text: 'ⓘ' })
-    ),
-    h(
-      'div',
-      { class: 'ival' },
-      h('span', { class: 'badge ' + badgeCls, text: badge }),
-      h('span', { class: 'ilabel', text: label })
-    ),
-    ...body
-  );
-}
-
-/* Cartes lues du point de vue du vendeur : vert = bon moment pour vendre, rouge = mauvais moment pour vendre. */
-function indicatorCards(a, series, niv, canal, mode = 'vendeur') {
-  if (!a || a.insuffisant) return null;
-  ICMODE = mode;
-  const cards = [];
-  const r = a.rsi;
-  if (r !== null && r !== undefined) {
-    const [lab, cl] =
-      r < 30
-        ? ['Survente : ne pas vendre', 'bad']
-        : r > 70
-          ? ['Surachat : vendre', 'good']
-          : r < 40
-            ? ['Faible', 'warn']
-            : r > 60
-              ? ['Fort', 'info']
-              : ['Neutre', 'neutral'];
-    cards.push(
-      icard(
-        '📶',
-        'RSI 14 jours',
-        'Force des hausses face aux baisses sur 14 séances. Sous 30 : marché survendu, rebond fréquent, mauvais moment pour vendre. Au-dessus de 70 : surachat, bon moment pour une tranche.',
-        fmt(r, 0),
-        cl,
-        lab,
-        gauge(
-          r,
-          0,
-          100,
-          [
-            [30, 'var(--bad)'],
-            [70, 'var(--neutral)'],
-            [100, 'var(--good)'],
-          ],
-          [
-            [30, '30'],
-            [70, '70'],
-          ]
-        ),
-        series && series.rsi ? spark(series.rsi) : null,
-        series && series.rsi ? h('div', { class: 'imeta', text: '3 mois' }) : null
-      )
-    );
-  }
-  if (a.histo !== null && a.histo !== undefined) {
-    const up = a.histo > 0;
-    const fading = a.histo_5j !== null && a.histo_5j !== undefined && Math.abs(a.histo) < Math.abs(a.histo_5j);
-    cards.push(
-      icard(
-        '〽️',
-        'MACD',
-        "Écart entre moyennes exponentielles 12 et 26 jours, comparé à sa moyenne 9 jours (signal). Histogramme positif : élan haussier ; négatif : élan baissier ; qui se resserre : l'élan s'essouffle.",
-        up ? '▲ haussier' : '▼ baissier',
-        up ? 'good' : 'bad',
-        up
-          ? fading
-            ? 'Élan haussier qui ralentit'
-            : 'Élan haussier'
-          : fading
-            ? 'Baisse qui s’essouffle'
-            : 'Élan baissier',
-        series && series.histo ? spark(series.histo, { bars: true }) : null,
-        h('div', {
-          class: 'imeta',
-          text: a.croisement_macd ? `Croisement ${a.croisement_macd.sens} le ${dfr(a.croisement_macd.date)}` : '3 mois',
-        })
-      )
-    );
-  }
-  if (a.mm20 !== undefined) {
-    const e20 = a.ecart_mm20,
-      e50 = a.ecart_mm50;
-    const sens =
-      e50 !== undefined
-        ? e20 > 0 && e50 > 0
-          ? 'haussière'
-          : e20 < 0 && e50 < 0
-            ? 'baissière'
-            : 'indécise'
-        : e20 > 0
-          ? 'haussière'
-          : 'baissière';
-    cards.push(
-      icard(
-        sens === 'haussière' ? '📈' : sens === 'baissière' ? '📉' : '➡️',
-        'Tendance (moyennes mobiles)',
-        'Position du cours par rapport à ses moyennes mobiles 20 et 50 séances (et 200 quand l’historique le permet).',
-        pct(e20),
-        e20 > 0 ? 'good' : 'bad',
-        `Tendance ${sens}`,
-        h(
-          'dl',
-          { class: 'kv' },
-          [h('dt', { text: 'MM20' }), h('dd', { text: `${fmt(a.mm20)} (${pct(e20)})` })],
-          a.mm50 ? [h('dt', { text: 'MM50' }), h('dd', { text: `${fmt(a.mm50)} (${pct(e50)})` })] : null,
-          a.mm200 ? [h('dt', { text: 'MM200' }), h('dd', { text: `${fmt(a.mm200)} (${pct(a.ecart_mm200)})` })] : null
-        )
-      )
-    );
-  }
-  if (canal) {
-    const p = Math.round(canal.position * 100);
-    const [lab, cl] =
-      p < 0
-        ? ['Cassure par le bas', 'bad']
-        : p > 100
-          ? ['Cassure par le haut', 'good']
-          : p < 25
-            ? ['Bas du canal', 'warn']
-            : p > 75
-              ? ['Haut du canal', 'good']
-              : ['Milieu du canal', 'neutral'];
-    cards.push(
-      icard(
-        canal.sens === 'haussier' ? '↗️' : canal.sens === 'baissier' ? '↘️' : '↔️',
-        `Canal ${canal.sens}`,
-        'Droite de tendance des 3 derniers mois, ± 2 écarts-types. Haut du canal : zone de vente ; bas du canal : attendre le rebond ; sortie du canal : changement de rythme.',
-        `${p} %`,
-        cl,
-        lab,
-        gauge(
-          p,
-          -20,
-          120,
-          [
-            [0, 'var(--bad)'],
-            [25, 'var(--warn)'],
-            [75, 'var(--neutral)'],
-            [100, 'var(--good)'],
-            [120, 'var(--good)'],
-          ],
-          [
-            [0, 'bas'],
-            [100, 'haut'],
-          ]
-        ),
-        h('div', { class: 'imeta', text: `Pente ${sgn(canal.pente, 1)} % par mois` })
-      )
-    );
-  }
-  if (a.haut3m !== undefined && a.bas3m !== undefined && a.haut3m > a.bas3m) {
-    const p = Math.round(((a.dernier - a.bas3m) / (a.haut3m - a.bas3m)) * 100);
-    const [lab, cl] =
-      p <= 15
-        ? ['Près du support', 'bad']
-        : p >= 85
-          ? ['Près de la résistance', 'good']
-          : ['Entre les deux', 'neutral'];
-    cards.push(
-      icard(
-        '🧱',
-        'Support / résistance',
-        'Position du cours entre le plus bas (support) et le plus haut (résistance) des 3 derniers mois. Vendre près de la résistance, pas sur le support.',
-        `${p} %`,
-        cl,
-        lab,
-        gauge(
-          p,
-          0,
-          100,
-          [
-            [15, 'var(--bad)'],
-            [85, 'var(--neutral)'],
-            [100, 'var(--good)'],
-          ],
-          [
-            [0, `S ${fmt(a.bas3m)}`],
-            [100, `R ${fmt(a.haut3m)}`],
-          ]
-        )
-      )
-    );
-  }
-  if (a.boll_pb !== null && a.boll_pb !== undefined) {
-    const b = a.boll_pb;
-    const [lab, cl] =
-      b < 0.05
-        ? ['Bande basse touchée', 'bad']
-        : b > 0.95
-          ? ['Bande haute touchée', 'good']
-          : b < 0.3
-            ? ['Moitié basse', 'warn']
-            : b > 0.7
-              ? ['Moitié haute', 'info']
-              : ['Au centre', 'neutral'];
-    cards.push(
-      icard(
-        '🎚️',
-        'Bandes de Bollinger',
-        'Position dans les bandes 20 séances ± 2 écarts-types (0 = bande basse, 1 = bande haute). Largeur faible : compression, un mouvement fort se prépare.',
-        fmt(b, 2),
-        cl,
-        lab,
-        gauge(
-          b,
-          0,
-          1,
-          [
-            [0.05, 'var(--bad)'],
-            [0.95, 'var(--neutral)'],
-            [1, 'var(--good)'],
-          ],
-          [
-            [0, 'basse'],
-            [1, 'haute'],
-          ]
-        ),
-        h('div', {
-          class: 'imeta',
-          text: `Largeur ${fmt(a.boll_largeur, 1)} %${a.boll_largeur < 6 ? ' : compression' : ''}`,
-        })
-      )
-    );
-  }
-  if (niv && niv.ordres && niv.ordres.length && niv.revision) {
-    const gain = ((niv.ordres[0] - a.dernier) / a.dernier) * 100,
-      risk = ((a.dernier - niv.revision) / a.dernier) * 100;
-    const ratio = risk > 0 ? gain / risk : null;
-    const [lab, cl] =
-      ratio === null
-        ? ['Sous la révision', 'bad']
-        : ratio >= 1.5
-          ? ['Attendre l’ordre vaut le coup', 'good']
-          : ratio >= 1
-            ? ['Équilibré', 'neutral']
-            : ['Risque supérieur au gain', 'bad'];
-    cards.push(
-      icard(
-        '⚖️',
-        'Attendre l’ordre : gain / risque',
-        "Pour une tranche à vendre : gain si le premier ordre est atteint, rapporté à la perte si le cours tombe au seuil de révision. Au-dessus de 1,5 : attendre l'ordre est favorable ; sous 1 : mieux vaut ne pas trop attendre.",
-        ratio === null ? '—' : fmt(ratio, 1),
-        cl,
-        lab,
-        gauge(
-          ratio === null ? 0 : Math.min(ratio, 4),
-          0,
-          4,
-          [
-            [1, 'var(--bad)'],
-            [1.5, 'var(--warn)'],
-            [4, 'var(--good)'],
-          ],
-          [
-            [1.5, '1,5'],
-            [4, '4+'],
-          ]
-        ),
-        h('div', {
-          class: 'imeta',
-          text: `🎯 Ordre ${fmt(niv.ordres[0])} (${pct(gain)}) · 🛑 révision ${fmt(niv.revision)} (${pct(-risk)})`,
-        })
-      )
-    );
-  }
-  if (a.divergence && a.divergence !== 'aucune') {
-    cards.push(
-      icard(
-        a.divergence === 'haussière' ? '🔄' : '⚠️',
-        'Divergence RSI',
-        'Le prix fait un nouveau plus bas (ou plus haut) sans que le RSI suive : le mouvement perd de sa force, retournement possible.',
-        a.divergence,
-        a.divergence === 'haussière' ? 'warn' : 'good',
-        a.divergence === 'haussière' ? 'La baisse perd de sa force' : 'La hausse perd de sa force'
-      )
-    );
-  }
-  ICMODE = 'vendeur';
-  return h(
-    'div',
-    {},
-    h('h4', {
-      class: 'ititle',
-      text:
-        mode === 'acheteur'
-          ? '🧭 Indicateurs (lecture acheteur : vert = bon moment pour acheter)'
-          : '🧭 Indicateurs (lecture vendeur : vert = bon moment pour vendre)',
-    }),
-    h('div', { class: 'igrid' }, cards)
-  );
-}
-
-/* Graphique à périodes (3 mois, 1 an, 5 ans) + cartes d'indicateurs + tableau complet.
-   p = { nom, graphique, long: { an, cinq_ans }, technique, series, niveaux, mode, legendLong: [[couleur, libellé]], noteLong,
-         legend3m, mainColor, col4Dots } */
+/* Graphique à périodes (3 mois, 1 an, 5 ans).
+   p = { nom, graphique, long: { an, cinq_ans }, technique, niveaux, legendLong: [[couleur, libellé]], noteLong, legend3m, mainColor,
+         col4Dots } */
 function periodPanel(p) {
   if (!p.graphique) return null;
   const ta = p.technique;
@@ -990,21 +633,8 @@ function periodPanel(p) {
       return b;
     })
   );
-  const g = draw('3m');
-  return h(
-    'div',
-    {},
-    periods.length > 1 ? sw : null,
-    box,
-    p.simple
-      ? null
-      : ta && !ta.insuffisant
-        ? indicatorCards(ta, p.series, p.niveaux, g.canal, p.mode)
-        : h('p', { class: 'note', text: 'Indicateurs disponibles à partir de 30 séances.' }),
-    !p.simple && ta && !ta.insuffisant
-      ? h('details', {}, h('summary', { text: '📋 Tous les chiffres' }), techTable(ta))
-      : null
-  );
+  draw('3m');
+  return h('div', {}, periods.length > 1 ? sw : null, box);
 }
 
 // vues 1 an / 5 ans d'une orge : celles du blé décalées de l'écart orge/blé du jour, prix physiques relevés par-dessus
@@ -1267,31 +897,6 @@ function calendarTable() {
 
 /* ---------------------------------------------------------------------------------------------- onglets */
 /* ---------------------------------------------------------------------------------------------- en un coup d'œil */
-const DECISION = {
-  ordre: ['🎯', 'ORDRE', 'warn'],
-  executer: ['✅', 'VENDRE', 'good'],
-  vendre: ['🟢', 'AVANCER', 'good'],
-  attendre: ['🔴', 'ATTENDRE', 'bad'],
-  couvrir: ['🛡️', 'COUVRIR', 'info'],
-  rien: ['💤', 'RIEN', 'neutral'],
-  patienter: ['⏸️', 'PATIENTER', 'warn'],
-};
-// résumé d'une tranche ; orges (sur = vendues selon le blé) : prix de l'orge = ordre sur le blé + écart orge/blé du jour
-function court(p, sur, ecart) {
-  if (!p) return '—';
-  if (p.code === 'rien') return `Prochaine tranche : ${p.periode}`;
-  const prix = !p.ordre
-    ? ''
-    : sur && ecart !== undefined && ecart !== null
-      ? `à ≈ ${fmt(p.ordre + ecart)} €/t`
-      : `${sur ? 'blé ≥ ' : 'à '}${fmt(p.ordre)} €/t`;
-  if (p.code === 'ordre') return `${p.pct} % ${prix}`;
-  if (p.code === 'executer') return `${p.pct} % ${prix || 'cette période'}`.trim();
-  if (p.code === 'attendre') return `Décaler les ${p.pct} %`;
-  if (p.code === 'patienter') return `${p.pct} % au prochain rebond`;
-  if (p.code === 'couvrir') return `Couvrir ${p.pct} %`;
-  return `${p.pct} %`;
-}
 const SIGC = { VENDRE: 'var(--good)', COUVRIR: 'var(--info)', TENIR: 'var(--warn)', ATTENDRE: 'var(--bad)' };
 const SIGT = {
   VENDRE: 'vendre une tranche',
@@ -1594,120 +1199,9 @@ function techTable(a) {
   );
 }
 
-const SIG_ENGRAIS_TXT = {
-  ACHETER_LARGE: '🟢 ACHETER LARGE',
-  SUIVRE: '🟡 SUIVRE LE PLAN',
-  FRACTIONNER: '🟠 FRACTIONNER',
-  ATTENDRE: '🔴 ATTENDRE',
-};
-function vEngrais(detail) {
+function vEngrais() {
   const e = GS.data.engrais || {};
   const out = [];
-  if (!detail)
-    out.push(
-      h(
-        'div',
-        { class: 'grid' },
-        h(
-          'section',
-          { class: 'card' },
-          h('h3', { text: 'Décision du matin' }),
-          // avis du comité d'abord (comme l'onglet Signaux, l'email et le PDF), règles chiffrées en second
-          h('div', {
-            class: 'sig',
-            text: (e.comite && e.comite.signal && SIG_ENGRAIS_TXT[e.comite.signal]) || e.libelle || '—',
-          }),
-          e.comite && e.comite.signal
-            ? h(
-                'div',
-                {},
-                h('span', { class: 'chip good', text: 'Avis du comité' }),
-                e.comite.signal !== e.signal
-                  ? h('span', { class: 'chip', text: 'Règles du matin : ' + e.libelle })
-                  : null
-              )
-            : null,
-          h('p', {
-            text:
-              'À acheter maintenant : ' +
-              ((e.comite && e.comite.pct) || e.a_acheter || '—') +
-              (e.comite && e.comite.prix_plafond ? ` (plafond ${fmt(e.comite.prix_plafond, 0)} €/t)` : ''),
-          }),
-          e.comite && e.comite.texte ? h('p', { class: 'note', text: e.comite.texte }) : null,
-          h(
-            'ul',
-            { class: 'list note' },
-            (e.notes || []).map((n) => h('li', { text: n }))
-          )
-        ),
-        h(
-          'section',
-          { class: 'card' },
-          h('h3', { text: 'Ratio urée / blé' }),
-          h(
-            'div',
-            { class: 'pgrid' },
-            e.estimation
-              ? pgauge(e.estimation.percentile, 'ratio', `Estimé ce matin : ${fmt(e.estimation.ratio, 3)}`)
-              : null,
-            e.mondial
-              ? pgauge(
-                  e.mondial.percentile,
-                  'ratio',
-                  `Mondial (${moisFr(e.mondial.mois)}) : ${fmt(e.mondial.ratio, 3)}`
-                )
-              : null,
-            e.mondial
-              ? pgauge(
-                  e.mondial.uree_percentile,
-                  'acheteur',
-                  `Urée mondiale seule sur 10 ans : ${fmt(e.mondial.uree, 0)} $/t`
-                )
-              : null
-          ),
-          h(
-            'dl',
-            { class: 'kv' },
-            [
-              h('dt', { text: 'Rattrapage' }),
-              h('dd', { text: e.rattrapage !== undefined ? sgn(e.rattrapage, 0) + ' pts' : '—' }),
-            ],
-            [h('dt', { text: 'Saison' }), h('dd', { text: e.saison || '—' })]
-          ),
-          e.estimation ? h('p', { class: 'note', text: e.estimation.methode }) : null,
-          h('p', {
-            class: 'note',
-            text: '≤ 20e percentile : acheter large · 20-60 : suivre le plan · 60-80 : fractionner · ≥ 80 : attendre. Rattrapage > +15 pts : avancer ; < −15 : retarder.',
-          })
-        ),
-        e.ttf
-          ? h(
-              'section',
-              { class: 'card' },
-              h('h3', { text: 'Gaz TTF' }),
-              pgauge(e.ttf.percentile_5ans, 'acheteur', `Prix sur 5 ans : ${fmt(e.ttf.dernier)} €/MWh`),
-              h(
-                'dl',
-                { class: 'kv' },
-                [h('dt', { text: 'Dernier' }), h('dd', { text: `${fmt(e.ttf.dernier)} €/MWh (${dfr(e.ttf.au)})` })],
-                [
-                  h('dt', { text: '1 sem. / 1 mois / 3 mois' }),
-                  h('dd', { text: `${pct(e.ttf.var1s)} / ${pct(e.ttf.var1m)} / ${pct(e.ttf.var3m)}` }),
-                ],
-                [h('dt', { text: 'MM20 / MM50' }), h('dd', { text: `${fmt(e.ttf.mm20)} / ${fmt(e.ttf.mm50)}` })],
-                [
-                  h('dt', { text: 'RSI / histo MACD' }),
-                  h('dd', { text: `${fmt(e.ttf.rsi, 0)} / ${sgn(e.ttf.histo)}` }),
-                ],
-                [
-                  h('dt', { text: 'Plus haut / bas 3 mois' }),
-                  h('dd', { text: `${fmt(e.ttf.haut3m)} / ${fmt(e.ttf.bas3m)}` }),
-                ]
-              )
-            )
-          : null
-      )
-    );
   const fr = Object.values(e.france || {});
   const tv = (e.ttf || {}).vues;
   if (tv && tv.graphique) {
@@ -2013,12 +1507,6 @@ function sources() {
 
 /* ---------------------------------------------------------------------------------------------- vue simplifiée
    Aujourd'hui : une ligne par culture (que faire, combien, à quel prix) ; Cultures : une culture à la fois, le détail replié. */
-const ED = {
-  ACHETER_LARGE: ['🟢', 'ACHETER', 'good'],
-  SUIVRE: ['🟡', 'SUIVRE LE PLAN', 'info'],
-  FRACTIONNER: ['🟠', 'FRACTIONNER', 'warn'],
-  ATTENDRE: ['🔴', 'ATTENDRE', 'bad'],
-};
 const NOM_COURT = {
   ble: 'Blé',
   escourgeon: 'Escourgeon',
@@ -2027,59 +1515,48 @@ const NOM_COURT = {
   mais: 'Maïs',
 };
 
-function duePlan(c) {
-  const plan = c.plan || [];
-  return plan.find((p) => p.statut === 'due' && !p.avant_moisson) || plan.find((p) => p.statut === 'due') || plan[0];
-}
-
-// ce que la page dit de chaque culture, calculé une fois : action, quantité, prix, cours du jour, chances
-function resumeCulture(k, d) {
-  const c = d.cultures[k];
-  const due = duePlan(c);
-  const [ic, lab, cl] = DECISION[(due || {}).code] || ['❔', '—', 'neutral'];
-  const con = (d.contrats || {})[c.contrat] || {};
-  const nr = c.niveaux_retenus || {};
-  const gap = nr.sur_ble ? ((d.orges || {})[k] || {}).ecart_ble : null;
-  const phys = c.physique || {};
-  const cours = phys.prix ? phys.prix : con.dernier_reel;
-  const v1 = (con.technique || {}).var1s;
-  const pb = nr.probas || {};
-  const ch = due && due.code === 'ordre' && pb.ordres && pb.ordres[0] !== undefined ? pb.ordres[0] : null;
-  // consigne exacte du comité d'abord : elle peut préciser le plan (« 7,5 % maintenant + 7,5 % par ordre »)
-  const cc = c.source === 'comite' ? c.comite || {} : {};
-  const sous = [
-    cours
-      ? `${phys.prix ? 'Prix physique' : 'Cours'} ${fmt(cours)} €/t` +
-        (!c.proxy && v1 !== undefined ? ` (${pct(v1)} en 1 sem.)` : '')
-      : null,
-    ch !== null ? `${ch} % de chances d’atteindre l’ordre d’ici le ${dfr(pb.horizon)}` : null,
-    due && due.ordre && nr.sur_ble ? `ordre déclenché par le blé Euronext à ${fmt(due.ordre)} €/t` : null,
-  ].filter(Boolean);
+// icône de chaque décision ; le texte, la couleur et les chiffres viennent du calcul (data.cultures[*].decision)
+const ICONE = {
+  ordre: '🎯',
+  executer: '✅',
+  vendre: '🟢',
+  attendre: '🔴',
+  couvrir: '🛡️',
+  rien: '💤',
+  patienter: '⏸️',
+  ACHETER_LARGE: '🟢',
+  SUIVRE: '🟡',
+  FRACTIONNER: '🟠',
+  ATTENDRE: '🔴',
+};
+function resume(dec, azote) {
+  const x = dec || {};
+  const sous = azote
+    ? [
+        x.cours
+          ? `Urée ${fmt(x.cours)} €/t` +
+            (x.var1m !== undefined && x.var1m !== null ? ` (${pct(x.var1m)} en 1 mois)` : '')
+          : null,
+        x.plafond ? `plafond d’achat ${fmt(x.plafond, 0)} €/t` : null,
+      ]
+    : [
+        x.cours
+          ? `${x.physique ? 'Prix physique' : 'Cours'} ${fmt(x.cours)} €/t` +
+            (x.var1s !== undefined && x.var1s !== null ? ` (${pct(x.var1s)} en 1 sem.)` : '')
+          : null,
+        x.chance !== null && x.chance !== undefined
+          ? `${x.chance} % de chances d’atteindre l’ordre d’ici le ${dfr(x.horizon)}`
+          : null,
+        x.declencheur_ble ? `ordre déclenché par le blé Euronext à ${fmt(x.declencheur_ble)} €/t` : null,
+      ];
   return {
-    c,
-    due,
-    ic,
-    lab,
-    cl,
-    quoi: court(due, nr.sur_ble, gap),
-    com: cc.pct ? `Comité : ${cc.pct}` : '',
-    sous: sous.join(' · '),
-    con,
-    nr,
-    gap,
+    ic: ICONE[x.code] || '❔',
+    lab: x.libelle || '—',
+    cl: x.couleur || 'neutral',
+    quoi: x.quoi || '',
+    com: x.consigne ? `Comité : ${x.consigne}` : '',
+    sous: sous.filter(Boolean).join(' · '),
   };
-}
-
-function resumeAzote(d) {
-  const e = d.engrais || {};
-  const ec = e.comite || {};
-  const [ic, lab, cl] = ED[ec.signal || e.signal] || ['❔', '—', 'neutral'];
-  const ur = (e.france || {}).uree || {};
-  const sous = [
-    ur.prix ? `Urée ${fmt(ur.prix)} €/t` + (ur.var1m !== undefined ? ` (${pct(ur.var1m)} en 1 mois)` : '') : null,
-    ec.prix_plafond ? `plafond d’achat ${fmt(ec.prix_plafond, 0)} €/t` : null,
-  ].filter(Boolean);
-  return { e, ec, ic, lab, cl, quoi: ec.pct ? ec.pct.split('(')[0].trim() : e.a_acheter || '', sous: sous.join(' · ') };
 }
 
 function decisionRow(href, nom, r) {
@@ -2140,9 +1617,13 @@ function vAujourdhui() {
     );
   out.push(h('h2', { text: 'Que faire aujourd’hui' }));
   const rows = Object.keys(d.cultures || {}).map((k) =>
-    decisionRow(`#cultures/${k}`, `${ICON[k] || ''} ${NOM_COURT[k] || d.cultures[k].nom}`, resumeCulture(k, d))
+    decisionRow(
+      `#cultures/${k}`,
+      `${ICON[k] || ''} ${NOM_COURT[k] || d.cultures[k].nom}`,
+      resume(d.cultures[k].decision)
+    )
   );
-  rows.push(decisionRow('#cultures/azote', '🧪 Azote', resumeAzote(d)));
+  rows.push(decisionRow('#cultures/azote', '🧪 Azote', resume((d.engrais || {}).decision, true)));
   out.push(h('nav', { class: 'drows', 'aria-label': 'Décisions par culture' }, rows));
   out.push(
     h('p', {
@@ -2151,33 +1632,24 @@ function vAujourdhui() {
     })
   );
   const cj = GS.comite || {};
-  if (com.resume) {
+  // le pourquoi, replié : les décisions ci-dessus disent déjà quoi faire
+  if (com.resume)
     out.push(
       h(
-        'section',
-        { class: 'card wide' },
-        h('h3', { text: `L’avis du comité (${dfr(com.date)})` }),
+        'details',
+        { class: 'acc' },
+        h('summary', { text: `Pourquoi ? L’avis du comité du ${dfr(com.date)}` }),
         h('p', { text: com.resume }),
         cj.rapport_html
           ? h(
               'details',
               {},
-              h('summary', { text: 'Lire le rapport complet' }),
-              h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html)),
-              cj.sources && cj.sources.length
-                ? h(
-                    'p',
-                    { class: 'note' },
-                    `Sources consultées : ${cj.sources.filter((x) => /^https?:\/\//i.test(x.url)).length} pages · ${cj.modele || ''}${
-                      cj.cout_usd !== undefined ? ` · ≈ ${fmt(cj.cout_usd)} $` : ''
-                    }`
-                  )
-                : null
+              h('summary', { text: 'Rapport complet' }),
+              h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html))
             )
           : null
       )
     );
-  }
   return out;
 }
 
@@ -2210,13 +1682,15 @@ function reperes(k, c, con, d) {
 }
 
 function cultureView(k, d) {
-  const r = resumeCulture(k, d);
-  const { c, con, nr } = r;
+  const c = d.cultures[k];
+  const con = (d.contrats || {})[c.contrat] || {};
+  const nr = c.niveaux_retenus || {};
+  const r = resume(c.decision);
   const cc = c.comite || {};
   const ech = nr.echeance ? ` (${c.contrat} ${moisFr(nr.echeance)})` : '';
   const ordres = nr.ordres || [];
   const o = (d.orges || {})[k];
-  const plan = (c.plan || []).map((p) => `Récolte ${p.recolte} : ${court(p, nr.sur_ble, r.gap)} (${p.periode})`);
+  const plan = (c.plan || []).map((p) => `Récolte ${p.recolte} : ${p.resume || p.action} (${p.periode})`);
   const graph =
     o && o.estime
       ? periodPanel({
@@ -2228,7 +1702,6 @@ function cultureView(k, d) {
           mainColor: 'var(--muted)',
           longMain: 'var(--muted)',
           col4Dots: true,
-          simple: true,
           legend3m: h(
             'div',
             { class: 'legend' },
@@ -2250,7 +1723,6 @@ function cultureView(k, d) {
             niveaux: con.niveaux_retenus || con.niveaux,
             marks: marksFor(k),
             longMain: con.long && con.long.source === 'euronext' ? null : 'var(--muted)',
-            simple: true,
           })
         : null;
   const ta = con.proxy && con.proxy.technique ? con.proxy.technique : con.technique;
@@ -2385,7 +1857,6 @@ function cultureView(k, d) {
             : null,
           pl && pl.percentile !== undefined ? pgauge(pl.percentile, 'prime', '📍 Prime locale', null, true) : null
         ),
-        ta && !ta.insuffisant ? indicatorCards(ta, con.series, nr, null) : null,
         ta && !ta.insuffisant ? techTable(ta) : null
       )
     ),
@@ -2393,8 +1864,8 @@ function cultureView(k, d) {
 }
 
 function azoteView(d) {
-  const r = resumeAzote(d);
-  const e = r.e;
+  const e = d.engrais || {};
+  const r = resume(e.decision, true);
   return [
     h(
       'section',
@@ -2407,7 +1878,7 @@ function azoteView(d) {
         h('span', { class: 'dquoi', text: r.quoi })
       ),
       r.sous ? h('p', { class: 'dsous', text: r.sous }) : null,
-      r.ec.texte ? h('p', { text: r.ec.texte }) : null
+      (e.decision || {}).texte ? h('p', { text: e.decision.texte }) : null
     ),
     h(
       'div',
@@ -2431,7 +1902,7 @@ function azoteView(d) {
           ? [h('dt', { text: 'Forme la moins chère' }), h('dd', { text: e.forme_moins_chere })]
           : null,
         e.saison ? [h('dt', { text: 'Saison' }), h('dd', { text: e.saison })] : null,
-        r.ec.signal && r.ec.signal !== e.signal
+        e.comite && e.comite.signal && e.comite.signal !== e.signal
           ? [h('dt', { text: 'Règles chiffrées' }), h('dd', { text: e.libelle || '—' })]
           : null
       ),
@@ -2446,7 +1917,7 @@ function azoteView(d) {
               e.notes.map((n) => h('li', { text: n }))
             )
           : null,
-        ...vEngrais(true)
+        ...vEngrais()
       )
     ),
   ];
@@ -2758,51 +2229,11 @@ function geoSection(d) {
   ];
 }
 
-function psySection(d) {
-  const noms = { EBM: '🌾 Blé (et orges)', ECO: '🌼 Colza', EMA: '🌽 Maïs' };
-  const rows = Object.entries(d.contrats || {}).filter(([, c]) => c.psychologie);
-  if (!rows.length) return [];
-  const CMP = [
-    ['rsi', 'RSI'],
-    ['ecart200', 'Écart MM200'],
-    ['elan20', 'Élan 20 j'],
-    ['fonds', 'Fonds'],
-  ];
+// ce que vaut l'humeur du marché sur l'historique (l'humeur du jour est sur chaque culture)
+function psySection() {
   const bt = (GS.backtest || {}).psychologie || {};
   const evid = Object.entries(bt).filter(([, v]) => v && v['60']);
   return [
-    h('h2', { text: '🧠 Psychologie des marchés' }),
-    h(
-      'div',
-      { class: 'grid' },
-      rows.map(([k, c]) => {
-        const ps = c.psychologie;
-        return h(
-          'section',
-          { class: 'card' },
-          h('h3', { text: noms[k] || c.nom }),
-          pgauge(ps.indice, 'psy', null, ps.lecture),
-          h(
-            'div',
-            { class: 'minis' },
-            CMP.filter(([ck]) => ps.composantes[ck] !== null && ps.composantes[ck] !== undefined).map(([ck, t]) =>
-              h('span', {
-                class: 'mini ' + (ps.composantes[ck] <= 20 ? 'bad' : ps.composantes[ck] >= 80 ? 'good' : ''),
-                title:
-                  ck === 'fonds'
-                    ? `Position nette des ${ps.fonds_source || 'fonds'} sur 3 ans`
-                    : ck === 'rsi'
-                      ? `RSI ${fmt(ps.valeurs.rsi, 0)}, situé sur 3 ans`
-                      : ck === 'ecart200'
-                        ? `${pct(ps.valeurs.ecart200)} par rapport à la moyenne 200 séances, situé sur 3 ans`
-                        : `${pct(ps.valeurs.elan20)} en 20 séances, situé sur 3 ans`,
-                text: `${t} ${ps.composantes[ck]}`,
-              })
-            )
-          )
-        );
-      })
-    ),
     evid.length
       ? h(
           'div',
@@ -2888,8 +2319,7 @@ function vActualite() {
   );
   out.push(newsList(ac));
   const geo = geoSection(d).slice(1); // sans le titre : la section est repliée
-  const psy = psySection(d);
-  const ev = psy.length ? psy[psy.length - 1] : null; // tableau « l'humeur annonce-t-elle la suite ? »
+  const ev = psySection()[0]; // tableau « l'humeur annonce-t-elle la suite ? »
   if (geo.length || ev)
     out.push(
       h(

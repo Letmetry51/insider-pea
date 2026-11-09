@@ -25,6 +25,9 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from commun import load  # noqa: E402
+from indicators import ema, rsi, sma  # noqa: E402,F401  (rsi, sma : aussi utilisés par les scripts de recherche)
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT = ROOT / "data" / "grain"
@@ -34,48 +37,7 @@ TONNE = {"ZW=F": 36.744, "ZC=F": 39.368}
 CULTURES = {"ble": ("ZW=F", 7, "Blé (Chicago converti en €/t)"), "mais": ("ZC=F", 10, "Maïs (Chicago converti en €/t)")}
 
 
-def load(p, default):
-    try:
-        return json.loads(Path(p).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        return default
-
-
 # ----------------------------------------------------------------------------------------- indicateurs vectorisés
-def sma(x, n):
-    out, s = [None] * len(x), 0.0
-    for i, v in enumerate(x):
-        s += v
-        if i >= n:
-            s -= x[i - n]
-        if i >= n - 1:
-            out[i] = s / n
-    return out
-
-
-def ema(x, n):
-    k, e, out = 2 / (n + 1), None, []
-    for v in x:
-        e = v if e is None else v * k + e * (1 - k)
-        out.append(e)
-    return out
-
-
-def rsi(x, n=14):
-    out = [None] * len(x)
-    if len(x) <= n:
-        return out
-    d = [x[i] - x[i - 1] for i in range(1, len(x))]
-    au = sum(max(v, 0) for v in d[:n]) / n
-    ad = sum(max(-v, 0) for v in d[:n]) / n
-    out[n] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
-    for i in range(n, len(d)):
-        au += (max(d[i], 0) - au) / n
-        ad += (max(-d[i], 0) - ad) / n
-        out[i + 1] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
-    return out
-
-
 def indicateurs(p):
     n = len(p)
     m20, m50 = sma(p, 20), sma(p, 50)

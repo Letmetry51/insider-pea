@@ -10,12 +10,13 @@ sur les serveurs), coupures de page maîtrisées (un bloc n'est jamais coupé en
   python grain_signal/rapport_pdf.py --html F   écrit seulement la page HTML (contrôle de la mise en page)
 """
 import html
-import json
 import re
 import os
 import sys
 from datetime import date
 from pathlib import Path
+
+from commun import load  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "grain"
@@ -23,11 +24,6 @@ PDF = OUT / "prive" / "synthese.pdf"
 
 MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
 COUL = {"good": "#1f7a3e", "bad": "#b0281f", "warn": "#9a5b00", "info": "#2a62b8", "neutral": "#6b6d60"}
-DECISION = {"ordre": ("ORDRE", "warn"), "executer": ("VENDRE", "good"), "vendre": ("AVANCER", "good"), "attendre": ("ATTENDRE", "bad"),
-            "couvrir": ("COUVRIR", "info"), "rien": ("RIEN", "neutral"), "patienter": ("PATIENTER", "warn")}
-ENGRAIS = {"ACHETER_LARGE": ("ACHETER LARGE", "good"), "SUIVRE": ("SUIVRE LE PLAN", "info"), "FRACTIONNER": ("FRACTIONNER", "warn"),
-           "ATTENDRE": ("ATTENDRE", "bad")}
-
 
 EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u2B00-\u2BFF]")
 
@@ -35,13 +31,6 @@ EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u2B00-\u2BFF]")
 def e(t):
     """Texte échappé, sans emoji (les serveurs n'ont pas de police couleur : ils s'imprimeraient en carrés vides)."""
     return html.escape(EMOJI.sub("", str(t if t is not None else "")).strip(), quote=True)
-
-
-def load(p, default):
-    try:
-        return json.loads(Path(p).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        return default
 
 
 def n(v, d=2):
@@ -224,63 +213,29 @@ def chart_svg(rows, ordres=(), revision=None, w=440, h=165):
 
 
 # --------------------------------------------------------------------------------------------- contenu
-def court(p, sur_ble, ecart=None):
-    """Même résumé de la tranche que la page (tuiles « Décisions du jour ») ; orges : prix de l'orge (blé + écart du jour)."""
-    if not p:
-        return "—"
-    if p.get("code") == "rien":
-        return f"Prochaine tranche : {p.get('periode', '')}"
-    if sur_ble and p.get("ordre") and ecart is not None:
-        prix = f"à ≈ {n(p['ordre'] + ecart)} €/t"
-    else:
-        prix = f"{'blé ≥ ' if sur_ble else 'à '}{n(p['ordre'])} €/t" if p.get("ordre") else ""
-    return {"ordre": f"{p['pct']} % {prix}", "executer": f"{p['pct']} % {prix or 'cette période'}".strip(),
-            "attendre": f"Décaler les {p['pct']} %", "patienter": f"{p['pct']} % au prochain rebond",
-            "couvrir": f"Couvrir {p['pct']} %"}.get(p.get("code"), f"{p.get('pct', '')} %")
-
-
 def page_html(d):
     cultures = d.get("cultures") or {}
     contrats = d.get("contrats") or {}
     com = d.get("comite") or {}
     eng = d.get("engrais") or {}
     seance = (contrats.get("EBM") or {}).get("seance") or d.get("date")
-    # 1. décisions du jour
+    # 1. décisions du jour (calculées par build.py : mêmes mots que la page et l'email)
     rows = []
-    for k, c in cultures.items():
-        plan = c.get("plan") or []
-        due = next((p for p in plan if p.get("statut") == "due" and not p.get("avant_moisson")), None) or \
-            next((p for p in plan if p.get("statut") == "due"), None) or (plan[0] if plan else None)
-        lab, cl = DECISION.get((due or {}).get("code"), ("—", "neutral"))
-        con = contrats.get(c.get("contrat")) or {}
-        phys = c.get("physique") or {}
-        cours = phys.get("prix") if phys.get("prix") else con.get("dernier_reel")
-        v1 = (con.get("technique") or {}).get("var1s")
-        sur = (c.get("niveaux_retenus") or {}).get("sur_ble")
-        gap = ((d.get("orges") or {}).get(k) or {}).get("ecart_ble") if sur else None
-        sous = f"Récolte {due['recolte']} · {due['periode']}" if due and due.get("periode") else ""
-        pct_c = (c.get("comite") or {}).get("pct") if c.get("source") == "comite" else None
-        if pct_c:  # consigne exacte du comité, en premier
-            sous = f"Comité : {e(pct_c)}" + ("<br>" + sous if sous else "")
-        if sur and due and due.get("ordre"):
-            sous += f"<br>quand le blé Euronext atteint {n(due['ordre'])}&nbsp;€/t"
-        autre = next((p for p in plan if p is not due and p.get("statut") == "due"), None)
-        if autre:
-            sous += f"<br>Récolte {autre['recolte']} : {e(court(autre, sur, gap))}"
-        rows.append(
-            f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
-            f"<td>{badge(lab, cl)}<div class='quoi'>{e(court(due, sur, gap))}</div><div class='muted'>{sous}</div></td>"
-            f"<td class='r'><b>{n(cours)} €/t</b>{'<div class=muted>physique</div>' if phys.get('prix') else ''}"
-            f"{f'<div class=muted>{sg(v1, 1)} % en 1 sem.</div>' if v1 is not None and not c.get('proxy') else ''}</td></tr>")
-    ec = eng.get("comite") or {}
-    elab, ecl = ENGRAIS.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
-    ur = (eng.get("france") or {}).get("uree") or {}
-    plaf = f"<div class='muted'>Plafond d'achat : {n(ec.get('prix_plafond'), 0)} €/t</div>" if ec.get("prix_plafond") else ""
-    uree = f"<b>{n(ur.get('prix'))} €/t</b><div class='muted'>urée</div>" if ur.get("prix") else "—"
-    rows.append(
-        f"<tr><td class='cn'><b>Azote (achat)</b></td>"
-        f"<td>{badge(elab, ecl)}<div class='quoi'>{e((ec.get('pct') or eng.get('a_acheter') or '').split('(')[0].strip())}</div>"
-        f"{plaf}</td><td class='r'>{uree}</td></tr>")
+    for c in list(cultures.values()) + [{"nom": "Azote (achat)", "decision": eng.get("decision") or {}, "azote": True}]:
+        x = c.get("decision") or {}
+        sous = [f"Comité : {e(x['consigne'])}"] if x.get("consigne") else []
+        if x.get("chance") is not None:
+            sous.append(f"{x['chance']} % de chances d'atteindre l'ordre d'ici le {dfr(x.get('horizon'))}")
+        if x.get("declencheur_ble"):
+            sous.append(f"quand le blé Euronext atteint {n(x['declencheur_ble'])}&nbsp;€/t")
+        if x.get("plafond"):
+            sous.append(f"Plafond d'achat : {n(x['plafond'], 0)} €/t")
+        var = x.get("var1m") if c.get("azote") else x.get("var1s")
+        cours = (f"<b>{n(x['cours'])} €/t</b>" + ("<div class=muted>urée</div>" if c.get("azote") else "<div class=muted>physique</div>" if x.get("physique") else "")
+                 + (f"<div class=muted>{sg(var, 1)} % en 1 {'mois' if c.get('azote') else 'sem.'}</div>" if var is not None else "")) if x.get("cours") else "—"
+        rows.append(f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
+                    f"<td>{badge(x.get('libelle', '—'), x.get('couleur', 'neutral'))}<div class='quoi'>{e(x.get('quoi'))}</div>"
+                    f"<div class='muted'>{'<br>'.join(sous)}</div></td><td class='r'>{cours}</td></tr>")
     decisions = ("<table class='dec'><thead><tr><th>Culture</th><th>Que faire</th><th class='r'>Cours</th>"
                  "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
 

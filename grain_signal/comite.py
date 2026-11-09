@@ -21,6 +21,8 @@ from pathlib import Path
 
 import requests
 
+from commun import load, save  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT = ROOT / "data" / "grain"
@@ -29,21 +31,6 @@ API = "https://api.anthropic.com/v1/messages"
 PRIX = {"claude-opus-5-5": (4, 20), "claude-sonnet-5-5": (2, 10), "claude-haiku-5-5": (0.1, 0.5)}  # $ par million de jetons
 SIGNAUX = {"VENDRE", "TENIR", "ATTENDRE", "COUVRIR"}
 SIG_ENGRAIS = {"ACHETER_LARGE", "SUIVRE", "FRACTIONNER", "ATTENDRE"}
-
-
-def load(p, default):
-    try:
-        return json.loads(Path(p).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        return default
-
-
-def save(p, obj):
-    p = Path(p)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(p)
 
 
 def decide_mode(today, dash, last):
@@ -270,7 +257,9 @@ def main():
     hist = ([{"date": today.isoformat(), "mode": mode, "cout_usd": res["cout_usd"], "resume": res["resume"]}] + hist)[:120]
     save(OUT / "comites-journal.json", hist)
     outbox = load(OUT / "prive" / "a-envoyer.json", [])
-    outbox.append({"id": f"comite:{today.isoformat()}:{mode}", "type": "comite", "titre": f"Comité grains et engrais — {consigne}"[:140],
+    # heure dans l'identifiant : un comité relancé le même jour est un nouveau rapport, envoyé lui aussi (le 9/11, la relance de
+    # l'après-midi portait le même identifiant que celui du matin et n'était pas partie)
+    outbox.append({"id": f"comite:{today.isoformat()}:{mode}:{datetime.now(timezone.utc):%H%M}", "type": "comite", "titre": f"Comité grains et engrais — {consigne}"[:140],
                    "detail": res["resume"], "grave": mode == "alerte"})
     save(OUT / "prive" / "a-envoyer.json", outbox)
     print(f"Comité {mode} : {len(decision['cultures'])} cultures, {usage['searches']} recherches, ≈ {res['cout_usd']} $")

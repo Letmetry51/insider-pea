@@ -139,7 +139,8 @@ Ne pose jamais de question : l'outil tourne seul, personne ne peut répondre. La
 Termine ta réponse par un unique bloc ```json (rien après), qui reprend tes décisions sous ce format exact :
 {"resume": "3 phrases au plus",
  "cultures": {"ble": {"signal": "VENDRE|TENIR|ATTENDRE|COUVRIR", "score": nombre de -2 à 2, "pct": "part à vendre maintenant (texte court)",
-   "ordres": [niveaux de vente en €/t sur l'échéance Euronext de référence], "revision_bas": nombre ou null, "revision_haut": nombre ou null,
+   "ordres": [niveaux de vente en €/t sur l'échéance Euronext de référence], "ordres_pct": [% de la récolte vendu à chaque ordre, même ordre],
+   "maintenant_pct": % de la récolte à vendre tout de suite au marché (0 si rien), "revision_bas": nombre ou null, "revision_haut": nombre ou null,
    "texte": "une phrase"},
   "escourgeon": {…}, "orge_printemps": {…}, "colza": {…}, "mais": {…}},
  "engrais": {"signal": "ACHETER_LARGE|SUIVRE|FRACTIONNER|ATTENDRE", "pct": "texte court", "forme": "texte court",

@@ -377,28 +377,15 @@ def psy_etat(v):
     return PSY_ETATS[-1][1], PSY_ETATS[-1][2]
 
 
-def _rsi(x, n=14):
-    out = [None] * len(x)
-    if len(x) <= n:
-        return out
-    d = [x[i] - x[i - 1] for i in range(1, len(x))]
-    au = sum(max(v, 0) for v in d[:n]) / n
-    ad = sum(max(-v, 0) for v in d[:n]) / n
-    out[n] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
-    for i in range(n, len(d)):
-        au += (max(d[i], 0) - au) / n
-        ad += (max(-d[i], 0) - ad) / n
-        out[i + 1] = 100.0 if ad == 0 else 100 - 100 / (1 + au / ad)
-    return out
-
-
 def psy_series(vals, win=756):
     """Composantes de l'humeur du marché, chacune en percentile sur 3 ans glissants (jour par jour, fenêtre des `win` séances
     précédentes) : RSI 14, écart à la moyenne 200 séances, élan sur 20 séances. Sert au calcul du matin (dernier jour) et au
     backtest (tous les jours). Fenêtre triée tenue à jour (insertion et retrait par dichotomie)."""
     import bisect
     n = len(vals)
-    r = _rsi(vals)
+    from indicators import rsi
+
+    r = rsi(vals)
     s, m200 = 0.0, [None] * n
     for i, v in enumerate(vals):
         s += v
@@ -568,3 +555,92 @@ def actu_doublon(a, b):
     if not wa or not wb:
         return False
     return len(wa & wb) / min(len(wa), len(wb)) >= 0.7
+
+
+# --------------------------------------------------------------------------------------------- décision du jour
+# calculée ici une seule fois ; la page, l'email et la synthèse PDF l'affichent telle quelle (mêmes mots, mêmes chiffres)
+DECISIONS = {"ordre": ("ORDRE", "warn"), "executer": ("VENDRE", "good"), "vendre": ("AVANCER", "good"),
+             "attendre": ("ATTENDRE", "bad"), "couvrir": ("COUVRIR", "info"), "rien": ("RIEN", "neutral"),
+             "patienter": ("PATIENTER", "warn")}
+DECISIONS_AZOTE = {"ACHETER_LARGE": ("ACHETER", "good"), "SUIVRE": ("SUIVRE LE PLAN", "info"),
+                   "FRACTIONNER": ("FRACTIONNER", "warn"), "ATTENDRE": ("ATTENDRE", "bad")}
+
+
+def nfr(v, d=2):
+    """235.5 → « 235,50 » ; milliers séparés par une espace fine insécable."""
+    return f"{v:,.{d}f}".replace(",", "\u202f").replace(".", ",")
+
+
+def pct_txt(v):
+    return nfr(v, 0 if float(v).is_integer() else 1)
+
+
+def tranche_txt(p, sur_ble=False, ecart=None):
+    """Résumé d'une tranche : « 15 % à 235,50 €/t » ; orges : prix de l'orge (ordre sur le blé + écart orge/blé du jour)."""
+    if not p:
+        return "—"
+    code, pct = p.get("code"), p.get("pct")
+    if code == "rien":
+        return f"Prochaine tranche : {p.get('periode', '')}"
+    o = p.get("ordre")
+    prix = ""
+    if o:
+        prix = f"à ≈ {nfr(o + ecart)} €/t" if sur_ble and ecart is not None else f"{'blé ≥ ' if sur_ble else 'à '}{nfr(o)} €/t"
+    return {"ordre": f"{pct} % {prix}", "executer": f"{pct} % {prix or 'cette période'}".strip(), "attendre": f"Décaler les {pct} %",
+            "patienter": f"{pct} % au prochain rebond", "couvrir": f"Couvrir {pct} %"}.get(code, f"{pct} %")
+
+
+def tranche_due(plan):
+    plan = plan or []
+    return (next((p for p in plan if p.get("statut") == "due" and not p.get("avant_moisson")), None)
+            or next((p for p in plan if p.get("statut") == "due"), None) or (plan[0] if plan else None))
+
+
+def decision_jour(e, contrat, ecart=None):
+    """Que faire aujourd'hui pour une culture. Avis du comité chiffré (vendre maintenant, % par ordre) s'il le donne, sinon
+    tranche du plan (ordre, patienter, vendre…) avec la consigne du comité en clair."""
+    nr = e.get("niveaux_retenus") or {}
+    sur = bool(nr.get("sur_ble"))
+    due = tranche_due(e.get("plan"))
+    code, quoi = (due or {}).get("code") or "rien", tranche_txt(due, sur, ecart)
+    cc = (e.get("comite") or {}) if e.get("source") == "comite" else {}
+    consigne = cc.get("pct") or None
+    libre = False  # consigne du comité en texte libre : les chances et le déclencheur du plan n'y correspondent pas forcément
+    m = cc.get("maintenant_pct")
+    m = float(m) if isinstance(m, (int, float)) and 0 <= m <= 100 else None
+    paires = [(o, p) for o, p in zip(nr.get("ordres") or [], nr.get("ordres_pct") or []) if isinstance(p, (int, float)) and p > 0]
+    if m is not None or paires:
+        parts = ([f"{pct_txt(m)} % maintenant"] if m else []) + [
+            f"{pct_txt(p)} % {'quand le blé atteint' if sur else 'à'} {nfr(o)} €/t" for o, p in paires]
+        if parts:
+            code, quoi, consigne = ("executer" if m else "ordre"), " · ".join(parts), None
+        elif cc.get("signal") in ("ATTENDRE", "COUVRIR"):
+            code, quoi = cc["signal"].lower(), cc.get("pct") or quoi
+        else:
+            code, quoi = "rien", "Rien à vendre maintenant"
+    elif consigne:
+        # avis du comité en texte libre (comités d'avant les champs chiffrés) : c'est lui la consigne, la tranche du plan n'est
+        # pas répétée ; « 7,5 % maintenant » = vendre tout de suite
+        import re
+        mm = re.match(r"\s*(\d+(?:[.,]\d+)?)\s*%\s*maintenant", consigne)
+        if mm and float(mm.group(1).replace(",", ".")) > 0:
+            code = "executer"
+        quoi, consigne, libre = consigne, None, True
+    lab, coul = DECISIONS.get(code, ("—", "neutral"))
+    phys = (e.get("physique") or {}).get("prix")
+    pb = nr.get("probas") or {}
+    ch = (pb.get("ordres") or [None])[0] if code == "ordre" and not libre else None
+    return {"code": code, "libelle": lab, "couleur": coul, "quoi": quoi, "consigne": consigne,
+            "cours": phys or (contrat or {}).get("dernier_reel"), "physique": bool(phys),
+            "var1s": None if e.get("proxy") else ((contrat or {}).get("technique") or {}).get("var1s"),
+            "chance": ch, "horizon": pb.get("horizon") if ch is not None else None,
+            "declencheur_ble": (due or {}).get("ordre") if sur and code == "ordre" and not libre else None}
+
+
+def decision_azote(eng):
+    ec = eng.get("comite") or {}
+    lab, coul = DECISIONS_AZOTE.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
+    ur = (eng.get("france") or {}).get("uree") or {}
+    return {"code": ec.get("signal") or eng.get("signal"), "libelle": lab, "couleur": coul,
+            "quoi": (ec.get("pct") or eng.get("a_acheter") or "").split("(")[0].strip(), "consigne": None,
+            "cours": ur.get("prix"), "var1m": ur.get("var1m"), "plafond": ec.get("prix_plafond"), "texte": ec.get("texte")}
