@@ -935,3 +935,17 @@ details.aide summary {
 details.aide .list {
   margin: 6px 0 0;
 }
+tr.grp td {
+  padding-top: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line);
+}
+small.zc {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
