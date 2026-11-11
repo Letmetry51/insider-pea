@@ -1839,14 +1839,16 @@ function articleRow(a) {
 
 function newsList(ac) {
   const f = GS.actuFiltre || 'tout';
+  const fa = GS.actuAcces || 'tout';
   const all = (ac.articles || []).filter((a) => !a.doublon_de);
-  const keep = all.filter((a) =>
+  const parTheme = all.filter((a) =>
     f === 'tout'
       ? true
       : f === 'geopolitique'
         ? a.theme === 'geopolitique' || a.theme === 'politique'
         : a.impacts && a.impacts[f]
   );
+  const keep = parTheme.filter((a) => fa === 'tout' || a.acces === fa);
   // le plus important d'abord, puis le plus récent ; comptes rendus de séance en dernier
   keep.sort(
     (a, b) =>
@@ -1868,6 +1870,31 @@ function newsList(ac) {
       return b;
     })
   );
+  // second filtre : lecture de l'article (affiché seulement si des articles portent la mention)
+  const acces = all.some((a) => ACCES[a.acces])
+    ? h(
+        'div',
+        { class: 'filters', role: 'group', 'aria-label': 'Filtrer selon la lecture de l’article' },
+        [
+          ['tout', 'Tous les articles'],
+          ['entier', ACCES.entier[0]],
+          ['abonnes', ACCES.abonnes[0]],
+        ].map(([k, t]) => {
+          const nb = k === 'tout' ? null : parTheme.filter((a) => a.acces === k).length;
+          const b = h('button', {
+            class: 'filt',
+            'aria-pressed': String(k === fa),
+            text: nb === null ? t : `${t} (${nb})`,
+          });
+          b.addEventListener('click', () => {
+            GS.actuAcces = k;
+            GS.actuTout = false;
+            render();
+          });
+          return b;
+        })
+      )
+    : null;
   const more =
     keep.length > n
       ? (() => {
@@ -1883,6 +1910,7 @@ function newsList(ac) {
     'div',
     { class: 'card wide' },
     bar,
+    acces,
     keep.length ? keep.slice(0, n).map(articleRow) : h('p', { class: 'muted', text: 'Aucun titre pour ce filtre.' }),
     more
   );
