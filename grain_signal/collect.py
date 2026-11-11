@@ -1072,14 +1072,12 @@ def actu_ajoute(arts, it, now, garde, **extra):
     return True
 
 
-# lecture de l'article : en entier ou réservé aux abonnés. Balise standard des éditeurs (schema.org isAccessibleForFree, lue par
-# Google), sinon mention explicite dans la page, sinon le site connu (config, actualites.acces). Rien n'est contourné : on lit la
-# page publique telle qu'un visiteur non abonné la reçoit.
+# lecture de l'article : en entier ou réservé aux abonnés, d'après la balise standard des éditeurs (schema.org
+# isAccessibleForFree, celle que lit Google : Terre-net, Réussir, La France Agricole, Le Monde… la posent article par article).
+# Sans balise : le site connu (config, actualites.acces), sinon « en entier » si la page s'est affichée sans abonnement. Les
+# mentions « réservé aux abonnés » du texte ne servent pas : elles figurent aussi dans les menus des pages libres (sonde du
+# 11/11/2026 sur 70 articles). Rien n'est contourné : on lit la page publique telle qu'un visiteur non abonné la reçoit.
 ACCES_LD = re.compile(r'"isAccessibleForFree"\s*:\s*"?(false|true)\b', re.I)
-ACCES_ABO = re.compile(r"(?:article|contenu|information|analyse)s? réservée?s? (?:aux|à nos) abonnés|réservée? (?:aux|à nos) abonnés|"
-                       r"pour lire la suite(?: de cet article)?,? (?:abonnez|connectez|inscrivez)|"
-                       r"subscribe (?:now )?to (?:continue|read)|(?:this|the) (?:article|story|content) is (?:only )?(?:for|available to) "
-                       r"(?:paid )?subscribers|subscribers? only|subscriber-only", re.I)
 
 
 def gn_lien(url, timeout=12):
@@ -1101,26 +1099,27 @@ def gn_lien(url, timeout=12):
 
 
 def acces_page(html):
-    """'entier', 'abonnes' ou None d'après le HTML d'un article."""
+    """'abonnes' ou 'entier' d'après la balise de l'éditeur, None sans balise."""
     m = ACCES_LD.findall(html)
-    if m:
-        return "abonnes" if any(x.lower() == "false" for x in m) else "entier"
-    return "abonnes" if ACCES_ABO.search(html) else "entier"
+    if not m:
+        return None
+    return "abonnes" if any(x.lower() == "false" for x in m) else "entier"
 
 
 def acces_article(a, sites, timeout=12):
-    """(accès, adresse directe) d'un article : la page d'abord, le site connu si la page ne répond pas."""
-    lien = a.get("url") or ""
+    """(accès, adresse directe) d'un article : balise de la page, sinon site connu, sinon « en entier » si la page s'est
+    affichée ; None si rien ne permet de le dire (page refusée, site inconnu)."""
+    lien, lue = a.get("url") or "", None
     try:
         if "news.google.com/rss/articles/" in lien:
             lien = gn_lien(lien, timeout) or ""
         if lien.startswith("http"):
             r = requests.get(lien, headers=UA, timeout=timeout)
-            if r.status_code == 200 and len(r.text) > 2000:
-                return acces_page(r.text), lien
+            lue = r.text if r.status_code == 200 and len(r.text) > 20000 else None
     except Exception:  # noqa: BLE001
         pass
-    return sites.get(a.get("source") or ""), (lien if lien.startswith("http") and "news.google.com" not in lien else None)
+    direct = lien if lien.startswith("http") and "news.google.com" not in lien else None
+    return (acces_page(lue) if lue else None) or sites.get(a.get("source") or "") or ("entier" if lue else None), direct
 
 
 def collect_acces(arts, cfg, budget=120):

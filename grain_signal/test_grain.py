@@ -910,13 +910,11 @@ check(_col.date_publiee(date(2026, 11, 11), date(2026, 11, 11)) == date(2026, 11
       and _col.date_publiee(date(2026, 10, 1), date(2026, 11, 11)) == date(2026, 11, 10),
       "prix physiques : date de la table gardée (même lue le matin), date trop ancienne ramenée à la dernière séance")
 
-# accès aux articles : balise des éditeurs, sinon mention explicite ; un menu « Espace abonnés » ne suffit pas
+# accès aux articles : balise des éditeurs ; les menus « réservé aux abonnés » des pages libres ne comptent pas
 check(collect.acces_page('<script type="application/ld+json">{"isAccessibleForFree": false}</script>') == "abonnes"
-      and collect.acces_page('<script>{"isAccessibleForFree":"True"}</script>' + "x" * 50) == "entier"
-      and collect.acces_page("<p>Cet article est réservé aux abonnés.</p>") == "abonnes"
-      and collect.acces_page("<p>This story is available to subscribers only</p>") == "abonnes"
-      and collect.acces_page("<nav>Espace abonnés · Déjà abonné ? Se connecter · S'abonner à la newsletter</nav><p>Texte libre</p>") == "entier",
-      "accès aux articles : abonnés ou disponible en entier d'après la page")
+      and collect.acces_page('<script>{"isAccessibleForFree":"True"}</script> Contenu réservé aux abonnés') == "entier"
+      and collect.acces_page("<nav>Contenu réservé aux abonnés · Déjà abonné ?</nav><p>Texte libre</p>") is None,
+      "accès aux articles : abonnés ou disponible en entier d'après la balise de l'éditeur")
 _sites = {"Bloomberg.com": "abonnes"}
 check(collect.acces_article({"url": "", "source": "Bloomberg.com"}, _sites) == ("abonnes", None)
       and collect.acces_article({"url": "", "source": "Inconnu"}, _sites) == (None, None),
