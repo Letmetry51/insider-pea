@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
-from commun import boite, load, save  # noqa: E402
+from commun import ACCES, boite, load, save  # noqa: E402
 
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -140,7 +140,7 @@ def bloc_actu(n=3):
         if lien:
             titre = f"<a href='{e(lien)}' style='color:#17201c'>{titre}</a>"
         lis.append(f"<li style='margin:6px 0'><b>{titre}</b>"
-                   f" <span style='color:#777;font-size:12px'>({e(a.get('source') or '')})</span><br>{e(a.get('impact'))}"
+                   f" <span style='color:#777;font-size:12px'>({e(a.get('source') or '')}{ACCES.get(a.get('acces'), '')})</span><br>{e(a.get('impact'))}"
                    + (f"<br><span style='font-size:12px'>{' · '.join(fx)}</span>" if fx else "") + "</li>")
     return ("<h3>📰 L'actualité et son effet sur les prix</h3>"
             + (f"<p style='background:#f4f1e6;padding:10px;border-radius:6px'>{e(ac['synthese'])}</p>" if ac.get("synthese") else "")

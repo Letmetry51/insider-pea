@@ -242,7 +242,9 @@ def main():
         c = cache.get(a["id"])
         if c and not c.get("pertinent"):
             continue
-        x = {k: a.get(k) for k in ("id", "titre", "url", "date", "source", "langue")}
+        x = {k: a.get(k) for k in ("id", "titre", "url", "date", "source", "langue", "acces")}
+        if str(a.get("url_directe") or "").startswith("http"):
+            x["url"] = a["url_directe"]  # lien direct vers l'article plutôt que la redirection de Google Actualités
         x["autres_sources"] = (a.get("autres_sources") or [])[:6]
         if c:
             x.update({k: v for k, v in c.items() if k not in ("classe_le", "v")})

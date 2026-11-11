@@ -28,3 +28,7 @@ def save(p, obj):
     tmp = p.with_name(p.name + ".tmp")
     tmp.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(p)
+
+
+# lecture d'un article de la revue de presse (champ « acces », déterminé à la collecte) : mention ajoutée après la source
+ACCES = {"entier": " · disponible en entier", "abonnes": " · réservé aux abonnés"}

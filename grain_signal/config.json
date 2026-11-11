@@ -165,6 +165,15 @@
       "Agri-mutuel": "https://www.agri-mutuel.com/feed/",
       "World-Grain": "https://www.world-grain.com/rss/articles",
       "farmdoc daily": "https://farmdocdaily.illinois.edu/feed"
+    },
+    "acces": {
+      "_": "Lecture de l'article quand sa page ne répond pas : sites toujours réservés aux abonnés, sites toujours libres. Les sites mixtes (Terre-net, Réussir, La France Agricole…) n'y sont pas : leur page dit, article par article, s'il est réservé.",
+      "abonnes": ["Bloomberg.com", "Bloomberg", "Les Echos", "www.agra.fr", "Agra", "Africa Intelligence", "Quantum Commodity Intelligence",
+                  "Financial Times", "The Wall Street Journal", "Argus Media", "S&P Global", "Fastmarkets", "L'Opinion"],
+      "entier": ["Web-agri", "Agri-mutuel", "World-Grain", "farmdoc daily", "Country Guide", "Farm Progress", "RFD-TV",
+                 "Brownfield Ag News", "Al Jazeera", "Yahoo Finance", "Yahoo Finance UK", "Agriland", "DTN Progressive Farmer",
+                 "Hoosier Ag Today", "Oklahoma Farm Report", "Michigan Farm News", "UkrAgroConsult", "Miller Magazine",
+                 "Milling Middle East & Africa", "DW.com", "The Kyiv Independent", "Ukraine Business News", "TradingView"]
     }
   },
   "geopolitique": {

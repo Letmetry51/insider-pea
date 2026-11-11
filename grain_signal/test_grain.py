@@ -910,6 +910,18 @@ check(_col.date_publiee(date(2026, 11, 11), date(2026, 11, 11)) == date(2026, 11
       and _col.date_publiee(date(2026, 10, 1), date(2026, 11, 11)) == date(2026, 11, 10),
       "prix physiques : date de la table gardée (même lue le matin), date trop ancienne ramenée à la dernière séance")
 
+# accès aux articles : balise des éditeurs, sinon mention explicite ; un menu « Espace abonnés » ne suffit pas
+check(collect.acces_page('<script type="application/ld+json">{"isAccessibleForFree": false}</script>') == "abonnes"
+      and collect.acces_page('<script>{"isAccessibleForFree":"True"}</script>' + "x" * 50) == "entier"
+      and collect.acces_page("<p>Cet article est réservé aux abonnés.</p>") == "abonnes"
+      and collect.acces_page("<p>This story is available to subscribers only</p>") == "abonnes"
+      and collect.acces_page("<nav>Espace abonnés · Déjà abonné ? Se connecter · S'abonner à la newsletter</nav><p>Texte libre</p>") == "entier",
+      "accès aux articles : abonnés ou disponible en entier d'après la page")
+_sites = {"Bloomberg.com": "abonnes"}
+check(collect.acces_article({"url": "", "source": "Bloomberg.com"}, _sites) == ("abonnes", None)
+      and collect.acces_article({"url": "", "source": "Inconnu"}, _sites) == (None, None),
+      "accès aux articles : page illisible → site connu, sinon rien d'affiché")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

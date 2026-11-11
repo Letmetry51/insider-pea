@@ -1782,6 +1782,12 @@ function impactChips(imp) {
     });
 }
 
+/* lecture de l'article : d'après la page publique (balise des éditeurs ou mention « réservé aux abonnés »), sinon le site */
+const ACCES = {
+  entier: ['📖 Disponible en entier', 'good', 'L’article se lit en entier sans abonnement'],
+  abonnes: ['🔒 Réservé aux abonnés', 'warn', 'Sans abonnement, seuls le titre et le début de l’article sont lisibles'],
+};
+
 function articleRow(a) {
   const th = THEME[a.theme] || ['📰', 'Actualité'];
   const imp = Math.max(1, Math.min(3, a.importance || 1));
@@ -1802,6 +1808,9 @@ function articleRow(a) {
           }),
       a.nature ? h('span', { class: 'chip', text: NATURE[a.nature] || a.nature }) : null,
       majeur ? h('span', { class: 'chip bad', text: '⚠️ Majeur' }) : null,
+      ACCES[a.acces]
+        ? h('span', { class: 'chip ' + ACCES[a.acces][1], title: ACCES[a.acces][2], text: ACCES[a.acces][0] })
+        : null,
       h('span', {
         class: 'news-src',
         text: `${a.source || ''}${a.autres_sources && a.autres_sources.length ? ` + ${a.autres_sources.length} autre${a.autres_sources.length > 1 ? 's' : ''}` : ''} · ${ilya(a.date)}`,
