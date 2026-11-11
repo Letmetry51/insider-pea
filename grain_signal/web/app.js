@@ -1197,8 +1197,6 @@ const varSpan = (v, d = 2, suf = '') =>
 function reperesTxt(c) {
   const r = c.reperes || {};
   const out = [];
-  if (r.percentile5 !== null && r.percentile5 !== undefined)
-    out.push(`${r.percentile5}e percentile sur 5 ans${r.sur_ble ? ' (blé)' : ''}`);
   if (r.ecart_plus_haut !== null && r.ecart_plus_haut !== undefined && !c.physique)
     out.push(
       r.ecart_plus_haut < -0.01
@@ -1210,14 +1208,15 @@ function reperesTxt(c) {
   return out.join(' · ');
 }
 
-function marcheRow(href, nom, prix, tech, actu, note, labTech = 'Technique') {
+function marcheRow(href, nom, prix, tech, actu, note, jauge) {
   const paire = (lab, b) => h('span', { class: 'mpaire' }, h('span', { class: 'mlab', text: lab }), b);
   return h(
     'a',
     { class: 'mrow', href },
     h('span', { class: 'mname', text: nom }),
     h('span', { class: 'mprix' }, ...prix),
-    h('span', { class: 'mbadges' }, paire(labTech, tech), paire('Actualité', actu)),
+    h('span', { class: 'mbadges' }, tech ? paire('Technique', tech) : null, paire('Actualité', actu)),
+    jauge ? h('span', { class: 'mjauge' }, jauge) : null,
     note ? h('span', { class: 'mnote', text: note }) : null,
     h('span', { class: 'dgo', 'aria-hidden': 'true', text: '›' })
   );
@@ -1360,7 +1359,14 @@ function vMarche() {
       ],
       sensBadge((c.technique || {}).sens),
       sensBadge((c.actualite || {}).sens),
-      reperesTxt(c)
+      reperesTxt(c),
+      pgauge(
+        (c.reperes || {}).percentile5,
+        'prix',
+        `Prix sur 5 ans${(c.reperes || {}).sur_ble ? ' (blé)' : ''}`,
+        null,
+        true
+      )
     )
   );
   const e = d.engrais || {};
@@ -1374,24 +1380,20 @@ function vMarche() {
         varSpan(u.var1m, 1, ' % en 1 mois'),
         h('small', { text: 'urée' }),
       ],
-      h('span', {
-        class: 'badge neutral',
-        text: e.percentile_retenu !== undefined && e.percentile_retenu !== null ? `ratio ${e.percentile_retenu}e` : '—',
-        title: 'Ratio azote/blé en percentile sur 10 ans',
-      }),
+      null,
       sensBadge((e.actualite || {}).sens, true),
       (e.seuils || [])
         .filter((s) => s.atteint)
         .map((s) => `🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`)
         .join(' · '),
-      'Face au blé'
+      pgauge(e.percentile_retenu, 'ratio', 'Prix de l’azote face au blé (10 ans)', null, true)
     )
   );
   out.push(h('nav', { class: 'mrows', 'aria-label': 'Marché par culture' }, rows));
   out.push(
     h('p', {
       class: 'note',
-      text: 'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI) · Actualité : effet des nouvelles des 7 derniers jours sur le prix · Escourgeon et orge de printemps : prix physique Creil, technique du blé. Touchez une ligne pour le détail. L’outil décrit le marché ; la décision vous appartient.',
+      text: 'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI) · Actualité : effet des nouvelles des 7 derniers jours sur le prix · Prix sur 5 ans : le percentile situe le cours du jour dans les 5 dernières années (semaine par semaine) : 50e = au milieu, 20e = plus bas que 80 % des semaines passées, 90e = plus haut que 90 % d’entre elles · Azote : même lecture pour le rapport prix de l’urée / prix du blé sur 10 ans (bas = azote bon marché par rapport au blé) · Escourgeon et orge de printemps : prix physique Creil, technique et prix sur 5 ans du blé. Touchez une ligne pour le détail. L’outil décrit le marché ; la décision vous appartient.',
     })
   );
   out.push(agenda(d));
@@ -1521,7 +1523,17 @@ function cultureView(k, d) {
     graph ? h('section', { class: 'card wide' }, graph) : null,
     (() => {
       const g = reperes(k, c, con, d);
-      return g.length ? h('div', { class: 'card wide' }, h('div', { class: 'pgrid tight' }, g)) : null;
+      return g.length
+        ? h(
+            'div',
+            { class: 'card wide' },
+            h('div', { class: 'pgrid tight' }, g),
+            h('p', {
+              class: 'note',
+              text: 'Percentile : place du chiffre du jour dans son historique, de 0 (le plus bas) à 100 (le plus haut). Prix sur 5 ans au 70e : plus cher que 70 % des semaines des 5 dernières années. Stocks mondiaux au 30e : plus serrés que 70 % des 20 dernières campagnes. Actualité : de −2 (nouvelles très baissières) à +2 (très haussières). Humeur : de 0 (peur extrême) à 100 (euphorie).',
+            })
+          )
+        : null;
     })(),
     lectureCard(c.comite, `Lecture de la semaine (${dfr((d.comite || {}).date)})`),
     h(
@@ -2031,7 +2043,7 @@ function vActualite() {
         : null,
       h('p', {
         class: 'note',
-        text: `Effet des nouvelles des 7 derniers jours sur chaque prix (azote : + = plus cher). ${(ac.compte || {}).pertinents || 0} titres retenus sur ${(ac.compte || {}).lus || 0}. Les titres parlent plus des risques de hausse que d’une offre abondante : à lire avec les cours.`,
+        text: `Comment lire le chiffre : chaque nouvelle des 7 derniers jours reçoit un effet de −2 (forte baisse du prix) à +2 (forte hausse), pondéré par son importance (1 à 3), sa nature (un fait pèse plus qu’une rumeur) et son âge (moitié du poids après 3 jours) ; la somme est ramenée entre −2 et +2. 0 : nouvelles sans effet ou qui s’équilibrent · ±0,5 : plutôt haussière ou baissière · ±1 et au-delà : très haussière ou baissière. Repères : un seul fait majeur du jour à effet fort donne environ +0,9 ; +1,5 correspond à une dizaine de nouvelles modérées dans le même sens, ou à quelques faits importants. Le chiffre mesure le sens et la force de l’actualité, pas une prévision de prix. Azote : + = plus cher. ${(ac.compte || {}).pertinents || 0} titres retenus sur ${(ac.compte || {}).lus || 0} ; les titres parlent plus des risques de hausse que d’une offre abondante : à lire avec les cours.`,
       })
     )
   );

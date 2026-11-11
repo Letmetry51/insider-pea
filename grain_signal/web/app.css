@@ -767,7 +767,7 @@ détail replié */
 .mrow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: 'name prix go' 'badges badges go' 'note note go';
+  grid-template-areas: 'name prix go' 'badges badges go' 'jauge jauge go' 'note note go';
   gap: 6px 12px;
   padding: 12px 14px;
   background: var(--surface);
@@ -831,6 +831,13 @@ td .badge,
   margin-right: 10px;
   white-space: nowrap;
 }
+.mjauge {
+  grid-area: jauge;
+  max-width: 320px;
+}
+.mjauge .pg {
+  margin: 0;
+}
 .mnote {
   grid-area: note;
   color: var(--muted);
@@ -874,7 +881,7 @@ td .badge,
 }
 @media (max-width: 420px) {
   .mrow {
-    grid-template-areas: 'name go' 'prix go' 'badges go' 'note go';
+    grid-template-areas: 'name go' 'prix go' 'badges go' 'jauge go' 'note go';
     grid-template-columns: minmax(0, 1fr) auto;
   }
 }
