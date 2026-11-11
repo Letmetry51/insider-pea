@@ -152,7 +152,7 @@ def main():
         if x["id"] in sent:
             continue
         m = re.search(r"\d{4}-\d{2}-\d{2}", x["id"])
-        if m and (datetime.now(timezone.utc).date() - datetime.fromisoformat(m.group(0)).date()).days > 3:
+        if m and (aujourdhui() - datetime.fromisoformat(m.group(0)).date()).days > 3:
             sent[x["id"]] = "périmé"  # alerte de plus de 3 jours jamais envoyée (Gmail absent ou en panne) : plus d'actualité
             continue
         outbox.append(x)
