@@ -935,3 +935,7 @@ details.aide summary {
 details.aide .list {
   margin: 6px 0 0;
 }
+.smonth.debut {
+  border-left: 3px dashed var(--ink);
+  padding-left: 3px;
+}
