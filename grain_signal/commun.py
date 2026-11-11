@@ -1,4 +1,4 @@
-"""Grain Signal — lecture et écriture des fichiers JSON, communes à tous les modules.
+"""Bulletin des grains — lecture et écriture des fichiers JSON, communes à tous les modules.
 
 Lecture tolérante (fichier absent ou illisible : valeur par défaut), écriture atomique (fichier temporaire puis remplacement :
 une étape coupée en pleine écriture ne laisse jamais un fichier à moitié écrit).

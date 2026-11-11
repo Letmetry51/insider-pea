@@ -1,5 +1,5 @@
 """
-Grain Signal — lectures ajoutées au calcul du matin (appelées par build.py) : prix du jour sur 5 ans, profil saisonnier,
+Bulletin des grains — lectures ajoutées au calcul du matin (appelées par build.py) : prix du jour sur 5 ans, profil saisonnier,
 report de la courbe (ce que paie le stockage), prime locale (physique − Euronext), météo des zones de production, bilans
 mondiaux, humeur du marché, risque géopolitique, pression de l'actualité. Des faits et des repères, jamais un conseil.
 

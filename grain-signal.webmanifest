@@ -1,7 +1,7 @@
 {
  "id": "grain-signal.html",
- "name": "Grain Signal",
- "short_name": "Grain Signal",
+ "name": "Bulletin des grains",
+ "short_name": "Grains",
  "description": "Le marché des céréales et de l'azote chaque matin : cours, technique, actualité et alertes",
  "lang": "fr",
  "start_url": "grain-signal.html",

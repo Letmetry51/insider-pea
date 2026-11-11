@@ -13,7 +13,7 @@ GitHub Actions workflow collects public data, ranks ~3,800 listed companies with
 1997–2026 weekly prices (plus a small Piotroski-style value sleeve), publishes a static page on GitHub Pages and sends
 email alerts. Not investment advice. Code under the MIT licence; data files belong to their sources.*
 
-> 🌾 **Aussi dans ce dépôt : [Grain Signal](grain_signal/README.md)** — quand vendre ses céréales et acheter ses engrais
+> 🌾 **Aussi dans ce dépôt : [Bulletin des grains](grain_signal/README.md)** — le marché des céréales et de l'azote chaque matin (cours, technique, actualité), sans conseil
 > (signaux du matin, analyse technique, comité d'experts IA, emails). Page : `grain-signal.html`.
 
 ## Ce que fait l'outil

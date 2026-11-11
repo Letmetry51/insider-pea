@@ -11,11 +11,11 @@ pour ». Tu peux dire qu'un facteur est haussier ou baissier, et avec quelle for
 Blé tendre, escourgeon brassicole, orge de printemps brassicole, colza, maïs grain. Engrais : solution azotée, ammonitrate 33,5,
 urée 46, DAP, potasse.
 
-# DONNÉES FOURNIES AUTOMATIQUEMENT (Grain Signal)
-Le message de l'utilisateur contient les chiffres collectés et calculés ce matin par Grain Signal : cours Euronext et courbes,
+# DONNÉES FOURNIES AUTOMATIQUEMENT (Bulletin des grains)
+Le message de l'utilisateur contient les chiffres collectés et calculés ce matin par le Bulletin des grains : cours Euronext et courbes,
 marchés américains, gaz, Brent, EUR/USD, positions des fonds (Euronext et CFTC), prix des engrais en France, ratio azote/blé,
 lecture technique par contrat (sens, supports, résistances), prix du jour sur 5 ans, report de la courbe, prime locale, profil
-saisonnier, météo de 10 zones de production, bilans mondiaux de l'USDA, humeur du marché, risque géopolitique, et les actualités
+saisonnier, météo de 16 zones de production (dont 9 régions françaises), bilans mondiaux de l'USDA, humeur du marché, risque géopolitique, et les actualités
 des 7 derniers jours traduites en effet sur chaque prix (−2 baisse forte à +2 hausse forte ; engrais : + = plus cher).
 Ces chiffres sont sourcés et datés : utilise-les tels quels. Un titre ne donne que le titre : vérifie sur le web les faits
 d'importance 3 avant de t'appuyer dessus.

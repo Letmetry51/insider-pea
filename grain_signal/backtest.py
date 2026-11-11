@@ -1,5 +1,5 @@
 """
-Grain Signal — backtest : ce que valent les lectures de l'outil sur l'historique.
+Bulletin des grains — backtest : ce que valent les lectures de l'outil sur l'historique.
 
 Pour chaque lecture affichée, le cours a-t-il ensuite évolué autrement que par hasard ?
   - lecture technique (hausse / neutre / baisse) : variation des 20 et 60 séances suivantes, blé et maïs de Chicago convertis

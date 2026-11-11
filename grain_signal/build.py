@@ -1,5 +1,5 @@
 """
-Grain Signal — calcul du matin : lecture du marché par culture (cours, technique, actualité, repères), module engrais, alertes.
+Bulletin des grains — calcul du matin : lecture du marché par culture (cours, technique, actualité, repères), module engrais, alertes.
 Un outil d'aide à la décision : il décrit le marché, il ne dit jamais quoi vendre ni quand.
 
 Entrées : data/grain/prive/ (historiques de collect.py), data/grain/actualites.json, data/grain/comite.json (lecture hebdomadaire).

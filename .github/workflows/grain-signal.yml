@@ -1,12 +1,12 @@
-# Grain Signal : céréales (blé, escourgeon, orge de printemps, colza, maïs) et engrais azotés.
+# Bulletin des grains : céréales (blé, escourgeon, orge de printemps, colza, maïs) et engrais azotés.
 # Chaque matin du lundi au samedi (séance de la veille) : collecte, calcul, actualités traduites, lecture du marché de la semaine
 # (le lundi, si le secret ANTHROPIC_API_KEY existe), rapport par email, publication sur la branche site (page grain-signal.html).
 # L'outil décrit le marché (cours, technique, actualité) ; il ne donne aucun conseil de vente ou d'achat.
-name: Grain Signal (céréales et engrais)
+name: Bulletin des grains (céréales et engrais)
 
 on:
   schedule:
-    # Le calcul est lancé à 7h03 (heure de Paris) par une tâche planifiée Claude « Grain Signal : démarrage du matin » : le rapport du
+    # Le calcul est lancé à 7h03 (heure de Paris) par une tâche planifiée Claude « Bulletin des grains : démarrage du matin » : le rapport du
     # matin part vers 7h30, avant l'ouverture des grains sur Euronext (10h45). Ce créneau GitHub (6h47 UTC) n'est qu'un filet de
     # sécurité : ses tâches planifiées partent souvent avec des heures de retard (8h30 le 9/11/2026).
     - cron: '47 6 * * 1-6'
@@ -52,7 +52,7 @@ jobs:
         uses: ./.github/actions/restore-data
 
       # historiques bruts des cours (jamais publiés) gardés d'un matin à l'autre
-      - name: 0b. Historiques Grain Signal (cache)
+      - name: 0b. Historiques Bulletin des grains (cache)
         id: cache
         uses: actions/cache/restore@v4
         with:
@@ -62,7 +62,7 @@ jobs:
         continue-on-error: true
 
       # cache vidé (plus de 7 jours sans calcul) : dernière sauvegarde des historiques, plutôt que de repartir de zéro
-      - name: 0c. Historiques Grain Signal (sauvegarde, si le cache est vide)
+      - name: 0c. Historiques Bulletin des grains (sauvegarde, si le cache est vide)
         if: steps.cache.outputs.cache-matched-key == ''
         continue-on-error: true
         env:
@@ -85,7 +85,7 @@ jobs:
         timeout-minutes: 5
         run: pip install "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" "openpyxl>=3.1,<4" "markdown>=3.5,<4" "yfinance>=0.2.40,<2" "pdfplumber>=0.11,<1" "python-calamine==0.9.1"
 
-      - name: 1. Tests Grain Signal
+      - name: 1. Tests Bulletin des grains
         id: g1
         timeout-minutes: 3
         run: python grain_signal/test_grain.py
@@ -154,11 +154,11 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
-          GRAIN_ALERT_TO: ${{ secrets.GRAIN_ALERT_TO }} # destinataires propres à Grain Signal (sinon ceux d'Euro Signal)
+          GRAIN_ALERT_TO: ${{ secrets.GRAIN_ALERT_TO }} # destinataires propres au Bulletin des grains (sinon ceux d'Euro Signal)
           GS_TEST_EMAIL: ${{ inputs.test_email }}
         run: python grain_signal/send_alerts.py
 
-      - name: 7a. Historiques Grain Signal (cache)
+      - name: 7a. Historiques Bulletin des grains (cache)
         if: always()
         uses: actions/cache/save@v4
         with:
@@ -194,5 +194,5 @@ jobs:
         timeout-minutes: 15
         uses: ./.github/actions/publish-site
         with:
-          message: "🌾 Grain Signal du matin"
+          message: "🌾 Bulletin des grains du matin"
           token: ${{ secrets.GITHUB_TOKEN }}

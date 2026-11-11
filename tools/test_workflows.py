@@ -5,7 +5,7 @@ Contrôles hors ligne des workflows GitHub (04/11/2026, stress test) :
 - publication (.github/actions/publish-site) : trois refus de GitHub font échouer l'étape (sinon page figée sans alerte, journal des
   alertes perdu et emails renvoyés le lendemain), un fichier de données illisible n'est jamais publié ;
 - garde du soir (.github/workflows/watchdog.yml, 08/11/2026) : script exécuté tel quel avec un faux « gh » ; un calcul annulé dans
-  la file d'attente des données (partagée avec Grain Signal) est relancé, même si la relance a elle aussi été annulée.
+  la file d'attente des données (partagée avec le Bulletin des grains) est relancé, même si la relance a elle aussi été annulée.
 Sans dépendance (lecture ligne à ligne du YAML, Python seul).
 
   python tools/test_workflows.py
