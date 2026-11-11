@@ -949,3 +949,18 @@ small.zc {
   color: var(--muted);
   font-size: 12px;
 }
+.installer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 10px 16px 0;
+}
+.installer span {
+  flex: 1 1 220px;
+}
+.filt.primaire {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}

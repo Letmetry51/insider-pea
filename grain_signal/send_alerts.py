@@ -165,7 +165,8 @@ def synthese(dash):
 
 def wrap(title, inner):
     return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>{inner}"
-            f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir le Bulletin des grains</a></p>"
+            f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir le Bulletin des grains</a> · "
+            f"<a href='{e(URL.split('#')[0])}?installer=1' style='color:#0d6a56'>📲 Installer l'application « Grains » sur le téléphone</a></p>"
             "<p style='color:#777;font-size:12px'>Outil d'aide à la décision : il décrit le marché, il ne conseille ni de vendre ni d'acheter. "
             "La décision vous appartient.</p></div>")
 

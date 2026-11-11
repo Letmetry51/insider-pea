@@ -2139,10 +2139,69 @@ function route() {
   GS.cult = GS.tab === 'marche' ? x || null : GS.cult;
 }
 
+/* installer l'application « Grains » sur le téléphone : bouton du navigateur (Android, ordinateur), mode d'emploi sur iPhone
+   (Safari n'a pas de bouton d'installation). Rien si la page tourne déjà en application ; « Plus tard » mémorisé 30 jours,
+   sauf si on arrive par le lien « Installer » de l'email (?installer=1). */
+function installation() {
+  const appli =
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  if (appli) return;
+  const demande = new URLSearchParams(location.search).has('installer');
+  let plusTard = 0;
+  try {
+    plusTard = +localStorage.getItem('grains-installer-plus-tard') || 0;
+  } catch {}
+  if (!demande && Date.now() - plusTard < 30 * 864e5) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const bandeau = (contenu) => {
+    document.getElementById('installer')?.remove();
+    const fermer = h('button', { type: 'button', class: 'filt', text: 'Plus tard' });
+    fermer.addEventListener('click', () => {
+      try {
+        localStorage.setItem('grains-installer-plus-tard', String(Date.now()));
+      } catch {}
+      el.remove();
+    });
+    const el = h('div', { id: 'installer', class: 'alert info installer' }, ...contenu, fermer);
+    document.querySelector('header.top').after(el);
+  };
+  window.addEventListener('beforeinstallprompt', (ev) => {
+    ev.preventDefault();
+    const go = h('button', { type: 'button', class: 'filt primaire', text: '📲 Installer' });
+    go.addEventListener('click', async () => {
+      ev.prompt();
+      await ev.userChoice.catch(() => null);
+      document.getElementById('installer')?.remove();
+    });
+    bandeau([
+      h('span', { text: 'Installer l’application « Grains » : le bulletin s’ouvre d’un geste, comme une appli.' }),
+      go,
+    ]);
+  });
+  window.addEventListener('appinstalled', () => document.getElementById('installer')?.remove());
+  if (ios)
+    bandeau([
+      h('span', {
+        text: 'Installer l’application « Grains » : dans Safari, touchez Partager (carré avec une flèche vers le haut), puis « Sur l’écran d’accueil ».',
+      }),
+    ]);
+  else if (demande)
+    // le navigateur n'a pas (encore) proposé l'installation : menu du navigateur
+    setTimeout(() => {
+      if (!document.getElementById('installer'))
+        bandeau([
+          h('span', {
+            text: 'Installer l’application « Grains » : ouvrez le menu du navigateur (⋮), puis « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
+          }),
+        ]);
+    }, 2500);
+}
+
 async function init() {
   // page installable sur le téléphone : même service worker qu'Euro Signal (réseau d'abord, copie locale hors connexion)
   if ('serviceWorker' in navigator && location.protocol === 'https:')
     navigator.serviceWorker.register('sw.js').catch(() => {});
+  installation();
   route();
   document.querySelectorAll('.tabs button').forEach((b) =>
     b.addEventListener('click', () => {
