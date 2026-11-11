@@ -1,5 +1,5 @@
 """
-Grain Signal — actualités traduites en impacts sur les prix (chaque matin, après le premier calcul).
+Bulletin des grains — actualités traduites en impacts sur les prix (chaque matin, après le premier calcul).
 
 Entrée : data/grain/prive/actualites_brut.json (titres collectés par collect.py), data/grain/grain-signal.json (cours et lecture
 technique du matin, pour situer l'impact). Chaque nouveau titre est lu par l'API Claude (sans recherche web : seulement le titre, sa source et
@@ -207,7 +207,7 @@ def main():
             liste = "\n".join(f'{{"id": "{a["id"]}", "site": {json.dumps(a.get("source") or a.get("requete") or "")}, '
                               f'"date": "{a["date"][:16]}", "langue": "{a.get("langue", "")}", "titre": {json.dumps(a["titre"], ensure_ascii=False)}}}'
                               for a in part)
-            user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Grain Signal) :\n{contexte(dash)}\n\n"
+            user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Bulletin des grains) :\n{contexte(dash)}\n\n"
                     + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
                     + f"Titres à classer ({len(part)}) :\n{liste}")
             try:

@@ -1,5 +1,5 @@
 """
-Grain Signal — synthèse PDF (A4) jointe au rapport du matin et à la lecture hebdomadaire : le marché, sans conseil.
+Bulletin des grains — synthèse PDF (A4) jointe au rapport du matin et à la lecture hebdomadaire : le marché, sans conseil.
 
 Entrées : data/grain/grain-signal.json (calcul du matin). Sortie : data/grain/prive/synthese.pdf (jamais publiée).
 Mise en page HTML/CSS imprimée par Chromium (Playwright) : jauges et graphiques en SVG, sans emoji (pas de police couleur
@@ -250,11 +250,11 @@ def page_html(d):
               if com.get("resume") and com.get("valide") else "")
     agenda = ("<p class='small'><b>À venir :</b> " + " · ".join(f"{dfr(x['date'])} : {e(x.get('evenement'))}" for x in cal) + "</p>") if cal else ""
     alerte_h = ("<div class='resume'>" + "<br>".join(e(t["titre"]) for t in trig[:5]) + "</div>") if trig else ""
-    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Grain Signal — synthèse du {dfr(d.get('date'))}</title>
+    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bulletin des grains — synthèse du {dfr(d.get('date'))}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>{CSS}</style></head><body>
-<header class="top"><div><div class="brand">Grain Signal</div><div class="muted">Synthèse du {dfr(d.get('date'))} · séance du {dfr(seance)}</div></div>
+<header class="top"><div><div class="brand">Bulletin des grains</div><div class="muted">Synthèse du {dfr(d.get('date'))} · séance du {dfr(seance)}</div></div>
 </header>
 {alerte_h}<h2>Le marché ce matin</h2>{marche}
 <p class="muted small">Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI) · Actualité : effet des nouvelles des
@@ -352,7 +352,7 @@ def main():
 
     PDF.parent.mkdir(parents=True, exist_ok=True)
     foot = ("<div style='font:7pt Arial,sans-serif;color:#777;width:100%;padding:0 12mm;display:flex;justify-content:space-between'>"
-            f"<span>Grain Signal — synthèse du {e(dfr(d.get('date')))}</span>"
+            f"<span>Bulletin des grains — synthèse du {e(dfr(d.get('date')))}</span>"
             "<span>page <span class='pageNumber'></span> / <span class='totalPages'></span></span></div>")
     with sync_playwright() as p:
         b = p.chromium.launch()

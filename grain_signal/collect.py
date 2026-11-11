@@ -1,5 +1,5 @@
 """
-Grain Signal — collecte du matin (GitHub Actions).
+Bulletin des grains — collecte du matin (GitHub Actions).
 
 Sources : Euronext (blé, colza, maïs ; via terre-net, secours Euronext live), Yahoo Finance (CBOT, canola, gaz TTF, Brent,
 EUR/USD), CFTC (positions des fonds, managed money), engrais France (terre-net), prix physiques (terre-net), Banque mondiale

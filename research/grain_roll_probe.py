@@ -1,4 +1,4 @@
-"""Grain Signal — changements d'échéance : cours des deux échéances autour de chaque raccord (blé, colza, maïs Euronext).
+"""Bulletin des grains — changements d'échéance : cours des deux échéances autour de chaque raccord (blé, colza, maïs Euronext).
 
 Pour chaque changement d'échéance de la série continue (5 jours ouvrés avant l'expiration), écart nouvelle − ancienne échéance
 sur les 25 séances qui précèdent : un écart qui s'envole juste avant l'expiration (échéance proche peu liquide, livraison)

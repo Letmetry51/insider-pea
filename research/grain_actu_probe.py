@@ -1,4 +1,4 @@
-"""Grain Signal — sonde avant d'intégrer l'actualité, la géopolitique et la psychologie des marchés.
+"""Bulletin des grains — sonde avant d'intégrer l'actualité, la géopolitique et la psychologie des marchés.
 
 A. Sources d'actualité joignables depuis GitHub Actions : GDELT (articles et tonalité), Google Actualités (RSS), flux de la
    presse agricole, indice de risque géopolitique (Caldara et Iacoviello, quotidien et par pays).
@@ -7,7 +7,7 @@ B. Psychologie des marchés : un indice « peur ↔ euphorie » (RSI, écart à 
    2019), par période.
 C. Risque géopolitique et tonalité de l'actualité → rendement suivant du blé.
 
-Lit le cache des historiques Grain Signal (data/grain/prive), rien n'est publié.   python grain_actu_probe.py
+Lit le cache des historiques Bulletin des grains (data/grain/prive), rien n'est publié.   python grain_actu_probe.py
 Résultat : out/grain_actu_probe.txt
 """
 import bisect

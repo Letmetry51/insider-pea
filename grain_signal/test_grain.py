@@ -1,5 +1,5 @@
 """
-Tests hors ligne de Grain Signal (lecture des pages, indicateurs, séries continues, comité, sécurité du rapport).
+Tests hors ligne du Bulletin des grains (lecture des pages, indicateurs, séries continues, comité, sécurité du rapport).
 
   python grain_signal/test_grain.py
 """
@@ -248,7 +248,7 @@ try:
         check("<h2>Actualité</h2>" in page and "Novorossiisk" in page and "<script>alert" not in page,
               "synthèse PDF : actualité traduite, texte échappé")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
-        check(p2.returncode == 0 and p2.stdout.count("SIMULATION") == 1 and "Grain Signal — samedi 7 nov. : Actualité majeure" in p2.stdout,
+        check(p2.returncode == 0 and p2.stdout.count("SIMULATION") == 1 and "Bulletin des grains — samedi 7 nov. : Actualité majeure" in p2.stdout,
               "rapport du matin : un seul email, l'actualité majeure en objet" + (": " + p2.stdout[-400:] if p2.returncode == 0 else "")
               + ("" if p2.returncode == 0 else " : " + p2.stderr[-300:]))
 finally:

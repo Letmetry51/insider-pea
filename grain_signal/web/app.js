@@ -1,4 +1,4 @@
-/* Grain Signal — page (lecture seule de data/grain/*.json, publiés chaque matin). Tout texte venu des données est inséré
+/* Bulletin des grains — page (lecture seule de data/grain/*.json, publiés chaque matin). Tout texte venu des données est inséré
    comme texte ; seul le rapport de la lecture hebdomadaire est du HTML, déjà nettoyé au calcul et nettoyé une seconde fois ici. */
 'use strict';
 
@@ -1087,7 +1087,7 @@ function vMethode() {
   const txt = [
     [
       'Chaque matin',
-      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les prix physiques (Rouen, Creil, orges brassicoles), les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale, la météo de 10 zones de production et une centaine de titres d'actualité. Il en tire une lecture par culture et envoie le rapport du matin vers 7 h 30, avec la synthèse PDF.",
+      "Bulletin des grains relève les cours Euronext (blé, colza, maïs) et leurs courbes, les prix physiques (Rouen, Creil, orges brassicoles), les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale, la météo de 10 zones de production et une centaine de titres d'actualité. Il en tire une lecture par culture et envoie le rapport du matin vers 7 h 30, avec la synthèse PDF.",
     ],
     [
       'Lecture technique',

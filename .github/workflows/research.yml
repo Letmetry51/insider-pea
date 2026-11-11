@@ -33,8 +33,8 @@ jobs:
           key: yahoo-recherche-${{ github.run_id }}
           restore-keys: yahoo-
         continue-on-error: true
-      # historiques Grain Signal (cache du calcul du matin, jamais publiés) : lecture seule, pour les recherches sur les grains
-      - name: Historiques Grain Signal (cache)
+      # historiques Bulletin des grains (cache du calcul du matin, jamais publiés) : lecture seule, pour les recherches sur les grains
+      - name: Historiques Bulletin des grains (cache)
         uses: actions/cache/restore@v4
         with:
           path: data/grain/prive

@@ -1,4 +1,4 @@
-# Grain Signal
+# Bulletin des grains
 
 Outil d'aide à la décision pour qui **vend des céréales** (blé tendre, escourgeon et orge de printemps brassicoles, colza,
 maïs) et **achète de l'azote** : chaque matin, le marché décrit en une page
@@ -20,7 +20,7 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 | Chaque matin | **actualités traduites** : titres du jour classés par l'IA (quelques centimes) |
 | Le lundi | **lecture du marché de la semaine** par l'API Claude avec recherche web (≈ 1 $) : arguments haussiers et baissiers par culture, à surveiller, calendrier |
 | Dès qu'il se passe quelque chose | alerte dans le rapport : fait majeur dans l'actualité, seuil de prix franchi, plus haut ou plus bas de 3 mois, changement de lecture technique, source en panne |
-| À la demande | onglet Actions → « Grain Signal » → Run workflow (cases « lecture » et « email de test ») |
+| À la demande | onglet Actions → « Bulletin des grains » → Run workflow (cases « lecture » et « email de test ») |
 
 ## Lectures
 
@@ -49,7 +49,7 @@ ensuite évolué autrement que par hasard (seuil calculé sur des cours tirés a
 
 Secrets du dépôt :
 - `GMAIL_USER`, `GMAIL_APP_PASSWORD` : compte Gmail d'envoi (le même qu'Euro Signal) ;
-- `GRAIN_ALERT_TO` : destinataires de Grain Signal, séparés par des virgules. S'il est absent, ce sont ceux d'Euro Signal (`ALERT_TO`) ;
+- `GRAIN_ALERT_TO` : destinataires du Bulletin des grains, séparés par des virgules. S'il est absent, ce sont ceux d'Euro Signal (`ALERT_TO`) ;
 - `ANTHROPIC_API_KEY` : lecture hebdomadaire et traduction des actualités.
 
 Les historiques bruts des cours restent dans le cache du workflow et ne sont jamais publiés.

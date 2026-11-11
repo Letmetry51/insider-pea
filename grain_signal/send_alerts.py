@@ -1,6 +1,6 @@
 """
-Grain Signal — emails (Gmail SMTP). Compte d'envoi : GMAIL_USER, GMAIL_APP_PASSWORD (ceux d'Euro Signal).
-Destinataires : GRAIN_ALERT_TO (propre à Grain Signal), sinon ALERT_TO (Euro Signal), sinon GMAIL_USER.
+Bulletin des grains — emails (Gmail SMTP). Compte d'envoi : GMAIL_USER, GMAIL_APP_PASSWORD (ceux d'Euro Signal).
+Destinataires : GRAIN_ALERT_TO (propre au Bulletin des grains), sinon ALERT_TO (Euro Signal), sinon GMAIL_USER.
 Sans secrets : mode simulation (rien n'est envoyé, le contenu est affiché dans le journal).
 
 Un seul email par calcul, à partir de data/grain/prive/a-envoyer.json : la lecture hebdomadaire du marché (le lundi), sinon le
@@ -165,7 +165,7 @@ def synthese(dash):
 
 def wrap(title, inner):
     return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>{inner}"
-            f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir Grain Signal</a></p>"
+            f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir le Bulletin des grains</a></p>"
             "<p style='color:#777;font-size:12px'>Outil d'aide à la décision : il décrit le marché, il ne conseille ni de vendre ni d'acheter. "
             "La décision vous appartient.</p></div>")
 
@@ -219,19 +219,19 @@ def main():
                  f"{marche}{bloc_actu()}<hr style='margin:18px 0'>{comite['rapport_html']}")
         mails.append(([x["id"]] + ids, f"🌾 {x['titre']} — {jour} : {tete}"[:180], wrap(x["titre"], inner + PDF_NOTE)))
     elif rid:
-        mails.append((ids, f"🌾 Grain Signal — {jour} : {tete}"[:180], wrap(f"Le marché du {jour}", f"{alertes_h}{marche}{bloc_actu()}{PDF_NOTE}")))
+        mails.append((ids, f"🌾 Bulletin des grains — {jour} : {tete}"[:180], wrap(f"Le marché du {jour}", f"{alertes_h}{marche}{bloc_actu()}{PDF_NOTE}")))
     elif trig:
         # email d'alertes seules : l'objet nomme l'alerte (une panne seulement s'il n'y a qu'elle)
         tri = sorted(trig, key=lambda x: (x.get("type") != "actu", ":seuil:" not in x["id"], not x.get("grave"), ":panne:" in x["id"] or ":retablie:" in x["id"]))
         tete = fait_marquant(dash, trig) if any(":seuil:" in x["id"] or x.get("type") == "actu" for x in trig) else tri[0]["titre"]
-        mails.append((ids, f"🌾 Grain Signal — {len(trig)} alerte{'s' if len(trig) > 1 else ''} : {tete}"[:180],
+        mails.append((ids, f"🌾 Bulletin des grains — {len(trig)} alerte{'s' if len(trig) > 1 else ''} : {tete}"[:180],
                       wrap("Alertes du jour", f"{alertes_h}{bloc_actu()}{marche}")))
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true" and not mails:
         from zoneinfo import ZoneInfo
 
         h_ = datetime.now(ZoneInfo("Europe/Paris"))
         # date et heure dans l'objet : Gmail ne range pas l'email sous un envoi précédent (même objet = même conversation)
-        mails.append(([], f"🌾 Grain Signal — synthèse du {jour} à {h_.hour} h {h_.minute:02d}",
+        mails.append(([], f"🌾 Bulletin des grains — synthèse du {jour} à {h_.hour} h {h_.minute:02d}",
                       wrap("Synthèse à la demande", f"<h3>Le marché ce matin</h3>{table_marche(dash)}" + bloc_actu() + PDF_NOTE)))
     if not mails:
         print("Emails : rien à envoyer")

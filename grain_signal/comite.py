@@ -1,5 +1,5 @@
 """
-Grain Signal — lecture hebdomadaire du marché (grain_signal/prompt.md) par l'API Claude avec la recherche web : arguments
+Bulletin des grains — lecture hebdomadaire du marché (grain_signal/prompt.md) par l'API Claude avec la recherche web : arguments
 haussiers et baissiers par culture, à surveiller, calendrier. Jamais de conseil de vente ou d'achat.
 
 Quand : chaque lundi ; GS_COMITE=force (lancement manuel) la relance. Sans le secret ANTHROPIC_API_KEY : rien n'est appelé.
@@ -173,10 +173,10 @@ def main():
                 v.pop("actualite", None)
     arts = [a for a in actu.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and (a.get("importance") or 0) >= 2][:40]
     user = (f"Mode : {consigne}\nDate du jour : {today.isoformat()} (heure de Paris le matin ; dernières clôtures : séance précédente).\n\n"
-            f"Données chiffrées du matin (Grain Signal, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False)}\n```\n\n"
+            f"Données chiffrées du matin (Bulletin des grains, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False)}\n```\n\n"
             + (f"Lecture de la semaine précédente, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False)}\n```\n\n" if previous else ""))
     if arts:
-        user += ("Actualités des 7 derniers jours traduites en impacts (Grain Signal ; −2 baisse forte à +2 hausse forte du prix ; "
+        user += ("Actualités des 7 derniers jours traduites en impacts (Bulletin des grains ; −2 baisse forte à +2 hausse forte du prix ; "
                  "engrais : + = plus cher) :\n" + "\n".join(
                      f"- {a['date'][:10]} ({a.get('source') or '?'}{' + ' + str(len(a['autres_sources'])) + ' autres sites' if a.get('autres_sources') else ''}) "
                      f"{a.get('titre_fr') or a['titre']} — {a.get('theme')}, {a.get('nature')}, importance {a.get('importance')}, "
