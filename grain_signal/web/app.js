@@ -1808,13 +1808,18 @@ function articleRow(a) {
           }),
       a.nature ? h('span', { class: 'chip', text: NATURE[a.nature] || a.nature }) : null,
       majeur ? h('span', { class: 'chip bad', text: '⚠️ Majeur' }) : null,
-      ACCES[a.acces]
-        ? h('span', { class: 'chip ' + ACCES[a.acces][1], title: ACCES[a.acces][2], text: ACCES[a.acces][0] })
-        : null,
-      h('span', {
-        class: 'news-src',
-        text: `${a.source || ''}${a.autres_sources && a.autres_sources.length ? ` + ${a.autres_sources.length} autre${a.autres_sources.length > 1 ? 's' : ''}` : ''} · ${ilya(a.date)}`,
-      })
+      h(
+        'span',
+        { class: 'news-src' },
+        `${a.source || ''}${a.autres_sources && a.autres_sources.length ? ` + ${a.autres_sources.length} autre${a.autres_sources.length > 1 ? 's' : ''}` : ''} · ${ilya(a.date)}`,
+        ACCES[a.acces]
+          ? h('span', {
+              class: 'chip acces ' + ACCES[a.acces][1],
+              title: ACCES[a.acces][2],
+              text: ACCES[a.acces][0],
+            })
+          : null
+      )
     ),
     h(
       'a',

@@ -1145,7 +1145,9 @@ def collect_acces(arts, cfg, budget=120):
         except Exception:  # noqa: BLE001  (délai dépassé : le reste sera lu au prochain calcul)
             for f in fut:
                 f.cancel()
-    print(f"Accès aux articles : {lus}/{faits} déterminés en {time.time() - t0:.0f} s ({len(todo) - faits} reportés)")
+    n = {k: sum(a.get("acces") == k for a in todo) for k in ("entier", "abonnes")}
+    print(f"Accès aux articles : {lus}/{faits} déterminés en {time.time() - t0:.0f} s ({n['entier']} en entier, {n['abonnes']} réservés"
+          f" aux abonnés ; {len(todo) - faits} reportés)")
     return lus, faits
 
 

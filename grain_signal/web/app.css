@@ -662,6 +662,10 @@ td.pgcell {
 .news-src {
   margin-left: auto;
 }
+.news-src .acces {
+  margin-left: 6px;
+  white-space: nowrap;
+}
 .news-t {
   display: block;
   margin: 5px 0 3px;
