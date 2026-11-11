@@ -1,5 +1,5 @@
 /* Bulletin des grains — page (lecture seule de data/grain/*.json, publiés chaque matin). Tout texte venu des données est inséré
-   comme texte ; seul le rapport de la lecture hebdomadaire est du HTML, déjà nettoyé au calcul et nettoyé une seconde fois ici. */
+   comme texte (aucun HTML venu des données). */
 'use strict';
 
 const GS = { data: null, comite: null, journal: [], tab: 'marche' };
@@ -974,61 +974,6 @@ function vEngrais() {
   return out;
 }
 
-function cleanHtml(src) {
-  const doc = new DOMParser().parseFromString('<div>' + (src || '') + '</div>', 'text/html');
-  const ok = new Set([
-    'P',
-    'H1',
-    'H2',
-    'H3',
-    'H4',
-    'UL',
-    'OL',
-    'LI',
-    'STRONG',
-    'EM',
-    'B',
-    'I',
-    'TABLE',
-    'THEAD',
-    'TBODY',
-    'TR',
-    'TH',
-    'TD',
-    'A',
-    'BR',
-    'HR',
-    'CODE',
-    'PRE',
-    'BLOCKQUOTE',
-    'DIV',
-    'SPAN',
-  ]);
-  const walk = (node) => {
-    [...node.children].forEach((el) => {
-      if (!ok.has(el.tagName)) {
-        el.replaceWith(document.createTextNode(el.textContent));
-        return;
-      }
-      [...el.attributes].forEach((at) => {
-        const keep =
-          (el.tagName === 'A' && at.name === 'href' && /^https?:\/\//i.test(at.value)) ||
-          (el.tagName === 'TD' && at.name === 'align') ||
-          (el.tagName === 'TH' && at.name === 'align');
-        if (!keep) el.removeAttribute(at.name);
-      });
-      if (el.tagName === 'A') {
-        el.setAttribute('rel', 'noopener noreferrer');
-        el.setAttribute('target', '_blank');
-      }
-      walk(el);
-    });
-  };
-  const root = doc.body.firstChild;
-  walk(root);
-  return root;
-}
-
 // la lecture technique annonce-t-elle la suite ? rendement moyen des 60 séances suivantes selon la lecture du jour
 function techBt() {
   const bt = (GS.backtest || {}).technique || {};
@@ -1087,7 +1032,7 @@ function vMethode() {
   const txt = [
     [
       'Chaque matin',
-      "Bulletin des grains relève les cours Euronext (blé, colza, maïs) et leurs courbes, les prix physiques (Rouen, Creil, orges brassicoles), les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale, la météo de 10 zones de production et une centaine de titres d'actualité. Il en tire une lecture par culture et envoie le rapport du matin vers 7 h 30, avec la synthèse PDF.",
+      "Bulletin des grains relève les cours Euronext (blé, colza, maïs) et leurs courbes, les prix physiques (Rouen, Creil, orges brassicoles), les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale, la météo de 16 zones de production (9 régions françaises, 7 zones mondiales) et une centaine de titres d'actualité. Il en tire une lecture par culture et envoie le rapport du matin vers 7 h 30, avec la synthèse PDF.",
     ],
     [
       'Lecture technique',
@@ -1417,7 +1362,12 @@ function vMarche() {
       '🧪 Azote',
       [
         h('b', { text: u.prix ? `${fmt(u.prix)} €/t` : '—' }),
-        varSpan(u.var1m, 1, ' % en 1 mois', 'Variation sur un mois'),
+        varSpan(
+          u.var1m,
+          1,
+          u.var1m_depuis ? ` % depuis le ${dcourt(u.var1m_depuis)}` : ' %',
+          'Variation depuis le relevé d’il y a environ un mois'
+        ),
         h('small', { text: 'urée' }),
       ],
       null,
@@ -1439,7 +1389,7 @@ function vMarche() {
         'ul',
         { class: 'list' },
         [
-          'À côté du cours : variation en €/t sur la séance (orges : depuis le relevé de prix précédent ; azote : en % sur un mois).',
+          'À côté du cours : variation en €/t sur la séance (orges : depuis le relevé de prix précédent ; azote : en % depuis le relevé d’il y a environ un mois, date indiquée).',
           'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais la technique est celle du blé Euronext, que l’orge suit de près.',
           'Actualité : effet moyen des nouvelles des 7 derniers jours sur le prix, sur une échelle de 0 à 2 dans le sens indiqué (« ▲ hausse · 1,5 sur 2 » = nettement haussière ; 0,5 = plutôt ; 1 et plus = très) ; azote : hausse = plus cher. Détail dans l’onglet Actualité.',
           'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
@@ -1663,7 +1613,7 @@ function azoteView(d) {
         'p',
         { class: 'mbig' },
         h('b', { text: u.prix ? `${fmt(u.prix)} €/t` : '—' }),
-        varSpan(u.var1m, 1, ' % en 1 mois'),
+        varSpan(u.var1m, 1, u.var1m_depuis ? ` % depuis le ${dcourt(u.var1m_depuis)}` : ' %'),
         h('small', { text: u.date ? `urée 46, ${dfr(u.date)}` : 'urée 46' })
       ),
       h(

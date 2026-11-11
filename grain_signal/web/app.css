@@ -244,21 +244,6 @@ h3 {
   background: var(--info-soft);
   border-left-color: var(--info);
 }
-.feu {
-  font-size: 13px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--sunk);
-  margin-top: 10px;
-}
-.feu b {
-  display: block;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  margin-bottom: 2px;
-}
 .scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -315,27 +300,6 @@ th.n {
   border-radius: 2px;
   vertical-align: middle;
   margin-right: 5px;
-}
-.rapport {
-  font-size: 15px;
-  line-height: 1.6;
-}
-.rapport h1,
-.rapport h2 {
-  font: 700 18px/1.25 var(--display);
-  margin: 22px 0 8px;
-}
-.rapport h3 {
-  margin-top: 16px;
-}
-.rapport table {
-  display: block;
-  overflow-x: auto;
-  font-size: 13px;
-}
-.rapport code {
-  font-family: var(--mono);
-  font-size: 13px;
 }
 .list {
   margin: 0;
@@ -490,15 +454,6 @@ summary {
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-}
-
-.plan {
-  margin-top: 10px;
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
-}
-tr.best td {
-  font-weight: 600;
 }
 
 /* percentiles en jauge (pastille,
@@ -730,14 +685,6 @@ a.news-t:hover {
 }
 table.geo {
   margin-top: 10px;
-}
-ul.biais {
-  margin: 0;
-  padding-left: 18px;
-  line-height: 1.5;
-}
-ul.biais li {
-  margin: 4px 0;
 }
 @media (max-width: 560px) {
   .news-src {

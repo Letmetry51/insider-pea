@@ -882,5 +882,30 @@ check(len(_fr) == 9 and "Hauts-de-France" in _fr and "Grand Est" in _fr and _mt[
       and all(abs(sum(w.values()) - 1) < 0.01 and set(w) <= set(_mt["zones"]) for w in _mt["cultures"].values()),
       "météo : 9 régions françaises, poids par culture = 1, historique des anciennes zones repris")
 
+# prix aberrants : 0, négatif, hors d'échelle ou saut isolé écartés ; un nouveau niveau confirmé le lendemain est gardé
+_rw = lambda d, v, m="2026-12": {"date": d, "product": "EBM", "maturity": m, "settle": v}  # noqa: E731
+_n = build.nettoyer([_rw("2026-11-02", "220"), _rw("2026-11-03", "0"), _rw("2026-11-04", "-5"), _rw("2026-11-05", "1e9"), _rw("2026-11-06", "nan"),
+                     _rw("2026-11-09", "22.1"), _rw("2026-11-10", "222"), _rw("2026-11-12", "300"), _rw("2026-11-13", "301"), _rw("2026-11-14", "305")],
+                    lambda r: (r["product"], r["maturity"]), "settle")
+check([r["settle"] for r in _n] == ["220", "222", "301", "305"],
+      f"prix aberrants écartés (0, négatif, 1e9, nan, virgule décalée, saut isolé) ; nouveau niveau confirmé gardé ({[r['settle'] for r in _n]})")
+
+# prix physiques rangés la veille par erreur (relevé du matin daté du jour précédent) : redatés d'après leur table, sans doublon
+import tempfile as _tf  # noqa: E402
+_ph = Path(_tf.mkdtemp()) / "physique_hist.csv"
+_ph.write_text("date,page,place,echeance,titre,prix\n"
+               "2026-11-09,orge_brassicole,Creil, Etincel Fob,janv. - juin,/t +0,75 €/t 09 novembre Etincel,209.0\n"
+               "2026-11-09,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +0,5 €/t 10 novembre Etincel,209.5\n"
+               "2026-11-10,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +0,5 €/t 10 novembre Etincel,209.5\n"
+               "2026-11-10,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +2,5 €/t 11 novembre Etincel,211.75\n"
+               "2026-11-11,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +2,5 €/t 11 novembre Etincel,211.75\n", encoding="utf-8")
+_pr = [(r["date"], r["prix"]) for r in build.physique(_ph)]
+check(_pr == [("2026-11-09", "209.0"), ("2026-11-10", "209.5"), ("2026-11-11", "211.75")],
+      f"prix physiques redatés d'après leur table, sans doublon ({_pr})")
+import collect as _col  # noqa: E402
+check(_col.date_publiee(date(2026, 11, 11), date(2026, 11, 11)) == date(2026, 11, 11)
+      and _col.date_publiee(date(2026, 10, 1), date(2026, 11, 11)) == date(2026, 11, 10),
+      "prix physiques : date de la table gardée (même lue le matin), date trop ancienne ramenée à la dernière séance")
+
 print(f"{len(results) - len(fails)}/{len(results)} tests réussis")
 sys.exit(1 if fails else 0)

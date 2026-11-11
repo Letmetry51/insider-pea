@@ -367,7 +367,8 @@ def geopolitique(jours, pays=None, noms=None, evenements=None, today=None):
     """Indice de risque géopolitique de Caldara et Iacoviello (articles de presse sur guerres, menaces, terrorisme ; 100 =
     moyenne 1985-2019). `jours` : [(date, valeur)] quotidien ; `pays` : {code: [(mois, valeur)]}. Niveau du mois (moyenne
     30 jours) situé en percentile sur 10 ans, tendance sur 30 jours, pays qui comptent pour les grains et les engrais."""
-    j = sorted((d, v) for d, v in (jours or []) if v is not None)
+    j = sorted((x[0], x[1]) for x in (jours if isinstance(jours, list) else [])
+               if isinstance(x, (list, tuple)) and len(x) == 2 and isinstance(x[1], (int, float)))
     if len(j) < 400:
         return None
     vals = [v for _, v in j]
