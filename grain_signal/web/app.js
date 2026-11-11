@@ -681,7 +681,9 @@ function saisonSection(d) {
   if (!Object.keys(sa).length) return [];
   const now = +d.date.slice(5, 7);
   const cards = Object.entries(sa).map(([k, p]) => {
-    const order = Array.from({ length: 12 }, (_, i) => ((p.debut_campagne - 1 + i) % 12) + 1);
+    // même ordre de mois pour toutes les cultures (juillet → juin) : les colonnes se correspondent d'une carte à l'autre ;
+    // le début de la campagne propre à la culture (maïs : octobre) est marqué d'un trait
+    const order = Array.from({ length: 12 }, (_, i) => ((6 + i) % 12) + 1);
     const m = Math.max(...p.mois.map(Math.abs)) || 1;
     return h(
       'section',
@@ -696,7 +698,7 @@ function saisonSection(d) {
           return h(
             'div',
             {
-              class: 'smonth' + (mo === now ? ' now' : ''),
+              class: 'smonth' + (mo === now ? ' now' : '') + (mo === p.debut_campagne && mo !== 7 ? ' debut' : ''),
               title: `${MOIS[mo - 1]} : ${pct(v)} par rapport à la moyenne de la campagne (médiane de ${p.campagnes} campagnes)`,
             },
             h('span', {
@@ -712,9 +714,13 @@ function saisonSection(d) {
         class: 'note',
         text: `🟩 mois habituellement plus chers que la moyenne de la campagne, 🟥 moins chers (en %, médiane de ${p.campagnes} campagnes ; mois en cours encadré). Plus chers : ${p.plus_chers
           .map((x) => MOIS[x - 1])
-          .join(
-            ', '
-          )} ; moins chers : ${p.moins_chers.map((x) => MOIS[x - 1]).join(', ')}. Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
+          .join(', ')} ; moins chers : ${p.moins_chers
+          .map((x) => MOIS[x - 1])
+          .join(', ')
+          .replace(
+            /\.$/,
+            ''
+          )}. ${p.debut_campagne !== 7 ? ` Campagne : de ${MOIS[p.debut_campagne - 1]} (trait) à ${MOIS[(p.debut_campagne + 10) % 12]}.` : ''} Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
       })
     );
   });
