@@ -163,15 +163,17 @@ def main():
     now = datetime.fromisoformat(os.environ["GS_NOW"]) if os.environ.get("GS_NOW") else datetime.now(timezone.utc)
     today = now.date()
     brut = load(PRIV / "actualites_brut.json", {}).get("articles") or []
-    # classement de chaque titre déjà lu (30 jours) ; version 2 : phrases d'impact sans conseil (les anciennes sont relues)
-    cache = {k: v for k, v in load(PRIV / "actualites_classees.json", {}).items() if isinstance(v, dict) and v.get("v") == VERSION}
+    # classement de chaque titre déjà lu (30 jours). Version 2 : phrases d'impact sans conseil ; un classement plus ancien garde
+    # ses effets chiffrés (la pression ne faiblit pas pendant la transition), sa phrase est masquée et le titre est relu
+    cache = {k: v for k, v in load(PRIV / "actualites_classees.json", {}).items() if isinstance(v, dict)}
     prev = load(OUT / "actualites.json", {})
     dash = load(OUT / "grain-signal.json", {})
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     recents = [a for a in brut if dec.actu_age(a, now) is not None and dec.actu_age(a, now) <= cfg["joursGarde"]]
     # essai sur une branche : 10 titres au plus (moins d'un centime), pour vérifier la chaîne sans dépenser
     maxi = 10 if os.environ.get("GS_DRY") else cfg["maxNouveaux"]
-    a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True) if a["id"] not in cache][:maxi]
+    a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True)
+              if a["id"] not in cache or (cache[a["id"]].get("pertinent") and cache[a["id"]].get("v") != VERSION)][:maxi]
     usage, erreur, synthese = {"input": 0, "output": 0}, None, None
     if key and a_lire:
         deja = [f"- {cache[a['id']].get('titre_fr') or a['titre']} ({a['date'][:10]}, {cache[a['id']].get('theme')}, "
@@ -214,6 +216,8 @@ def main():
         x["autres_sources"] = (a.get("autres_sources") or [])[:6]
         if c:
             x.update({k: v for k, v in c.items() if k not in ("classe_le", "v")})
+            if c.get("v") != VERSION:
+                x["impact"] = None  # phrase d'une version antérieure (pouvait contenir un conseil) : masquée jusqu'à la relecture
         else:
             x["non_classe"] = True
         articles.append(x)

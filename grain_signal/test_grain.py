@@ -171,8 +171,8 @@ try:
             "a5": {"pertinent": True, "titre_fr": "<script>alert(1)</script>", "theme": "demande", "nature": "rumeur", "importance": 1,
                    "impacts": {"colza": 1}, "horizon": "jours", "impact": "x", "doublon_de": None, "classe_le": "2026-11-07"}}
     _cls["a_vieux"] = {"pertinent": True, "titre_fr": "Ancien classement", "classe_le": "2026-11-07"}  # sans version : relu
-    (priv / "actualites_classees.json").write_text(json.dumps({k: {**v, "v": 2} if k != "a_vieux" else v for k, v in _cls.items()}),
-                                                   encoding="utf-8")
+    (priv / "actualites_classees.json").write_text(json.dumps({k: {**v, "v": 2} if k not in ("a_vieux", "a3") else v for k, v in _cls.items()}),
+                                                   encoding="utf-8")  # a3 : classement de la version 1 (phrase avec conseil)
     _gj = [[f"{2014 + i // 365:04d}-{(i % 365) // 31 % 12 + 1:02d}-{i % 28 + 1:02d}", 100.0 + (i % 50)] for i in range(4000)]
     _gj = sorted({x[0]: x for x in _gj}.values())
     _gj += [["2026-11-0" + str(k), 400.0] for k in range(1, 7)]
@@ -184,6 +184,9 @@ try:
     check(pa.returncode == 0 and [a["id"] for a in ac_.get("articles", [])] == ["a1", "a2", "a5", "a3"],
           "actualités : titres classés publiés, non pertinents écartés" + ("" if pa.returncode == 0 else " : " + pa.stderr[-300:]))
     pr_ = ac_.get("pression") or {}
+    _a3 = next((a for a in ac_.get("articles", []) if a["id"] == "a3"), {})
+    check(_a3.get("impacts") == {"engrais": 2} and _a3.get("impact") is None,
+          "classement d'une version antérieure : effets gardés pour la pression, phrase masquée en attendant la relecture")
     check(len(ac_.get("historique") or []) == 1 and ac_["historique"][0]["date"] == "2026-11-07", "actualités : pression du jour gardée en historique")
     check(pr_.get("ble", {}).get("valeur", 0) > 0.5 and pr_["ble"]["baisse"] == 0 and pr_.get("engrais", {}).get("valeur", 0) > 0.3,
           f"actualités : pression haussière sur le blé (compte rendu de séance exclu), azote plus cher ({pr_.get('ble')}, {pr_.get('engrais')})")
@@ -191,7 +194,7 @@ try:
     check(ac_.get("majeurs") == ["a1"] and any(x["id"] == "2026-11-07:actu:a1" and x["grave"] for x in _box)
           and not (tmp / "data" / "grain" / "demande-comite.json").exists(), "actualité majeure : alerte email (plus de comité d'alerte)")
     _cache = json.loads((priv / "actualites_classees.json").read_text(encoding="utf-8"))
-    check("a_vieux" not in _cache and _cache["a1"]["v"] == 2, "classement d'une version antérieure écarté (relu au prochain passage)")
+    check(_cache["a1"]["v"] == 2 and "a_vieux" in _cache, "classements gardés (version antérieure conservée en attendant sa relecture)")
     pa2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "actualites.py")], capture_output=True, text=True, env=env)
     _box2 = json.loads((priv / "a-envoyer.json").read_text(encoding="utf-8"))
     check(pa2.returncode == 0 and len([x for x in _box2 if ":actu:" in x["id"]]) == 1, "actualité majeure : une seule alerte, même relancé")

@@ -221,6 +221,9 @@ def main():
     elif rid:
         mails.append((ids, f"🌾 Grain Signal — {jour} : {tete}"[:180], wrap(f"Le marché du {jour}", f"{alertes_h}{marche}{bloc_actu()}{PDF_NOTE}")))
     elif trig:
+        # email d'alertes seules : l'objet nomme l'alerte (une panne seulement s'il n'y a qu'elle)
+        tri = sorted(trig, key=lambda x: (x.get("type") != "actu", ":seuil:" not in x["id"], not x.get("grave"), ":panne:" in x["id"] or ":retablie:" in x["id"]))
+        tete = fait_marquant(dash, trig) if any(":seuil:" in x["id"] or x.get("type") == "actu" for x in trig) else tri[0]["titre"]
         mails.append((ids, f"🌾 Grain Signal — {len(trig)} alerte{'s' if len(trig) > 1 else ''} : {tete}"[:180],
                       wrap("Alertes du jour", f"{alertes_h}{bloc_actu()}{marche}")))
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true" and not mails:
