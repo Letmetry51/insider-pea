@@ -436,6 +436,21 @@ _ser = [{"date": f"2026-{1 + i // 4:02d}-{1 + (i % 4) * 7:02d}", "net": i * 100}
 check(build.cot_reading(_ser[:10], mini=26)["indice"] is None and build.cot_reading(_ser, mini=26)["indice"] == 100,
       "COT Euronext : pas d'indice avant 26 semaines, indice 100 au plus haut")
 
+# panne puis rétablissement le même jour : seul le rétablissement reste affiché
+def panne_retablie(t, pv):
+    seeds(t, pv)
+    (t / "data" / "grain" / "grain-signal.json").write_text(json.dumps({"historique_declencheurs": [
+        {"id": "2026-11-07:panne:yahoo_TTF=F", "titre": "⚠️ Source en panne", "detail": "", "grave": False}]}), encoding="utf-8")
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"pannes": {"yahoo_TTF=F": {"debut": "2026-11-06", "jours": ["2026-11-06", "2026-11-07"], "alerte": True}}}),
+                                                    encoding="utf-8")
+    (t / "data" / "grain" / "collecte.json").write_text(json.dumps({"date": "2026-11-07T06:00", "sources": {"yahoo_TTF=F": {"ok": True}}}), encoding="utf-8")
+
+
+(rc, dash, _, err), = run_build(panne_retablie)
+_ids = [x["id"] for x in (dash or {}).get("declencheurs", [])]
+check(rc == 0 and "2026-11-07:retablie:yahoo_TTF=F" in _ids and "2026-11-07:panne:yahoo_TTF=F" not in _ids,
+      f"panne puis rétablissement le même jour : seul le rétablissement affiché ({_ids})")
+
 # ---------------------------------------------------------------- pannes de source
 _j1, _j2, _j3 = date(2026, 11, 2), date(2026, 11, 3), date(2026, 11, 4)
 _ko = {"x": {"ok": False, "detail": "HTTP 500"}, "y": {"ok": True}}

@@ -767,7 +767,7 @@ détail replié */
 .mrow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: 'name prix go' 'badges badges go' 'note note go';
+  grid-template-areas: 'name prix go' 'badges badges go' 'jauge jauge go' 'note note go';
   gap: 6px 12px;
   padding: 12px 14px;
   background: var(--surface);
@@ -819,6 +819,7 @@ détail replié */
   color: var(--muted);
   font-size: 12.5px;
 }
+td .badge,
 .mbadges .badge {
   font-size: 12px;
   padding: 2px 7px;
@@ -829,6 +830,13 @@ détail replié */
   gap: 6px;
   margin-right: 10px;
   white-space: nowrap;
+}
+.mjauge {
+  grid-area: jauge;
+  max-width: 320px;
+}
+.mjauge .pg {
+  margin: 0;
 }
 .mnote {
   grid-area: note;
@@ -873,7 +881,7 @@ détail replié */
 }
 @media (max-width: 420px) {
   .mrow {
-    grid-template-areas: 'name go' 'prix go' 'badges go' 'note go';
+    grid-template-areas: 'name go' 'prix go' 'badges go' 'jauge go' 'note go';
     grid-template-columns: minmax(0, 1fr) auto;
   }
 }
@@ -914,4 +922,3 @@ details.more-data[open] {
   gap: 6px 14px;
   margin: 0;
 }
-
