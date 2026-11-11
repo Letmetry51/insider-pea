@@ -16,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from commun import boite, load  # noqa: E402
+from commun import ACCES, boite, load  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "grain"
@@ -90,7 +90,7 @@ def actu_html(d):
     for a in arts[:4]:
         fx = " · ".join(f"<span style='color:{COUL['good'] if v > 0 else COUL['bad']}'>{ACTU_NOMS.get(c, c)} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>"
                         for c, v in (a.get("impacts") or {}).items() if v)
-        lis.append(f"<li><b>{e(a.get('titre_fr') or a.get('titre'))}</b> <span class='muted'>({e(a.get('source') or '')}, {dfr(a['date'][:10])})</span>"
+        lis.append(f"<li><b>{e(a.get('titre_fr') or a.get('titre'))}</b> <span class='muted'>({e(a.get('source') or '')}, {dfr(a['date'][:10])}{ACCES.get(a.get('acces'), '')})</span>"
                    f"<br>{e(a.get('impact'))}{f'<br>{fx}' if fx else ''}</li>")
     if not lis and not ac.get("synthese"):
         return ""

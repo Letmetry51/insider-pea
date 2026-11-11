@@ -1072,6 +1072,85 @@ def actu_ajoute(arts, it, now, garde, **extra):
     return True
 
 
+# lecture de l'article : en entier ou réservé aux abonnés, d'après la balise standard des éditeurs (schema.org
+# isAccessibleForFree, celle que lit Google : Terre-net, Réussir, La France Agricole, Le Monde… la posent article par article).
+# Sans balise : le site connu (config, actualites.acces), sinon « en entier » si la page s'est affichée sans abonnement. Les
+# mentions « réservé aux abonnés » du texte ne servent pas : elles figurent aussi dans les menus des pages libres (sonde du
+# 11/11/2026 sur 70 articles). Rien n'est contourné : on lit la page publique telle qu'un visiteur non abonné la reçoit.
+ACCES_LD = re.compile(r'"isAccessibleForFree"\s*:\s*"?(false|true)\b', re.I)
+
+
+def gn_lien(url, timeout=12):
+    """Adresse réelle d'un article de Google Actualités (le flux ne donne qu'un lien de redirection)."""
+    from urllib.parse import quote
+
+    i = url.split("/articles/")[1].split("?")[0]
+    r = requests.get(f"https://news.google.com/rss/articles/{i}", headers=UA, timeout=timeout)
+    sg, ts = re.search(r'data-n-a-sg="([^"]+)"', r.text), re.search(r'data-n-a-ts="(\d+)"', r.text)
+    if not (sg and ts):
+        return None
+    req = [[["Fbv4je", json.dumps(["garturlreq", [["X", "X", ["X", "X"], None, None, 1, 1, "US:en", None, 1, None, None, None, None,
+                                                   None, 0, 1], "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0],
+                                   i, int(ts.group(1)), sg.group(1)]), None, "generic"]]]
+    r = requests.post("https://news.google.com/_/DotsSplashUi/data/batchexecute", data="f.req=" + quote(json.dumps(req)),
+                      headers={**UA, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"}, timeout=timeout)
+    lien = json.loads(json.loads(r.text.split("\n\n")[1])[0][2])[1]
+    return lien if str(lien).startswith("http") else None
+
+
+def acces_page(html):
+    """'abonnes' ou 'entier' d'après la balise de l'éditeur, None sans balise."""
+    m = ACCES_LD.findall(html)
+    if not m:
+        return None
+    return "abonnes" if any(x.lower() == "false" for x in m) else "entier"
+
+
+def acces_article(a, sites, timeout=12):
+    """(accès, adresse directe) d'un article : balise de la page, sinon site connu, sinon « en entier » si la page s'est
+    affichée ; None si rien ne permet de le dire (page refusée, site inconnu)."""
+    lien, lue = a.get("url") or "", None
+    try:
+        if "news.google.com/rss/articles/" in lien:
+            lien = gn_lien(lien, timeout) or ""
+        if lien.startswith("http"):
+            r = requests.get(lien, headers=UA, timeout=timeout)
+            lue = r.text if r.status_code == 200 and len(r.text) > 20000 else None
+    except Exception:  # noqa: BLE001
+        pass
+    direct = lien if lien.startswith("http") and "news.google.com" not in lien else None
+    return (acces_page(lue) if lue else None) or sites.get(a.get("source") or "") or ("entier" if lue else None), direct
+
+
+def collect_acces(arts, cfg, budget=120):
+    """Accès (entier / abonnés) des articles qui n'en ont pas encore, en parallèle et en temps borné."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    sites = {s: k for k, l in (cfg.get("acces") or {}).items() if k in ("entier", "abonnes") for s in l}
+    todo = sorted((a for a in arts.values() if "acces" not in a), key=lambda a: a["date"], reverse=True)[:150]
+    if not todo:
+        return 0, 0
+    t0, faits, lus = time.time(), 0, 0
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        fut = {ex.submit(acces_article, a, sites): a for a in todo}
+        try:
+            for f in as_completed(fut, timeout=budget):
+                a = fut[f]
+                acc, lien = f.result()
+                a["acces"] = acc  # None : inconnu, pas de mention affichée (et pas redemandé)
+                if lien:
+                    a["url_directe"] = lien[:600]
+                faits += 1
+                lus += acc is not None
+        except Exception:  # noqa: BLE001  (délai dépassé : le reste sera lu au prochain calcul)
+            for f in fut:
+                f.cancel()
+    n = {k: sum(a.get("acces") == k for a in todo) for k in ("entier", "abonnes")}
+    print(f"Accès aux articles : {lus}/{faits} déterminés en {time.time() - t0:.0f} s ({n['entier']} en entier, {n['abonnes']} réservés"
+          f" aux abonnés ; {len(todo) - faits} reportés)")
+    return lus, faits
+
+
 def collect_actualites(now=None):
     """Titres du jour sur les marchés des grains et des engrais : recherches Google Actualités (français et anglais) et flux de la
     presse agricole (titres filtrés par mots-clés). Gardés 7 jours, sans doublon ; traduits en impacts par actualites.py."""
@@ -1111,6 +1190,10 @@ def collect_actualites(now=None):
             if ACTU_MOTS.search(it["titre"]):
                 it["source"] = it.get("source") or nom
                 nouveaux += actu_ajoute(arts, it, now, garde, origine="flux", requete=nom, langue="en" if en else "fr")
+    try:
+        collect_acces(arts, cfg)
+    except Exception as e:  # noqa: BLE001
+        print(f"Accès aux articles : {type(e).__name__} {str(e)[:80]}")
     liste = sorted(arts.values(), key=lambda a: a["date"], reverse=True)[:400]
     save_json(path, {"maj": now.isoformat(timespec="minutes"), "articles": liste})
     note("actualites", lus >= total * 0.6, f"{nouveaux} nouveaux titres, {len(liste)} sur {garde} jours ; {lus}/{total} recherches et flux lus"

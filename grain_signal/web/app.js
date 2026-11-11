@@ -1782,6 +1782,12 @@ function impactChips(imp) {
     });
 }
 
+/* lecture de l'article : d'après la page publique (balise des éditeurs ou mention « réservé aux abonnés »), sinon le site */
+const ACCES = {
+  entier: ['📖 Disponible en entier', 'good', 'L’article se lit en entier sans abonnement'],
+  abonnes: ['🔒 Réservé aux abonnés', 'warn', 'Sans abonnement, seuls le titre et le début de l’article sont lisibles'],
+};
+
 function articleRow(a) {
   const th = THEME[a.theme] || ['📰', 'Actualité'];
   const imp = Math.max(1, Math.min(3, a.importance || 1));
@@ -1802,10 +1808,18 @@ function articleRow(a) {
           }),
       a.nature ? h('span', { class: 'chip', text: NATURE[a.nature] || a.nature }) : null,
       majeur ? h('span', { class: 'chip bad', text: '⚠️ Majeur' }) : null,
-      h('span', {
-        class: 'news-src',
-        text: `${a.source || ''}${a.autres_sources && a.autres_sources.length ? ` + ${a.autres_sources.length} autre${a.autres_sources.length > 1 ? 's' : ''}` : ''} · ${ilya(a.date)}`,
-      })
+      h(
+        'span',
+        { class: 'news-src' },
+        `${a.source || ''}${a.autres_sources && a.autres_sources.length ? ` + ${a.autres_sources.length} autre${a.autres_sources.length > 1 ? 's' : ''}` : ''} · ${ilya(a.date)}`,
+        ACCES[a.acces]
+          ? h('span', {
+              class: 'chip acces ' + ACCES[a.acces][1],
+              title: ACCES[a.acces][2],
+              text: ACCES[a.acces][0],
+            })
+          : null
+      )
     ),
     h(
       'a',
@@ -1825,14 +1839,16 @@ function articleRow(a) {
 
 function newsList(ac) {
   const f = GS.actuFiltre || 'tout';
+  const fa = GS.actuAcces || 'tout';
   const all = (ac.articles || []).filter((a) => !a.doublon_de);
-  const keep = all.filter((a) =>
+  const parTheme = all.filter((a) =>
     f === 'tout'
       ? true
       : f === 'geopolitique'
         ? a.theme === 'geopolitique' || a.theme === 'politique'
         : a.impacts && a.impacts[f]
   );
+  const keep = parTheme.filter((a) => fa === 'tout' || a.acces === fa);
   // le plus important d'abord, puis le plus récent ; comptes rendus de séance en dernier
   keep.sort(
     (a, b) =>
@@ -1854,6 +1870,31 @@ function newsList(ac) {
       return b;
     })
   );
+  // second filtre : lecture de l'article (affiché seulement si des articles portent la mention)
+  const acces = all.some((a) => ACCES[a.acces])
+    ? h(
+        'div',
+        { class: 'filters', role: 'group', 'aria-label': 'Filtrer selon la lecture de l’article' },
+        [
+          ['tout', 'Tous les articles'],
+          ['entier', ACCES.entier[0]],
+          ['abonnes', ACCES.abonnes[0]],
+        ].map(([k, t]) => {
+          const nb = k === 'tout' ? null : parTheme.filter((a) => a.acces === k).length;
+          const b = h('button', {
+            class: 'filt',
+            'aria-pressed': String(k === fa),
+            text: nb === null ? t : `${t} (${nb})`,
+          });
+          b.addEventListener('click', () => {
+            GS.actuAcces = k;
+            GS.actuTout = false;
+            render();
+          });
+          return b;
+        })
+      )
+    : null;
   const more =
     keep.length > n
       ? (() => {
@@ -1869,6 +1910,7 @@ function newsList(ac) {
     'div',
     { class: 'card wide' },
     bar,
+    acces,
     keep.length ? keep.slice(0, n).map(articleRow) : h('p', { class: 'muted', text: 'Aucun titre pour ce filtre.' }),
     more
   );
