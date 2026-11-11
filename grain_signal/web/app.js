@@ -2032,7 +2032,7 @@ async function init() {
   GS.actu = ac;
   GS.data = d;
   GS.comite = c || {};
-  GS.journal = Array.isArray(j) ? j : [];
+  GS.journal = (Array.isArray(j) ? j : []).filter((x) => x.mode === 'hebdo'); // lectures hebdomadaires seules (pas les anciens comités)
   const sub = document.getElementById('sub');
   if (d) {
     const s = Object.values((d.collecte || {}).sources || {});

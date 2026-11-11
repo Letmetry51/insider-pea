@@ -50,7 +50,7 @@ def clean_comite(c):
             cults[k] = {"haussier": [txt(x) for x in (v.get("haussier") or []) if txt(x)][:5] if isinstance(v.get("haussier"), list) else [],
                         "baissier": [txt(x) for x in (v.get("baissier") or []) if txt(x)][:5] if isinstance(v.get("baissier"), list) else [],
                         "a_surveiller": txt(v.get("a_surveiller")), "lecture": txt(v.get("lecture"))}
-    return {"date": c.get("date"), "mode": c.get("mode"), "resume": txt(c.get("resume"), 800), "cultures": cults,
+    return {"format": c.get("format"), "date": c.get("date"), "mode": c.get("mode"), "resume": txt(c.get("resume"), 800), "cultures": cults,
             "calendrier": [x for x in (c.get("calendrier") if isinstance(c.get("calendrier"), list) else []) if isinstance(x, dict)],
             "modele": c.get("modele"), "cout_usd": c.get("cout_usd"), "erreur": c.get("erreur")}
 
@@ -710,7 +710,7 @@ def main():
     actu_frais = str(actu.get("date", "")) >= (today - timedelta(days=2)).isoformat()
     pression = as_dict(actu.get("pression")) if actu_frais else {}
     valid_comite = False
-    if comite.get("date"):
+    if comite.get("date") and comite.get("format") == "lecture":  # un ancien avis du comité (signaux, ordres) n'est plus affiché
         try:
             valid_comite = (today - date.fromisoformat(str(comite["date"])[:10])).days <= CFG["comite"]["joursValidite"]
         except ValueError:

@@ -292,7 +292,7 @@ def corrupt(t, pv):
     (pv / "yahoo.json").write_text("{pas du json", encoding="utf-8")
     (pv / "cftc.json").write_text("[]", encoding="utf-8")
     (t / "data" / "grain" / "comite.json").write_text(json.dumps({
-        "date": "2026-11-07", "cultures": {"ble": {"haussier": ["ok", {"x": 1}, None], "baissier": "texte"}, "colza": ["liste"],
+        "format": "lecture", "date": "2026-11-07", "cultures": {"ble": {"haussier": ["ok", {"x": 1}, None], "baissier": "texte"}, "colza": ["liste"],
                                             "mais": {"signal": "VENDRE"}}, "calendrier": "rien"}), encoding="utf-8")
     with (pv / "euronext.csv").open("a", encoding="utf-8") as fh:
         fh.write("2026-11-06,EBM,2027-03,nan\n2026-11-06,EBM,2027-05,\n")
@@ -371,6 +371,16 @@ def roll_colza(t, pv):  # changement d'échéance colza nov. → févr. le 02/11
 (rc, dash, box, err), = run_build(roll_colza, today="2026-11-03")
 check(rc == 0 and not any(":seuil:" in x["id"] for x in (dash or {}).get("declencheurs", [])),
       "pas de faux seuil franchi le jour du changement d'échéance" + ("" if rc == 0 else " : " + err))
+
+
+def ancien_comite(t, pv):  # avis du comité à l'ancien format (signaux, ordres) : plus affiché
+    seeds(t, pv)
+    (t / "data" / "grain" / "comite.json").write_text(json.dumps({"date": "2026-11-06", "resume": "Vendre le maïs",
+                                                                 "cultures": {"ble": {"signal": "VENDRE", "haussier": ["x"]}}}), encoding="utf-8")
+
+
+(rc, dash, _, err), = run_build(ancien_comite)
+check(rc == 0 and not dash["comite"]["valide"] and "comite" not in dash["cultures"]["ble"], "ancien avis du comité (avant la refonte) ignoré")
 
 
 def wb_octobre(t, pv):  # chiffre Banque mondiale d'octobre, aucun relevé France en octobre : interpolation au 15
