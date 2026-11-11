@@ -129,59 +129,86 @@ def analyse(dates, x):
     return out
 
 
-def score_technique(a):
-    """Note technique de −2 à +2 (tendance, momentum, excès, divergences)."""
-    if a.get("insuffisant"):
-        return None
+def _note(e50, p50, e20, histo, histo5, r, div=None):
+    """Note technique de −2 à +2 : tendance (MM50 et sa pente, sinon MM20), élan (MACD), excès (RSI), divergence."""
     s = 0.0
-    if "mm50" in a and "pente_mm50" in a:
-        if a["ecart_mm50"] > 0 and a["pente_mm50"] > 0:
-            s += 1
-        elif a["ecart_mm50"] < 0 and a["pente_mm50"] < 0:
-            s -= 1
-    elif "mm20" in a:
-        s += 0.5 if a["ecart_mm20"] > 0 else -0.5
-    if a.get("histo") is not None:
-        s += 0.5 if a["histo"] > 0 else -0.5
-        if a.get("histo_5j") is not None:
-            s += 0.25 if a["histo"] > a["histo_5j"] else -0.25
-    if a.get("rsi") is not None:
-        if a["rsi"] < 30:
-            s += 0.5
-        elif a["rsi"] > 70:
-            s -= 0.5
-    s += {"haussière": 0.5, "baissière": -0.5}.get(a.get("divergence"), 0)
+    if e50 is not None and p50 is not None:
+        s += 1 if e50 > 0 and p50 > 0 else -1 if e50 < 0 and p50 < 0 else 0
+    elif e20 is not None:
+        s += 0.5 if e20 > 0 else -0.5
+    if histo is not None:
+        s += 0.5 if histo > 0 else -0.5
+        if histo5 is not None:
+            s += 0.25 if histo > histo5 else -0.25
+    if r is not None:
+        s += 0.5 if r < 30 else -0.5 if r > 70 else 0
+    s += {"haussière": 0.5, "baissière": -0.5}.get(div, 0)
     return max(-2.0, min(2.0, round(s, 2)))
 
 
-def feu_execution(a):
-    """Filtre de timing d'une tranche de vente prévue (cadre du prompt)."""
+def score_technique(a):
+    """Note technique du dernier jour (tableau d'analyse())."""
     if a.get("insuffisant"):
-        return {"code": "inconnu", "texte": "Historique trop court pour le filtre technique"}
-    rsi_v, pb = a.get("rsi"), a.get("boll_pb")
-    cross = a.get("croisement_macd") or {}
-    if (rsi_v is not None and rsi_v < 30) or (pb is not None and pb < 0.05):
-        return {"code": "attendre", "texte": "Survente : ne pas vendre le creux, placer l'ordre sur un rebond (MM20 ou 38,2-50 %)"}
-    hi, lo = a.get("haut3m"), a.get("bas3m")
-    pos = (a["dernier"] - lo) / (hi - lo) * 100 if hi and lo and hi > lo else None
-    if rsi_v is not None and rsi_v < 40 and pos is not None and pos <= 20:  # pas de seuil au fil du rasoir
-        return {"code": "attendre", "texte": f"Bas du range de 3 mois ({pos:.0f} %) avec RSI faible : placer l'ordre sur un rebond plutôt que vendre"}
-    if rsi_v is not None and rsi_v > 70 and (cross.get("sens") == "baissier" or a.get("divergence") == "baissière"):
-        return {"code": "accelerer", "texte": "Surachat qui s'essouffle : exécuter la tranche sans attendre"}
-    if rsi_v is not None and rsi_v > 70:
-        return {"code": "executer", "texte": "Surachat : bon moment pour une tranche, surveiller l'essoufflement"}
-    return {"code": "executer", "texte": "Pas d'excès technique : la tranche prévue peut partir"}
+        return None
+    return _note(a.get("ecart_mm50") if "pente_mm50" in a else None, a.get("pente_mm50"), a.get("ecart_mm20"), a.get("histo"),
+                 a.get("histo_5j"), a.get("rsi"), a.get("divergence"))
+
+
+def score_serie(x):
+    """Même note, jour par jour (backtest), sans les divergences."""
+    m20, m50, r = sma(x, 20), sma(x, 50), rsi(x)
+    _, _, h = macd(x)
+    out = [None] * len(x)
+    for i in range(60, len(x)):
+        e50 = x[i] / m50[i] - 1 if m50[i] else None
+        p50 = m50[i] / m50[i - 10] - 1 if m50[i] and m50[i - 10] else None
+        out[i] = _note(e50, p50, x[i] / m20[i] - 1 if m20[i] else None, h[i], h[i - 5], r[i])
+    return out
+
+
+def sens(score):
+    """Lecture d'une note technique : haussière (≥ +0,75), baissière (≤ −0,75) ou neutre."""
+    if score is None:
+        return None
+    return "haussière" if score >= 0.75 else "baissière" if score <= -0.75 else "neutre"
 
 
 def niveaux(a, pas=0.25):
-    """Ordres de vente au-dessus du cours (MM20, Fibonacci) et seuil de révision sous le plus bas de 3 mois."""
+    """Résistances (au-dessus du cours) et supports (en dessous) : MM20, MM50, retracements de Fibonacci, extrêmes de 3 mois.
+    Deux de chaque côté, les plus proches, écartés d'au moins 1 %."""
     if a.get("insuffisant"):
         return {}
     last = a["dernier"]
-    cands = [a.get("mm20")] + ([a["fibo"][k] for k in ("38.2", "50", "61.8")] if a.get("fibo") else []) + [a.get("haut3m")]
-    up = sorted({round(round(v / pas) * pas, 2) for v in cands if v is not None and v > last * 1.003})
-    ordres = []
-    for v in up:  # niveaux distincts d'au moins 1 %
-        if not ordres or v > ordres[-1] * 1.01:
-            ordres.append(v)
-    return {"ordres": ordres[:3], "revision": round(round(a["bas3m"] * 0.99 / pas) * pas, 2), "support": a["bas3m"]}
+    cands = [a.get("mm20"), a.get("mm50"), a.get("haut3m"), a.get("bas3m")] + \
+        ([a["fibo"][k] for k in ("38.2", "50", "61.8")] if a.get("fibo") else [])
+    q = sorted({round(round(v / pas) * pas, 2) for v in cands if v is not None})
+
+    def tri(vals):
+        out = []
+        for v in vals:
+            if not out or abs(v - out[-1]) > out[-1] * 0.01:
+                out.append(v)
+        return out[:2]
+    return {"resistances": tri([v for v in q if v > last * 1.003]), "supports": tri([v for v in reversed(q) if v < last * 0.997])}
+
+
+def lecture(a, score=None):
+    """Lecture technique en clair : sens, une phrase, supports et résistances."""
+    if not a or a.get("insuffisant"):
+        return None
+    score = score_technique(a) if score is None else score
+    t = []
+    if a.get("pente_mm50") is not None:
+        t.append("au-dessus de sa moyenne 50 séances" + (", qui monte" if a["pente_mm50"] > 0 else ", qui baisse")
+                 if a["ecart_mm50"] > 0 else "sous sa moyenne 50 séances" + (", qui baisse" if a["pente_mm50"] < 0 else ", qui monte"))
+    elif a.get("ecart_mm20") is not None:
+        t.append("au-dessus de sa moyenne 20 séances" if a["ecart_mm20"] > 0 else "sous sa moyenne 20 séances")
+    if a.get("histo") is not None:
+        t.append("élan " + ("haussier" if a["histo"] > 0 else "baissier") + " (MACD)")
+    r = a.get("rsi")
+    if r is not None:
+        t.append(f"RSI {r:.0f}" + (" : surachat" if r > 70 else " : survente" if r < 30 else ""))
+    if a.get("divergence") in ("haussière", "baissière"):
+        t.append(f"divergence {a['divergence']}")
+    txt = ", ".join(t)
+    return {"sens": sens(score), "score": score, "texte": txt[:1].upper() + txt[1:], **niveaux(a)}

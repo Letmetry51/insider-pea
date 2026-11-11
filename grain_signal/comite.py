@@ -1,12 +1,11 @@
 """
-Grain Signal — Comité IA : applique le prompt du comité (grain_signal/prompt.md) avec l'API Claude et la recherche web.
+Grain Signal — lecture hebdomadaire du marché (grain_signal/prompt.md) par l'API Claude avec la recherche web : arguments
+haussiers et baissiers par culture, à surveiller, calendrier. Jamais de conseil de vente ou d'achat.
 
-Quand : chaque lundi (comité complet), et en mode « Alerte » quand un déclencheur important a sauté (au plus
-config.comite.alerteMaxParSemaine fois sur 7 jours). GS_COMITE=force (lancement manuel) force un comité complet.
-Sans le secret ANTHROPIC_API_KEY : rien n'est appelé, la page indique que le comité n'est pas activé.
+Quand : chaque lundi ; GS_COMITE=force (lancement manuel) la relance. Sans le secret ANTHROPIC_API_KEY : rien n'est appelé.
 
-Entrée : data/grain/grain-signal.json (chiffres du matin). Sorties : data/grain/comite.json (dernier comité),
-data/grain/comites/AAAA-MM-JJ-mode.json (archive), email ajouté à data/grain/a-envoyer.json.
+Entrée : data/grain/grain-signal.json (chiffres du matin). Sorties : data/grain/comite.json (dernière lecture),
+data/grain/comites/AAAA-MM-JJ-mode.json (archive), email ajouté à data/grain/prive/a-envoyer.json.
 
   python grain_signal/comite.py
 """
@@ -16,7 +15,7 @@ import os
 import re
 import sys
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import requests
@@ -29,24 +28,18 @@ OUT = ROOT / "data" / "grain"
 CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
 API = "https://api.anthropic.com/v1/messages"
 PRIX = {"claude-opus-5-5": (4, 20), "claude-sonnet-5-5": (2, 10), "claude-haiku-5-5": (0.1, 0.5)}  # $ par million de jetons
-SIGNAUX = {"VENDRE", "TENIR", "ATTENDRE", "COUVRIR"}
-SIG_ENGRAIS = {"ACHETER_LARGE", "SUIVRE", "FRACTIONNER", "ATTENDRE"}
+CLES = ("ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais")
 
 
 def decide_mode(today, dash, last):
-    """'complet', 'alerte' ou None."""
+    """'hebdo' (le lundi, une fois ; ou sur demande) ou None."""
     if os.environ.get("GS_COMITE", "").strip().lower() in ("force", "oui", "true", "1"):
-        return "complet"
+        return "hebdo"
     hist = load(OUT / "comites-journal.json", [])
-    week = [h for h in hist if h.get("date", "") >= (today - timedelta(days=7)).isoformat()]
-    if today.weekday() == CFG["comite"]["jourHebdo"] and not any(h.get("mode") == "complet" and h["date"] == today.isoformat() for h in hist):
-        return "complet"
+    if today.weekday() == CFG["comite"]["jourHebdo"] and not any(h.get("date") == today.isoformat() for h in hist):
+        return "hebdo"
     if not last.get("date"):
-        return "complet"  # premier comité : sans attendre lundi
-    dem = load(OUT / "demande-comite.json", {})
-    if dem.get("date") == today.isoformat() and sum(1 for h in week if h.get("mode") == "alerte") < CFG["comite"]["alerteMaxParSemaine"]:
-        if not any(h["date"] == today.isoformat() for h in hist):
-            return "alerte"
+        return "hebdo"  # première lecture : sans attendre lundi
     return None
 
 
@@ -119,28 +112,27 @@ def bloc_json(text):
 
 
 def parse_decision(text):
+    """Bloc JSON final : arguments par culture (listes de phrases), résumé, calendrier. Rien d'autre n'est gardé."""
     bloc = bloc_json(text)
     if not bloc:
         raise ValueError("bloc JSON final absent")
     j = json.loads(bloc)
+    phr = lambda v, n=300: str(v).strip()[:n] if isinstance(v, (str, int, float)) and str(v).strip() else None  # noqa: E731
     cultures = {}
     for k, v in (j.get("cultures") or {}).items():
-        if isinstance(v, dict) and str(v.get("signal", "")).upper() in SIGNAUX:
-            v["signal"] = v["signal"].upper()
-            cultures[k] = v
+        if k not in CLES or not isinstance(v, dict):
+            continue
+        h = [phr(x) for x in v.get("haussier") or [] if phr(x)] if isinstance(v.get("haussier"), list) else []
+        b = [phr(x) for x in v.get("baissier") or [] if phr(x)] if isinstance(v.get("baissier"), list) else []
+        if h or b or phr(v.get("lecture")):
+            cultures[k] = {"haussier": h[:5], "baissier": b[:5], "a_surveiller": phr(v.get("a_surveiller")), "lecture": phr(v.get("lecture"))}
     if not cultures:
-        raise ValueError("aucune culture avec un signal valide")
-    eng = j.get("engrais") or {}
-    if str(eng.get("signal", "")).upper() not in SIG_ENGRAIS:
-        eng = {}
-    else:
-        eng["signal"] = eng["signal"].upper()
-    trig = [t for t in (j.get("declencheurs") or []) if isinstance(t, dict) and t.get("contrat") in ("EBM", "ECO", "EMA", "TTF")
-            and t.get("sens") in (">", "<") and isinstance(t.get("niveau"), (int, float))]
-    cal = [c for c in (j.get("calendrier") or []) if isinstance(c, dict) and re.match(r"^\d{4}-\d{2}-\d{2}$", str(c.get("date", "")))]
+        raise ValueError("aucune culture lue")
+    cal = [{"date": c["date"], "evenement": phr(c.get("evenement"), 140)} for c in (j.get("calendrier") or [])
+           if isinstance(c, dict) and re.match(r"^\d{4}-\d{2}-\d{2}$", str(c.get("date", ""))) and phr(c.get("evenement"))]
     cut = text.rfind("```json")
     report = (text[:cut] if cut >= 0 else text).strip()
-    return {"resume": str(j.get("resume", ""))[:600], "cultures": cultures, "engrais": eng, "declencheurs": trig[:20], "calendrier": cal[:20]}, report
+    return {"resume": str(j.get("resume", ""))[:600], "cultures": cultures, "calendrier": cal[:20]}, report
 
 
 def main():
@@ -156,7 +148,7 @@ def main():
         print("Comité : pas de réunion aujourd'hui")
         return 0
     if not key:
-        print("Comité : secret ANTHROPIC_API_KEY absent, comité non activé")
+        print("Lecture hebdomadaire : secret ANTHROPIC_API_KEY absent, non activée")
         if not last.get("date"):
             save(OUT / "comite.json", {"erreur": "Comité IA non activé : ajouter le secret ANTHROPIC_API_KEY dans Settings → Secrets → Actions"})
         return 0
@@ -164,8 +156,8 @@ def main():
         print("Comité : données du matin absentes, réunion annulée")
         return 1
     system = (HERE / "prompt.md").read_text(encoding="utf-8")
-    consigne = {"complet": "Comité complet", "alerte": "Alerte : " + " ; ".join(load(OUT / "demande-comite.json", {}).get("motifs", []))}[mode]
-    previous = {k: last.get(k) for k in ("date", "mode", "resume", "cultures", "engrais")} if last.get("date") else None
+    consigne = "Lecture hebdomadaire"
+    previous = {k: last.get(k) for k in ("date", "resume", "cultures")} if last.get("date") and last.get("format") == "lecture" else None
     donnees = compact(dash)
     actu = load(OUT / "actualites.json", {})
     if str(actu.get("date", "")) == today.isoformat():
@@ -182,7 +174,7 @@ def main():
     arts = [a for a in actu.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and (a.get("importance") or 0) >= 2][:40]
     user = (f"Mode : {consigne}\nDate du jour : {today.isoformat()} (heure de Paris le matin ; dernières clôtures : séance précédente).\n\n"
             f"Données chiffrées du matin (Grain Signal, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False)}\n```\n\n"
-            + (f"Avis du comité précédent, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False)}\n```\n\n" if previous else ""))
+            + (f"Lecture de la semaine précédente, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False)}\n```\n\n" if previous else ""))
     if arts:
         user += ("Actualités des 7 derniers jours traduites en impacts (Grain Signal ; −2 baisse forte à +2 hausse forte du prix ; "
                  "engrais : + = plus cher) :\n" + "\n".join(
@@ -233,21 +225,18 @@ def main():
             usage["output"] += u.get("output_tokens", 0)
             extra = "".join(b.get("text", "") for b in rep.get("content") or [] if b.get("type") == "text")
             decision, _ = parse_decision(extra)
-            report = text.strip() + ("\n\n*(Rapport coupé : décisions reprises par une seconde demande.)*" if stop == "max_tokens" else "")
+            report = text.strip() + ("\n\n*(Rapport coupé : synthèse reprise par une seconde demande.)*" if stop == "max_tokens" else "")
     except Exception as e:  # noqa: BLE001
         print("Comité : échec —", e)
         err = dict(last) if last.get("date") else {}
-        err["erreur"] = f"Dernier comité ({today.isoformat()}, {mode}) en échec : {str(e)[:300]}"
+        err["erreur"] = f"Dernière lecture du marché ({today.isoformat()}) en échec : {str(e)[:300]}"
         save(OUT / "comite.json", err)
         return 1
     pin, pout = PRIX.get(CFG["comite"]["modele"], (4, 20))
     cost = usage["input"] / 1e6 * pin + usage["output"] / 1e6 * pout + usage["searches"] * 0.01
-    res = {"date": today.isoformat(), "mode": mode, "consigne": consigne, "modele": CFG["comite"]["modele"], **decision,
+    res = {"format": "lecture", "date": today.isoformat(), "mode": mode, "consigne": consigne, "modele": CFG["comite"]["modele"], **decision,
            "rapport_md": report, "rapport_html": safe_html(report), "sources": sources[:60], "usage": usage,
-           "cout_usd": round(cost, 2), "duree_s": round(time.time() - t0),
-           "chiffres": {k: {"composantes": v.get("composantes")} for k, v in (dash.get("cultures") or {}).items()},
-           # échéance de référence de chaque contrat le jour du comité : ses niveaux seront décalés après un changement d'échéance
-           "references": {k: v.get("echeance") for k, v in (dash.get("contrats") or {}).items() if v.get("echeance")}}
+           "cout_usd": round(cost, 2), "duree_s": round(time.time() - t0)}
     save(OUT / "comite.json", res)
     save(OUT / "comites" / f"{today.isoformat()}-{mode}.json", res)
     arch = sorted((OUT / "comites").glob("*.json"))
@@ -259,10 +248,10 @@ def main():
     outbox = load(OUT / "prive" / "a-envoyer.json", [])
     # heure dans l'identifiant : un comité relancé le même jour est un nouveau rapport, envoyé lui aussi (le 9/11, la relance de
     # l'après-midi portait le même identifiant que celui du matin et n'était pas partie)
-    outbox.append({"id": f"comite:{today.isoformat()}:{mode}:{datetime.now(timezone.utc):%H%M}", "type": "comite", "titre": f"Comité grains et engrais — {consigne}"[:140],
-                   "detail": res["resume"], "grave": mode == "alerte"})
+    outbox.append({"id": f"comite:{today.isoformat()}:{mode}:{datetime.now(timezone.utc):%H%M}", "type": "comite",
+                   "titre": "Lecture du marché de la semaine", "detail": res["resume"], "grave": False})
     save(OUT / "prive" / "a-envoyer.json", outbox)
-    print(f"Comité {mode} : {len(decision['cultures'])} cultures, {usage['searches']} recherches, ≈ {res['cout_usd']} $")
+    print(f"Lecture hebdomadaire : {len(decision['cultures'])} cultures, {usage['searches']} recherches, ≈ {res['cout_usd']} $")
     return 0
 
 

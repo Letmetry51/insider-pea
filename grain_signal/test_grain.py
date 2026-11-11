@@ -90,12 +90,22 @@ check(m[-1] > 0 and hh[-1] is not None, "MACD positif en hausse")
 check(ind.sma([1, 2, 3, 4], 2)[-1] == 3.5, "moyenne mobile")
 a = ind.analyse([f"d{i}" for i in range(40)], up)
 check(a["rsi"] == 100.0 and a["haut3m"] == 139 and a["fibo"]["sens"] == "hausse", "tableau technique complet")
-check(ind.feu_execution({"rsi": 25, "boll_pb": 0.1, "dernier": 1, "haut3m": 2, "bas3m": 0.5})["code"] == "attendre", "pas de vente en survente")
-check(ind.feu_execution({"rsi": 75, "boll_pb": 0.9, "croisement_macd": {"sens": "baissier"}, "dernier": 2, "haut3m": 2, "bas3m": 1})["code"] == "accelerer",
-      "accélérer en surachat qui s'essouffle")
 check(ind.analyse(["a"] * 10, list(range(10))).get("insuffisant"), "moins de 30 séances : insuffisant")
 nv = ind.niveaux({"dernier": 225.5, "mm20": 233.81, "fibo": {"38.2": 232.65, "50": 235.62, "61.8": 238.6}, "haut3m": 248.25, "bas3m": 223.0})
-check(nv["ordres"][0] > 225.5 and nv["revision"] < 223.0, f"ordres au-dessus du cours, révision sous le plus bas ({nv})")
+check(nv["resistances"] == [232.75, 235.5] and nv["supports"] == [223.0], f"résistances au-dessus du cours, supports en dessous ({nv})")
+_lec = ind.lecture(a)
+check(_lec["sens"] in ("haussière", "neutre", "baissière") and "RSI 100 : surachat" in _lec["texte"], f"lecture technique en clair ({_lec})")
+check(ind.sens(0.75) == "haussière" and ind.sens(-0.75) == "baissière" and ind.sens(0.5) == "neutre" and ind.sens(None) is None,
+      "seuils de lecture : ±0,75")
+import random as _rd  # noqa: E402
+_rd.seed(3)
+_x = [100.0]
+for _ in range(400):
+    _x.append(_x[-1] * (1 + _rd.gauss(0, 0.012)))
+_a = ind.analyse([f"d{i}" for i in range(len(_x))], _x)
+_sv = ind.score_serie(_x)
+check(_sv[-1] is not None and abs(_sv[-1] - ind.score_technique({**_a, "divergence": "aucune"})) < 1e-9,
+      f"note technique jour par jour (backtest) = note du matin ({_sv[-1]} / {ind.score_technique(_a)})")
 
 # ------------------------------------------------------------------ série continue : raccord ajusté
 rows = [{"date": "2026-10-29", "product": "ECO", "maturity": "2026-11", "settle": "528.75"},
@@ -107,23 +117,24 @@ check(ref == "2027-02" and rac and rac[0]["ajustement"] == 27.75, f"raccord nov.
 check(abs(v[0] - (528.75 + 27.75)) < 1e-9, "série ajustée en arrière")
 check(build.expiry("EBM", "2026-12").isoformat() == "2026-12-10", "expiration blé : le 10 du mois")
 check(build.expiry("ECO", "2027-02").isoformat() == "2027-01-29", "expiration colza : dernier jour ouvré du mois précédent")
-check(build.matrix(-1.2) == "VENDRE" and build.matrix(0.6) == "ATTENDRE" and build.matrix(0) == "TENIR", "matrice de décision")
-check(build.cot_score(10) == 1.5 and build.cot_score(90) == -1.5, "lecture des fonds à contre-courant")
 
-# ------------------------------------------------------------------ comité : sortie machine et sécurité du rapport
+# ------------------------------------------------------------------ lecture hebdomadaire : sortie machine et sécurité du rapport
 TXT = """# Rapport
 Texte <script>alert(1)</script> et [lien piégé](javascript:alert(1)) et [source](https://example.com/a).
 ```json
-{"resume": "R", "cultures": {"ble": {"signal": "tenir", "score": 0.1, "ordres": [233]}, "colza": {"signal": "INVENTÉ"}},
- "engrais": {"signal": "FRACTIONNER"}, "declencheurs": [{"contrat": "EBM", "sens": "<", "niveau": 218, "texte": "x"},
- {"contrat": "XXX", "sens": "<", "niveau": 1}], "calendrier": [{"date": "2026-11-10", "evenement": "WASDE"}]}
+{"resume": "R", "cultures": {"ble": {"haussier": ["Russie : ports fermés", 3], "baissier": "pas une liste", "a_surveiller": "WASDE",
+ "lecture": "équilibre"}, "colza": {"signal": "VENDRE"}, "inventee": {"haussier": ["x"]}, "engrais": {"baissier": ["Inde absente"]}},
+ "calendrier": [{"date": "2026-11-10", "evenement": "WASDE"}, {"date": "demain", "evenement": "x"}]}
 ```"""
 dec, rep = comite.parse_decision(TXT)
-check(dec["cultures"]["ble"]["signal"] == "TENIR" and "colza" not in dec["cultures"], "signaux du comité validés")
-check(len(dec["declencheurs"]) == 1 and dec["engrais"]["signal"] == "FRACTIONNER", "déclencheurs et engrais validés")
+check(dec["cultures"]["ble"] == {"haussier": ["Russie : ports fermés", "3"], "baissier": [], "a_surveiller": "WASDE", "lecture": "équilibre"}
+      and set(dec["cultures"]) == {"ble", "engrais"}, f"lecture hebdomadaire validée : arguments seuls, pas de signal ({dec['cultures']})")
+check(dec["calendrier"] == [{"date": "2026-11-10", "evenement": "WASDE"}], "calendrier validé (date AAAA-MM-JJ)")
 hs = comite.safe_html(rep)
 check("<script" not in hs and "javascript:" not in hs.lower(), "rapport sans script ni lien javascript")
 check('href="https://example.com/a"' in hs, "lien https conservé")
+_p = (HERE / "prompt.md").read_text(encoding="utf-8")
+check("INTERDIT" in _p and '"haussier"' in _p and '"signal"' not in _p and "ordres" not in _p, "consigne de la lecture : aucun conseil demandé")
 
 # ------------------------------------------------------------------ calcul complet sur les historiques de départ (dossier temporaire)
 tmp = Path(tempfile.mkdtemp())
@@ -159,7 +170,9 @@ try:
             "a4": {"pertinent": False, "titre_fr": "Recette", "classe_le": "2026-11-07"},
             "a5": {"pertinent": True, "titre_fr": "<script>alert(1)</script>", "theme": "demande", "nature": "rumeur", "importance": 1,
                    "impacts": {"colza": 1}, "horizon": "jours", "impact": "x", "doublon_de": None, "classe_le": "2026-11-07"}}
-    (priv / "actualites_classees.json").write_text(json.dumps(_cls), encoding="utf-8")
+    _cls["a_vieux"] = {"pertinent": True, "titre_fr": "Ancien classement", "classe_le": "2026-11-07"}  # sans version : relu
+    (priv / "actualites_classees.json").write_text(json.dumps({k: {**v, "v": 2} if k not in ("a_vieux", "a3") else v for k, v in _cls.items()}),
+                                                   encoding="utf-8")  # a3 : classement de la version 1 (phrase avec conseil)
     _gj = [[f"{2014 + i // 365:04d}-{(i % 365) // 31 % 12 + 1:02d}-{i % 28 + 1:02d}", 100.0 + (i % 50)] for i in range(4000)]
     _gj = sorted({x[0]: x for x in _gj}.values())
     _gj += [["2026-11-0" + str(k), 400.0] for k in range(1, 7)]
@@ -171,14 +184,17 @@ try:
     check(pa.returncode == 0 and [a["id"] for a in ac_.get("articles", [])] == ["a1", "a2", "a5", "a3"],
           "actualités : titres classés publiés, non pertinents écartés" + ("" if pa.returncode == 0 else " : " + pa.stderr[-300:]))
     pr_ = ac_.get("pression") or {}
+    _a3 = next((a for a in ac_.get("articles", []) if a["id"] == "a3"), {})
+    check(_a3.get("impacts") == {"engrais": 2} and _a3.get("impact") is None,
+          "classement d'une version antérieure : effets gardés pour la pression, phrase masquée en attendant la relecture")
     check(len(ac_.get("historique") or []) == 1 and ac_["historique"][0]["date"] == "2026-11-07", "actualités : pression du jour gardée en historique")
     check(pr_.get("ble", {}).get("valeur", 0) > 0.5 and pr_["ble"]["baisse"] == 0 and pr_.get("engrais", {}).get("valeur", 0) > 0.3,
           f"actualités : pression haussière sur le blé (compte rendu de séance exclu), azote plus cher ({pr_.get('ble')}, {pr_.get('engrais')})")
     _box = json.loads((priv / "a-envoyer.json").read_text(encoding="utf-8")) if (priv / "a-envoyer.json").exists() else []
-    _dem = json.loads((tmp / "data" / "grain" / "demande-comite.json").read_text(encoding="utf-8")) if (tmp / "data" / "grain" / "demande-comite.json").exists() else {}
     check(ac_.get("majeurs") == ["a1"] and any(x["id"] == "2026-11-07:actu:a1" and x["grave"] for x in _box)
-          and any("Novorossiisk" in m for m in _dem.get("motifs", [])),
-          "actualité majeure : alerte email et comité d'alerte demandés")
+          and not (tmp / "data" / "grain" / "demande-comite.json").exists(), "actualité majeure : alerte email (plus de comité d'alerte)")
+    _cache = json.loads((priv / "actualites_classees.json").read_text(encoding="utf-8"))
+    check(_cache["a1"]["v"] == 2 and "a_vieux" in _cache, "classements gardés (version antérieure conservée en attendant sa relecture)")
     pa2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "actualites.py")], capture_output=True, text=True, env=env)
     _box2 = json.loads((priv / "a-envoyer.json").read_text(encoding="utf-8"))
     check(pa2.returncode == 0 and len([x for x in _box2 if ":actu:" in x["id"]]) == 1, "actualité majeure : une seule alerte, même relancé")
@@ -187,47 +203,52 @@ try:
     if p.returncode == 0:
         dash = json.loads((tmp / "data" / "grain" / "grain-signal.json").read_text(encoding="utf-8"))
         check(set(dash["cultures"]) == {"ble", "escourgeon", "orge_printemps", "colza", "mais"}, "cinq cultures")
-        check(dash["cultures"]["ble"]["source"] == "comite", "comité de départ appliqué")
+        c_ = dash["cultures"]["ble"]
+        check(dash["format"] == "grain-signal-2" and c_["cours"] == 225.5 and c_["var1j"] == 2.5 and not c_["physique"],
+              f"blé : cours Euronext du jour et variation sur la séance ({c_.get('cours')}, {c_.get('var1j')})")
+        check(c_["technique"]["sens"] in ("haussière", "neutre", "baissière") and c_["technique"]["resistances"]
+              and all(x > 225.5 for x in c_["technique"]["resistances"]) and all(x < 225.5 for x in c_["technique"]["supports"]),
+              f"blé : lecture technique, résistances au-dessus et supports en dessous ({c_['technique']})")
+        _forb = ("signal", "plan", "decision", "niveaux_retenus", "libelle", "feu", "score_marche", "biais")
+        check(not any(k in c for c in dash["cultures"].values() for k in _forb) and "decision" not in dash["engrais"]
+              and "signal" not in dash["engrais"] and "a_acheter" not in dash["engrais"] and "carnet" not in dash,
+              "aucun conseil publié : ni signal, ni plan, ni ordre, ni décision")
+        e_ = dash["cultures"]["escourgeon"]
+        check(e_["physique"] and e_["cours"] == 209.0 and e_["technique"].get("sur_ble")
+              and e_["technique"]["resistances"][0] == round(c_["technique"]["resistances"][0] - 16.5, 2),
+              f"escourgeon : prix physique, technique du blé ramenée au niveau de l'orge ({e_['technique']})")
         check(dash["orges"]["escourgeon"]["prime"] == -6.25 and dash["orges"]["orge_printemps"]["prix"] == 234.25,
               "orges brassicoles : prix physique et prime sur la fourragère")
-        pl = dash["cultures"]["ble"]["plan"]
-        check([(x["recolte"], x["pct"]) for x in pl] == [(2026, 15), (2027, 10)], f"plan de vente du blé au 07/11/2026 ({pl})")
-        check(pl[1].get("ordre") == 228.0, "ordre de la récolte 2027 décalé de l'écart entre échéances (235,5 − 7,5)")
-        check(all(sum(t[2] for t in v["tranches"]) == 100 for v in dash["config"]["calendrier"].values()), "calendriers à 100 %")
-        check(dash["engrais"].get("signal") in ("ACHETER_LARGE", "SUIVRE", "FRACTIONNER", "ATTENDRE"), "décision engrais")
+        rp_ = c_["reperes"]
+        check(rp_.get("plus_haut") == 248.25 and rp_.get("campagne_depuis") == "2026-07-01" and rp_.get("ecart_plus_haut") == -22.75,
+              f"repère : plus haut de la campagne et écart ({rp_})")
         st_ = dash["contrats"]["EBM"].get("stockage") or {}
-        check(st_.get("code") in ("stocker", "vendre", "neutre") and st_.get("reference") == "2026-12",
-              f"stocker ou vendre calculé sur la courbe du blé ({st_.get('texte')})")
-        cb_ = dash["carnet"]["entrees"]
-        check(len(cb_) == 6 and {x["cle"] for x in cb_} == {"ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais"},
-              "carnet de bord : avis du comité de départ notés (5 cultures et l'azote)")
-        check("meteo" in dash["cultures"]["ble"]["composantes"], "note météo dans les composantes du score")
-        pb_ = dash["cultures"]["ble"]["niveaux_retenus"].get("probas") or {}
-        check(len(pb_.get("ordres") or []) == len(dash["cultures"]["ble"]["niveaux_retenus"]["ordres"]) and pb_.get("horizon") == "2026-11-30"
-              and all(0 <= x <= 100 for x in pb_["ordres"]), f"chances d'atteindre les ordres d'ici la fin de la tranche ({pb_})")
+        check(st_.get("code") in ("paye", "ne_paye_pas", "a_peine") and st_.get("reference") == "2026-12" and "stocker" not in st_.get("texte", "").lower(),
+              f"report de la courbe du blé, sans conseil ({st_.get('texte')})")
+        ng_ = dash["engrais"]
+        check(any("percentile" in n for n in ng_.get("notes", [])) and not any(w in " ".join(ng_["notes"]).lower() for w in ("acheter", "attendre", "fractionner")),
+              f"azote : faits seulement ({ng_.get('notes')})")
         check((dash["cultures"]["ble"].get("actualite") or {}).get("sens") == "haussière" and dash["cultures"]["escourgeon"].get("actualite")
               and (dash.get("actualites") or {}).get("majeurs") == 1, "actualités : pression reprise par culture dans le calcul du matin")
         g_ = dash.get("geopolitique") or {}
         check(g_.get("percentile", 0) >= 90 and g_.get("etat") == "très élevé" and g_.get("pays", [{}])[0].get("nom") == "Russie"
               and g_.get("evenements"), f"géopolitique : pic récent au-dessus de 10 ans d'historique, pays et événements ({ {k: g_.get(k) for k in ('mois', 'percentile', 'etat')} })")
-        bi_ = dash["cultures"]["ble"].get("biais") or {}
-        check(bi_.get("plus_haut") is not None and bi_.get("depuis") == "2026-07-01" and 0 <= (bi_.get("gagner5") or -1) <= 100,
-              f"biais d'ancrage : plus haut de la campagne et chances de gagner ou perdre 5 € ({bi_})")
         hp = tmp / "synthese.html"
         p3 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "rapport_pdf.py"), "--html", str(hp)], capture_output=True, text=True, env=env)
         page = hp.read_text(encoding="utf-8") if p3.returncode == 0 else ""
         import re as _re
-        check(p3.returncode == 0 and "Que faire aujourd'hui" in page and page.count("<section class='bloc'>") == 3
-              and "235,50 €/t" in page and "1er ordre : 235,50 €/t" in page
-              and "Prime faible" not in page.replace("Prime faible : vendre via Euronext", ""),
-              "synthèse PDF : page complète (décisions, 3 contrats, ordres en €/t)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
+        check(p3.returncode == 0 and "Le marché ce matin" in page and page.count("<section class='bloc'>") == 3
+              and "Résistance 232,75" in page and "Support 223,00" in page and "225,50" in page,
+              "synthèse PDF : page complète (marché, 3 contrats, supports et résistances)" + ("" if p3.returncode == 0 else " : " + p3.stderr[-300:]))
+        _low = page.lower()
+        check(not any(w in _low for w in ("que faire", "vendre une tranche", "ordre :", "bon pour vendre", "acheter large", "fractionner")),
+              "synthèse PDF : aucun conseil de vente ou d'achat")
         check(not _re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", page), "synthèse PDF : aucun emoji (carrés vides à l'impression)")
-        check("<h2>Actualité</h2>" in page and "Novorossiisk" in page and "<script>alert" not in page
-              and "Carnet de bord" not in page and "Orges brassicoles" not in page and "Engrais France" not in page,
-              "synthèse PDF : resserrée (décisions, comité, actualité traduite, cultures), texte échappé")
+        check("<h2>Actualité</h2>" in page and "Novorossiisk" in page and "<script>alert" not in page,
+              "synthèse PDF : actualité traduite, texte échappé")
         p2 = subprocess.run([sys.executable, str(tmp / "grain_signal" / "send_alerts.py")], capture_output=True, text=True, env=env)
         check(p2.returncode == 0 and p2.stdout.count("SIMULATION") == 1 and "Grain Signal — samedi 7 nov. : Actualité majeure" in p2.stdout,
-              "rapport du matin : un seul email, l'alerte d'actualité en tête" + (": " + p2.stdout[-400:] if p2.returncode == 0 else "")
+              "rapport du matin : un seul email, l'actualité majeure en objet" + (": " + p2.stdout[-400:] if p2.returncode == 0 else "")
               + ("" if p2.returncode == 0 else " : " + p2.stderr[-300:]))
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
@@ -274,9 +295,8 @@ def corrupt(t, pv):
     (pv / "yahoo.json").write_text("{pas du json", encoding="utf-8")
     (pv / "cftc.json").write_text("[]", encoding="utf-8")
     (t / "data" / "grain" / "comite.json").write_text(json.dumps({
-        "date": "2026-11-07", "cultures": {"ble": {"signal": "TENIR", "score": "abc", "ordres": ["x", None, 230]},
-                                            "colza": {"signal": "N'IMPORTE"}},
-        "declencheurs": [{"contrat": "EBM", "sens": ">", "niveau": "nan"}, "texte"], "engrais": "rien"}), encoding="utf-8")
+        "format": "lecture", "date": "2026-11-07", "cultures": {"ble": {"haussier": ["ok", {"x": 1}, None], "baissier": "texte"}, "colza": ["liste"],
+                                            "mais": {"signal": "VENDRE"}}, "calendrier": "rien"}), encoding="utf-8")
     with (pv / "euronext.csv").open("a", encoding="utf-8") as fh:
         fh.write("2026-11-06,EBM,2027-03,nan\n2026-11-06,EBM,2027-05,\n")
 
@@ -284,8 +304,9 @@ def corrupt(t, pv):
 (rc, dash, _, err), = run_build(corrupt)
 check(rc == 0 and dash is not None, "calcul avec fichiers corrompus (Yahoo illisible, comité malformé, prix vides)" + ("" if rc == 0 else " : " + err))
 if dash:
-    check(dash["cultures"]["ble"]["niveaux_retenus"]["ordres"] == [230.0], "ordres du comité nettoyés (valeurs non numériques ignorées)")
-    check(dash["cultures"]["colza"]["source"] != "comite", "signal du comité invalide ignoré")
+    check(dash["cultures"]["ble"]["comite"]["haussier"] == ["ok"] and dash["cultures"]["ble"]["comite"]["baissier"] == [],
+          "lecture hebdomadaire malformée nettoyée (textes seuls)")
+    check("comite" not in dash["cultures"]["colza"] and "comite" not in dash["cultures"]["mais"], "ancien format (signal) ou liste ignorés")
 
 
 def one_row(t, pv):
@@ -303,46 +324,67 @@ if all(r[0] == 0 for r in runs):
     check(runs[1][1]["declencheurs"] == [], "pas de nouveau déclencheur sans nouvelle séance")
 
 
-def seeds_signal_veille(t, pv):  # la veille, le blé était à « vendre » : changement de signal ce matin
+def seeds_sens_veille(t, pv):  # la veille, la lecture technique du blé était « haussière »
     seeds(t, pv)
-    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"signaux": {"ble": "VENDRE"}}), encoding="utf-8")
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"contrats": {"EBM": {"seance": "2026-11-05", "dernier": 223.0, "sens": "haussière"}}}),
+                                                    encoding="utf-8")
 
 
-runs = run_build(seeds_signal_veille, twice=True)
+runs = run_build(seeds_sens_veille, twice=True)
 if all(r[0] == 0 for r in runs):
     t1 = [x["id"] for x in runs[0][1]["declencheurs"]]
     t2 = [x["id"] for x in runs[1][1]["declencheurs"]]
-    check(any(i.endswith("ble:signal") for i in t1) and t1 == t2,
-          f"déclencheurs du jour encore affichés après le 2e calcul (page et PDF = email) ({t1} / {t2})")
-    check(len([x for x in runs[1][2] if x["id"].endswith("ble:signal")]) == 1, "changement de signal envoyé une seule fois")
+    check(any(i.endswith("EBM:sens") for i in t1) and t1 == t2,
+          f"changement de lecture technique signalé, encore affiché après le 2e calcul ({t1} / {t2})")
+    check(len([x for x in runs[1][2] if x["id"].endswith("EBM:sens")]) == 1, "changement de lecture envoyé une seule fois")
+else:
+    check(False, "scénario de changement de lecture : " + runs[0][3])
 
-def roll_colza(t, pv):  # changement d'échéance colza nov. → févr. le 02/11 ; comité du 29/10 avec un ordre à 540 sur nov.
+
+def seuils_franchis(t, pv):  # seuils de l'exploitant : blé ≥ 225 franchi (223 → 225,5), colza ≤ 500 pas franchi
     seeds(t, pv)
-    (t / "data" / "grain" / "comite.json").write_text(json.dumps({
-        "date": "2026-10-29", "modele": "test", "references": {"ECO": "2026-11"},
-        "cultures": {"colza": {"signal": "TENIR", "score": 0, "ordres": [540], "revision_bas": 500}},
-        "declencheurs": [{"contrat": "ECO", "sens": ">", "niveau": 540, "texte": "ordre"}]}), encoding="utf-8")
-    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"contrats": {"ECO": {"seance": "2026-10-30", "dernier": 527.5}}}), encoding="utf-8")
+    cfg = json.loads((t / "grain_signal" / "config.json").read_text(encoding="utf-8"))
+    cfg["seuils"]["ble"] = {"au_dessus": [225, "x", -3], "en_dessous": [200]}
+    cfg["seuils"]["colza"] = {"au_dessus": [], "en_dessous": [500]}
+    (t / "grain_signal" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"cours": {"ble": 223.0, "colza": 525.0}, "cours_du": {"ble": "2026-11-05"}}),
+                                                    encoding="utf-8")
+
+
+runs = run_build(seuils_franchis, twice=True)
+if all(r[0] == 0 for r in runs):
+    ids = [x["id"] for x in runs[0][1]["declencheurs"]]
+    sl = runs[0][1]["cultures"]["ble"].get("seuils")
+    check(ids.count("2026-11-07:seuil:ble:>225") == 1 and not any(":seuil:colza" in i for i in ids)
+          and sl == [{"sens": ">", "niveau": 225.0, "atteint": True}, {"sens": "<", "niveau": 200.0, "atteint": False}],
+          f"seuils de l'exploitant : alerte au franchissement, valeurs invalides ignorées ({ids}, {sl})")
+    check(len([x for x in runs[1][2] if ":seuil:" in x["id"]]) == 1, "seuil franchi signalé une seule fois")
+else:
+    check(False, "scénario des seuils : " + runs[0][3])
+
+
+def roll_colza(t, pv):  # changement d'échéance colza nov. → févr. le 02/11 (+27,75) : un seuil à 540 n'est pas « franchi »
+    seeds(t, pv)
+    cfg = json.loads((t / "grain_signal" / "config.json").read_text(encoding="utf-8"))
+    cfg["seuils"]["colza"] = {"au_dessus": [540], "en_dessous": []}
+    (t / "grain_signal" / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"cours": {"colza": 527.5}, "cours_du": {"colza": "2026-10-30"}}), encoding="utf-8")
 
 
 (rc, dash, box, err), = run_build(roll_colza, today="2026-11-03")
-if rc == 0:
-    nr = dash["cultures"]["colza"]["niveaux_retenus"]
-    check(nr["revision"] == 527.75 and nr.get("decalage_echeance") == 27.75, f"niveaux du comité décalés après le changement d'échéance ({nr})")
-    check(not any(":niveau:" in x["id"] for x in dash["declencheurs"]), "pas de faux « niveau franchi » le jour du changement d'échéance")
-else:
-    check(False, "scénario de changement d'échéance : " + err)
+check(rc == 0 and not any(":seuil:" in x["id"] for x in (dash or {}).get("declencheurs", [])),
+      "pas de faux seuil franchi le jour du changement d'échéance" + ("" if rc == 0 else " : " + err))
 
 
-def comite_change(t, pv):
+def ancien_comite(t, pv):  # avis du comité à l'ancien format (signaux, ordres) : plus affiché
     seeds(t, pv)
-    (t / "data" / "grain" / "etat.json").write_text(json.dumps({"signaux": {"ble": "VENDRE", "escourgeon": "VENDRE"}}), encoding="utf-8")
+    (t / "data" / "grain" / "comite.json").write_text(json.dumps({"date": "2026-11-06", "resume": "Vendre le maïs",
+                                                                 "cultures": {"ble": {"signal": "VENDRE", "haussier": ["x"]}}}), encoding="utf-8")
 
 
-(rc, dash, _, err), = run_build(comite_change)
-ids = [x["id"] for x in (dash or {}).get("declencheurs", [])]
-check(rc == 0 and any(i.endswith("ble:signal") for i in ids) and any(i.endswith("escourgeon:signal") for i in ids),
-      "changement de signal signalé pour toutes les cultures, orges comprises")
+(rc, dash, _, err), = run_build(ancien_comite)
+check(rc == 0 and not dash["comite"]["valide"] and "comite" not in dash["cultures"]["ble"], "ancien avis du comité (avant la refonte) ignoré")
+
 
 def wb_octobre(t, pv):  # chiffre Banque mondiale d'octobre, aucun relevé France en octobre : interpolation au 15
     seeds(t, pv)
@@ -354,49 +396,22 @@ def wb_octobre(t, pv):  # chiffre Banque mondiale d'octobre, aucun relevé Franc
 est = (dash or {}).get("engrais", {}).get("estimation") or {}
 check(rc == 0 and "interpolée au 15 entre 555 le 30/09 et 621 le 05/11" in est.get("methode", ""), f"ratio engrais : urée interpolée au milieu du mois ({est})")
 
-for day in ("2027-01-02", "2027-06-30", "2027-07-01", "2027-12-31"):
+for day in ("2027-01-02", "2027-07-01", "2027-12-31"):
     (rc, dash, _, err), = run_build(seeds, today=day)
-    ok = rc == 0 and all(sum(1 for p in c["plan"] if p["statut"] == "due") <= 2 for c in dash["cultures"].values())
-    check(ok, f"plan de vente au {day} (passage d'année, moisson)" + ("" if rc == 0 else " : " + err))
+    check(rc == 0, f"calcul au {day} (passage d'année, moisson)" + ("" if rc == 0 else " : " + err))
 
-# ------------------------------------------------------------------ backtest : prix constant → toutes les stratégies au même prix
+# ------------------------------------------------------------------ backtest : la lecture technique annonce-t-elle la suite ?
 import backtest as bt  # noqa: E402
 from datetime import timedelta as _td  # noqa: E402
 
-_d0, _ds = date(2015, 1, 1), []
-while _d0 < date(2019, 12, 31):
-    if _d0.weekday() < 5:
-        _ds.append(_d0.isoformat())
-    _d0 += _td(days=1)
-_p = [200.0] * len(_ds)
-_r = bt.campagne(_p, bt.indicateurs(_p), bt.ym_idx(_ds), 2017, [list(t) for t in bt.CFG["calendrier"]["ble"]["tranches"]], 7,
-                 {"rsi": 40, "pos": 20})
-check(_r and all(abs(v - 200) < 1e-6 for v in _r.values()), f"backtest : prix constant, toutes les stratégies à 200 €/t ({_r})")
-_p2 = [100 + i * 0.05 for i in range(len(_ds))]  # hausse régulière : vendre tout à la moisson doit être battu par l'étalement
-_r2 = bt.campagne(_p2, bt.indicateurs(_p2), bt.ym_idx(_ds), 2017, [list(t) for t in bt.CFG["calendrier"]["ble"]["tranches"]], 7,
-                  {"rsi": 40, "pos": 20})
-check(_r2 and _r2["S1"] > _r2["S0"], "backtest : marché haussier, la vente étalée bat la vente à la moisson")
-
-# note de marché rejouée (S5) : technique, fonds (indice sur 3 ans au dernier rapport publié) et macro, pondérés comme build.py
-_cf = {"001602": {"culture": "ble", "serie": [{"date": (date(2015, 1, 6) + _td(weeks=k)).isoformat(), "long": 100, "short": 100 + k * 10}
-                                            for k in range(200)]}}
-_fx = {"EURUSD=X": {"serie": {d_: 1.20 - i * 0.0005 for i, d_ in enumerate(_ds)}}}
-_nf = bt.note_marche(_ds, _p, bt.indicateurs(_p), "ble", _cf, _fx)
-_i = _ds.index("2018-06-01")
-_t = bt.score(bt.indicateurs(_p), _p, _i)
-W_ = bt.CFG["poids"]
-_cot_attendu = 1.5  # dernière position nette = la plus vendeuse des 3 ans → indice 0 → +1,5
-_e20 = (_fx["EURUSD=X"]["serie"][_ds[_i]] / _fx["EURUSD=X"]["serie"][_ds[_i - 20]] - 1) * 100
-_mac = -max(-1, min(1, _e20 / 2)) * 0.5
-_att = (W_["technique"] * _t + W_["cot"] * _cot_attendu + W_["macro"] * _mac) / (W_["technique"] + W_["cot"] + W_["macro"])
-check(abs(_nf(_i) - _att) < 1e-9, f"backtest S5 : note rejouée = technique + fonds + macro pondérés ({_nf(_i):.3f} / {_att:.3f})")
-_r3 = bt.campagne(_p, bt.indicateurs(_p), bt.ym_idx(_ds), 2017, [list(t) for t in bt.CFG["calendrier"]["ble"]["tranches"]], 7,
-                  {"rsi": 40, "pos": 20}, _nf)
-check(_r3 and "S5" in _r3 and abs(_r3["S5"] - 200) < 1e-6, "backtest S5 : prix constant, l'outil complet vend aussi à 200 €/t")
-_rows = [{"recolte": y, "S1": 200, "S2": 200 + (y % 3)} for y in range(2001, 2024)]
-_pp = bt.par_periode(_rows, ["S1", "S2"], "S1")
-check(set(_pp) == {"2000-2009", "2010-2019", "2020 et après"} and _pp["2020 et après"]["S2"]["campagnes"] == 4,
-      "backtest : bilan par période")
+_p = [100 * (1.0004 ** i) for i in range(600)]  # hausse régulière : lecture « hausse », cours plus haut 60 séances après
+_pl = bt.par_lecture(_p)
+_g = _pl["60"]["groupes"]
+check(set(_g) == {"haussière"} and _g["haussière"]["hausses"] == 100 and abs(_g["haussière"]["moyenne"] - 2.4) < 0.1
+      and _pl["60"]["ecart"] is None, f"backtest technique : hausse régulière, lecture « hausse » et cours plus haut ({_g})")
+import random as _rd2  # noqa: E402
+_w = bt.marche_aleatoire([100 * (1.01 if i % 2 else 0.99) ** (i % 2) for i in range(300)], _rd2.Random(1))
+check(len(_w) == 300 and all(x > 0 for x in _w), "backtest : cours tirés au sort de même longueur")
 
 # ---------------------------------------------------------------- COT Euronext (tableau du rapport hebdomadaire)
 _rr = ["52", "270", "0", "0", "0", "0", "185 796.15", "344 744.46", "0", "0"]
@@ -463,12 +478,12 @@ def _exp(m):
 
 _cfg = {"fraisMensuels": 0.6, "tauxAnnuel": 4.0, "seuilGain": 3.0}
 _s1 = dec.stockage({"2026-12": 220, "2027-03": 232, "2027-05": 236, "2027-09": 240}, "2026-12", _exp, date(2026, 11, 7), 7, _cfg)
-check(_s1["code"] == "stocker" and all(o["echeance"] != "2027-09" for o in _s1["options"]),
-      f"stocker ou vendre : report de +16 €/t → stocker, échéance de la nouvelle récolte exclue ({_s1['texte']})")
+check(_s1["code"] == "paye" and all(o["echeance"] != "2027-09" for o in _s1["options"]) and "la courbe paie le stockage" in _s1["texte"],
+      f"report : +16 €/t, la courbe paie le stockage, échéance de la nouvelle récolte exclue ({_s1['texte']})")
 _s2 = dec.stockage({"2026-12": 220, "2027-03": 219, "2027-05": 218}, "2026-12", _exp, date(2026, 11, 7), 7, _cfg)
-check(_s2["code"] == "vendre", "stocker ou vendre : déport → vendre plutôt que stocker")
+check(_s2["code"] == "ne_paye_pas" and "vendre" not in _s2["texte"].lower(), f"report : déport, la courbe ne couvre pas les frais ({_s2['texte']})")
 _s3 = dec.stockage({"2027-09": 220, "2027-12": 230}, "2027-09", _exp, date(2027, 6, 20), 7, _cfg)
-check(_s3["code"] == "nouvelle", "stocker ou vendre : échéance de la nouvelle récolte → pas de report sur l'ancienne")
+check(_s3["code"] == "nouvelle", "report : échéance de la nouvelle récolte → pas de report sur l'ancienne")
 
 _rows = [{"date": f"2026-{9 + i // 28:02d}-{1 + i % 28:02d}", "page": "ble", "place": "Rouen\xa0Rendu", "prix": 200 + (i % 10)} for i in range(50)]
 _pl = dec.prime_locale(_rows, [["ble", "Rouen Rendu"], ["ble", "Inconnue"]], lambda d_, p_=None: 200.0)
@@ -476,20 +491,6 @@ check(_pl and _pl["places"][0]["jours"] == 50 and _pl["percentile"] is not None 
       f"prime locale : physique − Euronext (espaces insécables de terre-net), percentile après 40 relevés ({_pl and _pl.get('texte')})")
 _pl2 = dec.prime_locale(_rows[:5], [["ble", "Rouen Rendu"]], lambda d_, p_=None: 200.0)
 check("percentile" not in _pl2 and "constitution" in _pl2["texte"], "prime locale : historique trop court annoncé")
-
-_serie = {(date(2026, 9, 1) + _td(days=i)).isoformat(): 200 - i * 0.5 for i in range(80)}
-_cb = []
-check(dec.carnet_ajoute(_cb, "ble", "2026-09-01", "VENDRE", 200, "2026-09-01") and
-      not dec.carnet_ajoute(_cb, "ble", "2026-09-02", "VENDRE", 200, "2026-09-01"), "carnet : un avis n'est noté qu'une fois")
-dec.carnet_note(_cb[0], _serie, date(2026, 11, 20))
-check(_cb[0]["s4"]["verdict"] == "bon" and _cb[0]["s4"]["gain"] == 14.0 and _cb[0]["s8"]["verdict"] == "bon",
-      f"carnet : vendre avant une baisse = bon avis ({_cb[0]['s4']})")
-_cw = [{"id": "a", "cle": "colza", "date": "2026-09-01", "signal": "ATTENDRE", "prix": 200}]
-dec.carnet_note(_cw[0], _serie, date(2026, 10, 10))
-check(_cw[0]["s4"]["verdict"] == "mauvais" and "variation" not in _cw[0]["s8"], "carnet : attendre avant une baisse = mauvais ; 8 semaines pas encore jugées")
-_ce = [{"id": "e", "cle": "engrais", "date": "2026-09-01", "signal": "ATTENDRE", "prix": 200}]
-dec.carnet_note(_ce[0], _serie, date(2026, 11, 20), engrais=True)
-check(_ce[0]["s4"]["verdict"] == "bon", "carnet : azote, attendre avant une baisse = bon avis")
 
 _today = date(2026, 11, 7)
 _obs, _k = {}, _today - _td(days=4100)
@@ -518,24 +519,22 @@ _old = [{"date": "2026-08-01", "long": 10, "short": 5}] * 30
 check(build.cot_reading(_old, today=date(2026, 11, 8)).get("perime") and build.cot_reading(_old, today=date(2026, 11, 8))["indice"] is None,
       "positions des fonds : rapport de plus de 3 semaines affiché mais plus compté")
 import send_alerts as _sa  # noqa: E402
-_dash = {"cultures": {"ble": {"nom": "Blé tendre", "contrat": "EBM", "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5,
-                                                                          "recolte": 2026, "periode": "oct.–nov. 2026"}],
-                               "source": "comite", "comite": {"pct": "7,5 % maintenant + 7,5 % par ordre"},
-                               "niveaux_retenus": {"ordres": [235.5], "probas": {"ordres": [45], "horizon": "2026-11-30"}}},
-                       "escourgeon": {"nom": "Escourgeon brassicole", "contrat": "EBM", "physique": {"prix": 209.0},
-                                      "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}],
-                                      "niveaux_retenus": {"sur_ble": True, "ordres": [235.5]}}},
-         "orges": {"escourgeon": {"ecart_ble": -16.5}}, "contrats": {"EBM": {"dernier_reel": 225.5}},
-         "engrais": {"comite": {"signal": "FRACTIONNER", "pct": "15 % max (urée)", "prix_plafond": 640}, "france": {"uree": {"prix": 613.75}}}}
-for _k, _c in _dash["cultures"].items():
-    _c["decision"] = dec.decision_jour(_c, _dash["contrats"]["EBM"], _dash["orges"].get(_k, {}).get("ecart_ble") if _c["niveaux_retenus"].get("sur_ble") else None)
-_dash["engrais"]["decision"] = dec.decision_azote(_dash["engrais"])
 import html as _html  # noqa: E402
 
-_ts = _html.unescape(_sa.table_signaux(_dash))
-check("VENDRE" in _ts and "7,5 % maintenant + 7,5 % par ordre" in _ts and "Comité :" not in _ts and "45 % de chances" not in _ts and "15 % à ≈ 219,00 €/t" in _ts
-      and "quand le blé Euronext atteint 235,50" in _ts and "FRACTIONNER" in _ts and "plafond d'achat 640" in _ts and "TENIR" not in _ts
-      and "position" not in _ts, "email : mêmes décisions que la page (orge en prix d'orge, blé déclencheur, azote), sans « position »")
+_dash = {"cultures": {"ble": {"nom": "Blé tendre", "cours": 225.5, "var1j": 2.5, "technique": {"sens": "baissière"}, "actualite": {"sens": "haussière"}},
+                      "escourgeon": {"nom": "Escourgeon brassicole", "cours": 209.0, "physique": True, "var1j": 0.0,
+                                     "technique": {"sens": "baissière", "sur_ble": True}},
+                      "colza": {"nom": "Colza", "cours": 522.75, "var1j": -8.25, "technique": {"sens": "neutre"}}},
+         "engrais": {"percentile_retenu": 77, "actualite": {"sens": "haussière"}, "france": {"uree": {"prix": 613.75, "var1m": 10.6}}}}
+_ts = _html.unescape(_sa.table_marche(_dash))
+check("225,50" in _ts and "+2,50" in _ts and "▼ baissière" in _ts and "▲ haussière" in _ts and "(blé)" in _ts and "physique Creil" in _ts
+      and "613,75" in _ts and "(plus cher)" in _ts and "77e percentile" in _ts and "Que faire" not in _ts,
+      "email : le marché du matin (cours, variation, technique, actualité), sans consigne")
+check(_sa.fait_marquant(_dash, []) == "Colza -8,25 €/t à 522,75", f"objet : plus fort mouvement de la séance ({_sa.fait_marquant(_dash, [])})")
+_tr = [{"id": "2026-11-07:panne:x", "titre": "⚠️ Source en panne"}, {"id": "2026-11-07:EBM:haut3m", "titre": "Blé : plus haut de 3 mois"},
+       {"id": "2026-11-07:seuil:ble:>240", "titre": "Blé : votre seuil"}]
+check(_sa.fait_marquant(_dash, _tr) == "Blé : votre seuil" and _sa.fait_marquant(_dash, _tr[:2]) == "Blé : plus haut de 3 mois"
+      and _sa.fait_marquant(_dash, _tr[:1]).startswith("Colza"), "objet : seuil, puis extrême de 3 mois, jamais une panne de source")
 
 # collecte des positions Euronext : une erreur réseau n'est jamais une « semaine sans rapport », mercredi de la même semaine
 _tmp2 = Path(tempfile.mkdtemp())
@@ -663,9 +662,6 @@ _sc = dec.stocks_conso(_bl["ble"], {"2026": dict(_bl["ble"]["2026"], stocks=_bl[
 check(_sc["campagne"] == "2026/27" and _sc["ratio"] == round(41 / 120 * 100, 1) and _sc["percentile"] == 100
       and _sc["revision"] == round((41 / 120 - 35 / 120) * 100, 2) and "confortables" in _sc["lecture"],
       f"USDA : stocks / consommation hors Chine, au plus haut des 20 ans, révision du mois ({_sc})")
-check(dec.proba_toucher(100, 100, 0.01, 25) == 100 and dec.proba_toucher(100, 100 * math.exp(0.05), 0.01, 25) == 32
-      and dec.proba_toucher(100, 100 * math.exp(-0.05), 0.01, 25) == 32 and dec.proba_toucher(100, 150, 0.01, 25) == 0,
-      "chances d'atteindre un prix : 100 % au cours, 32 % à un écart-type, symétrique, ~0 % très loin")
 
 # ------------------------------------------------------------------ psychologie, géopolitique, actualités
 import random as _rnd  # noqa: E402
@@ -768,7 +764,7 @@ try:
     _u = _vu.get("user", "")
     check("-1.25" in _u and "1.77" not in _u and "0.9" not in _u and "VIEILLE" not in _u and "Synthèse du jour" in _u
           and "Fait majeur du jour" in _u and _u.count("Rends le rapport") == 1,
-          "comité : actualité du jour (pression, synthèse, titres) à la place de celle de la veille, consigne finale unique")
+          "lecture hebdo : actualité du jour (pression, synthèse, titres) à la place de celle de la veille, consigne finale unique")
 finally:
     comite.OUT, comite.call = _old_out, _old_call
     for _k, _v in _env.items():
@@ -785,8 +781,7 @@ try:
     comite.OUT = _tc
     (_tc / "grain-signal.json").write_text(json.dumps({"cultures": {"ble": {"nom": "Blé"}}}), encoding="utf-8")
     _appels = []
-    _bloc = json.dumps({"resume": "R", "cultures": {"ble": {"signal": "TENIR", "score": 0.1, "ordres": [235.5]}},
-                        "engrais": {"signal": "SUIVRE"}, "declencheurs": [], "calendrier": []})
+    _bloc = json.dumps({"resume": "R", "cultures": {"ble": {"haussier": ["a"], "baissier": ["b"], "lecture": "c"}}, "calendrier": []})
 
     def _faux2(messages, system, key, recherche=True, max_tokens=None):
         _appels.append(recherche)
@@ -801,10 +796,16 @@ try:
     with _cl.redirect_stdout(_io.StringIO()):
         _rc = comite.main()
     _cj = json.loads((_tc / "comite.json").read_text(encoding="utf-8"))
-    check(_rc == 0 and _appels == [True, False] and _cj["cultures"]["ble"]["signal"] == "TENIR" and "Rapport coupé" in _cj["rapport_md"]
-          and not _cj.get("erreur"), "comité : rapport coupé, décisions reprises par une seconde demande sans recherche web")
-    check(json.loads(comite.bloc_json('texte {"resume": "x", "cultures": {"ble": {"signal": "VENDRE"}}} fin'))["cultures"]["ble"]["signal"] == "VENDRE",
-          "comité : bloc JSON final retrouvé même sans balise ```json")
+    _box = json.loads((_tc / "prive" / "a-envoyer.json").read_text(encoding="utf-8"))
+    check(_rc == 0 and _appels == [True, False] and _cj["cultures"]["ble"]["haussier"] == ["a"] and "Rapport coupé" in _cj["rapport_md"]
+          and not _cj.get("erreur") and _cj["format"] == "lecture" and _box[-1]["titre"] == "Lecture du marché de la semaine",
+          "lecture hebdo : rapport coupé, synthèse reprise par une seconde demande sans recherche web")
+    check(json.loads(comite.bloc_json('texte {"resume": "x", "cultures": {"ble": {"haussier": ["y"]}}} fin'))["cultures"]["ble"]["haussier"] == ["y"],
+          "lecture hebdo : bloc JSON final retrouvé même sans balise ```json")
+    os.environ.pop("GS_COMITE", None)
+    check(comite.decide_mode(date(2026, 11, 9), {}, {"date": "2026-11-02"}) is None, "lecture hebdo : une seule fois le lundi")
+    check(comite.decide_mode(date(2026, 11, 16), {}, {"date": "2026-11-09"}) == "hebdo" and comite.decide_mode(date(2026, 11, 12), {}, {"date": "2026-11-09"}) is None,
+          "lecture hebdo : le lundi suivant, pas en semaine (plus de comité d'alerte)")
 finally:
     comite.OUT, comite.call = _old_out, _old_call
     for _k, _v in _env.items():
@@ -813,48 +814,6 @@ finally:
         else:
             os.environ[_k] = _v
     shutil.rmtree(_tc, ignore_errors=True)
-
-# décision du jour : avis chiffré du comité (vendre maintenant, % par ordre), sinon tranche du plan
-_e = {"source": "comite", "comite": {"signal": "TENIR", "pct": "texte libre", "maintenant_pct": 7.5}, "plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 255.0}],
-      "niveaux_retenus": {"ordres": [255.0, 260.0], "ordres_pct": [7.5, 5], "probas": {"ordres": [80, 68], "horizon": "2026-12-31"}}}
-_d1 = dec.decision_jour(_e, {"dernier_reel": 247.25, "technique": {"var1s": -4.4}})
-check(_d1["code"] == "executer" and _d1["libelle"] == "VENDRE" and _d1["quoi"] == "7,5 % maintenant · 7,5 % à 255,00 €/t · 5 % à 260,00 €/t"
-      and _d1["consigne"] is None and _d1["chance"] is None and _d1["cours"] == 247.25, f"décision du jour : avis chiffré du comité ({_d1['quoi']})")
-_d2 = dec.decision_jour({"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}], "niveaux_retenus": {"ordres": [235.5], "probas": {"ordres": [45], "horizon": "2026-11-30"}}},
-                        {"dernier_reel": 225.5})
-check(_d2["libelle"] == "ORDRE" and _d2["quoi"] == "15 % à 235,50 €/t" and _d2["chance"] == 45, "décision du jour : sans comité, tranche du plan et chances")
-_cc = build.clean_comite({"cultures": {"mais": {"signal": "TENIR", "ordres": [255, "x", 260], "ordres_pct": [7.5, 3, 5], "maintenant_pct": "?"}}})["cultures"]["mais"]
-check(_cc["ordres"] == [255.0, 260.0] and _cc["ordres_pct"] == [7.5, 5.0] and _cc["maintenant_pct"] is None,
-      "comité relu : ordres et % par ordre filtrés ensemble (restent alignés), valeur illisible écartée")
-
-# relecture : texte libre du comité, avis chiffré incomplet, chance de l'ordre affiché, tri des ordres, % en texte
-_pl = {"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5}], "source": "comite",
-       "niveaux_retenus": {"ordres": [235.5, 244.5], "probas": {"ordres": [35, 8], "horizon": "2026-11-30"}}}
-_r1 = dec.decision_jour(dict(_pl, comite={"pct": "0 % (pas sur le creux)"}), {"dernier_reel": 225.5})
-check(_r1["quoi"] == "15 % à 235,50 €/t" and _r1["consigne"] == "0 % (pas sur le creux)" and _r1["chance"] == 35,
-      "décision : consigne libre du comité à côté de la tranche du plan (prix et chances gardés)")
-_r2 = dec.decision_jour(dict(_pl, comite={"maintenant_pct": 0}), {"dernier_reel": 225.5})
-check(_r2["code"] == "ordre" and _r2["quoi"] == "15 % à 235,50 €/t", "décision : « 0 % maintenant » sans % par ordre → tranche du plan, pas « rien »")
-_r3 = dec.decision_jour(dict(_pl, comite={}, niveaux_retenus=dict(_pl["niveaux_retenus"], ordres_pct=[None, 5])), {"dernier_reel": 225.5})
-check(_r3["quoi"] == "5 % à 244,50 €/t" and _r3["chance"] == 8, "décision : chance de l'ordre affiché (8 %), pas du premier ordre")
-_d4 = dec.decision_jour({"plan": [{"statut": "due", "code": "ordre", "pct": 15, "ordre": 235.5, "recolte": 2026},
-                                  {"statut": "due", "code": "ordre", "pct": 10, "ordre": 228.0, "recolte": 2027}], "niveaux_retenus": {}}, {})
-check(_d4["autre"] == "Récolte 2027 : 10 % à 228,00 €/t", "décision : tranche due de l'autre récolte gardée (PDF)")
-check(build.clean_comite({"cultures": {"ble": {"ordres": [240], "maintenant_pct": "7.5"}}})["cultures"]["ble"]["maintenant_pct"] == 7.5,
-      "comité relu : « 7.5 » en texte lu comme 7,5")
-
-
-
-def _comite_pareil(t, pv):
-    seeds(t, pv)
-    c = json.loads((HERE / "seed" / "comite-initial.json").read_text(encoding="utf-8"))
-    c["cultures"]["ble"].update(ordres=[240.0, 240.1], ordres_pct=[5, "?"])
-    (t / "data" / "grain" / "comite.json").write_text(json.dumps(c), encoding="utf-8")
-
-
-_o = run_build(_comite_pareil)[0]
-check(_o[0] == 0 and _o[1]["cultures"]["ble"]["niveaux_retenus"]["ordres"] == [240.0, 240.0],
-      "comité : deux ordres arrondis au même quart d'euro avec un % illisible, sans plantage" + ("" if _o[0] == 0 else " : " + _o[3]))
 
 # rapport du matin : un par jour, du lundi au samedi, seulement sur le calcul du jour
 _tr = Path(tempfile.mkdtemp())

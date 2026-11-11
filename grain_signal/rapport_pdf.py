@@ -1,12 +1,12 @@
 """
-Grain Signal — synthèse PDF (A4) jointe aux emails du comité.
+Grain Signal — synthèse PDF (A4) jointe au rapport du matin et à la lecture hebdomadaire : le marché, sans conseil.
 
 Entrées : data/grain/grain-signal.json (calcul du matin). Sortie : data/grain/prive/synthese.pdf (jamais publiée).
 Mise en page HTML/CSS imprimée par Chromium (Playwright) : jauges et graphiques en SVG, sans emoji (pas de police couleur
 sur les serveurs), coupures de page maîtrisées (un bloc n'est jamais coupé en deux).
 
   python grain_signal/rapport_pdf.py            fabrique le PDF
-  python grain_signal/rapport_pdf.py --besoin   code 0 si un email en a besoin (rapport du matin, comité, email de test), 1 sinon
+  python grain_signal/rapport_pdf.py --besoin   code 0 si un email en a besoin (rapport du matin, lecture hebdo, test), 1 sinon
   python grain_signal/rapport_pdf.py --html F   écrit seulement la page HTML (contrôle de la mise en page)
 """
 import html
@@ -62,82 +62,47 @@ def badge(txt, cl):
 
 
 # --------------------------------------------------------------------------------------------- jauges et graphiques SVG
-SEG_V = [(20, "bad"), (40, "warn"), (60, "neutral"), (80, "info"), (100, "good")]  # vendeur : vert = bon moment pour vendre
-SEG_A = [(20, "good"), (40, "info"), (60, "neutral"), (80, "warn"), (100, "bad")]  # acheteur : vert = bon moment pour acheter
-SEG_R = [(20, "good"), (60, "neutral"), (80, "warn"), (100, "bad")]  # ratio azote/blé
-SEG_C = [(15, "bad"), (85, "neutral"), (100, "good")]  # positions des fonds (à contre-courant)
+# couleurs de position (bas → haut), sans jugement : bas = bleu, moyenne = gris, haut = ambre
+SEG_P = [(20, "info"), (40, "info"), (60, "neutral"), (80, "warn"), (100, "warn")]
+SEG_G = [(30, "neutral"), (70, "neutral"), (90, "warn"), (100, "bad")]  # risque géopolitique
 LAB = {
-    "vendeur": lambda v: ("Prix bas : ne pas brader", "bad") if v <= 20 else ("Plutôt bas", "warn") if v <= 40 else
-    ("Dans la moyenne", "neutral") if v < 60 else ("Plutôt haut", "info") if v < 80 else ("Prix haut : bon pour vendre", "good"),
-    "acheteur": lambda v: ("Bas : bon prix d'achat", "good") if v <= 20 else ("Plutôt bas", "info") if v <= 40 else
-    ("Dans la moyenne", "neutral") if v < 60 else ("Plutôt cher", "warn") if v < 80 else ("Cher : le minimum", "bad"),
-    "ratio": lambda v: ("Azote bon marché : acheter large", "good") if v <= 20 else ("Normal : suivre le plan", "neutral") if v <= 60
-    else ("Cher : fractionner", "warn") if v <= 80 else ("Très cher : attendre", "bad"),
-    "prime": lambda v: ("Prime faible : vendre via Euronext", "bad") if v <= 20 else ("Prime plutôt faible", "warn") if v <= 40 else
-    ("Prime normale", "neutral") if v < 60 else ("Prime plutôt forte", "info") if v < 80 else ("Prime forte : vendre au physique", "good"),
-    "stocks": lambda v: ("Stocks très serrés : risque de flambée", "bad") if v <= 20 else ("Stocks plutôt serrés", "warn") if v <= 40
-    else ("Stocks dans la moyenne", "neutral") if v < 60 else ("Stocks plutôt confortables", "info") if v < 80 else
-    ("Stocks confortables : peu de risque de flambée", "good"),
-    "cot": lambda v: ("Fonds très vendeurs : rebond possible", "bad") if v <= 15 else ("Fonds très acheteurs : vendre", "good")
-    if v >= 85 else ("Neutre", "neutral"),
+    "prix": lambda v: ("Bas sur 5 ans", "info") if v <= 20 else ("Plutôt bas", "info") if v <= 40 else ("Dans la moyenne", "neutral")
+    if v < 60 else ("Plutôt haut", "warn") if v < 80 else ("Haut sur 5 ans", "warn"),
+    "stocks": lambda v: ("Stocks très serrés", "warn") if v <= 20 else ("Stocks plutôt serrés", "warn") if v <= 40 else
+    ("Stocks dans la moyenne", "neutral") if v < 60 else ("Stocks plutôt confortables", "info") if v < 80 else ("Stocks très confortables", "info"),
+    "psy": lambda v: ("Peur extrême", "info") if v <= 20 else ("Peur", "info") if v <= 40 else ("Humeur neutre", "neutral") if v < 60
+    else ("Optimisme", "warn") if v < 80 else ("Euphorie", "warn"),
+    "geo": lambda v: ("Monde calme", "neutral") if v <= 30 else ("Tensions habituelles", "neutral") if v < 70 else
+    ("Tensions élevées", "warn") if v < 90 else ("Tensions très élevées", "bad"),
 }
-LAB.update({
-    "psy": lambda v: ("Peur extrême : ne pas vendre dans la panique", "bad") if v <= 20 else ("Peur : pas de vente forcée", "warn")
-    if v <= 40 else ("Humeur neutre", "neutral") if v < 60 else ("Optimisme : bonne fenêtre", "info") if v < 80 else
-    ("Euphorie : ne pas laisser passer une tranche", "good"),
-    "geo": lambda v: ("Monde calme", "good") if v <= 30 else ("Tensions habituelles", "neutral") if v < 70 else
-    ("Tensions élevées : marchés nerveux", "warn") if v < 90 else ("Tensions très élevées", "bad"),
-})
-SEG_G = [(30, "good"), (70, "neutral"), (90, "warn"), (100, "bad")]  # risque géopolitique
-SEGS = {"vendeur": SEG_V, "prime": SEG_V, "stocks": SEG_V, "acheteur": SEG_A, "ratio": SEG_R, "cot": SEG_C, "psy": SEG_V, "geo": SEG_G}
+SEGS = {"prix": SEG_P, "stocks": [(20, "warn"), (40, "warn"), (60, "neutral"), (80, "info"), (100, "info")], "psy": SEG_P, "geo": SEG_G}
+SENS = {"haussière": ("hausse", "good"), "baissière": ("baisse", "bad"), "neutre": ("neutre", "neutral"), "équilibrée": ("neutre", "neutral")}
 ACTU_NOMS = {"ble": "Blé", "orge": "Orges", "colza": "Colza", "mais": "Maïs", "engrais": "Azote"}
 
 
 def actu_html(d):
-    """Actualité et géopolitique : synthèse, pression par culture, humeur des marchés, risque géopolitique, nouvelles qui comptent."""
+    """Actualité : synthèse et nouvelles qui comptent, avec leur effet sur les prix."""
     ac = load(OUT / "actualites.json", {}) or {}
-    ad = d.get("actualites") or {}
-    pr = ad.get("pression") or {}
-    contrats = d.get("contrats") or {}
-    psy = {"ble": contrats.get("EBM"), "orge": contrats.get("EBM"), "colza": contrats.get("ECO"), "mais": contrats.get("EMA")}
-    rows = []
-    for c in ("ble", "orge", "colza", "mais", "engrais"):
-        p = pr.get(c)
-        ps = (psy.get(c) or {}).get("psychologie") if c != "engrais" else None
-        if not p and not ps:
-            continue
-        if p:
-            fav = p["valeur"] <= -0.5 if c == "engrais" else p["valeur"] >= 0.5
-            dfav = p["valeur"] >= 0.5 if c == "engrais" else p["valeur"] <= -0.5
-            sens = (f"{p['sens']}{' (azote plus cher)' if c == 'engrais' and p['valeur'] >= 0.5 else ' (azote moins cher)' if c == 'engrais' and p['valeur'] <= -0.5 else ''}")
-            pc = badge(f"{p['valeur']:+.1f}".replace(".", ","), "good" if fav else "bad" if dfav else "neutral") + f" {e(sens)}"
-            pc += f"<div class='muted'>{p['hausse']} en hausse · {p['baisse']} en baisse</div>"
-        else:
-            pc = "—"
-        rows.append(f"<tr><td class='cn'><b>{ACTU_NOMS[c]}</b></td><td>{pc}</td>"
-                    f"<td>{jauge(ps['indice'], 'psy', compact=True) if ps else '—'}</td></tr>")
     arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
             and (a.get("importance") or 0) >= 2]
     arts.sort(key=lambda a: ((a.get("importance") or 0), str(a.get("date"))), reverse=True)
     lis = []
-    for a in arts[:6]:
-        fx = " · ".join(
-            f"<span style='color:{COUL['good'] if ((v < 0) if c == 'engrais' else (v > 0)) else COUL['bad']}'>{ACTU_NOMS.get(c, c)} "
-            f"{'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>" for c, v in (a.get("impacts") or {}).items() if v)
+    for a in arts[:4]:
+        fx = " · ".join(f"<span style='color:{COUL['good'] if v > 0 else COUL['bad']}'>{ACTU_NOMS.get(c, c)} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>"
+                        for c, v in (a.get("impacts") or {}).items() if v)
         lis.append(f"<li><b>{e(a.get('titre_fr') or a.get('titre'))}</b> <span class='muted'>({e(a.get('source') or '')}, {dfr(a['date'][:10])})</span>"
                    f"<br>{e(a.get('impact'))}{f'<br>{fx}' if fx else ''}</li>")
-    g = d.get("geopolitique") or {}
-    geo = ""
-    if g:
-        indice_txt = f"Indice {g.get('mois')} (100 = moyenne 1985-2019)"
-        pays = ", ".join(f"{e(x['nom'])} {x['percentile']}e" for x in (g.get("pays") or [])[:5] if x.get("percentile") is not None)
-        geo = (f"<div class='duo' style='grid-template-columns:230px 1fr'><div>{jauge(g.get('percentile'), 'geo', 'Risque géopolitique mondial (sur 10 ans)', indice_txt)}</div>"
-               f"<div class='muted small'>Pays les plus tendus (sur 10 ans) : {pays or '—'}. Mesure la tension, pas son effet : sans effet mesurable sur le prix du blé à 1-3 mois depuis 2000 ; chaque événement se juge au cas par cas.</div></div>")
-    if not rows and not lis and not geo and not ac.get("synthese"):
+    if not lis and not ac.get("synthese"):
         return ""
     syn = f"<div class='resume'><b>Synthèse de l'actualité</b> — {e(ac['synthese'])}</div>" if ac.get("synthese") else ""
-    return (syn + (f"<ul class='news'>{''.join(lis[:4])}</ul>" if lis else "")
-            + "<p class='muted small'>Titres de Google Actualités et de la presse agricole, classés par l'IA d'après leur seul titre.</p>")
+    return (syn + (f"<ul class='news'>{''.join(lis)}</ul>" if lis else "")
+            + "<p class='muted small'>Titres de Google Actualités et de la presse agricole, classés par l'IA d'après leur seul titre "
+              "(↑ pousse le prix à la hausse, ↓ à la baisse ; azote ↑ = plus cher).</p>")
+
+
+def sens_badge(s_):
+    t, cl = SENS.get(s_ or "", ("—", "neutral"))
+    return badge(t, cl)
 
 
 def gauge_svg(v, segs, w=150):
@@ -164,12 +129,12 @@ def jauge(v, kind, titre=None, note=None, compact=False):
             f"<span class='jlab'>{e(lab)}</span></div>{gauge_svg(v, SEGS[kind], 130 if compact else 170)}{nt}</div>")
 
 
-def chart_svg(rows, ordres=(), revision=None, w=440, h=165):
-    """Cours des 6 derniers mois (trait plein), MM20 (pointillés), ordres (vert) et seuil de révision (rouge)."""
+def chart_svg(rows, resistances=(), supports=(), w=440, h=165):
+    """Cours des 6 derniers mois (trait plein), MM20 (pointillés), résistances et supports (repères techniques)."""
     pts = [(r[0], r[1], r[2] if len(r) > 2 else None) for r in rows if r[1] is not None][-126:]
     if len(pts) < 5:
         return ""
-    vals = [p[1] for p in pts] + [p[2] for p in pts if p[2] is not None] + list(ordres) + ([revision] if revision else [])
+    vals = [p[1] for p in pts] + [p[2] for p in pts if p[2] is not None] + list(resistances) + list(supports)
     lo, hi = min(vals), max(vals)
     pad = (hi - lo) * 0.08 or 1
     lo, hi = lo - pad, hi + pad
@@ -198,9 +163,7 @@ def chart_svg(rows, ordres=(), revision=None, w=440, h=165):
         used.append(ty)
         out.append(f"<line x1='{L}' x2='{w - R}' y1='{yy:.1f}' y2='{yy:.1f}' stroke='{col}' stroke-width='1' stroke-dasharray='3 2'/>"
                    f"<text x='{w - R + 3}' y='{ty:.1f}' class='lv' fill='{col}'>{e(txt)}</text>")
-    niv = [(o, COUL["good"], f"{'1er' if i == 0 else f'{i + 1}e'} ordre : {n(o)} €/t") for i, o in enumerate(ordres)]
-    if revision:
-        niv.append((revision, COUL["bad"], f"Révision : {n(revision)} €/t"))
+    niv = [(o, COUL["warn"], f"Résistance {n(o)}") for o in resistances] + [(o, COUL["info"], f"Support {n(o)}") for o in supports]
     for args in sorted(niv, key=lambda x: -x[0]):  # du plus haut au plus bas : les étiquettes gardent l'ordre des prix
         level(*args)
     mm = " ".join(f"{'M' if k == 0 else 'L'}{X(i):.1f} {Y(p[2]):.1f}" for k, (i, p) in enumerate((i, p) for i, p in enumerate(pts) if p[2] is not None))
@@ -219,85 +182,87 @@ def page_html(d):
     com = d.get("comite") or {}
     eng = d.get("engrais") or {}
     seance = (contrats.get("EBM") or {}).get("seance") or d.get("date")
-    # 1. décisions du jour (calculées par build.py : mêmes mots que la page et l'email)
+    # 1. le marché ce matin : cours, technique, actualité (calculés par build.py : mêmes chiffres que la page et l'email)
     rows = []
-    for c in list(cultures.values()) + [{"nom": "Azote (achat)", "decision": eng.get("decision") or {}, "azote": True}]:
-        x = c.get("decision") or {}
-        sous = [f"Comité : {e(x['consigne'])}"] if x.get("consigne") else []
-        if x.get("chance") is not None:
-            sous.append(f"{x['chance']} % de chances d'atteindre l'ordre d'ici le {dfr(x.get('horizon'))}")
-        if x.get("declencheur_ble"):
-            sous.append(f"quand le blé Euronext atteint {n(x['declencheur_ble'])}&nbsp;€/t")
-        if x.get("plafond"):
-            sous.append(f"Plafond d'achat : {n(x['plafond'], 0)} €/t")
-        if x.get("autre"):
-            sous.append(e(x["autre"]))
-        var = x.get("var1m") if c.get("azote") else x.get("var1s")
-        cours = (f"<b>{n(x['cours'])} €/t</b>" + ("<div class=muted>urée</div>" if c.get("azote") else "<div class=muted>physique</div>" if x.get("physique") else "")
-                 + (f"<div class=muted>{sg(var, 1)} % en 1 {'mois' if c.get('azote') else 'sem.'}</div>" if var is not None else "")) if x.get("cours") else "—"
-        rows.append(f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
-                    f"<td>{badge(x.get('libelle', '—'), x.get('couleur', 'neutral'))}<div class='quoi'>{e(x.get('quoi'))}</div>"
-                    f"<div class='muted'>{'<br>'.join(sous)}</div></td><td class='r'>{cours}</td></tr>")
-    decisions = ("<table class='dec'><thead><tr><th>Culture</th><th>Que faire</th><th class='r'>Cours</th>"
-                 "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
+    for c in cultures.values():
+        tq, ac = c.get("technique") or {}, c.get("actualite") or {}
+        var = c.get("var1j")
+        cours = (f"<b>{n(c['cours'])}</b>" + (f" <span class='muted'>{sg(var)}</span>" if var else "")
+                 + ("<div class=muted>physique Creil</div>" if c.get("physique") else "")) if c.get("cours") else "—"
+        niv = " · ".join(([f"résistance {n(tq['resistances'][0])}"] if tq.get("resistances") else [])
+                         + ([f"support {n(tq['supports'][0])}"] if tq.get("supports") else []))
+        rows.append(f"<tr><td class='cn'><b>{e(c['nom'].replace(' brassicole', '').replace(' tendre', ''))}</b></td><td class='r'>{cours}</td>"
+                    f"<td>{sens_badge(tq.get('sens'))}{' <span class=muted>(blé)</span>' if tq.get('sur_ble') else ''}"
+                    f"<div class='muted'>{e(niv)}</div></td>"
+                    f"<td>{sens_badge(ac.get('sens'))}</td></tr>")
+    u = (eng.get("france") or {}).get("uree") or {}
+    if u.get("prix"):
+        rows.append(f"<tr><td class='cn'><b>Azote</b></td><td class='r'><b>{n(u['prix'])}</b><div class=muted>urée"
+                    + (f", {sg(u['var1m'], 1)} % en 1 mois" if u.get("var1m") is not None else "") + "</div></td>"
+                    f"<td class='muted'>{e('Ratio azote/blé au ' + str(eng['percentile_retenu']) + 'e percentile (10 ans)') if eng.get('percentile_retenu') is not None else '—'}</td>"
+                    f"<td>{sens_badge((eng.get('actualite') or {}).get('sens'))}{' <span class=muted>(+ = plus cher)</span>' if eng.get('actualite') else ''}</td></tr>")
+    marche = ("<table class='dec'><thead><tr><th>Culture</th><th class='r'>Cours €/t</th><th>Technique</th><th>Actualité</th>"
+              "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>")
 
-    # 2. détail par culture (contrats Euronext)
+    # 2. détail par contrat Euronext
     blocs = []
     for prod, main in (("EBM", "ble"), ("ECO", "colza"), ("EMA", "mais")):
         con, c = contrats.get(prod) or {}, cultures.get(main) or {}
         if not con or not c:
             continue
-        nr = c.get("niveaux_retenus") or {}
-        cc = c.get("comite") or {}
+        tq = c.get("technique") or {}
+        rp = c.get("reperes") or {}
         th = con.get("thermo") or {}
-        pb = nr.get("probas") or {}
-        chances = " · ".join(f"{'1er' if i == 0 else f'{i + 1}e'} ordre {p} %" for i, p in enumerate(pb.get("ordres") or []) if p is not None)
-        kv = [("Ordres", " · ".join(n(o) for o in nr.get("ordres") or []) + (f" €/t ({mfr(nr.get('echeance'))})" if nr.get("ordres") else "") or "—"),
-              ("Chances", f"{chances} d'être touchés d'ici le {dfr(pb.get('horizon'))}" if chances else "—"),
-              ("Révision", f"sous {n(nr['revision'])} €/t" if nr.get("revision") else "—"),
-              ("Timing", (c.get("feu") or {}).get("texte", "—"))]
-        jauges = jauge(th.get("percentile"), "vendeur", "Prix sur 5 ans" + (" (indicatif : huile de soja)" if "soja" in str(th.get("source", "")).lower() else ""),
+        cc = c.get("comite") or {}
+        kv = [("Technique", tq.get("texte") or "—"),
+              ("Résistances", " · ".join(n(x) for x in tq.get("resistances") or []) + " €/t" if tq.get("resistances") else "—"),
+              ("Supports", " · ".join(n(x) for x in tq.get("supports") or []) + " €/t" if tq.get("supports") else "—")]
+        if rp.get("plus_haut") is not None:
+            kv.append(("Campagne", f"plus haut {n(rp['plus_haut'])} €/t le {dfr(rp['plus_haut_le'])} ({sg(rp['ecart_plus_haut'])} €/t depuis)"))
+        if (con.get("stockage") or {}).get("texte"):
+            kv.append(("Report", con["stockage"]["texte"]))
+        if cc.get("lecture"):
+            kv.append(("Lecture de la semaine", cc["lecture"]))
+        jauges = jauge(th.get("percentile"), "prix", "Prix sur 5 ans" + (" (indicatif : huile de soja)" if "soja" in str(th.get("source", "")).lower() else ""),
                        (f"Médiane {n(th.get('mediane'), 0)} €/t · habituel {n(th.get('p20'), 0)}–{n(th.get('p80'), 0)} €/t (Euronext, 5 ans)"
                         if th.get("euronext") else f"{th.get('source', 'marché mondial')} en €/t, 5 ans")) if th else ""
         stm = (d.get("stocks_mondiaux") or {}).get(main)
         if stm:
             jauges += jauge(stm["percentile"], "stocks", f"Stocks mondiaux / conso{' hors Chine' if stm.get('hors_chine') else ''}",
                             f"{n(stm['ratio'], 1)} % en {stm['campagne']} (moy. {n(stm['moyenne'], 1)} %) · USDA")
-        # historique Euronext encore court : lecture de secours (marché américain recalé), comme sur la page
         src = (con.get("proxy") or {}).get("graphique") or con.get("graphique") or []
-        graph = chart_svg(src, nr.get("ordres") or [], nr.get("revision"))
+        graph = chart_svg(src, tq.get("resistances") or [], tq.get("supports") or [])
         if graph:
             graph += ("<div class='cleg'><i style='background:#866400'></i>cours (6 mois"
                       + (f", {e((con.get('proxy') or {}).get('nom', ''))} recalé" if con.get("proxy") else "") + ") "
-                      "<i class='d' style='border-color:#2a78d6'></i>MM20 <i class='d' style='border-color:#1f7a3e'></i>ordres "
-                      "<i class='d' style='border-color:#b0281f'></i>révision</div>")
+                      "<i class='d' style='border-color:#2a78d6'></i>MM20 <i class='d' style='border-color:#9a5b00'></i>résistances "
+                      "<i class='d' style='border-color:#2a62b8'></i>supports</div>")
         blocs.append(
             f"<section class='bloc'><h3>{e(con.get('nom'))} <span class='muted'>Euronext {prod} · {n(con.get('dernier_reel'))} €/t "
             f"({mfr(con.get('echeance'))})</span></h3>"
-            + (f"<p class='small'>{e(cc.get('texte') or c.get('note'))}</p>" if cc.get("texte") or c.get("note") else "")
-            + f"<div class='duo'><div>{graph}</div><div class='jcol'>{jauges}</div></div>"
+            f"<div class='duo'><div>{graph}</div><div class='jcol'>{jauges}</div></div>"
             "<table class='kv'>" + "".join(f"<tr><th>{e(a)}</th><td>{e(b)}</td></tr>" for a, b in kv) + "</table></section>")
 
-    cal = [x for x in com.get("calendrier") or [] if str(x.get("date", "")) >= str(d.get("date", ""))][:1]
+    cal = [x for x in com.get("calendrier") or [] if str(x.get("date", "")) >= str(d.get("date", ""))][:3]
     trig = d.get("declencheurs") or []
-
     actu = actu_html(d)
-    resume = f"<div class='resume'><b>L'avis du comité ({dfr(com.get('date'))})</b> — {e(com.get('resume'))}</div>" if com.get("resume") else ""
+    resume = (f"<div class='resume'><b>Lecture du marché de la semaine ({dfr(com.get('date'))})</b> — {e(com.get('resume'))}</div>"
+              if com.get("resume") and com.get("valide") else "")
+    agenda = ("<p class='small'><b>À venir :</b> " + " · ".join(f"{dfr(x['date'])} : {e(x.get('evenement'))}" for x in cal) + "</p>") if cal else ""
     alerte_h = ("<div class='resume'>" + "<br>".join(e(t["titre"]) for t in trig[:5]) + "</div>") if trig else ""
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Grain Signal — synthèse du {dfr(d.get('date'))}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>{CSS}</style></head><body>
-<header class="top"><div><div class="brand">Grain Signal</div><div class="muted">Synthèse du {dfr(d.get('date'))} · séance du {dfr(seance)}
-{f" · prochain rendez-vous : {e(cal[0].get('evenement'))} ({dfr(cal[0]['date'])})" if cal else ''}</div></div>
+<header class="top"><div><div class="brand">Grain Signal</div><div class="muted">Synthèse du {dfr(d.get('date'))} · séance du {dfr(seance)}</div></div>
 </header>
-{alerte_h}<h2>Que faire aujourd'hui</h2>{decisions}
-<p class="muted small">ORDRE : placer un ordre de vente au prix indiqué, pas de vente au prix du jour · PATIENTER : attendre un rebond ·
-VENDRE : la tranche peut partir · ATTENDRE : décaler · RIEN : pas de tranche prévue.</p>
-{resume}
+{alerte_h}<h2>Le marché ce matin</h2>{marche}
+<p class="muted small">Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI) · Actualité : effet des nouvelles des
+7 derniers jours sur le prix · Escourgeon et orge de printemps : prix physique, technique du blé.</p>
+{agenda}{resume}
 {f'<h2>Actualité</h2>{actu}' if actu else ''}
-<h2>Par culture</h2>{''.join(blocs)}
-<p class="foot">Aide à la décision automatique, pas un conseil en investissement : la décision finale revient à l'exploitant.
+<h2>Par contrat</h2>{''.join(blocs)}
+<p class="foot">Outil d'aide à la décision : il décrit le marché, il ne conseille ni de vendre ni d'acheter. La décision vous appartient.
 Page complète : {e(d.get('url') or 'letmetry51.github.io/insider-pea/grain-signal.html')}</p>
 </body></html>"""
 
@@ -325,9 +290,8 @@ th { text-align: left; font-size: 7.6pt; text-transform: uppercase; letter-spaci
 .nw { white-space: nowrap; }
 table.dec td, table.dec th { padding: 6px 6px; border-bottom: 1px solid #ddd6c3; vertical-align: top; }
 table.dec tr { break-inside: avoid; }
-table.dec td.cn { width: 19%; }
-table.dec td:nth-child(2) { width: 37%; }
-table.dec td:nth-child(3) { width: 14%; white-space: nowrap; }
+table.dec td.cn { width: 22%; }
+table.dec td:nth-child(2) { width: 18%; white-space: nowrap; }
 .quoi { font-weight: 700; font-size: 10.5pt; margin: 3px 0 1px; }
 .jauge { break-inside: avoid; }
 .jauge .jt { font-size: 8pt; color: #625d4c; }

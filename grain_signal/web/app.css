@@ -760,63 +760,80 @@ détail replié */
 .alist li {
   margin: 2px 0;
 }
-.drows {
+.mrows {
   display: grid;
   gap: 8px;
 }
-.drow {
+.mrow {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas: 'name go' 'main go' 'com go' 'sous go';
-  gap: 4px 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'name prix go' 'badges badges go' 'note note go';
+  gap: 6px 12px;
   padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-left: 6px solid var(--neutral);
   border-radius: var(--r);
   color: var(--ink);
   text-decoration: none;
 }
-.drow:hover {
+.mrow:hover {
   border-color: var(--ink);
 }
-.drow:focus-visible {
+.mrow:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
-.d-good {
-  border-left-color: var(--good);
-}
-.d-warn {
-  border-left-color: var(--warn);
-}
-.d-bad {
-  border-left-color: var(--bad);
-}
-.d-info {
-  border-left-color: var(--info);
-}
-.dname {
+.mname {
   grid-area: name;
   font-weight: 600;
   font-size: 15px;
 }
-.dmain {
-  grid-area: main;
+.mprix {
+  grid-area: prix;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mprix b {
+  font-size: 16px;
+}
+.mprix small,
+.mbig small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.mvar {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.mbadges {
+  grid-area: badges;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 10px;
+  gap: 6px 0;
 }
-.dquoi {
-  font-weight: 700;
-  font-size: 16px;
-}
-.dsous {
-  grid-area: sous;
+.mlab {
   color: var(--muted);
-  font-size: 13.5px;
-  margin: 0;
+  font-size: 12.5px;
+}
+.mbadges .badge {
+  font-size: 12px;
+  padding: 2px 7px;
+}
+.mpaire {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 10px;
+  white-space: nowrap;
+}
+.mnote {
+  grid-area: note;
+  color: var(--muted);
+  font-size: 13px;
 }
 .dgo {
   grid-area: go;
@@ -824,26 +841,41 @@ détail replié */
   font-size: 26px;
   color: var(--muted);
 }
-.card.head {
-  border-left: 6px solid var(--neutral);
+.mbig {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 10px;
+  font-variant-numeric: tabular-nums;
 }
-.card.head.d-good {
-  border-left-color: var(--good);
+.mbig b {
+  font-size: 24px;
 }
-.card.head.d-warn {
-  border-left-color: var(--warn);
-}
-.card.head.d-bad {
-  border-left-color: var(--bad);
-}
-.card.head.d-info {
-  border-left-color: var(--info);
+.dsous {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 4px 0 0;
 }
 .card.head h2 {
   margin: 0 0 8px;
 }
-.card.head .dsous {
-  margin-top: 6px;
+.duo2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 18px;
+}
+.ititle.up {
+  color: var(--good);
+}
+.ititle.down {
+  color: var(--bad);
+}
+@media (max-width: 420px) {
+  .mrow {
+    grid-template-areas: 'name go' 'prix go' 'badges go' 'note go';
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 .cnav {
   margin: 14px 0 12px;
@@ -883,8 +915,3 @@ details.more-data[open] {
   margin: 0;
 }
 
-.dcom {
-  grid-area: com;
-  font-size: 14px;
-  margin: 2px 0 0;
-}

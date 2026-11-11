@@ -77,17 +77,15 @@
     "page": "https://www.worldbank.org/en/research/commodity-markets",
     "joursEntreTelechargements": 7
   },
-  "calendrier": {
-    "_aide": "Tranches de vente par défaut. Mois comptés depuis janvier de l'année de récolte : 1 = janvier, 0 = décembre de l'année d'avant, -1 = novembre d'avant, 13 = janvier de l'année suivante. Au plus 35 % avant la moisson.",
-    "ble": { "reference": ["EBM", 9], "tranches": [[-1, 0, 10], [3, 4, 10], [5, 6, 10], [7, 8, 10], [10, 11, 15], [13, 14, 15], [15, 16, 15], [17, 18, 15]] },
-    "escourgeon": { "reference": ["EBM", 9], "tranches": [[-1, 0, 10], [3, 4, 10], [5, 6, 10], [7, 8, 10], [10, 11, 15], [13, 14, 15], [15, 16, 15], [17, 18, 15]] },
-    "orge_printemps": { "reference": null, "contrat": true, "tranches": [[0, 2, 25], [3, 5, 10], [7, 8, 25], [10, 11, 20], [13, 14, 20]] },
-    "colza": { "reference": ["ECO", 8], "tranches": [[-1, 0, 10], [3, 4, 10], [5, 6, 10], [7, 8, 15], [10, 11, 15], [13, 14, 15], [15, 16, 15], [17, 18, 10]] },
-    "mais": { "reference": ["EMA", 11], "tranches": [[3, 4, 10], [5, 6, 10], [7, 8, 10], [11, 12, 15], [13, 14, 20], [15, 16, 20], [17, 18, 15]] }
+  "seuils": {
+    "_aide": "Vos seuils de prix en €/t (une liste par sens, vide = aucun) : une alerte part quand le cours du jour les franchit, et ils s'affichent sur la page. ble, colza, mais : Euronext ; escourgeon, orge_printemps : prix physique Creil ; uree : prix France.",
+    "ble": { "au_dessus": [], "en_dessous": [] },
+    "escourgeon": { "au_dessus": [], "en_dessous": [] },
+    "orge_printemps": { "au_dessus": [], "en_dessous": [] },
+    "colza": { "au_dessus": [], "en_dessous": [] },
+    "mais": { "au_dessus": [], "en_dessous": [] },
+    "uree": { "au_dessus": [], "en_dessous": [] }
   },
-  "poids": { "technique": 0.45, "cot": 0.2, "macro": 0.2, "meteo": 0.15 },
-  "poidsComite": { "technique": 0.1, "cot": 0.1, "macro": 0.1, "meteo": 0.1 },
-  "matrice": { "vendre": -1, "attendre": 0.5 },
   "engrais": {
     "ratioBas": 20,
     "ratioMoyen": 60,
@@ -101,14 +99,13 @@
   },
   "comite": {
     "modele": "claude-opus-5-5",
-    "maxTokens": 32000,
-    "recherchesMax": 20,
+    "maxTokens": 16000,
+    "recherchesMax": 15,
     "jourHebdo": 0,
-    "alerteMaxParSemaine": 2,
     "joursValidite": 8
   },
   "stockage": {
-    "_aide": "Stocker ou vendre : frais de stockage en €/t/mois (ventilation, assurance, freinte), coût de l'argent immobilisé (taux annuel en %), gain net minimal en €/t pour conseiller de stocker. Valeurs modifiables.",
+    "_aide": "Report de la courbe : frais de stockage en €/t/mois (ventilation, assurance, freinte), coût de l'argent immobilisé (taux annuel en %), gain net en €/t au-delà duquel la courbe « paie » le stockage. Valeurs modifiables.",
     "fraisMensuels": 0.6,
     "tauxAnnuel": 4.0,
     "seuilGain": 3.0

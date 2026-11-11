@@ -2,7 +2,7 @@
  "id": "grain-signal.html",
  "name": "Grain Signal",
  "short_name": "Grain Signal",
- "description": "Quand vendre ses céréales et acheter son azote : décisions du matin, jauges et alertes",
+ "description": "Le marché des céréales et de l'azote chaque matin : cours, technique, actualité et alertes",
  "lang": "fr",
  "start_url": "grain-signal.html",
  "scope": "./",

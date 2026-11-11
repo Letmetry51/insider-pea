@@ -1,14 +1,14 @@
 """
-Grain Signal — actualités traduites en impacts (chaque matin, après le premier calcul et avant le comité).
+Grain Signal — actualités traduites en impacts sur les prix (chaque matin, après le premier calcul).
 
-Entrée : data/grain/prive/actualites_brut.json (titres collectés par collect.py), data/grain/grain-signal.json (cours et signaux du
-matin, pour situer l'impact). Chaque nouveau titre est lu par l'API Claude (sans recherche web : seulement le titre, sa source et
+Entrée : data/grain/prive/actualites_brut.json (titres collectés par collect.py), data/grain/grain-signal.json (cours et lecture
+technique du matin, pour situer l'impact). Chaque nouveau titre est lu par l'API Claude (sans recherche web : seulement le titre, sa source et
 sa date) qui dit s'il concerne l'exploitation, son thème (géopolitique, météo, offre, demande, politique, macro, engrais,
 logistique, psychologie, marché), sa nature (fait, prévision, rumeur, opinion), son importance (1 à 3), le sens de son effet sur
 chaque prix (−2 à +2) et ce que cela change concrètement, en une phrase. Un titre déjà lu n'est jamais relu.
 
 Sorties : data/grain/actualites.json (page, comité, emails, PDF) avec la pression de l'actualité par culture sur 7 jours et les
-événements majeurs ; un événement majeur (fait avéré, importance 3, effet fort) part en alerte et demande un comité d'alerte.
+événements majeurs ; un événement majeur (fait avéré, importance 3, effet fort) part en alerte email.
 Sans le secret ANTHROPIC_API_KEY : titres publiés sans traduction, pression non calculée.
 
   python grain_signal/actualites.py
@@ -38,6 +38,7 @@ THEMES = {"geopolitique", "meteo", "offre", "demande", "politique", "macro", "en
 NATURES = {"fait", "prevision", "rumeur", "opinion"}
 HORIZONS = {"jours", "semaines", "mois"}
 
+VERSION = 2  # version du classement (consigne du modèle) : un classement plus ancien est refait
 SYSTEME = """Tu traduis l'actualité des marchés agricoles en impacts concrets pour une exploitation céréalière de la Marne (craie de
 Champagne) qui VEND du blé tendre (Euronext), de l'escourgeon et de l'orge de printemps brassicoles (malterie), du colza et du maïs
 grain, et qui ACHÈTE de l'azote (solution azotée, ammonitrate, urée). Tu reçois des titres d'articles (titre, site, date) : tu ne
@@ -60,15 +61,15 @@ Pour CHAQUE titre de la liste « à classer », rends :
   et orge de printemps brassicoles), colza, mais, engrais (pour engrais : +2 = l'azote va coûter beaucoup plus cher).
   Un compte rendu de séance (theme marche) décrit le passé : impacts du mouvement constaté, importance 1.
 - horizon : jours, semaines ou mois (durée probable de l'effet).
-- impact : UNE phrase, à l'exploitant, qui dit ce que ça change pour lui (« Moins de blé russe à l'export : soutien pour vos ventes
-  de blé, sans urgence à vendre » ; « Urée en hausse : couvrir la prochaine tranche d'azote plutôt que d'attendre »). Pas de
-  conseil d'achat ou de vente ferme : le sens et l'ampleur seulement.
+- impact : UNE phrase qui dit l'effet sur les prix et pourquoi (« Moins de blé russe à l'export : soutien pour le blé européen
+  pendant quelques semaines » ; « Gaz égyptien coupé : urée plus chère à court terme »). JAMAIS de conseil : ni vendre, ni
+  acheter, ni attendre, ni couvrir ; le sens, l'ampleur et la durée seulement.
 - doublon_de : l'id d'un autre titre de la liste qui raconte le même événement (le plus ancien ou le plus complet est gardé), sinon null.
 Pour un titre non pertinent, seuls id, pertinent et titre_fr sont utiles.
 
 Tu reçois aussi, pour contexte, les cours du matin et les titres importants déjà classés les jours précédents. Rends enfin une
-« synthese » de 3 phrases au plus : ce que l'actualité des derniers jours (titres déjà classés compris) change pour l'exploitation,
-culture par culture quand c'est utile, en distinguant ce qui est déjà dans les prix de ce qui ne l'est pas encore.
+« synthese » de 3 phrases au plus : ce que l'actualité des derniers jours (titres déjà classés compris) change pour les prix,
+culture par culture quand c'est utile, en distinguant ce qui est déjà dans les prix de ce qui ne l'est pas encore. Sans conseil.
 
 Réponds UNIQUEMENT par un objet JSON, sans texte autour :
 {"articles": [{"id": "...", "pertinent": true, "titre_fr": "...", "theme": "...", "nature": "...", "importance": 1,
@@ -77,17 +78,15 @@ Réponds UNIQUEMENT par un objet JSON, sans texte autour :
 
 
 def contexte(dash):
-    """Cours et signaux du matin, en quelques lignes."""
+    """Cours et lecture technique du matin, en quelques lignes."""
     lignes = []
     for k, c in (dash.get("contrats") or {}).items():
-        t = c.get("technique") or {}
+        t, lec = c.get("technique") or {}, c.get("lecture") or {}
         if c.get("dernier_reel") is not None:
-            lignes.append(f"{c.get('nom', k)} ({k} {c.get('echeance')}) : {c['dernier_reel']} €/t, RSI {t.get('rsi')}")
-    for k, c in (dash.get("cultures") or {}).items():
-        lignes.append(f"{c.get('nom', k)} : signal {c.get('libelle')}")
-    e = dash.get("engrais") or {}
-    if e.get("libelle"):
-        lignes.append(f"Engrais : {e.get('libelle')}")
+            lignes.append(f"{c.get('nom', k)} ({k} {c.get('echeance')}) : {c['dernier_reel']} €/t, RSI {t.get('rsi')}, technique {lec.get('sens')}")
+    u = ((dash.get("engrais") or {}).get("france") or {}).get("uree") or {}
+    if u.get("prix"):
+        lignes.append(f"Urée France : {u['prix']} €/t")
     return "\n".join(lignes)
 
 
@@ -164,14 +163,17 @@ def main():
     now = datetime.fromisoformat(os.environ["GS_NOW"]) if os.environ.get("GS_NOW") else datetime.now(timezone.utc)
     today = now.date()
     brut = load(PRIV / "actualites_brut.json", {}).get("articles") or []
-    cache = load(PRIV / "actualites_classees.json", {})  # classement de chaque titre déjà lu (30 jours)
+    # classement de chaque titre déjà lu (30 jours). Version 2 : phrases d'impact sans conseil ; un classement plus ancien garde
+    # ses effets chiffrés (la pression ne faiblit pas pendant la transition), sa phrase est masquée et le titre est relu
+    cache = {k: v for k, v in load(PRIV / "actualites_classees.json", {}).items() if isinstance(v, dict)}
     prev = load(OUT / "actualites.json", {})
     dash = load(OUT / "grain-signal.json", {})
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     recents = [a for a in brut if dec.actu_age(a, now) is not None and dec.actu_age(a, now) <= cfg["joursGarde"]]
     # essai sur une branche : 10 titres au plus (moins d'un centime), pour vérifier la chaîne sans dépenser
     maxi = 10 if os.environ.get("GS_DRY") else cfg["maxNouveaux"]
-    a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True) if a["id"] not in cache][:maxi]
+    a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True)
+              if a["id"] not in cache or (cache[a["id"]].get("pertinent") and cache[a["id"]].get("v") != VERSION)][:maxi]
     usage, erreur, synthese = {"input": 0, "output": 0}, None, None
     if key and a_lire:
         deja = [f"- {cache[a['id']].get('titre_fr') or a['titre']} ({a['date'][:10]}, {cache[a['id']].get('theme')}, "
@@ -180,7 +182,7 @@ def main():
         liste = "\n".join(f'{{"id": "{a["id"]}", "site": {json.dumps(a.get("source") or a.get("requete") or "")}, '
                           f'"date": "{a["date"][:16]}", "langue": "{a.get("langue", "")}", "titre": {json.dumps(a["titre"], ensure_ascii=False)}}}'
                           for a in a_lire)
-        user = (f"Date : {today.isoformat()}\n\nCours et signaux du matin (Grain Signal) :\n{contexte(dash)}\n\n"
+        user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Grain Signal) :\n{contexte(dash)}\n\n"
                 + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
                 + f"Titres à classer ({len(a_lire)}) :\n{liste}")
         try:
@@ -193,7 +195,7 @@ def main():
             for x in j.get("articles") or []:
                 v = valide(x)
                 if v and x["id"] in ids:
-                    cache[x["id"]] = {**v, "classe_le": today.isoformat()}
+                    cache[x["id"]] = {**v, "classe_le": today.isoformat(), "v": VERSION}
             synthese = str(j.get("synthese") or "")[:900] or None
             print(f"Actualités : {len(a_lire)} titres lus, {sum(1 for a in a_lire if (cache.get(a['id']) or {}).get('pertinent'))} pertinents")
         except Exception as e:  # noqa: BLE001
@@ -213,7 +215,9 @@ def main():
         x = {k: a.get(k) for k in ("id", "titre", "url", "date", "source", "langue")}
         x["autres_sources"] = (a.get("autres_sources") or [])[:6]
         if c:
-            x.update({k: v for k, v in c.items() if k != "classe_le"})
+            x.update({k: v for k, v in c.items() if k not in ("classe_le", "v")})
+            if c.get("v") != VERSION:
+                x["impact"] = None  # phrase d'une version antérieure (pouvait contenir un conseil) : masquée jusqu'à la relecture
         else:
             x["non_classe"] = True
         articles.append(x)
@@ -246,7 +250,7 @@ def main():
     }
     save(OUT / "actualites.json", res)
 
-    if nouveaux_majeurs:  # alerte email et comité d'alerte (dans la limite hebdomadaire du comité)
+    if nouveaux_majeurs:  # alerte email
         outbox = load(PRIV / "a-envoyer.json", [])
         known = {o["id"] for o in outbox}
         for a in nouveaux_majeurs:
@@ -259,11 +263,7 @@ def main():
                            "detail": f"{a.get('impact', '')} ({fort} ; {a.get('source') or ''}, {a['date'][:10]})", "grave": True,
                            "url": a.get("url")})
         save(PRIV / "a-envoyer.json", outbox)
-        dem = load(OUT / "demande-comite.json", {})
-        motifs = (dem.get("motifs") or []) if dem.get("date") == today.isoformat() else []
-        motifs += [f"Actualité majeure : {a.get('titre_fr') or a['titre']}"[:200] for a in nouveaux_majeurs]
-        save(OUT / "demande-comite.json", {"date": today.isoformat(), "motifs": motifs})
-        print(f"Actualités : {len(nouveaux_majeurs)} événement(s) majeur(s), alerte et comité demandés")
+        print(f"Actualités : {len(nouveaux_majeurs)} événement(s) majeur(s), alerte envoyée")
     if pression:
         print("Pression de l'actualité :", ", ".join(f"{k} {v['valeur']:+.2f}" for k, v in pression.items()))
     for a in sorted(classes, key=lambda a: (a.get("importance") or 0, a["date"]), reverse=True)[:10]:  # journal : les titres qui comptent
