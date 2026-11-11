@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
-from commun import load, save  # noqa: E402
+from commun import boite, load, save  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -283,7 +283,7 @@ def main():
     save(OUT / "actualites.json", res)
 
     if nouveaux_majeurs:  # alerte email
-        outbox = load(PRIV / "a-envoyer.json", [])
+        outbox = boite(PRIV / "a-envoyer.json")
         known = {o["id"] for o in outbox}
         for a in nouveaux_majeurs:
             iid = f"{today.isoformat()}:actu:{a['id']}"

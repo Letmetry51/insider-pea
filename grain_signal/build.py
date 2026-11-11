@@ -14,11 +14,12 @@ import email.utils
 import json
 import math
 import os
+import re
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from commun import load as load_json, save as save_json  # noqa: E402
+from commun import boite, load as load_json, save as save_json  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import decisions as dec  # noqa: E402
@@ -71,6 +72,62 @@ def fnum(v):
         return f if math.isfinite(f) else None
     except (TypeError, ValueError):
         return None
+
+
+def prix(v):
+    """Prix utilisable : nombre fini et strictement positif (0, négatif, « nan », texte : écartés)."""
+    f = fnum(v)
+    return f if f is not None and f > 0 else None
+
+
+def nettoyer(rows, cle, champ, saut=0.2):
+    """Écarte les prix aberrants d'un historique : nul ou négatif, hors de [médiane / 4 ; médiane × 4] du produit, ou pic isolé
+    (écart de plus de `saut`, 20 %, avec la séance d'avant ET celle d'après, qui elles concordent entre elles). Le dernier prix
+    d'une série, en saut de plus de 20 % sur le précédent, attend d'être confirmé à la séance suivante. Un changement de niveau
+    durable est gardé dès son premier jour. Une erreur de source (prix à 0, virgule mal placée, 1e9) ne fait ni planter le calcul
+    ni partir une fausse alerte."""
+    ecartes, exemples = {}, []
+
+    def ecarter(r):
+        ecartes[cle(r)[0]] = ecartes.get(cle(r)[0], 0) + 1
+        if len(exemples) < 3:
+            exemples.append(f"{' '.join(map(str, cle(r)))} {r.get('date', '?')} : {r.get(champ)}")
+
+    ok, med, series = [], {}, {}
+    for r in rows:
+        if prix(r.get(champ)) is None:
+            ecarter(r)
+        else:
+            ok.append(r)
+            med.setdefault(cle(r)[0], []).append(float(r[champ]))
+    med = {k: sorted(v)[len(v) // 2] for k, v in med.items()}
+    for r in ok:
+        if med[cle(r)[0]] / 4 <= float(r[champ]) <= med[cle(r)[0]] * 4:
+            series.setdefault(cle(r), []).append(r)
+        else:
+            ecarter(r)
+
+    def jours(a, b):
+        try:
+            return abs((date.fromisoformat(b["date"][:10]) - date.fromisoformat(a["date"][:10])).days)
+        except ValueError:
+            return 99
+
+    def ecart(a, b):
+        return abs(float(a[champ]) / float(b[champ]) - 1) > saut and jours(a, b) <= 10
+
+    out = []
+    for v in series.values():
+        v.sort(key=lambda r: r.get("date") or "")
+        for n, r in enumerate(v):
+            av, ap = (v[n - 1] if n else None), (v[n + 1] if n + 1 < len(v) else None)
+            if av is not None and ecart(r, av) and (ap is None or (ecart(r, ap) and not ecart(ap, av))):
+                ecarter(r)
+                continue
+            out.append(r)
+    if ecartes:
+        print("Prix écartés (aberrants) : " + ", ".join(f"{k} {n}" for k, n in sorted(ecartes.items())) + " (ex. " + " ; ".join(exemples) + ")")
+    return sorted(out, key=lambda r: r.get("date") or "")
 
 
 # --------------------------------------------------------------------------------------------- Euronext : série continue
@@ -316,7 +373,7 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
         out["mondial"]["rattrapage"] = round(g3 - u3, 1)
     # prix France (terre-net) et estimation du ratio du jour
     fr = {}
-    rows = sorted(read_csv(PRIV / "fert_fr.csv"), key=lambda r: r["date"])
+    rows = nettoyer(read_csv(PRIV / "fert_fr.csv"), lambda r: (r["product"],), "price", saut=0.35)
     for prod, c in CFG["engraisFrance"].items():
         pr = [r for r in rows if r["product"] == prod and fnum(r["price"])]
         if not pr:
@@ -520,10 +577,41 @@ def proxy_eur(yahoo, tk):
     return dates, vals
 
 
+MOIS_TITRE = {"janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
+              "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12}
+
+
+def physique(path=None):
+    """Historique des prix physiques, chaque ligne redatée d'après la date de sa table terre-net (fin du titre gardé) et sans
+    doublon (même jour, même page, même place, espaces insécables compris : le dernier relevé). Répare l'historique rangé la veille par erreur avant le
+    11/11/2026 (règle des clôtures Euronext appliquée aux prix physiques)."""
+    rows = read_csv(path or PRIV / "physique_hist.csv")
+    par = {}
+    for r in rows:
+        r = {**r, "place": " ".join(str(r.get("place") or "").split())}  # espaces insécables de terre-net : une seule place
+        ms = list(re.finditer(r"\b(\d{1,2})\s+(" + "|".join(MOIS_TITRE) + r")\b", r.get("titre") or "", re.I))
+        try:
+            d0 = date.fromisoformat(r["date"][:10])
+        except ValueError:
+            continue
+        if ms:
+            mo, dd = MOIS_TITRE[ms[-1].group(2).lower()], int(ms[-1].group(1))
+            for y in (d0.year, d0.year - 1, d0.year + 1):
+                try:
+                    c = date(y, mo, dd)
+                except ValueError:
+                    break
+                if abs((c - d0).days) <= 4:
+                    r = {**r, "date": c.isoformat()}
+                    break
+        par[(r["date"], r["page"], r["place"])] = r
+    return nettoyer(sorted(par.values(), key=lambda r: r["date"]), lambda r: (r["page"], r["place"]), "prix")
+
+
 def orges(today, ble_vals):
     """Escourgeon (Etincel) et orge de printemps (Planet) brassicoles : prix physiques terre-net, prime sur l'orge
     fourragère au même endroit (Creil FOB), écart avec le blé Euronext, historique quotidien."""
-    rows = [r for r in read_csv(PRIV / "physique_hist.csv") if fnum(r.get("prix"))]
+    rows = physique()
     rows.sort(key=lambda r: r["date"])
     out = {}
 
@@ -579,8 +667,10 @@ def seuils_cfg():
 
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
-    eur = read_csv(PRIV / "euronext.csv")
-    yahoo = {k: v for k, v in as_dict(load_json(PRIV / "yahoo.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), dict)}
+    eur = nettoyer(read_csv(PRIV / "euronext.csv"), lambda r: (r["product"], r["maturity"]), "settle")
+    # séries Yahoo : prix positifs seulement (un 0 ferait une division par zéro dans les conversions en €/t)
+    yahoo = {k: {**v, "serie": {d: float(x) for d, x in v["serie"].items() if prix(x) is not None}}
+             for k, v in as_dict(load_json(PRIV / "yahoo.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), dict)}
     cftc = {k: v for k, v in as_dict(load_json(PRIV / "cftc.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
     cot_eu = {k: v for k, v in as_dict(load_json(PRIV / "cot_euronext.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
     comite = clean_comite(load_json(OUT / "comite.json", {}))
@@ -656,7 +746,7 @@ def main():
                                            {k: v for k, v in CFG["stockage"].items() if not k.startswith("_")})
         places = (CFG.get("primeLocale") or {}).get(info.get("culture"))
         if places:
-            info["prime_locale"] = dec.prime_locale(read_csv(PRIV / "physique_hist.csv"), places, front_on(eur, prod))
+            info["prime_locale"] = dec.prime_locale(physique(), places, front_on(eur, prod))
 
     # ------------------------------------------------------------------- contexte : saisons, bilans, météo, fonds, macro
     longue = as_dict(load_json(PRIV / "yahoo_long.json", {}))
@@ -805,7 +895,7 @@ def main():
     def add(key, titre, detail, grave=False):
         trig.append({"id": f"{today.isoformat()}:{key}", "titre": titre, "detail": detail, "grave": grave})
 
-    prev = etat.get("contrats", {})
+    prev = as_dict(etat.get("contrats"))
     marques = {}  # dates des derniers « plus bas / plus haut de 3 mois » signalés (pas d'alerte répétée chaque jour)
 
     def recent(dt, days=14):
@@ -821,7 +911,7 @@ def main():
 
     for prod, ci in contrats.items():
         a = ci.get("technique") or {}
-        p = prev.get(prod, {})
+        p = as_dict(prev.get(prod))
         marques[prod] = {"bas3m_le": p.get("bas3m_le"), "haut3m_le": p.get("haut3m_le")}
         if a.get("insuffisant") or "dernier" not in a or p.get("seance") == ci["seance"]:
             continue  # pas de nouvelle séance : rien à comparer
@@ -861,7 +951,7 @@ def main():
         for sens_, x in franchi(cours_prec["uree"], up, seuils.get("uree") or {}):
             add(f"seuil:uree:{sens_}{x:g}", f"Urée : votre seuil de {fr_n(x)} €/t est franchi ({fr_n(up)} €/t)",
                 f"Seuil {'haut' if sens_ == '>' else 'bas'} fixé dans la configuration", True)
-    pe = etat.get("engrais", {})
+    pe = as_dict(etat.get("engrais"))
     meme_base = pe.get("base", engrais.get("base")) == engrais.get("base")  # ratio estimé ↔ mondial : pas un vrai mouvement
     t = engrais.get("ttf") or {}
     if t.get("dernier") is not None and pe.get("ttf") is not None and pe.get("ttf_au") != t.get("au"):
@@ -887,7 +977,8 @@ def main():
     for key, titre, detail in msgs:
         add(key, titre, detail)
 
-    hist = (load_json(OUT / "grain-signal.json", {}).get("historique_declencheurs") or [])
+    hd = load_json(OUT / "grain-signal.json", {}).get("historique_declencheurs")
+    hist = [x for x in hd if isinstance(x, dict) and isinstance(x.get("id"), str)] if isinstance(hd, list) else []
     known = {x["id"] for x in hist}
     hist = ([x for x in trig if x["id"] not in known] + hist)[:60]
     dash = {
@@ -931,10 +1022,10 @@ def main():
                     "ttf": (engrais.get("ttf") or {}).get("dernier"), "ttf_au": (engrais.get("ttf") or {}).get("au"),
                     "sous_seuil_bas": (engrais.get("ttf") or {}).get("sous_seuil_bas", 0)},
         "pannes": pannes,
-        "envoyes": etat.get("envoyes", {}),
+        "envoyes": as_dict(etat.get("envoyes")),
     }
     save_json(OUT / "etat.json", new_state)
-    outbox = load_json(OUT / "prive" / "a-envoyer.json", [])
+    outbox = boite(OUT / "prive" / "a-envoyer.json")
     sent = new_state["envoyes"]
     outbox = [x for x in outbox if x["id"] not in sent] + [x for x in trig if x["id"] not in sent and x["id"] not in {o["id"] for o in outbox}]
     save_json(OUT / "prive" / "a-envoyer.json", outbox)

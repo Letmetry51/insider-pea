@@ -18,7 +18,7 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 |---|---|
 | Du lundi au samedi, vers 7 h 30 | collecte, calcul, **rapport du matin** par email avec la synthèse PDF, publication (calcul lancé à 7 h 03 par une tâche planifiée Claude, GitHub en secours) |
 | Chaque matin | **actualités traduites** : titres du jour classés par l'IA (quelques centimes) |
-| Le lundi | **lecture du marché de la semaine** par l'API Claude avec recherche web (≈ 1 $) : arguments haussiers et baissiers par culture, à surveiller, calendrier |
+| Le lundi | **lecture du marché de la semaine** par l'API Claude avec recherche web (≈ 4 $) : arguments haussiers et baissiers par culture, à surveiller, calendrier |
 | Dès qu'il se passe quelque chose | alerte dans le rapport : fait majeur dans l'actualité, seuil de prix franchi, plus haut ou plus bas de 3 mois, changement de lecture technique, source en panne |
 | À la demande | onglet Actions → « Bulletin des grains » → Run workflow (cases « lecture » et « email de test ») |
 
@@ -33,7 +33,7 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
   flux de presse agricole, classés par l'API Claude sans recherche web : thème, nature, importance 1-3, effet −2/+2 par culture
   et sur l'azote, impact en une phrase sans conseil. Pression sur 7 jours par culture ; un fait majeur part en alerte.
 - **Repères** (`decisions.py`) : prix sur 5 ans en percentile, plus haut de la campagne, report de la courbe moins le coût du
-  stockage (`config.json`, `stockage`), prime locale physique − Euronext, saisonnalité, météo de 10 zones, bilans USDA, positions
+  stockage (`config.json`, `stockage`), prime locale physique − Euronext, saisonnalité, météo de 16 zones (9 régions françaises, 7 zones mondiales), bilans USDA, positions
   des fonds (Euronext et CFTC), humeur du marché, risque géopolitique (Caldara et Iacoviello).
 - **Azote** (`build.py`, `module_engrais`) : prix France (urée, ammonitrate, solution), ratio urée/blé en percentile sur 10 ans,
   écart gaz − urée sur 3 mois, gaz TTF, saison, forme la moins chère par unité d'azote.

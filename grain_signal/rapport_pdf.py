@@ -16,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from commun import load  # noqa: E402
+from commun import boite, load  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "grain"
@@ -83,7 +83,7 @@ ACTU_NOMS = {"ble": "Blé", "orge": "Orges", "colza": "Colza", "mais": "Maïs", 
 def actu_html(d):
     """Actualité : synthèse et nouvelles qui comptent, avec leur effet sur les prix."""
     ac = load(OUT / "actualites.json", {}) or {}
-    arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
+    arts = [a for a in (ac.get("articles") if isinstance(ac.get("articles"), list) else []) if isinstance(a, dict) and a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
             and (a.get("importance") or 0) >= 2]
     arts.sort(key=lambda a: ((a.get("importance") or 0), str(a.get("date"))), reverse=True)
     lis = []
@@ -198,7 +198,7 @@ def page_html(d):
     u = (eng.get("france") or {}).get("uree") or {}
     if u.get("prix"):
         rows.append(f"<tr><td class='cn'><b>Azote</b></td><td class='r'><b>{n(u['prix'])}</b><div class=muted>urée"
-                    + (f", {sg(u['var1m'], 1)} % en 1 mois" if u.get("var1m") is not None else "") + "</div></td>"
+                    + (f", {sg(u['var1m'], 1)} % depuis le {dfr(u['var1m_depuis'])}" if u.get("var1m") is not None and u.get("var1m_depuis") else "") + "</div></td>"
                     f"<td class='muted'>{e('Ratio azote/blé au ' + str(eng['percentile_retenu']) + 'e percentile (10 ans)') if eng.get('percentile_retenu') is not None else '—'}</td>"
                     f"<td>{sens_badge((eng.get('actualite') or {}).get('sens'))}{' <span class=muted>(+ = plus cher)</span>' if eng.get('actualite') else ''}</td></tr>")
     marche = ("<table class='dec'><thead><tr><th>Culture</th><th class='r'>Cours €/t</th><th>Technique</th><th>Actualité</th>"
@@ -326,7 +326,7 @@ ul.notes li { margin: 2px 0; }
 
 
 def besoin():
-    outbox = load(OUT / "prive" / "a-envoyer.json", [])
+    outbox = boite(OUT / "prive" / "a-envoyer.json")
     sent = (load(OUT / "etat.json", {}) or {}).get("envoyes") or {}
     comite = any(x.get("type") == "comite" and x.get("id") not in sent for x in outbox if isinstance(x, dict))
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -340,7 +340,7 @@ def main():
         ok = besoin()
         print("Synthèse PDF :", "à joindre" if ok else "aucun email ne la joint aujourd'hui")
         return 0 if ok else 1
-    d = load(OUT / "grain-signal.json", None)
+    d = load(OUT / "grain-signal.json", {})
     if not d:
         print("Synthèse PDF : pas de calcul du matin")
         return 1

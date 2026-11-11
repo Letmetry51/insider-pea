@@ -54,6 +54,8 @@ def get(url, **kw):
             if r.status_code == 200:
                 return r
             last = f"HTTP {r.status_code}"
+            if r.status_code in (401, 403, 404, 429):
+                break  # refus ou adresse inconnue : redemander tout de suite ne change rien (Yahoo 429 : 4 minutes perdues le 11/11)
         except Exception as e:  # noqa: BLE001
             last = type(e).__name__ + ": " + str(e)[:120]
         time.sleep(2 + 3 * i)
@@ -172,6 +174,16 @@ def date_seance(parsed, now=None):
     return parsed
 
 
+def date_publiee(parsed, today=None):
+    """Date d'un prix physique ou d'engrais : celle de la table terre-net (date de cotation), si elle est plausible (passée, de
+    moins de 10 jours). Pas la règle des clôtures Euronext (« avant 17 h UTC, la veille ») : un prix daté du jour et lu le matin
+    était rangé la veille, puis de nouveau le jour même au calcul du soir (doublon, variation nulle, graphique décalé)."""
+    today = today or datetime.now(timezone.utc).date()
+    if parsed is not None and parsed <= today and (today - parsed).days <= 10:
+        return parsed
+    return seance_precedente(today)
+
+
 def day_month(text, today):
     """'06 novembre' (titre d'une table) → date ; année : la plus récente qui ne dépasse pas aujourd'hui. Sinon None."""
     ms = list(re.finditer(r"\b(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b",
@@ -225,7 +237,7 @@ def parse_place_prices(html):
             p = num(r[ic])
             if p is None:
                 continue
-            place = re.split(r"Contenu réservé|Abonnez|S'abonner", r[0])[0].strip()
+            place = " ".join(re.split(r"Contenu réservé|Abonnez|S'abonner", r[0])[0].split())  # espaces insécables compris
             out.append({"place": place[:60], "echeance": (r[ie] if ie is not None and ie < len(r) else "")[:30], "prix": p,
                         "variation": num(r[iv]) if iv is not None and iv < len(r) else None, "titre": caption})
     return out
@@ -804,7 +816,19 @@ def collect_meteo(today):
     path = PRIV / "meteo.json"
     data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     ok, errs, perimees = 0, [], []
-    for zn, z in CFG["meteo"]["zones"].items():
+    # prévisions des 16 zones en une seule requête (Open-Meteo accepte plusieurs points) : 16 appels dont certains bloquaient
+    # 90 s prenaient 5 minutes le 11/11 ; en cas d'échec, une requête par zone comme avant
+    zs = CFG["meteo"]["zones"]
+    groupe = {}
+    try:
+        lots = get(METEO_PREV.format(lat=",".join(str(z["lat"]) for z in zs.values()), lon=",".join(str(z["lon"]) for z in zs.values())),
+                   timeout=60).json()
+        lots = lots if isinstance(lots, list) else [lots]
+        if len(lots) == len(zs):
+            groupe = {zn: om_daily(j) for zn, j in zip(zs, lots)}
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"prévisions groupées : {str(e)[:70]}")
+    for zn, z in zs.items():
         cur = data.get(zn) if isinstance(data.get(zn), dict) else {}
         if not cur and isinstance(data.get(z.get("ancien")), dict):  # zone renommée (même point) : historique repris
             cur = data[z["ancien"]]
@@ -820,7 +844,8 @@ def collect_meteo(today):
         except Exception as e:  # noqa: BLE001
             errs.append(f"{zn} (archive) : {str(e)[:70]}")  # archive de la semaine précédente gardée (moins de 14 jours : sans effet)
         try:
-            cur.update(prevision=om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"])).json()), prevision_au=today.isoformat())
+            cur.update(prevision=groupe.get(zn) or om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"]), timeout=45).json()),
+                       prevision_au=today.isoformat())
         except Exception as e:  # noqa: BLE001
             errs.append(f"{zn} (prévision) : {str(e)[:70]}")
         # zone utilisable : archive de moins de 14 jours et prévision de moins de 3 jours
@@ -834,7 +859,8 @@ def collect_meteo(today):
         else:
             perimees.append(zn)
         data[zn] = cur
-        time.sleep(1)
+        if zn not in groupe:
+            time.sleep(1)
     save_json(path, {k: v for k, v in data.items() if k in CFG["meteo"]["zones"]})  # zones retirées ou renommées : oubliées
     n = len(CFG["meteo"]["zones"])
     # en panne dès qu'une zone n'a plus de données fraîches (une seule zone peut peser 45 % d'une culture)
@@ -880,7 +906,7 @@ def collect_engrais(today):
             p = items[0]["prix"]
             if not (100 < p < 3000):
                 raise RuntimeError(f"prix invraisemblable : {p}")
-            d = date_seance(day_month(items[0]["titre"], today)).isoformat()
+            d = date_publiee(day_month(items[0]["titre"], today), today).isoformat()
             rows = [r for r in rows if not (r["date"] == d and r["product"] == prod)]
             rows.append({"date": d, "product": prod, "price": p, "source": "terre-net, " + items[0]["place"]})
             note("engrais_" + prod, True, f"{p} ({items[0]['place']}, cotation du {d})")
@@ -907,7 +933,7 @@ def collect_physique():
         today = datetime.now(timezone.utc).date()
         for k, items in snap.items():
             for it in items:
-                d = date_seance(day_month(it["titre"], today)).isoformat()
+                d = date_publiee(day_month(it["titre"], today), today).isoformat()
                 key = (d, k, it["place"], it["titre"][-60:])
                 hist = [h for h in hist if (h["date"], h["page"], h["place"], h["titre"]) != key]
                 hist.append({"date": d, "page": k, "place": it["place"], "echeance": it["echeance"], "titre": it["titre"][-60:], "prix": it["prix"]})

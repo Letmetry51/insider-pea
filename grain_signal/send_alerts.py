@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
-from commun import load, save  # noqa: E402
+from commun import boite, load, save  # noqa: E402
 
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -94,7 +94,7 @@ def table_marche(dash):
     if u.get("prix"):
         v1 = u.get("var1m")
         rows.append(f"<tr><td style='{td}'><b>Azote</b></td><td style='{td};text-align:right;white-space:nowrap'><b>{f(u['prix'])}</b>"
-                    + (f" <span style='color:#666'>{sg(v1, 1)} % en 1 mois</span>" if v1 is not None else "") + "<br><span style='color:#666;font-size:12px'>urée</span></td>"
+                    + (f" <span style='color:#666'>{sg(v1, 1)} % depuis le {u['var1m_depuis'][8:10]}/{u['var1m_depuis'][5:7]}</span>" if v1 is not None and u.get("var1m_depuis") else "") + "<br><span style='color:#666;font-size:12px'>urée</span></td>"
                     f"<td style='{td}'>{e('ratio azote/blé au ' + str(eng['percentile_retenu']) + 'e percentile') if eng.get('percentile_retenu') is not None else '—'}</td>"
                     f"<td style='{td}'>{sens_html((eng.get('actualite') or {}).get('sens'), azote=True)}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'>"
@@ -124,7 +124,7 @@ ACTU_NOMS = {"ble": "blé", "orge": "orges", "colza": "colza", "mais": "maïs", 
 def bloc_actu(n=3):
     """Synthèse de l'actualité et les nouvelles qui comptent (importance 2 et 3, hors comptes rendus de séance), avec leur effet sur les prix."""
     ac = load(OUT / "actualites.json", {})
-    arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
+    arts = [a for a in (ac.get("articles") if isinstance(ac.get("articles"), list) else []) if isinstance(a, dict) and a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
             and (a.get("importance") or 0) >= 2]
     arts.sort(key=lambda a: ((a.get("importance") or 0), str(a.get("date"))), reverse=True)  # le plus important, puis le plus récent
     if not arts and not ac.get("synthese"):
@@ -192,7 +192,7 @@ def main():
     etat = load(OUT / "etat.json", {})
     sent = etat.setdefault("envoyes", {})
     outbox = []
-    for x in load(OUT / "prive" / "a-envoyer.json", []):
+    for x in boite(OUT / "prive" / "a-envoyer.json"):
         if x["id"] in sent:
             continue
         m = re.search(r"\d{4}-\d{2}-\d{2}", x["id"])
@@ -282,7 +282,7 @@ def main():
     # journal compact : 400 derniers envois
     etat["envoyes"] = dict(sorted(sent.items(), key=lambda kv: kv[1])[-400:])
     save(OUT / "etat.json", etat)
-    save(OUT / "prive" / "a-envoyer.json", [x for x in load(OUT / "prive" / "a-envoyer.json", []) if x["id"] not in etat["envoyes"]])
+    save(OUT / "prive" / "a-envoyer.json", [x for x in boite(OUT / "prive" / "a-envoyer.json") if x["id"] not in etat["envoyes"]])
     return 1 if failed else 0
 
 

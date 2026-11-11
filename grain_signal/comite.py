@@ -20,7 +20,7 @@ from pathlib import Path
 
 import requests
 
-from commun import load, save  # noqa: E402
+from commun import boite, load, save  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -245,7 +245,7 @@ def main():
     hist = load(OUT / "comites-journal.json", [])
     hist = ([{"date": today.isoformat(), "mode": mode, "cout_usd": res["cout_usd"], "resume": res["resume"]}] + hist)[:120]
     save(OUT / "comites-journal.json", hist)
-    outbox = load(OUT / "prive" / "a-envoyer.json", [])
+    outbox = boite(OUT / "prive" / "a-envoyer.json")
     # heure dans l'identifiant : un comité relancé le même jour est un nouveau rapport, envoyé lui aussi (le 9/11, la relance de
     # l'après-midi portait le même identifiant que celui du matin et n'était pas partie)
     outbox.append({"id": f"comite:{today.isoformat()}:{mode}:{datetime.now(timezone.utc):%H%M}", "type": "comite",
