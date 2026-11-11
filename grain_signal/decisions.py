@@ -5,7 +5,6 @@ mondiaux, humeur du marché, risque géopolitique, pression de l'actualité. Des
 
 Toutes les fonctions sont pures (données en entrée, dictionnaire en sortie) pour être testées sans réseau.
 """
-import math
 from datetime import date, timedelta
 
 MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -419,13 +418,19 @@ def actu_compte(a):
     return bool(a.get("pertinent")) and a.get("impacts") and not a.get("doublon_de") and a.get("theme") != "marche"
 
 
+ACTU_PRUDENCE = 1.0  # poids d'un « titre neutre » ajouté à chaque moyenne : peu de nouvelles → valeur ramenée vers 0
+
+
 def actu_pression(articles, now, demi_vie=3.0, jours=7):
-    """Pression de l'actualité par culture, de −2 (baissière) à +2 (haussière) : somme des impacts pondérés par l'importance,
-    la nature (un fait pèse plus qu'une rumeur) et la fraîcheur (demi-vie de `demi_vie` jours), ramenée sur ±2 (tangente
-    hyperbolique). Engrais : + = engrais plus chers."""
+    """Pression de l'actualité par culture, de −2 (baissière) à +2 (haussière) : MOYENNE des effets des nouvelles des 7 derniers
+    jours, pondérée par l'importance, la nature (un fait pèse plus qu'une rumeur) et la fraîcheur (demi-vie de `demi_vie` jours),
+    avec un poids de prudence (ACTU_PRUDENCE) qui ramène vers 0 quand il y a peu de nouvelles. Une moyenne ne sature pas avec
+    le nombre de titres (une somme collait au plafond les semaines chargées) : +2 demande des faits forts et concordants.
+    Repères : un seul fait majeur du jour à effet fort ≈ +1 ; des nouvelles modérées (+1) toutes dans le même sens ≈ +0,8 ;
+    autant de nouvelles haussières que baissières ≈ 0. Engrais : + = engrais plus chers."""
     out = {}
     for c in ACTU_CULTURES:
-        s, nh, nb, top = 0.0, 0, 0, []
+        s, sw, nh, nb, top = 0.0, 0.0, 0, 0, []
         for a in articles:
             if not actu_compte(a):
                 continue
@@ -435,10 +440,11 @@ def actu_pression(articles, now, demi_vie=3.0, jours=7):
                 continue
             w = POIDS_IMPORTANCE.get(int(a.get("importance") or 1), 0.3) * POIDS_NATURE.get(a.get("nature"), 0.5) * 0.5 ** (age / demi_vie)
             s += max(-2, min(2, imp)) * w
+            sw += w
             nh += imp > 0
             nb += imp < 0
             top.append((abs(imp) * w, a.get("id")))
-        v = 2 * math.tanh(s / 4)  # un fait d'importance 3 à effet fort du jour ≈ +0,9 ; une dizaine de nouvelles modérées ≈ +1,5
+        v = s / (sw + ACTU_PRUDENCE)
         out[c] = {"valeur": round(v, 2), "hausse": nh, "baisse": nb,
                   "sens": "haussière" if v >= 0.5 else "baissière" if v <= -0.5 else "équilibrée",
                   "principaux": [i for _, i in sorted(top, reverse=True)[:3]]}

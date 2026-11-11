@@ -791,13 +791,14 @@ détail replié */
 .mprix {
   grid-area: prix;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 2px 8px;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 .mprix b {
   font-size: 16px;
+  white-space: nowrap;
 }
 .mprix small,
 .mbig small {
@@ -805,7 +806,6 @@ détail replié */
   font-size: 12.5px;
 }
 .mvar {
-  font-family: var(--mono);
   font-size: 13px;
 }
 .mbadges {
