@@ -3,9 +3,9 @@ Grain Signal — emails (Gmail SMTP). Compte d'envoi : GMAIL_USER, GMAIL_APP_PAS
 Destinataires : GRAIN_ALERT_TO (propre à Grain Signal), sinon ALERT_TO (Euro Signal), sinon GMAIL_USER.
 Sans secrets : mode simulation (rien n'est envoyé, le contenu est affiché dans le journal).
 
-Deux sortes d'emails, à partir de data/grain/a-envoyer.json :
-- les déclencheurs du jour, regroupés en un seul email ;
-- le rapport du comité IA (lundi ou alerte), en entier.
+Un seul email par calcul, à partir de data/grain/prive/a-envoyer.json : la lecture hebdomadaire du marché (le lundi), sinon le
+rapport du matin (une fois par jour), sinon les alertes d'un calcul relancé. Chacun montre le marché du matin (cours, technique,
+actualité) et les alertes ; son objet donne le fait marquant du jour. Jamais de conseil de vente ou d'achat.
 Un envoi réussi est noté dans data/grain/etat.json (« envoyes ») : jamais renvoyé. Un envoi en échec reste dans la file (retenté demain).
 GS_TEST_EMAIL=true : envoie aussi un email de test avec l'état du jour.
 """
@@ -55,39 +55,74 @@ def e(t):
     return html.escape(str(t if t is not None else ""), quote=True)
 
 
-def table_signaux(dash):
-    """Que faire aujourd'hui, une ligne par culture : la décision calculée par build.py, comme la page et le PDF."""
-    coul = {"good": "#1f7a3e", "bad": "#b0281f", "warn": "#9a5b00", "info": "#2a62b8", "neutral": "#6b6d60"}
+def f(v, d=2):
+    return f"{v:,.{d}f}".replace(",", " ").replace(".", ",")
+
+
+def sg(v, d=2):
+    return ("+" if v > 0 else "") + f(v, d)
+
+
+SENS_HTML = {"haussière": ("▲ haussière", "#1f7a3e"), "baissière": ("▼ baissière", "#b0281f"), "neutre": ("● neutre", "#6b6d60"),
+             "équilibrée": ("● équilibrée", "#6b6d60")}
+
+
+def sens_html(s_, azote=False):
+    if not s_:
+        return "<span style='color:#999'>—</span>"
+    t, c = SENS_HTML.get(s_, (s_, "#6b6d60"))
+    if azote and s_ in ("haussière", "baissière"):
+        t += " (plus cher)" if s_ == "haussière" else " (moins cher)"
+    return f"<span style='color:{c};white-space:nowrap'>{e(t)}</span>"
+
+
+def table_marche(dash):
+    """Le marché ce matin, une ligne par culture et une pour l'azote : cours, variation, lecture technique, effet de l'actualité."""
     td = "padding:7px 8px;border-bottom:1px solid #ddd;vertical-align:top"
-    f = lambda v, d=2: f"{v:,.{d}f}".replace(",", " ").replace(".", ",")  # noqa: E731
     rows = []
+    for c in (dash.get("cultures") or {}).values():
+        tq, ac = c.get("technique") or {}, c.get("actualite") or {}
+        var = c.get("var1j")
+        cours = (f"<b>{f(c['cours'])}</b>" + (f" <span style='color:{'#1f7a3e' if var > 0 else '#b0281f' if var < 0 else '#666'}'>{sg(var)}</span>" if var else "")
+                 + ("<br><span style='color:#666;font-size:12px'>physique Creil</span>" if c.get("physique") else "")) if c.get("cours") else "—"
+        rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', '').replace(' tendre', ''))}</b></td>"
+                    f"<td style='{td};text-align:right;white-space:nowrap'>{cours}</td>"
+                    f"<td style='{td}'>{sens_html(tq.get('sens'))}{' <span style=color:#666;font-size:12px>(blé)</span>' if tq.get('sur_ble') else ''}</td>"
+                    f"<td style='{td}'>{sens_html(ac.get('sens'))}</td></tr>")
     eng = dash.get("engrais") or {}
-    for c in list((dash.get("cultures") or {}).values()) + [{"nom": "Azote", "decision": eng.get("decision") or {}, "azote": True}]:
-        x = c.get("decision") or {}
-        sous = [f"Comité : {x['consigne']}"] if x.get("consigne") else []
-        if x.get("chance") is not None:
-            h_ = str(x.get("horizon") or "")
-            mois = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
-            sous.append(f"{x['chance']} % de chances d'ici le {int(h_[8:10])} {mois[int(h_[5:7]) - 1]}" if len(h_) >= 10 else f"{x['chance']} % de chances")
-        if x.get("declencheur_ble"):
-            sous.append(f"quand le blé Euronext atteint {f(x['declencheur_ble'])} €/t")
-        if x.get("plafond"):
-            sous.append(f"plafond d'achat {f(x['plafond'], 0)} €/t")
-        cours = (("urée " if c.get("azote") else "") + f(x["cours"]) + " €/t") if x.get("cours") else "—"
-        rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', ''))}</b></td>"
-                    f"<td style='{td}'><span style='background:{coul.get(x.get('couleur'), coul['neutral'])};color:#fff;border-radius:5px;"
-                    f"padding:2px 7px;font:600 12px monospace'>{e(x.get('libelle', '—'))}</span> <b>{e(x.get('quoi'))}</b>"
-                    + (f"<br><span style='color:#666;font-size:12px'>{e(' · '.join(sous))}</span>" if sous else "") + "</td>"
-                    f"<td style='{td};text-align:right;white-space:nowrap'>{cours}</td></tr>")
+    u = (eng.get("france") or {}).get("uree") or {}
+    if u.get("prix"):
+        v1 = u.get("var1m")
+        rows.append(f"<tr><td style='{td}'><b>Azote</b></td><td style='{td};text-align:right;white-space:nowrap'><b>{f(u['prix'])}</b>"
+                    + (f" <span style='color:#666'>{sg(v1, 1)} % en 1 mois</span>" if v1 is not None else "") + "<br><span style='color:#666;font-size:12px'>urée</span></td>"
+                    f"<td style='{td}'>{e('ratio azote/blé au ' + str(eng['percentile_retenu']) + 'e percentile') if eng.get('percentile_retenu') is not None else '—'}</td>"
+                    f"<td style='{td}'>{sens_html((eng.get('actualite') or {}).get('sens'), azote=True)}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'>"
-            "<th align=left style='padding:6px 8px'>Culture</th><th align=left style='padding:6px 8px'>Que faire</th>"
-            "<th align=right style='padding:6px 8px'>Cours</th></tr>" + "".join(rows) + "</table>")
+            "<th align=left style='padding:6px 8px'>Culture</th><th align=right style='padding:6px 8px'>Cours €/t</th>"
+            "<th align=left style='padding:6px 8px'>Technique</th><th align=left style='padding:6px 8px'>Actualité</th></tr>"
+            + "".join(rows) + "</table>")
+
+
+def fait_marquant(dash, trig):
+    """Objet de l'email : l'actualité majeure, sinon un seuil franchi, sinon un plus haut ou plus bas de 3 mois, sinon le plus fort
+    mouvement de la séance (jamais une panne de source)."""
+    for test in (lambda x: x.get("type") == "actu", lambda x: ":seuil:" in x["id"], lambda x: x["id"].endswith(("bas3m", "haut3m"))):
+        x = next((x for x in trig if test(x)), None)
+        if x:
+            return x["titre"]
+    mv = [(abs(c["var1j"] / c["cours"]), c) for c in (dash.get("cultures") or {}).values()
+          if c.get("var1j") and c.get("cours") and not c.get("physique")]
+    if mv:
+        c = max(mv, key=lambda t: t[0])[1]
+        return f"{c['nom'].replace(' tendre', '')} {sg(c['var1j'])} €/t à {f(c['cours'])}"
+    return "marché calme"
+
 
 ACTU_NOMS = {"ble": "blé", "orge": "orges", "colza": "colza", "mais": "maïs", "engrais": "azote"}
 
 
 def bloc_actu(n=3):
-    """Synthèse de l'actualité et les nouvelles qui comptent (importance 2 et 3, hors comptes rendus de séance), avec leur effet."""
+    """Synthèse de l'actualité et les nouvelles qui comptent (importance 2 et 3, hors comptes rendus de séance), avec leur effet sur les prix."""
     ac = load(OUT / "actualites.json", {})
     arts = [a for a in ac.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and a.get("theme") != "marche"
             and (a.get("importance") or 0) >= 2]
@@ -99,8 +134,7 @@ def bloc_actu(n=3):
         fx = []
         for c, v in (a.get("impacts") or {}).items():
             if v:
-                fav = v < 0 if c == "engrais" else v > 0
-                fx.append(f"<span style='color:{'#1f7a3e' if fav else '#b0281f'}'>{e(ACTU_NOMS.get(c, c))} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>")
+                fx.append(f"<span style='color:{'#1f7a3e' if v > 0 else '#b0281f'}'>{e(ACTU_NOMS.get(c, c))} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>")
         lien = a.get("url") if str(a.get("url", "")).startswith("http") else None
         titre = e(a.get("titre_fr") or a.get("titre"))
         if lien:
@@ -108,7 +142,7 @@ def bloc_actu(n=3):
         lis.append(f"<li style='margin:6px 0'><b>{titre}</b>"
                    f" <span style='color:#777;font-size:12px'>({e(a.get('source') or '')})</span><br>{e(a.get('impact'))}"
                    + (f"<br><span style='font-size:12px'>{' · '.join(fx)}</span>" if fx else "") + "</li>")
-    return ("<h3>📰 Ce que l'actualité change</h3>"
+    return ("<h3>📰 L'actualité et son effet sur les prix</h3>"
             + (f"<p style='background:#f4f1e6;padding:10px;border-radius:6px'>{e(ac['synthese'])}</p>" if ac.get("synthese") else "")
             + (f"<ul style='padding-left:18px'>{''.join(lis)}</ul>" if lis else ""))
 
@@ -132,7 +166,8 @@ def synthese(dash):
 def wrap(title, inner):
     return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>{inner}"
             f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir Grain Signal</a></p>"
-            "<p style='color:#777;font-size:12px'>Aide à la décision automatique, pas un conseil en investissement. Décision finale : l'exploitant.</p></div>")
+            "<p style='color:#777;font-size:12px'>Outil d'aide à la décision : il décrit le marché, il ne conseille ni de vendre ni d'acheter. "
+            "La décision vous appartient.</p></div>")
 
 
 def main():
@@ -176,32 +211,25 @@ def main():
     ids = [x["id"] for x in trig] + ([rid] if rid else [])
     # un seul email par calcul : celui du comité s'il s'est réuni, sinon le rapport du matin (une fois par jour), sinon les alertes
     # d'un calcul relancé dans la journée ; chacun emporte les alertes du calcul
+    marche = f"<h3>Le marché ce matin</h3>{table_marche(dash)}"
+    tete = fait_marquant(dash, trig)
     if coms:
         x = coms[-1]
-        sig = ", ".join(f"{v.get('nom', k).replace(' tendre', '')} {(v.get('decision') or {}).get('libelle', '')}"
-                        for k, v in (dash.get("cultures") or {}).items() if k in ("ble", "colza", "mais"))
         inner = (f"{alertes_h}<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>"
-                 f"<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}{bloc_actu()}<hr style='margin:18px 0'>{comite['rapport_html']}")
-        mails.append(([x["id"]] + ids, f"🌾 {x['titre']} — {sig}"[:180], wrap(x["titre"], inner + PDF_NOTE)))
+                 f"{marche}{bloc_actu()}<hr style='margin:18px 0'>{comite['rapport_html']}")
+        mails.append(([x["id"]] + ids, f"🌾 {x['titre']} — {jour} : {tete}"[:180], wrap(x["titre"], inner + PDF_NOTE)))
     elif rid:
-        dec_ = [f"{v.get('nom', k).replace(' tendre', '').replace(' brassicole', '')} {(v.get('decision') or {}).get('libelle', '')}"
-                for k, v in (dash.get("cultures") or {}).items()
-                if (v.get("decision") or {}).get("code") in ("executer", "vendre", "attendre")]
-        tete = trig[0]["titre"] if trig else (" · ".join(dec_) if dec_ else "rien d'urgent, ordres en place")
-        mails.append((ids, f"🌾 Grain Signal — {jour} : {tete}"[:180],
-                      wrap(f"Rapport du {jour}", f"{alertes_h}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}{bloc_actu()}{PDF_NOTE}")))
+        mails.append((ids, f"🌾 Grain Signal — {jour} : {tete}"[:180], wrap(f"Le marché du {jour}", f"{alertes_h}{marche}{bloc_actu()}{PDF_NOTE}")))
     elif trig:
-        first = sorted(trig, key=lambda x: (x.get("type") != "actu", not x.get("grave")))[0]
-        mot = "alerte" if any(x.get("type") == "actu" for x in trig) else "déclencheur"
-        mails.append((ids, f"🌾 Grain Signal — {len(trig)} {mot}{'s' if len(trig) > 1 else ''} : {first['titre']}",
-                      wrap("Alertes du jour", f"{alertes_h}{bloc_actu()}<h3>Que faire aujourd'hui</h3>{table_signaux(dash)}")))
+        mails.append((ids, f"🌾 Grain Signal — {len(trig)} alerte{'s' if len(trig) > 1 else ''} : {tete}"[:180],
+                      wrap("Alertes du jour", f"{alertes_h}{bloc_actu()}{marche}")))
     if os.environ.get("GS_TEST_EMAIL", "").lower() == "true" and not mails:
         from zoneinfo import ZoneInfo
 
         h_ = datetime.now(ZoneInfo("Europe/Paris"))
         # date et heure dans l'objet : Gmail ne range pas l'email sous un envoi précédent (même objet = même conversation)
         mails.append(([], f"🌾 Grain Signal — synthèse du {jour} à {h_.hour} h {h_.minute:02d}",
-                      wrap("Synthèse à la demande", table_signaux(dash) + bloc_actu() + PDF_NOTE)))
+                      wrap("Synthèse à la demande", f"<h3>Le marché ce matin</h3>{table_marche(dash)}" + bloc_actu() + PDF_NOTE)))
     if not mails:
         print("Emails : rien à envoyer")
         save(OUT / "etat.json", etat)
@@ -226,7 +254,7 @@ def main():
                 text = re.sub(r"<[^>]+>", " ", body)
                 msg.set_content(re.sub(r"\s+\n", "\n", html.unescape(text))[:20000])
                 msg.add_alternative(body, subtype="html")
-                if joint:  # synthèse PDF jointe aux emails du comité et à l'email de test
+                if joint:  # synthèse PDF jointe au rapport du matin, à la lecture hebdomadaire et à l'email de test
                     msg.add_attachment(pdf, maintype="application", subtype="pdf", filename=pdf_nom)
                 try:
                     s.send_message(msg)

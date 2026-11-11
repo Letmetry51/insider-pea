@@ -1,6 +1,7 @@
 # Grain Signal : céréales (blé, escourgeon, orge de printemps, colza, maïs) et engrais azotés.
-# Chaque matin du mardi au samedi (séance de la veille) et le lundi (comité de la semaine) : collecte, calcul, actualités traduites, comité IA
-# (lundi et alertes, si le secret ANTHROPIC_API_KEY existe), emails, publication sur la branche site (page grain-signal.html).
+# Chaque matin du lundi au samedi (séance de la veille) : collecte, calcul, actualités traduites, lecture du marché de la semaine
+# (le lundi, si le secret ANTHROPIC_API_KEY existe), rapport par email, publication sur la branche site (page grain-signal.html).
+# L'outil décrit le marché (cours, technique, actualité) ; il ne donne aucun conseil de vente ou d'achat.
 name: Grain Signal (céréales et engrais)
 
 on:
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       comite:
-        description: "Réunir le comité IA maintenant (comité complet)"
+        description: "Refaire la lecture du marché de la semaine maintenant (API Claude, ≈ 1 $)"
         type: boolean
         default: false
       test_email:
@@ -97,13 +98,13 @@ jobs:
         run: python grain_signal/collect.py
         continue-on-error: true
 
-      - name: 3. Calcul (technique, signaux, engrais, déclencheurs)
+      - name: 3. Calcul (cours, technique, engrais, alertes)
         id: g3
         timeout-minutes: 5
         run: python grain_signal/build.py
 
-      # titres du jour traduits en impacts par l'API Claude (sans recherche web, quelques centimes) : avant le comité, qui les lit,
-      # et qui est convoqué en alerte si un fait majeur tombe
+      # titres du jour traduits en impacts par l'API Claude (sans recherche web, quelques centimes) : avant la lecture de la semaine,
+      # qui les lit ; un fait majeur part en alerte
       - name: 3b. Actualités traduites en impacts
         id: g3b
         timeout-minutes: 10
@@ -112,7 +113,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python grain_signal/actualites.py
 
-      - name: 4. Comité IA (lundi, alertes, ou à la demande)
+      - name: 4. Lecture du marché de la semaine (lundi ou à la demande)
         id: g4
         timeout-minutes: 25
         continue-on-error: true
@@ -121,17 +122,17 @@ jobs:
           GS_COMITE: ${{ inputs.comite && 'force' || '' }}
         run: python grain_signal/comite.py
 
-      - name: 5. Calcul avec l'avis du comité
+      - name: 5. Calcul avec l'actualité et la lecture du jour
         id: g5
         timeout-minutes: 5
         run: python grain_signal/build.py
 
-      - name: 5b. Backtest des règles (ventes et achats d'azote)
+      - name: 5b. Backtest des lectures (technique, humeur, géopolitique)
         timeout-minutes: 5
         continue-on-error: true
         run: python grain_signal/backtest.py
 
-      # synthèse A4 jointe aux emails du comité (lundi, alertes) et à l'email de test : Chromium installé seulement ces jours-là
+      # synthèse A4 jointe au rapport du matin, à la lecture hebdomadaire et à l'email de test : Chromium installé seulement ces jours-là
       - name: 5c. Synthèse PDF
         timeout-minutes: 10
         continue-on-error: true

@@ -1,14 +1,14 @@
 """
-Grain Signal — calcul du matin : indicateurs, signaux de vente par culture, module engrais, déclencheurs.
+Grain Signal — calcul du matin : lecture du marché par culture (cours, technique, actualité, repères), module engrais, alertes.
+Un outil d'aide à la décision : il décrit le marché, il ne dit jamais quoi vendre ni quand.
 
-Entrées : data/grain/prive/ (historiques de collect.py), data/grain/comite.json (dernier comité IA, facultatif).
+Entrées : data/grain/prive/ (historiques de collect.py), data/grain/actualites.json, data/grain/comite.json (lecture hebdomadaire).
 Sorties : data/grain/grain-signal.json (page), data/grain/etat.json (mémoire d'un jour à l'autre), data/grain/prive/a-envoyer.json
-(alertes du jour pour send_alerts.py), data/grain/demande-comite.json (comité d'alerte demandé).
+(alertes du jour pour send_alerts.py).
 
   python grain_signal/build.py            (GS_TODAY=AAAA-MM-JJ pour rejouer un jour)
 """
 import bisect
-import calendar
 import csv
 import email.utils
 import json
@@ -31,11 +31,9 @@ PRIV = OUT / "prive"
 CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
 CULTURES = {"ble": "Blé tendre", "escourgeon": "Escourgeon brassicole", "orge_printemps": "Orge de printemps brassicole",
             "colza": "Colza", "mais": "Maïs"}
-SIGNAUX = {"VENDRE": "🟢 VENDRE UNE TRANCHE", "TENIR": "🟡 TENIR LE PLAN", "ATTENDRE": "🔴 ATTENDRE-STOCKER", "COUVRIR": "🛡️ COUVRIR"}
 PROXY = {"EBM": "ZW=F", "ECO": "ZL=F", "EMA": "ZC=F"}  # colza : huile de soja (le canola ICE n'est pas sur Yahoo)
 # conversion en $/t : blé 36,744 boisseaux/t, maïs 39,368 boisseaux/t (cents/boisseau) ; huile de soja 2 204,62 livres/t (cents/livre)
 TONNE = {"ZW=F": 36.744, "KE=F": 36.744, "ZC=F": 39.368, "ZS=F": 36.744, "ZL=F": 2204.62}
-SIG_ENGRAIS = {"ACHETER_LARGE": "🟢 ACHETER LARGE", "SUIVRE": "🟡 SUIVRE LE PLAN", "FRACTIONNER": "🟠 FRACTIONNER", "ATTENDRE": "🔴 ATTENDRE"}
 
 
 def as_dict(v):
@@ -43,31 +41,18 @@ def as_dict(v):
 
 
 def clean_comite(c):
-    """Comité relu défensivement : un fichier malformé ne doit ni planter le calcul ni injecter de valeurs absurdes."""
+    """Lecture du comité relue défensivement : arguments haussiers et baissiers (listes de textes courts) par culture."""
     c = as_dict(c)
-    out = dict(c)
+    txt = lambda v, n=300: str(v)[:n] if isinstance(v, (str, int, float)) and str(v).strip() else None  # noqa: E731
     cults = {}
     for k, v in as_dict(c.get("cultures")).items():
-        if isinstance(v, dict):
-            v = dict(v)
-            # ordres et % de la récolte par ordre (facultatif) filtrés ensemble : ils restent alignés
-            raw = v.get("ordres") if isinstance(v.get("ordres"), list) else []
-            pcs = v.get("ordres_pct") if isinstance(v.get("ordres_pct"), list) else [None] * len(raw)
-            ok = [(float(x), fnum(q)) for x, q in zip(raw, pcs + [None] * len(raw)) if fnum(x) is not None and 0 < float(x) < 5000]
-            v["ordres"] = [x for x, _ in ok]
-            v["ordres_pct"] = [q for _, q in ok] if any(q for _, q in ok) else None
-            v["maintenant_pct"] = fnum(v.get("maintenant_pct"))
-            for key in ("score", "revision_bas", "revision_haut"):
-                if fnum(v.get(key)) is None:
-                    v[key] = None
-            cults[k] = v
-    out["cultures"] = cults
-    out["declencheurs"] = [t for t in (c.get("declencheurs") if isinstance(c.get("declencheurs"), list) else [])
-                           if isinstance(t, dict) and fnum(t.get("niveau")) is not None]
-    out["engrais"] = as_dict(c.get("engrais"))
-    out["chiffres"] = as_dict(c.get("chiffres"))
-    out["calendrier"] = [x for x in (c.get("calendrier") if isinstance(c.get("calendrier"), list) else []) if isinstance(x, dict)]
-    return out
+        if isinstance(v, dict) and (v.get("haussier") or v.get("baissier") or v.get("lecture")):
+            cults[k] = {"haussier": [txt(x) for x in (v.get("haussier") or []) if txt(x)][:5] if isinstance(v.get("haussier"), list) else [],
+                        "baissier": [txt(x) for x in (v.get("baissier") or []) if txt(x)][:5] if isinstance(v.get("baissier"), list) else [],
+                        "a_surveiller": txt(v.get("a_surveiller")), "lecture": txt(v.get("lecture"))}
+    return {"date": c.get("date"), "mode": c.get("mode"), "resume": txt(c.get("resume"), 800), "cultures": cults,
+            "calendrier": [x for x in (c.get("calendrier") if isinstance(c.get("calendrier"), list) else []) if isinstance(x, dict)],
+            "modele": c.get("modele"), "cout_usd": c.get("cout_usd"), "erreur": c.get("erreur")}
 
 
 def read_csv(p):
@@ -242,6 +227,7 @@ def cot_reading(serie, mini=20, today=None, max_age=21):
 
 
 ACTU_CLE = {"ble": "ble", "escourgeon": "orge", "orge_printemps": "orge", "colza": "colza", "mais": "mais"}
+CONTRAT = {"ble": "EBM", "escourgeon": "EBM", "orge_printemps": "EBM", "colza": "ECO", "mais": "EMA"}
 COT_EURONEXT = {"EBM": ("Blé tendre Euronext (fonds)", "ble"), "ECO": ("Colza Euronext (fonds)", "colza"),
                 "EMA": ("Maïs Euronext (fonds)", "mais")}
 
@@ -269,36 +255,11 @@ def suivi_pannes(sources, avant, today):
     return etat, msgs
 
 
-def cot_score(idx):
-    """Lecture à contre-courant : fonds très vendeurs (indice bas) = rachat possible ; très acheteurs = liquidation possible."""
-    if idx is None:
-        return None
-    if idx <= 15:
-        return 1.5
-    if idx >= 85:
-        return -1.5
-    return round(max(-1.0, min(1.0, -(idx - 50) / 35)), 2)
-
-
 def chg(ser, n):
     v = list(ser.values()) if isinstance(ser, dict) else ser
     if len(v) <= n:
         return None
     return (v[-1] / v[-1 - n] - 1) * 100
-
-
-def clamp(v, a=-2.0, b=2.0):
-    return max(a, min(b, v))
-
-
-def matrix(score):
-    if score is None:
-        return None
-    if score <= CFG["matrice"]["vendre"]:
-        return "VENDRE"
-    if score >= CFG["matrice"]["attendre"]:
-        return "ATTENDRE"
-    return "TENIR"
 
 
 # --------------------------------------------------------------------------------------------- engrais
@@ -415,49 +376,25 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
             out["rattrapage"] = round(a["var3m"] - fr["uree"]["var3m"], 1)
     elif "rattrapage" in out["mondial"]:
         out["rattrapage"] = out["mondial"]["rattrapage"]
-    # décision
+    # faits, sans consigne d'achat
     e = CFG["engrais"]
-    steps = ["ATTENDRE", "FRACTIONNER", "SUIVRE", "ACHETER_LARGE"]
-    if pct is None:
-        sig = "SUIVRE"
-    elif pct <= e["ratioBas"]:
-        sig = "ACHETER_LARGE"
-    elif pct <= e["ratioMoyen"]:
-        sig = "SUIVRE"
-    elif pct <= e["ratioHaut"]:
-        sig = "FRACTIONNER"
-    else:
-        sig = "ATTENDRE"
-    notes = [f"Ratio azote/blé au {pct}e percentile sur 10 ans" if pct is not None else "Ratio azote/blé indisponible"]
+    notes = []
+    if pct is not None:
+        notes.append(f"Azote {'bon marché' if pct <= 20 else 'dans la moyenne' if pct <= 60 else 'cher' if pct <= 80 else 'très cher'} "
+                     f"par rapport au blé : ratio au {pct}e percentile sur 10 ans")
     gap = out.get("rattrapage")
-    ttf_faible = bool(out.get("ttf") and (out["ttf"].get("ecart_mm20") or 0) < 0 and (out["ttf"].get("histo") or 0) < 0)
-    if gap is not None and gap > e["rattrapage"]:
-        if ttf_faible:
-            notes.append(f"Rattrapage de {gap:+.0f} pts (gaz plus haussier que l'azote), mais le gaz repasse sous sa MM20 : signal affaibli")
-        else:
-            sig = steps[min(3, steps.index(sig) + 1)]
-            notes.append(f"Rattrapage de {gap:+.0f} pts : hausse de l'azote probable sous 1 à 3 mois, achat avancé d'un cran")
-    elif gap is not None and gap < -e["rattrapage"]:
-        sig = steps[max(0, steps.index(sig) - 1)]
-        notes.append(f"Écart de {gap:+.0f} pts (azote plus haussier que le gaz) : achat retardé d'un cran")
+    if gap is not None and abs(gap) > e["rattrapage"]:
+        notes.append(f"Sur 3 mois, le gaz a {'plus' if gap > 0 else 'moins'} monté que l'urée ({gap:+.0f} pts) : l'urée suit souvent le gaz "
+                     f"avec 1 à 3 mois de retard")
     mo = today.month
-    if mo in e["saisonAchat"]:
-        out["saison"] = "basse (avril-juillet) : fenêtre d'achat habituelle"
-    elif mo in e["saisonChere"]:
-        out["saison"] = "haute (septembre-novembre) : reporter si le plan le permet"
-        if sig == "SUIVRE":
-            notes.append("Saison chère : la tranche peut être reportée")
-    else:
-        out["saison"] = "intermédiaire"
-    if out.get("ttf"):
-        if out["ttf"]["dernier"] > e["ttfHaut"]:
-            notes.append(f"Gaz au-dessus de {e['ttfHaut']} €/MWh : risque de hausse rapide de l'azote")
-        if out["ttf"]["sous_seuil_bas"] >= e["ttfBasSeances"]:
-            notes.append(f"Gaz sous {e['ttfBas']} €/MWh depuis {e['ttfBasSeances']} séances : fenêtre d'achat")
-    pct_now = {"ACHETER_LARGE": "40 à 50 %", "SUIVRE": "la tranche prévue (≈ 25 %)", "FRACTIONNER": "15 à 20 %", "ATTENDRE": "0 à 10 % (l'indispensable)"}
+    out["saison"] = ("basse (avril-juillet) : prix habituellement les plus bas de l'année" if mo in e["saisonAchat"] else
+                     "haute (septembre-novembre) : prix habituellement les plus hauts de l'année" if mo in e["saisonChere"] else "intermédiaire")
+    if out.get("ttf") and out["ttf"]["dernier"] > e["ttfHaut"]:
+        notes.append(f"Gaz au-dessus de {e['ttfHaut']} €/MWh")
+    if out.get("ttf") and out["ttf"]["sous_seuil_bas"] >= e["ttfBasSeances"]:
+        notes.append(f"Gaz sous {e['ttfBas']} €/MWh depuis {e['ttfBasSeances']} séances")
     formes = sorted([(v["euro_un"], k) for k, v in fr.items() if v.get("euro_un")])
-    out.update(signal=sig, libelle=SIG_ENGRAIS[sig], a_acheter=pct_now[sig], notes=notes,
-               forme_moins_chere=(CFG["engraisFrance"][formes[0][1]]["nom"] if formes else None))
+    out.update(notes=notes, forme_moins_chere=(CFG["engraisFrance"][formes[0][1]]["nom"] if formes else None))
     return out
 
 
@@ -616,125 +553,23 @@ def orges(today, ble_vals):
     return out
 
 
-MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
-
-
-def ym(harvest_year, rel):
-    """Mois relatif à janvier de l'année de récolte (1 = janvier, 0 = décembre d'avant, 13 = janvier d'après) → (année, mois)."""
-    k = harvest_year * 12 + rel - 1
-    return k // 12, k % 12 + 1
-
-
-def periode(a, b):
-    (y1, m1), (y2, m2) = a, b
-    return f"{MOIS_FR[m1 - 1]}–{MOIS_FR[m2 - 1]} {y2}" if y1 == y2 else f"{MOIS_FR[m1 - 1]} {y1}–{MOIS_FR[m2 - 1]} {y2}"
-
-
-def plan_vente(cult, today, entry, contrats):
-    """Tranches dues ou prochaines, par récolte en cours de vente, avec l'action conseillée selon le signal et le timing."""
-    cal = (CFG.get("calendrier") or {}).get(cult)
-    if not cal:
-        return []
-    now = (today.year, today.month)
-    out = []
-    for hy in (today.year - 1, today.year, today.year + 1):
-        tr = [(ym(hy, a), ym(hy, b), pct) for a, b, pct in cal["tranches"]]
-        if not (tr[0][0] <= now <= tr[-1][1]) and not (now < tr[0][0] and (tr[0][0][0] * 12 + tr[0][0][1]) - (now[0] * 12 + now[1]) <= 2):
-            continue  # récolte hors calendrier (vendue, ou ventes pas encore ouvertes)
-        due, nxt, done = None, None, 0
-        for a, b, pct in tr:
-            if b < now:
-                done += pct
-            elif a <= now <= b and due is None:
-                due = (a, b, pct, done + pct)
-            elif a > now and nxt is None:
-                nxt = (a, b, pct)
-        harvest_m = 10 if cult == "mais" else 7
-        pre = (now[0], now[1]) < (hy, harvest_m)
-        e = {"recolte": hy, "avant_moisson": pre, "cumul_fait": done}
-        nr = entry.get("niveaux_retenus") or {}
-        ordres = nr.get("ordres") or []
-        ref = cal.get("reference")
-        if ref:
-            c = contrats.get(ref[0]) or {}
-            mat = f"{hy}-{ref[1]:02d}"
-            pts = {p["echeance"]: p["prix"] for p in ((c.get("courbe") or {}).get("points") or [])}
-            if mat in pts:
-                e["reference"] = {"contrat": ref[0], "echeance": mat, "prix": pts[mat]}
-                # récolte à venir : ordres décalés de l'écart entre son échéance et l'échéance de référence du jour
-                cur = c.get("dernier_reel")
-                if pre and ordres and cur and mat != c.get("echeance"):
-                    ordres = [round((o + pts[mat] - cur) * 4) / 4 for o in ordres]
-        if due:
-            a, b, pct, cible = due
-            fin = date(b[0], b[1], calendar.monthrange(b[0], b[1])[1])
-            e.update(statut="due", periode=periode(a, b), pct=pct, cumul_vise=cible, fin=fin.isoformat())
-            sig = entry.get("signal")
-            feu = (entry.get("feu") or {}).get("code")
-            contrat = cal.get("contrat") and pre  # orge de printemps avant la moisson : contrats malterie
-            quoi = "la tranche par contrat malterie" if contrat else "la tranche"
-            if sig == "VENDRE":
-                extra = nxt[2] if nxt else 0
-                if pre:  # jamais plus de 35 % de la récolte vendus avant la moisson
-                    extra = max(0, min(extra, 35 - cible))
-                e["action"] = (f"Avancer : vendre {quoi} et la suivante ({pct + extra} %)" if extra
-                               else f"Vendre {quoi} ({pct} %) : plafond de 35 % avant la moisson atteint")
-                e["code"] = "vendre"
-            elif sig == "ATTENDRE":
-                e["action"] = f"Décaler {quoi} : attendre ou stocker"
-                e["code"] = "attendre"
-            elif sig == "COUVRIR":
-                e["action"] = f"Couvrir {quoi} (vente à terme ou option de vente) sans livrer le grain"
-                e["code"] = "couvrir"
-            elif contrat:
-                e["action"] = f"Contractualiser {pct} % avec la malterie si la prime brassicole tient"
-                e["code"] = "executer"
-            elif ordres:
-                lieu = "quand le blé Euronext atteint" if nr.get("sur_ble") else "par ordre à"
-                o = f"{ordres[0]:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " €/t"
-                if pre and ref:  # récolte à venir : l'ordre porte sur l'échéance de la nouvelle récolte
-                    o += f" (échéance {MOIS_FR[ref[1] - 1]} {hy})"
-                if feu == "attendre":
-                    e["action"] = f"Ne pas vendre au marché (creux) : {pct} % {lieu} {o}"
-                    e["code"] = "ordre"
-                elif feu == "accelerer":
-                    e["action"] = f"Vendre {pct} % maintenant : le marché s'essouffle (sinon {lieu} {o})"
-                    e["code"] = "executer"
-                else:
-                    e["action"] = f"Vendre {pct} % {lieu} {o}, au marché seulement si besoin de trésorerie"
-                    e["code"] = "ordre"
-                e["ordre"] = ordres[0]
-            elif feu == "attendre":
-                e["action"] = f"Ne pas vendre au marché (creux) : attendre un rebond pour ces {pct} %"
-                e["code"] = "patienter"
-            else:
-                e["action"] = f"Vendre {pct} % d'ici fin {MOIS_FR[b[1] - 1]}"
-                e["code"] = "executer"
-            if pre and not contrat and ref and not e.get("ordre"):
-                e["action"] += f" (échéance {MOIS_FR[ref[1] - 1]} {hy})"
-        elif nxt:
-            a, b, pct = nxt
-            e.update(statut="prochaine", periode=periode(a, b), pct=pct, cumul_vise=done + pct,
-                     action=f"Rien de prévu avant {MOIS_FR[a[1] - 1]} {a[0]}", code="rien")
-        else:
+# --------------------------------------------------------------------------------------------- calcul principal
+def seuils_cfg():
+    """Seuils de l'exploitant (config.json → seuils) : {culture: {"au_dessus": [..], "en_dessous": [..]}} en €/t."""
+    out = {}
+    for k, v in as_dict(CFG.get("seuils")).items():
+        if k.startswith("_") or not isinstance(v, dict):
             continue
-        out.append(e)
+        out[k] = {s: sorted({float(x) for x in (v.get(s) or []) if fnum(x) is not None and float(x) > 0}) for s in ("au_dessus", "en_dessous")}
     return out
 
 
-# --------------------------------------------------------------------------------------------- calcul principal
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
     eur = read_csv(PRIV / "euronext.csv")
     yahoo = {k: v for k, v in as_dict(load_json(PRIV / "yahoo.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), dict)}
     cftc = {k: v for k, v in as_dict(load_json(PRIV / "cftc.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
     cot_eu = {k: v for k, v in as_dict(load_json(PRIV / "cot_euronext.json", {})).items() if isinstance(v, dict) and isinstance(v.get("serie"), list)}
-    seed_c = load_json(HERE / "seed" / "comite-initial.json", {})
-    cur_c = load_json(OUT / "comite.json", {})
-    if cur_c.get("date") == seed_c.get("date") and "(session)" in str(cur_c.get("modele")) and cur_c.get("version_seed") != seed_c.get("version_seed"):
-        (OUT / "comite.json").unlink()  # comité de départ corrigé : nouvelle version reprise
-    if not (OUT / "comite.json").exists() and (HERE / "seed" / "comite-initial.json").exists():
-        (OUT / "comite.json").write_bytes((HERE / "seed" / "comite-initial.json").read_bytes())  # premier calcul : comité du 07/11/2026
     comite = clean_comite(load_json(OUT / "comite.json", {}))
     etat = as_dict(load_json(OUT / "etat.json", {}))
     collecte = as_dict(load_json(OUT / "collecte.json", {}))
@@ -747,8 +582,9 @@ def main():
         a = ind.analyse(list(s.keys()), list(s.values()))
         a.pop("_rsi", None)
         a.pop("_histo", None)
-        inter[tk] = {"nom": y.get("nom", tk), "technique": a, "score_technique": ind.score_technique(a)}
+        inter[tk] = {"nom": y.get("nom", tk), "technique": a, "lecture": ind.lecture(a)}
 
+    # ------------------------------------------------------------------- contrats Euronext : cours, technique, vues longues
     contrats, series_ble = {}, ([], [])
     for prod, c in CFG["euronext"].items():
         d, v, ref, rac, curve = continuous(eur, prod)
@@ -757,17 +593,16 @@ def main():
             continue
         a = ind.analyse(d, v)
         rs_, hs_ = a.pop("_rsi", None), a.pop("_histo", None)
-        info = {"nom": c["nom"], "culture": c["culture"], "echeance": ref, "series": mini_series(d, rs_, hs_), "technique": a, "score_technique": ind.score_technique(a),
-                "feu": ind.feu_execution(a), "niveaux": ind.niveaux(a), "courbe": courbe(prod, curve, ref), "raccords": rac[-3:],
-                "dernier_reel": curve.get(ref), "seance": d[-1],
-                "_serie": dict(zip(d, v)), "_curve": curve, "_raccords": rac}
+        info = {"nom": c["nom"], "culture": c["culture"], "echeance": ref, "series": mini_series(d, rs_, hs_), "technique": a,
+                "lecture": ind.lecture(a), "courbe": courbe(prod, curve, ref), "raccords": rac[-3:], "dernier_reel": curve.get(ref),
+                "seance": d[-1], "_serie": dict(zip(d, v)), "_curve": curve, "_raccords": rac}
         recent = [r for r in rac if r["ajustement"] is None and r["date"] >= d[max(0, len(d) - 63)]]
         if recent:
             info["alerte_raccord"] = f"Changement d'échéance du {recent[-1]['date']} non ajusté (pas de cotation commune) : indicateurs approximatifs"
         if a.get("insuffisant"):  # historique Euronext encore court : lecture technique du marché américain, converti en €/t
             px = PROXY.get(prod)
             pd_, pv = proxy_eur(yahoo, px)
-            fx_ = recale(pd_, pv, d, v)  # lecture de secours au niveau d'Euronext (sinon 155 €/t affichés pour un maïs à 247)
+            fx_ = recale(pd_, pv, d, v)
             pv = [x * fx_ for x in pv]
             if len(pv) >= 30:
                 pa = ind.analyse(pd_, pv)
@@ -775,13 +610,12 @@ def main():
                 m20, m50 = ind.sma(pv, 20), ind.sma(pv, 50)
                 kk = max(0, len(pv) - 120)
                 nom_px = (yahoo.get(px) or {}).get("nom", px)
-                info.update(score_technique=ind.score_technique(pa), feu=ind.feu_execution(pa),
-                            proxy={"ticker": px, "nom": nom_px, "technique": pa, "series": mini_series(pd_, prs, phs),
-                                   "niveaux": ind.niveaux(pa),
-                                   "graphique": [[pd_[i], round(pv[i], 2), round(m20[i], 2) if m20[i] else None,
-                                                  round(m50[i], 2) if m50[i] else None] for i in range(kk, len(pv))],
-                                   "texte": f"Historique Euronext de {a['seances']} séance(s), 30 nécessaires (environ 6 semaines) : en attendant, "
-                                            f"lecture technique de {nom_px} converti en €/t et recalé sur le cours Euronext du jour"})
+                info["lecture"] = ind.lecture(pa)
+                info["proxy"] = {"ticker": px, "nom": nom_px, "technique": pa, "series": mini_series(pd_, prs, phs),
+                                 "graphique": [[pd_[i], round(pv[i], 2), round(m20[i], 2) if m20[i] else None,
+                                                round(m50[i], 2) if m50[i] else None] for i in range(kk, len(pv))],
+                                 "texte": f"Historique Euronext de {a['seances']} séance(s), 30 nécessaires (environ 6 semaines) : en attendant, "
+                                          f"lecture technique de {nom_px} converti en €/t et recalé sur le cours Euronext du jour"}
         mm20, mm50 = ind.sma(v, 20), ind.sma(v, 50)
         k = max(0, len(v) - 120)
         info["graphique"] = [[d[i], round(v[i], 2), round(mm20[i], 2) if mm20[i] else None, round(mm50[i], 2) if mm50[i] else None]
@@ -790,7 +624,7 @@ def main():
         lv = long_views(fd, fv) if len(fd) >= 260 else None
         if lv and lv["semaines"] >= 104:  # au moins 2 ans de cours officiels Euronext : vues longues et thermomètre sur Euronext
             info["long"] = {**lv, "source": "euronext", "nom": "Euronext (échéance la plus proche)", "euronext_depuis": fd[0]}
-        else:  # historique encore court : marché américain converti en €/t et recalé sur Euronext
+        else:
             info["long"] = vue_longue(yahoo, PROXY.get(prod), d, v)
         contrats[prod] = info
         if prod == "EBM":
@@ -810,6 +644,8 @@ def main():
         places = (CFG.get("primeLocale") or {}).get(info.get("culture"))
         if places:
             info["prime_locale"] = dec.prime_locale(read_csv(PRIV / "physique_hist.csv"), places, front_on(eur, prod))
+
+    # ------------------------------------------------------------------- contexte : saisons, bilans, météo, fonds, macro
     longue = as_dict(load_json(PRIV / "yahoo_long.json", {}))
     src_s = longue if all(k in longue for k in ("ZW=F", "ZC=F", "EURUSD=X")) else yahoo
     saison = {}
@@ -845,38 +681,19 @@ def main():
             z["etat"] = dec.meteo_etat(z)[1]
             zones[zn] = z
     meteo = dec.meteo_score(zones, CFG["meteo"], today) if zones else {}
-
     cot = {}
     for code, c in CFG["cftc"]["marches"].items():
         rd = cot_reading((cftc.get(code) or {}).get("serie"), today=today)
         if rd:
-            sc_ = cot_score(rd["indice"])
-            rd.update(nom=c["nom"], culture=c["culture"], score=round(sc_, 2) if sc_ is not None else None, source="cftc")
+            rd.update(nom=c["nom"], culture=c["culture"], source="cftc")
             cot[code] = rd
     for prod, (nom_, cult_) in COT_EURONEXT.items():  # fonds d'investissement sur Euronext : la lecture directe du marché français
         rd = cot_reading((cot_eu.get(prod) or {}).get("serie"), mini=26, today=today)
         if rd:
-            sc_ = cot_score(rd["indice"])
-            rd.update(nom=nom_, culture=cult_, score=round(sc_, 2) if sc_ is not None else None, source="euronext")
+            rd.update(nom=nom_, culture=cult_, source="euronext")
             cot["EURONEXT_" + prod] = rd
-
-    eurusd = (yahoo.get("EURUSD=X") or {}).get("serie") or {}
-    brent = (yahoo.get("BZ=F") or {}).get("serie") or {}
-    e20, b20 = chg(eurusd, 20), chg(brent, 20)
-
-    def macro(cult):
-        if e20 is None and b20 is None:
-            return None
-        s = -clamp((e20 or 0) / 2, -1, 1) * 0.5  # euro qui monte : export européen moins compétitif
-        if cult == "colza":
-            s += clamp((b20 or 0) / 10, -1, 1) * 0.75
-        elif cult == "mais":
-            s += clamp((b20 or 0) / 10, -1, 1) * 0.25
-        return round(s, 2)
-
-    # ------------------------------------------------------------------- psychologie des marchés : humeur peur ↔ euphorie
-    # (RSI, écart à la MM200, élan sur 20 séances, position des fonds) ; éclairage seulement : sur Euronext depuis 2019, elle
-    # n'a pas annoncé la suite des prix (backtest, onglet Méthode), elle n'entre donc pas dans la note de marché
+    e20, b20 = chg((yahoo.get("EURUSD=X") or {}).get("serie") or {}, 20), chg((yahoo.get("BZ=F") or {}).get("serie") or {}, 20)
+    # psychologie des marchés : humeur peur ↔ euphorie (éclairage ; elle n'a pas annoncé la suite des prix, onglet Méthode)
     for prod, ci in contrats.items():
         ser = list((ci.get("_serie") or {}).values())
         f, fsrc = (cot.get("EURONEXT_" + prod) or {}).get("indice"), "fonds sur Euronext"
@@ -892,178 +709,83 @@ def main():
     actu = as_dict(load_json(OUT / "actualites.json", {}))
     actu_frais = str(actu.get("date", "")) >= (today - timedelta(days=2)).isoformat()
     pression = as_dict(actu.get("pression")) if actu_frais else {}
-
-    W, WC = CFG["poids"], CFG["poidsComite"]
-    com_refs = as_dict(comite.get("references"))
-
-    def com_shift(prod):
-        """Niveaux du comité fixés sur l'échéance de référence du jour du comité : après un changement d'échéance, ils sont
-        décalés de l'écart entre la nouvelle et l'ancienne échéance (courbe du jour, sinon ajustement du raccord)."""
-        ci = contrats.get(prod) or {}
-        cr, cur = com_refs.get(prod), ci.get("echeance")
-        if not cr or not cur or cr == cur:
-            return 0.0
-        rc = ci.get("_curve") or {}
-        if cr in rc and cur in rc:
-            return rc[cur] - rc[cr]
-        return sum(r["ajustement"] for r in ci.get("_raccords") or []
-                   if r["ajustement"] is not None and r["date"] > str(comite.get("date", ""))[:10])
     valid_comite = False
     if comite.get("date"):
         try:
-            valid_comite = (today - date.fromisoformat(comite["date"][:10])).days <= CFG["comite"]["joursValidite"]
+            valid_comite = (today - date.fromisoformat(str(comite["date"])[:10])).days <= CFG["comite"]["joursValidite"]
         except ValueError:
             pass
+
+    # ------------------------------------------------------------------- lecture du marché par culture
+    org = orges(today, series_ble[1])
+    seuils = seuils_cfg()
     cultures = {}
     for cult, nom in CULTURES.items():
-        prod = {"ble": "EBM", "escourgeon": "EBM", "orge_printemps": "EBM", "colza": "ECO", "mais": "EMA"}[cult]
-        ci = contrats.get(prod, {})
-        base = "ble" if cult in ("escourgeon", "orge_printemps") else cult
-        cots = [x["score"] for x in cot.values() if x["culture"] == base and x["score"] is not None and x.get("source") == "cftc"]
-        cs = sum(cots) / len(cots) if cots else None
-        if base == "colza" and cs is not None:
-            cs *= 0.5  # soja et huile de soja US : lecture indirecte pour le colza
-        eu = (cot.get("EURONEXT_" + prod) or {}).get("score")
-        if eu is not None:  # Euronext 70 %, États-Unis 30 %
-            cs = round(0.7 * eu + 0.3 * cs, 2) if cs is not None else eu
-        parts = {"technique": ci.get("score_technique"), "cot": cs, "macro": macro(base), "meteo": (meteo.get(base) or {}).get("score")}
-        num = sum(W[k] * v for k, v in parts.items() if v is not None)
-        den = sum(W[k] for k, v in parts.items() if v is not None)
-        q = round(num / den, 2) if den else None
-        entry = {"nom": nom, "contrat": prod, "score_marche": q, "lecture_marche": matrix(q), "composantes": parts,
-                 "feu": ci.get("feu"), "niveaux": ci.get("niveaux"), "proxy": cult in ("escourgeon", "orge_printemps")}
-        cc = (comite.get("cultures") or {}).get(cult) if valid_comite else None
-        if cc and cc.get("signal") in SIGNAUX:
-            entry.update(signal=cc["signal"], source="comite", comite=cc)
-            sc = fnum(cc.get("score"))
-            then = ((comite.get("chiffres") or {}).get(cult) or {}).get("composantes") or {}
-            if sc is not None:
-                delta = sum(WC[k] * (parts[k] - then[k]) for k in WC if parts.get(k) is not None and then.get(k) is not None)
-                entry["score_actualise"] = round(sc + delta, 2)
-                if matrix(entry["score_actualise"]) != matrix(sc):
-                    entry["a_revoir"] = (f"Depuis le comité, la technique, les fonds et la macro font passer le score de {sc:+.2f} à "
-                                         f"{entry['score_actualise']:+.2f} : signal à revoir")
+        prod = CONTRAT[cult]
+        ci = contrats.get(prod) or {}
+        sur_ble = cult in ("escourgeon", "orge_printemps")
+        ser = list((ci.get("_serie") or {}).values())
+        o = org.get(cult) or {}
+        e = {"nom": nom, "contrat": prod, "proxy": sur_ble, "echeance": ci.get("echeance"), "seance": ci.get("seance")}
+        if sur_ble:  # pas de marché à terme : prix physique Creil, technique et repères du blé Euronext
+            g = [r for r in o.get("graphique") or [] if r[1] is not None]
+            e.update(cours=o.get("prix"), physique=True, date=o.get("date"),
+                     var1j=round(g[-1][1] - g[-2][1], 2) if len(g) >= 2 else None, var1m=o.get("var1m"))
         else:
-            entry.update(signal="TENIR", source="sans_comite",
-                         note="Pas d'avis du comité valide : plan calendaire par défaut ; la lecture de marché seule ne suffit pas à vendre")
-        # une seule série de niveaux par culture : ceux du comité s'il en a fixé, sinon les niveaux techniques
-        tech = ci.get("niveaux") or {}
-        cc_ = entry.get("comite") or {}
-        c_ord = [float(x) for x in (cc_.get("ordres") or []) if fnum(x) is not None]
-        cur = (ci.get("technique") or {}).get("dernier")
-        if c_ord or fnum(cc_.get("revision_bas")) is not None:
-            dl = com_shift(prod)
-            q4 = lambda x: round(x * 4) / 4  # noqa: E731
-            rv = fnum(cc_.get("revision_bas"))
-            paires = sorted(((q4(x + dl), q) for x, q in zip(c_ord, (cc_.get("ordres_pct") or [None] * len(c_ord)))
-                             if cur is None or x + dl > cur), key=lambda t: t[0])
-            ret = {"source": "comite", "ordres": [x for x, _ in paires],
-                   "revision": q4(rv + dl) if rv is not None else None, "decalage_echeance": round(dl, 2)}
-            if any(q for _, q in paires):
-                ret["ordres_pct"] = [q for _, q in paires]
-        elif cult not in ("escourgeon", "orge_printemps") and not ci.get("proxy"):
-            ret = {"source": "technique", "ordres": tech.get("ordres") or [], "revision": tech.get("revision")}
-        else:
-            ret = {"source": "aucun", "ordres": [], "revision": None}
-        ret.update(contrat=prod, echeance=ci.get("echeance"), sur_ble=cult in ("escourgeon", "orge_printemps"))
-        entry["niveaux_retenus"] = ret
-        entry["libelle"] = SIGNAUX.get(entry["signal"] or "", "—")
-        cultures[cult] = entry
-
-    for cult, e in cultures.items():
-        e["plan"] = plan_vente(cult, today, e, contrats)
-        # probabilité que chaque ordre (et le seuil de révision) soit touché d'ici la fin de la tranche due (volatilité des
-        # 3 derniers mois, sans tendance) : aide à placer des ordres réalistes
-        nr = e["niveaux_retenus"]
-        ci = contrats.get(nr.get("contrat")) or {}
-        s0, ser = ci.get("dernier_reel"), list((ci.get("_serie") or {}).values())
-        vj = dec.vol_quotidienne(ser) if ser else None
-        due = next((p for p in e["plan"] if p.get("statut") == "due" and not p.get("avant_moisson")), None) or \
-            next((p for p in e["plan"] if p.get("statut") == "due"), None)
-        fin = date.fromisoformat(due["fin"]) if due and due.get("fin") else today + timedelta(days=30)
-        n = max(5, sum(1 for k in range((fin - today).days) if (today + timedelta(days=k + 1)).weekday() < 5))
-        # biais d'ancrage : le plus haut de la campagne (série ajustée, au niveau de l'échéance du jour) et la chance de le revoir
-        # d'ici la fin de la tranche ; « attendre encore 5 € » : chances de les voir, et risque de voir le cours reculer de 5 €
-        if s0 and vj:
-            deb = 10 if cult == "mais" else 7
-            y0 = today.year if today.month >= deb else today.year - 1
-            camp = {d_: v_ for d_, v_ in (ci.get("_serie") or {}).items() if d_ >= f"{y0}-{deb:02d}-01"}
-            if len(camp) >= 10:
-                dh = max(camp, key=camp.get)
-                hi = camp[dh]
-                e["biais"] = {"plus_haut": round(hi, 2), "plus_haut_le": dh, "ecart": round(s0 - hi, 2), "depuis": f"{y0}-{deb:02d}-01",
-                              "chance_plus_haut": dec.proba_toucher(s0, hi, vj, n) if hi > s0 * 1.005 else None,
-                              "gagner5": dec.proba_toucher(s0, s0 + 5, vj, n), "perdre5": dec.proba_toucher(s0, s0 - 5, vj, n),
-                              "horizon": fin.isoformat(), "sur_ble": cult in ("escourgeon", "orge_printemps")}
-        if pression.get(ACTU_CLE.get(cult)):
+            e.update(cours=ci.get("dernier_reel"), physique=False, date=ci.get("seance"),
+                     var1j=round(ser[-1] - ser[-2], 2) if len(ser) >= 2 else None, var1s=(ci.get("technique") or {}).get("var1s"))
+        lec = dict(ci.get("lecture") or {}) or None
+        if lec and sur_ble:  # niveaux du blé ramenés au niveau de l'orge (écart physique − blé du jour)
+            gap = o.get("ecart_ble")
+            lec["sur_ble"] = True
+            if gap is not None:
+                lec["resistances"] = [round(x + gap, 2) for x in lec.get("resistances") or []]
+                lec["supports"] = [round(x + gap, 2) for x in lec.get("supports") or []]
+            else:
+                lec["resistances"], lec["supports"] = [], []
+        e["technique"] = lec
+        if pression.get(ACTU_CLE[cult]):
             e["actualite"] = pression[ACTU_CLE[cult]]
-        if s0 and vj and (nr.get("ordres") or nr.get("revision")):
-            nr["probas"] = {"horizon": fin.isoformat(), "seances": n, "vol_annuelle": round(vj * math.sqrt(252) * 100, 1),
-                            "ordres": [dec.proba_toucher(s0, o, vj, n) for o in nr.get("ordres") or []],
-                            "revision": dec.proba_toucher(s0, nr["revision"], vj, n) if nr.get("revision") else None,
-                            "cours": s0}
-    for prod, main in (("EBM", "ble"), ("ECO", "colza"), ("EMA", "mais")):
-        if prod in contrats and main in cultures:
-            contrats[prod]["niveaux_retenus"] = cultures[main]["niveaux_retenus"]
-    org = orges(today, series_ble[1])
-    eb = contrats.get("EBM") or {}
-    for cult, e in org.items():
-        gap = e.get("ecart_ble")
-        nrc = (cultures.get(cult) or {}).get("niveaux_retenus") or {}
+        th = ci.get("thermo") or {}
+        rp = {"percentile5": th.get("percentile"), "p20": th.get("p20"), "p80": th.get("p80"), "sur_ble": sur_ble}
+        deb = 10 if cult == "mais" else 7
+        y0 = today.year if today.month >= deb else today.year - 1
+        camp = {d_: v_ for d_, v_ in (ci.get("_serie") or {}).items() if d_ >= f"{y0}-{deb:02d}-01"}
+        if len(camp) >= 10 and ci.get("dernier_reel"):
+            dh = max(camp, key=camp.get)
+            rp.update(plus_haut=round(camp[dh], 2), plus_haut_le=dh, ecart_plus_haut=round(ci["dernier_reel"] - camp[dh], 2),
+                      campagne_depuis=f"{y0}-{deb:02d}-01")
+        e["reperes"] = rp
+        if o:
+            e["physique_detail"] = {k: o.get(k) for k in ("prix", "date", "place", "fourragere", "prime", "ecart_ble", "rouen_rendu")}
+        sl = seuils.get(cult) or {}
+        if e.get("cours") and (sl.get("au_dessus") or sl.get("en_dessous")):
+            e["seuils"] = ([{"sens": ">", "niveau": x, "atteint": e["cours"] >= x} for x in sl.get("au_dessus") or []]
+                           + [{"sens": "<", "niveau": x, "atteint": e["cours"] <= x} for x in sl.get("en_dessous") or []])
+        cc = (comite.get("cultures") or {}).get(cult) if valid_comite else None
+        if cc:
+            e["comite"] = cc
+        cultures[cult] = e
+    for cult, o in org.items():  # graphiques des orges : blé décalé de l'écart du jour, points physiques par-dessus
+        gap, eb = o.get("ecart_ble"), contrats.get("EBM") or {}
         if gap is not None and eb.get("graphique"):
             sh = lambda r: [r[0]] + [round(x + gap, 2) if x is not None else None for x in r[1:4]]  # noqa: E731
-            phys = {p_[0]: p_[1] for p_ in e.get("graphique") or []}
-            e["estime"] = {
-                "ecart": gap,
-                "graphique": [sh(r) for r in eb["graphique"]],
-                "long": None,  # vues 1 an / 5 ans : reconstruites par la page à partir de celles du blé (évite de publier deux copies)
-                "long_depuis_ble": bool(eb.get("long")),
-                "technique": decale(eb.get("technique"), gap), "series": eb.get("series"),
-                # niveaux de la culture (comité ou aucun), exprimés au niveau de l'orge : mêmes chiffres que la carte Signaux
-                "niveaux": ({"ordres": [round(o + gap, 2) for o in (nrc.get("ordres") or [])],
-                             "revision": round(nrc["revision"] + gap, 2) if nrc.get("revision") else None}),
-            }
-            # points physiques réels par-dessus (4e colonne)
-            for r in e["estime"]["graphique"]:
-                r.append(phys.get(r[0]))
-    for cult, e in org.items():
-        if cult in cultures:
-            cultures[cult]["physique"] = {k: e.get(k) for k in ("prix", "date", "place", "fourragere", "prime", "ecart_ble", "rouen_rendu")}
-            if e.get("estime"):
-                cultures[cult]["niveaux_retenus"]["equivalent_orge"] = e["estime"]["niveaux"]
+            phys = {p_[0]: p_[1] for p_ in o.get("graphique") or []}
+            o["estime"] = {"ecart": gap, "graphique": [sh(r) + [phys.get(r[0])] for r in eb["graphique"]],
+                           "long": None, "long_depuis_ble": bool(eb.get("long")), "technique": decale(eb.get("technique"), gap),
+                           "series": eb.get("series"), "lecture": (cultures.get(cult) or {}).get("technique")}
     engrais = module_engrais(today, series_ble[0], series_ble[1], yahoo)
-    if valid_comite and comite.get("engrais", {}).get("signal") in SIG_ENGRAIS:
-        engrais["comite"] = comite["engrais"]
-    # décision du jour, calculée une seule fois pour la page, l'email et la synthèse PDF
-    for cult, e in cultures.items():
-        gap = (org.get(cult) or {}).get("ecart_ble") if (e.get("niveaux_retenus") or {}).get("sur_ble") else None
-        e["decision"] = dec.decision_jour(e, contrats.get(e["contrat"]), gap)
-        for p_ in e.get("plan") or []:
-            p_["resume"] = dec.tranche_txt(p_, (e.get("niveaux_retenus") or {}).get("sur_ble"), gap)
-    engrais["decision"] = dec.decision_azote(engrais)
+    if pression.get("engrais"):
+        engrais["actualite"] = pression["engrais"]
+    sl = seuils.get("uree") or {}
+    up = (engrais.get("france") or {}).get("uree", {}).get("prix")
+    if up and (sl.get("au_dessus") or sl.get("en_dessous")):
+        engrais["seuils"] = ([{"sens": ">", "niveau": x, "atteint": up >= x} for x in sl.get("au_dessus") or []]
+                             + [{"sens": "<", "niveau": x, "atteint": up <= x} for x in sl.get("en_dessous") or []])
+    if valid_comite and (comite.get("cultures") or {}).get("engrais"):
+        engrais["comite"] = comite["cultures"]["engrais"]
 
-    # ------------------------------------------------------------------- carnet de bord : chaque avis du comité, noté à 4 et 8 semaines
-    carnet = [x for x in (load_json(OUT / "carnet.json", []) or []) if isinstance(x, dict) and x.get("id")]
-    cdate = str(comite.get("date", ""))[:10]
-    for cult, e in cultures.items():
-        ci = contrats.get(e["contrat"]) or {}
-        if e.get("source") == "comite" and ci.get("seance"):
-            px = (e.get("physique") or {}).get("prix") if e.get("proxy") else ci.get("dernier_reel")
-            dec.carnet_ajoute(carnet, cult, ci["seance"], e["signal"], px, cdate, (e.get("comite") or {}).get("pct") or "")
-    uree = {r["date"]: float(r["price"]) for r in read_csv(PRIV / "fert_fr.csv") if r.get("product") == "uree" and fnum(r.get("price"))}
-    if (engrais.get("comite") or {}).get("signal") and uree:
-        last_u = max(uree)
-        dec.carnet_ajoute(carnet, "engrais", last_u, engrais["comite"]["signal"], uree[last_u], cdate, engrais["comite"].get("pct") or "")
-    for x in carnet:
-        if x["cle"] == "engrais":
-            dec.carnet_note(x, uree, today, engrais=True)
-        else:
-            prod = {"ble": "EBM", "escourgeon": "EBM", "orge_printemps": "EBM", "colza": "ECO", "mais": "EMA"}.get(x["cle"])
-            dec.carnet_note(x, (contrats.get(prod) or {}).get("_serie") or {}, today)
-    carnet = sorted(carnet, key=lambda x: (x["date"], x["cle"]))[-120:]
-    save_json(OUT / "carnet.json", carnet)
-
-    # ------------------------------------------------------------------- déclencheurs (comparaison avec la veille)
+    # ------------------------------------------------------------------- alertes (comparaison avec la veille), en faits
     trig = []
 
     def add(key, titre, detail, grave=False):
@@ -1078,77 +800,72 @@ def main():
         except ValueError:
             return False
 
+    def franchi(avant, apres, sl):
+        """Seuils de l'exploitant franchis entre deux cours : [(sens, niveau)]."""
+        return ([(">", x) for x in sl.get("au_dessus") or [] if avant < x <= apres]
+                + [("<", x) for x in sl.get("en_dessous") or [] if avant > x >= apres])
+
     for prod, ci in contrats.items():
         a = ci.get("technique") or {}
         p = prev.get(prod, {})
         marques[prod] = {"bas3m_le": p.get("bas3m_le"), "haut3m_le": p.get("haut3m_le")}
-        if a.get("insuffisant") or "dernier" not in a:
-            continue
-        if p.get("seance") == ci["seance"]:
+        if a.get("insuffisant") or "dernier" not in a or p.get("seance") == ci["seance"]:
             continue  # pas de nouvelle séance : rien à comparer
-        nom = ci["nom"]
-        last = a["dernier"]
+        nom, last = ci["nom"], a["dernier"]
         # cours de la veille pris dans la série ajustée : un changement d'échéance ne passe pas pour un mouvement de prix
         pl = (ci.get("_serie") or {}).get(p.get("seance"), p.get("dernier"))
-        if pl is not None:
-            if last < a["bas3m_hier"] and not recent(p.get("bas3m_le")):
-                add(prod + ":bas3m", f"{nom} : nouveau plus bas de 3 mois ({last:.2f})", "Le score est à revoir (cadre de vente, règle 3)", True)
-                marques[prod]["bas3m_le"] = today.isoformat()
-            elif last > a["haut3m_hier"] and not recent(p.get("haut3m_le")):
-                add(prod + ":haut3m", f"{nom} : nouveau plus haut de 3 mois ({last:.2f})", "Moment favorable pour une tranche prévue", True)
-                marques[prod]["haut3m_le"] = today.isoformat()
-            rs, rp = a.get("rsi"), p.get("rsi")
-            if rs is not None and rp is not None:
-                if rs < 30 <= rp:
-                    add(prod + ":rsi30", f"{nom} : RSI sous 30 ({rs:.0f})", "Survente : ne pas vendre le creux, placer les ordres sur rebond")
-                if rs > 70 >= rp:
-                    add(prod + ":rsi70", f"{nom} : RSI au-dessus de 70 ({rs:.0f})", "Surachat : fenêtre pour une tranche")
-            h, hp = a.get("histo"), p.get("histo")
-            if h is not None and hp is not None and (h > 0) != (hp > 0):
-                add(prod + ":macd", f"{nom} : croisement {'haussier' if h > 0 else 'baissier'} du MACD", f"Histogramme {hp:+.2f} → {h:+.2f}")
-            # niveaux du comité (ordres et seuils de révision), décalés si l'échéance de référence a changé depuis le comité
-            dl = com_shift(prod)
-            for t in ((comite.get("declencheurs") or []) if valid_comite else []):
-                if t.get("contrat") != prod or fnum(t.get("niveau")) is None:
-                    continue
-                lv = round((float(t["niveau"]) + dl) * 4) / 4
-                if (t.get("sens") == ">" and pl <= lv < last) or (t.get("sens") == "<" and pl >= lv > last):
-                    add(f"{prod}:niveau:{lv}", f"{nom} : niveau {lv:g} franchi ({last:.2f})", t.get("texte") or "Niveau fixé par le comité", True)
-    for cult, e in cultures.items():  # changement de signal, pour toutes les cultures (orges comprises), séance nouvelle ou non
-        old_sig = (etat.get("signaux") or {}).get(cult)
-        new_sig = e.get("signal")
-        if old_sig and new_sig and old_sig != new_sig:
-            add(cult + ":signal", f"{e['nom']} : signal {SIGNAUX.get(old_sig, old_sig)} → {SIGNAUX.get(new_sig, new_sig)}", "Changement de signal", True)
-    for cult, e in cultures.items():
-        if e.get("a_revoir") and not (etat.get("a_revoir") or {}).get(cult):
-            add(f"{cult}:revoir", f"{e['nom']} : signal du comité à revoir", e["a_revoir"], True)
+        if pl is None:
+            continue
+        if last < a["bas3m_hier"] and not recent(p.get("bas3m_le")):
+            add(prod + ":bas3m", f"{nom} : plus bas de 3 mois ({fr_n(last)} €/t)", f"Sous le plus bas précédent de {fr_n(a['bas3m_hier'])} €/t")
+            marques[prod]["bas3m_le"] = today.isoformat()
+        elif last > a["haut3m_hier"] and not recent(p.get("haut3m_le")):
+            add(prod + ":haut3m", f"{nom} : plus haut de 3 mois ({fr_n(last)} €/t)", f"Au-dessus du plus haut précédent de {fr_n(a['haut3m_hier'])} €/t")
+            marques[prod]["haut3m_le"] = today.isoformat()
+        rs, rp_ = a.get("rsi"), p.get("rsi")
+        if rs is not None and rp_ is not None:
+            if rs < 30 <= rp_:
+                add(prod + ":rsi30", f"{nom} : RSI sous 30 ({rs:.0f})", "Survente : baisse rapide et forte à court terme")
+            if rs > 70 >= rp_:
+                add(prod + ":rsi70", f"{nom} : RSI au-dessus de 70 ({rs:.0f})", "Surachat : hausse rapide et forte à court terme")
+        h, hp = a.get("histo"), p.get("histo")
+        if h is not None and hp is not None and (h > 0) != (hp > 0):
+            add(prod + ":macd", f"{nom} : croisement {'haussier' if h > 0 else 'baissier'} du MACD", f"Histogramme {hp:+.2f} → {h:+.2f}")
+        s0, s1 = p.get("sens"), (ci.get("lecture") or {}).get("sens")
+        if s0 and s1 and s0 != s1:
+            add(prod + ":sens", f"{nom} : lecture technique {s0} → {s1}", (ci.get("lecture") or {}).get("texte") or "")
+    cours_prec = as_dict(etat.get("cours"))
+    for cult, e in cultures.items():  # seuils de l'exploitant (cours du jour comparé au dernier cours connu)
+        avant, du = cours_prec.get(cult), as_dict(etat.get("cours_du")).get(cult)
+        if not e.get("physique"):  # série ajustée : un changement d'échéance n'est pas un franchissement
+            avant = ((contrats.get(e["contrat"]) or {}).get("_serie") or {}).get(du, avant)
+        if e.get("cours") and avant is not None and e.get("date") != du:
+            for sens_, x in franchi(avant, e["cours"], seuils.get(cult) or {}):
+                add(f"seuil:{cult}:{sens_}{x:g}", f"{e['nom']} : votre seuil de {fr_n(x)} €/t est franchi ({fr_n(e['cours'])} €/t)",
+                    f"Seuil {'haut' if sens_ == '>' else 'bas'} fixé dans la configuration", True)
+    if up and cours_prec.get("uree") is not None and up != cours_prec["uree"]:
+        for sens_, x in franchi(cours_prec["uree"], up, seuils.get("uree") or {}):
+            add(f"seuil:uree:{sens_}{x:g}", f"Urée : votre seuil de {fr_n(x)} €/t est franchi ({fr_n(up)} €/t)",
+                f"Seuil {'haut' if sens_ == '>' else 'bas'} fixé dans la configuration", True)
     pe = etat.get("engrais", {})
     meme_base = pe.get("base", engrais.get("base")) == engrais.get("base")  # ratio estimé ↔ mondial : pas un vrai mouvement
-    if pe.get("signal") and pe["signal"] != engrais.get("signal") and meme_base:
-        add("engrais:signal", f"Engrais : {SIG_ENGRAIS.get(pe['signal'])} → {engrais.get('libelle')}", " ; ".join(engrais.get("notes", [])), True)
     t = engrais.get("ttf") or {}
     if t.get("dernier") is not None and pe.get("ttf") is not None and pe.get("ttf_au") != t.get("au"):
         if t["dernier"] > CFG["engrais"]["ttfHaut"] >= pe["ttf"]:
-            add("ttf:haut", f"Gaz TTF au-dessus de {CFG['engrais']['ttfHaut']} €/MWh ({t['dernier']:.1f})", "Acheter une tranche d'azote sans attendre", True)
+            add("ttf:haut", f"Gaz TTF au-dessus de {CFG['engrais']['ttfHaut']} €/MWh ({t['dernier']:.1f})",
+                "Le prix de l'azote suit souvent celui du gaz avec environ 1 mois de retard")
         if t["sous_seuil_bas"] >= CFG["engrais"]["ttfBasSeances"] > pe.get("sous_seuil_bas", 0):
             add("ttf:bas", f"Gaz TTF sous {CFG['engrais']['ttfBas']} €/MWh depuis {CFG['engrais']['ttfBasSeances']} séances",
-                "Fenêtre d'achat d'azote", True)
-    if t.get("dernier") is not None and pe.get("ttf") is not None and pe.get("ttf_au") != t.get("au"):
-        for c in ((comite.get("declencheurs") or []) if valid_comite else []):
-            if c.get("contrat") != "TTF" or fnum(c.get("niveau")) is None:
-                continue
-            lv = float(c["niveau"])
-            if (c.get("sens") == ">" and pe["ttf"] <= lv < t["dernier"]) or (c.get("sens") == "<" and pe["ttf"] >= lv > t["dernier"]):
-                add(f"ttf:niveau:{lv}", f"Gaz TTF : niveau {lv:g} €/MWh franchi ({t['dernier']:.1f})", c.get("texte") or "Niveau fixé par le comité", True)
+                "Le prix de l'azote suit souvent celui du gaz avec environ 1 mois de retard")
     for lvl in (CFG["engrais"]["ratioBas"], CFG["engrais"]["ratioMoyen"], CFG["engrais"]["ratioHaut"]):
         a0, a1 = pe.get("percentile"), engrais.get("percentile_retenu")
         if a0 is not None and a1 is not None and (a0 <= lvl) != (a1 <= lvl) and meme_base:
-            add(f"ratio:{lvl}", f"Ratio azote/blé : passage du {lvl}e percentile ({a0} → {a1})", "Voir le module engrais")
+            add(f"ratio:{lvl}", f"Ratio azote/blé : passage du {lvl}e percentile ({a0} → {a1})",
+                f"Azote {'moins' if a1 < a0 else 'plus'} cher par rapport au blé")
     g0, g1 = pe.get("rattrapage"), engrais.get("rattrapage")
     rl = CFG["engrais"]["rattrapage"]
     if g0 is not None and g1 is not None and ((g0 <= rl) != (g1 <= rl) or (g0 >= -rl) != (g1 >= -rl)):
-        add("rattrapage", f"Écart gaz − azote sur 3 mois : {g0:+.0f} → {g1:+.0f} pts", "Seuil de ±15 pts franchi")
-
+        add("rattrapage", f"Écart gaz − azote sur 3 mois : {g0:+.0f} → {g1:+.0f} pts", f"Seuil de ±{rl} pts franchi")
     sources = as_dict(collecte.get("sources"))
     if str(collecte.get("date", ""))[:10] != today.isoformat():  # collecte du jour absente ou coupée : rien n'est daté d'aujourd'hui
         sources = {"collecte": {"ok": False, "detail": f"pas de collecte du jour (dernière : {str(collecte.get('date', '—'))[:16]})"}}
@@ -1156,17 +873,11 @@ def main():
     for key, titre, detail in msgs:
         add(key, titre, detail)
 
-    # ------------------------------------------------------------------- comité d'alerte demandé
-    graves = [x for x in trig if x["grave"]]
-    if graves:
-        save_json(OUT / "demande-comite.json", {"date": today.isoformat(), "motifs": [x["titre"] for x in graves]})
-
     hist = (load_json(OUT / "grain-signal.json", {}).get("historique_declencheurs") or [])
     known = {x["id"] for x in hist}
     hist = ([x for x in trig if x["id"] not in known] + hist)[:60]
-
     dash = {
-        "format": "grain-signal-1",
+        "format": "grain-signal-2",
         "genere": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "date": today.isoformat(),
         "cultures": cultures,
@@ -1181,31 +892,27 @@ def main():
                         "pression": pression or None, "majeurs": len(actu.get("majeurs") or []), "compte": actu.get("compte"),
                         "sans_ia": actu.get("sans_ia"), "erreur": actu.get("erreur")} if actu_frais else None),
         "meteo": {"zones": zones, "cultures": meteo, "source": "Open-Meteo (CC BY 4.0)"},
-        "carnet": {"entrees": carnet[-40:], "bilan": dec.carnet_bilan(carnet)},
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},
         "engrais": engrais,
         "physique": load_json(OUT / "physique.json", {}),
-        # déclencheurs du jour : ceux de ce calcul et ceux d'un calcul précédent du même jour (le workflow calcule deux fois :
-        # au 2e passage, etat.json est déjà à jour et trig est vide, alors que l'email est parti)
+        # alertes du jour : celles de ce calcul et celles d'un calcul précédent du même jour (au 2e passage, etat.json est déjà à
+        # jour et trig est vide, alors que l'email est parti)
         "declencheurs": [x for x in hist if x["id"].startswith(today.isoformat() + ":")],
         "historique_declencheurs": hist,
         "collecte": collecte,
-        "comite": {"date": comite.get("date"), "valide": valid_comite, "mode": comite.get("mode"), "resume": comite.get("resume"),
-                   "calendrier": comite.get("calendrier"), "modele": comite.get("modele"), "cout_usd": comite.get("cout_usd"),
-                   "erreur": comite.get("erreur")},
-        "config": {"poids": W, "engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"],
-                   "calendrier": {k: v for k, v in (CFG.get("calendrier") or {}).items() if not k.startswith("_")},
+        "comite": {**{k: comite.get(k) for k in ("date", "mode", "resume", "calendrier", "modele", "cout_usd", "erreur")}, "valide": valid_comite},
+        "config": {"engrais": CFG["engrais"], "comite_modele": CFG["comite"]["modele"], "seuils": seuils,
                    "stockage": {k: v for k, v in CFG["stockage"].items() if not k.startswith("_")}},
     }
     save_json(OUT / "grain-signal.json", dash)
     new_state = {
         "date": today.isoformat(),
         "contrats": {k: {"seance": v.get("seance"), "dernier": (v.get("technique") or {}).get("dernier"), "rsi": (v.get("technique") or {}).get("rsi"),
-                         "histo": (v.get("technique") or {}).get("histo"), **marques.get(k, {})}
+                         "histo": (v.get("technique") or {}).get("histo"), "sens": (v.get("lecture") or {}).get("sens"), **marques.get(k, {})}
                      for k, v in contrats.items() if v.get("technique")},
-        "signaux": {k: v.get("signal") for k, v in cultures.items()},
-        "a_revoir": {k: bool(v.get("a_revoir")) for k, v in cultures.items()},
-        "engrais": {"signal": engrais.get("signal"), "percentile": engrais.get("percentile_retenu"), "base": engrais.get("base"), "rattrapage": engrais.get("rattrapage"),
+        "cours": {**{k: v.get("cours") for k, v in cultures.items() if v.get("cours") is not None}, **({"uree": up} if up else {})},
+        "cours_du": {k: v.get("date") for k, v in cultures.items() if v.get("cours") is not None},
+        "engrais": {"percentile": engrais.get("percentile_retenu"), "base": engrais.get("base"), "rattrapage": engrais.get("rattrapage"),
                     "ttf": (engrais.get("ttf") or {}).get("dernier"), "ttf_au": (engrais.get("ttf") or {}).get("au"),
                     "sous_seuil_bas": (engrais.get("ttf") or {}).get("sous_seuil_bas", 0)},
         "pannes": pannes,
@@ -1216,11 +923,11 @@ def main():
     sent = new_state["envoyes"]
     outbox = [x for x in outbox if x["id"] not in sent] + [x for x in trig if x["id"] not in sent and x["id"] not in {o["id"] for o in outbox}]
     save_json(OUT / "prive" / "a-envoyer.json", outbox)
-
     for cult, e in cultures.items():
-        print(f"{e['nom']:<30} {e['libelle']:<24} marché {e['score_marche']} ({e['source']}) feu {(e.get('feu') or {}).get('code')}")
-    print(f"Engrais : {engrais.get('libelle')} — {' ; '.join(engrais.get('notes', []))}")
-    print(f"Déclencheurs du jour : {len(trig)}")
+        tq, ac = e.get("technique") or {}, e.get("actualite") or {}
+        print(f"{e['nom']:<30} {fr_n(e['cours']) if e.get('cours') else '—':>8} €/t  technique {tq.get('sens') or '—':<10} actualité {ac.get('sens') or '—'}")
+    print(f"Engrais : {' ; '.join(engrais.get('notes', []))}")
+    print(f"Alertes du jour : {len(trig)}")
     return 0
 
 

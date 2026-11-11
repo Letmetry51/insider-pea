@@ -1,7 +1,7 @@
 """
-Grain Signal — aides à la décision ajoutées au calcul du matin (appelées par build.py) :
-thermomètre du prix sur 5 ans, profil saisonnier, stocker ou vendre (report de la courbe), prime locale (physique − Euronext),
-carnet de bord des signaux (noté à 4 et 8 semaines), note météo des zones de production.
+Grain Signal — lectures ajoutées au calcul du matin (appelées par build.py) : prix du jour sur 5 ans, profil saisonnier,
+report de la courbe (ce que paie le stockage), prime locale (physique − Euronext), météo des zones de production, bilans
+mondiaux, humeur du marché, risque géopolitique, pression de l'actualité. Des faits et des repères, jamais un conseil.
 
 Toutes les fonctions sont pures (données en entrée, dictionnaire en sortie) pour être testées sans réseau.
 """
@@ -117,17 +117,15 @@ def stockage(curve, ref, expiry_fn, today, moisson, cfg):
                      "gain": round(ecart - cout, 2)})
     base = {"reference": ref, "prix": round(p0, 2), "options": opts, "hypotheses": cfg}
     if not opts:
-        base.update(code="vendre", texte="Aucune échéance plus lointaine de la même récolte : vendre plutôt que stocker")
+        base.update(code="aucune", texte="Aucune échéance plus lointaine de la même récolte cotée")
         return base
     best = max(opts, key=lambda o: o["gain"])
     mo = f"{MOIS_FR[int(best['echeance'][5:]) - 1]} {best['echeance'][:4]}"
-    detail = f"{'+' if best['ecart'] >= 0 else ''}{fr(best['ecart'])} €/t de report − {fr(best['cout'])} €/t de stockage = {'+' if best['gain'] >= 0 else ''}{fr(best['gain'])} €/t"
-    if best["gain"] >= cfg["seuilGain"]:
-        base.update(code="stocker", meilleure=best, texte=f"Stocker jusqu'à {mo} : le marché paie le stockage ({detail})")
-    elif best["gain"] < 0:
-        base.update(code="vendre", meilleure=best, texte=f"Vendre plutôt que stocker : le report ne couvre pas les frais (au mieux {mo} : {detail})")
-    else:
-        base.update(code="neutre", meilleure=best, texte=f"Stockage à peine rémunéré (au mieux {mo} : {detail}) : décider sur le prix, pas sur le report")
+    detail = (f"{'+' if best['ecart'] >= 0 else ''}{fr(best['ecart'])} €/t de report − {fr(best['cout'])} €/t de stockage = "
+              f"{'+' if best['gain'] >= 0 else ''}{fr(best['gain'])} €/t")
+    code = "paye" if best["gain"] >= cfg["seuilGain"] else "ne_paye_pas" if best["gain"] < 0 else "a_peine"
+    quoi = {"paye": "la courbe paie le stockage", "ne_paye_pas": "la courbe ne couvre pas les frais", "a_peine": "la courbe couvre à peine les frais"}[code]
+    base.update(code=code, meilleure=best, texte=f"Report jusqu'à {mo} : {detail} ({quoi})")
     return base
 
 
@@ -178,71 +176,12 @@ def prime_locale(phys_rows, places, front_fn, mini=40):
         p = ref["percentile"]
         res["percentile"] = p
         res["code"] = "forte" if p >= 80 else "faible" if p <= 20 else "normale"
-        res["texte"] = {"forte": f"Prime {ref['place']} forte ({p}e percentile) : bon moment pour vendre au physique",
-                        "faible": f"Prime {ref['place']} faible ({p}e percentile) : vendre via Euronext ou attendre que la prime revienne",
-                        "normale": f"Prime {ref['place']} normale ({p}e percentile)"}[res["code"]]
+        res["texte"] = f"Prime {ref['place']} {res['code']} ({p}e percentile sur un an)"
     elif all(e.get("constante") for e in out):
         res["texte"] = "Prix physiques cotés au niveau d'Euronext (prime constante) : pas de lecture de la prime"
     else:
         res["texte"] = f"Historique de la prime en constitution ({max(e['jours'] for e in out)} jour(s), {mini} nécessaires pour la situer)"
     return res
-
-
-# --------------------------------------------------------------------------------------------- carnet de bord
-SENS = {"VENDRE": -1, "COUVRIR": -1, "ATTENDRE": 1, "TENIR": 0}  # grains : vendre = on attend une baisse ; attendre = une hausse
-SENS_ENGRAIS = {"ACHETER_LARGE": 1, "SUIVRE": 0, "FRACTIONNER": 0, "ATTENDRE": -1}  # acheteur : acheter large = on attend une hausse
-
-
-def carnet_ajoute(carnet, cle, date_, signal, prix, source, texte=""):
-    """Nouvelle ligne si l'avis (même source, même date d'avis) n'est pas déjà noté."""
-    rid = f"{cle}:{source}:{signal}"
-    if any(x["id"] == rid for x in carnet):
-        return False
-    carnet.append({"id": rid, "cle": cle, "date": date_, "signal": signal, "prix": prix, "texte": texte})
-    return True
-
-
-def prix_a(serie, d):
-    """Premier cours connu à la date d ou après (série {date: prix}), et sa date."""
-    ks = sorted(k for k in serie if k >= d)
-    return (ks[0], serie[ks[0]]) if ks else (None, None)
-
-
-def carnet_note(entree, serie, today, engrais=False):
-    """Résultat à 4 et 8 semaines. Grains : gain d'avoir suivi l'avis (vendre : baisse évitée ; attendre : hausse gagnée).
-    Engrais : acheter large = hausse évitée ; attendre = baisse gagnée. Avis neutres (tenir, suivre, fractionner) : mouvement seul."""
-    d0, p0 = prix_a(serie, entree["date"])
-    if p0 is None:
-        return entree
-    sens = (SENS_ENGRAIS if engrais else SENS).get(entree["signal"], 0)
-    for lab, jours in (("s4", 28), ("s8", 56)):
-        cible = (date.fromisoformat(d0) + timedelta(days=jours)).isoformat()
-        if cible > today.isoformat():
-            entree[lab] = {"le": cible}
-            continue
-        d1, p1 = prix_a(serie, cible)
-        if p1 is None:
-            entree[lab] = {"le": cible}
-            continue
-        var = p1 - p0
-        e = {"le": d1, "variation": round(var, 2), "pct": round(var / p0 * 100, 1)}
-        if sens:
-            g = round(var * sens, 2)
-            e["gain"] = g
-            tol = 0.005 * p0  # ± 0,5 % : ni bon ni mauvais
-            e["verdict"] = "bon" if g > tol else "mauvais" if g < -tol else "neutre"
-        else:
-            e["verdict"] = "neutre"
-        entree[lab] = e
-    return entree
-
-
-def carnet_bilan(carnet):
-    """Avis jugés à 8 semaines (bons / mauvais) et gain moyen des avis grains en €/t."""
-    notes = [x["s8"]["verdict"] for x in carnet if isinstance(x.get("s8"), dict) and x["s8"].get("verdict") in ("bon", "mauvais")]
-    gains = [x["s8"]["gain"] for x in carnet if isinstance(x.get("s8"), dict) and x["s8"].get("gain") is not None and x["cle"] != "engrais"]
-    return {"juges": len(notes), "bons": notes.count("bon"), "mauvais": notes.count("mauvais"),
-            "gain_moyen": round(sum(gains) / len(gains), 2) if gains else None}
 
 
 # --------------------------------------------------------------------------------------------- météo
@@ -339,30 +278,9 @@ def stocks_conso(bilans, precedent=None, hors_chine=True, fenetre=20):
     if rp is not None:
         out["revision"] = round(r - rp, 2)
     p = out["percentile"]
-    out["lecture"] = ("stocks très serrés : risque de flambée, ne pas brader" if p <= 20 else
-                      "stocks plutôt serrés : prix soutenus" if p <= 40 else "stocks dans la moyenne" if p < 60 else
-                      "stocks plutôt confortables : hausses limitées" if p < 80 else
-                      "stocks très confortables : peu de risque de flambée, ne pas trop attendre")
+    out["lecture"] = ("stocks très serrés" if p <= 20 else "stocks plutôt serrés" if p <= 40 else "stocks dans la moyenne" if p < 60
+                      else "stocks plutôt confortables" if p < 80 else "stocks très confortables")
     return out
-
-
-# --------------------------------------------------------------------------------------------- probabilité d'atteindre un prix
-def proba_toucher(s0, niveau, vol_jour, seances):
-    """Probabilité que le cours touche `niveau` au moins une fois d'ici `seances` séances, marche aléatoire sans tendance de
-    volatilité quotidienne `vol_jour` (principe de réflexion : P = 2 × (1 − Φ(|ln(niveau / cours)| / (σ √T)))). Un ordre de
-    vente au-dessus du cours, un seuil de révision en dessous."""
-    if not s0 or not niveau or not vol_jour or seances <= 0:
-        return None
-    z = abs(math.log(niveau / s0)) / (vol_jour * math.sqrt(seances))
-    return round(2 * (1 - 0.5 * (1 + math.erf(z / math.sqrt(2)))) * 100)
-
-
-def vol_quotidienne(vals, n=63):
-    r = [math.log(vals[i] / vals[i - 1]) for i in range(max(1, len(vals) - n), len(vals)) if vals[i - 1] > 0 and vals[i] > 0]
-    if len(r) < 20:
-        return None
-    m = sum(r) / len(r)
-    return math.sqrt(sum((x - m) ** 2 for x in r) / (len(r) - 1))
 
 
 # --------------------------------------------------------------------------------------------- psychologie des marchés
@@ -433,11 +351,11 @@ def psychologie(vals, fonds=None, win=756):
         return None
     code, lib = psy_etat(idx)
     b = s["_brut"]
-    lecture = {"peur_extreme": "Le marché panique : historiquement un mauvais moment pour vendre dans la précipitation",
-               "peur": "Le marché est pessimiste : pas de vente forcée sur ce creux",
-               "neutre": "Humeur ordinaire : aucun excès à exploiter",
-               "optimisme": "Le marché est optimiste : bonne fenêtre pour exécuter une tranche prévue",
-               "euphorie": "Le marché s'emballe : ne pas laisser passer une tranche prévue en attendant encore plus haut"}[code]
+    lecture = {"peur_extreme": "Le marché panique : cours très bas par rapport à ses 3 dernières années",
+               "peur": "Le marché est pessimiste",
+               "neutre": "Humeur ordinaire, sans excès",
+               "optimisme": "Le marché est optimiste",
+               "euphorie": "Le marché s'emballe : cours très hauts par rapport à ses 3 dernières années"}[code]
     return {"indice": round(idx), "etat": code, "libelle": lib, "lecture": lecture,
             "composantes": {**comp, "fonds": round(fonds) if fonds is not None else None},
             "valeurs": {"rsi": round(b["rsi"][-1], 1) if b["rsi"][-1] is not None else None,
@@ -555,92 +473,3 @@ def actu_doublon(a, b):
     if not wa or not wb:
         return False
     return len(wa & wb) / min(len(wa), len(wb)) >= 0.7
-
-
-# --------------------------------------------------------------------------------------------- décision du jour
-# calculée ici une seule fois ; la page, l'email et la synthèse PDF l'affichent telle quelle (mêmes mots, mêmes chiffres)
-DECISIONS = {"ordre": ("ORDRE", "warn"), "executer": ("VENDRE", "good"), "vendre": ("AVANCER", "good"),
-             "attendre": ("ATTENDRE", "bad"), "couvrir": ("COUVRIR", "info"), "rien": ("RIEN", "neutral"),
-             "patienter": ("PATIENTER", "warn")}
-DECISIONS_AZOTE = {"ACHETER_LARGE": ("ACHETER", "good"), "SUIVRE": ("SUIVRE LE PLAN", "info"),
-                   "FRACTIONNER": ("FRACTIONNER", "warn"), "ATTENDRE": ("ATTENDRE", "bad")}
-
-
-def nfr(v, d=2):
-    """235.5 → « 235,50 » ; milliers séparés par une espace fine insécable."""
-    return f"{v:,.{d}f}".replace(",", "\u202f").replace(".", ",")
-
-
-def pct_txt(v):
-    return nfr(v, 0 if float(v).is_integer() else 1)
-
-
-def tranche_txt(p, sur_ble=False, ecart=None):
-    """Résumé d'une tranche : « 15 % à 235,50 €/t » ; orges : prix de l'orge (ordre sur le blé + écart orge/blé du jour)."""
-    if not p:
-        return "—"
-    code, pct = p.get("code"), p.get("pct")
-    if code == "rien":
-        return f"Prochaine tranche : {p.get('periode', '')}"
-    o = p.get("ordre")
-    prix = ""
-    if o:
-        prix = f"à ≈ {nfr(o + ecart)} €/t" if sur_ble and ecart is not None else f"{'blé ≥ ' if sur_ble else 'à '}{nfr(o)} €/t"
-    return {"ordre": f"{pct} % {prix}", "executer": f"{pct} % {prix or 'cette période'}".strip(), "attendre": f"Décaler les {pct} %",
-            "patienter": f"{pct} % au prochain rebond", "couvrir": f"Couvrir {pct} %"}.get(code, f"{pct} %")
-
-
-def tranche_due(plan):
-    plan = plan or []
-    return (next((p for p in plan if p.get("statut") == "due" and not p.get("avant_moisson")), None)
-            or next((p for p in plan if p.get("statut") == "due"), None) or (plan[0] if plan else None))
-
-
-def decision_jour(e, contrat, ecart=None):
-    """Que faire aujourd'hui pour une culture. Avis chiffré du comité (vendre maintenant, % par ordre) s'il le donne ; sinon la
-    tranche du plan (ordre, patienter, vendre…) avec la consigne du comité en clair à côté, sauf « N % maintenant » (vendre)."""
-    import re
-
-    nr = e.get("niveaux_retenus") or {}
-    sur = bool(nr.get("sur_ble"))
-    plan = e.get("plan") or []
-    due = tranche_due(plan)
-    code, quoi = (due or {}).get("code") or "rien", tranche_txt(due, sur, ecart)
-    cc = (e.get("comite") or {}) if e.get("source") == "comite" else {}
-    consigne = cc.get("pct") or None
-    pb = nr.get("probas") or {}
-    ordres, pcts, chances = nr.get("ordres") or [], nr.get("ordres_pct") or [], pb.get("ordres") or []
-    ch = chances[0] if chances and code == "ordre" else None  # chance du 1er ordre du plan
-    decl = (due or {}).get("ordre") if sur and code == "ordre" else None
-    m = cc.get("maintenant_pct")
-    m = float(m) if isinstance(m, (int, float)) and 0 <= m <= 100 else None
-    # ordre, % et chance gardés ensemble : la chance affichée est celle de l'ordre affiché
-    paires = [(o, p, chances[i] if i < len(chances) else None) for i, (o, p) in enumerate(zip(ordres, pcts))
-              if isinstance(p, (int, float)) and p > 0]
-    parts = ([f"{pct_txt(m)} % maintenant"] if m else []) + [
-        f"{pct_txt(p)} % {'quand le blé atteint' if sur else 'à'} {nfr(o)} €/t" for o, p, _ in paires]
-    if parts:  # avis chiffré : il remplace la tranche du plan
-        code, quoi, consigne = ("executer" if m else "ordre"), " · ".join(parts), None
-        ch = paires[0][2] if paires and not m else None
-        decl = None
-    elif consigne:
-        mm = re.match(r"\s*(\d+(?:[.,]\d+)?)\s*%\s*maintenant", consigne)
-        if mm and float(mm.group(1).replace(",", ".")) > 0:  # « 7,5 % maintenant… » : vendre tout de suite, la consigne fait foi
-            code, quoi, consigne, ch, decl = "executer", consigne, None, None, None
-    lab, coul = DECISIONS.get(code, ("—", "neutral"))
-    phys = (e.get("physique") or {}).get("prix")
-    autre = next((p for p in plan if p is not due and p.get("statut") == "due"), None)
-    return {"code": code, "libelle": lab, "couleur": coul, "quoi": quoi, "consigne": consigne,
-            "cours": phys or (contrat or {}).get("dernier_reel"), "physique": bool(phys),
-            "var1s": None if e.get("proxy") else ((contrat or {}).get("technique") or {}).get("var1s"),
-            "chance": ch, "horizon": pb.get("horizon") if ch is not None else None, "declencheur_ble": decl,
-            "autre": f"Récolte {autre['recolte']} : {tranche_txt(autre, sur, ecart)}" if autre else None}
-
-
-def decision_azote(eng):
-    ec = eng.get("comite") or {}
-    lab, coul = DECISIONS_AZOTE.get(ec.get("signal") or eng.get("signal"), ("—", "neutral"))
-    ur = (eng.get("france") or {}).get("uree") or {}
-    return {"code": ec.get("signal") or eng.get("signal"), "libelle": lab, "couleur": coul,
-            "quoi": (ec.get("pct") or eng.get("a_acheter") or "").split("(")[0].strip(), "consigne": None,
-            "cours": ur.get("prix"), "var1m": ur.get("var1m"), "plafond": ec.get("prix_plafond"), "texte": ec.get("texte")}

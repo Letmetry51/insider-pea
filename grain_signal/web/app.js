@@ -2,11 +2,10 @@
    comme texte ; seul le rapport du comité est du HTML, déjà nettoyé au calcul et nettoyé une seconde fois ici. */
 'use strict';
 
-const GS = { data: null, comite: null, journal: [], tab: 'aujourdhui' };
+const GS = { data: null, comite: null, journal: [], tab: 'marche' };
 const ICON = { ble: '🌾', escourgeon: '🍺', orge_printemps: '🍺', colza: '🌼', mais: '🌽' };
 const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 const moisFr = (m) => (m && m.length >= 7 ? `${MOIS[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}` : m || '');
-const FEU = { attendre: '⏸️', executer: '✅', accelerer: '⚡', inconnu: '❔' };
 
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
@@ -249,7 +248,7 @@ function chart(rows, opts = {}) {
           'stroke-width': 1.5,
         });
     });
-  // pastilles des avis passés (carnet de bord) : couleur du signal, détail au survol
+  // pastilles datées (facultatives) : couleur et détail au survol
   (opts.marks || []).forEach((m) => {
     const i = pts.findIndex((r) => r[0] >= m.d);
     if (i < 0) return;
@@ -352,20 +351,13 @@ function gauge(value, min, max, segs, ticks) {
 }
 
 /* percentile en jauge (même forme que le RSI) : pastille chiffrée, libellé, barre colorée et curseur.
-   vendeur / prime : vert = bon moment pour vendre ; ratio / acheteur : vert = bon moment pour acheter ; cot : lecture à contre-courant */
-const SEG5V = [
-  [20, 'var(--bad)'],
-  [40, 'var(--warn)'],
-  [60, 'var(--neutral)'],
-  [80, 'var(--info)'],
-  [100, 'var(--good)'],
-];
-const SEG5A = [
-  [20, 'var(--good)'],
+   Couleurs de position, sans jugement : bas = bleu, moyenne = gris, haut = ambre. */
+const SEGP = [
+  [20, 'var(--info)'],
   [40, 'var(--info)'],
   [60, 'var(--neutral)'],
   [80, 'var(--warn)'],
-  [100, 'var(--bad)'],
+  [100, 'var(--warn)'],
 ];
 const T5 = [
   [20, '20'],
@@ -373,157 +365,87 @@ const T5 = [
   [80, '80'],
 ];
 const lab5 = (v, t) => (v <= 20 ? t[0] : v <= 40 ? t[1] : v < 60 ? t[2] : v < 80 ? t[3] : t[4]);
+const pos5 = (noms) => (v) => lab5(v, noms.map((n, i) => [n, ['info', 'info', 'neutral', 'warn', 'warn'][i]]));
 const PG = {
-  vendeur: {
-    segs: SEG5V,
-    ticks: T5,
-    lab: (v) =>
-      lab5(v, [
-        ['Prix bas : ne pas brader', 'bad'],
-        ['Plutôt bas', 'warn'],
-        ['Dans la moyenne', 'neutral'],
-        ['Plutôt haut', 'info'],
-        ['Prix haut : bon pour vendre', 'good'],
-      ]),
-  },
-  prime: {
-    segs: SEG5V,
-    ticks: T5,
-    lab: (v) =>
-      lab5(v, [
-        ['Prime faible : vendre via Euronext', 'bad'],
-        ['Prime plutôt faible', 'warn'],
-        ['Prime normale', 'neutral'],
-        ['Prime plutôt forte', 'info'],
-        ['Prime forte : vendre au physique', 'good'],
-      ]),
-  },
-  acheteur: {
-    segs: SEG5A,
-    ticks: T5,
-    lab: (v) =>
-      lab5(v, [
-        ['Bas : bon prix d’achat', 'good'],
-        ['Plutôt bas', 'info'],
-        ['Dans la moyenne', 'neutral'],
-        ['Plutôt cher', 'warn'],
-        ['Cher : le minimum', 'bad'],
-      ]),
-  },
+  prix: { segs: SEGP, ticks: T5, lab: pos5(['Bas sur 5 ans', 'Plutôt bas', 'Dans la moyenne', 'Plutôt haut', 'Haut sur 5 ans']) },
+  prime: { segs: SEGP, ticks: T5, lab: pos5(['Prime faible', 'Prime plutôt faible', 'Prime normale', 'Prime plutôt forte', 'Prime forte']) },
   ratio: {
-    segs: [
-      [20, 'var(--good)'],
-      [60, 'var(--neutral)'],
-      [80, 'var(--warn)'],
-      [100, 'var(--bad)'],
-    ],
-    ticks: [
-      [20, '20'],
-      [60, '60'],
-      [80, '80'],
-    ],
-    lab: (v) =>
-      v <= 20
-        ? ['Azote bon marché : acheter large', 'good']
-        : v <= 60
-          ? ['Normal : suivre le plan', 'neutral']
-          : v <= 80
-            ? ['Cher : fractionner', 'warn']
-            : ['Très cher : attendre', 'bad'],
+    segs: SEGP,
+    ticks: T5,
+    lab: pos5(['Azote bon marché / blé', 'Azote plutôt bon marché', 'Dans la moyenne', 'Azote cher / blé', 'Azote très cher / blé']),
   },
   stocks: {
-    segs: SEG5V,
+    segs: SEGP,
     ticks: T5,
-    lab: (v) =>
-      lab5(v, [
-        ['Stocks très serrés : risque de flambée', 'bad'],
-        ['Stocks plutôt serrés', 'warn'],
-        ['Stocks dans la moyenne', 'neutral'],
-        ['Stocks plutôt confortables', 'info'],
-        ['Stocks confortables : peu de risque de flambée', 'good'],
-      ]),
+    lab: pos5(['Stocks très serrés', 'Stocks plutôt serrés', 'Stocks dans la moyenne', 'Stocks plutôt confortables', 'Stocks très confortables']),
   },
   cot: {
     segs: [
-      [15, 'var(--bad)'],
+      [15, 'var(--info)'],
       [85, 'var(--neutral)'],
-      [100, 'var(--good)'],
+      [100, 'var(--warn)'],
     ],
     ticks: [
       [15, '15'],
       [85, '85'],
     ],
     lab: (v) =>
-      v <= 15
-        ? ['Fonds très vendeurs : rebond possible', 'bad']
-        : v >= 85
-          ? ['Fonds très acheteurs : vendre', 'good']
-          : ['Neutre', 'neutral'],
+      v <= 15 ? ['Fonds très vendeurs', 'info'] : v >= 85 ? ['Fonds très acheteurs', 'warn'] : ['Position habituelle', 'neutral'],
   },
 };
 // humeur du marché (0 peur → 100 euphorie), pression de l'actualité (−2 → +2), risque géopolitique (percentile sur 10 ans)
 const SEG_ACTU = [
   [25, 'var(--bad)'],
-  [37.5, 'var(--warn)'],
+  [37.5, 'var(--bad)'],
   [62.5, 'var(--neutral)'],
-  [75, 'var(--info)'],
+  [75, 'var(--good)'],
   [100, 'var(--good)'],
 ];
 // mêmes seuils que le calcul (±0,5 = 37,5 et 62,5 ; ±1 = 25 et 75)
 const actuLab = (v, t) => (v <= 25 ? t[0] : v <= 37.5 ? t[1] : v < 62.5 ? t[2] : v < 75 ? t[3] : t[4]);
+const T_ACTU = [
+  [0, '−2'],
+  [50, '0'],
+  [100, '+2'],
+];
 Object.assign(PG, {
   psy: {
-    segs: SEG5V,
+    segs: SEGP,
     ticks: T5,
     badge: (v) => String(Math.round(v)),
-    lab: (v) =>
-      lab5(v, [
-        ['Peur extrême : ne pas vendre dans la panique', 'bad'],
-        ['Peur : pas de vente forcée', 'warn'],
-        ['Humeur neutre', 'neutral'],
-        ['Optimisme : bonne fenêtre pour une tranche', 'info'],
-        ['Euphorie : ne pas laisser passer une tranche', 'good'],
-      ]),
+    lab: pos5(['Peur extrême', 'Peur', 'Humeur neutre', 'Optimisme', 'Euphorie']),
   },
   actu: {
     segs: SEG_ACTU,
-    ticks: [
-      [0, '−2'],
-      [50, '0'],
-      [100, '+2'],
-    ],
+    ticks: T_ACTU,
     map: (v) => Math.max(0, Math.min(100, ((v + 2) / 4) * 100)),
     badge: (v) => sgn(v, 1),
     lab: (v) =>
       actuLab(v, [
         ['Très baissière', 'bad'],
-        ['Plutôt baissière', 'warn'],
+        ['Plutôt baissière', 'bad'],
         ['Équilibrée', 'neutral'],
-        ['Plutôt haussière', 'info'],
+        ['Plutôt haussière', 'good'],
         ['Très haussière', 'good'],
       ]),
   },
   actuEngrais: {
-    segs: SEG_ACTU.map(([b], i) => [b, SEG_ACTU[SEG_ACTU.length - 1 - i][1]]),
-    ticks: [
-      [0, '−2'],
-      [50, '0'],
-      [100, '+2'],
-    ],
+    segs: SEG_ACTU.map(([b], i) => [b, ['var(--info)', 'var(--info)', 'var(--neutral)', 'var(--warn)', 'var(--warn)'][i]]),
+    ticks: T_ACTU,
     map: (v) => Math.max(0, Math.min(100, ((v + 2) / 4) * 100)),
     badge: (v) => sgn(v, 1),
     lab: (v) =>
       actuLab(v, [
-        ['Nettement moins cher en vue', 'good'],
+        ['Nettement moins cher', 'info'],
         ['Plutôt moins cher', 'info'],
         ['Équilibrée', 'neutral'],
         ['Plutôt plus cher', 'warn'],
-        ['Nettement plus cher en vue', 'bad'],
+        ['Nettement plus cher', 'warn'],
       ]),
   },
   geo: {
     segs: [
-      [30, 'var(--good)'],
+      [30, 'var(--neutral)'],
       [70, 'var(--neutral)'],
       [90, 'var(--warn)'],
       [100, 'var(--bad)'],
@@ -535,12 +457,12 @@ Object.assign(PG, {
     ],
     lab: (v) =>
       v <= 30
-        ? ['Monde calme', 'good']
+        ? ['Monde calme', 'neutral']
         : v < 70
           ? ['Tensions habituelles', 'neutral']
           : v < 90
-            ? ['Tensions élevées : marchés nerveux', 'warn']
-            : ['Tensions très élevées : risque de chocs', 'bad'],
+            ? ['Tensions élevées', 'warn']
+            : ['Tensions très élevées', 'bad'],
   },
 });
 function pgauge(v, kind, title, note, compact) {
@@ -654,32 +576,12 @@ function orgeLong(o, eb) {
   };
 }
 
-function chartLevels(niv, a, u = '€/t') {
+// résistances (au-dessus du cours) et supports (en dessous) de la lecture technique
+function chartLevels(lec, a, u = '€/t') {
   const lv = [];
-  const pb = (niv && niv.probas) || {};
-  const hz = pb.horizon ? ` d'ici le ${dfr(pb.horizon)}` : '';
-  // « 1er ordre : 235,50 €/t » et non « Ordre 1 235,50 », qui se lisait 1 235,50 €
-  (niv && niv.ordres ? niv.ordres : []).forEach((v, i) =>
-    lv.push({
-      v,
-      c: 'var(--good)',
-      t: `🎯 ${i === 0 ? '1er' : `${i + 1}e`} ordre`,
-      u,
-      p:
-        (pb.ordres || [])[i] !== undefined && (pb.ordres || [])[i] !== null
-          ? `${pb.ordres[i]} % de chances${hz}`
-          : null,
-    })
-  );
-  if (niv && niv.revision)
-    lv.push({
-      v: niv.revision,
-      c: 'var(--bad)',
-      t: '🛑 Révision',
-      u,
-      p: pb.revision !== undefined && pb.revision !== null ? `${pb.revision} % de risque${hz}` : null,
-    });
-  if (a && a.bas3m) lv.push({ v: a.bas3m, c: 'var(--warn)', t: '🧱 Support', u });
+  ((lec && lec.resistances) || []).forEach((v) => lv.push({ v, c: 'var(--warn)', t: 'Résistance', u }));
+  ((lec && lec.supports) || []).forEach((v) => lv.push({ v, c: 'var(--info)', t: 'Support', u }));
+  if (!lv.length && a && a.bas3m) lv.push({ v: a.bas3m, c: 'var(--info)', t: 'Plus bas 3 mois', u });
   return lv;
 }
 
@@ -695,317 +597,6 @@ function chartLegend() {
   );
 }
 
-/* ---------------------------------------------------------------------------------------------- plan de vente */
-
-const STRAT = {
-  S0: 'Tout vendre à la moisson',
-  S1: 'Même quantité chaque mois',
-  S2: 'Calendrier Grain Signal',
-  S3: 'Calendrier + timing technique',
-  S4: 'Calendrier + timing + tendance',
-  S5: 'Outil complet (sans comité)',
-  E0: 'Tout acheter en janvier',
-  E1: 'Même quantité chaque mois',
-  E2: 'Saison seule (avril-juillet)',
-  E3: 'Règles Grain Signal',
-};
-function btTable(b, unite, achat) {
-  const best = Object.entries(b).sort((x, y) => y[1].ecart_moyen - x[1].ecart_moyen)[0][0];
-  return h(
-    'div',
-    { class: 'scroll' },
-    h(
-      'table',
-      {},
-      h(
-        'tr',
-        {},
-        [
-          'Stratégie',
-          `Prix moyen (${unite})`,
-          achat ? 'Économie / mensuel' : 'Gain / mensuel',
-          'Campagnes gagnantes',
-          'Pire / meilleure',
-        ].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
-      ),
-      Object.entries(b).map(([k, v]) =>
-        h(
-          'tr',
-          { class: k === best ? 'best' : '' },
-          h('td', { text: `${k === best ? '🏆 ' : ''}${STRAT[k] || k}` }),
-          h('td', { class: 'n', text: fmt(v.moyenne, 1) }),
-          h('td', { class: 'n ' + cls(v.ecart_moyen), text: `${sgn(v.ecart_moyen, 1)}` }),
-          h('td', { class: 'n', text: `${v.gagnantes} / ${v.campagnes}` }),
-          h('td', { class: 'n', text: `${sgn(v.pire, 1)} / ${sgn(v.meilleure, 1)}` })
-        )
-      )
-    )
-  );
-}
-// bilan par décennie : une stratégie qui ne gagne que sur une période est fragile
-function periodTable(per) {
-  const P = Object.entries(per || {});
-  if (!P.length) return null;
-  const keys = Object.keys(P[0][1]).filter((k) => k !== 'S1');
-  return h(
-    'div',
-    { class: 'scroll' },
-    h(
-      'table',
-      {},
-      h(
-        'tr',
-        {},
-        h('th', { text: 'Gain / mensuel (€/t) par période' }),
-        keys.map((k) => h('th', { class: 'n', text: STRAT[k] || k }))
-      ),
-      P.map(([lab, b]) =>
-        h(
-          'tr',
-          {},
-          h('td', { text: `${lab} (${b[keys[0]].campagnes} camp.)` }),
-          keys.map((k) => h('td', { class: 'n ' + cls(b[k].ecart_moyen), text: sgn(b[k].ecart_moyen, 1) }))
-        )
-      )
-    )
-  );
-}
-function backtestSection() {
-  const bt = GS.backtest;
-  if (!bt)
-    return h(
-      'div',
-      { class: 'card', style: 'margin-top:12px' },
-      h('h3', { text: '🧪 Backtest' }),
-      h('p', { class: 'note', text: 'Résultats au prochain calcul.' })
-    );
-  const parts = [h('h3', { text: '🧪 Backtest : ce que les règles auraient rapporté' })];
-  for (const v of Object.values(bt.ventes || {})) {
-    if (v.erreur) {
-      parts.push(h('p', { class: 'note', text: `${v.nom} : ${v.erreur}` }));
-      continue;
-    }
-    const b = v.bilan_vs_S1;
-    const g = (k) => `${sgn(b[k].ecart_moyen, 1)} €/t (gagnant ${b[k].gagnantes} fois sur ${b[k].campagnes})`;
-    parts.push(
-      h('h4', { class: 'ititle', text: `${v.nom} — ${v.campagnes.length} campagnes depuis ${v.campagnes[0].recolte}` }),
-      h('p', {
-        text: `Par rapport à une vente mensuelle régulière : calendrier ${g('S2')} ; avec le timing technique ${g('S3')} ; avec la tendance ${g('S4')}${b.S5 ? ` ; outil complet ${g('S5')}` : ''}.`,
-      }),
-      btTable(b, '€/t'),
-      periodTable(v.periodes),
-      h('p', {
-        class: 'note',
-        text: `Meilleur réglage du timing testé : RSI < ${v.variantes_timing[0].rsi} et bas du range ≤ ${v.variantes_timing[0].pos} % (${sgn(v.variantes_timing[0].ecart_moyen_vs_S2)} €/t par rapport au calendrier seul). Réglage actuel : RSI < 40 et ≤ 20 %.`,
-      })
-    );
-  }
-  const eu = Object.values(bt.ventes_euronext || {});
-  if (eu.length) {
-    parts.push(h('h4', { class: 'ititle', text: '🇪🇺 Sur les cours officiels Euronext (depuis novembre 2019)' }));
-    for (const v of eu) {
-      if (v.erreur) {
-        parts.push(h('p', { class: 'note', text: `${v.nom} : ${v.erreur}` }));
-        continue;
-      }
-      parts.push(
-        h('p', { text: `${v.nom} — ${v.campagnes.length} campagnes depuis ${v.campagnes[0].recolte}` }),
-        btTable(v.bilan_vs_S1, '€/t')
-      );
-    }
-    const cmp = bt.comparaison || {};
-    const lignes = Object.entries(cmp).flatMap(([cult, o]) =>
-      Object.entries(o).map(
-        ([k, x]) =>
-          `${cult === 'ble' ? 'Blé' : 'Maïs'}, ${STRAT[k]} : Chicago ${sgn(x.chicago, 1)}, Euronext ${sgn(x.euronext, 1)} €/t (même sens ${x.meme_sens} fois sur ${x.campagnes})`
-      )
-    );
-    if (lignes.length)
-      parts.push(
-        h('p', { class: 'note', text: 'Campagnes communes, écart par rapport à la vente mensuelle :' }),
-        h(
-          'ul',
-          { class: 'list note' },
-          lignes.map((t) => h('li', { text: t }))
-        )
-      );
-  }
-  const e = bt.engrais || {};
-  if (e.bilan_vs_E1) {
-    parts.push(
-      h('h4', { class: 'ititle', text: `🧪 Achats d'azote — ${e.campagnes.length} campagnes (${e.nom})` }),
-      btTable(e.bilan_vs_E1, '$/t', true)
-    );
-  }
-  parts.push(
-    h(
-      'details',
-      {},
-      h('summary', { text: 'Limites du test' }),
-      h(
-        'ul',
-        { class: 'list note' },
-        (bt.limites || []).map((t) => h('li', { text: t }))
-      )
-    )
-  );
-  return h('div', { class: 'card', style: 'margin-top:12px' }, parts);
-}
-
-function calendarTable() {
-  const cal = ((GS.data || {}).config || {}).calendrier || {};
-  const noms = {
-    ble: '🌾 Blé tendre',
-    escourgeon: '🍺 Escourgeon',
-    orge_printemps: '🍺 Orge de printemps',
-    colza: '🌼 Colza',
-    mais: '🌽 Maïs',
-  };
-  const lab = (r) => {
-    const k = r - 1;
-    const yr = Math.floor(k / 12);
-    return MOIS[((k % 12) + 12) % 12] + (yr < 0 ? ' (N−1)' : yr > 0 ? ' (N+1)' : '');
-  };
-  return h(
-    'div',
-    { class: 'card scroll' },
-    h('h3', { text: '📅 Calendrier de vente par défaut (N = année de récolte)' }),
-    h(
-      'table',
-      {},
-      h('tr', {}, h('th', { text: 'Culture' }), h('th', { text: 'Tranches' })),
-      Object.entries(cal).map(([k, v]) => {
-        let cum = 0;
-        return h(
-          'tr',
-          {},
-          h('td', { text: noms[k] || k }),
-          h('td', {
-            text: v.tranches
-              .map(([a, b, p]) => ((cum += p), `${lab(a)}–${lab(b)} : ${p} % (cumul ${cum} %)`))
-              .join(' · '),
-          })
-        );
-      })
-    ),
-    h('p', {
-      class: 'note',
-      text: "Au plus 35 % vendus avant la moisson. « Tenir le plan » = vendre la tranche due ; « vendre » = avancer la tranche suivante ; « attendre » = décaler ; « couvrir » = protéger le prix sans livrer. Le timing technique décide du moment : au creux, la tranche part par ordre au-dessus du marché. Pour une récolte à venir, les ordres sont décalés de l'écart entre son échéance et l'échéance du jour. Réglable dans grain_signal/config.json.",
-    })
-  );
-}
-
-/* ---------------------------------------------------------------------------------------------- onglets */
-/* ---------------------------------------------------------------------------------------------- en un coup d'œil */
-const SIGC = { VENDRE: 'var(--good)', COUVRIR: 'var(--info)', TENIR: 'var(--warn)', ATTENDRE: 'var(--bad)' };
-const SIGT = {
-  VENDRE: 'vendre une tranche',
-  COUVRIR: 'couvrir',
-  TENIR: 'tenir le plan',
-  ATTENDRE: 'attendre-stocker',
-  ACHETER_LARGE: 'acheter large',
-  SUIVRE: 'suivre le plan',
-  FRACTIONNER: 'fractionner',
-};
-const BASE = { ble: 'ble', escourgeon: 'ble', orge_printemps: 'ble', colza: 'colza', mais: 'mais' };
-const BASE_USDA = { ble: 'ble', escourgeon: 'orge', orge_printemps: 'orge', colza: 'colza', mais: 'mais' };
-// « 1er ordre : 42 % de chances d'être touché d'ici le 30 nov. » (volatilité des 3 derniers mois, sans tendance)
-function probaTxt(pb) {
-  if (!pb || !pb.ordres || !pb.ordres.length) return '';
-  const o = pb.ordres
-    .map((p, i) => (p === null || p === undefined ? null : `${i === 0 ? '1er' : `${i + 1}e`} ordre ${p} %`))
-    .filter(Boolean);
-  const rv =
-    pb.revision !== null && pb.revision !== undefined ? ` ; risque de passer sous la révision : ${pb.revision} %` : '';
-  return o.length ? `${o.join(' · ')} de chances d'être touchés d'ici le ${dfr(pb.horizon)}${rv}` : '';
-}
-// résultat d'un avis du carnet à 4 ou 8 semaines : ✅ bon, ❌ mauvais, ➖ neutre, ⏳ pas encore jugé
-function verdict(r, unite) {
-  if (!r) return '—';
-  if (r.variation === undefined) return `⏳ ${dfr(r.le)}`;
-  const ic = { bon: '✅', mauvais: '❌' }[r.verdict] || '➖';
-  if (r.gain === undefined) return `${ic} cours ${pct(r.pct)}`;
-  return `${ic} ${fmt(Math.abs(r.gain))} ${unite} ${r.gain >= 0 ? 'gagnés' : 'perdus'}`;
-}
-function marksFor(cle) {
-  return ((GS.data.carnet || {}).entrees || [])
-    .filter((x) => x.cle === cle)
-    .map((x) => ({
-      d: x.date,
-      c: SIGC[x.signal] || 'var(--muted)',
-      t: `${dfr(x.date)} : comité « ${SIGT[x.signal] || x.signal} »${x.prix ? ` à ${fmt(x.prix)} €/t` : ''}${
-        x.s8 && x.s8.variation !== undefined ? ` · 8 semaines après : ${verdict(x.s8, '€/t')}` : ''
-      }`,
-    }));
-}
-
-/* carnet de bord : chaque avis du comité, jugé 4 et 8 semaines plus tard sur le cours réel */
-function carnetSection(d) {
-  const cb = d.carnet || {};
-  const rows = (cb.entrees || []).slice().reverse();
-  if (!rows.length) return [];
-  const b = cb.bilan || {};
-  const noms = Object.fromEntries(
-    Object.entries(d.cultures || {}).map(([k, c]) => [k, c.nom.replace(' brassicole', '')])
-  );
-  noms.engrais = 'Azote (urée)';
-  const prochain = rows
-    .map((x) => (x.s4 && x.s4.variation === undefined ? x.s4.le : null))
-    .filter(Boolean)
-    .sort()[0];
-  return [
-    h('h2', { text: '📓 Carnet de bord des avis' }),
-    h(
-      'div',
-      { class: 'card scroll' },
-      h('p', {
-        class: 'cbilan',
-        text: b.juges
-          ? `Avis jugés à 8 semaines : ✅ ${b.bons} bon${b.bons > 1 ? 's' : ''} · ❌ ${b.mauvais} mauvais${
-              b.gain_moyen !== null && b.gain_moyen !== undefined
-                ? ` · gain moyen ${sgn(b.gain_moyen)} €/t par avis suivi`
-                : ''
-            }`
-          : `Premiers résultats le ${dfr(prochain || d.date)} : chaque avis est jugé 4 et 8 semaines après, sur le cours réel.`,
-      }),
-      h(
-        'table',
-        {},
-        h(
-          'tr',
-          {},
-          ['Date', 'Culture', 'Avis du comité', 'Prix', '4 semaines', '8 semaines'].map((t, i) =>
-            h('th', { class: i === 3 ? 'n' : '', text: t })
-          )
-        ),
-        rows.map((x) => {
-          const u = '€/t';
-          return h(
-            'tr',
-            {},
-            h('td', { text: dfr(x.date) }),
-            h('td', { text: `${ICON[x.cle] || (x.cle === 'engrais' ? '🧪' : '')} ${noms[x.cle] || x.cle}` }),
-            h(
-              'td',
-              {},
-              h('span', { class: 'dot', style: `background:${SIGC[x.signal] || 'var(--muted)'}` }),
-              SIGT[x.signal] || x.signal
-            ),
-            h('td', { class: 'n', text: x.prix ? fmt(x.prix) : '—' }),
-            h('td', { text: verdict(x.s4, u) }),
-            h('td', { text: verdict(x.s8, u) })
-          );
-        })
-      ),
-      h('p', {
-        class: 'note',
-        text: "Vendre (ou couvrir) est jugé bon si le cours a baissé ensuite, attendre si le cours a monté ; pour l'azote, acheter large est bon si l'urée a monté, attendre si elle a baissé. « Tenir le plan », « suivre » et « fractionner » ne parient pas sur un sens : seul le mouvement du cours est indiqué. Les orges sont jugées sur le blé Euronext. Écart de moins de 0,5 % : neutre (➖).",
-      })
-    ),
-  ];
-}
-
-/* bilans mondiaux de l'USDA : le rapport stocks / consommation situe le niveau de prix par rapport aux fondamentaux */
 function stocksSection(d) {
   const sm = d.stocks_mondiaux || {};
   const rows = ['ble', 'orge', 'mais', 'colza'].filter((k) => sm[k]);
@@ -1212,7 +803,7 @@ function vEngrais() {
         { class: 'card' },
         h('p', {
           class: 'note',
-          text: "Le gaz fait le prix de l'azote avec environ 1 mois de décalage. Lecture acheteur : un gaz en survente ou au bas de son canal annonce un azote moins cher dans les semaines qui suivent.",
+          text: "Le gaz fait le prix de l'azote avec environ 1 mois de décalage.",
         }),
         periodPanel({
           nom: 'Gaz TTF',
@@ -1251,9 +842,9 @@ function vEngrais() {
   const hr = e.histo_ratio;
   if (hr && hr.points && hr.points.length > 12) {
     const lv = [
-      { v: hr.seuils['20'], c: 'var(--good)', t: 'Acheter large (20e percentile)' },
-      { v: hr.seuils['60'], c: 'var(--warn)', t: 'Fractionner (60e)' },
-      { v: hr.seuils['80'], c: 'var(--bad)', t: 'Attendre (80e)' },
+      { v: hr.seuils['20'], c: 'var(--info)', t: '20e percentile' },
+      { v: hr.seuils['60'], c: 'var(--neutral)', t: '60e percentile' },
+      { v: hr.seuils['80'], c: 'var(--warn)', t: '80e percentile' },
     ];
     if (hr.estimation) lv.push({ v: hr.estimation, c: 'var(--chart-1)', t: '● Estimé ce matin' });
     out.push(h('h2', { text: '⚖️ Ratio urée / blé sur 10 ans' }));
@@ -1383,74 +974,100 @@ function cleanHtml(src) {
   return root;
 }
 
+// la lecture technique annonce-t-elle la suite ? rendement moyen des 60 séances suivantes selon la lecture du jour
+function techBt() {
+  const bt = (GS.backtest || {}).technique || {};
+  const rows = Object.entries(bt).filter(([, v]) => v && v['60']);
+  if (!rows.length) return null;
+  return h(
+    'div',
+    { class: 'card wide scroll' },
+    h('h3', { text: 'La lecture technique annonce-t-elle la suite ? (60 séances après)' }),
+    h(
+      'table',
+      {},
+      h(
+        'tr',
+        {},
+        ['Marché', 'Verdict', 'Après « hausse »', 'Après « neutre »', 'Après « baisse »', 'Écart', 'Hasard seul', 'Depuis'].map(
+          (t, i) => h('th', { class: i > 1 && i < 7 ? 'n' : '', text: t })
+        )
+      ),
+      rows.map(([nom, v]) => {
+        const o = v['60'];
+        const g = o.groupes || {};
+        const sig = o.ecart !== null && o.bruit !== null && Math.abs(o.ecart) > o.bruit;
+        return h(
+          'tr',
+          {},
+          h('td', { text: nom }),
+          h('td', {
+            class: sig ? '' : 'muted',
+            text: !sig ? 'pas distinct du hasard' : o.ecart > 0 ? 'dans le sens de la lecture' : 'à contre-sens',
+          }),
+          ['haussière', 'neutre', 'baissière'].map((k) =>
+            h('td', { class: 'n', text: g[k] ? `${pct(g[k].moyenne)} (${g[k].hausses} % ▲)` : '—' })
+          ),
+          h('td', { class: 'n', text: o.ecart !== null ? `${sgn(o.ecart, 1)} pt` : '—' }),
+          h('td', { class: 'n', text: o.bruit !== null ? `±${fmt(o.bruit, 1)} pt` : '—' }),
+          h('td', { text: String(v.depuis || '').slice(0, 4) })
+        );
+      })
+    ),
+    h('p', {
+      class: 'note',
+      text: 'Variation moyenne du cours dans les 60 séances qui suivent chaque jour, selon la lecture technique de ce jour-là (entre parenthèses : part des cas en hausse). « Écart » : après « hausse » moins après « baisse ». « Hasard seul » : écart atteint par pur hasard (90 % des cas) sur des cours tirés au sort de même longueur et de même nervosité. Une lecture qui ne bat pas le hasard décrit le marché ; elle ne le prédit pas.',
+    })
+  );
+}
+
 function vMethode() {
   const txt = [
     [
       'Chaque matin',
-      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (rapport Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale et la météo de 10 zones de production. Il calcule la technique (RSI 14, MACD 12/26/9, moyennes mobiles 20/50/200, Bollinger 20/2, Fibonacci, divergences), le module engrais et les déclencheurs, puis envoie un email s'il se passe quelque chose.",
+      "Grain Signal relève les cours Euronext (blé, colza, maïs) et leurs courbes, les prix physiques (Rouen, Creil, orges brassicoles), les marchés américains, le gaz TTF, le Brent, l'euro-dollar, les positions des fonds (Euronext et CFTC), les prix des engrais en France, le Pink Sheet de la Banque mondiale, la météo de 10 zones de production et une centaine de titres d'actualité. Il en tire une lecture par culture et envoie le rapport du matin vers 7 h 30, avec la synthèse PDF.",
     ],
     [
-      'Le comité',
-      "Chaque lundi, et quand un déclencheur important saute ou qu'un fait majeur tombe dans l'actualité (au plus deux fois par semaine), un comité de 11 experts (bilans, mer Noire, physique, macro, positions des fonds, météo, technique, risque, avocat du diable, achat d'engrais, psychologie des marchés) est réuni par l'API Claude avec la recherche web. Il reçoit les chiffres du matin et cherche ce que l'outil ne mesure pas : bilans, mer Noire, météo, demande, actualité. Son avis fixe le signal de chaque culture pour 8 jours.",
+      'Lecture technique',
+      'Note de −2 à +2 : position du cours par rapport à sa moyenne 50 séances et pente de celle-ci (sinon la moyenne 20 séances), élan du MACD 12/26/9 et son évolution sur 5 séances, excès du RSI 14 (survente sous 30, surachat au-dessus de 70), divergences RSI/prix. « Hausse » à partir de +0,75, « baisse » à partir de −0,75, « neutre » entre les deux. Résistances et supports : moyennes 20 et 50 séances, retracements de Fibonacci du dernier mouvement et extrêmes des 3 derniers mois, les deux plus proches de chaque côté. Escourgeon et orge de printemps n’ont pas de marché à terme : lecture du blé Euronext, niveaux ramenés au prix physique du jour.',
     ],
     [
-      'Entre deux comités',
-      "Le score du comité est actualisé chaque matin par la variation de la technique, des fonds, de la macro et de la météo (10 % chacun, comme dans la grille du comité). Si cela suffit à changer de case dans la matrice, la culture est marquée « à revoir » et un comité d'alerte est demandé.",
+      'Actualité',
+      "Chaque titre est lu par l'IA d'après son seul titre : pertinent ou non, thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur le prix de chaque culture et de l'azote, en une phrase sans conseil. La pression de l'actualité additionne ces effets sur 7 jours (un fait pèse plus qu'une rumeur, moitié du poids après 3 jours, comptes rendus de séance exclus car déjà dans les cours). Un fait majeur (importance 3, effet fort, moins de 72 h) part en alerte email.",
     ],
     [
-      'Matrice',
-      "Score ≤ −1 : vendre une tranche ou couvrir · entre −1 et +0,5 : tenir le plan · ≥ +0,5 : attendre ou stocker. Le timing technique décide du moment : pas de vente en survente ou au bas du range de 3 mois, accélération en surachat qui s'essouffle.",
+      'Repères',
+      "Prix sur 5 ans : percentile du cours du jour (10e = plus bas que 90 % des semaines passées). Plus haut de la campagne et écart depuis. Report : ce que paie la courbe Euronext entre l'échéance du jour et les plus lointaines de la même récolte, moins le stockage (0,6 €/t/mois et 4 %/an d'argent immobilisé, réglables). Prime locale : physique moins Euronext, sur un an. Saisonnalité : écart habituel de chaque mois au prix moyen de la campagne (plus de 20 campagnes). Bilans : stocks de fin / consommation de l'USDA, sur 20 campagnes. Azote : ratio urée/blé en percentile sur 10 ans, gaz, saison.",
     ],
     [
-      'Jauges en percentile',
-      'Un percentile situe le chiffre du jour dans son histoire : 10e = plus bas que 90 % des valeurs passées, 90e = plus haut. Prix sur 5 ans (cours officiels Euronext de l’échéance la plus proche ; marché mondial en €/t tant que cet historique est trop court), ratio azote/blé et urée sur 10 ans, gaz sur 5 ans, positions des fonds sur 3 ans, prime locale sur un an. Vert = bon moment pour vendre (céréales) ou pour acheter (azote).',
+      'Lecture de la semaine',
+      "Chaque lundi, l'API Claude, avec la recherche web, lit les chiffres du matin et cherche ce que l'outil ne mesure pas (bilans, mer Noire, météo, demande). Elle rend, par culture, les arguments haussiers et baissiers et la donnée à surveiller, avec un calendrier : jamais de consigne de vente ou d'achat.",
     ],
     [
-      'Stocker ou vendre',
-      "Écart entre l'échéance Euronext de référence et chaque échéance plus lointaine de la même récolte, moins le coût du stockage (0,6 €/t/mois de frais et 4 %/an pour l'argent immobilisé, réglables). Gain net ≥ 3 €/t : stocker ; négatif : vendre plutôt que stocker.",
-    ],
-    [
-      'Prime locale, saisonnalité, météo',
-      "Prime locale : prix physique (Rouen, Moselle, Creil, Rhin) moins l'échéance Euronext du même jour, situé sur son historique après 40 relevés. Saisonnalité : écart habituel de chaque mois au prix moyen de la campagne, médiane de plus de 20 campagnes à Chicago. Météo : pluie des 60 derniers jours par rapport à la normale sur 10 ans et chaleur prévue à 14 jours, notée de −1 à +2 et comptée pour 15 % de la lecture de marché.",
-    ],
-    [
-      'Bilans mondiaux et chances d’atteindre un ordre',
-      "Bilans : rapport stocks de fin / consommation de l'USDA (rapport mensuel WASDE, fichiers PSD publics), hors Chine pour le blé et le maïs, situé sur les 20 campagnes précédentes. Chances : probabilité que le cours touche chaque ordre (ou le seuil de révision) au moins une fois d'ici la fin de la tranche, d'après la volatilité des 3 derniers mois et sans supposer de tendance ; une probabilité faible signale un ordre trop ambitieux pour la période.",
-    ],
-    [
-      'Actualité, géopolitique et psychologie',
-      "Chaque matin, une centaine de titres (Google Actualités en français et en anglais, presse agricole) sont lus par l'IA d'après leur seul titre : pertinent ou non, thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur le prix de chaque culture et de l'azote, et ce que cela change pour vous. La pression de l'actualité additionne ces effets sur 7 jours (un fait pèse plus qu'une rumeur, moitié du poids après 3 jours, comptes rendus de séance exclus car déjà dans les cours). Un fait majeur (importance 3, effet fort, moins de 36 h) envoie une alerte et convoque le comité, qui vérifie le fait sur le web. Géopolitique : indice de risque de Caldara et Iacoviello (presse mondiale, quotidien et par pays). Psychologie : humeur de 0 (peur) à 100 (euphorie) à partir du RSI, de l'écart à la moyenne 200 séances, de l'élan sur 20 séances et des fonds. Ni l'indice géopolitique ni l'humeur n'ont annoncé les prix mieux que le hasard sur l'historique : ils éclairent le comité et le rythme des ventes, sans entrer dans la note de marché.",
-    ],
-    [
-      'Carnet de bord',
-      "Chaque avis du comité est noté avec le cours du jour, puis jugé 4 et 8 semaines plus tard : vendre est bon si le cours a baissé, attendre s'il a monté ; pour l'azote, acheter large est bon si l'urée a monté. Les pastilles de couleur sur les graphiques montrent où les avis ont été donnés.",
+      'Vos seuils',
+      'Dans grain_signal/config.json (rubrique « seuils »), des prix au-dessus ou en dessous desquels être prévenu, par culture et pour l’urée. Le franchissement part en alerte et s’affiche sur la page.',
     ],
     [
       'Limites',
-      "Les cours Euronext du jour viennent de terre-net (prix de compensation officiel) ; l'historique depuis novembre 2019 est repris des fichiers statistiques publics d'Euronext, et chaque séance commune sert de contrôle croisé avec terre-net. Tant que cet historique est trop court, la technique et les vues longues s'appuient sur le marché américain correspondant. Les escourgeons et orges de printemps n'ont pas de marché à terme : ils suivent le blé, avec l'avis du comité sur les primes brassicoles. Les résultats historiques du module engrais portent sur l'urée mondiale et le blé US en dollars. L'outil ne connaît ni vos coûts ni vos volumes : il raisonne en pourcentages.",
+      "Les cours Euronext du jour viennent de terre-net (prix de compensation officiel) ; l'historique depuis novembre 2019 vient des fichiers statistiques publics d'Euronext. Tant que cet historique est trop court, la technique et les vues longues s'appuient sur le marché américain correspondant. L'outil ne connaît ni vos coûts, ni vos volumes, ni vos contrats : il décrit le marché, la décision vous appartient.",
     ],
   ];
   const pli = (titre, ...kids) => h('details', { class: 'acc' }, h('summary', { text: titre }), ...kids);
   const d = GS.data;
   const hist = d.historique_declencheurs || [];
   return [
-    h('p', { class: 'note', text: 'Comment l’outil décide, ce qu’il aurait rapporté, et d’où viennent les chiffres.' }),
-    pli(
-      'Comment l’outil décide',
-      ...txt
-        .filter(([t]) => t !== 'Carnet de bord')
-        .flatMap(([t, p]) => [h('h4', { class: 'ititle', text: t }), h('p', { text: p })])
-    ),
-    pli('Calendrier des tranches de vente', calendarTable()),
-    pli('Backtest : ce que les règles auraient rapporté', backtestSection()),
-    pli(
-      'Carnet de bord des avis du comité',
-      h('p', { class: 'note', text: (txt.find(([t]) => t === 'Carnet de bord') || [])[1] || '' }),
-      ...carnetSection(d).slice(1)
-    ),
+    h('p', { class: 'note', text: 'Comment chaque lecture est calculée, ce qu’elle vaut sur l’historique, et d’où viennent les chiffres.' }),
+    pli('Comment l’outil lit le marché', ...txt.flatMap(([t, p]) => [h('h4', { class: 'ititle', text: t }), h('p', { text: p })])),
+    (() => {
+      const bts = [techBt(), ...psySection()].filter(Boolean);
+      return pli(
+        'Ce que valent ces lectures (backtests)',
+        ...(bts.length ? bts : [h('p', { class: 'note', text: 'Résultats au prochain calcul complet.' })])
+      );
+    })(),
     hist.length || GS.journal.length
       ? pli(
-          'Historique des alertes et des comités',
+          'Historique des alertes et des lectures',
           hist.length ? h('h4', { class: 'ititle', text: 'Alertes' }) : null,
           hist.length
             ? h(
@@ -1459,14 +1076,12 @@ function vMethode() {
                 hist.map((t) => h('li', { text: `${dfr(t.id.slice(0, 10))} — ${t.titre}` }))
               )
             : null,
-          GS.journal.length ? h('h4', { class: 'ititle', text: 'Comités' }) : null,
+          GS.journal.length ? h('h4', { class: 'ititle', text: 'Lectures de la semaine' }) : null,
           GS.journal.length
             ? h(
                 'ul',
                 { class: 'list' },
-                GS.journal.map((j) =>
-                  h('li', {}, h('b', { text: `${dfr(j.date)} (${j.mode})` }), ' — ' + (j.resume || ''))
-                )
+                GS.journal.map((j) => h('li', {}, h('b', { text: dfr(j.date) }), ' — ' + (j.resume || '')))
               )
             : null
         )
@@ -1505,8 +1120,9 @@ function sources() {
   ];
 }
 
-/* ---------------------------------------------------------------------------------------------- vue simplifiée
-   Aujourd'hui : une ligne par culture (que faire, combien, à quel prix) ; Cultures : une culture à la fois, le détail replié. */
+/* ---------------------------------------------------------------------------------------------- onglet Marché
+   Une ligne par culture : cours, lecture technique, effet de l'actualité, repères ; le détail d'une culture au toucher.
+   L'outil décrit le marché ; il ne dit jamais quoi vendre, ni quand, ni combien. */
 const NOM_COURT = {
   ble: 'Blé',
   escourgeon: 'Escourgeon',
@@ -1514,117 +1130,126 @@ const NOM_COURT = {
   colza: 'Colza',
   mais: 'Maïs',
 };
-
-// icône de chaque décision ; le texte, la couleur et les chiffres viennent du calcul (data.cultures[*].decision)
-const ICONE = {
-  ordre: '🎯',
-  executer: '✅',
-  vendre: '🟢',
-  attendre: '🔴',
-  couvrir: '🛡️',
-  rien: '💤',
-  patienter: '⏸️',
-  ACHETER_LARGE: '🟢',
-  SUIVRE: '🟡',
-  FRACTIONNER: '🟠',
-  ATTENDRE: '🔴',
+const BASE = { ble: 'ble', escourgeon: 'ble', orge_printemps: 'ble', colza: 'colza', mais: 'mais' };
+const BASE_USDA = { ble: 'ble', escourgeon: 'orge', orge_printemps: 'orge', colza: 'colza', mais: 'mais' };
+const SENS = {
+  haussière: ['▲ hausse', 'good'],
+  baissière: ['▼ baisse', 'bad'],
+  neutre: ['● neutre', 'neutral'],
+  équilibrée: ['● neutre', 'neutral'],
 };
-// données publiées par un calcul plus ancien que la page (sans « decision ») : action du plan et cours, en attendant le prochain calcul
-function repli(c, d) {
-  if (!c) {
-    const e = d.engrais || {};
-    return {
-      code: e.signal,
-      libelle: (e.libelle || '—').replace(/^\S+\s/, ''),
-      couleur: 'neutral',
-      quoi: e.a_acheter || '',
-    };
-  }
-  const plan = c.plan || [];
-  const due = plan.find((p) => p.statut === 'due') || plan[0] || {};
-  const con = (d.contrats || {})[c.contrat] || {};
-  return {
-    code: due.code,
-    libelle: '—',
-    couleur: 'neutral',
-    quoi: due.action || '',
-    cours: (c.physique || {}).prix || con.dernier_reel,
-    physique: Boolean((c.physique || {}).prix),
-  };
+function sensBadge(s, azote) {
+  if (!s) return h('span', { class: 'badge neutral', text: '—' });
+  const [t, c] = SENS[s] || [s, 'neutral'];
+  // azote : une hausse est un prix d'achat plus cher (couleurs de position, pas de jugement)
+  if (azote && s === 'haussière') return h('span', { class: 'badge warn', text: '▲ plus cher' });
+  if (azote && s === 'baissière') return h('span', { class: 'badge info', text: '▼ moins cher' });
+  return h('span', { class: 'badge ' + c, text: t });
 }
-function resume(dec, azote) {
-  const x = dec || {};
-  const sous = azote
-    ? [
-        x.cours
-          ? `Urée ${fmt(x.cours)} €/t` +
-            (x.var1m !== undefined && x.var1m !== null ? ` (${pct(x.var1m)} en 1 mois)` : '')
-          : null,
-        x.plafond ? `plafond d’achat ${fmt(x.plafond, 0)} €/t` : null,
-      ]
-    : [
-        x.cours
-          ? `${x.physique ? 'Prix physique' : 'Cours'} ${fmt(x.cours)} €/t` +
-            (x.var1s !== undefined && x.var1s !== null ? ` (${pct(x.var1s)} en 1 sem.)` : '')
-          : null,
-        x.chance !== null && x.chance !== undefined
-          ? `${x.chance} % de chances d’atteindre l’ordre d’ici le ${dfr(x.horizon)}`
-          : null,
-        x.declencheur_ble ? `ordre déclenché par le blé Euronext à ${fmt(x.declencheur_ble)} €/t` : null,
-      ];
-  return {
-    ic: ICONE[x.code] || '❔',
-    lab: x.libelle || '—',
-    cl: x.couleur || 'neutral',
-    quoi: x.quoi || '',
-    com: x.consigne ? `Comité : ${x.consigne}` : '',
-    sous: sous.filter(Boolean).join(' · '),
-  };
+const varSpan = (v, d = 2, suf = '') =>
+  v === null || v === undefined || v === 0 ? null : h('span', { class: 'mvar ' + cls(v), text: sgn(v, d) + suf });
+
+// repères en une ligne : prix sur 5 ans, écart au plus haut de la campagne, seuils atteints
+function reperesTxt(c) {
+  const r = c.reperes || {};
+  const out = [];
+  if (r.percentile5 !== null && r.percentile5 !== undefined)
+    out.push(`${r.percentile5}e percentile sur 5 ans${r.sur_ble ? ' (blé)' : ''}`);
+  if (r.ecart_plus_haut !== null && r.ecart_plus_haut !== undefined && !c.physique)
+    out.push(
+      r.ecart_plus_haut < -0.01 ? `${fmt(-r.ecart_plus_haut)} € sous le plus haut de campagne` : 'au plus haut de la campagne'
+    );
+  for (const s of c.seuils || [])
+    if (s.atteint) out.push(`🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`);
+  return out.join(' · ');
 }
 
-function decisionRow(href, nom, r) {
+function marcheRow(href, nom, prix, tech, actu, note, labTech = 'Technique') {
+  const paire = (lab, b) => h('span', { class: 'mpaire' }, h('span', { class: 'mlab', text: lab }), b);
   return h(
     'a',
-    { class: 'drow d-' + r.cl, href },
-    h('span', { class: 'dname', text: nom }),
-    h(
-      'span',
-      { class: 'dmain' },
-      h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
-      h('span', { class: 'dquoi', text: r.quoi })
-    ),
-    r.com ? h('span', { class: 'dcom', text: r.com }) : null,
-    r.sous ? h('span', { class: 'dsous', text: r.sous }) : null,
+    { class: 'mrow', href },
+    h('span', { class: 'mname', text: nom }),
+    h('span', { class: 'mprix' }, ...prix),
+    h('span', { class: 'mbadges' }, paire(labTech, tech), paire('Actualité', actu)),
+    note ? h('span', { class: 'mnote', text: note }) : null,
     h('span', { class: 'dgo', 'aria-hidden': 'true', text: '›' })
   );
 }
 
 function alertes(d) {
-  const out = [];
-  const com = d.comite || {};
-  const cj = GS.comite || {};
-  if (cj.erreur && com.valide)
-    out.push(`Le dernier comité n’a pas abouti : l’avis du ${dfr(com.date)} reste appliqué.`);
-  else if (!com.valide) out.push('Pas d’avis du comité de moins de 8 jours : plan de vente par défaut.');
-  for (const a of ((GS.actu || {}).articles || []).filter((x) => ((GS.actu || {}).majeurs || []).includes(x.id)))
-    out.push(`📰 ${a.titre_fr || a.titre}`);
-  for (const t of d.declencheurs || []) out.push(`${t.grave ? '⚠️ ' : ''}${t.titre}`);
+  const ac = GS.actu || {};
+  const out = (ac.articles || []).filter((x) => (ac.majeurs || []).includes(x.id)).map((a) => `📰 ${a.titre_fr || a.titre}`);
+  for (const t of d.declencheurs || []) out.push(`${t.grave ? '🔔 ' : ''}${t.titre}`);
   return out;
 }
 
-function vAujourdhui() {
-  const d = GS.data;
-  const com = d.comite || {};
-  const out = [];
-  const cal = ((com.calendrier || []).filter((x) => x.date >= d.date) || []).sort((a, b) => (a.date < b.date ? -1 : 1));
-  out.push(
-    h(
-      'p',
-      { class: 'meta' },
-      `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}`,
-      cal.length ? ` · prochain rendez-vous : ${cal[0].evenement} (${dfr(cal[0].date)})` : ''
+function agenda(d) {
+  const cal = ((d.comite || {}).calendrier || [])
+    .filter((x) => x.date >= d.date)
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .slice(0, 3);
+  return cal.length
+    ? h('p', { class: 'meta', text: '📅 À venir : ' + cal.map((x) => `${dfr(x.date)} ${x.evenement}`).join(' · ') })
+    : null;
+}
+
+// la lecture de la semaine (lundi) : arguments haussiers et baissiers, ce qu'il faut surveiller ; jamais de consigne
+function lectureCard(cc, titre) {
+  if (!cc) return null;
+  const liste = (xs, cl, t) =>
+    xs && xs.length
+      ? [
+          h('h4', { class: 'ititle ' + cl, text: t }),
+          h(
+            'ul',
+            { class: 'list' },
+            xs.map((x) => h('li', { text: x }))
+          ),
+        ]
+      : [];
+  return h(
+    'section',
+    { class: 'card wide' },
+    h('h3', { text: titre }),
+    cc.lecture ? h('p', { text: cc.lecture }) : null,
+    h('div', { class: 'duo2' }, h('div', {}, ...liste(cc.haussier, 'up', '▲ Ce qui pousse à la hausse')), h('div', {}, ...liste(cc.baissier, 'down', '▼ Ce qui pousse à la baisse'))),
+    cc.a_surveiller ? h('p', { class: 'note', text: `À surveiller : ${cc.a_surveiller}` }) : null
+  );
+}
+
+// les nouvelles qui pèsent le plus sur une culture (ids calculés par actualites.py)
+function principales(p) {
+  const arts = (GS.actu || {}).articles || [];
+  return ((p && p.principaux) || [])
+    .map((id) => arts.find((a) => a.id === id))
+    .filter(Boolean)
+    .slice(0, 2);
+}
+
+function navCultures(d, k) {
+  const keys = Object.keys(d.cultures || {}).concat(['azote']);
+  return h(
+    'nav',
+    { class: 'filters cnav', 'aria-label': 'Choisir une culture' },
+    h('a', { class: 'filt', href: '#marche', text: '← Vue d’ensemble' }),
+    keys.map((x) =>
+      h('a', {
+        class: 'filt',
+        href: `#marche/${x}`,
+        'aria-current': x === k ? 'page' : null,
+        text: x === 'azote' ? '🧪 Azote' : `${ICON[x] || ''} ${NOM_COURT[x] || x}`,
+      })
     )
   );
+}
+
+function vMarche() {
+  const d = GS.data;
+  const k = GS.cult;
+  if (k && (k === 'azote' || (d.cultures || {})[k]))
+    return [navCultures(d, k), ...(k === 'azote' ? azoteView(d) : cultureView(k, d))];
+  const out = [h('p', { class: 'meta', text: `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}` })];
   const al = alertes(d);
   if (al.length)
     out.push(
@@ -1638,30 +1263,61 @@ function vAujourdhui() {
         )
       )
     );
-  out.push(h('h2', { text: 'Que faire aujourd’hui' }));
-  const rows = Object.keys(d.cultures || {}).map((k) =>
-    decisionRow(
-      `#cultures/${k}`,
-      `${ICON[k] || ''} ${NOM_COURT[k] || d.cultures[k].nom}`,
-      resume(d.cultures[k].decision || repli(d.cultures[k], d))
+  out.push(h('h2', { text: 'Le marché ce matin' }));
+  const rows = Object.entries(d.cultures || {}).map(([key, c]) =>
+    marcheRow(
+      `#marche/${key}`,
+      `${ICON[key] || ''} ${NOM_COURT[key] || c.nom}`,
+      [
+        h('b', { text: c.cours ? `${fmt(c.cours)} €/t` : '—' }),
+        varSpan(c.var1j),
+        c.physique ? h('small', { text: 'physique' }) : null,
+      ],
+      sensBadge((c.technique || {}).sens),
+      sensBadge((c.actualite || {}).sens),
+      reperesTxt(c)
     )
   );
-  rows.push(decisionRow('#cultures/azote', '🧪 Azote', resume((d.engrais || {}).decision || repli(null, d), true)));
-  out.push(h('nav', { class: 'drows', 'aria-label': 'Décisions par culture' }, rows));
+  const e = d.engrais || {};
+  const u = (e.france || {}).uree || {};
+  rows.push(
+    marcheRow(
+      '#marche/azote',
+      '🧪 Azote',
+      [
+        h('b', { text: u.prix ? `${fmt(u.prix)} €/t` : '—' }),
+        varSpan(u.var1m, 1, ' % en 1 mois'),
+        h('small', { text: 'urée' }),
+      ],
+      h('span', {
+        class: 'badge neutral',
+        text: e.percentile_retenu !== undefined && e.percentile_retenu !== null ? `ratio ${e.percentile_retenu}e` : '—',
+        title: 'Ratio azote/blé en percentile sur 10 ans',
+      }),
+      sensBadge((e.actualite || {}).sens, true),
+      (e.seuils || [])
+        .filter((s) => s.atteint)
+        .map((s) => `🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`)
+        .join(' · '),
+      'Face au blé'
+    )
+  );
+  out.push(h('nav', { class: 'mrows', 'aria-label': 'Marché par culture' }, rows));
   out.push(
     h('p', {
       class: 'note',
-      text: '🎯 ORDRE : placer un ordre de vente à ce prix, pas au prix du jour · ⏸️ PATIENTER : attendre un rebond · ✅ VENDRE : la tranche peut partir · 🔴 ATTENDRE : décaler · 💤 RIEN : pas de tranche maintenant. Touchez une ligne pour le détail.',
+      text: 'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI) · Actualité : effet des nouvelles des 7 derniers jours sur le prix · Escourgeon et orge de printemps : prix physique Creil, technique du blé. Touchez une ligne pour le détail. L’outil décrit le marché ; la décision vous appartient.',
     })
   );
+  out.push(agenda(d));
+  const com = d.comite || {};
   const cj = GS.comite || {};
-  // le pourquoi, replié : les décisions ci-dessus disent déjà quoi faire
-  if (com.resume)
+  if (com.resume && com.valide)
     out.push(
       h(
         'details',
         { class: 'acc' },
-        h('summary', { text: `Pourquoi ? L’avis du comité du ${dfr(com.date)}` }),
+        h('summary', { text: `Lecture du marché de la semaine (${dfr(com.date)})` }),
         h('p', { text: com.resume }),
         cj.rapport_html
           ? h(
@@ -1677,6 +1333,7 @@ function vAujourdhui() {
           : null
       )
     );
+  out.push(autresMarches(d));
   return out;
 }
 
@@ -1688,7 +1345,7 @@ function reperes(k, c, con, d) {
     th
       ? pgauge(
           th.percentile,
-          'vendeur',
+          'prix',
           `🌡️ Prix sur 5 ans${c.proxy ? ' (blé)' : ''}`,
           th.euronext ? `Habituel ${fmt(th.p20, 0)}–${fmt(th.p80, 0)} €/t` : null,
           true
@@ -1711,13 +1368,8 @@ function reperes(k, c, con, d) {
 function cultureView(k, d) {
   const c = d.cultures[k];
   const con = (d.contrats || {})[c.contrat] || {};
-  const nr = c.niveaux_retenus || {};
-  const r = resume(c.decision || repli(c, d));
-  const cc = c.comite || {};
-  const ech = nr.echeance ? ` (${c.contrat} ${moisFr(nr.echeance)})` : '';
-  const ordres = nr.ordres || [];
+  const tq = c.technique || {};
   const o = (d.orges || {})[k];
-  const plan = (c.plan || []).map((p) => `Récolte ${p.recolte} : ${p.resume || p.action} (${p.periode})`);
   const graph =
     o && o.estime
       ? periodPanel({
@@ -1725,7 +1377,7 @@ function cultureView(k, d) {
           graphique: o.estime.graphique,
           long: orgeLong(o, d.contrats.EBM),
           technique: o.estime.technique,
-          niveaux: o.estime.niveaux,
+          niveaux: tq,
           mainColor: 'var(--muted)',
           longMain: 'var(--muted)',
           col4Dots: true,
@@ -1747,143 +1399,123 @@ function cultureView(k, d) {
             graphique: (con.proxy && con.proxy.graphique ? con.proxy : con).graphique,
             long: con.long,
             technique: con.proxy && con.proxy.technique ? con.proxy.technique : con.technique,
-            niveaux: con.niveaux_retenus || con.niveaux,
-            marks: marksFor(k),
+            niveaux: tq,
             longMain: con.long && con.long.source === 'euronext' ? null : 'var(--muted)',
           })
         : null;
   const ta = con.proxy && con.proxy.technique ? con.proxy.technique : con.technique;
   const met = ((d.meteo || {}).cultures || {})[BASE[k]];
   const sa = (d.saison || {})[BASE[k]];
-  const b = c.biais;
+  const rp = c.reperes || {};
   const ceu = ((d.cot || {})['EURONEXT_' + c.contrat] || {}).indice;
   const pl = !c.proxy ? con.prime_locale : null;
+  const ph = c.physique_detail || {};
+  const ou = c.physique
+    ? `prix physique ${ph.place || 'Creil FOB'}, ${dfr(c.date)}`
+    : c.echeance
+      ? `Euronext ${c.contrat} ${moisFr(c.echeance)}, séance du ${dfr(c.date)}`
+      : '';
+  const arts = principales(c.actualite);
+  const kv = (t, ...v) => [h('dt', { text: t }), h('dd', {}, ...v)];
   return [
     h(
       'section',
-      { class: 'card wide head d-' + r.cl },
+      { class: 'card wide head' },
       h('h2', { text: `${ICON[k] || ''} ${c.nom}` }),
       h(
-        'div',
-        { class: 'dmain' },
-        h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
-        h('span', { class: 'dquoi', text: r.quoi })
+        'p',
+        { class: 'mbig' },
+        h('b', { text: c.cours ? `${fmt(c.cours)} €/t` : '—' }),
+        varSpan(c.var1j),
+        h('small', { text: ou })
       ),
-      r.com ? h('p', { class: 'dcom', text: r.com }) : null,
-      r.sous ? h('p', { class: 'dsous', text: r.sous }) : null,
-      cc.texte ? h('p', { text: cc.texte }) : c.note ? h('p', { class: 'note', text: c.note }) : null,
-      c.a_revoir ? h('div', { class: 'alert', text: c.a_revoir }) : null
+      h(
+        'dl',
+        { class: 'kv' },
+        kv(
+          'Technique',
+          sensBadge(tq.sens),
+          ' ',
+          tq.texte ? `${tq.texte}${tq.sur_ble ? ' (blé Euronext)' : ''}` : 'historique trop court'
+        ),
+        (tq.resistances || []).length || (tq.supports || []).length
+          ? kv(
+              'Niveaux',
+              [
+                (tq.resistances || []).length ? `résistances ${tq.resistances.map((v) => fmt(v)).join(' · ')}` : null,
+                (tq.supports || []).length ? `supports ${tq.supports.map((v) => fmt(v)).join(' · ')}` : null,
+              ]
+                .filter(Boolean)
+                .join(' ; ') + ' €/t'
+            )
+          : null,
+        kv(
+          'Actualité',
+          sensBadge((c.actualite || {}).sens),
+          ...arts.map((a) => h('div', { class: 'dsous', text: `${a.titre_fr || a.titre} — ${a.impact || ''}` }))
+        )
+      )
     ),
     graph ? h('section', { class: 'card wide' }, graph) : null,
     (() => {
       const g = reperes(k, c, con, d);
       return g.length ? h('div', { class: 'card wide' }, h('div', { class: 'pgrid tight' }, g)) : null;
     })(),
+    lectureCard(c.comite, `Lecture de la semaine (${dfr((d.comite || {}).date)})`),
     h(
       'section',
       { class: 'card wide' },
       h(
         'dl',
         { class: 'kv' },
-        ordres.length && (nr.sur_ble || !graph)
-          ? [
-              h('dt', { text: '🎯 Ordres' }),
-              h('dd', {
-                text: nr.sur_ble
-                  ? `${nr.equivalent_orge && nr.equivalent_orge.ordres.length ? `≈ ${nr.equivalent_orge.ordres.map((v) => fmt(v)).join(' · ')} €/t d’orge, ` : ''}quand le blé Euronext atteint ${ordres.map((v) => fmt(v)).join(' · ')} €/t${ech}`
-                  : `${ordres.map((v) => fmt(v)).join(' · ')} €/t${ech}`,
-              }),
-            ]
+        rp.plus_haut !== undefined
+          ? kv(
+              '📈 Campagne',
+              `plus haut ${fmt(rp.plus_haut)} €/t le ${dfr(rp.plus_haut_le)}${c.proxy ? ' (blé)' : ''}, ${sgn(rp.ecart_plus_haut)} €/t depuis`
+            )
           : null,
-        probaTxt(nr.probas) && (nr.sur_ble || !graph)
-          ? [h('dt', { text: '🎲 Chances' }), h('dd', { text: probaTxt(nr.probas) })]
-          : null,
-        nr.revision && (nr.sur_ble || !graph)
-          ? [h('dt', { text: '🛑 Révision' }), h('dd', { text: `sous ${fmt(nr.revision)} €/t${ech}` })]
-          : null,
-        plan.length
-          ? [
-              h('dt', { text: '📅 Plan' }),
-              h(
-                'dd',
-                {},
-                plan.map((t) => h('div', { text: t }))
-              ),
-            ]
-          : null,
-        c.feu ? [h('dt', { text: `${FEU[c.feu.code] || ''} Timing` }), h('dd', { text: c.feu.texte })] : null,
         con.stockage && con.stockage.texte
-          ? [
-              h('dt', { text: '📦 Stocker ?' }),
-              h('dd', { text: (c.proxy ? 'Selon le blé : ' : '') + con.stockage.texte }),
-            ]
+          ? kv('📦 Stockage', (c.proxy ? 'Courbe du blé. ' : '') + con.stockage.texte)
+          : null,
+        pl && pl.texte ? kv('📍 Prime locale', pl.texte + (pl.comparaison ? ` · ${pl.comparaison}` : '')) : null,
+        ph.prix
+          ? kv(
+              '🏭 Physique',
+              `${fmt(ph.prix)} €/t ${ph.place || ''}${ph.prime !== undefined && ph.prime !== null ? `, prime brassicole ${sgn(ph.prime)} €/t sur la fourragère` : ''}`
+            )
+          : null,
+        met
+          ? kv(
+              '🌦️ Météo',
+              met.zones
+                .filter((z) => z.etat !== 'normal' && z.saison)
+                .map((z) => `${z.zone} ${z.etat}`)
+                .join(', ') || 'rien d’anormal dans les zones en saison'
+            )
+          : null,
+        sa
+          ? kv(
+              '📅 Saison',
+              `mois habituellement chers : ${sa.plus_chers.map((m) => MOIS[m - 1]).join(', ')} ; moins chers : ${sa.moins_chers.map((m) => MOIS[m - 1]).join(', ')}`
+            )
+          : null,
+        (c.seuils || []).length
+          ? kv(
+              '🔔 Vos seuils',
+              c.seuils.map((s) => `${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t${s.atteint ? ' (atteint)' : ''}`).join(' · ')
+            )
           : null
       ),
       h(
         'details',
         {},
-        h('summary', { text: 'Tous les détails' }),
-        h(
-          'dl',
-          { class: 'kv' },
-          cc.signal
-            ? [
-                h('dt', { text: 'Avis du comité' }),
-                h('dd', {
-                  text: `${c.libelle || ''}${cc.pct ? ` · ${cc.pct}` : ''}${c.score_actualise !== undefined ? ` · score ${sgn(cc.score)} au comité, ${sgn(c.score_actualise)} ce matin` : ''}`,
-                }),
-              ]
-            : null,
-          c.physique && c.physique.prix
-            ? [
-                h('dt', { text: 'Physique' }),
-                h('dd', {
-                  text: `${fmt(c.physique.prix)} €/t ${c.physique.place || ''}${c.physique.prime !== undefined && c.physique.prime !== null ? `, prime brassicole ${sgn(c.physique.prime)} €/t` : ''}, ${dfr(c.physique.date)}`,
-                }),
-              ]
-            : null,
-          met
-            ? [
-                h('dt', { text: '🌦️ Météo' }),
-                h('dd', {
-                  text: `Note ${sgn(met.score)} : ${
-                    met.zones
-                      .filter((z) => z.etat !== 'normal' && z.saison)
-                      .map((z) => `${z.zone} ${z.etat}`)
-                      .join(', ') || 'rien à signaler en saison'
-                  }`,
-                }),
-              ]
-            : null,
-          sa
-            ? [
-                h('dt', { text: '📅 Mois chers' }),
-                h('dd', {
-                  text: `${sa.plus_chers.map((m) => MOIS[m - 1]).join(', ')} (moins chers : ${sa.moins_chers.map((m) => MOIS[m - 1]).join(', ')})`,
-                }),
-              ]
-            : null,
-          con.psychologie
-            ? [
-                h('dt', { text: '🧠 Humeur' }),
-                h('dd', {
-                  text: `${con.psychologie.indice} (${con.psychologie.libelle}) : ${con.psychologie.lecture}. RSI ${con.psychologie.composantes.rsi}, écart MM200 ${con.psychologie.composantes.ecart200}, élan 20 j ${con.psychologie.composantes.elan20}${con.psychologie.composantes.fonds !== null && con.psychologie.composantes.fonds !== undefined ? `, fonds ${con.psychologie.composantes.fonds}` : ''} (percentiles sur 3 ans)`,
-                }),
-              ]
-            : null,
-          b
-            ? [
-                h('dt', { text: '🪞 Vos biais' }),
-                h('dd', {
-                  text:
-                    (b.chance_plus_haut !== null && b.chance_plus_haut !== undefined
-                      ? `Plus haut de la campagne ${fmt(b.plus_haut)} €/t le ${dfr(b.plus_haut_le)} : ${b.chance_plus_haut} % de chances de le revoir d’ici le ${dfr(b.horizon)}. `
-                      : '') +
-                    `Attendre encore 5 € : ${b.gagner5} % de chances de les voir, ${b.perdre5} % de risque de reculer de 5 €.`,
-                }),
-              ]
-            : null
-        ),
+        h('summary', { text: 'Tous les indicateurs' }),
+        con.psychologie
+          ? h('p', {
+              class: 'note',
+              text: `🧠 Humeur ${con.psychologie.indice} (${con.psychologie.libelle}) : ${con.psychologie.lecture}. RSI ${con.psychologie.composantes.rsi}, écart MM200 ${con.psychologie.composantes.ecart200}, élan 20 j ${con.psychologie.composantes.elan20}${con.psychologie.composantes.fonds !== null && con.psychologie.composantes.fonds !== undefined ? `, fonds ${con.psychologie.composantes.fonds}` : ''} (percentiles sur 3 ans).`,
+            })
+          : null,
         h(
           'div',
           { class: 'pgrid' },
@@ -1900,20 +1532,44 @@ function cultureView(k, d) {
 
 function azoteView(d) {
   const e = d.engrais || {};
-  const r = resume(e.decision || repli(null, d), true);
+  const u = (e.france || {}).uree || {};
+  const kv = (t, ...v) => [h('dt', { text: t }), h('dd', {}, ...v)];
   return [
     h(
       'section',
-      { class: 'card wide head d-' + r.cl },
+      { class: 'card wide head' },
       h('h2', { text: '🧪 Azote' }),
       h(
-        'div',
-        { class: 'dmain' },
-        h('span', { class: 'badge ' + r.cl, text: `${r.ic} ${r.lab}` }),
-        h('span', { class: 'dquoi', text: r.quoi })
+        'p',
+        { class: 'mbig' },
+        h('b', { text: u.prix ? `${fmt(u.prix)} €/t` : '—' }),
+        varSpan(u.var1m, 1, ' % en 1 mois'),
+        h('small', { text: u.date ? `urée 46, ${dfr(u.date)}` : 'urée 46' })
       ),
-      r.sous ? h('p', { class: 'dsous', text: r.sous }) : null,
-      (e.decision || {}).texte ? h('p', { text: e.decision.texte }) : null
+      h(
+        'dl',
+        { class: 'kv' },
+        kv(
+          'Actualité',
+          sensBadge((e.actualite || {}).sens, true),
+          ...principales(e.actualite).map((a) => h('div', { class: 'dsous', text: `${a.titre_fr || a.titre} — ${a.impact || ''}` }))
+        ),
+        e.saison ? kv('Saison', e.saison) : null,
+        e.forme_moins_chere ? kv('Forme la moins chère', `${e.forme_moins_chere} (en €/unité d’azote, avant pertes)`) : null,
+        (e.seuils || []).length
+          ? kv(
+              '🔔 Vos seuils',
+              e.seuils.map((s) => `${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t${s.atteint ? ' (atteint)' : ''}`).join(' · ')
+            )
+          : null
+      ),
+      e.notes && e.notes.length
+        ? h(
+            'ul',
+            { class: 'list' },
+            e.notes.map((n) => h('li', { text: n }))
+          )
+        : null
     ),
     h(
       'div',
@@ -1922,43 +1578,16 @@ function azoteView(d) {
         'div',
         { class: 'pgrid tight' },
         pgauge(e.percentile_retenu, 'ratio', '⚖️ Azote face au blé (10 ans)', null, true),
-        e.ttf
-          ? pgauge(e.ttf.percentile_5ans, 'acheteur', `⛽ Gaz sur 5 ans (${fmt(e.ttf.dernier)} €/MWh)`, null, true)
-          : null
+        e.ttf ? pgauge(e.ttf.percentile_5ans, 'prix', `⛽ Gaz sur 5 ans (${fmt(e.ttf.dernier)} €/MWh)`, null, true) : null,
+        e.actualite ? pgauge(e.actualite.valeur, 'actuEngrais', '📰 Actualité (7 jours)', null, true) : null
       )
     ),
-    h(
-      'section',
-      { class: 'card wide' },
-      h(
-        'dl',
-        { class: 'kv' },
-        e.forme_moins_chere
-          ? [h('dt', { text: 'Forme la moins chère' }), h('dd', { text: e.forme_moins_chere })]
-          : null,
-        e.saison ? [h('dt', { text: 'Saison' }), h('dd', { text: e.saison })] : null,
-        e.comite && e.comite.signal && e.comite.signal !== e.signal
-          ? [h('dt', { text: 'Règles chiffrées' }), h('dd', { text: e.libelle || '—' })]
-          : null
-      ),
-      h(
-        'details',
-        {},
-        h('summary', { text: 'Tous les détails' }),
-        e.notes && e.notes.length
-          ? h(
-              'ul',
-              { class: 'list note' },
-              e.notes.map((n) => h('li', { text: n }))
-            )
-          : null,
-        ...vEngrais()
-      )
-    ),
+    lectureCard(e.comite, `Lecture de la semaine (${dfr((d.comite || {}).date)})`),
+    h('details', { class: 'acc' }, h('summary', { text: 'Gaz, urée, ratio et prix France' }), ...vEngrais()),
   ];
 }
 
-// contexte commun (marchés mondiaux, fonds, bilans, météo, saisons) : replié en bas de l'onglet Cultures
+// contexte commun (marchés mondiaux, fonds, bilans, météo, saisons) : replié en bas de l'onglet Marché
 function autresMarches(d) {
   const kids = [...stocksSection(d), ...saisonSection(d), ...meteoSection(d)];
   const inter = Object.entries(d.international || {});
@@ -1977,7 +1606,7 @@ function autresMarches(d) {
             h(
               'tr',
               {},
-              ['Marché', 'Dernier', '1 mois', 'RSI'].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
+              ['Marché', 'Dernier', '1 mois', 'Technique'].map((t, i) => h('th', { class: i && i < 3 ? 'n' : '', text: t }))
             ),
             inter.map(([, x]) => {
               const a = x.technique || {};
@@ -1987,7 +1616,7 @@ function autresMarches(d) {
                 h('td', { text: x.nom }),
                 h('td', { class: 'n', text: fmt(a.dernier, a.dernier < 10 ? 4 : 2) }),
                 h('td', { class: 'n ' + cls(a.var1m), text: pct(a.var1m) }),
-                h('td', { class: 'n', text: fmt(a.rsi, 0) })
+                h('td', {}, sensBadge((x.lecture || {}).sens))
               );
             })
           )
@@ -2018,25 +1647,6 @@ function autresMarches(d) {
       : null,
     kids
   );
-}
-
-function vCultures() {
-  const d = GS.data;
-  const keys = Object.keys(d.cultures || {}).concat(['azote']);
-  const k = keys.includes(GS.cult) ? GS.cult : keys[0];
-  const nav = h(
-    'nav',
-    { class: 'filters cnav', 'aria-label': 'Choisir une culture' },
-    keys.map((x) =>
-      h('a', {
-        class: 'filt',
-        href: `#cultures/${x}`,
-        'aria-current': x === k ? 'page' : null,
-        text: x === 'azote' ? '🧪 Azote' : `${ICON[x] || ''} ${NOM_COURT[x] || x}`,
-      })
-    )
-  );
-  return [nav, ...(k === 'azote' ? azoteView(d) : cultureView(k, d)), autresMarches(d)];
 }
 
 /* ---------------------------------------------------------------------------------------------- onglet Actualité */
@@ -2074,15 +1684,14 @@ function ilya(iso) {
   return `il y a ${j} jour${j > 1 ? 's' : ''}`;
 }
 
-// effet sur chaque prix : vert = favorable à l'exploitation (grain plus cher à la vente, azote moins cher à l'achat)
+// effet sur chaque prix : ↑ hausse, ↓ baisse (azote : ↑ = plus cher)
 function impactChips(imp) {
   return Object.entries(imp || {})
     .filter(([, v]) => v)
     .map(([c, v]) => {
-      const fav = c === 'engrais' ? v < 0 : v > 0;
       const fl = v > 0 ? '↑'.repeat(Math.abs(v)) : '↓'.repeat(Math.abs(v));
       return h('span', {
-        class: 'chip ' + (fav ? 'good' : 'bad'),
+        class: 'chip ' + (c === 'engrais' ? (v > 0 ? 'warn' : 'info') : v > 0 ? 'good' : 'bad'),
         title:
           c === 'engrais'
             ? v > 0
@@ -2258,7 +1867,7 @@ function geoSection(d) {
         text:
           'Indice de risque géopolitique de Caldara et Iacoviello (Réserve fédérale) : part des articles de grands journaux qui parlent de guerre, de menace militaire ou de terrorisme, chaque jour et par pays. Il mesure la tension, pas son effet sur les grains' +
           geoBt(bt) +
-          ' Chaque événement se juge donc au cas par cas : c’est le rôle des actualités traduites ci-dessus et de l’expert géopolitique du comité.',
+          ' Chaque événement se juge donc au cas par cas : c’est le rôle des actualités traduites ci-dessus et de la lecture de la semaine.',
       })
     ),
   ];
@@ -2311,7 +1920,7 @@ function psySection() {
           ),
           h('p', {
             class: 'note',
-            text: 'Humeur de 0 (peur extrême) à 100 (euphorie) : moyenne des percentiles sur 3 ans du RSI, de l’écart à la moyenne 200 séances, de l’élan sur 20 séances et de la position des fonds. « Hasard seul » : corrélation atteinte par pur hasard (90 % des cas) sur des cours tirés au sort de même longueur et de même nervosité, car les périodes de 60 séances se chevauchent. Une humeur qui ne bat pas le hasard n’entre pas dans la note de marché : elle sert à ne pas vendre dans la panique et à ne pas laisser passer une tranche dans l’euphorie.',
+            text: 'Humeur de 0 (peur extrême) à 100 (euphorie) : moyenne des percentiles sur 3 ans du RSI, de l’écart à la moyenne 200 séances, de l’élan sur 20 séances et de la position des fonds. « Hasard seul » : corrélation atteinte par pur hasard (90 % des cas) sur des cours tirés au sort de même longueur et de même nervosité, car les périodes de 60 séances se chevauchent. Une humeur qui ne bat pas le hasard décrit l’ambiance du marché ; elle ne prédit pas la suite.',
           })
         )
       : null,
@@ -2334,7 +1943,7 @@ function vActualite() {
       'section',
       { class: 'card wide' },
       h('h3', {
-        text: `Ce que l’actualité change pour vous${ac.synthese_du && ac.synthese_du !== ac.date ? ` (${dfr(ac.synthese_du)})` : ''}`,
+        text: `Ce que l’actualité change pour les prix${ac.synthese_du && ac.synthese_du !== ac.date ? ` (${dfr(ac.synthese_du)})` : ''}`,
       }),
       ac.synthese ? h('p', { text: ac.synthese }) : null,
       pr
@@ -2354,17 +1963,7 @@ function vActualite() {
   );
   out.push(newsList(ac));
   const geo = geoSection(d).slice(1); // sans le titre : la section est repliée
-  const ev = psySection()[0]; // tableau « l'humeur annonce-t-elle la suite ? »
-  if (geo.length || ev)
-    out.push(
-      h(
-        'details',
-        { class: 'more-data' },
-        h('summary', { text: 'Géopolitique et psychologie des marchés' }),
-        ...geo,
-        ev
-      )
-    );
+  if (geo.length) out.push(h('details', { class: 'more-data' }, h('summary', { text: 'Risque géopolitique' }), ...geo));
   return out;
 }
 
@@ -2381,8 +1980,8 @@ function render() {
     return;
   }
   const v =
-    { aujourdhui: vAujourdhui, cultures: vCultures, actualite: vActualite, methode: vMethode }[GS.tab] || vAujourdhui;
-  main.append(...v());
+    { marche: vMarche, actualite: vActualite, methode: vMethode }[GS.tab] || vMarche;
+  main.append(...v().filter(Boolean)); // une section absente (null) ne s'affiche pas « null »
   document
     .querySelectorAll('.tabs button')
     .forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === GS.tab)));
@@ -2397,13 +1996,13 @@ async function getJSON(path) {
   }
 }
 
-// #aujourdhui, #cultures/ble, #actualite, #methode ; anciens liens (#signaux, #technique, #engrais, #comite) redirigés
-const ANCIENS = { signaux: 'aujourdhui', comite: 'aujourdhui', technique: 'cultures', engrais: 'cultures/azote' };
+// #marche, #marche/ble, #actualite, #methode ; anciens liens (#aujourdhui, #cultures/ble, #signaux, #engrais…) redirigés
+const ANCIENS = { aujourdhui: 'marche', cultures: 'marche', signaux: 'marche', comite: 'marche', technique: 'marche', engrais: 'marche/azote' };
 function route() {
   let [t, x] = (location.hash || '').slice(1).split('/');
-  if (ANCIENS[t]) [t, x] = ANCIENS[t].split('/');
-  GS.tab = ['aujourdhui', 'cultures', 'actualite', 'methode'].includes(t) ? t : 'aujourdhui';
-  if (GS.tab === 'cultures' && x) GS.cult = x;
+  if (ANCIENS[t]) [t, x] = [ANCIENS[t].split('/')[0], ANCIENS[t].split('/')[1] || x];
+  GS.tab = ['marche', 'actualite', 'methode'].includes(t) ? t : 'marche';
+  GS.cult = GS.tab === 'marche' ? x || null : GS.cult;
 }
 
 async function init() {
@@ -2413,14 +2012,14 @@ async function init() {
   route();
   document.querySelectorAll('.tabs button').forEach((b) =>
     b.addEventListener('click', () => {
-      location.hash = b.dataset.tab === 'cultures' && GS.cult ? `cultures/${GS.cult}` : b.dataset.tab;
+      location.hash = b.dataset.tab;
     })
   );
   window.addEventListener('hashchange', () => {
     const avant = GS.tab;
     route();
     render();
-    if (avant !== GS.tab || GS.tab === 'cultures') window.scrollTo({ top: 0 });
+    if (avant !== GS.tab || GS.tab === 'marche') window.scrollTo({ top: 0 });
   });
   const [d, c, j, bt, ac] = await Promise.all([
     getJSON('data/grain/grain-signal.json'),
