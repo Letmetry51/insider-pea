@@ -875,5 +875,12 @@ check(build.nom_source("yahoo_TTF=F") == "Gaz TTF (Yahoo Finance)" and build.nom
       and build.nom_source("cftc_001602").startswith("Positions des fonds CFTC") and build.nom_source("usda") == "Bilans USDA",
       "alertes de panne : nom lisible de la source")
 
+# météo : régions françaises (pays FR) et grands bassins, poids par culture qui somment à 1, zones pesées qui existent
+_mt = json.loads((HERE / "config.json").read_text(encoding="utf-8"))["meteo"]
+_fr = [k for k, v in _mt["zones"].items() if v.get("pays") == "FR"]
+check(len(_fr) == 9 and "Hauts-de-France" in _fr and "Grand Est" in _fr and _mt["zones"]["Grand Est"].get("ancien") == "Champagne"
+      and all(abs(sum(w.values()) - 1) < 0.01 and set(w) <= set(_mt["zones"]) for w in _mt["cultures"].values()),
+      "météo : 9 régions françaises, poids par culture = 1, historique des anciennes zones repris")
+
 print(f"{len(results) - len(fails)}/{len(results)} tests réussis")
 sys.exit(1 if fails else 0)

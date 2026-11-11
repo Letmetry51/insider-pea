@@ -806,6 +806,8 @@ def collect_meteo(today):
     ok, errs, perimees = 0, [], []
     for zn, z in CFG["meteo"]["zones"].items():
         cur = data.get(zn) if isinstance(data.get(zn), dict) else {}
+        if not cur and isinstance(data.get(z.get("ancien")), dict):  # zone renommée (même point) : historique repris
+            cur = data[z["ancien"]]
         try:
             au = cur.get("archive_au")
             if not au or (today - date.fromisoformat(au)).days >= 7 or len(cur.get("archive") or {}) < 3000:
@@ -833,7 +835,7 @@ def collect_meteo(today):
             perimees.append(zn)
         data[zn] = cur
         time.sleep(1)
-    save_json(path, data)
+    save_json(path, {k: v for k, v in data.items() if k in CFG["meteo"]["zones"]})  # zones retirées ou renommées : oubliées
     n = len(CFG["meteo"]["zones"])
     # en panne dès qu'une zone n'a plus de données fraîches (une seule zone peut peser 45 % d'une culture)
     note("meteo", not perimees, f"{ok}/{n} zones à jour" + (f" ; sans données fraîches : {', '.join(perimees)}" if perimees else "")

@@ -691,7 +691,8 @@ def main():
         z = dec.meteo_zone({k: tuple(v) for k, v in as_dict(zr.get("archive")).items()},
                            {k: tuple(v) for k, v in as_dict(zr.get("prevision")).items()} if frais else {}, today)
         if z:
-            z["etat"] = dec.meteo_etat(z)[1]
+            zc = CFG["meteo"]["zones"][zn]
+            z.update(etat=dec.meteo_etat(z)[1], pays=zc.get("pays"), cultures=list((zc.get("sensible") or {}).keys()))
             zones[zn] = z
     meteo = dec.meteo_score(zones, CFG["meteo"], today) if zones else {}
     cot = {}

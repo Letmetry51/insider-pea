@@ -754,48 +754,66 @@ function meteoSection(d) {
             h('th', { class: i > 2 ? 'n' : '', text: t })
           )
         ),
-        zs.map(([zn, z]) =>
-          h(
-            'tr',
-            {},
-            h('td', { text: zn }),
-            h('td', {
-              text:
-                ({ 'très sec': '🔥 ', sec: '🟠 ', 'un peu sec': '🟡 ', normal: '🟢 ', 'très humide': '💧 ' }[z.etat] ||
-                  '') + z.etat,
-            }),
+        // régions françaises d'abord, puis les grands bassins étrangers
+        [
+          ['France, par région', zs.filter(([, z]) => z.pays === 'FR')],
+          ['Grands bassins mondiaux', zs.filter(([, z]) => z.pays !== 'FR')],
+        ].flatMap(([titre, liste]) => [
+          liste.length ? h('tr', { class: 'grp' }, h('td', { colspan: '5', text: titre })) : null,
+          ...liste.map(([zn, z]) =>
             h(
-              'td',
-              { class: 'pgcell' },
+              'tr',
+              {},
               h(
-                'div',
-                { class: 'pg compact' },
+                'td',
+                {},
+                zn,
+                (z.cultures || []).length
+                  ? h('small', {
+                      class: 'zc',
+                      text: z.cultures.map((c) => ({ ble: 'blé', mais: 'maïs' })[c] || c).join(' · '),
+                    })
+                  : null
+              ),
+              h('td', {
+                text:
+                  ({ 'très sec': '🔥 ', sec: '🟠 ', 'un peu sec': '🟡 ', normal: '🟢 ', 'très humide': '💧 ' }[
+                    z.etat
+                  ] || '') + z.etat,
+              }),
+              h(
+                'td',
+                { class: 'pgcell' },
                 h(
                   'div',
-                  { class: 'ival' },
-                  h('span', {
-                    class:
-                      'badge ' + (z.ratio < 0.6 ? 'bad' : z.ratio < 0.8 ? 'warn' : z.ratio > 1.5 ? 'info' : 'good'),
-                    text: `${Math.round(z.ratio * 100)} %`,
-                  }),
-                  h('span', { class: 'ilabel', text: `${z.pluie60} mm pour ${z.normale60} mm` })
-                ),
-                gauge(Math.min(z.ratio * 100, 200), 0, 200, [
-                  [40, 'var(--bad)'],
-                  [80, 'var(--warn)'],
-                  [150, 'var(--good)'],
-                  [200, 'var(--info)'],
-                ])
-              )
-            ),
-            h('td', { class: 'n', text: `${z.pluie14} mm` }),
-            h('td', { class: 'n ' + (z.chaleur14 >= 3 ? 'down' : ''), text: String(z.chaleur14) })
-          )
-        )
+                  { class: 'pg compact' },
+                  h(
+                    'div',
+                    { class: 'ival' },
+                    h('span', {
+                      class:
+                        'badge ' + (z.ratio < 0.6 ? 'bad' : z.ratio < 0.8 ? 'warn' : z.ratio > 1.5 ? 'info' : 'good'),
+                      text: `${Math.round(z.ratio * 100)} %`,
+                    }),
+                    h('span', { class: 'ilabel', text: `${z.pluie60} mm pour ${z.normale60} mm` })
+                  ),
+                  gauge(Math.min(z.ratio * 100, 200), 0, 200, [
+                    [40, 'var(--bad)'],
+                    [80, 'var(--warn)'],
+                    [150, 'var(--good)'],
+                    [200, 'var(--info)'],
+                  ])
+                )
+              ),
+              h('td', { class: 'n', text: `${z.pluie14} mm` }),
+              h('td', { class: 'n ' + (z.chaleur14 >= 3 ? 'down' : ''), text: String(z.chaleur14) })
+            )
+          ),
+        ])
       ),
       h('p', {
         class: 'note',
-        text: `Normale : moyenne des 10 années précédentes sur la même fenêtre. Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
+        text: `Régions françaises : un point dans leur principale zone de grandes cultures, pesé selon leur part de la production nationale. Normale : moyenne des 10 années précédentes sur la même fenêtre. Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
       })
     ),
   ];

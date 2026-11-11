@@ -117,11 +117,17 @@
     "mais": [["mais", "Creil Fob"], ["mais", "Rhin Fob"]]
   },
   "meteo": {
-    "_aide": "Zones de production (Open-Meteo, CC BY 4.0). sensible : mois où la météo pèse sur les prix ; chaleur : mois où 3 jours prévus à 32 °C ou plus comptent. cultures : poids de chaque zone.",
+    "_aide": "Zones de production (Open-Meteo, CC BY 4.0) : les régions françaises de grandes cultures (un point dans leur principale zone céréalière ; pays FR) et les grands bassins étrangers. sensible : mois où la météo pèse sur les prix ; chaleur : mois où 3 jours prévus à 32 °C ou plus comptent ; ancien : nom précédent de la zone (historique repris). cultures : poids de chaque zone ; part française répartie selon la production des régions (blé : FranceAgriMer, moyenne 2020-2024 ; maïs et colza : ordres de grandeur).",
     "zones": {
-      "Champagne": { "lat": 48.95, "lon": 4.36, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
-      "Beauce": { "lat": 48.3, "lon": 1.6, "sensible": { "ble": [3, 4, 5, 6, 10] }, "chaleur": { "ble": [5, 6] } },
-      "Sud-Ouest": { "lat": 43.7, "lon": 0.3, "sensible": { "mais": [6, 7, 8] }, "chaleur": { "mais": [7, 8] } },
+      "Hauts-de-France": { "pays": "FR", "lat": 49.85, "lon": 2.85, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
+      "Grand Est": { "pays": "FR", "lat": 48.95, "lon": 4.36, "ancien": "Champagne", "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
+      "Centre-Val de Loire": { "pays": "FR", "lat": 48.3, "lon": 1.6, "ancien": "Beauce", "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10], "mais": [6, 7, 8] }, "chaleur": { "ble": [5, 6], "colza": [4, 5], "mais": [7, 8] } },
+      "Normandie": { "pays": "FR", "lat": 49.45, "lon": 0.9, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
+      "Île-de-France": { "pays": "FR", "lat": 48.6, "lon": 2.95, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
+      "Bourgogne-Franche-Comté": { "pays": "FR", "lat": 47.6, "lon": 4.6, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10] }, "chaleur": { "ble": [5, 6], "colza": [4, 5] } },
+      "Pays de la Loire": { "pays": "FR", "lat": 47.2, "lon": -0.9, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10], "mais": [6, 7, 8] }, "chaleur": { "ble": [5, 6], "colza": [4, 5], "mais": [7, 8] } },
+      "Nouvelle-Aquitaine": { "pays": "FR", "lat": 44.6, "lon": -0.2, "sensible": { "ble": [3, 4, 5, 6, 10], "colza": [3, 4, 5, 9, 10], "mais": [6, 7, 8] }, "chaleur": { "ble": [5, 6], "colza": [4, 5], "mais": [7, 8] } },
+      "Occitanie": { "pays": "FR", "lat": 43.7, "lon": 0.3, "ancien": "Sud-Ouest", "sensible": { "ble": [3, 4, 5, 6, 10], "mais": [6, 7, 8] }, "chaleur": { "ble": [5, 6], "mais": [7, 8] } },
       "Ukraine sud": { "lat": 46.9, "lon": 33.0, "sensible": { "ble": [4, 5, 6, 9, 10, 11] }, "chaleur": { "ble": [5, 6] } },
       "Ukraine centre": { "lat": 49.0, "lon": 32.0, "sensible": { "mais": [6, 7, 8] }, "chaleur": { "mais": [7, 8] } },
       "Russie sud": { "lat": 46.0, "lon": 39.5, "sensible": { "ble": [4, 5, 6, 9, 10, 11] }, "chaleur": { "ble": [5, 6] } },
@@ -131,9 +137,9 @@
       "Saskatchewan": { "lat": 52.0, "lon": -106.0, "sensible": { "colza": [6, 7, 8] }, "chaleur": { "colza": [7] } }
     },
     "cultures": {
-      "ble": { "Champagne": 0.175, "Beauce": 0.175, "Russie sud": 0.3, "Ukraine sud": 0.15, "Kansas": 0.2 },
-      "mais": { "Iowa": 0.45, "Ukraine centre": 0.3, "Sud-Ouest": 0.25 },
-      "colza": { "Champagne": 0.3, "Allemagne-Pologne": 0.35, "Saskatchewan": 0.35 }
+      "ble": { "Hauts-de-France": 0.083, "Grand Est": 0.063, "Centre-Val de Loire": 0.047, "Normandie": 0.043, "Nouvelle-Aquitaine": 0.031, "Bourgogne-Franche-Comté": 0.024, "Pays de la Loire": 0.024, "Île-de-France": 0.02, "Occitanie": 0.016, "Russie sud": 0.3, "Ukraine sud": 0.15, "Kansas": 0.2 },
+      "mais": { "Iowa": 0.45, "Ukraine centre": 0.3, "Nouvelle-Aquitaine": 0.137, "Occitanie": 0.051, "Pays de la Loire": 0.035, "Centre-Val de Loire": 0.027 },
+      "colza": { "Grand Est": 0.073, "Centre-Val de Loire": 0.059, "Bourgogne-Franche-Comté": 0.044, "Nouvelle-Aquitaine": 0.04, "Hauts-de-France": 0.029, "Normandie": 0.022, "Pays de la Loire": 0.018, "Île-de-France": 0.015, "Allemagne-Pologne": 0.35, "Saskatchewan": 0.35 }
     }
   },
   "actualites": {
