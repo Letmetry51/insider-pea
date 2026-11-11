@@ -887,8 +887,12 @@ _rw = lambda d, v, m="2026-12": {"date": d, "product": "EBM", "maturity": m, "se
 _n = build.nettoyer([_rw("2026-11-02", "220"), _rw("2026-11-03", "0"), _rw("2026-11-04", "-5"), _rw("2026-11-05", "1e9"), _rw("2026-11-06", "nan"),
                      _rw("2026-11-09", "22.1"), _rw("2026-11-10", "222"), _rw("2026-11-12", "300"), _rw("2026-11-13", "301"), _rw("2026-11-14", "305")],
                     lambda r: (r["product"], r["maturity"]), "settle")
-check([r["settle"] for r in _n] == ["220", "222", "301", "305"],
-      f"prix aberrants écartés (0, négatif, 1e9, nan, virgule décalée, saut isolé) ; nouveau niveau confirmé gardé ({[r['settle'] for r in _n]})")
+check([r["settle"] for r in _n] == ["220", "222", "300", "301", "305"],
+      f"prix aberrants écartés (0, négatif, 1e9, nan, virgule décalée) ; nouveau niveau gardé dès son premier jour ({[r['settle'] for r in _n]})")
+_n = build.nettoyer([_rw("2026-11-02", "505"), _rw("2026-11-03", "424"), _rw("2026-11-04", "517"), _rw("2026-11-05", "520"), _rw("2026-11-06", "640")],
+                    lambda r: (r["product"], r["maturity"]), "settle")
+check([r["settle"] for r in _n] == ["505", "517", "520"],
+      f"pic isolé écarté (la séance d'après revient au niveau d'avant), le dernier prix en saut attend confirmation ({[r['settle'] for r in _n]})")
 
 # prix physiques rangés la veille par erreur (relevé du matin daté du jour précédent) : redatés d'après leur table, sans doublon
 import tempfile as _tf  # noqa: E402

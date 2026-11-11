@@ -81,34 +81,51 @@ def prix(v):
 
 
 def nettoyer(rows, cle, champ, saut=0.2):
-    """Écarte les prix aberrants d'un historique : nul ou négatif, hors de [médiane / 4 ; médiane × 4] du produit, ou en saut de
-    plus de `saut` (20 %) par rapport au prix précédent retenu de la même série (même produit, même échéance ou même place).
-    Une erreur de source (prix à 0, virgule mal placée, 1e9) ne fait ni planter le calcul ni partir une fausse alerte."""
-    ok = [r for r in rows if prix(r.get(champ)) is not None]
-    med = {}
-    for r in ok:
-        med.setdefault(cle(r)[0], []).append(float(r[champ]))
+    """Écarte les prix aberrants d'un historique : nul ou négatif, hors de [médiane / 4 ; médiane × 4] du produit, ou pic isolé
+    (écart de plus de `saut`, 20 %, avec la séance d'avant ET celle d'après, qui elles concordent entre elles). Le dernier prix
+    d'une série, en saut de plus de 20 % sur le précédent, attend d'être confirmé à la séance suivante. Un changement de niveau
+    durable est gardé dès son premier jour. Une erreur de source (prix à 0, virgule mal placée, 1e9) ne fait ni planter le calcul
+    ni partir une fausse alerte."""
+    ecartes = {}
+
+    def ecarter(r):
+        ecartes[cle(r)[0]] = ecartes.get(cle(r)[0], 0) + 1
+
+    ok, med, series = [], {}, {}
+    for r in rows:
+        if prix(r.get(champ)) is None:
+            ecarter(r)
+        else:
+            ok.append(r)
+            med.setdefault(cle(r)[0], []).append(float(r[champ]))
     med = {k: sorted(v)[len(v) // 2] for k, v in med.items()}
-    out, dernier, suspect, ecartes = [], {}, {}, 0
-    for r in sorted(ok, key=lambda r: r["date"]):
-        v, k = float(r[champ]), cle(r)
-        if not (med[k[0]] / 4 <= v <= med[k[0]] * 4):
-            ecartes += 1
-            continue
-        p = dernier.get(k)
+    for r in ok:
+        if med[cle(r)[0]] / 4 <= float(r[champ]) <= med[cle(r)[0]] * 4:
+            series.setdefault(cle(r), []).append(r)
+        else:
+            ecarter(r)
+
+    def jours(a, b):
         try:
-            proche = p is not None and (date.fromisoformat(r["date"][:10]) - date.fromisoformat(p[1][:10])).days <= 10
+            return abs((date.fromisoformat(b["date"][:10]) - date.fromisoformat(a["date"][:10])).days)
         except ValueError:
-            proche = False
-        if proche and abs(v / p[0] - 1) > saut and not (k in suspect and abs(v / suspect[k] - 1) <= saut):
-            suspect[k] = v  # saut isolé écarté ; confirmé à la séance suivante, c'est un nouveau niveau et il est gardé
-            ecartes += 1
-            continue
-        dernier[k], _ = (v, r["date"]), suspect.pop(k, None)
-        out.append(r)
-    if ecartes + (len(rows) - len(ok)):
-        print(f"Prix écartés (aberrants) : {ecartes + len(rows) - len(ok)} ligne(s) de {cle(rows[0])[0] if rows else '?'}…")
-    return out
+            return 99
+
+    def ecart(a, b):
+        return abs(float(a[champ]) / float(b[champ]) - 1) > saut and jours(a, b) <= 10
+
+    out = []
+    for v in series.values():
+        v.sort(key=lambda r: r.get("date") or "")
+        for n, r in enumerate(v):
+            av, ap = (v[n - 1] if n else None), (v[n + 1] if n + 1 < len(v) else None)
+            if av is not None and ecart(r, av) and (ap is None or (ecart(r, ap) and not ecart(ap, av))):
+                ecarter(r)
+                continue
+            out.append(r)
+    if ecartes:
+        print("Prix écartés (aberrants) : " + ", ".join(f"{k} {n}" for k, n in sorted(ecartes.items())))
+    return sorted(out, key=lambda r: r.get("date") or "")
 
 
 # --------------------------------------------------------------------------------------------- Euronext : série continue
