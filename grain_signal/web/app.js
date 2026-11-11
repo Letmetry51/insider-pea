@@ -682,7 +682,7 @@ function saisonSection(d) {
   const now = +d.date.slice(5, 7);
   const cards = Object.entries(sa).map(([k, p]) => {
     // même ordre de mois pour toutes les cultures (juillet → juin) : les colonnes se correspondent d'une carte à l'autre ;
-    // le début de la campagne propre à la culture (maïs : octobre) est marqué d'un trait
+    // la campagne propre à la culture (maïs : octobre → septembre) est rappelée dans la note
     const order = Array.from({ length: 12 }, (_, i) => ((6 + i) % 12) + 1);
     const m = Math.max(...p.mois.map(Math.abs)) || 1;
     return h(
@@ -698,7 +698,7 @@ function saisonSection(d) {
           return h(
             'div',
             {
-              class: 'smonth' + (mo === now ? ' now' : '') + (mo === p.debut_campagne && mo !== 7 ? ' debut' : ''),
+              class: 'smonth' + (mo === now ? ' now' : ''),
               title: `${MOIS[mo - 1]} : ${pct(v)} par rapport à la moyenne de la campagne (médiane de ${p.campagnes} campagnes)`,
             },
             h('span', {
@@ -720,7 +720,7 @@ function saisonSection(d) {
           .replace(
             /\.$/,
             ''
-          )}. ${p.debut_campagne !== 7 ? ` Campagne : de ${MOIS[p.debut_campagne - 1]} (trait) à ${MOIS[(p.debut_campagne + 10) % 12]}.` : ''} Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
+          )}. ${p.debut_campagne !== 7 ? ` Campagne : de ${MOIS[p.debut_campagne - 1]} à ${MOIS[(p.debut_campagne + 10) % 12]}.` : ''} Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
       })
     );
   });
