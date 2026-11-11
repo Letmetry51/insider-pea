@@ -706,8 +706,13 @@ _p2 = dec.actu_pression([_a("x", 3, nat="rumeur")], _now)["ble"]["valeur"]
 _p3 = dec.actu_pression([_a("x", 3, age_h=24 * 6)], _now)["ble"]["valeur"]
 _p4 = dec.actu_pression([_a("x", 3, th="marche"), _a("y", 3, doub="x"), _a("z", 3, pert=False), _a("w", 3, age_h=24 * 8)], _now)["ble"]["valeur"]
 _p5 = dec.actu_pression([_a(str(k), 3) for k in range(30)], _now)["ble"]["valeur"]
-check(_p1 > _p2 > 0 and _p1 > _p3 > 0 and _p4 == 0 and 1.9 < _p5 <= 2,
+check(_p1 > _p2 > 0 and _p1 > _p3 > 0 and _p4 == 0 and 1.9 < _p5 <= 2 and abs(_p1 - 1.0) < 0.03,
       f"pression de l'actualité : fait > rumeur, récent > ancien, séances, doublons, hors sujet et > 7 jours exclus, bornée à 2 ({_p1}, {_p2}, {_p3}, {_p5})")
+_mod = lambda i, v: {**_a(i, 2), "impacts": {"ble": v}}  # noqa: E731
+_p6 = dec.actu_pression([_mod(str(k), 1) for k in range(40)], _now)["ble"]["valeur"]
+_p7 = dec.actu_pression([_mod(str(k), 1 if k % 2 else -1) for k in range(40)], _now)["ble"]["valeur"]
+check(0.9 < _p6 < 1.0 and abs(_p7) < 0.05,
+      f"pression : 40 nouvelles modérées dans le même sens restent modérées (pas de saturation), autant de haussières que de baissières ≈ 0 ({_p6}, {_p7})")
 check(dec.actu_majeur(_a("x", 3), _now) and not dec.actu_majeur(_a("x", 2), _now) and not dec.actu_majeur(_a("x", 3, nat="prevision"), _now)
       and dec.actu_majeur(_a("x", 3, age_h=47), _now) and not dec.actu_majeur(_a("x", 3, age_h=80), _now),
       "événement majeur : fait, importance 3, effet fort, moins de 72 h (fait du samedi matin alerté le lundi)")

@@ -1071,7 +1071,7 @@ function vMethode() {
     ],
     [
       'Actualité',
-      "Chaque titre est lu par l'IA d'après son seul titre : pertinent ou non, thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur le prix de chaque culture et de l'azote, en une phrase sans conseil. La pression de l'actualité additionne ces effets sur 7 jours (un fait pèse plus qu'une rumeur, moitié du poids après 3 jours, comptes rendus de séance exclus car déjà dans les cours). Un fait majeur (importance 3, effet fort, moins de 72 h) part en alerte email.",
+      "Chaque titre est lu par l'IA d'après son seul titre : pertinent ou non, thème, fait ou rumeur, importance de 1 à 3, effet de −2 à +2 sur le prix de chaque culture et de l'azote, en une phrase sans conseil. La pression de l'actualité est la moyenne de ces effets sur 7 jours (un fait pèse plus qu'une rumeur, moitié du poids après 3 jours, comptes rendus de séance exclus car déjà dans les cours), ramenée vers 0 quand les nouvelles sont rares : elle donne le sens et la force de l'actualité, sans grimper avec le nombre de titres. Un fait majeur (importance 3, effet fort, moins de 72 h) part en alerte email.",
     ],
     [
       'Repères',
@@ -1191,7 +1191,7 @@ function sensBadge(s, azote, valeur) {
   // valeur de la pression de l'actualité (−2 à +2), expliquée dans l'onglet Actualité
   return h('span', {
     class: 'badge ' + c,
-    text: valeur !== undefined && valeur !== null ? `${t} ${sgn(valeur, 1)}` : t,
+    text: valeur !== undefined && valeur !== null ? `${t} · ${fmt(Math.abs(valeur), 1)} sur 2` : t,
   });
 }
 // une nouvelle en une ligne : titre — effet (sans tiret orphelin quand l'effet manque)
@@ -1375,10 +1375,10 @@ function vMarche() {
       `${ICON[key] || ''} ${NOM_COURT[key] || c.nom}`,
       [
         h('b', { text: c.cours ? `${fmt(c.cours)} €/t` : '—' }),
-        varSpan(c.var1j),
+        varSpan(c.var1j, 2, c.physique ? ' € depuis le relevé précédent' : ' € sur la séance'),
         c.physique ? h('small', { text: 'physique' }) : null,
       ],
-      { lab: c.proxy ? 'Technique (blé)' : 'Technique', b: sensBadge((c.technique || {}).sens) },
+      { lab: c.proxy ? 'Technique (tendance du blé)' : 'Technique', b: sensBadge((c.technique || {}).sens) },
       sensBadge((c.actualite || {}).sens, false, (c.actualite || {}).valeur),
       reperesTxt(c),
       // escourgeon et orge de printemps : pas de jauge (ce serait celle du blé, déjà au-dessus)
@@ -1415,9 +1415,9 @@ function vMarche() {
         'ul',
         { class: 'list' },
         [
-          'Chiffre à côté du cours : variation depuis la séance précédente (azote : sur un mois).',
-          'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme : technique du blé, prix physique Creil.',
-          'Actualité : effet des nouvelles des 7 derniers jours sur le prix, de −2 (très baissières) à +2 (très haussières) ; azote : + = plus cher.',
+          'À côté du cours : variation en €/t sur la séance (orges : depuis le relevé de prix précédent ; azote : en % sur un mois).',
+          'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais la technique est celle du blé Euronext, que l’orge suit de près.',
+          'Actualité : effet moyen des nouvelles des 7 derniers jours sur le prix, sur une échelle de 0 à 2 dans le sens indiqué (« ▲ hausse · 1,5 sur 2 » = nettement haussière ; 0,5 = plutôt ; 1 et plus = très) ; azote : hausse = plus cher. Détail dans l’onglet Actualité.',
           'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
           'Azote face au blé : même lecture pour le rapport prix de l’urée / prix du blé sur 10 ans (bas = azote bon marché par rapport au blé).',
           'Touchez une ligne pour le détail. L’outil décrit le marché ; la décision vous appartient.',
@@ -1518,7 +1518,7 @@ function cultureView(k, d) {
         'p',
         { class: 'mbig' },
         h('b', { text: c.cours ? `${fmt(c.cours)} €/t` : '—' }),
-        varSpan(c.var1j),
+        varSpan(c.var1j, 2, c.physique ? ' € depuis le relevé précédent' : ' € sur la séance'),
         h('small', { text: ou })
       ),
       h(
@@ -1528,7 +1528,9 @@ function cultureView(k, d) {
           'Technique',
           sensBadge(tq.sens),
           ' ',
-          tq.texte ? `${tq.texte}${tq.sur_ble ? ' (blé Euronext)' : ''}` : 'historique trop court'
+          tq.texte
+            ? `${tq.sur_ble ? 'Tendance du blé Euronext, que l’orge suit : ' : ''}${tq.texte}`
+            : 'historique trop court'
         ),
         kv('Actualité', sensBadge((c.actualite || {}).sens, false, (c.actualite || {}).valeur), ...arts.map(ligneActu))
       )
@@ -2058,7 +2060,7 @@ function vActualite() {
         : null,
       h('p', {
         class: 'note',
-        text: `Comment lire le chiffre : chaque nouvelle des 7 derniers jours reçoit un effet de −2 (forte baisse du prix) à +2 (forte hausse), pondéré par son importance (1 à 3), sa nature (un fait pèse plus qu’une rumeur) et son âge (moitié du poids après 3 jours) ; la somme est ramenée entre −2 et +2. 0 : nouvelles sans effet ou qui s’équilibrent · ±0,5 : plutôt haussière ou baissière · ±1 et au-delà : très haussière ou baissière. Repères : un seul fait majeur du jour à effet fort donne environ +0,9 ; +1,5 correspond à une dizaine de nouvelles modérées dans le même sens, ou à quelques faits importants. Le chiffre mesure le sens et la force de l’actualité, pas une prévision de prix. Azote : + = plus cher. ${(ac.compte || {}).pertinents || 0} titres retenus sur ${(ac.compte || {}).lus || 0} ; les titres parlent plus des risques de hausse que d’une offre abondante : à lire avec les cours.`,
+        text: `Comment lire le chiffre : chaque nouvelle des 7 derniers jours reçoit un effet de −2 (forte baisse du prix) à +2 (forte hausse), pondéré par son importance (1 à 3), sa nature (un fait pèse plus qu’une rumeur) et son âge (moitié du poids après 3 jours) ; le chiffre est la moyenne de ces effets, ramenée vers 0 quand il y a peu de nouvelles. Il ne grimpe donc pas avec le nombre de titres : il dit dans quel sens et avec quelle force l’actualité pousse. 0 : nouvelles sans effet ou qui s’équilibrent · ±0,5 : plutôt haussière ou baissière · ±1 et au-delà : très haussière ou baissière. Repères : des nouvelles modérées toutes dans le même sens donnent environ +0,8 ; un fait majeur du jour à effet fort, environ +1 ; +1,5 et au-delà demande plusieurs faits importants et concordants. Le chiffre mesure le sens et la force de l’actualité, pas une prévision de prix. Azote : + = plus cher. ${(ac.compte || {}).pertinents || 0} titres retenus sur ${(ac.compte || {}).lus || 0} ; les titres parlent plus des risques de hausse que d’une offre abondante : à lire avec les cours.`,
       })
     )
   );
