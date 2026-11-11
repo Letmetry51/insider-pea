@@ -237,7 +237,7 @@ def parse_place_prices(html):
             p = num(r[ic])
             if p is None:
                 continue
-            place = re.split(r"Contenu réservé|Abonnez|S'abonner", r[0])[0].strip()
+            place = " ".join(re.split(r"Contenu réservé|Abonnez|S'abonner", r[0])[0].split())  # espaces insécables compris
             out.append({"place": place[:60], "echeance": (r[ie] if ie is not None and ie < len(r) else "")[:30], "prix": p,
                         "variation": num(r[iv]) if iv is not None and iv < len(r) else None, "titre": caption})
     return out

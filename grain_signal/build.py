@@ -86,10 +86,12 @@ def nettoyer(rows, cle, champ, saut=0.2):
     d'une série, en saut de plus de 20 % sur le précédent, attend d'être confirmé à la séance suivante. Un changement de niveau
     durable est gardé dès son premier jour. Une erreur de source (prix à 0, virgule mal placée, 1e9) ne fait ni planter le calcul
     ni partir une fausse alerte."""
-    ecartes = {}
+    ecartes, exemples = {}, []
 
     def ecarter(r):
         ecartes[cle(r)[0]] = ecartes.get(cle(r)[0], 0) + 1
+        if len(exemples) < 3:
+            exemples.append(f"{' '.join(map(str, cle(r)))} {r.get('date', '?')} : {r.get(champ)}")
 
     ok, med, series = [], {}, {}
     for r in rows:
@@ -124,7 +126,7 @@ def nettoyer(rows, cle, champ, saut=0.2):
                 continue
             out.append(r)
     if ecartes:
-        print("Prix écartés (aberrants) : " + ", ".join(f"{k} {n}" for k, n in sorted(ecartes.items())))
+        print("Prix écartés (aberrants) : " + ", ".join(f"{k} {n}" for k, n in sorted(ecartes.items())) + " (ex. " + " ; ".join(exemples) + ")")
     return sorted(out, key=lambda r: r.get("date") or "")
 
 
@@ -581,11 +583,12 @@ MOIS_TITRE = {"janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4, 
 
 def physique(path=None):
     """Historique des prix physiques, chaque ligne redatée d'après la date de sa table terre-net (fin du titre gardé) et sans
-    doublon (même jour, même page, même place : le dernier relevé). Répare l'historique rangé la veille par erreur avant le
+    doublon (même jour, même page, même place, espaces insécables compris : le dernier relevé). Répare l'historique rangé la veille par erreur avant le
     11/11/2026 (règle des clôtures Euronext appliquée aux prix physiques)."""
     rows = read_csv(path or PRIV / "physique_hist.csv")
     par = {}
     for r in rows:
+        r = {**r, "place": " ".join(str(r.get("place") or "").split())}  # espaces insécables de terre-net : une seule place
         ms = list(re.finditer(r"\b(\d{1,2})\s+(" + "|".join(MOIS_TITRE) + r")\b", r.get("titre") or "", re.I))
         try:
             d0 = date.fromisoformat(r["date"][:10])

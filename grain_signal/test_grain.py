@@ -3,6 +3,7 @@ Tests hors ligne du Bulletin des grains (lecture des pages, indicateurs, séries
 
   python grain_signal/test_grain.py
 """
+import csv
 import json
 import math
 import os
@@ -861,9 +862,6 @@ finally:
         os.environ["GS_TODAY"] = _old_today
     shutil.rmtree(_tr, ignore_errors=True)
 
-for st, name in results:
-    print(st, name)
-fails = [n for s, n in results if s != "OK  "]
 # actualités : réponse mal formée (guillemet non échappé) → articles bien formés repris un par un, synthèse à part
 import actualites as _act  # noqa: E402
 _bad = ('{"articles": [{"id": "x1", "pertinent": true, "impacts": {"ble": 1}}, {"id": "x2", "titre_fr": "Il dit "non"", "impacts": {}},'
@@ -889,7 +887,7 @@ _n = build.nettoyer([_rw("2026-11-02", "220"), _rw("2026-11-03", "0"), _rw("2026
                     lambda r: (r["product"], r["maturity"]), "settle")
 check([r["settle"] for r in _n] == ["220", "222", "300", "301", "305"],
       f"prix aberrants écartés (0, négatif, 1e9, nan, virgule décalée) ; nouveau niveau gardé dès son premier jour ({[r['settle'] for r in _n]})")
-_n = build.nettoyer([_rw("2026-11-02", "505"), _rw("2026-11-03", "424"), _rw("2026-11-04", "517"), _rw("2026-11-05", "520"), _rw("2026-11-06", "640")],
+_n = build.nettoyer([_rw("2026-11-02", "505"), _rw("2026-11-03", "400"), _rw("2026-11-04", "517"), _rw("2026-11-05", "520"), _rw("2026-11-06", "640")],
                     lambda r: (r["product"], r["maturity"]), "settle")
 check([r["settle"] for r in _n] == ["505", "517", "520"],
       f"pic isolé écarté (la séance d'après revient au niveau d'avant), le dernier prix en saut attend confirmation ({[r['settle'] for r in _n]})")
@@ -897,19 +895,23 @@ check([r["settle"] for r in _n] == ["505", "517", "520"],
 # prix physiques rangés la veille par erreur (relevé du matin daté du jour précédent) : redatés d'après leur table, sans doublon
 import tempfile as _tf  # noqa: E402
 _ph = Path(_tf.mkdtemp()) / "physique_hist.csv"
-_ph.write_text("date,page,place,echeance,titre,prix\n"
-               "2026-11-09,orge_brassicole,Creil, Etincel Fob,janv. - juin,/t +0,75 €/t 09 novembre Etincel,209.0\n"
-               "2026-11-09,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +0,5 €/t 10 novembre Etincel,209.5\n"
-               "2026-11-10,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +0,5 €/t 10 novembre Etincel,209.5\n"
-               "2026-11-10,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +2,5 €/t 11 novembre Etincel,211.75\n"
-               "2026-11-11,orge_brassicole,Creil, Etincel Fob,janv. - juin,€/t +2,5 €/t 11 novembre Etincel,211.75\n", encoding="utf-8")
+with _ph.open("w", encoding="utf-8", newline="") as _fh:  # place avec espace insécable : même série
+    csv.writer(_fh).writerows([["date", "page", "place", "echeance", "titre", "prix"],
+                               ["2026-11-09", "orge_brassicole", "Creil, Etincel Fob", "janv. - juin", "/t +0,75 €/t 09 novembre Etincel", "209.0"],
+                               ["2026-11-09", "orge_brassicole", "Creil, Etincel\xa0Fob", "janv. - juin", "€/t +0,5 €/t 10 novembre Etincel", "209.5"],
+                               ["2026-11-10", "orge_brassicole", "Creil, Etincel Fob", "janv. - juin", "€/t +0,5 €/t 10 novembre Etincel", "209.5"],
+                               ["2026-11-10", "orge_brassicole", "Creil, Etincel\xa0Fob", "janv. - juin", "€/t +2,5 €/t 11 novembre Etincel", "211.75"],
+                               ["2026-11-11", "orge_brassicole", "Creil, Etincel Fob", "janv. - juin", "€/t +2,5 €/t 11 novembre Etincel", "211.75"]])
 _pr = [(r["date"], r["prix"]) for r in build.physique(_ph)]
 check(_pr == [("2026-11-09", "209.0"), ("2026-11-10", "209.5"), ("2026-11-11", "211.75")],
-      f"prix physiques redatés d'après leur table, sans doublon ({_pr})")
+      f"prix physiques redatés d'après leur table, sans doublon, espaces insécables compris ({_pr})")
 import collect as _col  # noqa: E402
 check(_col.date_publiee(date(2026, 11, 11), date(2026, 11, 11)) == date(2026, 11, 11)
       and _col.date_publiee(date(2026, 10, 1), date(2026, 11, 11)) == date(2026, 11, 10),
       "prix physiques : date de la table gardée (même lue le matin), date trop ancienne ramenée à la dernière séance")
 
+for st, name in results:
+    print(st, name)
+fails = [n for s, n in results if s != "OK  "]
 print(f"{len(results) - len(fails)}/{len(results)} tests réussis")
 sys.exit(1 if fails else 0)
