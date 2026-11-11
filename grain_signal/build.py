@@ -232,6 +232,22 @@ COT_EURONEXT = {"EBM": ("Blé tendre Euronext (fonds)", "ble"), "ECO": ("Colza E
                 "EMA": ("Maïs Euronext (fonds)", "mais")}
 
 
+def nom_source(src):
+    """Nom lisible d'une source de collecte (« yahoo_TTF=F » → « Gaz TTF (Yahoo Finance) »)."""
+    pre, _, k = src.partition("_")
+    if pre == "yahoo":
+        return f"{CFG['yahoo'].get(k, k)} (Yahoo Finance)" if k in CFG["yahoo"] else "Historique long Yahoo Finance"
+    if pre == "euronext":
+        return f"Euronext {(CFG['euronext'].get(k) or {}).get('nom', k)}" if k in CFG["euronext"] else "Historique Euronext"
+    if pre == "cftc":
+        return f"Positions des fonds CFTC ({(CFG['cftc']['marches'].get(k) or {}).get('nom', k)})" if k in CFG["cftc"]["marches"] else "Historique CFTC"
+    if src.startswith("cot_euronext_"):
+        return f"Positions des fonds Euronext ({(CFG['euronext'].get(src[13:]) or {}).get('nom', src[13:])})"
+    return {"usda": "Bilans USDA", "meteo": "Météo Open-Meteo", "banque_mondiale": "Banque mondiale (Pink Sheet)",
+            "geopolitique": "Indice géopolitique", "actualites": "Actualités", "collecte": "Collecte du matin"}.get(
+        src, src.replace("engrais_", "Prix engrais ").replace("physique_", "Prix physique ").replace("_", " "))
+
+
 def suivi_pannes(sources, avant, today):
     """Sources en échec : date de début et jours distincts d'échec. Alerte au 2e jour, une seule fois ; message au rétablissement.
     Renvoie (nouvel état, [(clé, titre, détail)])."""
@@ -243,7 +259,7 @@ def suivi_pannes(sources, avant, today):
             jours = sorted(set(p.get("jours") or []) | {jour})[-10:]
             e = {"debut": p.get("debut") or jour, "jours": jours, "alerte": p.get("alerte", False), "detail": st.get("detail", "")}
             if len(jours) >= 2 and not e["alerte"]:
-                msgs.append((f"panne:{src}", f"⚠️ Source en panne : {src} depuis {len(jours)} jours",
+                msgs.append((f"panne:{src}", f"⚠️ Source en panne : {nom_source(src)} depuis {len(jours)} jours",
                              f"Échec depuis le {e['debut']} : {e['detail'] or 'sans détail'}. Les calculs continuent sans elle."))
                 e["alerte"] = True
             etat[src] = e
@@ -251,7 +267,7 @@ def suivi_pannes(sources, avant, today):
             if p:
                 etat[src] = p
         elif p.get("alerte"):
-            msgs.append((f"retablie:{src}", f"✅ Source rétablie : {src}", f"De nouveau lue après une panne commencée le {p.get('debut')}."))
+            msgs.append((f"retablie:{src}", f"✅ Source rétablie : {nom_source(src)}", f"De nouveau lue après une panne commencée le {p.get('debut')}."))
     return etat, msgs
 
 
@@ -378,10 +394,7 @@ def module_engrais(today, ble_dates, ble_vals, yahoo):
         out["rattrapage"] = out["mondial"]["rattrapage"]
     # faits, sans consigne d'achat
     e = CFG["engrais"]
-    notes = []
-    if pct is not None:
-        notes.append(f"Azote {'bon marché' if pct <= 20 else 'dans la moyenne' if pct <= 60 else 'cher' if pct <= 80 else 'très cher'} "
-                     f"par rapport au blé : ratio au {pct}e percentile sur 10 ans")
+    notes = []  # le ratio azote/blé est montré en jauge : pas de note qui le répète
     gap = out.get("rattrapage")
     if gap is not None and abs(gap) > e["rattrapage"]:
         notes.append(f"Sur 3 mois, le gaz a {'plus' if gap > 0 else 'moins'} monté que l'urée ({gap:+.0f} pts) : l'urée suit souvent le gaz "

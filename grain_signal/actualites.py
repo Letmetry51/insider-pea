@@ -137,9 +137,9 @@ def appel(key, user):
     body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"], "system": SYSTEME, "messages": [{"role": "user", "content": user}]}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None
-    for i in range(2):  # 2 essais de 150 s au plus : sous la limite de 10 minutes de l'étape, les fichiers sont toujours écrits
+    for i in range(2):  # 2 essais de 90 s au plus par lot (budget global de 6 minutes dans main) : les fichiers sont toujours écrits
         try:
-            r = requests.post(API, headers=headers, json=body, timeout=150)
+            r = requests.post(API, headers=headers, json=body, timeout=90)
             if r.status_code == 200:
                 return r.json()
             last = f"HTTP {r.status_code} : {r.text[:200]}"
@@ -152,10 +152,26 @@ def appel(key, user):
 
 
 def lire_json(text):
+    """JSON de la réponse. Si l'ensemble est mal formé (guillemet non échappé, réponse coupée), les articles bien formés sont
+    repris un par un et la synthèse à part : un titre fautif ne fait plus perdre tout le lot."""
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
         raise ValueError("réponse sans JSON")
-    return json.loads(m.group(0))
+    try:
+        return json.loads(m.group(0))
+    except json.JSONDecodeError:
+        dec_, arts = json.JSONDecoder(), []
+        for mm in re.finditer(r'\{\s*"id"\s*:', text):
+            try:
+                o, _ = dec_.raw_decode(text, mm.start())
+                if isinstance(o, dict):
+                    arts.append(o)
+            except json.JSONDecodeError:
+                continue
+        sy = re.search(r'"synthese"\s*:\s*"((?:[^"\\]|\\.)*)"', text)
+        if not arts and not sy:
+            raise
+        return {"articles": arts, "synthese": json.loads(f'"{sy.group(1)}"') if sy else None}
 
 
 def main():
@@ -176,30 +192,44 @@ def main():
               if a["id"] not in cache or (cache[a["id"]].get("pertinent") and cache[a["id"]].get("v") != VERSION)][:maxi]
     usage, erreur, synthese = {"input": 0, "output": 0}, None, None
     if key and a_lire:
-        deja = [f"- {cache[a['id']].get('titre_fr') or a['titre']} ({a['date'][:10]}, {cache[a['id']].get('theme')}, "
-                f"impacts {cache[a['id']].get('impacts')})" for a in recents
-                if a["id"] in cache and cache[a["id"]].get("pertinent") and (cache[a["id"]].get("importance") or 0) >= 2][:30]
-        liste = "\n".join(f'{{"id": "{a["id"]}", "site": {json.dumps(a.get("source") or a.get("requete") or "")}, '
-                          f'"date": "{a["date"][:16]}", "langue": "{a.get("langue", "")}", "titre": {json.dumps(a["titre"], ensure_ascii=False)}}}'
-                          for a in a_lire)
-        user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Grain Signal) :\n{contexte(dash)}\n\n"
-                + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
-                + f"Titres à classer ({len(a_lire)}) :\n{liste}")
-        try:
-            resp = appel(key, user)
-            u = resp.get("usage") or {}
-            usage = {"input": u.get("input_tokens", 0), "output": u.get("output_tokens", 0)}
-            text = "".join(b.get("text", "") for b in resp.get("content") or [] if b.get("type") == "text")
-            j = lire_json(text)
-            ids = {a["id"] for a in a_lire}
-            for x in j.get("articles") or []:
-                v = valide(x)
-                if v and x["id"] in ids:
-                    cache[x["id"]] = {**v, "classe_le": today.isoformat(), "v": VERSION}
-            synthese = str(j.get("synthese") or "")[:900] or None
-            print(f"Actualités : {len(a_lire)} titres lus, {sum(1 for a in a_lire if (cache.get(a['id']) or {}).get('pertinent'))} pertinents")
-        except Exception as e:  # noqa: BLE001
-            erreur = f"Traduction des actualités en échec ({today.isoformat()}) : {str(e)[:200]}"
+        # lots de 20 titres : réponses courtes et sûres ; un lot en échec n'empêche pas les autres ; la synthèse du dernier lot
+        # réussi voit tout ce qui vient d'être classé. Budget de 6 minutes (+ un lot) pour rester sous la limite de 10 minutes de l'étape.
+        t0, lot, erreurs = time.time(), 20, []
+        for k in range(0, len(a_lire), lot):
+            part = a_lire[k:k + lot]
+            if time.time() - t0 > 360:
+                erreurs.append(f"{len(a_lire) - k} titres remis au prochain calcul (temps)")
+                break
+            deja = [f"- {cache[a['id']].get('titre_fr') or a['titre']} ({a['date'][:10]}, {cache[a['id']].get('theme')}, "
+                    f"impacts {cache[a['id']].get('impacts')})" for a in recents
+                    if a["id"] in cache and cache[a["id"]].get("pertinent") and cache[a["id"]].get("v") == VERSION
+                    and (cache[a["id"]].get("importance") or 0) >= 2][:30]
+            liste = "\n".join(f'{{"id": "{a["id"]}", "site": {json.dumps(a.get("source") or a.get("requete") or "")}, '
+                              f'"date": "{a["date"][:16]}", "langue": "{a.get("langue", "")}", "titre": {json.dumps(a["titre"], ensure_ascii=False)}}}'
+                              for a in part)
+            user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Grain Signal) :\n{contexte(dash)}\n\n"
+                    + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
+                    + f"Titres à classer ({len(part)}) :\n{liste}")
+            try:
+                resp = appel(key, user)
+                u = resp.get("usage") or {}
+                usage = {"input": usage["input"] + u.get("input_tokens", 0), "output": usage["output"] + u.get("output_tokens", 0)}
+                text = "".join(b.get("text", "") for b in resp.get("content") or [] if b.get("type") == "text")
+                j = lire_json(text)
+                ids = {a["id"] for a in part}
+                for x in j.get("articles") or []:
+                    v = valide(x) if isinstance(x, dict) else None
+                    if v and x["id"] in ids:
+                        cache[x["id"]] = {**v, "classe_le": today.isoformat(), "v": VERSION}
+                synthese = str(j.get("synthese") or "")[:900] or synthese
+            except Exception as e:  # noqa: BLE001
+                erreurs.append(str(e)[:150])
+        lus = [a for a in a_lire if (cache.get(a["id"]) or {}).get("v") == VERSION or a["id"] in cache and not cache[a["id"]].get("pertinent")]
+        print(f"Actualités : {len(a_lire)} titres à lire, {len(lus)} lus, "
+              f"{sum(1 for a in a_lire if (cache.get(a['id']) or {}).get('pertinent'))} pertinents"
+              + (f" ; incidents : {' | '.join(erreurs)}" if erreurs else ""))
+        if erreurs and synthese is None:  # aucun lot n'a abouti
+            erreur = f"Traduction des actualités en échec ({today.isoformat()}) : {erreurs[0]}"
             print(erreur)
     elif not key:
         print("Actualités : secret ANTHROPIC_API_KEY absent, titres publiés sans traduction")
@@ -232,11 +262,13 @@ def main():
     majeurs = [a for a in classes if dec.actu_majeur(a, now, heures=72)]
     nouveaux_majeurs = [a for a in majeurs if a["id"] not in deja_alerte]
     pin, pout = PRIX.get(cfg["modele"], (2, 10))
+    garde = prev.get("v") == VERSION and str(prev.get("synthese_du") or "") >= (today - timedelta(days=3)).isoformat()
     res = {
         "date": today.isoformat(), "genere": now.isoformat(timespec="minutes"), "modele": cfg["modele"] if key else None,
         # pas de nouvelle synthèse (aucun titre nouveau, ou échec) : celle d'un jour précédent, datée, si elle a moins de 4 jours
-        "synthese": synthese or (prev.get("synthese") if str(prev.get("synthese_du") or "") >= (today - timedelta(days=3)).isoformat() else None),
-        "synthese_du": today.isoformat() if synthese else (prev.get("synthese_du") if str(prev.get("synthese_du") or "") >= (today - timedelta(days=3)).isoformat() else None),
+        # (seulement une synthèse de la version en cours : une ancienne pouvait contenir un conseil)
+        "synthese": synthese or (prev.get("synthese") if garde else None),
+        "synthese_du": today.isoformat() if synthese else (prev.get("synthese_du") if garde else None), "v": VERSION,
         "pression": pression, "majeurs": [a["id"] for a in majeurs],
         # titres non traduits montrés seulement sans IA ou si la traduction a échoué (sinon : traduits au prochain calcul)
         "articles": [a for a in articles if not a.get("non_classe") or not key or erreur][:150],
