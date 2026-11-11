@@ -897,7 +897,8 @@ def main():
         "physique": load_json(OUT / "physique.json", {}),
         # alertes du jour : celles de ce calcul et celles d'un calcul précédent du même jour (au 2e passage, etat.json est déjà à
         # jour et trig est vide, alors que l'email est parti)
-        "declencheurs": [x for x in hist if x["id"].startswith(today.isoformat() + ":")],
+        "declencheurs": [x for x in hist if x["id"].startswith(today.isoformat() + ":")
+                         and not (":panne:" in x["id"] and x["id"].replace(":panne:", ":retablie:") in {y["id"] for y in hist})],
         "historique_declencheurs": hist,
         "collecte": collecte,
         "comite": {**{k: comite.get(k) for k in ("date", "mode", "resume", "calendrier", "modele", "cout_usd", "erreur")}, "valide": valid_comite},

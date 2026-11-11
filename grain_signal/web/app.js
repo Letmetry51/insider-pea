@@ -365,19 +365,43 @@ const T5 = [
   [80, '80'],
 ];
 const lab5 = (v, t) => (v <= 20 ? t[0] : v <= 40 ? t[1] : v < 60 ? t[2] : v < 80 ? t[3] : t[4]);
-const pos5 = (noms) => (v) => lab5(v, noms.map((n, i) => [n, ['info', 'info', 'neutral', 'warn', 'warn'][i]]));
+const pos5 = (noms) => (v) =>
+  lab5(
+    v,
+    noms.map((n, i) => [n, ['info', 'info', 'neutral', 'warn', 'warn'][i]])
+  );
 const PG = {
-  prix: { segs: SEGP, ticks: T5, lab: pos5(['Bas sur 5 ans', 'Plutôt bas', 'Dans la moyenne', 'Plutôt haut', 'Haut sur 5 ans']) },
-  prime: { segs: SEGP, ticks: T5, lab: pos5(['Prime faible', 'Prime plutôt faible', 'Prime normale', 'Prime plutôt forte', 'Prime forte']) },
+  prix: {
+    segs: SEGP,
+    ticks: T5,
+    lab: pos5(['Bas sur 5 ans', 'Plutôt bas', 'Dans la moyenne', 'Plutôt haut', 'Haut sur 5 ans']),
+  },
+  prime: {
+    segs: SEGP,
+    ticks: T5,
+    lab: pos5(['Prime faible', 'Prime plutôt faible', 'Prime normale', 'Prime plutôt forte', 'Prime forte']),
+  },
   ratio: {
     segs: SEGP,
     ticks: T5,
-    lab: pos5(['Azote bon marché / blé', 'Azote plutôt bon marché', 'Dans la moyenne', 'Azote cher / blé', 'Azote très cher / blé']),
+    lab: pos5([
+      'Azote bon marché / blé',
+      'Azote plutôt bon marché',
+      'Dans la moyenne',
+      'Azote cher / blé',
+      'Azote très cher / blé',
+    ]),
   },
   stocks: {
     segs: SEGP,
     ticks: T5,
-    lab: pos5(['Stocks très serrés', 'Stocks plutôt serrés', 'Stocks dans la moyenne', 'Stocks plutôt confortables', 'Stocks très confortables']),
+    lab: pos5([
+      'Stocks très serrés',
+      'Stocks plutôt serrés',
+      'Stocks dans la moyenne',
+      'Stocks plutôt confortables',
+      'Stocks très confortables',
+    ]),
   },
   cot: {
     segs: [
@@ -390,7 +414,11 @@ const PG = {
       [85, '85'],
     ],
     lab: (v) =>
-      v <= 15 ? ['Fonds très vendeurs', 'info'] : v >= 85 ? ['Fonds très acheteurs', 'warn'] : ['Position habituelle', 'neutral'],
+      v <= 15
+        ? ['Fonds très vendeurs', 'info']
+        : v >= 85
+          ? ['Fonds très acheteurs', 'warn']
+          : ['Position habituelle', 'neutral'],
   },
 };
 // humeur du marché (0 peur → 100 euphorie), pression de l'actualité (−2 → +2), risque géopolitique (percentile sur 10 ans)
@@ -430,7 +458,10 @@ Object.assign(PG, {
       ]),
   },
   actuEngrais: {
-    segs: SEG_ACTU.map(([b], i) => [b, ['var(--info)', 'var(--info)', 'var(--neutral)', 'var(--warn)', 'var(--warn)'][i]]),
+    segs: SEG_ACTU.map(([b], i) => [
+      b,
+      ['var(--info)', 'var(--info)', 'var(--neutral)', 'var(--warn)', 'var(--warn)'][i],
+    ]),
     ticks: T_ACTU,
     map: (v) => Math.max(0, Math.min(100, ((v + 2) / 4) * 100)),
     badge: (v) => sgn(v, 1),
@@ -989,9 +1020,16 @@ function techBt() {
       h(
         'tr',
         {},
-        ['Marché', 'Verdict', 'Après « hausse »', 'Après « neutre »', 'Après « baisse »', 'Écart', 'Hasard seul', 'Depuis'].map(
-          (t, i) => h('th', { class: i > 1 && i < 7 ? 'n' : '', text: t })
-        )
+        [
+          'Marché',
+          'Verdict',
+          'Après « hausse »',
+          'Après « neutre »',
+          'Après « baisse »',
+          'Écart',
+          'Hasard seul',
+          'Depuis',
+        ].map((t, i) => h('th', { class: i > 1 && i < 7 ? 'n' : '', text: t }))
       ),
       rows.map(([nom, v]) => {
         const o = v['60'];
@@ -1056,8 +1094,14 @@ function vMethode() {
   const d = GS.data;
   const hist = d.historique_declencheurs || [];
   return [
-    h('p', { class: 'note', text: 'Comment chaque lecture est calculée, ce qu’elle vaut sur l’historique, et d’où viennent les chiffres.' }),
-    pli('Comment l’outil lit le marché', ...txt.flatMap(([t, p]) => [h('h4', { class: 'ititle', text: t }), h('p', { text: p })])),
+    h('p', {
+      class: 'note',
+      text: 'Comment chaque lecture est calculée, ce qu’elle vaut sur l’historique, et d’où viennent les chiffres.',
+    }),
+    pli(
+      'Comment l’outil lit le marché',
+      ...txt.flatMap(([t, p]) => [h('h4', { class: 'ititle', text: t }), h('p', { text: p })])
+    ),
     (() => {
       const bts = [techBt(), ...psySection()].filter(Boolean);
       return pli(
@@ -1157,7 +1201,9 @@ function reperesTxt(c) {
     out.push(`${r.percentile5}e percentile sur 5 ans${r.sur_ble ? ' (blé)' : ''}`);
   if (r.ecart_plus_haut !== null && r.ecart_plus_haut !== undefined && !c.physique)
     out.push(
-      r.ecart_plus_haut < -0.01 ? `${fmt(-r.ecart_plus_haut)} € sous le plus haut de campagne` : 'au plus haut de la campagne'
+      r.ecart_plus_haut < -0.01
+        ? `${fmt(-r.ecart_plus_haut)} € sous le plus haut de campagne`
+        : 'au plus haut de la campagne'
     );
   for (const s of c.seuils || [])
     if (s.atteint) out.push(`🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`);
@@ -1179,7 +1225,9 @@ function marcheRow(href, nom, prix, tech, actu, note, labTech = 'Technique') {
 
 function alertes(d) {
   const ac = GS.actu || {};
-  const out = (ac.articles || []).filter((x) => (ac.majeurs || []).includes(x.id)).map((a) => `📰 ${a.titre_fr || a.titre}`);
+  const out = (ac.articles || [])
+    .filter((x) => (ac.majeurs || []).includes(x.id))
+    .map((a) => `📰 ${a.titre_fr || a.titre}`);
   for (const t of d.declencheurs || []) out.push(`${t.grave ? '🔔 ' : ''}${t.titre}`);
   return out;
 }
@@ -1213,7 +1261,12 @@ function lectureCard(cc, titre) {
     { class: 'card wide' },
     h('h3', { text: titre }),
     cc.lecture ? h('p', { text: cc.lecture }) : null,
-    h('div', { class: 'duo2' }, h('div', {}, ...liste(cc.haussier, 'up', '▲ Ce qui pousse à la hausse')), h('div', {}, ...liste(cc.baissier, 'down', '▼ Ce qui pousse à la baisse'))),
+    h(
+      'div',
+      { class: 'duo2' },
+      h('div', {}, ...liste(cc.haussier, 'up', '▲ Ce qui pousse à la hausse')),
+      h('div', {}, ...liste(cc.baissier, 'down', '▼ Ce qui pousse à la baisse'))
+    ),
     cc.a_surveiller ? h('p', { class: 'note', text: `À surveiller : ${cc.a_surveiller}` }) : null
   );
 }
@@ -1225,6 +1278,31 @@ function principales(p) {
     .map((id) => arts.find((a) => a.id === id))
     .filter(Boolean)
     .slice(0, 2);
+}
+
+// lecture du marché de la semaine (lundi) : résumé et rapport complet, en bas de l'onglet Actualité
+function lectureSemaine(d) {
+  const com = d.comite || {};
+  const cj = GS.comite || {};
+  if (!com.resume || !com.valide) return null;
+  return h(
+    'details',
+    { class: 'acc' },
+    h('summary', { text: `Lecture du marché de la semaine (${dfr(com.date)})` }),
+    h('p', { text: com.resume }),
+    cj.rapport_html
+      ? h(
+          'details',
+          {},
+          h('summary', { text: 'Rapport complet' }),
+          h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html)),
+          h('p', {
+            class: 'note',
+            text: `${(cj.sources || []).filter((x) => /^https?:\/\//i.test(x.url)).length} pages consultées · ${cj.modele || ''}${cj.cout_usd !== undefined ? ` · ≈ ${fmt(cj.cout_usd)} $` : ''}`,
+          })
+        )
+      : null
+  );
 }
 
 function navCultures(d, k) {
@@ -1250,6 +1328,13 @@ function vMarche() {
   if (k && (k === 'azote' || (d.cultures || {})[k]))
     return [navCultures(d, k), ...(k === 'azote' ? azoteView(d) : cultureView(k, d))];
   const out = [h('p', { class: 'meta', text: `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}` })];
+  if (d.format !== 'grain-signal-2')
+    out.push(
+      h('div', {
+        class: 'alert info',
+        text: 'Données en cours de mise à jour : rechargez la page dans quelques minutes.',
+      })
+    );
   const al = alertes(d);
   if (al.length)
     out.push(
@@ -1310,29 +1395,6 @@ function vMarche() {
     })
   );
   out.push(agenda(d));
-  const com = d.comite || {};
-  const cj = GS.comite || {};
-  if (com.resume && com.valide)
-    out.push(
-      h(
-        'details',
-        { class: 'acc' },
-        h('summary', { text: `Lecture du marché de la semaine (${dfr(com.date)})` }),
-        h('p', { text: com.resume }),
-        cj.rapport_html
-          ? h(
-              'details',
-              {},
-              h('summary', { text: 'Rapport complet' }),
-              h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html)),
-              h('p', {
-                class: 'note',
-                text: `${(cj.sources || []).filter((x) => /^https?:\/\//i.test(x.url)).length} pages consultées · ${cj.modele || ''}${cj.cout_usd !== undefined ? ` · ≈ ${fmt(cj.cout_usd)} $` : ''}`,
-              })
-            )
-          : null
-      )
-    );
   out.push(autresMarches(d));
   return out;
 }
@@ -1502,7 +1564,9 @@ function cultureView(k, d) {
         (c.seuils || []).length
           ? kv(
               '🔔 Vos seuils',
-              c.seuils.map((s) => `${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t${s.atteint ? ' (atteint)' : ''}`).join(' · ')
+              c.seuils
+                .map((s) => `${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t${s.atteint ? ' (atteint)' : ''}`)
+                .join(' · ')
             )
           : null
       ),
@@ -1552,14 +1616,20 @@ function azoteView(d) {
         kv(
           'Actualité',
           sensBadge((e.actualite || {}).sens, true),
-          ...principales(e.actualite).map((a) => h('div', { class: 'dsous', text: `${a.titre_fr || a.titre} — ${a.impact || ''}` }))
+          ...principales(e.actualite).map((a) =>
+            h('div', { class: 'dsous', text: `${a.titre_fr || a.titre} — ${a.impact || ''}` })
+          )
         ),
         e.saison ? kv('Saison', e.saison) : null,
-        e.forme_moins_chere ? kv('Forme la moins chère', `${e.forme_moins_chere} (en €/unité d’azote, avant pertes)`) : null,
+        e.forme_moins_chere
+          ? kv('Forme la moins chère', `${e.forme_moins_chere} (en €/unité d’azote, avant pertes)`)
+          : null,
         (e.seuils || []).length
           ? kv(
               '🔔 Vos seuils',
-              e.seuils.map((s) => `${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t${s.atteint ? ' (atteint)' : ''}`).join(' · ')
+              e.seuils
+                .map((s) => `${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t${s.atteint ? ' (atteint)' : ''}`)
+                .join(' · ')
             )
           : null
       ),
@@ -1578,7 +1648,9 @@ function azoteView(d) {
         'div',
         { class: 'pgrid tight' },
         pgauge(e.percentile_retenu, 'ratio', '⚖️ Azote face au blé (10 ans)', null, true),
-        e.ttf ? pgauge(e.ttf.percentile_5ans, 'prix', `⛽ Gaz sur 5 ans (${fmt(e.ttf.dernier)} €/MWh)`, null, true) : null,
+        e.ttf
+          ? pgauge(e.ttf.percentile_5ans, 'prix', `⛽ Gaz sur 5 ans (${fmt(e.ttf.dernier)} €/MWh)`, null, true)
+          : null,
         e.actualite ? pgauge(e.actualite.valeur, 'actuEngrais', '📰 Actualité (7 jours)', null, true) : null
       )
     ),
@@ -1594,7 +1666,7 @@ function autresMarches(d) {
   const cot = Object.values(d.cot || {}).filter((c) => c.indice !== null && c.indice !== undefined);
   return h(
     'details',
-    { class: 'more-data' },
+    { class: 'more-data', open: '' },
     h('summary', { text: 'Marchés mondiaux, fonds, bilans, météo' }),
     inter.length
       ? h(
@@ -1606,7 +1678,9 @@ function autresMarches(d) {
             h(
               'tr',
               {},
-              ['Marché', 'Dernier', '1 mois', 'Technique'].map((t, i) => h('th', { class: i && i < 3 ? 'n' : '', text: t }))
+              ['Marché', 'Dernier', '1 mois', 'Technique'].map((t, i) =>
+                h('th', { class: i && i < 3 ? 'n' : '', text: t })
+              )
             ),
             inter.map(([, x]) => {
               const a = x.technique || {};
@@ -1964,6 +2038,7 @@ function vActualite() {
   out.push(newsList(ac));
   const geo = geoSection(d).slice(1); // sans le titre : la section est repliée
   if (geo.length) out.push(h('details', { class: 'more-data' }, h('summary', { text: 'Risque géopolitique' }), ...geo));
+  out.push(lectureSemaine(d));
   return out;
 }
 
@@ -1979,8 +2054,7 @@ function render() {
     );
     return;
   }
-  const v =
-    { marche: vMarche, actualite: vActualite, methode: vMethode }[GS.tab] || vMarche;
+  const v = { marche: vMarche, actualite: vActualite, methode: vMethode }[GS.tab] || vMarche;
   main.append(...v().filter(Boolean)); // une section absente (null) ne s'affiche pas « null »
   document
     .querySelectorAll('.tabs button')
@@ -1997,7 +2071,14 @@ async function getJSON(path) {
 }
 
 // #marche, #marche/ble, #actualite, #methode ; anciens liens (#aujourdhui, #cultures/ble, #signaux, #engrais…) redirigés
-const ANCIENS = { aujourdhui: 'marche', cultures: 'marche', signaux: 'marche', comite: 'marche', technique: 'marche', engrais: 'marche/azote' };
+const ANCIENS = {
+  aujourdhui: 'marche',
+  cultures: 'marche',
+  signaux: 'marche',
+  comite: 'marche',
+  technique: 'marche',
+  engrais: 'marche/azote',
+};
 function route() {
   let [t, x] = (location.hash || '').slice(1).split('/');
   if (ANCIENS[t]) [t, x] = [ANCIENS[t].split('/')[0], ANCIENS[t].split('/')[1] || x];

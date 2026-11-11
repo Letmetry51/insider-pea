@@ -819,6 +819,7 @@ détail replié */
   color: var(--muted);
   font-size: 12.5px;
 }
+td .badge,
 .mbadges .badge {
   font-size: 12px;
   padding: 2px 7px;
@@ -914,4 +915,3 @@ details.more-data[open] {
   gap: 6px 14px;
   margin: 0;
 }
-
