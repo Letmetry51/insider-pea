@@ -922,3 +922,16 @@ details.more-data[open] {
   gap: 6px 14px;
   margin: 0;
 }
+details.aide {
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+details.aide summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+}
+details.aide .list {
+  margin: 6px 0 0;
+}

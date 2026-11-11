@@ -226,8 +226,9 @@ try:
         check(st_.get("code") in ("paye", "ne_paye_pas", "a_peine") and st_.get("reference") == "2026-12" and "stocker" not in st_.get("texte", "").lower(),
               f"report de la courbe du blé, sans conseil ({st_.get('texte')})")
         ng_ = dash["engrais"]
-        check(any("percentile" in n for n in ng_.get("notes", [])) and not any(w in " ".join(ng_["notes"]).lower() for w in ("acheter", "attendre", "fractionner")),
-              f"azote : faits seulement ({ng_.get('notes')})")
+        check(ng_.get("percentile_retenu") is not None and not any("percentile" in n for n in ng_.get("notes", []))
+              and not any(w in " ".join(ng_["notes"]).lower() for w in ("acheter", "attendre", "fractionner")),
+              f"azote : faits seulement, ratio en jauge sans note qui le répète ({ng_.get('notes')})")
         check((dash["cultures"]["ble"].get("actualite") or {}).get("sens") == "haussière" and dash["cultures"]["escourgeon"].get("actualite")
               and (dash.get("actualites") or {}).get("majeurs") == 1, "actualités : pression reprise par culture dans le calcul du matin")
         g_ = dash.get("geopolitique") or {}
@@ -858,5 +859,16 @@ finally:
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]
+# actualités : réponse mal formée (guillemet non échappé) → articles bien formés repris un par un, synthèse à part
+import actualites as _act  # noqa: E402
+_bad = ('{"articles": [{"id": "x1", "pertinent": true, "impacts": {"ble": 1}}, {"id": "x2", "titre_fr": "Il dit "non"", "impacts": {}},'
+        ' {"id": "x3", "pertinent": false}], "synthese": "Blé soutenu \\"fort\\""}')
+_j = _act.lire_json(_bad)
+check([a["id"] for a in _j["articles"]] == ["x1", "x3"] and _j["synthese"] == 'Blé soutenu "fort"',
+      f"actualités : réponse mal formée, articles valides et synthèse récupérés ({_j})")
+check(build.nom_source("yahoo_TTF=F") == "Gaz TTF (Yahoo Finance)" and build.nom_source("euronext_EBM").startswith("Euronext Blé")
+      and build.nom_source("cftc_001602").startswith("Positions des fonds CFTC") and build.nom_source("usda") == "Bilans USDA",
+      "alertes de panne : nom lisible de la source")
+
 print(f"{len(results) - len(fails)}/{len(results)} tests réussis")
 sys.exit(1 if fails else 0)

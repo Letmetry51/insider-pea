@@ -1182,16 +1182,28 @@ const SENS = {
   neutre: ['● neutre', 'neutral'],
   équilibrée: ['● neutre', 'neutral'],
 };
-function sensBadge(s, azote) {
+function sensBadge(s, azote, valeur) {
   if (!s) return h('span', { class: 'badge neutral', text: '—' });
-  const [t, c] = SENS[s] || [s, 'neutral'];
+  let [t, c] = SENS[s] || [s, 'neutral'];
   // azote : une hausse est un prix d'achat plus cher (couleurs de position, pas de jugement)
-  if (azote && s === 'haussière') return h('span', { class: 'badge warn', text: '▲ plus cher' });
-  if (azote && s === 'baissière') return h('span', { class: 'badge info', text: '▼ moins cher' });
-  return h('span', { class: 'badge ' + c, text: t });
+  if (azote && s === 'haussière') [t, c] = ['▲ plus cher', 'warn'];
+  if (azote && s === 'baissière') [t, c] = ['▼ moins cher', 'info'];
+  // valeur de la pression de l'actualité (−2 à +2), expliquée dans l'onglet Actualité
+  return h('span', {
+    class: 'badge ' + c,
+    text: valeur !== undefined && valeur !== null ? `${t} ${sgn(valeur, 1)}` : t,
+  });
 }
-const varSpan = (v, d = 2, suf = '') =>
-  v === null || v === undefined || v === 0 ? null : h('span', { class: 'mvar ' + cls(v), text: sgn(v, d) + suf });
+// une nouvelle en une ligne : titre — effet (sans tiret orphelin quand l'effet manque)
+const ligneActu = (a) =>
+  h('div', { class: 'dsous', text: (a.titre_fr || a.titre) + (a.impact ? ` — ${a.impact}` : '') });
+const varSpan = (v, d = 2, suf = ' €', titre = 'Variation depuis la séance précédente') =>
+  v === null || v === undefined || v === 0
+    ? null
+    : h('span', { class: 'mvar ' + cls(v), title: titre, text: sgn(v, d) + suf });
+// date courte « 13 nov. » (l'année seulement si elle n'est pas l'année en cours)
+const dcourt = (s) =>
+  String(s).slice(0, 4) === String(new Date().getFullYear()) ? dfr(s).replace(/ \d{4}$/, '') : dfr(s);
 
 // repères en une ligne : prix sur 5 ans, écart au plus haut de la campagne, seuils atteints
 function reperesTxt(c) {
@@ -1215,7 +1227,7 @@ function marcheRow(href, nom, prix, tech, actu, note, jauge) {
     { class: 'mrow', href },
     h('span', { class: 'mname', text: nom }),
     h('span', { class: 'mprix' }, ...prix),
-    h('span', { class: 'mbadges' }, tech ? paire('Technique', tech) : null, paire('Actualité', actu)),
+    h('span', { class: 'mbadges' }, tech ? paire(tech.lab || 'Technique', tech.b) : null, paire('Actualité', actu)),
     jauge ? h('span', { class: 'mjauge' }, jauge) : null,
     note ? h('span', { class: 'mnote', text: note }) : null,
     h('span', { class: 'dgo', 'aria-hidden': 'true', text: '›' })
@@ -1227,7 +1239,10 @@ function alertes(d) {
   const out = (ac.articles || [])
     .filter((x) => (ac.majeurs || []).includes(x.id))
     .map((a) => `📰 ${a.titre_fr || a.titre}`);
-  for (const t of d.declencheurs || []) out.push(`${t.grave ? '🔔 ' : ''}${t.titre}`);
+  const ids = new Set((d.declencheurs || []).map((t) => t.id));
+  for (const t of d.declencheurs || [])
+    if (!(t.id.includes(':panne:') && ids.has(t.id.replace(':panne:', ':retablie:'))))
+      out.push(`${t.grave ? '🔔 ' : ''}${t.titre}`);
   return out;
 }
 
@@ -1237,7 +1252,10 @@ function agenda(d) {
     .sort((a, b) => (a.date < b.date ? -1 : 1))
     .slice(0, 3);
   return cal.length
-    ? h('p', { class: 'meta', text: '📅 À venir : ' + cal.map((x) => `${dfr(x.date)} ${x.evenement}`).join(' · ') })
+    ? h('p', {
+        class: 'meta',
+        text: '📅 À venir : ' + cal.map((x) => `${dcourt(x.date)} : ${x.evenement}`).join(' · '),
+      })
     : null;
 }
 
@@ -1279,28 +1297,31 @@ function principales(p) {
     .slice(0, 2);
 }
 
-// lecture du marché de la semaine (lundi) : résumé et rapport complet, en bas de l'onglet Actualité
+// lecture du marché de la semaine (lundi), en bas de l'onglet Actualité : le résumé et une ligne par culture. Les arguments
+// haussiers et baissiers sont dans le détail de chaque culture, le rapport complet dans l'email du lundi (pas de doublon ici).
 function lectureSemaine(d) {
   const com = d.comite || {};
-  const cj = GS.comite || {};
   if (!com.resume || !com.valide) return null;
+  const lignes = [...Object.entries(d.cultures || {}), ['azote', { nom: 'Azote', comite: (d.engrais || {}).comite }]]
+    .filter(([, c]) => c.comite && c.comite.lecture)
+    .map(([k, c]) =>
+      h(
+        'li',
+        {},
+        h('a', { href: `#marche/${k}`, text: `${k === 'azote' ? '🧪' : ICON[k] || ''} ${NOM_COURT[k] || c.nom}` }),
+        ` : ${c.comite.lecture}`
+      )
+    );
   return h(
     'details',
     { class: 'acc' },
     h('summary', { text: `Lecture du marché de la semaine (${dfr(com.date)})` }),
     h('p', { text: com.resume }),
-    cj.rapport_html
-      ? h(
-          'details',
-          {},
-          h('summary', { text: 'Rapport complet' }),
-          h('article', { class: 'rapport' }, cleanHtml(cj.rapport_html)),
-          h('p', {
-            class: 'note',
-            text: `${(cj.sources || []).filter((x) => /^https?:\/\//i.test(x.url)).length} pages consultées · ${cj.modele || ''}${cj.cout_usd !== undefined ? ` · ≈ ${fmt(cj.cout_usd)} $` : ''}`,
-          })
-        )
-      : null
+    lignes.length ? h('ul', { class: 'list' }, lignes) : null,
+    h('p', {
+      class: 'note',
+      text: 'Arguments à la hausse et à la baisse : dans le détail de chaque culture (onglet Marché).',
+    })
   );
 }
 
@@ -1357,16 +1378,11 @@ function vMarche() {
         varSpan(c.var1j),
         c.physique ? h('small', { text: 'physique' }) : null,
       ],
-      sensBadge((c.technique || {}).sens),
-      sensBadge((c.actualite || {}).sens),
+      { lab: c.proxy ? 'Technique (blé)' : 'Technique', b: sensBadge((c.technique || {}).sens) },
+      sensBadge((c.actualite || {}).sens, false, (c.actualite || {}).valeur),
       reperesTxt(c),
-      pgauge(
-        (c.reperes || {}).percentile5,
-        'prix',
-        `Prix sur 5 ans${(c.reperes || {}).sur_ble ? ' (blé)' : ''}`,
-        null,
-        true
-      )
+      // escourgeon et orge de printemps : pas de jauge (ce serait celle du blé, déjà au-dessus)
+      c.proxy ? null : pgauge((c.reperes || {}).percentile5, 'prix', 'Prix sur 5 ans', null, true)
     )
   );
   const e = d.engrais || {};
@@ -1377,11 +1393,11 @@ function vMarche() {
       '🧪 Azote',
       [
         h('b', { text: u.prix ? `${fmt(u.prix)} €/t` : '—' }),
-        varSpan(u.var1m, 1, ' % en 1 mois'),
+        varSpan(u.var1m, 1, ' % en 1 mois', 'Variation sur un mois'),
         h('small', { text: 'urée' }),
       ],
       null,
-      sensBadge((e.actualite || {}).sens, true),
+      sensBadge((e.actualite || {}).sens, true, (e.actualite || {}).valeur),
       (e.seuils || [])
         .filter((s) => s.atteint)
         .map((s) => `🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`)
@@ -1391,10 +1407,23 @@ function vMarche() {
   );
   out.push(h('nav', { class: 'mrows', 'aria-label': 'Marché par culture' }, rows));
   out.push(
-    h('p', {
-      class: 'note',
-      text: 'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI) · Actualité : effet des nouvelles des 7 derniers jours sur le prix · Prix sur 5 ans : le percentile situe le cours du jour dans les 5 dernières années (semaine par semaine) : 50e = au milieu, 20e = plus bas que 80 % des semaines passées, 90e = plus haut que 90 % d’entre elles · Azote : même lecture pour le rapport prix de l’urée / prix du blé sur 10 ans (bas = azote bon marché par rapport au blé) · Escourgeon et orge de printemps : prix physique Creil, technique et prix sur 5 ans du blé. Touchez une ligne pour le détail. L’outil décrit le marché ; la décision vous appartient.',
-    })
+    h(
+      'details',
+      { class: 'aide' },
+      h('summary', { text: 'Comment lire ce tableau' }),
+      h(
+        'ul',
+        { class: 'list' },
+        [
+          'Chiffre à côté du cours : variation depuis la séance précédente (azote : sur un mois).',
+          'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme : technique du blé, prix physique Creil.',
+          'Actualité : effet des nouvelles des 7 derniers jours sur le prix, de −2 (très baissières) à +2 (très haussières) ; azote : + = plus cher.',
+          'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
+          'Azote face au blé : même lecture pour le rapport prix de l’urée / prix du blé sur 10 ans (bas = azote bon marché par rapport au blé).',
+          'Touchez une ligne pour le détail. L’outil décrit le marché ; la décision vous appartient.',
+        ].map((t) => h('li', { text: t }))
+      )
+    )
   );
   out.push(agenda(d));
   out.push(autresMarches(d));
@@ -1424,7 +1453,6 @@ function reperes(k, c, con, d) {
           true
         )
       : null,
-    c.actualite ? pgauge(c.actualite.valeur, 'actu', '📰 Actualité (7 jours)', null, true) : null,
     con.psychologie ? pgauge(con.psychologie.indice, 'psy', '🧠 Humeur du marché', null, true) : null,
   ].filter(Boolean);
 }
@@ -1502,22 +1530,7 @@ function cultureView(k, d) {
           ' ',
           tq.texte ? `${tq.texte}${tq.sur_ble ? ' (blé Euronext)' : ''}` : 'historique trop court'
         ),
-        (tq.resistances || []).length || (tq.supports || []).length
-          ? kv(
-              'Niveaux',
-              [
-                (tq.resistances || []).length ? `résistances ${tq.resistances.map((v) => fmt(v)).join(' · ')}` : null,
-                (tq.supports || []).length ? `supports ${tq.supports.map((v) => fmt(v)).join(' · ')}` : null,
-              ]
-                .filter(Boolean)
-                .join(' ; ') + ' €/t'
-            )
-          : null,
-        kv(
-          'Actualité',
-          sensBadge((c.actualite || {}).sens),
-          ...arts.map((a) => h('div', { class: 'dsous', text: `${a.titre_fr || a.titre} — ${a.impact || ''}` }))
-        )
+        kv('Actualité', sensBadge((c.actualite || {}).sens, false, (c.actualite || {}).valeur), ...arts.map(ligneActu))
       )
     ),
     graph ? h('section', { class: 'card wide' }, graph) : null,
@@ -1530,7 +1543,7 @@ function cultureView(k, d) {
             h('div', { class: 'pgrid tight' }, g),
             h('p', {
               class: 'note',
-              text: 'Percentile : place du chiffre du jour dans son historique, de 0 (le plus bas) à 100 (le plus haut). Prix sur 5 ans au 70e : plus cher que 70 % des semaines des 5 dernières années. Stocks mondiaux au 30e : plus serrés que 70 % des 20 dernières campagnes. Actualité : de −2 (nouvelles très baissières) à +2 (très haussières). Humeur : de 0 (peur extrême) à 100 (euphorie).',
+              text: 'Percentile : place du chiffre du jour dans son historique, de 0 (le plus bas) à 100 (le plus haut). Prix sur 5 ans au 70e : plus cher que 70 % des semaines des 5 dernières années. Stocks mondiaux au 30e : plus serrés que 70 % des 20 dernières campagnes. Humeur : de 0 (peur extrême) à 100 (euphorie).',
             })
           )
         : null;
@@ -1551,7 +1564,12 @@ function cultureView(k, d) {
         con.stockage && con.stockage.texte
           ? kv('📦 Stockage', (c.proxy ? 'Courbe du blé. ' : '') + con.stockage.texte)
           : null,
-        pl && pl.texte ? kv('📍 Prime locale', pl.texte + (pl.comparaison ? ` · ${pl.comparaison}` : '')) : null,
+        pl && (pl.percentile !== undefined || pl.comparaison)
+          ? kv(
+              '📍 Prime locale',
+              [pl.percentile !== undefined ? pl.texte : null, pl.comparaison].filter(Boolean).join(' · ')
+            )
+          : null,
         ph.prix
           ? kv(
               '🏭 Physique',
@@ -1627,10 +1645,8 @@ function azoteView(d) {
         { class: 'kv' },
         kv(
           'Actualité',
-          sensBadge((e.actualite || {}).sens, true),
-          ...principales(e.actualite).map((a) =>
-            h('div', { class: 'dsous', text: `${a.titre_fr || a.titre} — ${a.impact || ''}` })
-          )
+          sensBadge((e.actualite || {}).sens, true, (e.actualite || {}).valeur),
+          ...principales(e.actualite).map(ligneActu)
         ),
         e.saison ? kv('Saison', e.saison) : null,
         e.forme_moins_chere
@@ -1662,8 +1678,7 @@ function azoteView(d) {
         pgauge(e.percentile_retenu, 'ratio', '⚖️ Azote face au blé (10 ans)', null, true),
         e.ttf
           ? pgauge(e.ttf.percentile_5ans, 'prix', `⛽ Gaz sur 5 ans (${fmt(e.ttf.dernier)} €/MWh)`, null, true)
-          : null,
-        e.actualite ? pgauge(e.actualite.valeur, 'actuEngrais', '📰 Actualité (7 jours)', null, true) : null
+          : null
       )
     ),
     lectureCard(e.comite, `Lecture de la semaine (${dfr((d.comite || {}).date)})`),
