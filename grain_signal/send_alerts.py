@@ -163,10 +163,18 @@ def synthese(dash):
     return None, None
 
 
+def boutons():
+    """Deux gros boutons (ouvrir la page, installer l'application) : visibles d'un coup d'œil sur le téléphone."""
+    st = ("display:inline-block;padding:11px 18px;margin:4px 8px 4px 0;border-radius:8px;font-weight:600;font-size:15px;"
+          "text-decoration:none;")
+    return (f"<p style='margin:6px 0 16px'><a href='{e(URL)}' style='{st}background:#0d6a56;color:#ffffff'>🌾 Ouvrir le Bulletin des grains</a>"
+            f"<a href='{e(URL.split('#')[0])}?installer=1' style='{st}background:#ffffff;color:#0d6a56;border:2px solid #0d6a56'>"
+            "📲 Installer l'application « Grains »</a></p>")
+
+
 def wrap(title, inner):
-    return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>{inner}"
-            f"<p style='margin-top:18px'><a href='{e(URL)}' style='color:#0d6a56'>Ouvrir le Bulletin des grains</a> · "
-            f"<a href='{e(URL.split('#')[0])}?installer=1' style='color:#0d6a56'>📲 Installer l'application « Grains » sur le téléphone</a></p>"
+    return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>"
+            f"{boutons()}{inner}<div style='margin-top:18px'>{boutons()}</div>"
             "<p style='color:#777;font-size:12px'>Outil d'aide à la décision : il décrit le marché, il ne conseille ni de vendre ni d'acheter. "
             "La décision vous appartient.</p></div>")
 
