@@ -1,5 +1,5 @@
 /* Grain Signal — page (lecture seule de data/grain/*.json, publiés chaque matin). Tout texte venu des données est inséré
-   comme texte ; seul le rapport du comité est du HTML, déjà nettoyé au calcul et nettoyé une seconde fois ici. */
+   comme texte ; seul le rapport de la lecture hebdomadaire est du HTML, déjà nettoyé au calcul et nettoyé une seconde fois ici. */
 'use strict';
 
 const GS = { data: null, comite: null, journal: [], tab: 'marche' };
@@ -73,7 +73,7 @@ function vol(vals) {
   return Math.sqrt(r.reduce((x, y) => x + (y - m) ** 2, 0) / (r.length - 1));
 }
 
-/* Graphique des cours : MM20, MM50, canal de tendance (3 mois), niveaux nommés (ordres, révision, support), fourchette
+/* Graphique des cours : MM20, MM50, canal de tendance (3 mois), niveaux nommés (résistances, supports), fourchette
    probable à 20 séances (±1 et ±2 écarts-types de la volatilité récente : une marge statistique, pas une prévision). */
 function chart(rows, opts = {}) {
   const pts = rows.filter((r) => r[1] !== null && r[1] !== undefined);
