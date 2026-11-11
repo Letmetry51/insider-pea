@@ -47,10 +47,10 @@ def note(source, ok, detail=""):
 
 
 def get(url, **kw):
-    last = None
+    last, delai = None, kw.pop("timeout", 30)  # même délai à chaque essai
     for i in range(3):
         try:
-            r = requests.get(url, headers=UA, timeout=kw.pop("timeout", 30), **kw)
+            r = requests.get(url, headers=UA, timeout=delai, **kw)
             if r.status_code == 200:
                 return r
             last = f"HTTP {r.status_code}"
@@ -813,7 +813,7 @@ def collect_meteo(today):
             if not au or (today - date.fromisoformat(au)).days >= 7 or len(cur.get("archive") or {}) < 3000:
                 url = METEO_ARCH.format(lat=z["lat"], lon=z["lon"], a=(today - timedelta(days=11 * 366)).isoformat(),
                                         b=(today - timedelta(days=6)).isoformat())
-                arch = {k: v for k, v in om_daily(get(url).json()).items() if v[0] is not None}
+                arch = {k: v for k, v in om_daily(get(url, timeout=90).json()).items() if v[0] is not None}  # 11 ans : réponse lente
                 if len(arch) < 3000:
                     raise RuntimeError(f"archive de {len(arch)} jours")
                 cur.update(archive=arch, archive_au=today.isoformat())
