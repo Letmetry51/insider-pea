@@ -480,3 +480,72 @@ def actu_doublon(a, b):
     if not wa or not wb:
         return False
     return len(wa & wb) / min(len(wa), len(wb)) >= 0.7
+
+
+# --------------------------------------------------------------------------------------------- avant l'ouverture d'Euronext
+# Chicago pris comme indice de la séance du jour : clôture de la veille à 20 h 20 (après Euronext, 18 h 30). Soja pour le colza
+# (sonde du 12/11/2026 sur 2019-2026 : le soja a un peu mieux suivi le colza que l'huile de soja, tous deux près du hasard).
+OUVERTURE_CHICAGO = {"ble": "ZW=F", "colza": "ZS=F", "mais": "ZC=F"}
+OUVERTURE_SEUIL = 0.5  # mouvement de Chicago compté au-delà de ±0,5 %
+
+
+def vote_chicago(var_pct):
+    if var_pct is None:
+        return 0
+    return 1 if var_pct > OUVERTURE_SEUIL else -1 if var_pct < -OUVERTURE_SEUIL else 0
+
+
+def vote_technique(sens):
+    return {"haussière": 1, "baissière": -1}.get(sens, 0)
+
+
+def vote_actu(valeur):
+    if valeur is None:
+        return 0
+    return 1 if valeur >= 0.5 else -1 if valeur <= -0.5 else 0
+
+
+def ouverture(chicago_var, actu_valeur, tech_sens):
+    """Orientation de la séance à venir : vote de trois indices connus avant l'ouverture (Chicago depuis la clôture d'Euronext,
+    actualité parue depuis, lecture technique), chacun +1, 0 ou −1. Une description des indices, pas une prévision sûre : leur
+    fiabilité passée est mesurée à part (backtest) et suivie au jour le jour."""
+    votes = {"chicago": vote_chicago(chicago_var), "actualite": vote_actu(actu_valeur), "technique": vote_technique(tech_sens)}
+    t = sum(votes.values())
+    lab = {3: "hausse", 2: "hausse", 1: "legere_hausse", 0: "partage", -1: "legere_baisse", -2: "baisse", -3: "baisse"}[t]
+    return {"votes": votes, "total": t, "orientation": lab, "mesurable": votes["chicago"] + votes["technique"]}
+
+
+def journal_ouverture(journal, cultures, prochaine):
+    """Suivi au jour le jour : enregistre l'orientation donnée pour la prochaine séance et note celles des séances passées
+    (sens de la variation de la séance). Renvoie le journal à garder (300 entrées au plus)."""
+    j = [x for x in journal if isinstance(x, dict) and isinstance(x.get("pour"), str) and isinstance(x.get("cult"), str)]
+    for x in j:
+        c = cultures.get(x["cult"]) or {}
+        if "var" not in x and c.get("seance") == x["pour"] and c.get("var1j") is not None:
+            x["var"] = c["var1j"]
+    j = [x for x in j if "var" in x or x["pour"] >= (date.fromisoformat(prochaine) - timedelta(days=7)).isoformat()]
+    for k, c in cultures.items():
+        o = c.get("ouverture")
+        if o and (c.get("seance") or "") < prochaine:
+            j = [x for x in j if not (x["pour"] == prochaine and x["cult"] == k)]
+            j.append({"pour": prochaine, "cult": k, "total": o["total"]})
+    return sorted(j, key=lambda x: (x["pour"], x["cult"]))[-300:]
+
+
+def bilan_ouverture(journal, cult):
+    """Orientations notées pour une culture : justes / données (une orientation « partagée » ou une séance inchangée ne compte pas)."""
+    n = k = 0
+    for x in journal:
+        if x.get("cult") == cult and "var" in x and x.get("total") and x.get("var"):
+            n += 1
+            k += (x["total"] > 0) == (x["var"] > 0)
+    return {"justes": k, "notees": n}
+
+
+def prochaine_seance(today):
+    """Jour de la prochaine séance Euronext vu le matin (avant 10 h 45) : aujourd'hui en semaine, sinon le lundi suivant
+    (jours fériés d'Euronext non gérés : l'orientation vaut alors pour la séance suivante)."""
+    d = today
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d.isoformat()
