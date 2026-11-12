@@ -1359,7 +1359,13 @@ function orientation(k, c) {
   const o = c.ouverture;
   if (!o) return null;
   const [lab, cl] = ORIENT[o.orientation] || ORIENT.partage;
-  const f = fiabilite(k, o);
+  const f = o.sur_ble
+    ? {
+        text: 'fiabilité non mesurée (prix physique)',
+        titre:
+          'Pas d’historique quotidien assez long du prix physique des orges pour mesurer la fiabilité ; le suivi la notera au fil des jours.',
+      }
+    : fiabilite(k, o);
   const s = (o.suivi || {}).notees ? o.suivi : null;
   return [
     h('span', { class: 'mlab', text: 'Ce matin' }),
@@ -1407,13 +1413,10 @@ function vMarche() {
     );
   out.push(h('h2', { text: 'Le marché ce matin' }));
   const rows = Object.entries(d.cultures || {}).map(([key, c]) => {
-    // escourgeon et orge de printemps : pas de cotation à 10 h 45, orientation et technique du blé
-    const ref = c.proxy ? 'ble' : key;
-    const cr = (d.cultures || {})[ref] || c;
-    const o = cr.ouverture;
+    // escourgeon et orge de printemps : prix physique, orientation d'après Chicago et la technique du blé, et leur actualité
+    const o = c.ouverture;
     const ch = o && o.chicago;
-    const orient = orientation(ref, cr);
-    if (orient && c.proxy) orient.splice(2, orient.length - 2, h('small', { text: '(celle du blé)' }));
+    const orient = orientation(key, c);
     return marcheRow(
       `#marche/${key}`,
       `${ICON[key] || ''} ${NOM_COURT[key] || c.nom}`,
@@ -1425,9 +1428,9 @@ function vMarche() {
       {
         orient,
         paires: [
-          o && !c.proxy
+          o
             ? [
-                'Chicago',
+                c.proxy ? 'Chicago (blé)' : 'Chicago',
                 ch
                   ? h('span', {
                       class: 'badge ' + (ch.var > 0.5 ? 'good' : ch.var < -0.5 ? 'bad' : 'neutral'),
@@ -1484,7 +1487,7 @@ function vMarche() {
         [
           'À côté du cours : variation en €/t sur la séance d’hier (orges : depuis le relevé de prix précédent ; azote : en % depuis le relevé d’il y a environ un mois, date indiquée).',
           'Ce matin : orientation de la séance d’aujourd’hui (Euronext ouvre à 10 h 45), d’après les trois indices de la ligne, chacun compté pour la hausse, la baisse ou neutre : Chicago (sa clôture d’hier soir, après celle d’Euronext, au-delà de ±0,5 %), la technique, l’actualité (au moins 0,5 sur 2). « Fiable x fois sur 10 » : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique quand ils penchaient ainsi. Le maïs les suit un peu mieux que le hasard, le blé et le colza presque pas. Le suivi compte les orientations justes depuis la mise en place. Une description des indices, pas une prévision sûre.',
-          'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais la technique est celle du blé Euronext, que l’orge suit de près.',
+          'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais Chicago et la technique sont ceux du blé, que l’orge suit de près ; l’actualité est la leur. Leur orientation vaut pour le prochain relevé du prix physique.',
           'Actualité : effet moyen des nouvelles des 7 derniers jours sur le prix, sur une échelle de 0 à 2 dans le sens indiqué (« ▲ hausse · 1,5 sur 2 » = nettement haussière ; 0,5 = plutôt ; 1 et plus = très) ; azote : hausse = plus cher. Détail dans l’onglet Actualité.',
           'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
           'Azote face au blé : même lecture pour le rapport prix de l’urée / prix du blé sur 10 ans (bas = azote bon marché par rapport au blé).',
