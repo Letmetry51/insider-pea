@@ -1075,6 +1075,10 @@ def main():
     for cult, e in cultures.items():
         tq, ac = e.get("technique") or {}, e.get("actualite") or {}
         print(f"{e['nom']:<30} {fr_n(e['cours']) if e.get('cours') else '—':>8} €/t  technique {tq.get('sens') or '—':<10} actualité {ac.get('sens') or '—'}")
+    for cult, e in cultures.items():
+        o = e.get("ouverture")
+        if o:
+            print(f"Avant l'ouverture — {e['nom']} : {o['orientation']} (votes {o['votes']}, Chicago {(o.get('chicago') or {}).get('var')} %)")
     print(f"Engrais : {' ; '.join(engrais.get('notes', []))}")
     print(f"Alertes du jour : {len(trig)}")
     return 0
