@@ -1072,12 +1072,26 @@ def actu_ajoute(arts, it, now, garde, **extra):
     return True
 
 
-# lecture de l'article : en entier ou réservé aux abonnés, d'après la balise standard des éditeurs (schema.org
-# isAccessibleForFree, celle que lit Google : Terre-net, Réussir, La France Agricole, Le Monde… la posent article par article).
-# Sans balise : le site connu (config, actualites.acces), sinon « en entier » si la page s'est affichée sans abonnement. Les
-# mentions « réservé aux abonnés » du texte ne servent pas : elles figurent aussi dans les menus des pages libres (sonde du
-# 11/11/2026 sur 70 articles). Rien n'est contourné : on lit la page publique telle qu'un visiteur non abonné la reçoit.
+# lecture de l'article : en entier ou réservé aux abonnés. Ordre des preuves (sonde du 12/11/2026 sur 160 articles) :
+# 1. site connu pour être réservé (config, actualites.acces.abonnes) : il prime, car certains sites déclarent leurs pages libres
+#    alors qu'un compte est exigé à l'affichage (TradingView) ;
+# 2. balise standard de l'éditeur (schema.org isAccessibleForFree, lue par Google : Terre-net, Réussir, Le Monde… article par
+#    article) ;
+# 3. site connu pour être libre (actualites.acces.entier), pour les pages qui refusent les robots ;
+# 4. sinon « en entier » seulement si la page reçue contient vraiment le texte (au moins ACCES_MOTS mots en paragraphes) ;
+#    rien n'est affiché quand rien ne le prouve. Les mentions « réservé aux abonnés » du texte ne servent pas : elles figurent
+#    aussi dans les menus des pages libres. Rien n'est contourné : on lit la page publique telle qu'un visiteur la reçoit.
 ACCES_LD = re.compile(r'"isAccessibleForFree"\s*:\s*"?(false|true)\b', re.I)
+ACCES_MOTS = 250
+ACCES_VERSION = 2  # changer pour faire relire l'accès de tous les articles gardés
+_ACCES_BRUIT = re.compile(r"<(script|style|nav|header|footer|aside|form|noscript)\b.*?</\1>", re.S | re.I)
+_ACCES_P = re.compile(r"<p\b[^>]*>(.*?)</p>", re.S | re.I)
+
+
+def mots_article(html):
+    """Nombre de mots du texte en paragraphes de la page (menus, scripts et pieds de page retirés)."""
+    t = " ".join(re.sub(r"<[^>]+>", " ", x) for x in _ACCES_P.findall(_ACCES_BRUIT.sub(" ", html)))
+    return len(re.findall(r"\w{2,}", t))
 
 
 def gn_lien(url, timeout=12):
@@ -1107,19 +1121,22 @@ def acces_page(html):
 
 
 def acces_article(a, sites, timeout=12):
-    """(accès, adresse directe) d'un article : balise de la page, sinon site connu, sinon « en entier » si la page s'est
-    affichée ; None si rien ne permet de le dire (page refusée, site inconnu)."""
+    """(accès, adresse directe) d'un article selon l'ordre des preuves ci-dessus ; None si rien ne permet de le dire."""
     lien, lue = a.get("url") or "", None
     try:
         if "news.google.com/rss/articles/" in lien:
             lien = gn_lien(lien, timeout) or ""
         if lien.startswith("http"):
             r = requests.get(lien, headers=UA, timeout=timeout)
-            lue = r.text if r.status_code == 200 and len(r.text) > 20000 else None
+            lue = r.text if r.status_code == 200 else None
     except Exception:  # noqa: BLE001
         pass
     direct = lien if lien.startswith("http") and "news.google.com" not in lien else None
-    return (acces_page(lue) if lue else None) or sites.get(a.get("source") or "") or ("entier" if lue else None), direct
+    site = sites.get(a.get("source") or "")
+    if site == "abonnes":
+        return "abonnes", direct
+    return ((acces_page(lue) if lue else None) or site
+            or ("entier" if lue and mots_article(lue) >= ACCES_MOTS else None)), direct
 
 
 def collect_acces(arts, cfg, budget=120):
@@ -1127,7 +1144,7 @@ def collect_acces(arts, cfg, budget=120):
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     sites = {s: k for k, l in (cfg.get("acces") or {}).items() if k in ("entier", "abonnes") for s in l}
-    todo = sorted((a for a in arts.values() if "acces" not in a), key=lambda a: a["date"], reverse=True)[:150]
+    todo = sorted((a for a in arts.values() if a.get("acces_v") != ACCES_VERSION), key=lambda a: a["date"], reverse=True)[:400]
     if not todo:
         return 0, 0
     t0, faits, lus = time.time(), 0, 0
@@ -1137,7 +1154,7 @@ def collect_acces(arts, cfg, budget=120):
             for f in as_completed(fut, timeout=budget):
                 a = fut[f]
                 acc, lien = f.result()
-                a["acces"] = acc  # None : inconnu, pas de mention affichée (et pas redemandé)
+                a["acces"], a["acces_v"] = acc, ACCES_VERSION  # None : inconnu, pas de mention affichée (et pas redemandé)
                 if lien:
                     a["url_directe"] = lien[:600]
                 faits += 1
