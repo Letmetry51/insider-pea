@@ -527,12 +527,13 @@ def journal_ouverture(journal, cultures, prochaine):
     j = [x for x in journal if isinstance(x, dict) and isinstance(x.get("pour"), str) and isinstance(x.get("cult"), str)]
     for x in j:
         c = cultures.get(x["cult"]) or {}
-        if "var" not in x and c.get("seance") == x["pour"] and c.get("var1j") is not None:
+        # jour du cours : séance Euronext, ou relevé du prix physique pour les orges
+        if "var" not in x and (c.get("date") or c.get("seance")) == x["pour"] and c.get("var1j") is not None:
             x["var"] = c["var1j"]
     j = [x for x in j if "var" in x or x["pour"] >= (date.fromisoformat(prochaine) - timedelta(days=7)).isoformat()]
     for k, c in cultures.items():
         o = c.get("ouverture")
-        if o and (c.get("seance") or "") < prochaine:
+        if o and (c.get("date") or c.get("seance") or "") < prochaine:
             j = [x for x in j if not (x["pour"] == prochaine and x["cult"] == k)]
             j.append({"pour": prochaine, "cult": k, "total": o["total"]})
     return sorted(j, key=lambda x: (x["pour"], x["cult"]))[-300:]

@@ -89,18 +89,18 @@ def table_marche(dash):
     bt = (load(OUT / "backtest.json", {}) or {}).get("ouverture") or {}
     for k, c in cults.items():
         tq, ac = c.get("technique") or {}, c.get("actualite") or {}
-        # orientation de la séance (Euronext ouvre à 10 h 45) ; orges : celle du blé
-        ref = "ble" if c.get("proxy") else k
-        o = (cults.get(ref) or {}).get("ouverture") or {}
+        # orientation de la séance (Euronext ouvre à 10 h 45) ; orges : Chicago et technique du blé, leur actualité
+        ref = k
+        o = c.get("ouverture") or {}
         ori = "—"
         if o.get("orientation"):
             t, col = ORIENT_TXT.get(o["orientation"], ORIENT_TXT["partage"])
             ch = o.get("chicago") or {}
             m = o.get("mesurable") or 0
             b = (bt.get(ref) or {}).get(str(abs(m))) or {}
-            det = ("celle du blé" if c.get("proxy") else
-                   (f"Chicago {sg(ch['var'], 1)} %" if ch.get("var") is not None else "Chicago : pas de séance")
-                   + (f" · fiable {f(b['part'] / 10, 1)}/10" if m and b.get("part") else ""))
+            det = ((f"Chicago{' (blé)' if c.get('proxy') else ''} {sg(ch['var'], 1)} %" if ch.get("var") is not None
+                    else "Chicago : pas de séance")
+                   + (f" · fiable {f(b['part'] / 10, 1)}/10" if m and b.get("part") and not c.get("proxy") else ""))
             ori = f"<span style='color:{col};white-space:nowrap'><b>{e(t)}</b></span><br><span style='color:#666;font-size:12px'>{e(det)}</span>"
         var = c.get("var1j")
         cours = (f"<b>{f(c['cours'])}</b>" + (f" <span style='color:{'#1f7a3e' if var > 0 else '#b0281f' if var < 0 else '#666'}'>{sg(var)}</span>" if var else "")
