@@ -120,11 +120,12 @@ def stockage(curve, ref, expiry_fn, today, moisson, cfg):
         return base
     best = max(opts, key=lambda o: o["gain"])
     mo = f"{MOIS_FR[int(best['echeance'][5:]) - 1]} {best['echeance'][:4]}"
-    detail = (f"{'+' if best['ecart'] >= 0 else ''}{fr(best['ecart'])} €/t de report − {fr(best['cout'])} €/t de stockage = "
-              f"{'+' if best['gain'] >= 0 else ''}{fr(best['gain'])} €/t")
+    # écart positif : report (la courbe paie l'attente) ; négatif : déport (l'échéance lointaine vaut moins)
+    ec = (f"report de +{fr(best['ecart'])} €/t" if best["ecart"] >= 0 else f"déport de {fr(best['ecart'])} €/t")
+    detail = f"{ec} − {fr(best['cout'])} €/t de stockage = {'+' if best['gain'] >= 0 else ''}{fr(best['gain'])} €/t"
     code = "paye" if best["gain"] >= cfg["seuilGain"] else "ne_paye_pas" if best["gain"] < 0 else "a_peine"
     quoi = {"paye": "la courbe paie le stockage", "ne_paye_pas": "la courbe ne couvre pas les frais", "a_peine": "la courbe couvre à peine les frais"}[code]
-    base.update(code=code, meilleure=best, texte=f"Report jusqu'à {mo} : {detail} ({quoi})")
+    base.update(code=code, meilleure=best, texte=f"Jusqu'à {mo} : {detail} ({quoi})")
     return base
 
 
@@ -212,8 +213,8 @@ def meteo_zone(obs, prev, today, chaleur=32):
 
 
 def meteo_etat(z):
-    """État d'une zone d'après la pluie des 60 derniers jours rapportée à la normale, en paliers symétriques : normal de 80 à
-    120 %. Note : la sécheresse peut faire monter les prix ; un excès d'eau gêne semis et récoltes, mais bien moins."""
+    """État d'une zone d'après la pluie des 60 derniers jours rapportée à la normale, en paliers symétriques de 20 points : normal
+    de 80 à 120 % ; sec sous 60 %, humide dès 140 % ; très sec sous 40 %, très humide dès 160 %. Note : la sécheresse peut faire monter les prix ; un excès d'eau gêne semis et récoltes, mais bien moins."""
     r = z.get("ratio")
     if r is None:
         return 0.0, "—"
@@ -225,9 +226,9 @@ def meteo_etat(z):
         return 0.4, "un peu sec"
     if r <= 1.2:
         return -0.3, "normal"
-    if r <= 1.5:
+    if r < 1.4:
         return -0.1, "un peu humide"
-    if r <= 2.0:
+    if r < 1.6:
         return 0.1, "humide"
     return 0.2, "très humide"
 
