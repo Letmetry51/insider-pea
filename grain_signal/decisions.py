@@ -120,11 +120,12 @@ def stockage(curve, ref, expiry_fn, today, moisson, cfg):
         return base
     best = max(opts, key=lambda o: o["gain"])
     mo = f"{MOIS_FR[int(best['echeance'][5:]) - 1]} {best['echeance'][:4]}"
-    detail = (f"{'+' if best['ecart'] >= 0 else ''}{fr(best['ecart'])} €/t de report − {fr(best['cout'])} €/t de stockage = "
-              f"{'+' if best['gain'] >= 0 else ''}{fr(best['gain'])} €/t")
+    # écart positif : report (la courbe paie l'attente) ; négatif : déport (l'échéance lointaine vaut moins)
+    ec = (f"report de +{fr(best['ecart'])} €/t" if best["ecart"] >= 0 else f"déport de {fr(best['ecart'])} €/t")
+    detail = f"{ec} − {fr(best['cout'])} €/t de stockage = {'+' if best['gain'] >= 0 else ''}{fr(best['gain'])} €/t"
     code = "paye" if best["gain"] >= cfg["seuilGain"] else "ne_paye_pas" if best["gain"] < 0 else "a_peine"
     quoi = {"paye": "la courbe paie le stockage", "ne_paye_pas": "la courbe ne couvre pas les frais", "a_peine": "la courbe couvre à peine les frais"}[code]
-    base.update(code=code, meilleure=best, texte=f"Report jusqu'à {mo} : {detail} ({quoi})")
+    base.update(code=code, meilleure=best, texte=f"Jusqu'à {mo} : {detail} ({quoi})")
     return base
 
 

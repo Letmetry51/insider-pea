@@ -3,7 +3,7 @@
   "dashboardUrl": "https://letmetry51.github.io/insider-pea/grain-signal.html",
   "euronext": {
     "EBM": {
-      "nom": "Blé meunier",
+      "nom": "Blé tendre",
       "culture": "ble",
       "mois": [3, 5, 9, 12],
       "expiration": { "regle": "jour", "jour": 10 },

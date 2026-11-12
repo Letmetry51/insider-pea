@@ -403,22 +403,17 @@ const PG = {
       'Stocks très confortables',
     ]),
   },
+  // positions des fonds : mêmes paliers que les autres jauges (20 / 40 / 60 / 80)
   cot: {
-    segs: [
-      [15, 'var(--info)'],
-      [85, 'var(--neutral)'],
-      [100, 'var(--warn)'],
-    ],
-    ticks: [
-      [15, '15'],
-      [85, '85'],
-    ],
-    lab: (v) =>
-      v <= 15
-        ? ['Fonds très vendeurs', 'info']
-        : v >= 85
-          ? ['Fonds très acheteurs', 'warn']
-          : ['Position habituelle', 'neutral'],
+    segs: SEGP,
+    ticks: T5,
+    lab: pos5([
+      'Fonds très vendeurs',
+      'Fonds plutôt vendeurs',
+      'Position habituelle',
+      'Fonds plutôt acheteurs',
+      'Fonds très acheteurs',
+    ]),
   },
 };
 // humeur du marché (0 peur → 100 euphorie), pression de l'actualité (−2 → +2), risque géopolitique (percentile sur 10 ans)
@@ -720,7 +715,7 @@ function saisonSection(d) {
           .replace(
             /\.$/,
             ''
-          )}. ${p.debut_campagne !== 7 ? ` Campagne : de ${MOIS[p.debut_campagne - 1]} à ${MOIS[(p.debut_campagne + 10) % 12]}.` : ''} Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
+          )}. ${p.debut_campagne !== 7 ? ` Campagne : de ${MOIS[p.debut_campagne - 1]} à ${MOIS[(p.debut_campagne + 10) % 12]}`.replace(/\.$/, '') + '.' : ''} Source : ${p.source}. Une tendance, pas une règle : une année de crise l'efface.`,
       })
     );
   });
@@ -918,7 +913,7 @@ function vEngrais() {
       { v: hr.seuils['80'], c: 'var(--warn)', t: '80e percentile' },
     ];
     if (hr.estimation) lv.push({ v: hr.estimation, c: 'var(--chart-1)', t: '● Estimé ce matin' });
-    out.push(h('h2', { text: '⚖️ Ratio urée / blé sur 10 ans' }));
+    out.push(h('h2', { text: '⚖️ Ratio urée / blé sur 10 ans (prix mondiaux)' }));
     out.push(
       h(
         'section',
@@ -945,7 +940,7 @@ function vEngrais() {
         h(
           'tr',
           {},
-          ['Produit', 'Prix €/t', '€/uN', '1 mois', '3 mois', 'Engrais / blé', 'Cotation'].map((t, i) =>
+          ['Produit', 'Prix €/t', '€/uN', '1 mois', '3 mois', 'Prix / blé Euronext', 'Cotation'].map((t, i) =>
             h('th', { class: i ? 'n' : '', text: t })
           )
         ),
@@ -991,6 +986,44 @@ function vEngrais() {
 }
 
 // la lecture technique annonce-t-elle la suite ? rendement moyen des 60 séances suivantes selon la lecture du jour
+// fiabilité passée de l'orientation du matin (Chicago + technique), par culture cotée
+function ouvBt() {
+  const bt = (GS.backtest || {}).ouverture || {};
+  const rows = Object.entries(bt).filter(([, v]) => v && v['1']);
+  if (!rows.length) return null;
+  const cel = (x) => (x && x.seances ? `${fmt(x.part / 10, 1)} sur 10 (${x.seances} séances)` : '—');
+  return h(
+    'div',
+    { class: 'card wide scroll' },
+    h('h3', { text: 'L’orientation du matin annonce-t-elle la séance ?' }),
+    h(
+      'table',
+      {},
+      h(
+        'tr',
+        {},
+        ['Culture', 'Un des deux indices donne un sens', 'Chicago et technique d’accord', 'Depuis'].map((t, i) =>
+          h('th', { class: i ? 'n' : '', text: t })
+        )
+      ),
+      rows.map(([k, v]) =>
+        h(
+          'tr',
+          {},
+          h('td', { text: `${ICON[k] || ''} ${NOM_COURT[k] || k}` }),
+          h('td', { class: 'n', text: cel(v['1']) }),
+          h('td', { class: 'n', text: cel(v['2']) }),
+          h('td', { class: 'n', text: String(v.depuis || '').slice(0, 4) })
+        )
+      )
+    ),
+    h('p', {
+      class: 'note',
+      text: 'Nombre de séances sur 10 où Euronext est allé dans le sens indiqué par Chicago (clôture de la veille au soir) et la lecture technique de la veille. 5 sur 10, c’est le hasard ; sur plusieurs centaines de séances, 5,5 et plus commence à compter.',
+    })
+  );
+}
+
 function techBt() {
   const bt = (GS.backtest || {}).technique || {};
   const rows = Object.entries(bt).filter(([, v]) => v && v['60']);
@@ -1063,6 +1096,10 @@ function vMethode() {
       "Prix sur 5 ans : percentile du cours du jour (10e = plus bas que 90 % des semaines passées). Plus haut de la campagne et écart depuis. Report : ce que paie la courbe Euronext entre l'échéance du jour et les plus lointaines de la même récolte, moins le stockage (0,6 €/t/mois et 4 %/an d'argent immobilisé, réglables). Prime locale : physique moins Euronext, sur un an. Saisonnalité : écart habituel de chaque mois au prix moyen de la campagne (plus de 20 campagnes). Bilans : stocks de fin / consommation de l'USDA, sur 20 campagnes. Azote : ratio urée/blé en percentile sur 10 ans, gaz, saison.",
     ],
     [
+      'Ce matin (orientation de la séance)',
+      'Avant l’ouverture d’Euronext (10 h 45), vote de trois indices, chacun +1 (hausse), 0 ou −1 (baisse) : Chicago depuis la clôture d’Euronext (sa clôture de 20 h 20, au-delà de ±0,5 % ; blé CBOT pour le blé et les orges, soja pour le colza, maïs CBOT pour le maïs), la lecture technique, l’effet de l’actualité (au moins 0,5 sur 2). Total de +2 ou +3 : penche à la hausse ; +1 : légèrement ; 0 : partagé. La fiabilité de Chicago + technique est mesurée chaque matin sur l’historique (tableau ci-dessous) ; l’actualité n’a pas encore d’historique, l’orientation complète est donc notée juste ou fausse au jour le jour (« suivi »). Orges : prix physique, fiabilité non mesurée.',
+    ],
+    [
       'Lecture de la semaine',
       "Chaque lundi, l'API Claude, avec la recherche web, lit les chiffres du matin et cherche ce que l'outil ne mesure pas (bilans, mer Noire, météo, demande). Elle rend, par culture, les arguments haussiers et baissiers et la donnée à surveiller, avec un calendrier : jamais de consigne de vente ou d'achat.",
     ],
@@ -1077,7 +1114,8 @@ function vMethode() {
   ];
   const pli = (titre, ...kids) => h('details', { class: 'acc' }, h('summary', { text: titre }), ...kids);
   const d = GS.data;
-  const hist = d.historique_declencheurs || [];
+  // anciennes alertes de la version à consignes (« FRACTIONNER », « SUIVRE LE PLAN »…) : plus affichées
+  const hist = (d.historique_declencheurs || []).filter((t) => !/[🟠🟡🟢🔴]\s*[A-ZÉÈ ]{4,}/u.test(t.titre || ''));
   return [
     h('p', {
       class: 'note',
@@ -1088,7 +1126,7 @@ function vMethode() {
       ...txt.flatMap(([t, p]) => [h('h4', { class: 'ititle', text: t }), h('p', { text: p })])
     ),
     (() => {
-      const bts = [techBt(), ...psySection()].filter(Boolean);
+      const bts = [ouvBt(), techBt(), ...psySection()].filter(Boolean);
       return pli(
         'Ce que valent ces lectures (backtests)',
         ...(bts.length ? bts : [h('p', { class: 'note', text: 'Résultats au prochain calcul complet.' })])
@@ -1348,7 +1386,7 @@ function fiabilite(k, o) {
   const bo = ((GS.backtest || {}).ouverture || {})[k] || {};
   const bt = bo[String(Math.abs(m))];
   if (!m || !bt || !bt.part) return null;
-  const q = bt.part >= 58 ? 'mieux que le hasard' : bt.part >= 54 ? 'un peu mieux que le hasard' : 'comme le hasard';
+  const q = bt.part >= 58 ? 'mieux que le hasard' : bt.part >= 55 ? 'un peu mieux que le hasard' : 'comme le hasard';
   return {
     text: `fiable ${fmt(bt.part / 10, 1)} fois sur 10 (${q})`,
     titre: `Depuis ${String(bo.depuis || '').slice(0, 4)}, quand Chicago et la technique penchaient ${m > 0 ? 'à la hausse' : 'à la baisse'}${Math.abs(m) === 2 ? ' tous les deux' : ''}, Euronext a suivi ${bt.part} % du temps (${bt.seances} séances).`,
@@ -1486,7 +1524,7 @@ function vMarche() {
         { class: 'list' },
         [
           'À côté du cours : variation en €/t sur la séance d’hier (orges : depuis le relevé de prix précédent ; azote : en % depuis le relevé d’il y a environ un mois, date indiquée).',
-          'Ce matin : orientation de la séance d’aujourd’hui (Euronext ouvre à 10 h 45), d’après les trois indices de la ligne, chacun compté pour la hausse, la baisse ou neutre : Chicago (sa clôture d’hier soir, après celle d’Euronext, au-delà de ±0,5 %), la technique, l’actualité (au moins 0,5 sur 2). « Fiable x fois sur 10 » : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique quand ils penchaient ainsi. Le maïs les suit un peu mieux que le hasard, le blé et le colza presque pas. Le suivi compte les orientations justes depuis la mise en place. Une description des indices, pas une prévision sûre.',
+          'Ce matin : orientation de la séance d’aujourd’hui (Euronext ouvre à 10 h 45), d’après les trois indices de la ligne, chacun compté pour la hausse, la baisse ou neutre : Chicago (sa clôture d’hier soir, après celle d’Euronext, au-delà de ±0,5 %), la technique, l’actualité (au moins 0,5 sur 2). « Fiable x fois sur 10 » : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique quand ils penchaient ainsi. Quand Chicago et la technique sont d’accord, le maïs suit 6 fois sur 10 ; sinon, et pour le blé et le colza, c’est à peu près le hasard (5 fois sur 10). Le suivi compte les orientations justes depuis la mise en place. Une description des indices, pas une prévision sûre.',
           'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais Chicago et la technique sont ceux du blé, que l’orge suit de près ; l’actualité est la leur. Leur orientation vaut pour le prochain relevé du prix physique.',
           'Actualité : effet moyen des nouvelles des 7 derniers jours sur le prix, sur une échelle de 0 à 2 dans le sens indiqué (« ▲ hausse · 1,5 sur 2 » = nettement haussière ; 0,5 = plutôt ; 1 et plus = très) ; azote : hausse = plus cher. Détail dans l’onglet Actualité.',
           'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
@@ -1680,7 +1718,7 @@ function cultureView(k, d) {
         con.psychologie
           ? h('p', {
               class: 'note',
-              text: `🧠 Humeur ${con.psychologie.indice} (${con.psychologie.libelle}) : ${con.psychologie.lecture}. RSI ${con.psychologie.composantes.rsi}, écart MM200 ${con.psychologie.composantes.ecart200}, élan 20 j ${con.psychologie.composantes.elan20}${con.psychologie.composantes.fonds !== null && con.psychologie.composantes.fonds !== undefined ? `, fonds ${con.psychologie.composantes.fonds}` : ''} (percentiles sur 3 ans).`,
+              text: `🧠 Humeur ${con.psychologie.indice} (${con.psychologie.libelle}) : ${con.psychologie.lecture}. Ses composantes, en percentile sur 3 ans (et non en valeur) : RSI au ${con.psychologie.composantes.rsi}e, écart à la MM200 au ${con.psychologie.composantes.ecart200}e, élan 20 j au ${con.psychologie.composantes.elan20}e${con.psychologie.composantes.fonds !== null && con.psychologie.composantes.fonds !== undefined ? `, fonds au ${con.psychologie.composantes.fonds}e` : ''}${c.proxy ? ' (humeur du blé)' : ''}.`,
             })
           : null,
         h(
