@@ -76,17 +76,37 @@ def sens_html(s_, azote=False):
     return f"<span style='color:{c};white-space:nowrap'>{e(t)}</span>"
 
 
+ORIENT_TXT = {"hausse": ("↑ penche à la hausse", "#1f7a3e"), "legere_hausse": ("↗ légèrement à la hausse", "#1f7a3e"),
+              "partage": ("→ indices partagés", "#6b6d60"), "legere_baisse": ("↘ légèrement à la baisse", "#b0281f"),
+              "baisse": ("↓ penche à la baisse", "#b0281f")}
+
+
 def table_marche(dash):
     """Le marché ce matin, une ligne par culture et une pour l'azote : cours, variation, lecture technique, effet de l'actualité."""
     td = "padding:7px 8px;border-bottom:1px solid #ddd;vertical-align:top"
     rows = []
-    for c in (dash.get("cultures") or {}).values():
+    cults = dash.get("cultures") or {}
+    bt = (load(OUT / "backtest.json", {}) or {}).get("ouverture") or {}
+    for k, c in cults.items():
         tq, ac = c.get("technique") or {}, c.get("actualite") or {}
+        # orientation de la séance (Euronext ouvre à 10 h 45) ; orges : celle du blé
+        ref = "ble" if c.get("proxy") else k
+        o = (cults.get(ref) or {}).get("ouverture") or {}
+        ori = "—"
+        if o.get("orientation"):
+            t, col = ORIENT_TXT.get(o["orientation"], ORIENT_TXT["partage"])
+            ch = o.get("chicago") or {}
+            m = o.get("mesurable") or 0
+            b = (bt.get(ref) or {}).get(str(abs(m))) or {}
+            det = ("celle du blé" if c.get("proxy") else
+                   (f"Chicago {sg(ch['var'], 1)} %" if ch.get("var") is not None else "Chicago : pas de séance")
+                   + (f" · fiable {f(b['part'] / 10, 1)}/10" if m and b.get("part") else ""))
+            ori = f"<span style='color:{col};white-space:nowrap'><b>{e(t)}</b></span><br><span style='color:#666;font-size:12px'>{e(det)}</span>"
         var = c.get("var1j")
         cours = (f"<b>{f(c['cours'])}</b>" + (f" <span style='color:{'#1f7a3e' if var > 0 else '#b0281f' if var < 0 else '#666'}'>{sg(var)}</span>" if var else "")
                  + ("<br><span style='color:#666;font-size:12px'>physique Creil</span>" if c.get("physique") else "")) if c.get("cours") else "—"
         rows.append(f"<tr><td style='{td}'><b>{e(c['nom'].replace(' brassicole', '').replace(' tendre', ''))}</b></td>"
-                    f"<td style='{td};text-align:right;white-space:nowrap'>{cours}</td>"
+                    f"<td style='{td};text-align:right;white-space:nowrap'>{cours}</td><td style='{td}'>{ori}</td>"
                     f"<td style='{td}'>{sens_html(tq.get('sens'))}{' <span style=color:#666;font-size:12px>(blé)</span>' if tq.get('sur_ble') else ''}</td>"
                     f"<td style='{td}'>{sens_html(ac.get('sens'))}</td></tr>")
     eng = dash.get("engrais") or {}
@@ -94,47 +114,18 @@ def table_marche(dash):
     if u.get("prix"):
         v1 = u.get("var1m")
         rows.append(f"<tr><td style='{td}'><b>Azote</b></td><td style='{td};text-align:right;white-space:nowrap'><b>{f(u['prix'])}</b>"
-                    + (f" <span style='color:#666'>{sg(v1, 1)} % depuis le {u['var1m_depuis'][8:10]}/{u['var1m_depuis'][5:7]}</span>" if v1 is not None and u.get("var1m_depuis") else "") + "<br><span style='color:#666;font-size:12px'>urée</span></td>"
+                    + (f" <span style='color:#666'>{sg(v1, 1)} % depuis le {u['var1m_depuis'][8:10]}/{u['var1m_depuis'][5:7]}</span>" if v1 is not None and u.get("var1m_depuis") else "") + f"<br><span style='color:#666;font-size:12px'>urée</span></td><td style='{td}'>—</td>"
                     f"<td style='{td}'>{e('ratio azote/blé au ' + str(eng['percentile_retenu']) + 'e percentile') if eng.get('percentile_retenu') is not None else '—'}</td>"
                     f"<td style='{td}'>{sens_html((eng.get('actualite') or {}).get('sens'), azote=True)}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'>"
             "<th align=left style='padding:6px 8px'>Culture</th><th align=right style='padding:6px 8px'>Cours €/t</th>"
+            "<th align=left style='padding:6px 8px'>Ce matin (ouverture 10 h 45)</th>"
             "<th align=left style='padding:6px 8px'>Technique</th><th align=left style='padding:6px 8px'>Actualité</th></tr>"
-            + "".join(rows) + "</table>")
-
-
-ORIENT_TXT = {"hausse": ("↑ les indices penchent à la hausse", "#1f7a3e"), "legere_hausse": ("↗ légèrement à la hausse", "#1f7a3e"),
-              "partage": ("→ indices partagés ou neutres", "#6b6d60"), "legere_baisse": ("↘ légèrement à la baisse", "#b0281f"),
-              "baisse": ("↓ les indices penchent à la baisse", "#b0281f")}
-
-
-def bloc_ouverture(dash):
-    """Avant l'ouverture d'Euronext (10 h 45) : orientation de chaque culture cotée, ses indices et leur fiabilité passée."""
-    bt = (load(OUT / "backtest.json", {}) or {}).get("ouverture") or {}
-    lis = []
-    for k in ("ble", "colza", "mais"):
-        c = (dash.get("cultures") or {}).get(k) or {}
-        o = c.get("ouverture")
-        if not isinstance(o, dict):
-            continue
-        t, col = ORIENT_TXT.get(o.get("orientation"), ORIENT_TXT["partage"])
-        ch, ac = o.get("chicago") or {}, o.get("actualite") or {}
-        ind = [f"Chicago {sg(ch['var'], 1)} %" if ch.get("var") is not None else "Chicago : pas de séance",
-               (f"actualité depuis hier soir {sg(ac.get('valeur') or 0, 1)}" if (ac.get("hausse") or ac.get("baisse"))
-                else "rien de nouveau dans l'actualité"),
-               f"technique {(c.get('technique') or {}).get('sens') or '—'}"]
-        m = o.get("mesurable") or 0
-        b = (bt.get(k) or {}).get(str(abs(m))) or {}
-        fia = (f"par le passé, Euronext a suivi {f(b['part'] / 10, 1)} fois sur 10 dans cette configuration" if m and b.get("part")
-               else "Chicago et la technique ne donnent pas de sens" if not m else "")
-        lis.append(f"<li style='margin:5px 0'><b>{e(c.get('nom', k).replace(' tendre', ''))}</b> : "
-                   f"<span style='color:{col}'><b>{e(t)}</b></span><br><span style='color:#555;font-size:13px'>"
-                   f"{e(' · '.join(ind))}{' ; ' + e(fia) if fia else ''}</span></li>")
-    if not lis:
-        return ""
-    return ("<h3>⏰ Avant l'ouverture (10 h 45)</h3><ul style='padding-left:18px'>" + "".join(lis) + "</ul>"
-            "<p style='color:#777;font-size:12px'>Indices connus ce matin, pas une prévision sûre : sur 2019-2026, ils ont annoncé la "
-            "séance du maïs un peu mieux que le hasard, presque pas celle du blé et du colza.</p>")
+            + "".join(rows) + "</table>"
+            + ("<p style='color:#777;font-size:12px'>Ce matin : orientation de la séance d'après Chicago (clôture d'hier soir), la "
+               "technique et l'actualité. Fiable x/10 : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique "
+               "dans ce cas ; près de 5/10, c'est le hasard. Une description, pas une prévision sûre.</p>"
+               if any((c.get("ouverture") or {}).get("orientation") for c in cults.values()) else ""))
 
 
 def fait_marquant(dash, trig):
@@ -254,7 +245,7 @@ def main():
     ids = [x["id"] for x in trig] + ([rid] if rid else [])
     # un seul email par calcul : celui du comité s'il s'est réuni, sinon le rapport du matin (une fois par jour), sinon les alertes
     # d'un calcul relancé dans la journée ; chacun emporte les alertes du calcul
-    marche = bloc_ouverture(dash) + f"<h3>Le marché ce matin</h3>{table_marche(dash)}"
+    marche = f"<h3>Le marché ce matin</h3>{table_marche(dash)}"
     tete = fait_marquant(dash, trig)
     if coms:
         x = coms[-1]

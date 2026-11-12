@@ -870,41 +870,21 @@ def main():
         if cc:
             e["comite"] = cc
         cultures[cult] = e
-    # avant l'ouverture d'Euronext (10 h 45) : indices connus le matin, pour les cultures cotées
+    # orientation de la séance à venir (Euronext ouvre à 10 h 45), pour les cultures cotées : Chicago depuis la clôture d'Euronext,
+    # technique et effet de l'actualité, les mêmes indices que ceux affichés sur la ligne de la culture
     prochaine = dec.prochaine_seance(today)
-    try:
-        from zoneinfo import ZoneInfo
-        paris = ZoneInfo("Europe/Paris")
-    except Exception:  # noqa: BLE001
-        paris = timezone(timedelta(hours=1))
-    arts = [a for a in actu.get("articles") or [] if isinstance(a, dict)] if actu_frais else []
     for cult, tk in dec.OUVERTURE_CHICAGO.items():
         e = cultures.get(cult)
         if not e or not e.get("seance"):
             continue
-        d0 = e["seance"]
-        cloture = datetime.fromisoformat(d0 + "T18:30").replace(tzinfo=paris)  # clôture d'Euronext
-        s = (yahoo.get(tk) or {}).get("serie") or {}
-        ds = sorted(s)
+        s_ = (yahoo.get(tk) or {}).get("serie") or {}
+        ds = sorted(s_)
         chic = None
-        if len(ds) >= 2 and ds[-1] >= d0:  # Chicago a clôturé après la dernière séance d'Euronext
+        if len(ds) >= 2 and ds[-1] >= e["seance"]:  # Chicago a clôturé après la dernière séance d'Euronext
             chic = {"ticker": tk, "nom": (yahoo.get(tk) or {}).get("nom", tk), "date": ds[-1],
-                    "var": round((s[ds[-1]] / s[ds[-2]] - 1) * 100, 2)}
-        nuit = []
-        for a in arts:
-            try:
-                if datetime.fromisoformat(str(a.get("date")).replace("Z", "+00:00")) > cloture:
-                    nuit.append(a)
-            except (TypeError, ValueError):
-                pass
-        pn = dec.actu_pression(nuit, datetime.now(timezone.utc), demi_vie=1e9, jours=7).get(ACTU_CLE[cult]) or {}
-        ser = list((contrats.get(CONTRAT[cult]) or {}).get("_serie", {}).values())
-        o = dec.ouverture(chic["var"] if chic else None, pn.get("valeur") if (pn.get("hausse") or pn.get("baisse")) else None,
-                          (e.get("technique") or {}).get("sens"))
-        o.update(pour=prochaine, depuis=d0, chicago=chic,
-                 veille={"var": e.get("var1j"), "pct": round((ser[-1] / ser[-2] - 1) * 100, 2) if len(ser) >= 2 and ser[-2] else None},
-                 actualite={"valeur": pn.get("valeur"), "hausse": pn.get("hausse", 0), "baisse": pn.get("baisse", 0),
-                            "principaux": pn.get("principaux", [])})
+                    "var": round((s_[ds[-1]] / s_[ds[-2]] - 1) * 100, 2)}
+        o = dec.ouverture(chic["var"] if chic else None, (e.get("actualite") or {}).get("valeur"), (e.get("technique") or {}).get("sens"))
+        o.update(pour=prochaine, depuis=e["seance"], chicago=chic)
         e["ouverture"] = o
     journal = dec.journal_ouverture(etat.get("ouverture_journal") if isinstance(etat.get("ouverture_journal"), list) else [],
                                     cultures, prochaine)
