@@ -718,7 +718,7 @@ détail replié */
 .mrow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: 'name prix go' 'badges badges go' 'jauge jauge go' 'note note go';
+  grid-template-areas: 'name prix go' 'orient orient go' 'badges badges go' 'jauge jauge go' 'note note go';
   gap: 6px 12px;
   padding: 12px 14px;
   background: var(--surface);
@@ -832,7 +832,7 @@ td .badge,
 }
 @media (max-width: 420px) {
   .mrow {
-    grid-template-areas: 'name go' 'prix go' 'badges go' 'jauge go' 'note go';
+    grid-template-areas: 'name go' 'prix go' 'orient go' 'badges go' 'jauge go' 'note go';
     grid-template-columns: minmax(0, 1fr) auto;
   }
 }
@@ -916,27 +916,20 @@ small.zc {
   border-color: var(--ink);
 }
 
-/* avant l'ouverture */
-.ouv-l {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-.ouv-t {
+/* orientation du matin, dans la ligne de chaque culture */
+.morient {
+  grid-area: orient;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
 }
-.ouv-i {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 4px;
-}
-.ouv-f {
-  margin: 4px 0 0;
+.morient small {
   color: var(--muted);
+}
+.morient .badge {
   font-size: 13px;
+  padding: 2px 8px;
 }
 
 /* météo sur téléphone : prévisions sous la jauge plutôt qu'en colonnes hors de l'écran */

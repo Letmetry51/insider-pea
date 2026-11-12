@@ -513,7 +513,7 @@ def vote_actu(valeur):
 
 def ouverture(chicago_var, actu_valeur, tech_sens):
     """Orientation de la séance à venir : vote de trois indices connus avant l'ouverture (Chicago depuis la clôture d'Euronext,
-    actualité parue depuis, lecture technique), chacun +1, 0 ou −1. Une description des indices, pas une prévision sûre : leur
+    effet de l'actualité des 7 derniers jours, lecture technique), chacun +1, 0 ou −1. Une description des indices, pas une prévision sûre : leur
     fiabilité passée est mesurée à part (backtest) et suivie au jour le jour."""
     votes = {"chicago": vote_chicago(chicago_var), "actualite": vote_actu(actu_valeur), "technique": vote_technique(tech_sens)}
     t = sum(votes.values())

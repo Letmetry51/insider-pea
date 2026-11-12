@@ -1205,14 +1205,20 @@ function reperesTxt(c) {
   return out.join(' · ');
 }
 
-function marcheRow(href, nom, prix, tech, actu, note, jauge) {
-  const paire = (lab, b) => h('span', { class: 'mpaire' }, h('span', { class: 'mlab', text: lab }), b);
+function marcheRow(href, nom, prix, { orient, paires, note, jauge }) {
+  const paire = (lab, b, titre) =>
+    h('span', { class: 'mpaire', title: titre || null }, h('span', { class: 'mlab', text: lab }), b);
   return h(
     'a',
     { class: 'mrow', href },
     h('span', { class: 'mname', text: nom }),
     h('span', { class: 'mprix' }, ...prix),
-    h('span', { class: 'mbadges' }, tech ? paire(tech.lab || 'Technique', tech.b) : null, paire('Actualité', actu)),
+    orient ? h('span', { class: 'morient' }, ...orient) : null,
+    h(
+      'span',
+      { class: 'mbadges' },
+      (paires || []).filter(Boolean).map((x) => paire(...x))
+    ),
     jauge ? h('span', { class: 'mjauge' }, jauge) : null,
     note ? h('span', { class: 'mnote', text: note }) : null,
     h('span', { class: 'dgo', 'aria-hidden': 'true', text: '›' })
@@ -1327,99 +1333,39 @@ function navCultures(d, k) {
   );
 }
 
-/* avant l'ouverture d'Euronext (10 h 45) : indices connus le matin et leur fiabilité mesurée ; une description, pas un conseil */
+/* orientation de la séance à venir (Euronext ouvre à 10 h 45) : vote de Chicago, de la technique et de l'actualité, avec la
+   fiabilité passée de Chicago + technique ; une description des indices, pas un conseil */
 const ORIENT = {
-  hausse: ['↑ Les indices penchent à la hausse', 'good'],
-  legere_hausse: ['↗ Légèrement à la hausse', 'good'],
-  partage: ['→ Indices partagés ou neutres', 'neutral'],
-  legere_baisse: ['↘ Légèrement à la baisse', 'bad'],
-  baisse: ['↓ Les indices penchent à la baisse', 'bad'],
+  hausse: ['↑ penche à la hausse', 'good'],
+  legere_hausse: ['↗ légèrement à la hausse', 'good'],
+  partage: ['→ indices partagés', 'neutral'],
+  legere_baisse: ['↘ légèrement à la baisse', 'bad'],
+  baisse: ['↓ penche à la baisse', 'bad'],
 };
-const voteCls = (v) => (v > 0 ? 'good' : v < 0 ? 'bad' : '');
 
 function fiabilite(k, o) {
   const m = o.mesurable || 0;
-  if (!m) return 'Chicago et la technique ne donnent pas de sens ce matin : rien de mesurable.';
-  const bt = (((GS.backtest || {}).ouverture || {})[k] || {})[String(Math.abs(m))];
-  if (!bt || !bt.seances) return null;
-  const q =
-    bt.part >= 58
-      ? 'nettement mieux que le hasard'
-      : bt.part >= 54
-        ? 'un peu mieux que le hasard'
-        : 'aussi souvent juste que faux';
-  return `Par le passé, quand Chicago et la technique penchaient ${m > 0 ? 'à la hausse' : 'à la baisse'} comme ce matin${Math.abs(m) === 2 ? ' (tous deux d’accord)' : ''}, Euronext a suivi ${fmt(bt.part / 10, 1)} fois sur 10 (${bt.seances} séances depuis ${String(((GS.backtest || {}).ouverture || {})[k].depuis || '').slice(0, 4)}) : ${q}.`;
+  const bo = ((GS.backtest || {}).ouverture || {})[k] || {};
+  const bt = bo[String(Math.abs(m))];
+  if (!m || !bt || !bt.part) return null;
+  const q = bt.part >= 58 ? 'mieux que le hasard' : bt.part >= 54 ? 'un peu mieux que le hasard' : 'comme le hasard';
+  return {
+    text: `fiable ${fmt(bt.part / 10, 1)} fois sur 10 (${q})`,
+    titre: `Depuis ${String(bo.depuis || '').slice(0, 4)}, quand Chicago et la technique penchaient ${m > 0 ? 'à la hausse' : 'à la baisse'}${Math.abs(m) === 2 ? ' tous les deux' : ''}, Euronext a suivi ${bt.part} % du temps (${bt.seances} séances).`,
+  };
 }
 
-function avantOuverture(d) {
-  const lignes = ['ble', 'colza', 'mais'].map((k) => [k, (d.cultures || {})[k]]).filter(([, c]) => c && c.ouverture);
-  if (!lignes.length) return [];
-  const o0 = lignes[0][1].ouverture;
-  const pour = o0.pour === d.date ? 'la séance d’aujourd’hui' : `la séance du ${dfr(o0.pour)}`;
+function orientation(k, c) {
+  const o = c.ouverture;
+  if (!o) return null;
+  const [lab, cl] = ORIENT[o.orientation] || ORIENT.partage;
+  const f = fiabilite(k, o);
+  const s = (o.suivi || {}).notees ? o.suivi : null;
   return [
-    h('h2', { text: 'Avant l’ouverture' }),
-    h('p', { class: 'meta', text: `Indices pour ${pour}, ouverture d’Euronext à 10 h 45` }),
-    h(
-      'div',
-      { class: 'card wide ouv' },
-      lignes.map(([k, c]) => {
-        const o = c.ouverture;
-        const [lab, cl] = ORIENT[o.orientation] || ORIENT.partage;
-        const ch = o.chicago;
-        const ac = o.actualite || {};
-        const nAc = (ac.hausse || 0) + (ac.baisse || 0);
-        const v = o.votes || {};
-        const s = (o.suivi || {}).notees ? o.suivi : null;
-        return h(
-          'div',
-          { class: 'ouv-l' },
-          h(
-            'div',
-            { class: 'ouv-t' },
-            h('b', { text: `${ICON[k] || ''} ${NOM_COURT[k] || c.nom}` }),
-            h('span', { class: 'badge ' + cl, text: lab })
-          ),
-          h(
-            'div',
-            { class: 'ouv-i' },
-            h('span', {
-              class: 'chip',
-              title: `Séance Euronext du ${dfr(o.depuis)}`,
-              text: `Veille ${(o.veille || {}).var !== null && (o.veille || {}).var !== undefined ? `${sgn(o.veille.var)} €${o.veille.pct !== null && o.veille.pct !== undefined ? ` (${pct(o.veille.pct)})` : ''}` : '—'}`,
-            }),
-            h('span', {
-              class: 'chip ' + voteCls(v.chicago),
-              title: ch
-                ? `${ch.nom}, clôture du ${dfr(ch.date)} (après celle d’Euronext)`
-                : 'Pas de séance à Chicago depuis la clôture d’Euronext',
-              text: ch ? `Chicago ${pct(ch.var)}` : 'Chicago : pas de séance',
-            }),
-            h('span', {
-              class: 'chip ' + voteCls(v.actualite),
-              title: 'Effet des nouvelles parues depuis la clôture d’Euronext (−2 à +2)',
-              text: nAc
-                ? `Actualité depuis hier soir ${sgn(ac.valeur, 1)} (${ac.hausse || 0}↑ ${ac.baisse || 0}↓)`
-                : 'Actualité depuis hier soir : rien de nouveau',
-            }),
-            h('span', {
-              class: 'chip ' + voteCls(v.technique),
-              text: `Technique ${(c.technique || {}).sens || '—'}`,
-            })
-          ),
-          h('p', { class: 'ouv-f', text: fiabilite(k, o) }),
-          s
-            ? h('p', {
-                class: 'ouv-f',
-                text: `Suivi de l’orientation depuis sa mise en place : ${s.justes} juste${s.justes > 1 ? 's' : ''} sur ${s.notees}.`,
-              })
-            : null
-        );
-      }),
-      h('p', {
-        class: 'note',
-        text: 'Trois indices connus avant l’ouverture, chacun compté pour la hausse, la baisse ou neutre : Chicago depuis la clôture d’Euronext (au-delà de ±0,5 %), l’actualité parue depuis (effet d’au moins 0,5 sur 2), la lecture technique. Sur 2019-2026, ces indices ont annoncé la séance du maïs un peu mieux que le hasard, presque pas celle du blé et du colza. Escourgeon et orge de printemps n’ont pas de cotation à 10 h 45 : ils suivent le blé. Une description des indices, pas une prévision sûre ni un conseil.',
-      })
-    ),
+    h('span', { class: 'mlab', text: 'Ce matin' }),
+    h('span', { class: 'badge ' + cl, text: lab }),
+    f ? h('small', { title: f.titre, text: f.text }) : null,
+    s ? h('small', { text: `· suivi : ${s.justes} juste${s.justes > 1 ? 's' : ''} sur ${s.notees}` }) : null,
   ];
 }
 
@@ -1428,7 +1374,17 @@ function vMarche() {
   const k = GS.cult;
   if (k && (k === 'azote' || (d.cultures || {})[k]))
     return [navCultures(d, k), ...(k === 'azote' ? azoteView(d) : cultureView(k, d))];
-  const out = [h('p', { class: 'meta', text: `Séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}` })];
+  const ob = ((d.cultures || {}).ble || {}).ouverture;
+  const out = [
+    h('p', {
+      class: 'meta',
+      text:
+        `Cours de la séance du ${dfr((d.contrats.EBM || {}).seance || d.date)}` +
+        (ob
+          ? ` · orientation pour ${ob.pour === d.date ? 'aujourd’hui' : `le ${dfr(ob.pour)}`} (Euronext ouvre à 10 h 45)`
+          : ''),
+    }),
+  ];
   if (d.format !== 'grain-signal-2')
     out.push(
       h('div', {
@@ -1449,10 +1405,16 @@ function vMarche() {
         )
       )
     );
-  out.push(...avantOuverture(d));
   out.push(h('h2', { text: 'Le marché ce matin' }));
-  const rows = Object.entries(d.cultures || {}).map(([key, c]) =>
-    marcheRow(
+  const rows = Object.entries(d.cultures || {}).map(([key, c]) => {
+    // escourgeon et orge de printemps : pas de cotation à 10 h 45, orientation et technique du blé
+    const ref = c.proxy ? 'ble' : key;
+    const cr = (d.cultures || {})[ref] || c;
+    const o = cr.ouverture;
+    const ch = o && o.chicago;
+    const orient = orientation(ref, cr);
+    if (orient && c.proxy) orient.splice(2, orient.length - 2, h('small', { text: '(celle du blé)' }));
+    return marcheRow(
       `#marche/${key}`,
       `${ICON[key] || ''} ${NOM_COURT[key] || c.nom}`,
       [
@@ -1460,13 +1422,30 @@ function vMarche() {
         varSpan(c.var1j, 2, c.physique ? ' € depuis le relevé précédent' : ' € sur la séance'),
         c.physique ? h('small', { text: 'physique' }) : null,
       ],
-      { lab: c.proxy ? 'Technique (tendance du blé)' : 'Technique', b: sensBadge((c.technique || {}).sens) },
-      sensBadge((c.actualite || {}).sens, false, (c.actualite || {}).valeur),
-      reperesTxt(c),
-      // escourgeon et orge de printemps : pas de jauge (ce serait celle du blé, déjà au-dessus)
-      c.proxy ? null : pgauge((c.reperes || {}).percentile5, 'prix', 'Prix sur 5 ans', null, true)
-    )
-  );
+      {
+        orient,
+        paires: [
+          o && !c.proxy
+            ? [
+                'Chicago',
+                ch
+                  ? h('span', {
+                      class: 'badge ' + (ch.var > 0.5 ? 'good' : ch.var < -0.5 ? 'bad' : 'neutral'),
+                      text: pct(ch.var),
+                    })
+                  : h('span', { class: 'badge neutral', text: 'pas de séance' }),
+                ch ? `${ch.nom}, clôture du ${dfr(ch.date)} à 20 h 20, après celle d’Euronext` : null,
+              ]
+            : null,
+          [c.proxy ? 'Technique (blé)' : 'Technique', sensBadge((c.technique || {}).sens)],
+          ['Actualité', sensBadge((c.actualite || {}).sens, false, (c.actualite || {}).valeur)],
+        ],
+        note: reperesTxt(c),
+        // escourgeon et orge de printemps : pas de jauge (ce serait celle du blé, déjà au-dessus)
+        jauge: c.proxy ? null : pgauge((c.reperes || {}).percentile5, 'prix', 'Prix sur 5 ans', null, true),
+      }
+    );
+  });
   const e = d.engrais || {};
   const u = (e.france || {}).uree || {};
   rows.push(
@@ -1483,13 +1462,14 @@ function vMarche() {
         ),
         h('small', { text: 'urée' }),
       ],
-      null,
-      sensBadge((e.actualite || {}).sens, true, (e.actualite || {}).valeur),
-      (e.seuils || [])
-        .filter((s) => s.atteint)
-        .map((s) => `🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`)
-        .join(' · '),
-      pgauge(e.percentile_retenu, 'ratio', 'Prix de l’azote face au blé (10 ans)', null, true)
+      {
+        paires: [['Actualité', sensBadge((e.actualite || {}).sens, true, (e.actualite || {}).valeur)]],
+        note: (e.seuils || [])
+          .filter((s) => s.atteint)
+          .map((s) => `🔔 votre seuil ${s.sens === '>' ? '≥' : '≤'} ${fmt(s.niveau)} €/t est atteint`)
+          .join(' · '),
+        jauge: pgauge(e.percentile_retenu, 'ratio', 'Prix de l’azote face au blé (10 ans)', null, true),
+      }
     )
   );
   out.push(h('nav', { class: 'mrows', 'aria-label': 'Marché par culture' }, rows));
@@ -1502,7 +1482,8 @@ function vMarche() {
         'ul',
         { class: 'list' },
         [
-          'À côté du cours : variation en €/t sur la séance (orges : depuis le relevé de prix précédent ; azote : en % depuis le relevé d’il y a environ un mois, date indiquée).',
+          'À côté du cours : variation en €/t sur la séance d’hier (orges : depuis le relevé de prix précédent ; azote : en % depuis le relevé d’il y a environ un mois, date indiquée).',
+          'Ce matin : orientation de la séance d’aujourd’hui (Euronext ouvre à 10 h 45), d’après les trois indices de la ligne, chacun compté pour la hausse, la baisse ou neutre : Chicago (sa clôture d’hier soir, après celle d’Euronext, au-delà de ±0,5 %), la technique, l’actualité (au moins 0,5 sur 2). « Fiable x fois sur 10 » : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique quand ils penchaient ainsi. Le maïs les suit un peu mieux que le hasard, le blé et le colza presque pas. Le suivi compte les orientations justes depuis la mise en place. Une description des indices, pas une prévision sûre.',
           'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais la technique est celle du blé Euronext, que l’orge suit de près.',
           'Actualité : effet moyen des nouvelles des 7 derniers jours sur le prix, sur une échelle de 0 à 2 dans le sens indiqué (« ▲ hausse · 1,5 sur 2 » = nettement haussière ; 0,5 = plutôt ; 1 et plus = très) ; azote : hausse = plus cher. Détail dans l’onglet Actualité.',
           'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
