@@ -746,11 +746,11 @@ function meteoSection(d) {
       }),
       h(
         'table',
-        {},
+        { class: 'meteo' },
         h(
           'tr',
           {},
-          ['Zone', 'État', 'Pluie 60 jours / normale', 'Pluie prévue 14 j', 'Jours ≥ 32 °C prévus'].map((t, i) =>
+          ['Zone', 'État', 'Pluie 60 j / normale', 'Pluie prévue 14 j', 'Jours ≥ 32 °C prévus'].map((t, i) =>
             h('th', { class: i > 2 ? 'n' : '', text: t })
           )
         ),
@@ -777,9 +777,15 @@ function meteoSection(d) {
               ),
               h('td', {
                 text:
-                  ({ 'très sec': '🔥 ', sec: '🟠 ', 'un peu sec': '🟡 ', normal: '🟢 ', 'très humide': '💧 ' }[
-                    z.etat
-                  ] || '') + z.etat,
+                  ({
+                    'très sec': '🔥 ',
+                    sec: '🟠 ',
+                    'un peu sec': '🟡 ',
+                    normal: '🟢 ',
+                    'un peu humide': '🔵 ',
+                    humide: '💧 ',
+                    'très humide': '🌊 ',
+                  }[z.etat] || '') + z.etat,
               }),
               h(
                 'td',
@@ -792,17 +798,27 @@ function meteoSection(d) {
                     { class: 'ival' },
                     h('span', {
                       class:
-                        'badge ' + (z.ratio < 0.6 ? 'bad' : z.ratio < 0.8 ? 'warn' : z.ratio > 1.5 ? 'info' : 'good'),
+                        'badge ' + (z.ratio < 0.6 ? 'bad' : z.ratio < 0.8 ? 'warn' : z.ratio > 1.2 ? 'info' : 'good'),
                       text: `${Math.round(z.ratio * 100)} %`,
                     }),
-                    h('span', { class: 'ilabel', text: `${z.pluie60} mm pour ${z.normale60} mm` })
+                    h('span', {
+                      class: 'ilabel',
+                      title: 'Pluie des 60 derniers jours / normale',
+                      text: `${z.pluie60} / ${z.normale60} mm`,
+                    })
                   ),
-                  gauge(Math.min(z.ratio * 100, 200), 0, 200, [
+                  // au-delà de 200 % (très humide), le curseur reste visible au bout de la jauge
+                  gauge(Math.min(z.ratio * 100, 196), 0, 200, [
                     [40, 'var(--bad)'],
                     [80, 'var(--warn)'],
-                    [150, 'var(--good)'],
+                    [120, 'var(--good)'],
                     [200, 'var(--info)'],
-                  ])
+                  ]),
+                  // sur téléphone, les deux dernières colonnes passent ici
+                  h('small', {
+                    class: 'mprev',
+                    text: `Prévu 14 j : ${z.pluie14} mm${z.chaleur14 ? ` · ${z.chaleur14} j ≥ 32 °C` : ''}`,
+                  })
                 )
               ),
               h('td', { class: 'n', text: `${z.pluie14} mm` }),
@@ -813,7 +829,7 @@ function meteoSection(d) {
       ),
       h('p', {
         class: 'note',
-        text: `Régions françaises : un point dans leur principale zone de grandes cultures, pesé selon leur part de la production nationale. Normale : moyenne des 10 années précédentes sur la même fenêtre. Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
+        text: `Régions françaises : un point dans leur principale zone de grandes cultures, pesé selon leur part de la production nationale. Pluie des 60 derniers jours comparée à la normale (moyenne des 10 années précédentes sur la même fenêtre) : normal de 80 à 120 % ; en dessous, un peu sec, sec (moins de 60 %), très sec (moins de 40 %) ; au-dessus, un peu humide, humide (plus de 150 %), très humide (plus de 200 %). Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
       })
     ),
   ];

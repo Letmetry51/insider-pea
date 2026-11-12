@@ -915,3 +915,27 @@ small.zc {
   color: var(--bg);
   border-color: var(--ink);
 }
+
+/* météo sur téléphone : prévisions sous la jauge plutôt qu'en colonnes hors de l'écran */
+.meteo .mprev {
+  display: none;
+  margin-top: 4px;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .meteo th:nth-child(n + 4),
+  .meteo td:nth-child(n + 4) {
+    display: none;
+  }
+  .meteo .mprev {
+    display: block;
+  }
+  .meteo td.pgcell {
+    min-width: 118px;
+  }
+  .meteo td,
+  .meteo th {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}

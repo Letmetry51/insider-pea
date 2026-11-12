@@ -920,6 +920,11 @@ check(collect.acces_article({"url": "", "source": "Bloomberg.com"}, _sites) == (
       and collect.acces_article({"url": "", "source": "Inconnu"}, _sites) == (None, None),
       "accès aux articles : page illisible → site connu, sinon rien d'affiché")
 
+# météo : paliers symétriques autour de la normale (80-120 %)
+check([dec.meteo_etat({"ratio": r})[1] for r in (0.3, 0.5, 0.7, 1.0, 1.2, 1.4, 1.66, 2.35)]
+      == ["très sec", "sec", "un peu sec", "normal", "normal", "un peu humide", "humide", "très humide"],
+      "météo : 140 % n'est pas « normal » (un peu humide), paliers symétriques")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

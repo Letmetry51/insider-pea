@@ -212,6 +212,8 @@ def meteo_zone(obs, prev, today, chaleur=32):
 
 
 def meteo_etat(z):
+    """État d'une zone d'après la pluie des 60 derniers jours rapportée à la normale, en paliers symétriques : normal de 80 à
+    120 %. Note : la sécheresse peut faire monter les prix ; un excès d'eau gêne semis et récoltes, mais bien moins."""
     r = z.get("ratio")
     if r is None:
         return 0.0, "—"
@@ -221,8 +223,12 @@ def meteo_etat(z):
         return 1.0, "sec"
     if r < 0.8:
         return 0.4, "un peu sec"
-    if r <= 1.5:
+    if r <= 1.2:
         return -0.3, "normal"
+    if r <= 1.5:
+        return -0.1, "un peu humide"
+    if r <= 2.0:
+        return 0.1, "humide"
     return 0.2, "très humide"
 
 
