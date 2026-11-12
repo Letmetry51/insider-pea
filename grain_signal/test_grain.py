@@ -957,6 +957,20 @@ check([dec.meteo_etat({"ratio": r})[1] for r in (0.3, 0.5, 0.7, 1.0, 1.2, 1.3, 1
       == ["très sec", "sec", "un peu sec", "normal", "normal", "un peu humide", "humide", "humide", "très humide", "très humide"],
       "météo : paliers symétriques de 20 points (140 % humide, 166 % très humide)")
 
+# accès : « en entier » seulement si le texte est vraiment dans la page ; un site réservé prime sur la balise de la page
+check(collect.mots_article("<nav><p>" + "menu " * 400 + "</p></nav><p>" + "mot " * 300 + "</p>") == 300
+      and collect.mots_article("<script>var a = '<p>" + "x1 " * 500 + "</p>';</script><p>court</p>") == 1,
+      "accès : mots du texte en paragraphes, menus et scripts retirés")
+_html_lib = '<script>{"isAccessibleForFree": true}</script><p>' + "mot " * 300 + "</p>"
+import unittest.mock as _um  # noqa: E402
+with _um.patch.object(collect.requests, "get", return_value=type("R", (), {"status_code": 200, "text": _html_lib})()):
+    _a1 = collect.acces_article({"url": "https://www.tradingview.com/news/x", "source": "TradingView"}, {"TradingView": "abonnes"})
+    _a2 = collect.acces_article({"url": "https://ex.fr/a", "source": "Inconnu"}, {})
+with _um.patch.object(collect.requests, "get", return_value=type("R", (), {"status_code": 200, "text": "<p>bref</p>" + " " * 30000})()):
+    _a3 = collect.acces_article({"url": "https://ex.fr/b", "source": "Inconnu"}, {})
+check(_a1[0] == "abonnes" and _a2[0] == "entier" and _a3[0] is None,
+      f"accès : TradingView (compte exigé) réservé malgré sa balise ; page sans texte → rien d'affiché ({_a1[0]}, {_a2[0]}, {_a3[0]})")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

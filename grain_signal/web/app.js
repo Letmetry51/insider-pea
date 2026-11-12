@@ -1920,7 +1920,11 @@ function impactChips(imp) {
 /* lecture de l'article : d'après la page publique (balise des éditeurs ou mention « réservé aux abonnés »), sinon le site */
 const ACCES = {
   entier: ['📖 Disponible en entier', 'good', 'L’article se lit en entier sans abonnement'],
-  abonnes: ['🔒 Réservé aux abonnés', 'warn', 'Sans abonnement, seuls le titre et le début de l’article sont lisibles'],
+  abonnes: [
+    '🔒 Réservé aux abonnés',
+    'warn',
+    'Sans abonnement (ou sans compte, selon le site), seuls le titre et le début de l’article sont lisibles',
+  ],
 };
 
 function articleRow(a) {
