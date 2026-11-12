@@ -953,9 +953,9 @@ _bo = bt.backtest_ouverture(_yh, _rows)
 check(_bo.get("ble") and _bo["ble"]["2"]["seances"] > 0 and _bo["ble"]["1"]["part"] is not None,
       f"avant l'ouverture : backtest Chicago + technique ({_bo.get('ble')})")
 # météo : paliers symétriques autour de la normale (80-120 %)
-check([dec.meteo_etat({"ratio": r})[1] for r in (0.3, 0.5, 0.7, 1.0, 1.2, 1.4, 1.66, 2.35)]
-      == ["très sec", "sec", "un peu sec", "normal", "normal", "un peu humide", "humide", "très humide"],
-      "météo : 140 % n'est pas « normal » (un peu humide), paliers symétriques")
+check([dec.meteo_etat({"ratio": r})[1] for r in (0.3, 0.5, 0.7, 1.0, 1.2, 1.3, 1.4, 1.5, 1.66, 2.35)]
+      == ["très sec", "sec", "un peu sec", "normal", "normal", "un peu humide", "humide", "humide", "très humide", "très humide"],
+      "météo : paliers symétriques de 20 points (140 % humide, 166 % très humide)")
 
 for st, name in results:
     print(st, name)

@@ -829,7 +829,7 @@ function meteoSection(d) {
       ),
       h('p', {
         class: 'note',
-        text: `Régions françaises : un point dans leur principale zone de grandes cultures, pesé selon leur part de la production nationale. Pluie des 60 derniers jours comparée à la normale (moyenne des 10 années précédentes sur la même fenêtre) : normal de 80 à 120 % ; en dessous, un peu sec, sec (moins de 60 %), très sec (moins de 40 %) ; au-dessus, un peu humide, humide (plus de 150 %), très humide (plus de 200 %). Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
+        text: `Régions françaises : un point dans leur principale zone de grandes cultures, pesé selon leur part de la production nationale. Pluie des 60 derniers jours comparée à la normale (moyenne des 10 années précédentes sur la même fenêtre) : normal de 80 à 120 % ; en dessous, un peu sec, sec (moins de 60 %), très sec (moins de 40 %) ; au-dessus, un peu humide, humide (140 % et plus), très humide (160 % et plus). Une sécheresse ou une vague de chaleur pendant la saison sensible d'une zone (semis, floraison, remplissage) peut faire monter les prix ; hors saison, elle compte pour un quart. Données ${m.source || 'Open-Meteo'}.`,
       })
     ),
   ];
