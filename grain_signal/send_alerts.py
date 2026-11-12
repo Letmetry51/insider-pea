@@ -189,7 +189,7 @@ def synthese(dash):
 
 
 def boutons():
-    """Deux gros boutons (ouvrir la page, installer l'application) : visibles d'un coup d'œil sur le téléphone."""
+    """Deux gros boutons (ouvrir la page, installer l'application), en haut de l'email : visibles d'un coup d'œil sur le téléphone."""
     st = ("display:inline-block;padding:11px 18px;margin:4px 8px 4px 0;border-radius:8px;font-weight:600;font-size:15px;"
           "text-decoration:none;")
     return (f"<p style='margin:6px 0 16px'><a href='{e(URL)}' style='{st}background:#0d6a56;color:#ffffff'>🌾 Ouvrir le Bulletin des grains</a>"
@@ -199,7 +199,7 @@ def boutons():
 
 def wrap(title, inner):
     return (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:760px;color:#17201c'><h2 style='margin:0 0 12px'>{e(title)}</h2>"
-            f"{boutons()}{inner}<div style='margin-top:18px'>{boutons()}</div>"
+            f"{boutons()}{inner}"
             "<p style='color:#777;font-size:12px'>Outil d'aide à la décision : il décrit le marché, il ne conseille ni de vendre ni d'acheter. "
             "La décision vous appartient.</p></div>")
 
