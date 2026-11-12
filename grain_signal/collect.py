@@ -1133,7 +1133,7 @@ def acces_article(a, sites, timeout=12):
         pass
     direct = lien if lien.startswith("http") and "news.google.com" not in lien else None
     site = sites.get(a.get("source") or "")
-    if site == "abonnes":
+    if site == "abonnes" or any(x in lien for x in sites.get("_adresses", ())):  # rubriques réservées d'un site mixte
         return "abonnes", direct
     return ((acces_page(lue) if lue else None) or site
             or ("entier" if lue and mots_article(lue) >= ACCES_MOTS else None)), direct
@@ -1144,6 +1144,7 @@ def collect_acces(arts, cfg, budget=120):
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     sites = {s: k for k, l in (cfg.get("acces") or {}).items() if k in ("entier", "abonnes") for s in l}
+    sites["_adresses"] = tuple((cfg.get("acces") or {}).get("abonnes_adresses") or ())
     todo = sorted((a for a in arts.values() if a.get("acces_v") != ACCES_VERSION), key=lambda a: a["date"], reverse=True)[:400]
     if not todo:
         return 0, 0

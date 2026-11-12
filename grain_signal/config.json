@@ -169,7 +169,8 @@
     "acces": {
       "_": "Lecture de l'article. « abonnes » : sites réservés (abonnement ou compte exigé à l'affichage) ; ils priment sur ce que déclare la page (TradingView se dit libre mais exige un compte). « entier » : sites libres dont la page refuse les robots. Les sites mixtes (Terre-net, Réussir, Zonebourse…) n'y sont pas : leur page dit, article par article, s'il est réservé.",
       "abonnes": ["Bloomberg.com", "Bloomberg", "Les Echos", "www.agra.fr", "Agra", "Africa Intelligence", "Quantum Commodity Intelligence",
-                  "Financial Times", "The Wall Street Journal", "TradingView", "Argus Media", "S&P Global", "Fastmarkets", "L'Opinion"],
+                  "Financial Times", "The Wall Street Journal", "TradingView", "Reuters", "Argus Media", "S&P Global", "Fastmarkets", "L'Opinion"],
+      "abonnes_adresses": ["profarmer.com/pro-farmer-max/"],
       "entier": ["Agri-mutuel", "World-Grain", "farmdoc daily", "Country Guide", "Farm Progress", "RFD-TV",
                  "Brownfield Ag News", "Al Jazeera", "Yahoo Finance", "Yahoo Finance UK", "Agriland", "DTN Progressive Farmer",
                  "Hoosier Ag Today", "Oklahoma Farm Report", "Michigan Farm News", "UkrAgroConsult", "Miller Magazine",
