@@ -4,7 +4,7 @@
  "description": "Achats des dirigeants européens, sélection de la semaine et alertes",
  "lang": "fr",
  "start_url": "euro-signal.html",
- "scope": "./",
+ "scope": "euro-signal.html",
  "display": "standalone",
  "background_color": "#EDF0EC",
  "theme_color": "#17201C",
