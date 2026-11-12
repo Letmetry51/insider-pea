@@ -1327,6 +1327,102 @@ function navCultures(d, k) {
   );
 }
 
+/* avant l'ouverture d'Euronext (10 h 45) : indices connus le matin et leur fiabilité mesurée ; une description, pas un conseil */
+const ORIENT = {
+  hausse: ['↑ Les indices penchent à la hausse', 'good'],
+  legere_hausse: ['↗ Légèrement à la hausse', 'good'],
+  partage: ['→ Indices partagés ou neutres', 'neutral'],
+  legere_baisse: ['↘ Légèrement à la baisse', 'bad'],
+  baisse: ['↓ Les indices penchent à la baisse', 'bad'],
+};
+const voteCls = (v) => (v > 0 ? 'good' : v < 0 ? 'bad' : '');
+
+function fiabilite(k, o) {
+  const m = o.mesurable || 0;
+  if (!m) return 'Chicago et la technique ne donnent pas de sens ce matin : rien de mesurable.';
+  const bt = (((GS.backtest || {}).ouverture || {})[k] || {})[String(Math.abs(m))];
+  if (!bt || !bt.seances) return null;
+  const q =
+    bt.part >= 58
+      ? 'nettement mieux que le hasard'
+      : bt.part >= 54
+        ? 'un peu mieux que le hasard'
+        : 'aussi souvent juste que faux';
+  return `Par le passé, quand Chicago et la technique penchaient ${m > 0 ? 'à la hausse' : 'à la baisse'} comme ce matin${Math.abs(m) === 2 ? ' (tous deux d’accord)' : ''}, Euronext a suivi ${fmt(bt.part / 10, 1)} fois sur 10 (${bt.seances} séances depuis ${String(((GS.backtest || {}).ouverture || {})[k].depuis || '').slice(0, 4)}) : ${q}.`;
+}
+
+function avantOuverture(d) {
+  const lignes = ['ble', 'colza', 'mais'].map((k) => [k, (d.cultures || {})[k]]).filter(([, c]) => c && c.ouverture);
+  if (!lignes.length) return [];
+  const o0 = lignes[0][1].ouverture;
+  const pour = o0.pour === d.date ? 'la séance d’aujourd’hui' : `la séance du ${dfr(o0.pour)}`;
+  return [
+    h('h2', { text: 'Avant l’ouverture' }),
+    h('p', { class: 'meta', text: `Indices pour ${pour}, ouverture d’Euronext à 10 h 45` }),
+    h(
+      'div',
+      { class: 'card wide ouv' },
+      lignes.map(([k, c]) => {
+        const o = c.ouverture;
+        const [lab, cl] = ORIENT[o.orientation] || ORIENT.partage;
+        const ch = o.chicago;
+        const ac = o.actualite || {};
+        const nAc = (ac.hausse || 0) + (ac.baisse || 0);
+        const v = o.votes || {};
+        const s = (o.suivi || {}).notees ? o.suivi : null;
+        return h(
+          'div',
+          { class: 'ouv-l' },
+          h(
+            'div',
+            { class: 'ouv-t' },
+            h('b', { text: `${ICON[k] || ''} ${NOM_COURT[k] || c.nom}` }),
+            h('span', { class: 'badge ' + cl, text: lab })
+          ),
+          h(
+            'div',
+            { class: 'ouv-i' },
+            h('span', {
+              class: 'chip',
+              title: `Séance Euronext du ${dfr(o.depuis)}`,
+              text: `Veille ${(o.veille || {}).var !== null && (o.veille || {}).var !== undefined ? `${sgn(o.veille.var)} €${o.veille.pct !== null && o.veille.pct !== undefined ? ` (${pct(o.veille.pct)})` : ''}` : '—'}`,
+            }),
+            h('span', {
+              class: 'chip ' + voteCls(v.chicago),
+              title: ch
+                ? `${ch.nom}, clôture du ${dfr(ch.date)} (après celle d’Euronext)`
+                : 'Pas de séance à Chicago depuis la clôture d’Euronext',
+              text: ch ? `Chicago ${pct(ch.var)}` : 'Chicago : pas de séance',
+            }),
+            h('span', {
+              class: 'chip ' + voteCls(v.actualite),
+              title: 'Effet des nouvelles parues depuis la clôture d’Euronext (−2 à +2)',
+              text: nAc
+                ? `Actualité depuis hier soir ${sgn(ac.valeur, 1)} (${ac.hausse || 0}↑ ${ac.baisse || 0}↓)`
+                : 'Actualité depuis hier soir : rien de nouveau',
+            }),
+            h('span', {
+              class: 'chip ' + voteCls(v.technique),
+              text: `Technique ${(c.technique || {}).sens || '—'}`,
+            })
+          ),
+          h('p', { class: 'ouv-f', text: fiabilite(k, o) }),
+          s
+            ? h('p', {
+                class: 'ouv-f',
+                text: `Suivi de l’orientation depuis sa mise en place : ${s.justes} juste${s.justes > 1 ? 's' : ''} sur ${s.notees}.`,
+              })
+            : null
+        );
+      }),
+      h('p', {
+        class: 'note',
+        text: 'Trois indices connus avant l’ouverture, chacun compté pour la hausse, la baisse ou neutre : Chicago depuis la clôture d’Euronext (au-delà de ±0,5 %), l’actualité parue depuis (effet d’au moins 0,5 sur 2), la lecture technique. Sur 2019-2026, ces indices ont annoncé la séance du maïs un peu mieux que le hasard, presque pas celle du blé et du colza. Escourgeon et orge de printemps n’ont pas de cotation à 10 h 45 : ils suivent le blé. Une description des indices, pas une prévision sûre ni un conseil.',
+      })
+    ),
+  ];
+}
+
 function vMarche() {
   const d = GS.data;
   const k = GS.cult;
@@ -1353,6 +1449,7 @@ function vMarche() {
         )
       )
     );
+  out.push(...avantOuverture(d));
   out.push(h('h2', { text: 'Le marché ce matin' }));
   const rows = Object.entries(d.cultures || {}).map(([key, c]) =>
     marcheRow(

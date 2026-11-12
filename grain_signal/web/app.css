@@ -916,6 +916,29 @@ small.zc {
   border-color: var(--ink);
 }
 
+/* avant l'ouverture */
+.ouv-l {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ouv-t {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ouv-i {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.ouv-f {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* météo sur téléphone : prévisions sous la jauge plutôt qu'en colonnes hors de l'écran */
 .meteo .mprev {
   display: none;

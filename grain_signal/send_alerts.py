@@ -103,6 +103,40 @@ def table_marche(dash):
             + "".join(rows) + "</table>")
 
 
+ORIENT_TXT = {"hausse": ("↑ les indices penchent à la hausse", "#1f7a3e"), "legere_hausse": ("↗ légèrement à la hausse", "#1f7a3e"),
+              "partage": ("→ indices partagés ou neutres", "#6b6d60"), "legere_baisse": ("↘ légèrement à la baisse", "#b0281f"),
+              "baisse": ("↓ les indices penchent à la baisse", "#b0281f")}
+
+
+def bloc_ouverture(dash):
+    """Avant l'ouverture d'Euronext (10 h 45) : orientation de chaque culture cotée, ses indices et leur fiabilité passée."""
+    bt = (load(OUT / "backtest.json", {}) or {}).get("ouverture") or {}
+    lis = []
+    for k in ("ble", "colza", "mais"):
+        c = (dash.get("cultures") or {}).get(k) or {}
+        o = c.get("ouverture")
+        if not isinstance(o, dict):
+            continue
+        t, col = ORIENT_TXT.get(o.get("orientation"), ORIENT_TXT["partage"])
+        ch, ac = o.get("chicago") or {}, o.get("actualite") or {}
+        ind = [f"Chicago {sg(ch['var'], 1)} %" if ch.get("var") is not None else "Chicago : pas de séance",
+               (f"actualité depuis hier soir {sg(ac.get('valeur') or 0, 1)}" if (ac.get("hausse") or ac.get("baisse"))
+                else "rien de nouveau dans l'actualité"),
+               f"technique {(c.get('technique') or {}).get('sens') or '—'}"]
+        m = o.get("mesurable") or 0
+        b = (bt.get(k) or {}).get(str(abs(m))) or {}
+        fia = (f"par le passé, Euronext a suivi {f(b['part'] / 10, 1)} fois sur 10 dans cette configuration" if m and b.get("part")
+               else "Chicago et la technique ne donnent pas de sens" if not m else "")
+        lis.append(f"<li style='margin:5px 0'><b>{e(c.get('nom', k).replace(' tendre', ''))}</b> : "
+                   f"<span style='color:{col}'><b>{e(t)}</b></span><br><span style='color:#555;font-size:13px'>"
+                   f"{e(' · '.join(ind))}{' ; ' + e(fia) if fia else ''}</span></li>")
+    if not lis:
+        return ""
+    return ("<h3>⏰ Avant l'ouverture (10 h 45)</h3><ul style='padding-left:18px'>" + "".join(lis) + "</ul>"
+            "<p style='color:#777;font-size:12px'>Indices connus ce matin, pas une prévision sûre : sur 2019-2026, ils ont annoncé la "
+            "séance du maïs un peu mieux que le hasard, presque pas celle du blé et du colza.</p>")
+
+
 def fait_marquant(dash, trig):
     """Objet de l'email : l'actualité majeure, sinon un seuil franchi, sinon un plus haut ou plus bas de 3 mois, sinon le plus fort
     mouvement de la séance (jamais une panne de source)."""
@@ -220,7 +254,7 @@ def main():
     ids = [x["id"] for x in trig] + ([rid] if rid else [])
     # un seul email par calcul : celui du comité s'il s'est réuni, sinon le rapport du matin (une fois par jour), sinon les alertes
     # d'un calcul relancé dans la journée ; chacun emporte les alertes du calcul
-    marche = f"<h3>Le marché ce matin</h3>{table_marche(dash)}"
+    marche = bloc_ouverture(dash) + f"<h3>Le marché ce matin</h3>{table_marche(dash)}"
     tete = fait_marquant(dash, trig)
     if coms:
         x = coms[-1]

@@ -870,6 +870,48 @@ def main():
         if cc:
             e["comite"] = cc
         cultures[cult] = e
+    # avant l'ouverture d'Euronext (10 h 45) : indices connus le matin, pour les cultures cotées
+    prochaine = dec.prochaine_seance(today)
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:  # noqa: BLE001
+        paris = timezone(timedelta(hours=1))
+    arts = [a for a in actu.get("articles") or [] if isinstance(a, dict)] if actu_frais else []
+    for cult, tk in dec.OUVERTURE_CHICAGO.items():
+        e = cultures.get(cult)
+        if not e or not e.get("seance"):
+            continue
+        d0 = e["seance"]
+        cloture = datetime.fromisoformat(d0 + "T18:30").replace(tzinfo=paris)  # clôture d'Euronext
+        s = (yahoo.get(tk) or {}).get("serie") or {}
+        ds = sorted(s)
+        chic = None
+        if len(ds) >= 2 and ds[-1] >= d0:  # Chicago a clôturé après la dernière séance d'Euronext
+            chic = {"ticker": tk, "nom": (yahoo.get(tk) or {}).get("nom", tk), "date": ds[-1],
+                    "var": round((s[ds[-1]] / s[ds[-2]] - 1) * 100, 2)}
+        nuit = []
+        for a in arts:
+            try:
+                if datetime.fromisoformat(str(a.get("date")).replace("Z", "+00:00")) > cloture:
+                    nuit.append(a)
+            except (TypeError, ValueError):
+                pass
+        pn = dec.actu_pression(nuit, datetime.now(timezone.utc), demi_vie=1e9, jours=7).get(ACTU_CLE[cult]) or {}
+        ser = list((contrats.get(CONTRAT[cult]) or {}).get("_serie", {}).values())
+        o = dec.ouverture(chic["var"] if chic else None, pn.get("valeur") if (pn.get("hausse") or pn.get("baisse")) else None,
+                          (e.get("technique") or {}).get("sens"))
+        o.update(pour=prochaine, depuis=d0, chicago=chic,
+                 veille={"var": e.get("var1j"), "pct": round((ser[-1] / ser[-2] - 1) * 100, 2) if len(ser) >= 2 and ser[-2] else None},
+                 actualite={"valeur": pn.get("valeur"), "hausse": pn.get("hausse", 0), "baisse": pn.get("baisse", 0),
+                            "principaux": pn.get("principaux", [])})
+        e["ouverture"] = o
+    journal = dec.journal_ouverture(etat.get("ouverture_journal") if isinstance(etat.get("ouverture_journal"), list) else [],
+                                    cultures, prochaine)
+    for cult in dec.OUVERTURE_CHICAGO:
+        if (cultures.get(cult) or {}).get("ouverture"):
+            cultures[cult]["ouverture"]["suivi"] = dec.bilan_ouverture(journal, cult)
+
     for cult, o in org.items():  # graphiques des orges : blé décalé de l'écart du jour, points physiques par-dessus
         gap, eb = o.get("ecart_ble"), contrats.get("EBM") or {}
         if gap is not None and eb.get("graphique"):
@@ -1023,6 +1065,7 @@ def main():
                     "sous_seuil_bas": (engrais.get("ttf") or {}).get("sous_seuil_bas", 0)},
         "pannes": pannes,
         "envoyes": as_dict(etat.get("envoyes")),
+        "ouverture_journal": journal,
     }
     save_json(OUT / "etat.json", new_state)
     outbox = boite(OUT / "prive" / "a-envoyer.json")
@@ -1032,6 +1075,10 @@ def main():
     for cult, e in cultures.items():
         tq, ac = e.get("technique") or {}, e.get("actualite") or {}
         print(f"{e['nom']:<30} {fr_n(e['cours']) if e.get('cours') else '—':>8} €/t  technique {tq.get('sens') or '—':<10} actualité {ac.get('sens') or '—'}")
+    for cult, e in cultures.items():
+        o = e.get("ouverture")
+        if o:
+            print(f"Avant l'ouverture — {e['nom']} : {o['orientation']} (votes {o['votes']}, Chicago {(o.get('chicago') or {}).get('var')} %)")
     print(f"Engrais : {' ; '.join(engrais.get('notes', []))}")
     print(f"Alertes du jour : {len(trig)}")
     return 0

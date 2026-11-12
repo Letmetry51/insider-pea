@@ -920,6 +920,38 @@ check(collect.acces_article({"url": "", "source": "Bloomberg.com"}, _sites) == (
       and collect.acces_article({"url": "", "source": "Inconnu"}, _sites) == (None, None),
       "accès aux articles : page illisible → site connu, sinon rien d'affiché")
 
+# avant l'ouverture : vote de trois indices, journal noté le lendemain
+_o = dec.ouverture(0.8, 0.6, "neutre")
+check(_o["total"] == 2 and _o["orientation"] == "hausse" and _o["mesurable"] == 1
+      and dec.ouverture(-0.2, None, "baissière")["orientation"] == "legere_baisse"
+      and dec.ouverture(0.3, -0.1, "neutre")["orientation"] == "partage",
+      "avant l'ouverture : Chicago > 0,5 %, actualité ≥ 0,5 et technique comptent chacun pour un indice")
+check(dec.prochaine_seance(date(2026, 11, 12)) == "2026-11-12" and dec.prochaine_seance(date(2026, 11, 14)) == "2026-11-16",
+      "avant l'ouverture : prochaine séance (samedi → lundi)")
+_cu = {"ble": {"seance": "2026-11-11", "var1j": 2.5, "ouverture": {"total": 1}}}
+_j = dec.journal_ouverture([], _cu, "2026-11-12")
+_cu2 = {"ble": {"seance": "2026-11-12", "var1j": -1.0, "ouverture": {"total": -2}}}
+_j = dec.journal_ouverture(_j, _cu2, "2026-11-13")
+check(_j == [{"pour": "2026-11-12", "cult": "ble", "total": 1, "var": -1.0}, {"pour": "2026-11-13", "cult": "ble", "total": -2}]
+      and dec.bilan_ouverture(_j, "ble") == {"justes": 0, "notees": 1}
+      and dec.journal_ouverture(_j, _cu2, "2026-11-13") == _j,
+      "avant l'ouverture : orientation notée à la séance suivante, sans doublon au 2e calcul du matin")
+_rows = []
+import random as _rnd  # noqa: E402
+_r = _rnd.Random(3)
+_px, _cb, _d0 = 200.0, 500.0, date(2024, 1, 1)
+_yh = {"ZW=F": {"serie": {}}, "ZS=F": {"serie": {}}, "ZC=F": {"serie": {}}}
+for _i in range(400):
+    _dd = (_d0 + _td(days=_i)).isoformat()
+    _mv = _r.gauss(0, 1)
+    _cb *= 1 + _mv / 100
+    for _t in _yh:
+        _yh[_t]["serie"][_dd] = _cb
+    _px *= 1 + (_mv if _i else 0) / 100 * 0.5 + _r.gauss(0, 0.3) / 100
+    _rows.append({"date": (_d0 + _td(days=_i + 1)).isoformat(), "product": "EBM", "maturity": "2030-03", "settle": str(round(_px, 2))})
+_bo = bt.backtest_ouverture(_yh, _rows)
+check(_bo.get("ble") and _bo["ble"]["2"]["seances"] > 0 and _bo["ble"]["1"]["part"] is not None,
+      f"avant l'ouverture : backtest Chicago + technique ({_bo.get('ble')})")
 # météo : paliers symétriques autour de la normale (80-120 %)
 check([dec.meteo_etat({"ratio": r})[1] for r in (0.3, 0.5, 0.7, 1.0, 1.2, 1.4, 1.66, 2.35)]
       == ["très sec", "sec", "un peu sec", "normal", "normal", "un peu humide", "humide", "très humide"],
