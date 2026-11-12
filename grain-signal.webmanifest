@@ -5,7 +5,7 @@
  "description": "Le marché des céréales et de l'azote chaque matin : cours, technique, actualité et alertes",
  "lang": "fr",
  "start_url": "grain-signal.html",
- "scope": "./",
+ "scope": "grain-signal.html",
  "display": "standalone",
  "background_color": "#f1efe7",
  "theme_color": "#1c1a12",

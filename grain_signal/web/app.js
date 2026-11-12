@@ -2272,18 +2272,23 @@ function route() {
 
 /* installer l'application « Grains » sur le téléphone : bouton du navigateur (Android, ordinateur), mode d'emploi sur iPhone
    (Safari n'a pas de bouton d'installation). Rien si la page tourne déjà en application ; « Plus tard » mémorisé 30 jours,
-   sauf si on arrive par le lien « Installer » de l'email (?installer=1). */
+   sauf si on arrive par le lien « Installer » de l'email (?installer=1). Un lien touché dans Gmail s'ouvre souvent dans le
+   navigateur intégré de Gmail, qui ne sait pas installer : le mode d'emploi dit alors de passer d'abord par Chrome ou Safari. */
 function installation() {
   const appli =
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-  if (appli) return;
   const demande = new URLSearchParams(location.search).has('installer');
+  // le paramètre reste dans l'adresse : « Ouvrir dans Chrome / Safari » depuis Gmail le garde, et le mode d'emploi s'y affiche
+  if (appli) return;
   let plusTard = 0;
   try {
     plusTard = +localStorage.getItem('grains-installer-plus-tard') || 0;
   } catch {}
   if (!demande && Date.now() - plusTard < 30 * 864e5) return;
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+  const autreNavIos = /CriOS|FxiOS|EdgiOS/.test(ua); // Chrome, Firefox, Edge sur iPhone : installation par Partager (iOS 16.4+)
+  const integreIos = ios && !autreNavIos && (/GSA\//.test(ua) || !/Safari\//.test(ua)); // appli Google, Gmail, etc.
   const bandeau = (contenu) => {
     document.getElementById('installer')?.remove();
     const fermer = h('button', { type: 'button', class: 'filt', text: 'Plus tard' });
@@ -2310,19 +2315,29 @@ function installation() {
     ]);
   });
   window.addEventListener('appinstalled', () => document.getElementById('installer')?.remove());
+  const deja = ' Si l’icône « Grains » est déjà sur votre écran d’accueil, ignorez ce message.';
   if (ios)
     bandeau([
       h('span', {
-        text: 'Installer l’application « Grains » : dans Safari, touchez Partager (carré avec une flèche vers le haut), puis « Sur l’écran d’accueil ».',
+        text: integreIos
+          ? 'Installer l’application « Grains » : cette page est ouverte dans le navigateur d’une autre appli (Gmail…), qui ne sait pas installer. Ouvrez-la d’abord dans Safari (menu ⋯ ou icône boussole, « Ouvrir dans Safari »), puis touchez Partager (carré avec une flèche vers le haut) et « Sur l’écran d’accueil ».' +
+            deja
+          : autreNavIos
+            ? 'Installer l’application « Grains » : touchez Partager (carré avec une flèche vers le haut, en haut ou en bas de l’écran), puis « Sur l’écran d’accueil ». Si vous ne voyez pas ce choix, ouvrez la page dans Safari.' +
+              deja
+            : 'Installer l’application « Grains » : touchez Partager (carré avec une flèche vers le haut, en bas de l’écran), puis « Sur l’écran d’accueil » (faites défiler la liste si besoin) et « Ajouter ».' +
+              deja,
       }),
     ]);
   else if (demande)
-    // le navigateur n'a pas (encore) proposé l'installation : menu du navigateur
+    // le navigateur n'a pas proposé l'installation (navigateur intégré de Gmail, ou critères pas encore remplis) : mode d'emploi
     setTimeout(() => {
       if (!document.getElementById('installer'))
         bandeau([
           h('span', {
-            text: 'Installer l’application « Grains » : ouvrez le menu du navigateur (⋮), puis « Installer l’application » ou « Ajouter à l’écran d’accueil ».',
+            text:
+              'Installer l’application « Grains » : touchez le menu ⋮ en haut à droite, puis « Installer l’application » ou « Ajouter à l’écran d’accueil ». Si la page s’est ouverte dans Gmail, choisissez d’abord « Ouvrir dans Chrome » dans ce menu.' +
+              deja,
           }),
         ]);
     }, 2500);
