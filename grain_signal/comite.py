@@ -206,7 +206,10 @@ def main():
                      f"{a.get('titre_fr') or a['titre']} — {a.get('theme')}, {a.get('nature')}, importance {a.get('importance')}, "
                      f"impacts {json.dumps(a.get('impacts'), ensure_ascii=False)} : {a.get('impact')}" for a in arts)
                  + (f"\nSynthèse de l'actualité : {actu['synthese']}" if actu.get("synthese") else "") + "\n\n")
-    user += "Rends le rapport au format de sortie du prompt, puis le bloc JSON final."
+    # longueur bornée : le texte rédigé est la partie la plus chère (5 fois le prix des jetons lus), et un rapport trop long est
+    # coupé avant le bloc JSON (seconde demande payante)
+    user += ("Rends le rapport au format de sortie du prompt, en 900 mots au plus (il se lit sur un téléphone), puis le bloc JSON "
+             "final (une phrase par argument).")
     messages = [{"role": "user", "content": user}]
     usage = {"input": 0, "output": 0, "searches": 0}
     texts, sources, assistant = [], [], []
