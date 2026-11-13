@@ -1001,6 +1001,12 @@ with _um.patch.object(collect.requests, "get", return_value=type("R", (), {"stat
 check(_a1[0] == "abonnes" and _a2[0] == "entier" and _a3[0] is None,
       f"accès : TradingView (compte exigé) réservé malgré sa balise ; page sans texte → rien d'affiché ({_a1[0]}, {_a2[0]}, {_a3[0]})")
 
+# économie de l'API : lecture précédente pas en double dans les données de la lecture hebdomadaire
+import comite as _cm2  # noqa: E402
+_c2 = _cm2.compact({"cultures": {"ble": {"cours": 230, "comite": {"lecture": "x"}}}, "engrais": {"prix": 1, "comite": {}}})
+check(_c2["cultures"]["ble"] == {"cours": 230} and "comite" not in _c2["engrais"],
+      "lecture hebdomadaire : lecture précédente envoyée une seule fois")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

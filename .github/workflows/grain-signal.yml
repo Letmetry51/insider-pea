@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       comite:
-        description: "Refaire la lecture du marché de la semaine maintenant (API Claude, ≈ 0,5 à 1 $)"
+        description: "Refaire la lecture du marché de la semaine maintenant (API Claude, ≈ 0,4 $)"
         type: boolean
         default: false
       test_email:
@@ -37,7 +37,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # créneau de secours de GitHub (souvent parti avec des heures de retard) : rien à faire si le rapport du jour est déjà parti
+  # (lancé à 7 h 03 par la tâche planifiée) ; évite un second calcul complet et un second passage payant par l'API Claude
+  garde:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      fait: ${{ steps.v.outputs.fait }}
+    steps:
+      - id: v
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          jour=$(TZ=Europe/Paris date +%F)
+          if curl -fsS --max-time 30 "https://raw.githubusercontent.com/$REPO/site/data/grain/etat.json" \
+             | python3 -c "import json, sys; e = json.load(sys.stdin); sys.exit(0 if 'rapport:$jour' in (e.get('envoyes') or {}) else 1)"; then
+            echo "fait=1" >> "$GITHUB_OUTPUT"; echo "Rapport du $jour déjà parti : créneau de secours inutile"
+          else
+            echo "fait=0" >> "$GITHUB_OUTPUT"; echo "Rapport du $jour pas encore parti : calcul de secours"
+          fi
+
   grain:
+    needs: garde
+    # garde sautée (lancement manuel, essai) ou en échec : le calcul tourne
+    if: always() && needs.garde.outputs.fait != '1'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:

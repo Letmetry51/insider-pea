@@ -209,7 +209,9 @@ def main():
                               for a in part)
             user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Bulletin des grains) :\n{contexte(dash)}\n\n"
                     + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
-                    + f"Titres à classer ({len(part)}) :\n{liste}")
+                    + f"Titres à classer ({len(part)}) :\n{liste}"
+                    # la synthèse n'est demandée qu'au dernier lot (seule gardée) : moins de texte rédigé, donc moins cher
+                    + ("" if k + lot >= len(a_lire) else '\n\nPour ce lot, ne rédige pas de synthèse : "synthese": "".'))
             try:
                 resp = appel(key, user)
                 u = resp.get("usage") or {}
