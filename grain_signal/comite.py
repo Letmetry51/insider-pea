@@ -43,6 +43,34 @@ def decide_mode(today, dash, last):
     return None
 
 
+def resume_serie(rows):
+    """Série de graphique ([date, valeur, …] par point) réduite à ses repères : nombre de points, période, dernier point complet,
+    plus bas, plus haut, moyenne et rang du dernier cours dans la série (0 = plus bas, 100 = plus haut)."""
+    pts = [r for r in rows if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float)) and not isinstance(r[1], bool)]
+    if len(pts) < 2:
+        return None
+    v = [r[1] for r in pts]
+    i_min = min(range(len(v)), key=v.__getitem__)
+    i_max = max(range(len(v)), key=v.__getitem__)
+    return {"points": len(pts), "du": pts[0][0], "au": pts[-1][0], "dernier": rows[-1], "plus_bas": [pts[i_min][0], v[i_min]],
+            "plus_haut": [pts[i_max][0], v[i_max]], "moyenne": round(sum(v) / len(v), 2),
+            "rang_pct": round(100 * sum(1 for x in v if x <= v[-1]) / len(v))}
+
+
+def alleger(x):
+    """Sans les séries des graphiques : elles faisaient les trois quarts des jetons envoyés (177 000 caractères le 11/11/2026),
+    relus à chaque recherche web, alors que la lecture technique (moyennes, RSI, MACD, plus haut et plus bas de 3 mois) les résume
+    déjà. Une longue série datée (cours d'un an ou de 5 ans, historique de l'urée) est remplacée par ses repères."""
+    if isinstance(x, dict):
+        return {k: alleger(v) for k, v in x.items() if k not in ("graphique", "series")}
+    if isinstance(x, list):
+        if len(x) > 30 and all(isinstance(r, list) and r and isinstance(r[0], str) and re.match(r"^\d{4}-\d{2}-\d{2}", r[0])
+                               for r in x[:5]):
+            return resume_serie(x)
+        return [alleger(v) for v in x]
+    return x
+
+
 def compact(dash):
     """Données du matin pour le comité (sans les séries graphiques ni la configuration)."""
     d = json.loads(json.dumps(dash))
@@ -53,11 +81,38 @@ def compact(dash):
     d.pop("comite", None)
     col = (d.get("collecte") or {}).get("sources") or {}
     d["collecte"] = {"echecs": {k: v.get("detail") for k, v in col.items() if not v.get("ok")}, "date": (d.get("collecte") or {}).get("date")}
-    return d
+    return alleger(d)
+
+
+def avec_cache(messages):
+    """Premier message (les données du matin, l'essentiel des jetons) marqué pour le cache de l'API : les tours de la recherche web
+    et la seconde demande le relisent au dixième du prix au lieu du prix plein."""
+    out = list(messages)
+    if out and isinstance(out[0].get("content"), str):
+        out[0] = {"role": out[0]["role"], "content": [{"type": "text", "text": out[0]["content"], "cache_control": {"type": "ephemeral"}}]}
+    return out
+
+
+def cout(usage, modele):
+    """Coût en dollars : entrées au prix plein, écrites dans le cache (×1,25) ou relues du cache (×0,1), sorties, recherches web."""
+    pin, pout = PRIX.get(modele, (4, 20))
+    plein = usage.get("input", 0) - usage.get("cache_lu", 0) - usage.get("cache_ecrit", 0)
+    return (plein * pin + usage.get("cache_ecrit", 0) * pin * 1.25 + usage.get("cache_lu", 0) * pin * 0.1
+            + usage.get("output", 0) * pout) / 1e6 + usage.get("searches", 0) * 0.01
+
+
+def compter(usage, u):
+    """Ajoute l'usage d'une réponse de l'API (entrées totales, dont cache écrit et relu, sorties, recherches)."""
+    usage["input"] += u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+    usage["cache_lu"] += u.get("cache_read_input_tokens", 0)
+    usage["cache_ecrit"] += u.get("cache_creation_input_tokens", 0)
+    usage["output"] += u.get("output_tokens", 0)
+    usage["searches"] += (u.get("server_tool_use") or {}).get("web_search_requests", 0)
 
 
 def call(messages, system, key, recherche=True, max_tokens=None):
-    body = {"model": CFG["comite"]["modele"], "max_tokens": max_tokens or CFG["comite"]["maxTokens"], "system": system, "messages": messages}
+    body = {"model": CFG["comite"]["modele"], "max_tokens": max_tokens or CFG["comite"]["maxTokens"],
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}], "messages": avec_cache(messages)}
     if recherche:
         body["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": CFG["comite"]["recherchesMax"],
                           "user_location": {"type": "approximate", "country": "FR", "timezone": "Europe/Paris"}}]
@@ -184,7 +239,7 @@ def main():
                  + (f"\nSynthèse de l'actualité : {actu['synthese']}" if actu.get("synthese") else "") + "\n\n")
     user += "Rends le rapport au format de sortie du prompt, puis le bloc JSON final."
     messages = [{"role": "user", "content": user}]
-    usage = {"input": 0, "output": 0, "searches": 0}
+    usage = {"input": 0, "cache_lu": 0, "cache_ecrit": 0, "output": 0, "searches": 0}
     texts, sources, assistant = [], [], []
     t0 = time.time()
     stop = None
@@ -192,10 +247,7 @@ def main():
         for _ in range(8):
             resp = call(messages, system, key)
             stop = resp.get("stop_reason")
-            u = resp.get("usage") or {}
-            usage["input"] += u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
-            usage["output"] += u.get("output_tokens", 0)
-            usage["searches"] += (u.get("server_tool_use") or {}).get("web_search_requests", 0)
+            compter(usage, resp.get("usage") or {})
             for b in resp.get("content") or []:
                 if b.get("type") == "text":
                     texts.append(b.get("text", ""))
@@ -220,9 +272,7 @@ def main():
                                                     "maintenant UNIQUEMENT ce bloc ```json, au format exact de la SORTIE MACHINE, cohérent avec "
                                                     "ton rapport (aucun texte avant ni après)."}],
                        system, key, recherche=False, max_tokens=6000)
-            u = rep.get("usage") or {}
-            usage["input"] += u.get("input_tokens", 0)
-            usage["output"] += u.get("output_tokens", 0)
+            compter(usage, rep.get("usage") or {})
             extra = "".join(b.get("text", "") for b in rep.get("content") or [] if b.get("type") == "text")
             decision, _ = parse_decision(extra)
             report = text.strip() + ("\n\n*(Rapport coupé : synthèse reprise par une seconde demande.)*" if stop == "max_tokens" else "")
@@ -232,8 +282,7 @@ def main():
         err["erreur"] = f"Dernière lecture du marché ({today.isoformat()}) en échec : {str(e)[:300]}"
         save(OUT / "comite.json", err)
         return 1
-    pin, pout = PRIX.get(CFG["comite"]["modele"], (4, 20))
-    cost = usage["input"] / 1e6 * pin + usage["output"] / 1e6 * pout + usage["searches"] * 0.01
+    cost = cout(usage, CFG["comite"]["modele"])
     res = {"format": "lecture", "date": today.isoformat(), "mode": mode, "consigne": consigne, "modele": CFG["comite"]["modele"], **decision,
            "rapport_md": report, "rapport_html": safe_html(report), "sources": sources[:60], "usage": usage,
            "cout_usd": round(cost, 2), "duree_s": round(time.time() - t0)}
