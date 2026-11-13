@@ -308,6 +308,33 @@ def main():
     stats4("  plus haut de 20 séances sur volume, sans cassure de canal", dedup(base & rc10 & ~rb10, 125), EX, RAW, months, yrs)
     stats4("  ni l'un ni l'autre", dedup(base & ~rc10 & ~rb10, 125), EX, RAW, months, yrs)
 
+    log("\n=== 7. Canal naissant cassé avant le 🎯, en tendance, sur 1,5 fois le volume : le canal ou la séance ?")
+    nv = NAI & early & trend & (vx >= 1.5)
+    ctl = cand20 & early & trend          # même séance sans canal : plus haut de 20 séances sur 1,5 fois le volume, avant le 🎯
+    with np.errstate(all='ignore'):
+        b20 = roll(dbond.astype(np.float32), 20, 'max', 1) > 0
+        d0, d3, d8 = ret1 < .03, (ret1 >= .03) & (ret1 < .08), ret1 >= .08
+    stats4("canal naissant cassé (rappel)", dedup(nv, 125), EX, RAW, months, yrs)
+    stats4("  … le jour d'un 📣 bond du jour", dedup(nv & dbond, 125), EX, RAW, months, yrs)
+    stats4("  … sans 📣 bond du jour dans les 20 séances", dedup(nv & ~b20, 125), EX, RAW, months, yrs)
+    stats4("  … séance à moins de +3 %", dedup(nv & d0, 125), EX, RAW, months, yrs)
+    stats4("  … séance de +3 à +8 %", dedup(nv & d3, 125), EX, RAW, months, yrs)
+    stats4("  … séance à +8 % ou plus", dedup(nv & d8, 125), EX, RAW, months, yrs)
+    stats4("  … de 1,5 à 3 fois le volume", dedup(nv & (vx < 3), 125), EX, RAW, months, yrs)
+    stats4("  … 3 fois le volume ou plus", dedup(nv & (vx >= 3), 125), EX, RAW, months, yrs)
+    log("  contrôle sans canal : plus haut de 20 séances sur 1,5 fois le volume, avant le 🎯, en tendance")
+    stats4("  contrôle, séance à moins de +3 %", dedup(ctl & d0, 125), EX, RAW, months, yrs)
+    stats4("  contrôle, séance de +3 à +8 %", dedup(ctl & d3, 125), EX, RAW, months, yrs)
+    stats4("  contrôle, séance à +8 % ou plus", dedup(ctl & d8, 125), EX, RAW, months, yrs)
+    stats4("  contrôle, 3 fois le volume ou plus", dedup(ctl & (vx >= 3), 125), EX, RAW, months, yrs)
+    stats4("  contrôle, sans 📣 bond du jour dans les 20 séances", dedup(ctl & ~b20, 125), EX, RAW, months, yrs)
+    stats4("  contrôle, au-dessus du plus haut d'un an", dedup(ctl & new_hi, 125), EX, RAW, months, yrs)
+    stats4("  canal naissant cassé, au-dessus du plus haut d'un an", dedup(nv & new_hi, 125), EX, RAW, months, yrs)
+    stats4("  canal naissant cassé, sous le plus haut d'un an", dedup(nv & ~new_hi, 125), EX, RAW, months, yrs)
+    ii, tt_ = np.where(dedup(nv, 125))
+    log(f"  {len(ii)} cassures en {len(set(yrs[tt_]))} ans, soit {len(ii) / 26.9:.0f} par an ; depuis 2024 : "
+        f"{np.sum(yrs[tt_] >= 2024)}")
+
     log(f"\n=== Cassures par le haut des 10 dernières séances (jusqu'au {dates[tl]:%d/%m/%Y})")
     log("CASSURE;symbole;nom;date;type;cours_du_jour;cours_actuel;volume_x;tendance;zone_cible;avant_cible")
     rows = []
@@ -317,7 +344,10 @@ def main():
             rows.append((cols[i], names.get(cols[i], cols[i]), str(dates[t].date()), name, float(C[i, t]), float(C[i, tl]),
                          float(vx[i, t]) if np.isfinite(vx[i, t]) else float('nan'), bool(trend[i, t]), bool(zone[i, t]),
                          bool(early[i, t])))
-    for r in sorted(rows, key=lambda r: (r[2], r[0])):
+    last = {}
+    for r in sorted(rows, key=lambda r: r[2]):       # une ligne par société et type : la cassure la plus récente
+        last[r[0], r[3]] = r
+    for r in sorted(last.values(), key=lambda r: (r[2], r[0])):
         log(";".join(str(v) for v in ('CASSURE', r[0], r[1], r[2], r[3], f"{r[4]:.2f}", f"{r[5]:.2f}", f"{r[6]:.1f}",
                                        'oui' if r[7] else 'non', 'oui' if r[8] else 'non', 'oui' if r[9] else 'non')))
     log(f"\nterminé en {time.time() - t0:.0f} s")
