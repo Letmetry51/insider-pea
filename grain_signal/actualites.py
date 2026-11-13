@@ -133,8 +133,16 @@ def valide(x):
 
 
 def appel(key, user):
+    """user : texte, ou (partie commune à tous les lots, partie propre au lot). La partie commune et les consignes sont mises en
+    cache (cache_control) : du 2e lot au dernier, elles coûtent 10 % du prix normal."""
     cfg = CFG["actualites"]
-    body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"], "system": SYSTEME, "messages": [{"role": "user", "content": user}]}
+    if isinstance(user, tuple):
+        contenu = [{"type": "text", "text": user[0], "cache_control": {"type": "ephemeral"}}, {"type": "text", "text": user[1]}]
+    else:
+        contenu = user
+    body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"],
+            "system": [{"type": "text", "text": SYSTEME, "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": contenu}]}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None
     for i in range(2):  # 2 essais de 90 s au plus par lot (budget global de 6 minutes dans main) : les fichiers sont toujours écrits
@@ -207,13 +215,18 @@ def main():
             liste = "\n".join(f'{{"id": "{a["id"]}", "site": {json.dumps(a.get("source") or a.get("requete") or "")}, '
                               f'"date": "{a["date"][:16]}", "langue": "{a.get("langue", "")}", "titre": {json.dumps(a["titre"], ensure_ascii=False)}}}'
                               for a in part)
-            user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Bulletin des grains) :\n{contexte(dash)}\n\n"
-                    + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
-                    + f"Titres à classer ({len(part)}) :\n{liste}")
+            dernier = k + lot >= len(a_lire)
+            user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Bulletin des grains) :\n{contexte(dash)}\n\n",
+                    ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
+                    + f"Titres à classer ({len(part)}) :\n{liste}"
+                    # la synthèse n'est demandée qu'au dernier lot (seule gardée) : moins de texte rédigé, donc moins cher
+                    + ("" if dernier else '\n\nPour ce lot, ne rédige pas de synthèse : "synthese": "".'))
             try:
                 resp = appel(key, user)
                 u = resp.get("usage") or {}
-                usage = {"input": usage["input"] + u.get("input_tokens", 0), "output": usage["output"] + u.get("output_tokens", 0)}
+                # jetons en cache : lus à 10 % du prix, écrits à 125 % (comptés ainsi dans le coût)
+                usage = {"input": usage["input"] + u.get("input_tokens", 0) + 0.1 * u.get("cache_read_input_tokens", 0)
+                         + 1.25 * u.get("cache_creation_input_tokens", 0), "output": usage["output"] + u.get("output_tokens", 0)}
                 text = "".join(b.get("text", "") for b in resp.get("content") or [] if b.get("type") == "text")
                 j = lire_json(text)
                 ids = {a["id"] for a in part}
@@ -225,7 +238,8 @@ def main():
             except Exception as e:  # noqa: BLE001
                 erreurs.append(str(e)[:150])
         lus = [a for a in a_lire if (cache.get(a["id"]) or {}).get("v") == VERSION or a["id"] in cache and not cache[a["id"]].get("pertinent")]
-        print(f"Actualités : {len(a_lire)} titres à lire, {len(lus)} lus, "
+        pin, pout = PRIX.get(cfg["modele"], (2, 10))
+        print(f"Actualités : {len(a_lire)} titres à lire, {len(lus)} lus (≈ {usage['input'] / 1e6 * pin + usage['output'] / 1e6 * pout:.3f} $), "
               f"{sum(1 for a in a_lire if (cache.get(a['id']) or {}).get('pertinent'))} pertinents"
               + (f" ; incidents : {' | '.join(erreurs)}" if erreurs else ""))
         if erreurs and synthese is None:  # aucun lot n'a abouti

@@ -43,21 +43,45 @@ def decide_mode(today, dash, last):
     return None
 
 
+def sans_series(x, maxi=16):
+    """Retire les séries (listes de plus de `maxi` éléments : historiques de cours, courbes des graphiques) : le modèle lit les
+    chiffres du jour et les repères déjà calculés. Chaque jeton envoyé est relu à chaque recherche web : les séries faisaient
+    les deux tiers de la facture (59 000 jetons par envoi)."""
+    if isinstance(x, dict):
+        return {k: sans_series(v, maxi) for k, v in x.items() if not (isinstance(v, list) and len(v) > maxi)}
+    if isinstance(x, list):
+        return [sans_series(v, maxi) for v in x]
+    return x
+
+
 def compact(dash):
     """Données du matin pour le comité (sans les séries graphiques ni la configuration)."""
     d = json.loads(json.dumps(dash))
     for c in (d.get("contrats") or {}).values():
         c.pop("graphique", None)
+        c.pop("long", None)
     d.pop("historique_declencheurs", None)
     d.pop("config", None)
     d.pop("comite", None)
     col = (d.get("collecte") or {}).get("sources") or {}
     d["collecte"] = {"echecs": {k: v.get("detail") for k, v in col.items() if not v.get("ok")}, "date": (d.get("collecte") or {}).get("date")}
-    return d
+    # lecture de la semaine précédente : envoyée à part (« previous »), pas en double dans chaque culture
+    for c in (d.get("cultures") or {}).values():
+        if isinstance(c, dict):
+            c.pop("comite", None)
+    if isinstance(d.get("engrais"), dict):
+        d["engrais"].pop("comite", None)
+    return sans_series(d)
 
 
 def call(messages, system, key, recherche=True, max_tokens=None):
-    body = {"model": CFG["comite"]["modele"], "max_tokens": max_tokens or CFG["comite"]["maxTokens"], "system": system, "messages": messages}
+    # cache des consignes et des données (cache_control) : relues à chaque recherche web et à chaque reprise, elles coûtent
+    # alors 10 % du prix normal au lieu de 100 %
+    msgs = [dict(m) for m in messages]
+    if msgs and isinstance(msgs[0].get("content"), str):
+        msgs[0]["content"] = [{"type": "text", "text": msgs[0]["content"], "cache_control": {"type": "ephemeral"}}]
+    body = {"model": CFG["comite"]["modele"], "max_tokens": max_tokens or CFG["comite"]["maxTokens"],
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}], "messages": msgs}
     if recherche:
         body["tools"] = [{"type": "web_search_20250305", "name": "web_search", "max_uses": CFG["comite"]["recherchesMax"],
                           "user_location": {"type": "approximate", "country": "FR", "timezone": "Europe/Paris"}}]
@@ -173,8 +197,8 @@ def main():
                 v.pop("actualite", None)
     arts = [a for a in actu.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and (a.get("importance") or 0) >= 2][:40]
     user = (f"Mode : {consigne}\nDate du jour : {today.isoformat()} (heure de Paris le matin ; dernières clôtures : séance précédente).\n\n"
-            f"Données chiffrées du matin (Bulletin des grains, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False)}\n```\n\n"
-            + (f"Lecture de la semaine précédente, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False)}\n```\n\n" if previous else ""))
+            f"Données chiffrées du matin (Bulletin des grains, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False, separators=(',', ':'))}\n```\n\n"
+            + (f"Lecture de la semaine précédente, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False, separators=(',', ':'))}\n```\n\n" if previous else ""))
     if arts:
         user += ("Actualités des 7 derniers jours traduites en impacts (Bulletin des grains ; −2 baisse forte à +2 hausse forte du prix ; "
                  "engrais : + = plus cher) :\n" + "\n".join(
@@ -193,7 +217,9 @@ def main():
             resp = call(messages, system, key)
             stop = resp.get("stop_reason")
             u = resp.get("usage") or {}
-            usage["input"] += u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+            usage["input"] += u.get("input_tokens", 0)
+            usage["cache_lu"] = usage.get("cache_lu", 0) + u.get("cache_read_input_tokens", 0)
+            usage["cache_ecrit"] = usage.get("cache_ecrit", 0) + u.get("cache_creation_input_tokens", 0)
             usage["output"] += u.get("output_tokens", 0)
             usage["searches"] += (u.get("server_tool_use") or {}).get("web_search_requests", 0)
             for b in resp.get("content") or []:
@@ -233,7 +259,9 @@ def main():
         save(OUT / "comite.json", err)
         return 1
     pin, pout = PRIX.get(CFG["comite"]["modele"], (4, 20))
-    cost = usage["input"] / 1e6 * pin + usage["output"] / 1e6 * pout + usage["searches"] * 0.01
+    # cache : lecture à 10 % du prix, écriture à 125 % ; recherche web : 10 $ les 1 000
+    cost = ((usage["input"] + 0.1 * usage.get("cache_lu", 0) + 1.25 * usage.get("cache_ecrit", 0)) / 1e6 * pin
+            + usage["output"] / 1e6 * pout + usage["searches"] * 0.01)
     res = {"format": "lecture", "date": today.isoformat(), "mode": mode, "consigne": consigne, "modele": CFG["comite"]["modele"], **decision,
            "rapport_md": report, "rapport_html": safe_html(report), "sources": sources[:60], "usage": usage,
            "cout_usd": round(cost, 2), "duree_s": round(time.time() - t0)}

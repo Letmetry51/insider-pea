@@ -16,7 +16,7 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 
 | Quand | Quoi |
 |---|---|
-| Du lundi au samedi, vers 7 h 30 | collecte, calcul, **rapport du matin** par email avec la synthèse PDF, publication (calcul lancé à 7 h 03 par une tâche planifiée Claude, GitHub en secours) |
+| Du lundi au samedi, vers 7 h 30 | collecte, calcul, **rapport du matin** par email avec la synthèse PDF, publication (calcul lancé à 7 h 03 par une tâche planifiée Claude ; le créneau de secours de GitHub ne recalcule rien si le rapport est déjà parti) |
 | Chaque matin | **actualités traduites** : titres du jour classés par l'IA (quelques centimes) |
 | Le lundi | **lecture du marché de la semaine** par l'API Claude avec recherche web (≈ 4 $) : arguments haussiers et baissiers par culture, à surveiller, calendrier |
 | Dès qu'il se passe quelque chose | alerte dans le rapport : fait majeur dans l'actualité, seuil de prix franchi, plus haut ou plus bas de 3 mois, changement de lecture technique, source en panne |
@@ -51,7 +51,7 @@ ensuite évolué autrement que par hasard (seuil calculé sur des cours tirés a
 ## Réglages
 
 `config.json` : sources, seuils de prix, frais de stockage, seuils du module engrais, modèle de la lecture hebdomadaire
-(`claude-opus-5-5`) et nombre de recherches web.
+(`claude-sonnet-5-5`) et nombre de recherches web.
 
 Secrets du dépôt :
 - `GMAIL_USER`, `GMAIL_APP_PASSWORD` : compte Gmail d'envoi (le même qu'Euro Signal) ;
@@ -59,6 +59,10 @@ Secrets du dépôt :
 - `ANTHROPIC_API_KEY` : lecture hebdomadaire et traduction des actualités.
 
 Les historiques bruts des cours restent dans le cache du workflow et ne sont jamais publiés.
+
+Coût de l'API Claude : consignes et données mises en cache (10 % du prix à la relecture), séries de cours retirées de la lecture
+hebdomadaire, synthèse des actualités demandée une seule fois par calcul ; coût de chaque passage noté dans `actualites.json`
+et `comite.json` (`cout_usd`).
 
 ## Tests
 

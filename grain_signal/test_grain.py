@@ -971,6 +971,15 @@ with _um.patch.object(collect.requests, "get", return_value=type("R", (), {"stat
 check(_a1[0] == "abonnes" and _a2[0] == "entier" and _a3[0] is None,
       f"accès : TradingView (compte exigé) réservé malgré sa balise ; page sans texte → rien d'affiché ({_a1[0]}, {_a2[0]}, {_a3[0]})")
 
+# économie de l'API : séries retirées des données de la lecture hebdomadaire, lecture précédente pas en double
+import comite as _cm  # noqa: E402
+_dd = {"contrats": {"EBM": {"cours": 230, "long": [[1, 2]] * 400, "series": {"x": list(range(300))}, "technique": {"sens": "neutre"}}},
+       "cultures": {"ble": {"cours": 230, "comite": {"lecture": "x"}, "graphique": [[1, 2]] * 60}}, "engrais": {"ttf": [[1, 2]] * 900, "comite": {}}}
+_cc = _cm.compact(_dd)
+check(_cc["contrats"]["EBM"] == {"cours": 230, "series": {}, "technique": {"sens": "neutre"}} and _cc["cultures"]["ble"] == {"cours": 230}
+      and "ttf" not in _cc["engrais"] and "comite" not in _cc["engrais"],
+      "lecture hebdomadaire : séries de cours et lecture précédente retirées des données envoyées")
+
 for st, name in results:
     print(st, name)
 fails = [n for s, n in results if s != "OK  "]

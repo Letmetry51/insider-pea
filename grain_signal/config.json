@@ -98,9 +98,10 @@
     "saisonChere": [9, 10, 11]
   },
   "comite": {
-    "modele": "claude-opus-5-5",
+    "_": "Lecture hebdomadaire. Sonnet et 6 recherches au plus (avec le cache et sans les séries de cours : ≈ 0,5 $ par lecture, contre ≈ 3,85 $ avec Opus, 15 recherches et les séries). Pour une lecture plus fouillée : claude-opus-5-5 et 10 recherches.",
+    "modele": "claude-sonnet-5-5",
     "maxTokens": 16000,
-    "recherchesMax": 15,
+    "recherchesMax": 6,
     "jourHebdo": 0,
     "joursValidite": 8
   },
