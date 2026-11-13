@@ -98,9 +98,10 @@
     "saisonChere": [9, 10, 11]
   },
   "comite": {
+    "_": "Lecture hebdomadaire : Sonnet, 6 recherches web au plus (chaque recherche fait relire toutes les données : 15 recherches coûtaient deux fois plus pour peu de faits en plus ; essai du 13/11/2026 : ≈ 0,40 $ la lecture).",
     "modele": "claude-sonnet-5-5",
     "maxTokens": 16000,
-    "recherchesMax": 15,
+    "recherchesMax": 6,
     "jourHebdo": 0,
     "joursValidite": 8
   },

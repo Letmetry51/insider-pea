@@ -83,6 +83,12 @@ def compact(dash):
     d.pop("comite", None)
     col = (d.get("collecte") or {}).get("sources") or {}
     d["collecte"] = {"echecs": {k: v.get("detail") for k, v in col.items() if not v.get("ok")}, "date": (d.get("collecte") or {}).get("date")}
+    # lecture de la semaine précédente : envoyée à part (« previous »), pas en double dans chaque culture
+    for c in (d.get("cultures") or {}).values():
+        if isinstance(c, dict):
+            c.pop("comite", None)
+    if isinstance(d.get("engrais"), dict):
+        d["engrais"].pop("comite", None)
     return alleger(d)
 
 
@@ -231,8 +237,8 @@ def main():
                 v.pop("actualite", None)
     arts = [a for a in actu.get("articles") or [] if a.get("pertinent") and not a.get("doublon_de") and (a.get("importance") or 0) >= 2][:40]
     user = (f"Mode : {consigne}\nDate du jour : {today.isoformat()} (heure de Paris le matin ; dernières clôtures : séance précédente).\n\n"
-            f"Données chiffrées du matin (Bulletin des grains, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False)}\n```\n\n"
-            + (f"Lecture de la semaine précédente, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False)}\n```\n\n" if previous else ""))
+            f"Données chiffrées du matin (Bulletin des grains, JSON) :\n```json\n{json.dumps(donnees, ensure_ascii=False, separators=(',', ':'))}\n```\n\n"
+            + (f"Lecture de la semaine précédente, pour mesurer ce qui a changé :\n```json\n{json.dumps(previous, ensure_ascii=False, separators=(',', ':'))}\n```\n\n" if previous else ""))
     if arts:
         user += ("Actualités des 7 derniers jours traduites en impacts (Bulletin des grains ; −2 baisse forte à +2 hausse forte du prix ; "
                  "engrais : + = plus cher) :\n" + "\n".join(
@@ -240,7 +246,10 @@ def main():
                      f"{a.get('titre_fr') or a['titre']} — {a.get('theme')}, {a.get('nature')}, importance {a.get('importance')}, "
                      f"impacts {json.dumps(a.get('impacts'), ensure_ascii=False)} : {a.get('impact')}" for a in arts)
                  + (f"\nSynthèse de l'actualité : {actu['synthese']}" if actu.get("synthese") else "") + "\n\n")
-    user += "Rends le rapport au format de sortie du prompt, puis le bloc JSON final."
+    # longueur bornée : le texte rédigé est la partie la plus chère (5 fois le prix des jetons lus), et un rapport trop long est
+    # coupé avant le bloc JSON (seconde demande payante ; essai du 13/11/2026 sans borne : coupé à 16 000 jetons)
+    user += ("Rends le rapport au format de sortie du prompt, en 900 mots au plus (il se lit sur un téléphone), puis le bloc JSON "
+             "final (une phrase par argument).")
     messages = [{"role": "user", "content": user}]
     usage = {"input": 0, "cache_lu": 0, "cache_ecrit": 0, "output": 0, "searches": 0}
     texts, sources, assistant = [], [], []

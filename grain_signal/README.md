@@ -16,7 +16,7 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 
 | Quand | Quoi |
 |---|---|
-| Du lundi au samedi, vers 7 h 30 | collecte, calcul, **rapport du matin** par email avec la synthèse PDF, publication (calcul lancé à 7 h 03 par une tâche planifiée Claude, GitHub en secours) |
+| Du lundi au samedi, vers 7 h 30 | collecte, calcul, **rapport du matin** par email avec la synthèse PDF, publication (calcul lancé à 7 h 03 par une tâche planifiée Claude ; le créneau de secours de GitHub ne recalcule rien si le rapport est déjà parti) |
 | Chaque matin | **actualités traduites** : titres du jour classés par l'IA (Claude Haiku, moins d'un centime) |
 | Le lundi | **lecture du marché de la semaine** par l'API Claude (Sonnet) avec recherche web : arguments haussiers et baissiers par culture, à surveiller, calendrier. Coût en pied d'email : ≈ 0,5 à 1 $ attendu depuis le 16/11/2026, au lieu de 4 $ avec Opus (séries des graphiques résumées, données du matin relues depuis le cache de l'API) |
 | Dès qu'il se passe quelque chose | alerte dans le rapport : fait majeur dans l'actualité, seuil de prix franchi, plus haut ou plus bas de 3 mois, changement de lecture technique, source en panne |
