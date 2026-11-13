@@ -18,7 +18,7 @@ distances en logarithme : ln(achat / arrêt) / ln(objectif / arrêt)). Variantes
 mois, sans arrêt) affichées pour la robustesse, pas pour choisir la meilleure.
 
 Cours journaliers Yahoo des sociétés de l'étude longue (survivantes : biais du survivant). Lancé par « Recherche (à la demande) »
-(script allers_retours.py), environ 5 minutes.
+(script allers_retours.py), environ 2 minutes.
 """
 import glob
 import json
