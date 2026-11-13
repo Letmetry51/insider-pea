@@ -156,6 +156,26 @@ def main():
     log("références : nouveau plus haut de 20 séances sur 1,5 fois le volume (sans résistance)")
     stats4("  partout", dedup(cand, 125), EX, RAW, months, yrs)
     stats4("  avant le 🎯 (en tendance)", dedup(cand & early, 125), EX, RAW, months, yrs)
+
+    log("\n=== 4. Dans le 🎯 : la résistance compte-t-elle, ou seulement le nouveau plus haut sur volume ? (contrôles)")
+    with np.errstate(all='ignore'):
+        up20 = ok & (C > hi20) & (C > C1)
+        clv = (C - L) / (H - L)
+        dbond = ok & (C / C1 - 1 >= .08) & (vx >= 5) & (clv >= .5) & trend
+    stats4("🎯 : cassure d'une résistance sur 1,5 fois le volume (rappel)", dedup(brk & zone, 125), EX, RAW, months, yrs)
+    stats4("🎯 : nouveau plus haut de 20 séances sur 1,5 fois le volume", dedup(cand & zone, 125), EX, RAW, months, yrs)
+    stats4("🎯 : … sans résistance franchie ce jour-là", dedup(cand & zone & ~brk, 125), EX, RAW, months, yrs)
+    stats4("🎯 : nouveau plus haut de 20 séances, volume quelconque", dedup(up20 & zone, 125), EX, RAW, months, yrs)
+    stats4("🎯 : … sur moins de 1,5 fois le volume", dedup(up20 & zone & ~(vx >= 1.5), 125), EX, RAW, months, yrs)
+    stats4("🎯 : bond du jour (+8 % sur 5 fois le volume)", dedup(dbond & zone, 125), EX, RAW, months, yrs)
+    log("  chaque vendredi au feu vert (rythme de la sélection du lundi) :")
+    rb10 = roll(brk.astype(np.float32), 10, 'max', 1) > 0
+    rc10 = roll(cand.astype(np.float32), 10, 'max', 1) > 0
+    base = feu & fri[None, :]
+    stats4("    cassure de résistance dans les 10 dernières séances", dedup(base & rb10, 125), EX, RAW, months, yrs)
+    stats4("    plus haut de 20 séances sur volume dans les 10 séances, sans résistance", dedup(base & rc10 & ~rb10, 125),
+           EX, RAW, months, yrs)
+    stats4("    ni l'un ni l'autre", dedup(base & ~rc10, 125), EX, RAW, months, yrs)
     log(f"\nterminé en {time.time() - t0:.0f} s")
 
 
