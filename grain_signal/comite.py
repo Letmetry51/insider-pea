@@ -27,7 +27,9 @@ ROOT = HERE.parent
 OUT = ROOT / "data" / "grain"
 CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
 API = "https://api.anthropic.com/v1/messages"
-PRIX = {"claude-opus-5-5": (4, 20), "claude-sonnet-5-5": (2, 10), "claude-haiku-5-5": (0.1, 0.5)}  # $ par million de jetons
+# $ par million de jetons : entrée, sortie, entrée relue du cache (écrite dans le cache : 1,25 fois l'entrée), tarifs de
+# platform.claude.com/docs/en/about-claude/pricing relevés le 13/11/2026 (Haiku : requêtes de moins de 100 000 jetons)
+PRIX = {"claude-opus-5-5": (4, 20, 0.2), "claude-sonnet-5-5": (2, 10, 0.1), "claude-haiku-5-5": (0.1, 0.5, 0.01)}
 CLES = ("ble", "escourgeon", "orge_printemps", "colza", "mais", "engrais")
 
 
@@ -86,7 +88,7 @@ def compact(dash):
 
 def avec_cache(messages):
     """Premier message (les données du matin, l'essentiel des jetons) marqué pour le cache de l'API : les tours de la recherche web
-    et la seconde demande le relisent au dixième du prix au lieu du prix plein."""
+    et la seconde demande le relisent à 5 % du prix plein (Opus et Sonnet)."""
     out = list(messages)
     if out and isinstance(out[0].get("content"), str):
         out[0] = {"role": out[0]["role"], "content": [{"type": "text", "text": out[0]["content"], "cache_control": {"type": "ephemeral"}}]}
@@ -94,10 +96,11 @@ def avec_cache(messages):
 
 
 def cout(usage, modele):
-    """Coût en dollars : entrées au prix plein, écrites dans le cache (×1,25) ou relues du cache (×0,1), sorties, recherches web."""
-    pin, pout = PRIX.get(modele, (4, 20))
+    """Coût en dollars : entrées au prix plein, écrites dans le cache (×1,25) ou relues du cache (tarif du modèle), sorties,
+    recherches web (10 $ les 1 000)."""
+    pin, pout, plu = PRIX.get(modele, PRIX["claude-opus-5-5"])
     plein = usage.get("input", 0) - usage.get("cache_lu", 0) - usage.get("cache_ecrit", 0)
-    return (plein * pin + usage.get("cache_ecrit", 0) * pin * 1.25 + usage.get("cache_lu", 0) * pin * 0.1
+    return (plein * pin + usage.get("cache_ecrit", 0) * pin * 1.25 + usage.get("cache_lu", 0) * plu
             + usage.get("output", 0) * pout) / 1e6 + usage.get("searches", 0) * 0.01
 
 

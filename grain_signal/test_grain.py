@@ -15,6 +15,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import actualites  # noqa: E402
 import build  # noqa: E402
 import collect  # noqa: E402
 import comite  # noqa: E402
@@ -852,9 +853,13 @@ _us = {"input": 0, "cache_lu": 0, "cache_ecrit": 0, "output": 0, "searches": 0}
 comite.compter(_us, {"input_tokens": 100000, "cache_read_input_tokens": 800000, "cache_creation_input_tokens": 100000,
                      "output_tokens": 10000, "server_tool_use": {"web_search_requests": 10}})
 check(_us == {"input": 1000000, "cache_lu": 800000, "cache_ecrit": 100000, "output": 10000, "searches": 10}
-      and abs(comite.cout(_us, "claude-opus-5-5") - 1.52) < 1e-9
+      and abs(comite.cout(_us, "claude-opus-5-5") - 1.36) < 1e-9 and abs(comite.cout(_us, "claude-sonnet-5-5") - 0.73) < 1e-9
+      and abs(comite.cout(_us, "modele-inconnu") - 1.36) < 1e-9
       and abs(comite.cout({"input": 881722, "output": 11253, "searches": 10}, "claude-opus-5-5") - 3.85) < .01,
-      "lecture hebdo : coût selon le cache (relu au dixième, écrit à 1,25 fois), ancien calcul retrouvé sans cache")
+      "lecture hebdo : coût selon le cache (relu à 5 %, écrit à 1,25 fois) et le modèle (Sonnet deux fois moins cher qu'Opus), "
+      "ancien calcul retrouvé sans cache")
+check(comite.CFG["comite"]["modele"] in comite.PRIX and actualites.CFG["actualites"]["modele"] in actualites.PRIX,
+      "modèles de la lecture hebdo et de la revue de presse présents dans les tarifs (sinon coût faux)")
 
 # rapport du matin : un par jour, du lundi au samedi, seulement sur le calcul du jour
 _tr = Path(tempfile.mkdtemp())

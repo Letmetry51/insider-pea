@@ -98,7 +98,7 @@
     "saisonChere": [9, 10, 11]
   },
   "comite": {
-    "modele": "claude-opus-5-5",
+    "modele": "claude-sonnet-5-5",
     "maxTokens": 16000,
     "recherchesMax": 15,
     "jourHebdo": 0,
