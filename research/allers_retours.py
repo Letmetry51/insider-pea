@@ -118,6 +118,9 @@ def main():
     # dernière séance complète (le jour du calcul peut n'être qu'à moitié coté)
     cnt = ok.sum(0)
     tl = T - 1
+    now_paris = pd.Timestamp.now(tz='Europe/Paris')
+    if dates[tl].date() >= now_paris.date() and now_paris.hour < 18:   # séance du jour pas encore close
+        tl -= 1
     while tl > T - 10 and cnt[tl] < .6 * cnt[T - 10:].max():
         tl -= 1
 
