@@ -59,6 +59,18 @@ def f(v, d=2):
     return f"{v:,.{d}f}".replace(",", " ").replace(".", ",")
 
 
+def ligne_cout(comite):
+    """Pied de la lecture de la semaine : modèle, recherches web et coût de l'API, pour suivre les crédits sans ouvrir GitHub."""
+    c = comite.get("cout_usd")
+    if not isinstance(c, (int, float)) or isinstance(c, bool):
+        return ""
+    m = re.match(r"claude-([a-z]+)-(\d+)-(\d+)$", str(comite.get("modele") or ""))
+    nom = f"Claude {m.group(1).capitalize()} {m.group(2)}.{m.group(3)}" if m else "Claude"
+    n = (comite.get("usage") or {}).get("searches")
+    rech = f", {n} recherche{'s' if n > 1 else ''} web" if isinstance(n, int) and not isinstance(n, bool) else ""
+    return f"<p style='color:#777;font-size:12px;margin-top:16px'>Lecture rédigée par {e(nom)}{rech} ; coût de l'API ≈ {f(c)} $.</p>"
+
+
 def sg(v, d=2):
     return ("+" if v > 0 else "") + f(v, d)
 
@@ -250,7 +262,7 @@ def main():
     if coms:
         x = coms[-1]
         inner = (f"{alertes_h}<p style='background:#eef2ee;padding:10px;border-radius:6px'>{e(comite.get('resume'))}</p>"
-                 f"{marche}{bloc_actu()}<hr style='margin:18px 0'>{comite['rapport_html']}")
+                 f"{marche}{bloc_actu()}<hr style='margin:18px 0'>{comite['rapport_html']}{ligne_cout(comite)}")
         mails.append(([x["id"]] + ids, f"🌾 {x['titre']} — {jour} : {tete}"[:180], wrap(x["titre"], inner + PDF_NOTE)))
     elif rid:
         mails.append((ids, f"🌾 Bulletin des grains — {jour} : {tete}"[:180], wrap(f"Le marché du {jour}", f"{alertes_h}{marche}{bloc_actu()}{PDF_NOTE}")))
