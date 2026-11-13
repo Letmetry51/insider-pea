@@ -837,6 +837,25 @@ finally:
             os.environ[_k] = _v
     shutil.rmtree(_tc, ignore_errors=True)
 
+# lecture hebdo : moins de jetons payés (séries des graphiques résumées, données du matin en cache, coût selon le cache)
+_serie = [[f"2026-{1 + k // 28:02d}-{1 + k % 28:02d}", 100.0 + k, 99.0, None] for k in range(40)]
+_al = comite.alleger({"technique": {"rsi": 55.1}, "graphique": [[1, 2]], "series": {"rsi": [1, 2]},
+                      "long": {"an": _serie, "depuis": "2019-11-01"}, "zones": ["a", "b"]})
+check("graphique" not in _al and "series" not in _al and _al["technique"] == {"rsi": 55.1} and _al["zones"] == ["a", "b"]
+      and _al["long"]["depuis"] == "2019-11-01" and _al["long"]["an"]["points"] == 40 and _al["long"]["an"]["rang_pct"] == 100
+      and _al["long"]["an"]["plus_bas"] == [_serie[0][0], 100.0] and _al["long"]["an"]["dernier"] == _serie[-1],
+      "lecture hebdo : séries des graphiques retirées ou résumées (repères gardés), le reste intact")
+_mc = comite.avec_cache([{"role": "user", "content": "données"}, {"role": "assistant", "content": "x"}])
+check(_mc[0]["content"][0]["cache_control"] == {"type": "ephemeral"} and _mc[0]["content"][0]["text"] == "données"
+      and _mc[1] == {"role": "assistant", "content": "x"}, "lecture hebdo : données du matin marquées pour le cache de l'API")
+_us = {"input": 0, "cache_lu": 0, "cache_ecrit": 0, "output": 0, "searches": 0}
+comite.compter(_us, {"input_tokens": 100000, "cache_read_input_tokens": 800000, "cache_creation_input_tokens": 100000,
+                     "output_tokens": 10000, "server_tool_use": {"web_search_requests": 10}})
+check(_us == {"input": 1000000, "cache_lu": 800000, "cache_ecrit": 100000, "output": 10000, "searches": 10}
+      and abs(comite.cout(_us, "claude-opus-5-5") - 1.52) < 1e-9
+      and abs(comite.cout({"input": 881722, "output": 11253, "searches": 10}, "claude-opus-5-5") - 3.85) < .01,
+      "lecture hebdo : coût selon le cache (relu au dixième, écrit à 1,25 fois), ancien calcul retrouvé sans cache")
+
 # rapport du matin : un par jour, du lundi au samedi, seulement sur le calcul du jour
 _tr = Path(tempfile.mkdtemp())
 try:

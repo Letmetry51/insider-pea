@@ -103,7 +103,7 @@ jobs:
         timeout-minutes: 5
         run: python grain_signal/build.py
 
-      # titres du jour traduits en impacts par l'API Claude (sans recherche web, quelques centimes) : avant la lecture de la semaine,
+      # titres du jour traduits en impacts par l'API Claude (Haiku, sans recherche web, moins d'un centime) : avant la lecture de la semaine,
       # qui les lit ; un fait majeur part en alerte
       - name: 3b. Actualités traduites en impacts
         id: g3b

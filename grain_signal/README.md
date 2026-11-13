@@ -17,8 +17,8 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 | Quand | Quoi |
 |---|---|
 | Du lundi au samedi, vers 7 h 30 | collecte, calcul, **rapport du matin** par email avec la synthèse PDF, publication (calcul lancé à 7 h 03 par une tâche planifiée Claude, GitHub en secours) |
-| Chaque matin | **actualités traduites** : titres du jour classés par l'IA (quelques centimes) |
-| Le lundi | **lecture du marché de la semaine** par l'API Claude avec recherche web (≈ 4 $) : arguments haussiers et baissiers par culture, à surveiller, calendrier |
+| Chaque matin | **actualités traduites** : titres du jour classés par l'IA (Claude Haiku, moins d'un centime) |
+| Le lundi | **lecture du marché de la semaine** par l'API Claude avec recherche web (≈ 1 à 2 $ depuis le 13/11/2026, au lieu de 4 $ : séries des graphiques résumées, données du matin relues depuis le cache de l'API) : arguments haussiers et baissiers par culture, à surveiller, calendrier |
 | Dès qu'il se passe quelque chose | alerte dans le rapport : fait majeur dans l'actualité, seuil de prix franchi, plus haut ou plus bas de 3 mois, changement de lecture technique, source en panne |
 | À la demande | onglet Actions → « Bulletin des grains » → Run workflow (cases « lecture » et « email de test ») |
 
@@ -51,7 +51,8 @@ ensuite évolué autrement que par hasard (seuil calculé sur des cours tirés a
 ## Réglages
 
 `config.json` : sources, seuils de prix, frais de stockage, seuils du module engrais, modèle de la lecture hebdomadaire
-(`claude-opus-5-5`) et nombre de recherches web.
+(`claude-opus-5-5`) et nombre de recherches web, modèle de la revue de presse (`claude-haiku-5-5`, le moins cher : classer et traduire des
+titres ne demande pas plus).
 
 Secrets du dépôt :
 - `GMAIL_USER`, `GMAIL_APP_PASSWORD` : compte Gmail d'envoi (le même qu'Euro Signal) ;

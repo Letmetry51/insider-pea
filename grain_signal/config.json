@@ -144,7 +144,7 @@
   },
   "actualites": {
     "_": "Titres collectés chaque matin (Google Actualités et flux de la presse agricole), traduits en impacts par culture par l'API Claude (sans recherche web). Pression : impacts pondérés par l'importance, la nature et la fraîcheur.",
-    "modele": "claude-sonnet-5-5",
+    "modele": "claude-haiku-5-5",
     "maxTokens": 16000,
     "maxNouveaux": 60,
     "joursGarde": 7,
