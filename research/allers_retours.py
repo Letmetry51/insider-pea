@@ -3,12 +3,14 @@ entre support et résistance, l'idée serait de faire des allers-retours »). Ac
 une fourchette depuis un an, revente près de la résistance : est-ce que ça rapporte, frais compris, et quelles actions oscillent
 ainsi aujourd'hui ?
 
-Niveaux de la page (`ES.supportResistance`, comme supports_resistances.py) recalculés chaque jour avec les seuls cours connus.
-Fourchette (règle fixée avant le calcul) : support et résistance touchés chacun au moins 2 fois sur 250 séances, toutes les
-clôtures de l'année entre support −5 % et résistance +5 %, largeur (résistance / support − 1) de 15 à 50 %.
-Aller-retour : achat à l'ouverture du lendemain d'une séance en hausse qui clôture à moins de 3 % au-dessus du support ; revente
-à la résistance −2 % dès que le plus haut du jour l'atteint (ordre à cours limité), arrêt si une clôture passe 5 % sous le
-support (fourchette cassée, vente à l'ouverture suivante), sinon vente au bout de 125 séances. Frais : 0,6 % l'aller-retour
+Fourchette (règle fixée avant le calcul ; les niveaux les plus proches de la page sont trop serrés pour cet usage, d'où la
+fourchette de l'année) : plus bas et plus haut des clôtures des 250 dernières séances, largeur de 15 à 50 %, bas touché au moins
+2 fois (points bas à moins de 3 % du plus bas, séparés d'au moins 15 séances), haut touché au moins 2 fois (points hauts à moins
+de 3 % du plus haut), au moins 3 demi-cycles (passages du quart bas au quart haut de la fourchette, ou l'inverse), seuls cours
+connus à chaque date.
+Aller-retour : achat à l'ouverture du lendemain d'une séance en hausse qui clôture dans les 15 % du bas de la fourchette ;
+revente au haut −2 % dès que le plus haut du jour l'atteint (ordre à cours limité), arrêt si une clôture passe 5 % sous le bas
+(fourchette cassée, vente à l'ouverture suivante), sinon vente au bout de 125 séances. Frais : 0,6 % l'aller-retour
 (courtage et écart achat-vente d'une valeur moyenne). Un seul aller-retour à la fois par action. Comparaison : la moyenne des
 sociétés sur les mêmes séances, et le même aller-retour acheté au milieu de la fourchette (contrôle).
 
@@ -27,32 +29,6 @@ import hausse_tot as HT
 
 log, shift, roll = FB.log, FB.shift, HT.roll
 COST = .006
-
-
-def levels2(kk, pp, t, close, tol):
-    """Support et résistance les plus proches (touchés 2 fois ou plus) à la séance t, avec leurs contacts."""
-    lo = np.searchsorted(kk, t - 249)
-    hi = np.searchsorted(kk, t - 5, side='right')
-    if hi - lo < 4:
-        return None
-    p = np.sort(pp[lo:hi])
-    groups, s, n = [], p[0], 1
-    for x in p[1:]:
-        if x - s / n <= tol:
-            s, n = s + x, n + 1
-        else:
-            groups.append((s / n, n))
-            s, n = x, 1
-    groups.append((s / n, n))
-    sup = res = None
-    for g, n in groups:
-        if n < 2:
-            continue
-        if g < close - tol / 3 and (sup is None or g > sup[0]):
-            sup = (g, n)
-        elif g > close + tol / 3 and (res is None or g < res[0]):
-            res = (g, n)
-    return (sup, res) if sup and res else None
 
 
 def summary(name, T_, periods):
@@ -93,9 +69,6 @@ def main():
         ok = np.isfinite(O) & np.isfinite(H) & np.isfinite(L) & np.isfinite(C) & (H > L) & (np.nan_to_num(V) > 0)
         C1 = shift(C, 1)
         Hb, Lb = np.minimum(H, C * 1.5), np.maximum(L, C / 1.5)
-        tr = np.fmax(Hb - Lb, np.fmax(np.abs(Hb - C1), np.abs(Lb - C1)))
-        atr = roll(tr, 14, 'mean', 10)
-        tol = np.fmax(atr * 1.2, C * .015)
         cmax = roll(C, 250, 'max', 225)
         cmin = roll(C, 250, 'min', 225)
         hmax = pd.DataFrame(Hb.T).rolling(11, center=True, min_periods=11).max().values.T
@@ -107,59 +80,69 @@ def main():
         M = np.exp(np.nancumsum(np.log1p(np.nan_to_num(mret))))   # moyenne des sociétés (indice équipondéré)
     periods = [('2000-2008', 2000, 2008), ('2009-2017', 2009, 2017), ('2018-2026', 2018, 2026)]
     variants = {
-        'règle fixée (largeur 15 à 50 %, 2 contacts)': dict(wmin=.15, touch=2, mid=False),
-        'fourchette large (25 à 50 %)': dict(wmin=.25, touch=2, mid=False),
-        '3 contacts au moins de chaque côté': dict(wmin=.15, touch=3, mid=False),
-        'contrôle : achat au milieu de la fourchette': dict(wmin=.15, touch=2, mid=True),
+        'règle fixée (largeur 15 à 50 %, 2 contacts, 3 demi-cycles)': dict(wmin=.15, touch=2, swing=3, mid=False),
+        'fourchette large (25 à 50 %)': dict(wmin=.25, touch=2, swing=3, mid=False),
+        'plus régulière (3 contacts, 5 demi-cycles)': dict(wmin=.15, touch=3, swing=5, mid=False),
+        'contrôle : achat au milieu de la fourchette': dict(wmin=.15, touch=2, swing=3, mid=True),
     }
     trades = {k: [] for k in variants}
     now = []
     with np.errstate(all='ignore'):
-        # présélection rapide : cours de l'année dans une fourchette de 12 à 62 %, séance en hausse, cours dans le bas (achat près
-        # du support) ou au milieu (contrôle) de la fourchette de l'année ; niveaux exacts calculés seulement ces jours-là
         yr = cmax / cmin - 1
         pos_y = (C - cmin) / (cmax - cmin)
-        pre = ok & (yr >= .12) & (yr <= .62) & (C > C1)
-        cand_sup, cand_mid = pre & (pos_y <= .6), pre & (pos_y >= .3) & (pos_y <= .7)
+        pre = ok & (yr >= .15) & (yr <= .5) & (C > C1)
+        cand_sup, cand_mid = pre & (pos_y <= .15), pre & (pos_y >= .4) & (pos_y <= .6)
+
+    def band(i, t, pl_i, ph_i):
+        """Fourchette de l'année (clôtures) à la séance t : (bas, haut, contacts du bas, contacts du haut, demi-cycles)."""
+        lo_, hi_ = float(cmin[i, t]), float(cmax[i, t])
+        a = max(0, t - 249)
+        seg = C[i, a:t + 1]
+        seg = seg[np.isfinite(seg)]
+        pos = (seg - lo_) / (hi_ - lo_)
+        state, half = 0, 0
+        for x in pos:
+            if x <= .25 and state != -1:
+                half += state == 1
+                state = -1
+            elif x >= .75 and state != 1:
+                half += state == -1
+                state = 1
+
+        def touches(idx, val, test):
+            k = idx[(idx >= a) & (idx <= t - 5)]
+            k = k[test(val[k])]
+            if not k.size:
+                return 0
+            return 1 + int(np.sum(np.diff(k) >= 15))
+        nf = touches(pl_i, Lb[i], lambda v: v <= lo_ * 1.03)
+        nc = touches(ph_i, Hb[i], lambda v: v >= hi_ * .97)
+        return lo_, hi_, nf, nc, half
+
     t1 = time.time()
     for i in range(N):
-        kk = np.concatenate([np.flatnonzero(ph[i]), np.flatnonzero(pl[i])])
-        if kk.size < 6:
+        pl_i, ph_i = np.flatnonzero(pl[i]), np.flatnonzero(ph[i])
+        if pl_i.size < 4 or ph_i.size < 4:
             continue
-        pp = np.concatenate([Hb[i, ph[i]], Lb[i, pl[i]]]).astype(np.float64)
-        order = np.argsort(kk, kind='stable')
-        kk, pp = kk[order], pp[order]
         busy = {k: -1 for k in variants}
         for t in np.flatnonzero((cand_sup[i] | cand_mid[i])[260:T - 6]) + 260:
-            c = float(C[i, t])
-            lv = None
+            b = None
             for name, v in variants.items():
-                if t <= busy[name]:
+                if t <= busy[name] or not (cand_mid[i, t] if v['mid'] else cand_sup[i, t]):
                     continue
-                if lv is None:
-                    lv = levels2(kk, pp, t, c, float(tol[i, t])) or False
-                if not lv:
-                    break
-                (s, ns), (r, nr) = lv
-                width = r / s - 1
-                if not (v['wmin'] <= width <= .5 and ns >= v['touch'] and nr >= v['touch']):
-                    continue
-                if not (cmin[i, t] >= s * .95 and cmax[i, t] <= r * 1.05):
-                    continue
-                pos = (c - s) / (r - s)
-                if v['mid']:
-                    if not (cand_mid[i, t] and .4 <= pos <= .6):
-                        continue
-                elif not (cand_sup[i, t] and c <= s * 1.03):
+                if b is None:
+                    b = band(i, t, pl_i, ph_i)
+                lo_, hi_, nf, nc, half = b
+                if not (hi_ / lo_ - 1 >= v['wmin'] and nf >= v['touch'] and nc >= v['touch'] and half >= v['swing']):
                     continue
                 buy = float(O[i, t + 1])
                 if not buy > 0:
                     continue
-                target, stop = r * .98, s * .95
+                target, stop = hi_ * .98, lo_ * .95
                 end = min(T - 1, t + 126)
                 how, sell, u = 'durée', float(C[i, end]), end
                 for u_ in range(t + 1, end + 1):
-                    if Hb[i, u_] >= target and u_ > t:
+                    if Hb[i, u_] >= target:
                         how, sell, u = 'objectif', max(target, float(O[i, u_])) if O[i, u_] > target else target, u_
                         break
                     if C[i, u_] < stop:
@@ -173,29 +156,26 @@ def main():
                 trades[name].append({'net': net, 'ex': net - mk, 'days': u - t, 'how': how,
                                      'month': int(months[t]), 'year': int(yrs[t])})
                 busy[name] = u
-        # actions qui oscillent aujourd'hui (règle fixée), où en est le cours
+        # actions qui oscillent aujourd'hui (règle fixée) et où en est leur cours dans la fourchette
         t = T - 1
-        if ok[i, t]:
-            lv = levels2(kk, pp, t, float(C[i, t]), float(tol[i, t]))
-            if lv:
-                (s, ns), (r, nr) = lv
-                width = r / s - 1
-                if .15 <= width <= .5 and ns >= 2 and nr >= 2 and cmin[i, t] >= s * .95 and cmax[i, t] <= r * 1.05:
-                    now.append((cols[i], names.get(cols[i], cols[i]), float(C[i, t]), s, ns, r, nr, width,
-                                (float(C[i, t]) - s) / (r - s)))
+        if ok[i, t] and .15 <= yr[i, t] <= .5:
+            lo_, hi_, nf, nc, half = band(i, t, pl_i, ph_i)
+            if nf >= 2 and nc >= 2 and half >= 3:
+                now.append((cols[i], names.get(cols[i], cols[i]), float(C[i, t]), lo_, nf, hi_, nc, hi_ / lo_ - 1,
+                            (float(C[i, t]) - lo_) / (hi_ - lo_), half))
     log(f"allers-retours simulés en {time.time() - t1:.0f} s")
     log("\n=== Allers-retours (frais de 0,6 % compris ; écart avec la moyenne des sociétés sur les mêmes séances)")
     for name in variants:
         summary(name, trades[name], periods)
-    T_ = trades['règle fixée (largeur 15 à 50 %, 2 contacts)']
+    T_ = trades['règle fixée (largeur 15 à 50 %, 2 contacts, 3 demi-cycles)']
     if T_:
         a = np.array([t['net'] for t in T_])
         log(f"  règle fixée : {len(T_) / 26.9:.0f} allers-retours par an sur toutes les sociétés ; pertes de plus de 10 % : "
             f"{np.mean(a <= -.10) * 100:.0f} % ; gains de plus de 10 % : {np.mean(a >= .10) * 100:.0f} %")
     log(f"\n=== Actions qui oscillent aujourd'hui ({dates[-1]:%d/%m/%Y}) dans une fourchette d'un an (règle fixée) : {len(now)}")
-    for sym, nm, c, s, ns, r, nr, w, pos in sorted(now, key=lambda x: x[8])[:40]:
+    for sym, nm, c, s, ns, r, nr, w, pos, half in sorted(now, key=lambda x: x[8])[:40]:
         log(f"  {sym:10s} {nm[:30]:30s} cours {c:8.2f} | support {s:8.2f} ({ns} contacts) | résistance {r:8.2f} ({nr} contacts)"
-            f" | largeur {w * 100:3.0f} % | position {pos * 100:3.0f} %")
+            f" | largeur {w * 100:3.0f} % | position {pos * 100:3.0f} % | {half} demi-cycles")
     log(f"\nterminé en {time.time() - t0:.0f} s")
 
 
