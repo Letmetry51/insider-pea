@@ -17,6 +17,12 @@ allers-retours qui touchent l'objectif avant l'arrêt si le cours allait au hasa
 distances en logarithme : ln(achat / arrêt) / ln(objectif / arrêt)). Variantes (fourchette plus large, plus régulière, de 6
 mois, sans arrêt) affichées pour la robustesse, pas pour choisir la meilleure.
 
+Ordre de priorité (question de François du 13/11/2026 : « donner la liste des 67 sociétés dans l'ordre de priorité à tester ») :
+les allers-retours de la règle fixée sont découpés selon ce qu'on voit au moment d'acheter (contacts, demi-cycles, largeur,
+allers-retours passés sur la même action) pour voir si l'un de ces critères fait de meilleurs candidats ; la liste du jour donne,
+pour chaque action, ses allers-retours passés selon la règle (nombre, objectifs atteints, gain moyen) et l'éligibilité au PEA du
+catalogue.
+
 Cours journaliers Yahoo des sociétés de l'étude longue (survivantes : biais du survivant). Lancé par « Recherche (à la demande) »
 (script allers_retours.py), environ 2 minutes.
 """
@@ -60,10 +66,11 @@ def summary(name, T_, periods):
 
 def main():
     t0 = time.time()
-    names = {}
+    names, cat = {}, {}
     for f in glob.glob('../data/societes/*.json'):
         for k, x in json.load(open(f))['items'].items():
             names[k] = x.get('name') or k
+            cat[k] = x
     D = FB.download(list(FB.universe()))
     O, H, L, C, V = (D[k].values.T.astype('float32') for k in ('Open', 'High', 'Low', 'Close', 'Volume'))
     dates = D['Close'].index
@@ -146,6 +153,7 @@ def main():
         if pl_i.size < 4 or ph_i.size < 4:
             continue
         busy = {k: -1 for k in variants}
+        hist = []   # allers-retours passés de la règle fixée sur cette action : (fin, issue)
         for t in np.flatnonzero(any_cand[i, 260:T - 6]) + 260:
             bands = {}
             for name, v in variants.items():
@@ -164,7 +172,10 @@ def main():
                 how, sell, u = 'durée', float(C[i, end]), end
                 for u_ in range(t + 1, end + 1):
                     if Hb[i, u_] >= target:
-                        how, sell, u = 'objectif', max(target, float(O[i, u_])) if O[i, u_] > target else target, u_
+                        # ouverture au-dessus de l'objectif : vendue à l'ouverture, sauf après un trou de cotation (l'ordre à cours
+                        # limité aurait été exécuté à l'objectif pendant le trou)
+                        o_ = float(O[i, u_])
+                        how, sell, u = 'objectif', o_ if o_ > target and ok[i, u_ - 1] else target, u_
                         break
                     if v['stop'] and C[i, u_] < stop:
                         u = min(u_ + 1, T - 1)
@@ -177,16 +188,24 @@ def main():
                 prw = None
                 if v['stop']:
                     prw = float(np.clip(np.log(buy / stop) / np.log(target / stop), 0, 1)) if target > stop else None
-                trades[name].append({'net': net, 'ex': net - mk, 'days': u - t, 'how': how, 'prw': prw,
-                                     'month': int(months[t]), 'year': int(yrs[t])})
+                rec_ = {'net': net, 'ex': net - mk, 'days': u - t, 'how': how, 'prw': prw,
+                        'month': int(months[t]), 'year': int(yrs[t])}
+                if name == RULE:   # ce qu'on voit au moment d'acheter (les allers-retours passés sont finis avant t)
+                    p3 = [h for uu, h in hist if uu >= t - 750]
+                    rec_.update(i=i, t=t, nmin=min(nf, nc), half=half, width=hi_ / lo_ - 1,
+                                p3n=len(p3), p3w=sum(h == 'objectif' for h in p3),
+                                pan=len(hist), paw=sum(h == 'objectif' for _, h in hist),
+                                open=how == 'durée' and t + 126 > T - 1)
+                    hist.append((u, how))
+                trades[name].append(rec_)
                 busy[name] = u
         # actions qui oscillent aujourd'hui (règle fixée) et où en est leur cours dans la fourchette
         t = tl
         if ok[i, t] and .15 <= yr[i, t] <= .5:
             lo_, hi_, nf, nc, half = band(i, t, 250, pl_i, ph_i)
             if nf >= 2 and nc >= 2 and half >= 3:
-                now.append((cols[i], names.get(cols[i], cols[i]), float(C[i, t]), lo_, nf, hi_, nc, hi_ / lo_ - 1,
-                            (float(C[i, t]) - lo_) / (hi_ - lo_), half))
+                now.append(dict(i=i, sym=cols[i], name=names.get(cols[i], cols[i]), c=float(C[i, t]), lo=lo_, nf=nf, hi=hi_,
+                                nc=nc, w=hi_ / lo_ - 1, pos=(float(C[i, t]) - lo_) / (hi_ - lo_), half=half))
     log(f"allers-retours simulés en {time.time() - t1:.0f} s")
     log("\n=== Allers-retours (frais de 0,6 % compris ; écart avec la moyenne des sociétés sur les mêmes séances)")
     for name in variants:
@@ -196,11 +215,44 @@ def main():
         a = np.array([t['net'] for t in T_])
         log(f"  règle fixée : {len(T_) / 26.9:.0f} allers-retours par an sur toutes les sociétés ; pertes de plus de 10 % : "
             f"{np.mean(a <= -.10) * 100:.0f} % ; gains de plus de 10 % : {np.mean(a >= .10) * 100:.0f} %")
+    log("\n=== Qu'est-ce qui fait un meilleur candidat ? (allers-retours de la règle fixée, découpés selon ce qu'on voit à l'achat)")
+    groups = [
+        ('contacts : 2 du côté le moins touché', lambda t: t['nmin'] == 2),
+        ('contacts : 3 ou plus des deux côtés', lambda t: t['nmin'] >= 3),
+        ('3 demi-cycles', lambda t: t['half'] == 3),
+        ('4 demi-cycles', lambda t: t['half'] == 4),
+        ('5 demi-cycles ou plus', lambda t: t['half'] >= 5),
+        ('largeur 15 à 25 %', lambda t: t['width'] < .25),
+        ('largeur 25 à 35 %', lambda t: .25 <= t['width'] < .35),
+        ('largeur 35 à 50 %', lambda t: t['width'] >= .35),
+        ('aucun aller-retour sur cette action dans les 3 ans', lambda t: t['p3n'] == 0),
+        ("dans les 3 ans, au moins un objectif atteint", lambda t: t['p3w'] >= 1),
+        ("dans les 3 ans, des allers-retours mais aucun objectif", lambda t: t['p3n'] >= 1 and t['p3w'] == 0),
+        ("depuis 2000, au moins 2 objectifs atteints", lambda t: t['paw'] >= 2),
+        ("depuis 2000, plus d'objectifs que d'échecs", lambda t: t['pan'] >= 2 and 2 * t['paw'] > t['pan']),
+    ]
+    for gname, f in groups:
+        summary(gname, [t for t in T_ if f(t)], periods)
+
     log(f"\n=== Actions qui oscillent ({dates[tl]:%d/%m/%Y}, dernière séance complète) dans une fourchette d'un an "
         f"(règle fixée) : {len(now)}")
-    for sym, nm, c, s, ns, r, nr, w, pos, half in sorted(now, key=lambda x: x[8])[:40]:
-        log(f"  {sym:10s} {nm[:30]:30s} cours {c:8.2f} | support {s:8.2f} ({ns} contacts) | résistance {r:8.2f} ({nr} contacts)"
-            f" | largeur {w * 100:3.0f} % | position {pos * 100:3.0f} % | {half} demi-cycles")
+    by_i = {}
+    for t_ in T_:
+        by_i.setdefault(t_['i'], []).append(t_)
+    log("LISTE;symbole;nom;pea;pays;secteur;devise;cours;support;contacts_bas;résistance;contacts_haut;largeur_%;position_%;"
+        "demi_cycles;allers_retours;objectifs;arrêts;gain_moyen_%;allers_retours_3_ans;objectifs_3_ans;en_cours;échanges_jour_eur")
+    for x in sorted(now, key=lambda x: x['pos']):
+        h = [t_ for t_ in by_i.get(x['i'], []) if not t_['open']]
+        h3 = [t_ for t_ in h if t_['t'] >= tl - 750]
+        op = any(t_['open'] for t_ in by_i.get(x['i'], []))
+        k = cat.get(x['sym'], {})
+        gm = f"{np.mean([t_['net'] for t_ in h]) * 100:+.1f}" if h else ""
+        te = k.get('turnoverEur')
+        log(";".join(str(v) for v in (
+            'LISTE', x['sym'], x['name'], k.get('pea'), k.get('country') or '', k.get('sector') or '', k.get('currency') or '',
+            f"{x['c']:.2f}", f"{x['lo']:.2f}", x['nf'], f"{x['hi']:.2f}", x['nc'], f"{x['w'] * 100:.0f}", f"{x['pos'] * 100:.0f}",
+            x['half'], len(h), sum(t_['how'] == 'objectif' for t_ in h), sum(t_['how'] == 'arrêt' for t_ in h), gm, len(h3),
+            sum(t_['how'] == 'objectif' for t_ in h3), 'oui' if op else 'non', f"{te:.0f}" if te else '')))
     log(f"\nterminé en {time.time() - t0:.0f} s")
 
 
