@@ -860,6 +860,12 @@ check(_us == {"input": 1000000, "cache_lu": 800000, "cache_ecrit": 100000, "outp
       "ancien calcul retrouvé sans cache")
 check(comite.CFG["comite"]["modele"] in comite.PRIX and actualites.CFG["actualites"]["modele"] in actualites.PRIX,
       "modèles de la lecture hebdo et de la revue de presse présents dans les tarifs (sinon coût faux)")
+check(_sa.ligne_cout({"modele": "claude-sonnet-5-5", "cout_usd": 0.62, "usage": {"searches": 12}}).endswith(
+          "Lecture rédigée par Claude Sonnet 5.5, 12 recherches web ; coût de l'API ≈ 0,62 $.</p>")
+      and "Lecture rédigée par Claude, 1 recherche web ; coût de l'API ≈ 1,00 $." in _sa.ligne_cout(
+          {"modele": "<b>", "cout_usd": 1, "usage": {"searches": 1}})
+      and _sa.ligne_cout({"cout_usd": None, "modele": "claude-sonnet-5-5"}) == "" and _sa.ligne_cout({}) == "",
+      "lecture hebdo : modèle, recherches web et coût de l'API en pied d'email (rien si le coût manque)")
 
 # rapport du matin : un par jour, du lundi au samedi, seulement sur le calcul du jour
 _tr = Path(tempfile.mkdtemp())
