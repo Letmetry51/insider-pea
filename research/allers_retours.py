@@ -172,7 +172,10 @@ def main():
                 how, sell, u = 'durée', float(C[i, end]), end
                 for u_ in range(t + 1, end + 1):
                     if Hb[i, u_] >= target:
-                        how, sell, u = 'objectif', max(target, float(O[i, u_])) if O[i, u_] > target else target, u_
+                        # ouverture au-dessus de l'objectif : vendue à l'ouverture, sauf après un trou de cotation (l'ordre à cours
+                        # limité aurait été exécuté à l'objectif pendant le trou)
+                        o_ = float(O[i, u_])
+                        how, sell, u = 'objectif', o_ if o_ > target and ok[i, u_ - 1] else target, u_
                         break
                     if v['stop'] and C[i, u_] < stop:
                         u = min(u_ + 1, T - 1)
