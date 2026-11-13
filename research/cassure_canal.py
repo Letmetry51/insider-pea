@@ -20,7 +20,8 @@ haut de 20 séances sur 1,5 fois le volume, nouveau plus haut d'un an. Puis : fa
 séances), cassure confirmée 20 séances après, temps gagné sur le 🎯, et ce que la cassure ajoute au 🎯 au feu vert chaque vendredi.
 
 Cours journaliers Yahoo des sociétés de l'étude longue (survivantes : biais du survivant). Lancé par « Recherche (à la demande) »
-(script cassure_canal.py), environ 6 minutes.
+(script cassure_canal.py), environ 6 minutes. Robustesse du canal naissant : réglages voisins (écart entre creux, pente,
+largeur, marge de cassure, volume), fixés avant le calcul.
 """
 import glob
 import json
@@ -153,52 +154,56 @@ def main():
     log(f"cassures de canaux établis : {EST.sum()} jours en {time.time() - t1:.0f} s")
 
     # 2. canal naissant (deux creux montants), première cassure par le haut avant toute cassure par le bas
-    t1 = time.time()
-    NAI = np.zeros((N, T), bool)
-    for i in range(N):
-        PL, PH = np.flatnonzero(pl[i]), np.flatnonzero(ph[i])
-        if PL.size < 2 or PH.size < 1:
-            continue
-        prev, busy = None, -1
-        for k in PL:
-            k = int(k)
-            if prev is None:
-                prev = k
+    def nascent(gap=15, slope=(SLOPE_MIN, SLOPE_MAX), width=(.15, .5), margin=L1):
+        out = np.zeros((N, T), bool)
+        for i in range(N):
+            PL, PH = np.flatnonzero(pl[i]), np.flatnonzero(ph[i])
+            if PL.size < 2 or PH.size < 1:
                 continue
-            if k - prev < 15:
-                if Lb[i, k] < Lb[i, prev]:
+            prev, busy = None, -1
+            for k in PL:
+                k = int(k)
+                if prev is None:
                     prev = k
-                continue
-            k1, k2 = prev, k
-            prev = k
-            td = k2 + 5
-            if td >= T - 2 or td < 260 or td <= busy or not Lb[i, k2] > Lb[i, k1]:
-                continue
-            sl = (lL[i, k2] - lL[i, k1]) / (k2 - k1)
-            if not (SLOPE_MIN <= sl <= SLOPE_MAX):
-                continue
-            mid = PH[(PH > k1) & (PH < k2)]
-            if not mid.size:
-                continue
-            lo0 = lL[i, k1]
-            hi0 = float(np.max(lH[i, mid] - sl * (mid - k1)))
-            if not (.15 <= np.exp(hi0 - lo0) - 1 <= .5):
-                continue
-            seg = np.arange(k1, k2 + 1)
-            if np.nanmin(LC[i, seg] - (lo0 + sl * (seg - k1))) < -L3:
-                continue
-            us = np.arange(td + 1, min(T, td + 251))
-            base = lo0 + sl * (us - k1)
-            x = LC[i, us]
-            dn = np.flatnonzero(x < base - L5)
-            up = np.flatnonzero(x > base + (hi0 - lo0) + L1)
-            jd = dn[0] if dn.size else 10 ** 9
-            ju = up[0] if up.size else 10 ** 9
-            if ju < jd and ju < 10 ** 9:
-                NAI[i, us[ju]] = True
-                busy = int(us[ju])
-            elif jd < 10 ** 9:
-                busy = int(us[jd])
+                    continue
+                if k - prev < gap:                       # même creux : le plus bas l'emporte (connu à k + 5)
+                    if Lb[i, k] < Lb[i, prev]:
+                        prev = k
+                    continue
+                k1, k2 = prev, k
+                prev = k
+                td = k2 + 5                              # le second creux n'est connu que 5 séances après
+                if td >= T - 2 or td < 260 or td <= busy or not Lb[i, k2] > Lb[i, k1]:
+                    continue
+                sl = (lL[i, k2] - lL[i, k1]) / (k2 - k1)
+                if not (slope[0] <= sl <= slope[1]):
+                    continue
+                mid = PH[(PH > k1) & (PH < k2)]
+                if not mid.size:
+                    continue
+                lo0 = lL[i, k1]
+                hi0 = float(np.max(lH[i, mid] - sl * (mid - k1)))
+                if not (width[0] <= np.exp(hi0 - lo0) - 1 <= width[1]):
+                    continue
+                seg = np.arange(k1, k2 + 1)
+                if np.nanmin(LC[i, seg] - (lo0 + sl * (seg - k1))) < -L3:
+                    continue
+                us = np.arange(td + 1, min(T, td + 251))
+                base = lo0 + sl * (us - k1)
+                x = LC[i, us]
+                dn = np.flatnonzero(x < base - L5)
+                up = np.flatnonzero(x > base + (hi0 - lo0) + margin)
+                jd = dn[0] if dn.size else 10 ** 9
+                ju = up[0] if up.size else 10 ** 9
+                if ju < jd and ju < 10 ** 9:
+                    out[i, us[ju]] = True
+                    busy = int(us[ju])
+                elif jd < 10 ** 9:
+                    busy = int(us[jd])
+        return out
+
+    t1 = time.time()
+    NAI = nascent()
     log(f"cassures de canaux naissants : {NAI.sum()} jours en {time.time() - t1:.0f} s")
 
     # 3. fourchette plate qui oscille, cassée par le haut (nouveau plus haut d'un an de 1 %)
@@ -334,6 +339,31 @@ def main():
     ii, tt_ = np.where(dedup(nv, 125))
     log(f"  {len(ii)} cassures en {len(set(yrs[tt_]))} ans, soit {len(ii) / 26.9:.0f} par an ; depuis 2024 : "
         f"{np.sum(yrs[tt_] >= 2024)}")
+
+    log("\n=== 8. Robustesse du canal naissant cassé avant le 🎯, en tendance (réglages voisins, fixés avant le calcul)")
+    grid = [
+        ('réglage de base (creux à 15 séances, pente +15 à +150 %/an, largeur 15 à 50 %, cassure de 1 %)', {}),
+        ('creux séparés de 10 séances', dict(gap=10)),
+        ('creux séparés de 25 séances', dict(gap=25)),
+        ('pente de +10 à +200 %/an', dict(slope=(np.log(1.10) / 250, np.log(3.0) / 250))),
+        ('pente de +25 à +100 %/an', dict(slope=(np.log(1.25) / 250, np.log(2.0) / 250))),
+        ('largeur de 10 à 60 %', dict(width=(.10, .60))),
+        ('largeur de 20 à 40 %', dict(width=(.20, .40))),
+        ('cassure dès la ligne haute (0 %)', dict(margin=0.0)),
+        ('cassure de 3 %', dict(margin=L3)),
+    ]
+    for lab, kw in grid:
+        E = NAI if not kw else nascent(**kw)
+        log(f"  {lab}")
+        for vm in (1.5, 2, 3, 5):
+            stats4(f"    sur {str(vm).replace('.', ',')} fois le volume ou plus", dedup(E & early & trend & (vx >= vm), 125), EX, RAW, months, yrs)
+    log("  rappel sans canal, avant le 🎯, en tendance : plus haut de 20 séances sur le même volume")
+    for vm in (1.5, 2, 3, 5):
+        stats4(f"    sur {str(vm).replace('.', ',')} fois le volume ou plus", dedup(ok & (C > C1) & (C > hi20) & early & trend & (vx >= vm), 125), EX,
+               RAW, months, yrs)
+    stats4("  rappel : 📣 bond du jour", dedup(dbond, 125), EX, RAW, months, yrs)
+    stats4("  canal naissant cassé sur 3 fois le volume, sans 📣 bond du jour dans les 20 séances",
+           dedup(NAI & early & trend & (vx >= 3) & ~b20, 125), EX, RAW, months, yrs)
 
     log(f"\n=== Cassures par le haut des 10 dernières séances (jusqu'au {dates[tl]:%d/%m/%Y})")
     log("CASSURE;symbole;nom;date;type;cours_du_jour;cours_actuel;volume_x;tendance;zone_cible;avant_cible")
