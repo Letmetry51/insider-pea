@@ -3275,9 +3275,9 @@ export function build(opts = {}) {
   /* 6e ter. 📣 Bond du jour (04/11/2026 ; 4 fois au lieu de 5 depuis le 14/11/2026, research/bond_jour_seuil.py) : séance à +8 % ou
      plus sur au moins 4 fois le volume moyen des 50 séances précédentes, cours
      en tendance, aux conditions de la place 📣 (ES.dayBondAlerts) : un email le soir même, pour acheter le lendemain sans attendre la
-     fin de la semaine (cours journaliers 2000-2026 : +9,3 points à 6 mois face à la moyenne ; acheté le lendemain plutôt que le lundi
-     suivant, +1,1 point). Une fois par société sur 30 jours, rien pour une société de la sélection de la semaine ni déjà annoncée par
-     l'email 📣 Démarrage. */
+     fin de la semaine (cours journaliers 2000-2026 : +9,3 points à 6 mois face à la moyenne à 5 fois le volume ou plus, +6,1 entre 4
+     et 5 fois ; acheté le lendemain plutôt que le lundi suivant, +1,1 point). L'email donne le chiffre de sa tranche de volume. Une fois
+     par société sur 30 jours, rien pour une société de la sélection de la semaine ni déjà annoncée par l'email 📣 Démarrage. */
   try {
     if (rank && rank.coFresh && Array.isArray(rank._rows)) {
       const sentW =
@@ -3319,7 +3319,10 @@ export function build(opts = {}) {
             ' % sur ' +
             String(p.dayBondVx).replace('.', ',') +
             ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
-          'Sur 2000-2026 : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.',
+          // chiffres de la tranche de volume (research/bond_jour_seuil.py, 14/11/2026) : entre 4 et 5 fois, moins fort qu'à 5 fois ou plus
+          p.dayBondVx >= 5
+            ? 'Sur 2000-2026, à 5 fois le volume ou plus : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.'
+            : "Sur 2000-2026, entre 4 et 5 fois le volume : +6 points à 6 mois face à la moyenne des sociétés (+8 au plus haut de l'année, +5,5 en dessous ; +9 à 5 fois ou plus). Acheté le lendemain plutôt que le lundi suivant : +3 points quand la semaine finit en 📣. 2 sur 3 ne finissent pas la semaine en 📣 : la suite est alors faible.",
           p.dayBondLo != null
             ? 'À +' +
               p.dayBondLo +
