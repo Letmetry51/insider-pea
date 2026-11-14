@@ -9256,13 +9256,16 @@
   };
   /**
    * 📣 Bond du jour : séances depuis le dernier bond d'une séance parmi les 2 dernières (0 : la dernière ; 1 : la veille, quand son
-   * volume n'est arrivé que le lendemain), sinon null. Bond : clôture à +8 % ou plus sur la veille, volume d'au moins 5 fois la moyenne
+   * volume n'est arrivé que le lendemain), sinon null. Bond : clôture à +8 % ou plus sur la veille, volume d'au moins 4 fois la moyenne
    * des 50 séances précédentes (40 connues au moins), cours en tendance ce jour-là (au-dessus de sa moyenne 200 séances, la 50
    * au-dessus de la 200). daily : clôtures journalières (un an, cases vides possibles) ; dvol : volumes des dernières séances, alignés
-   * par la fin. Cours journaliers 2000-2026 (1 107 sociétés) : +9,3 points à 6 mois face à la moyenne (t 5,3 ; +5,6 / +10,9 / +10,8
+   * par la fin. Cours journaliers 2000-2026 : à 5 fois le volume, +9,3 points à 6 mois face à la moyenne (t 5,3 ; +5,6 / +10,9 / +10,8
    * par période), +10,9 au plus haut de l'année ; acheté le lendemain plutôt que le lundi suivant : +1,1 point (t 2,9), +2,8 quand la
-   * semaine finit en 📣 ; 4 sur 10 ne font pas de 📣 de la semaine. La sélection du lundi n'en tire rien (+0,1 point par an) : alerte du
-   * soir seulement (étude du 04/11/2026, research/hausse_tot*.py, research/backtest/_selection_sim9.py).
+   * semaine finit en 📣 ; 4 sur 10 ne font pas de 📣 de la semaine (étude du 04/11/2026). Seuil abaissé à 4 fois le 14/11/2026
+   * (Corbion : +8,2 % sur 4,4 fois le 27/10, vue seulement par le 📣 de la semaine) : +8,2 points à 4 fois (t 5,6 ; +6,6 / +9,4 / +8,2),
+   * les alertes ajoutées entre 4 et 5 fois +6,1 (+6,5 / +6,5 / +5,6), mieux que le 🎯 au feu vert (+4,6 / +4,7 / +4,2) dans chaque
+   * période, pour 1,4 fois plus d'alertes. La sélection du lundi n'en tire rien (+0,1 point par an) : alerte du soir seulement
+   * (research/hausse_tot*.py, research/bond_jour_seuil.py, research/backtest/_selection_sim9.py).
    */
   ES.dayBond = function (daily, dvol) {
     var o = ES.dayBondInfo(daily, dvol);
@@ -9283,7 +9286,7 @@
       var c = daily[s];
       if (!pos(c) || !pos(daily[s - 1]) || !(c / daily[s - 1] - 1 >= 0.08) || !pos(dvol[vi])) continue;
       var base = dvol.slice(Math.max(0, vi - 50), vi).filter(pos);
-      if (base.length < 40 || !(dvol[vi] >= 5 * mean(base))) continue;
+      if (base.length < 40 || !(dvol[vi] >= 4 * mean(base))) continue;
       var closes = daily.slice(0, s + 1).filter(pos);
       if (closes.length < 200) continue;
       var m200 = mean(closes.slice(-200)),

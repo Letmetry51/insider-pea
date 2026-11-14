@@ -170,7 +170,7 @@ function vAlertesAuto() {
     '<ul class="plain"><li>📋 <b>Lundi</b> : la sélection de la semaine (4 🎯 + 1 📣 démarrage sur bond + 2 💎, ✅ feu vert ou ⏸️ en attente). Si les cours du soir manquent (calcul lancé trop tard par GitHub), elle attend : le calcul est relancé au petit matin et elle part avant l\'ouverture des bourses ; si les données restent incomplètes, elle part le vendredi au plus tard, avec la raison en tête de l\'email.</li>' +
     '<li>🎯 <b>Feu vert</b> : une société ⏸️ du 🎯 redevient achetable (un email par société sur 30 jours au plus).</li>' +
     '<li>📣 <b>Démarrage</b> : en cours de semaine, une société remplit toutes les conditions de la place 📣 de la sélection (un email par société sur 30 jours au plus).</li>' +
-    "<li>📣 <b>Bond du jour</b> : le soir d'une séance à +8 % ou plus sur au moins 5 fois le volume habituel, en tendance, pour une société aux conditions de la place 📣 : l'acheter le lendemain plutôt qu'attendre le lundi suivant (un email par société sur 30 jours, pas pour une société déjà dans la sélection ; 3 au plus par soir, les meilleures notes d'abord ; les autres repassent le lendemain comme bond de la veille, si de meilleures ne les devancent pas). L'email donne la distance au plus bas d'un an : au-delà de +60 %, ces bonds ont fait +11 points à 6 mois, +6 à +7 en dessous.</li>" +
+    "<li>📣 <b>Bond du jour</b> : le soir d'une séance à +8 % ou plus sur au moins 4 fois le volume habituel (5 fois jusqu'au 14/11/2026), en tendance, pour une société aux conditions de la place 📣 : l'acheter le lendemain plutôt qu'attendre le lundi suivant (un email par société sur 30 jours, pas pour une société déjà dans la sélection ; 3 au plus par soir, les meilleures notes d'abord ; les autres repassent le lendemain comme bond de la veille, si de meilleures ne les devancent pas). L'email donne la distance au plus bas d'un an : au-delà de +60 %, ces bonds ont fait +11 points à 6 mois, +6 à +7 en dessous.</li>" +
     "<li>📉 <b>Après « Je l'ai acheté »</b> : chaque tranche de −10 %, la protection à −30 %, le rappel des 6 mois (garder ou vendre).</li>" +
     "<li>🔔 <b>Après « Surveiller »</b> : le cours entre dans la zone d'achat, casse sa résistance ou passe sous le stop ; avec un plan ✏️ ajusté à la main, vos propres niveaux.</li>" +
     "<li>⚠️ <b>Krach</b> : quand l'alerte s'allume (marché à −20 % sur un an), puis quand elle s'éteint (retour au-dessus de −15 %).</li>" +
@@ -1250,6 +1250,12 @@ function logicCard() {
           '—',
           '—',
           '+5,6 / +10,9 / +10,8',
+        ],
+        [
+          "📣 Bond du jour à 4 fois le volume (14/11/2026, Corbion : +8,2 % sur 4,4 fois le 27/10, vue seulement par le 📣 de la semaine ; cours journaliers 2000-2026, 1 119 sociétés, même mesure) : alertes ajoutées entre 4 et 5 fois, 2000-2008 / 2009-2017 / 2018-2026 (en tout +6,1, t 3,1, 550 cas ; au plus haut de l'année +7,8, en dessous +5,5), contre +4,6 / +4,7 / +4,2 pour le 🎯 au feu vert : seuil abaissé de 5 à 4 fois (toutes les alertes à 4 fois +8,2, à 5 fois +9,4 ; 1,4 fois plus d'alertes)",
+          '—',
+          '—',
+          '+6,5 / +6,5 / +5,6',
         ],
         [
           "Autres façons d'arriver plus tôt, même mesure : pocket pivot (Kacher et Morales) / gap achetable / 📣 repéré en cours de semaine avec un volume ramené aux séances écoulées (faux départs : +3,0) / séance à +5 % sur 3 fois le volume",

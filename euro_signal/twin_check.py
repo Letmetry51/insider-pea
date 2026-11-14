@@ -125,7 +125,8 @@ def engine_constants(core_src):
 # ---------- repères d'une société (cours journaliers sur un an, hebdomadaires sur 5 ans, volumes hebdomadaires) ----------
 def day_bond(daily, dvol):
     """📣 bond du jour (ES.dayBond) : séances depuis le dernier bond parmi les 2 dernières (+8 % sur la veille, volume d'au moins
-    5 fois la moyenne des 50 séances précédentes avec 40 connues, au-dessus de la moyenne 200 séances et la 50 au-dessus de la 200)"""
+    4 fois la moyenne des 50 séances précédentes avec 40 connues, au-dessus de la moyenne 200 séances et la 50 au-dessus de la 200 ;
+    5 fois jusqu'au 14/11/2026)"""
     b = day_bond_info(daily, dvol)
     return b[0] if b else None
 
@@ -143,7 +144,7 @@ def day_bond_info(daily, dvol):
         if not (positive(c) and positive(daily[s - 1]) and c / daily[s - 1] - 1 >= 0.08 and positive(dvol[vi])):
             continue
         base = [float(v) for v in dvol[max(0, vi - 50):vi] if positive(v)]
-        if len(base) < 40 or not dvol[vi] >= 5 * mean(base):
+        if len(base) < 40 or not dvol[vi] >= 4 * mean(base):
             continue
         closes = [float(v) for v in daily[:s + 1] if positive(v)]
         if len(closes) < 200:
