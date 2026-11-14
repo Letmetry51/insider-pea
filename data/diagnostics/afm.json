@@ -1,0 +1,41 @@
+{
+ "status": 200,
+ "contentType": null,
+ "bytes": 676924,
+ "encoding": "cp1252",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-11-12 00:00:00\";\"SWI Capital Holding Limited\";\"Philae Real Estate S.A.\";\"\"\r\n\"2026-11-11 00:00:00\";\"MPC Energy Solutions N.V.\";\"Meichsner S.H.A.\";\"Meichsner\"\r\n\"2026-11-11 00:00:00\";\"argenx SE\";\"Borgions F.\";\"Borgions\"\r\n\"2026-11-10 00:00:00\";\"SWI Capital Holding Limited\";\"Finatak Patrimonial SL\";\"\"\r\n\"2026-11-10 00:00:00\";\"argenx SE\";\"Borgions F.\";\"Borgions\"\r\n\"2026-11-10 00:00:00\";\"SWI Capital Holding Limited\";\"Philae Real Estate S.A.\";\"\"\r\n\"2026-11-09 00:00:00\";\"Euronext N.V.\";\"Andriessen S.\";\"Andriessen\"\r\n\"2026-11-06 00",
+ "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
+ "delimiter": ";",
+ "headers": [
+  "Transaction",
+  "Issuing institution",
+  "Notifiable",
+  "NotifiableLastName"
+ ],
+ "sampleRows": [
+  [
+   "2026-11-12 00:00:00",
+   "SWI Capital Holding Limited",
+   "Philae Real Estate S.A.",
+   ""
+  ],
+  [
+   "2026-11-11 00:00:00",
+   "MPC Energy Solutions N.V.",
+   "Meichsner S.H.A.",
+   "Meichsner"
+  ],
+  [
+   "2026-11-11 00:00:00",
+   "argenx SE",
+   "Borgions F.",
+   "Borgions"
+  ]
+ ],
+ "rowCount": 9593,
+ "columnMap": {
+  "issuer": "Issuing institution"
+ },
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>2026111282F7485F-BC40-4D87-B3B4-A15AA386BE51</meldingid><transactiedatum>11/12/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>SWI Capital Holding Limited</uitgevendeinstelling><meldingsplichtige>Philae Real Estate S.A.</meldingsplichtige><meldingsplichtigeachternaam></meldingsplichtigeachternaam><nauwgelieerdaan>Sabater Martos J.</nauwgelieerdaan><functie>Board member</functie><lei>391200TF46LFEOGZR692</lei><vermelding>SWI Capital Holding Limited - Philae Real Estate S.A. - Sabater Martos J.</vermelding></vermelding><vermelding><meldingid>202611115EEDF0A2-703F-4398-988E-B6A22D731380</meldingid><transactiedatum>11/11/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>MPC Energy Solutions N.V.</uitgevendeinstelling><meldingsplichtige>Meichsner S.H.A.</meldingsplichtige><meldingsplichtigeachternaam>Meichsner</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CFO</functie><lei>724500EBN1V9P4WME110</lei><vermelding>MPC Energy Solutions N.V. - Meichsner S.H.A. - </vermelding></vermelding><vermelding><meldingid>20261111654534B8-84DC-4851-8A41-CFF58F823CA2</meldingid><transactiedatum>11/11/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Borgions F.</meldingsplichtige><meldingsplichtigeachternaam>Borgions</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Technology Innovation Officer</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Borgions F. - </vermelding></vermelding><vermelding><meldingid>202611102296ECC2-8D26-4361-B0F0-F6F724A0C52C</meldingid><transactiedatum>11/10/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>SWI Capital Holding Limited</uitgevendeinstelling><meldingsplichtige>Finatak Patrimonial SL</meldingsplichtige><meldingsplichtigeachternaam></meldingsplichtigeachternaam><nauwgelieerdaan>Bolivar Almela F.</nauwgelieerdaan><functie>Board member</functie><lei>391200TF46LFEOGZR692</lei><vermelding>SWI Capital Holding Limited - Finatak Patrimonial SL - Bolivar Almela F.</vermelding></vermelding><vermelding><meldingid>20261110654534B8-84DC-4851-8A41-CFF58F823CA2</meldingid><transactiedatum>11/10/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>argenx SE</uitgevendeinstelling><meldingsplichtige>Borgions F.</meldingsplichtige><meldingsplichtigeachternaam>Borgions</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chief Technology Innovation Officer</functie><lei>7245009C5FZE6G9ODQ71</lei><vermelding>argenx SE - Borgions F. - </vermelding></vermelding><vermelding><meldingid>2026111074847430-DE98-4E78-A027-A3D119F39619</meldingid><transactiedatum>11/10/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>SWI Capital Holding Limited</uitgevendeinstelling><meldingsplichtige>Philae Real Estate S.A.</meldingsplichtige><meldingsplichtigeachternaam></meldingsplichtigeachternaam><nauwgelieerdaan>Sabater Mart",
+ "at": "2026-11-13T22:51:43.208062+00:00"
+}

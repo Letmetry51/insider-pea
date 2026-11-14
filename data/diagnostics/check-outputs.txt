@@ -1,0 +1,94 @@
+Contrôle des fichiers du 2026-11-13
+
+OK     euro-signal.json lisible
+OK     euro-signal.json : 9.7 Mo (limite 60)
+OK     euro-signal-long.json : 3.5 Mo (limite 60)
+OK     euro-signal-state.json : 10.4 Mo (limite 60)
+OK     sectors.json : 0.6 Mo (limite 60)
+OK     societes-index.json : 0.4 Mo (limite 60)
+OK     aucune valeur NaN ou Infinity dans euro-signal.json
+OK     date des données 2026-11-13 (aujourd'hui 2026-11-13)
+OK     fiches réparties : 32 fichiers lisibles, chaque société dans le bon fichier
+OK     plus gros fichier de fiches : 1.0 Mo (3 au plus, pour un téléphone)
+OK     cours journaliers (vue 1 an) publiés
+OK     le tableau de bord pointe vers le fichier 5 ans (longFile)
+OK     euro-signal-long.json lisible
+OK     vue 5 ans disponible pour 672 titres sur 700 (80 % au moins)
+OK     vue 1 an : 1.03 an de cours (médiane)
+OK     vue 5 ans : 4.98 ans de cours (médiane, 4,5 au moins)
+OK     603 titres sur 672 ont au moins 4,5 ans de cours hebdomadaires
+OK     49 titres dont la vue 5 ans ne remonte pas plus loin que la vue 1 an (20 % au plus)
+OK     0 titres dont les cours 1 an et 5 ans ne se raccordent pas (écart > 15 %, 5 % au plus)
+OK     35 séries 5 ans avec un saut de cours de plus de ×3 en une semaine, signalé sur la fiche (6 % au plus ; souvent réel : augmentation de capital, regroupement, scission)
+OK     plans d'entrée calculés : 667 sur 851 titres
+OK     plans complets (verdict, scénario, figure, RSI/MACD) : 660 sur 667
+OK     0 plan(s) avec un rapport gain / risque absurde
+OK     répartition des verdicts : waitSupport 272, waitBreakout 299, avoid 41, buyNow 55
+OK     convergence notée pour 851 titres
+OK     comptes annuels (F-score, Beneish, analyse des comptes) pour 679 titres sur 851 (50 % au moins)
+OK     valeur comptable et intrinsèque pour 662 titres sur 851 (50 % au moins)
+OK     tendance du secteur rattachée pour 744 titres
+OK     étude historique du plan : 44817 relevés
+OK     journal de bord : 3598 relevés
+OK     toutes les sociétés cotées : 4187 dans la liste de recherche (1 500 au moins)
+OK     grandes valeurs présentes (TotalEnergies, LVMH, Sanofi, ASML, SAP, Vusion) : toutes
+OK     cotations principales des grandes sociétés : toutes présentes
+OK     dossiers très échangés présents dans la liste des sociétés (classement)
+OK     fiches des sociétés : 32 fichiers lisibles
+OK     cours multipliés ou divisés par plus de 3 en une séance (5 dernières séances) : 3 sociétés (CRNO-B.ST, AB9.DE, IRLAB-A.ST)
+OK     volumes journaliers des fiches (📣 bond du jour) : 3955 sur 4150 sociétés avec des cours journaliers (80 % au moins)
+OK     cours du catalogue : chaque fichier contient des sociétés
+OK     ventes à découvert : 1038 sociétés, données du 2026-11-13
+OK     régulateurs des ventes à découvert : 7/7 à jour
+OK     actualité des sociétés : données du 2026-11-13
+OK     secteurs : 94 groupes classés
+OK     secteurs à jour (2026-11-13)
+OK     classement tendance + comptes : 675 sociétés classées (200 au moins)
+OK     cours du catalogue à jour pour le classement (2026-11-13)
+OK     étude de contrôle du classement : 366 semaines
+OK     comptes lus pour 642 des 675 sociétés classées (50 % au moins)
+OK     classement : note égale à la somme des points (0 écart)
+OK     sélection du lundi dans les règles (PEA, comptes solides, pente ou tendance pour le 📣, hausse ≤ +200 %) : Wallenius Wilhelmsen ASA, JCDecaux SE, Repsol, S.A., Evonik Industries AG, Corbion N.V.
+OK     notes du classement entre 0 et 100, chaque société nommée
+OK     taux de change disponibles pour toutes les devises du classement
+OK     cours figés écartés : 10
+OK     variations de plus de 40 % sur la dernière séance (à vérifier, jamais proposées par 🎯) : 1
+OK     📣 bonds du jour ce soir : 0 société(s), 0 email(s)
+OK     double calcul : même sélection des 5 (Wallenius Wilhelmsen ASA, JCDecaux SE, Repsol, S.A., Evonik Industries AG, Corbion N.V.)
+OK     double calcul : mêmes 10 🎯
+OK     double calcul : mêmes 10 💎
+OK     double calcul : 1649 sociétés recalculées à part, mêmes chiffres (hausse sur 12 mois, plus haut, tendance, pente, volumes, bond, volatilité, points, note, place)
+OK     Yahoo (hebdomadaire) : 1090/1090 reçus, 0 récupérés en 2e passe, 89 repris de la veille, 0 erreurs passagères
+OK     Yahoo (cours Euro Signal) : 778/844 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (journalier) : 4166/4187 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (hebdo catalogue) : 3105/3125 reçus, 0 récupérés en 2e passe, 0 repris de la veille, 0 erreurs passagères
+OK     Yahoo (fiches sociétés) : 0/0 reçus, 0 récupérés en 2e passe, 19 repris de la veille, 0 erreurs passagères
+OK     cours de secours (séance du 2026-11-13) : 389 fiches complétées sur 543 sans clôture Yahoo (HE 180, PA 97, MI 67, OL 13, BR 11, LS 10, AS 6, IR 2, ST 2, DE 1), 5 cours Euro Signal complétés, 0 clôtures écartées ; Yahoo titre par titre : 1 cours de la séance sur 4 demandés
+OK     dernière clôture présente partout (sociétés liquides des fiches : L 263/265, ST 152/153, DE 137/137, PA 126/126, SW 113/113, MI 90/90, OL 68/68, MC 54/54, AS 51/51, CO 41/41, HE 37/37, BR 30/30, VI 19/19, LS 13/13, IR 12/12)
+OK     dernière clôture présente partout (dossiers Euro Signal : ST 149/150, PA 55/55, BR 15/15)
+OK     indice européen (STOXX Europe 600) : dernière séance du 13/11
+OK     sélection de la semaine 2026-W46 envoyée
+OK     chaque étape du soir a produit ses données (9 fichiers de moins de 8 heures)
+OK     univers des secteurs : mis à jour il y a 0 jours (8 au plus)
+OK     catalogue des sociétés cotées : mis à jour il y a 3 jours (8 au plus)
+OK     saisonnalité des indices : mis à jour il y a 1 jours (35 au plus)
+OK     prévisions des analystes : relevé du 13/11 (chaque semaine)
+OK     déclarations AMF publiées jusqu'au 12/11 (1 jours ouvrés de décalage, 3 au plus)
+OK     registres de déclarations de dirigeants : 4/4 lus ce soir
+OK     sociétés suivies : 818 (+11 par rapport aux 5 derniers calculs (médiane))
+OK     cours : 700 (+7 par rapport aux 5 derniers calculs (médiane))
+OK     graphiques (cours 1 an) : 700 (+7 par rapport aux 5 derniers calculs (médiane))
+OK     comptes annuels : 679 (+6 par rapport aux 5 derniers calculs (médiane))
+OK     valeur comptable : 638
+OK     secteur : 742 (+23 par rapport aux 5 derniers calculs (médiane))
+OK     liquidité : 690 (+6 par rapport aux 5 derniers calculs (médiane))
+OK     plan d'entrée : 667 (+6 par rapport aux 5 derniers calculs (médiane))
+ÉCHEC  baisse anormale : prévisions des analystes 479 → 347 (−28 %) par rapport aux 5 derniers calculs (médiane)
+OK     résultats publiés : 301 (+6 par rapport aux 5 derniers calculs (médiane))
+OK     déclarations (3 mois) : 3440 (+69 par rapport aux 5 derniers calculs (médiane))
+OK     sources à jour : 5
+OK     catalogue des sociétés cotées : 4187 (+3 par rapport aux 5 derniers calculs (médiane))
+OK     classement (sociétés classées) : 675 (-1 par rapport aux 5 derniers calculs (médiane), expliqué par 4 comptes lus de plus)
+OK     classement (comptes lus) : 1576 (+4 par rapport aux 5 derniers calculs (médiane))
+
+1 échec(s), 0 alerte(s)

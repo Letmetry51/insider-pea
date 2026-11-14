@@ -1,0 +1,85 @@
+{
+ "date": "2026-11-13",
+ "at": "2026-11-13T23:10:36+00:00",
+ "engineAt": "2026-11-13T23:10:22.939Z",
+ "rows": 1649,
+ "catalogue": 4187,
+ "diffs": 0,
+ "byField": {},
+ "byLabel": {},
+ "examples": [],
+ "selection": {
+  "same": true,
+  "engine": [
+   "Wallenius Wilhelmsen ASA",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Evonik Industries AG",
+   "Corbion N.V."
+  ],
+  "twin": [
+   "Wallenius Wilhelmsen ASA",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Evonik Industries AG",
+   "Corbion N.V."
+  ]
+ },
+ "pick10": {
+  "same": true,
+  "engine": [
+   "Wallenius Wilhelmsen ASA",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Evonik Industries AG",
+   "Frontline plc",
+   "Bravida Holding AB (publ)",
+   "Lotus Bakeries NV",
+   "Asmodee Group AB (publ)",
+   "Qiagen N.V.",
+   "Bonesupport Holding AB (publ)"
+  ],
+  "twin": [
+   "Wallenius Wilhelmsen ASA",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Evonik Industries AG",
+   "Frontline plc",
+   "Bravida Holding AB (publ)",
+   "Lotus Bakeries NV",
+   "Asmodee Group AB (publ)",
+   "Qiagen N.V.",
+   "Bonesupport Holding AB (publ)"
+  ]
+ },
+ "value10": {
+  "same": true,
+  "engine": [
+   "Clariane SE",
+   "CA Immobilien Anlagen AG",
+   "Husqvarna AB (publ)",
+   "Louis Hachette Group S.A.",
+   "Drägerwerk AG & Co. KGaA",
+   "Sveafastigheter AB (publ)",
+   "Vicat S.A.",
+   "Telecom Italia S.p.A.",
+   "Gas Plus S.p.A.",
+   "EDP Renewables, S.A."
+  ],
+  "twin": [
+   "Clariane SE",
+   "CA Immobilien Anlagen AG",
+   "Husqvarna AB (publ)",
+   "Louis Hachette Group S.A.",
+   "Drägerwerk AG & Co. KGaA",
+   "Sveafastigheter AB (publ)",
+   "Vicat S.A.",
+   "Telecom Italia S.p.A.",
+   "Gas Plus S.p.A.",
+   "EDP Renewables, S.A."
+  ]
+ },
+ "gaps": [],
+ "error": null,
+ "seconds": 1.2
+}
