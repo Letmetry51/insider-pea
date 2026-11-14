@@ -3272,7 +3272,8 @@ export function build(opts = {}) {
     console.warn('  📣 Démarrage indisponible : ' + e.message);
   }
 
-  /* 6e ter. 📣 Bond du jour (04/11/2026) : séance à +8 % ou plus sur au moins 5 fois le volume moyen des 50 séances précédentes, cours
+  /* 6e ter. 📣 Bond du jour (04/11/2026 ; 4 fois au lieu de 5 depuis le 14/11/2026, research/bond_jour_seuil.py) : séance à +8 % ou
+     plus sur au moins 4 fois le volume moyen des 50 séances précédentes, cours
      en tendance, aux conditions de la place 📣 (ES.dayBondAlerts) : un email le soir même, pour acheter le lendemain sans attendre la
      fin de la semaine (cours journaliers 2000-2026 : +9,3 points à 6 mois face à la moyenne ; acheté le lendemain plutôt que le lundi
      suivant, +1,1 point). Une fois par société sur 30 jours, rien pour une société de la sélection de la semaine ni déjà annoncée par

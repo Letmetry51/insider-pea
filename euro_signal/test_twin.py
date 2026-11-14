@@ -180,13 +180,14 @@ def company(kind, drift=0.0, sigma=0.015, shape=None):
         V[-30:] = [0] * 30
     # volumes journaliers des 60 dernières séances (tirage à part : les autres séries restent celles d'avant)
     DV = [int(2e5 * rng_v.lognormvariate(0, 0.3)) for _ in range(60)]
-    if "daybond" in kind:  # 📣 bond du jour : +9 % sur 6 fois le volume (« daybond1 » : la veille ; « daybondlow » : 3 fois seulement)
+    if "daybond" in kind:  # 📣 bond du jour : +9 % sur 6 fois le volume (« daybond1 » : la veille ; « daybondlow » : 3 fois seulement ;
+        # « daybond45 » : 4,5 fois, bond du jour depuis le 14/11/2026)
         k = 2 if "daybond1" in kind else 1
         D[-k] = round(D[-k - 1] * 1.09, 4)
         if k == 2:
             D[-1] = round(D[-2] * 1.001, 4)
         W[-1] = D[-1]
-        DV[-k] = int(sum(DV[-50 - k:-k]) / 50 * (3 if "daybondlow" in kind else 6))
+        DV[-k] = int(sum(DV[-50 - k:-k]) / 50 * (3 if "daybondlow" in kind else 4.5 if "daybond45" in kind else 6))
     return {"d": D, "w": W, "wv": V, "dv": DV}
 
 
@@ -247,6 +248,7 @@ add("DAYBLO", "daybond daybondlow", 0.0036, "Utilities")  # +9 % sur 3 fois le v
 add("FLAG", "flag", 0.0036, "Technology")          # 🚩 drapeau cassé par un bond sur 3,5 fois le volume
 add("FLAGNV", "flag flagnovol", 0.0036, "Technology")  # même figure, bond sur 1,2 fois le volume : pas un 📣
 add("FLAGDP", "flag flagdeep", 0.0036, "Healthcare")   # repli de 25 % pendant le repos : pas un drapeau
+add("DAYB45", "daybond daybond45", 0.0036, "Utilities")  # +9 % sur 4,5 fois le volume : bond du jour (seuil de 4 fois, 14/11/2026)
 BACKUP_ISINS = {"MHY641771016": ["OKEA", "NOK"], "FR0000000052": ["UP1", "EUR"]}
 SHORTS_SYMBOLS = {"GB00BTQGS779": "UP2"}
 inst = {
@@ -295,9 +297,9 @@ check(feats["BHI"].get("bumpHi") == 2 and feats["BHI"].get("bump") is None and f
       + str(feats["BHI"].get("bumpHi")) + ", " + str(feats["BHLOW"].get("bumpHi")) + ")")
 
 check(feats["DAYB"].get("dayBond") == 0 and feats["DAYB1"].get("dayBond") == 1 and feats["DAYBLO"].get("dayBond") is None
-      and feats["DAYB"].get("dayBondPct") == 9 and feats["DAYB"].get("dayBondVx") == 6
-      and sum(1 for s, f in feats.items() if f.get("dayBond") is not None) == 2,
-      "📣 bond du jour : repéré la dernière séance et la veille, pas sur 3 fois le volume ("
+      and feats["DAYB45"].get("dayBond") == 0 and feats["DAYB"].get("dayBondPct") == 9 and feats["DAYB"].get("dayBondVx") == 6
+      and sum(1 for s, f in feats.items() if f.get("dayBond") is not None) == 3,
+      "📣 bond du jour : repéré la dernière séance et la veille, sur 4,5 fois le volume aussi, pas sur 3 fois ("
       + str(feats["DAYB"].get("dayBond")) + ", " + str(feats["DAYB1"].get("dayBond")) + ", " + str(feats["DAYBLO"].get("dayBond")) + ")")
 check(feats["FLAG"].get("flagB") == 1 and feats["FLAGNV"].get("flagB") is None and feats["FLAGDP"].get("flagB") is None
       and all(f.get("flagB") is None for s, f in feats.items() if not s.startswith("FLAG")),

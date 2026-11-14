@@ -4067,13 +4067,15 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
     );
     ok(
       ES.dayBond.apply(null, mk({ yday: true })) === 1 &&
-        ES.dayBond.apply(null, mk({ vx: 4 })) == null &&
+        ES.dayBond.apply(null, mk({ vx: 4.5 })) === 0 &&
+        ES.dayBond.apply(null, mk({ vx: 3.5 })) == null &&
         ES.dayBond.apply(null, mk({ pct: 1.07 })) == null &&
         ES.dayBond.apply(null, mk({ down: true })) == null &&
         ES.dayBond(d0, v0.slice(0, 30)) == null &&
         ES.dayBond(d0, null) == null &&
         ES.dayBond(d0.slice(-150), v0) == null,
-      '📣 bond du jour : la veille repérée ; pas sur 4 fois le volume, à +7 %, hors tendance, sans 40 volumes ni 200 cours'
+      '📣 bond du jour : la veille repérée ; sur 4,5 fois le volume aussi (seuil de 4 fois depuis le 14/11/2026), pas sur 3,5 fois, à +7 %, ' +
+        'hors tendance, sans 40 volumes ni 200 cours'
     );
     const cfg = { rank: { selMin: 70 } },
       base = {
