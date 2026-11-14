@@ -9,7 +9,8 @@ on:
     # Le calcul est lancé à 7h03 (heure de Paris) par une tâche planifiée Claude « Bulletin des grains : démarrage du matin » : le rapport du
     # matin part vers 7h30, avant l'ouverture des grains sur Euronext (10h45). Ce créneau GitHub (6h47 UTC) n'est qu'un filet de
     # sécurité : ses tâches planifiées partent souvent avec des heures de retard (8h30 le 9/11/2026).
-    - cron: '47 6 * * 1-6'
+    # Lundi à vendredi seulement : pas de calcul le week-end (économie de crédits).
+    - cron: '47 6 * * 1-5'
   workflow_dispatch:
     inputs:
       comite:
