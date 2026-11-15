@@ -491,9 +491,10 @@ def actu_doublon(a, b):
 
 # --------------------------------------------------------------------------------------------- avant l'ouverture d'Euronext
 # Orientation de la séance à venir = Chicago DEPUIS LA CLÔTURE D'EURONEXT (18 h 30 la veille → dernier cours avant 7 h), en
-# données horaires. Sonde du 15/11/2026 (juin 2024 → nov. 2026, environ 540 séances) : Euronext a suivi ce mouvement 67 % du
-# temps pour le blé quand il dépassait ±0,5 % (71 % au-delà de ±1 %), 68 % pour le maïs, 61 % pour le colza (soja) ; la
-# clôture de Chicago de la veille, utilisée avant, faisait 50 à 54 % (le hasard). La lecture technique n'ajoute rien à ce
+# données horaires. Backtest du 15/11/2026 (juin 2024 → nov. 2026, sans regarder après 7 h ni avant 18 h 30) : Euronext a
+# suivi ce mouvement, au-delà de ±0,5 %, 59 % du temps pour le blé (64 % au-delà de ±1 %), 67 % pour le maïs, 56 % pour le
+# colza (soja) ; la clôture de Chicago de la veille, utilisée avant, faisait 50 à 54 % (le hasard). Attendre 10 h n'y ajoute
+# presque rien (blé 62 %). La lecture technique n'ajoute rien à ce
 # mouvement (même ou moins bonne fiabilité quand elle est d'accord) : elle reste affichée comme tendance de fond, comme
 # l'actualité, sans voter. Soja pour le colza (plus liquide la nuit que l'huile de soja).
 OUVERTURE_CHICAGO = {"ble": "ZW=F", "colza": "ZS=F", "mais": "ZC=F"}

@@ -40,9 +40,9 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 - **Ce matin** (`decisions.py`, `ouverture`), sur la ligne de chaque culture de l'onglet Marché et dans l'email : orientation de la
   séance à venir (Euronext ouvre à 10 h 45) d'après le mouvement de Chicago depuis la clôture d'Euronext (18 h 30 la veille →
   dernier cours horaire avant le calcul ; `collect.py`, `collect_chicago_horaire`) : de 0,5 à 1 %, légèrement ; au-delà de 1 %,
-  nettement ; sous 0,5 %, pas de signal. Sonde du 15/11/2026 (environ 540 séances) : Euronext suit ce mouvement 2 fois sur 3
-  (blé 67 %, maïs 68 %, colza 61 %), quand la clôture de Chicago de la veille ne faisait pas mieux que le hasard ; la technique
-  n'y ajoute rien. Fiabilité recalculée chaque matin (`backtest.py`, `ouverture`), orientation notée au jour le jour
+  nettement ; sous 0,5 %, pas de signal. Backtest du 15/11/2026 (juin 2024 → nov. 2026) : Euronext suit ce mouvement environ 6 fois
+  sur 10 (blé 59 %, maïs 67 %, colza 56 % au-delà de ±0,5 %), quand la clôture de Chicago de la veille ne faisait pas mieux que
+  le hasard ; la technique n'y ajoute rien. Fiabilité recalculée chaque matin (`backtest.py`, `ouverture`), orientation notée au jour le jour
   (`etat.json`, `ouverture_journal`). Orges : celle du blé.
 - **Vos seuils** (`config.json`, `seuils`) : prix au-dessus ou en dessous desquels être prévenu, par culture et pour l'urée.
 

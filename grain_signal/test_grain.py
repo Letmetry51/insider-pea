@@ -954,6 +954,32 @@ check(collect.acces_article({"url": "", "source": "Bloomberg.com"}, _sites) == (
       and collect.acces_article({"url": "", "source": "Inconnu"}, _sites) == (None, None),
       "accès aux articles : page illisible → site connu, sinon rien d'affiché")
 
+# météo : observations complétées des seuls jours manquants, en une requête groupée ; prévisions groupées
+import unittest.mock as _um2  # noqa: E402
+_tmpm = Path(tempfile.mkdtemp())
+_zs = collect.CFG["meteo"]["zones"]
+_auj = date(2026, 11, 15)
+_vieux = {k: [1.0, 10.0] for k in [(date(2016, 1, 1) + _td(days=i)).isoformat() for i in range(3970)] if k <= "2026-11-05"}
+(_tmpm / "meteo.json").write_text(json.dumps({z: {"archive": _vieux, "archive_au": "2026-11-08"} for z in _zs}), encoding="utf-8")
+_appels = []
+
+
+def _faux_get(url, **kw):
+    _appels.append(url)
+    jours = ["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09"] if "archive" in url else ["2026-11-15", "2026-11-16"]
+    un = {"daily": {"time": jours, "precipitation_sum": [2.0] * len(jours), "temperature_2m_max": [9.0] * len(jours)}}
+    return type("R", (), {"json": lambda self: [un] * len(_zs)})()
+
+
+with _um2.patch.object(collect, "PRIV", _tmpm), _um2.patch.object(collect, "get", _faux_get), \
+        _um2.patch.object(collect, "note", lambda *a, **k: None):
+    collect.collect_meteo(_auj)
+_mm = json.loads((_tmpm / "meteo.json").read_text(encoding="utf-8"))
+_z0 = next(iter(_zs))
+check(len(_appels) == 2 and "start_date=2026-11-06&end_date=2026-11-09" in _appels[1] and _mm[_z0]["archive"]["2026-11-09"] == [2.0, 9.0]
+      and min(_mm[_z0]["archive"]) >= (_auj - _td(days=11 * 366)).isoformat() and _mm[_z0]["archive_au"] == "2026-11-15",
+      f"météo : 2 requêtes au lieu de 32 (prévisions et jours manquants groupés), 11 ans gardés ({len(_appels)} requêtes)")
+
 # orientation du matin : mouvement de Chicago depuis la clôture d'Euronext, paliers 0,5 % et 1 %
 check(dec.ouverture(1.3) == {"orientation": "hausse", "total": 2, "mesurable": "1"}
       and dec.ouverture(-0.7) == {"orientation": "legere_baisse", "total": -1, "mesurable": "05"}

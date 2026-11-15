@@ -841,8 +841,8 @@ def om_daily(j):
 
 
 def collect_meteo(today):
-    """Pluie et température maximale des zones de production (Open-Meteo) : 11 ans d'observations (une fois par semaine)
-    et prévision à 14 jours (chaque jour). Une seule source notée pour toutes les zones (pas dix alertes de panne)."""
+    """Pluie et température maximale des zones de production (Open-Meteo) : 11 ans d'observations (complétées chaque jour des
+    jours manquants) et prévision à 14 jours (chaque jour). Une seule source notée pour toutes les zones (pas dix alertes de panne)."""
     path = PRIV / "meteo.json"
     data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     ok, errs, perimees = 0, [], []
@@ -858,21 +858,47 @@ def collect_meteo(today):
             groupe = {zn: om_daily(j) for zn, j in zip(zs, lots)}
     except Exception as e:  # noqa: BLE001
         errs.append(f"prévisions groupées : {str(e)[:70]}")
+    # observations : 11 ans au premier passage, puis seulement les jours manquants (une semaine de retard d'Open-Meteo), en une
+    # requête pour toutes les zones qui reprennent au même jour. Le rechargement complet chaque semaine (16 zones × 11 ans, 90 s
+    # de délai chacune) prenait jusqu'à 8 minutes, le 15/11/2026.
+    fin = (today - timedelta(days=6)).isoformat()
+    garde = (today - timedelta(days=11 * 366)).isoformat()
+    courant, suite = {}, {}
     for zn, z in zs.items():
         cur = data.get(zn) if isinstance(data.get(zn), dict) else {}
         if not cur and isinstance(data.get(z.get("ancien")), dict):  # zone renommée (même point) : historique repris
             cur = data[z["ancien"]]
+        courant[zn] = cur
+        arch = cur.get("archive") if isinstance(cur.get("archive"), dict) else {}
+        if len(arch) >= 3000:
+            debut = (date.fromisoformat(max(arch)) + timedelta(days=1)).isoformat()
+            if debut <= fin:
+                suite.setdefault(debut, []).append(zn)
+            else:
+                cur["archive_au"] = today.isoformat()  # rien de nouveau publié : à jour
+    for debut, noms in suite.items():
         try:
-            au = cur.get("archive_au")
-            if not au or (today - date.fromisoformat(au)).days >= 7 or len(cur.get("archive") or {}) < 3000:
-                url = METEO_ARCH.format(lat=z["lat"], lon=z["lon"], a=(today - timedelta(days=11 * 366)).isoformat(),
-                                        b=(today - timedelta(days=6)).isoformat())
+            lots = get(METEO_ARCH.format(lat=",".join(str(zs[n]["lat"]) for n in noms), lon=",".join(str(zs[n]["lon"]) for n in noms),
+                                         a=debut, b=fin), timeout=60).json()
+            lots = lots if isinstance(lots, list) else [lots]
+            if len(lots) != len(noms):
+                raise RuntimeError(f"{len(lots)} réponses pour {len(noms)} zones")
+            for n, j in zip(noms, lots):
+                arch = {**courant[n]["archive"], **{k: v for k, v in om_daily(j).items() if v[0] is not None}}
+                courant[n].update(archive={k: v for k, v in sorted(arch.items()) if k >= garde}, archive_au=today.isoformat())
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"observations {debut} → {fin} : {str(e)[:70]}")  # reprises au prochain calcul
+    for zn, z in zs.items():
+        cur = courant[zn]
+        try:
+            if len(cur.get("archive") or {}) < 3000:  # premier passage ou archive abîmée : 11 ans
+                url = METEO_ARCH.format(lat=z["lat"], lon=z["lon"], a=garde, b=fin)
                 arch = {k: v for k, v in om_daily(get(url, timeout=90).json()).items() if v[0] is not None}  # 11 ans : réponse lente
                 if len(arch) < 3000:
                     raise RuntimeError(f"archive de {len(arch)} jours")
                 cur.update(archive=arch, archive_au=today.isoformat())
         except Exception as e:  # noqa: BLE001
-            errs.append(f"{zn} (archive) : {str(e)[:70]}")  # archive de la semaine précédente gardée (moins de 14 jours : sans effet)
+            errs.append(f"{zn} (archive) : {str(e)[:70]}")  # archive précédente gardée (moins de 14 jours : sans effet)
         try:
             cur.update(prevision=groupe.get(zn) or om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"]), timeout=45).json()),
                        prevision_au=today.isoformat())
