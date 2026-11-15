@@ -953,23 +953,39 @@ def collect_cftc():
 def collect_engrais(today):
     path = seed("fert_fr.csv")
     rows = read_csv(path)
-    for prod, c in CFG["engraisFrance"].items():
-        try:
-            html = get(c["url"]).text
-            items = parse_place_prices(html)
-            if not items:
-                raise RuntimeError("aucun prix lu")
-            p = items[0]["prix"]
-            if not (100 < p < 3000):
-                raise RuntimeError(f"prix invraisemblable : {p}")
-            d = date_publiee(day_month(items[0]["titre"], today), today).isoformat()
-            rows = [r for r in rows if not (r["date"] == d and r["product"] == prod)]
-            rows.append({"date": d, "product": prod, "price": p, "source": "terre-net, " + items[0]["place"]})
-            note("engrais_" + prod, True, f"{p} ({items[0]['place']}, cotation du {d})")
-        except Exception as e:  # noqa: BLE001
-            note("engrais_" + prod, False, e)
+    # terre-net répond parfois 502 quelques minutes : un second tour 30 s plus tard pour les produits manqués
+    a_lire = list(CFG["engraisFrance"].items())
+    for tour in (1, 2):
+        manques = []
+        for prod, c in a_lire:
+            if not lire_engrais(prod, c, today, rows, dernier=tour == 2):
+                manques.append((prod, c))
+        if not manques or tour == 2:
+            break
+        a_lire = manques
+        time.sleep(30)
     rows.sort(key=lambda r: (r["date"], r["product"]))
     write_csv(path, rows, ["date", "product", "price", "source"])
+
+
+def lire_engrais(prod, c, today, rows, dernier=True):
+    """Prix d'un engrais (terre-net) ajouté à `rows` ; False en cas d'échec (noté seulement au dernier tour)."""
+    try:
+        items = parse_place_prices(get(c["url"]).text)
+        if not items:
+            raise RuntimeError("aucun prix lu")
+        p = items[0]["prix"]
+        if not (100 < p < 3000):
+            raise RuntimeError(f"prix invraisemblable : {p}")
+        d = date_publiee(day_month(items[0]["titre"], today), today).isoformat()
+        rows[:] = [r for r in rows if not (r["date"] == d and r["product"] == prod)]
+        rows.append({"date": d, "product": prod, "price": p, "source": "terre-net, " + items[0]["place"]})
+        note("engrais_" + prod, True, f"{p} ({items[0]['place']}, cotation du {d})")
+        return True
+    except Exception as e:  # noqa: BLE001
+        if dernier:
+            note("engrais_" + prod, False, e)
+        return False
 
 
 def collect_physique():
