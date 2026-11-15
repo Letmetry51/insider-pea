@@ -5,7 +5,7 @@ mondiaux, humeur du marché, risque géopolitique, pression de l'actualité. Des
 
 Toutes les fonctions sont pures (données en entrée, dictionnaire en sortie) pour être testées sans réseau.
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 MOIS_FR = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
 
@@ -490,36 +490,58 @@ def actu_doublon(a, b):
 
 
 # --------------------------------------------------------------------------------------------- avant l'ouverture d'Euronext
-# Chicago pris comme indice de la séance du jour : clôture de la veille à 20 h 20 (après Euronext, 18 h 30). Soja pour le colza
-# (sonde du 12/11/2026 sur 2019-2026 : le soja a un peu mieux suivi le colza que l'huile de soja, tous deux près du hasard).
+# Orientation de la séance à venir = Chicago DEPUIS LA CLÔTURE D'EURONEXT (18 h 30 la veille → dernier cours avant 7 h), en
+# données horaires. Backtest du 15/11/2026 (juin 2024 → nov. 2026, sans regarder après 7 h ni avant 18 h 30) : Euronext a
+# suivi ce mouvement, au-delà de ±0,5 %, 59 % du temps pour le blé (64 % au-delà de ±1 %), 67 % pour le maïs, 56 % pour le
+# colza (soja) ; la clôture de Chicago de la veille, utilisée avant, faisait 50 à 54 % (le hasard). Attendre 10 h n'y ajoute
+# presque rien (blé 62 %). La lecture technique n'ajoute rien à ce
+# mouvement (même ou moins bonne fiabilité quand elle est d'accord) : elle reste affichée comme tendance de fond, comme
+# l'actualité, sans voter. Soja pour le colza (plus liquide la nuit que l'huile de soja).
 OUVERTURE_CHICAGO = {"ble": "ZW=F", "colza": "ZS=F", "mais": "ZC=F"}
-OUVERTURE_SEUIL = 0.5  # mouvement de Chicago compté au-delà de ±0,5 %
+OUVERTURE_SEUIL = 0.5  # en dessous de ±0,5 % : pas de signal (fiabilité proche du hasard)
+OUVERTURE_FORT = 1.0  # au-delà de ±1 % : signal net
 
 
-def vote_chicago(var_pct):
-    if var_pct is None:
-        return 0
-    return 1 if var_pct > OUVERTURE_SEUIL else -1 if var_pct < -OUVERTURE_SEUIL else 0
+def ouverture(chicago_var):
+    """Orientation de la séance d'après le mouvement de Chicago depuis la clôture d'Euronext (en %). « mesurable » : palier
+    de fiabilité mesuré par le backtest (« 05 » de 0,5 à 1 %, « 1 » au-delà), None sans signal."""
+    c = chicago_var
+    if c is None:
+        return {"orientation": "sans_chicago", "total": 0, "mesurable": None}
+    a = abs(c)
+    sens = 1 if c > 0 else -1
+    if a < OUVERTURE_SEUIL:
+        return {"orientation": "partage", "total": 0, "mesurable": None}
+    fort = a >= OUVERTURE_FORT
+    lab = ("hausse" if fort else "legere_hausse") if sens > 0 else ("baisse" if fort else "legere_baisse")
+    return {"orientation": lab, "total": sens * (2 if fort else 1), "mesurable": "1" if fort else "05"}
 
 
-def vote_technique(sens):
-    return {"haussière": 1, "baissière": -1}.get(sens, 0)
+def barres_valides(x):
+    """Cours horaires lus d'un fichier : seulement les paires [epoch, cours] numériques, triées (fichier abîmé : liste vide)."""
+    ok = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)  # noqa: E731
+    return sorted(b for b in (x if isinstance(x, list) else []) if isinstance(b, list) and len(b) == 2 and ok(b[0]) and ok(b[1]))
 
 
-def vote_actu(valeur):
-    if valeur is None:
-        return 0
-    return 1 if valeur >= 0.5 else -1 if valeur <= -0.5 else 0
+def prix_avant(barres, limite):
+    """Dernier cours horaire dont la barre se termine au plus tard à `limite` (epoch, secondes) : [fin, cours] ou None.
+    `barres` : liste [fin de barre en epoch, cours] triée."""
+    import bisect
+
+    i = bisect.bisect_right(barres, [limite, float("inf")]) - 1
+    return barres[i] if i >= 0 else None
 
 
-def ouverture(chicago_var, actu_valeur, tech_sens):
-    """Orientation de la séance à venir : vote de trois indices connus avant l'ouverture (Chicago depuis la clôture d'Euronext,
-    effet de l'actualité des 7 derniers jours, lecture technique), chacun +1, 0 ou −1. Une description des indices, pas une prévision sûre : leur
-    fiabilité passée est mesurée à part (backtest) et suivie au jour le jour."""
-    votes = {"chicago": vote_chicago(chicago_var), "actualite": vote_actu(actu_valeur), "technique": vote_technique(tech_sens)}
-    t = sum(votes.values())
-    lab = {3: "hausse", 2: "hausse", 1: "legere_hausse", 0: "partage", -1: "legere_baisse", -2: "baisse", -3: "baisse"}[t]
-    return {"votes": votes, "total": t, "orientation": lab, "mesurable": votes["chicago"] + votes["technique"]}
+def chicago_nuit(barres, seance, maintenant_epoch):
+    """Mouvement de Chicago (en %) entre la clôture d'Euronext de `seance` (18 h 30 Paris) et le dernier cours connu à
+    `maintenant_epoch` ; None si un des deux cours manque ou si le cours de référence a plus de 6 h d'écart avec 18 h 30."""
+    from zoneinfo import ZoneInfo
+
+    ref_t = datetime.fromisoformat(seance + "T18:30").replace(tzinfo=ZoneInfo("Europe/Paris")).timestamp()
+    ref, cur = prix_avant(barres, ref_t), prix_avant(barres, maintenant_epoch)
+    if not ref or not cur or cur[0] <= ref[0] or ref_t - ref[0] > 6 * 3600 or not ref[1]:
+        return None
+    return round((cur[1] / ref[1] - 1) * 100, 2)
 
 
 def journal_ouverture(journal, cultures, prochaine):

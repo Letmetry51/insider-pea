@@ -23,7 +23,7 @@ from pathlib import Path
 
 import requests
 
-from commun import save as save_json  # noqa: E402
+from commun import load as load_json, save as save_json  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -436,6 +436,36 @@ def collect_cftc_long():
     note("cftc_historique", ok == len(codes), f"{ok}/{len(codes)} marchés" + (f", depuis {min(v['serie'][0]['date'] for k, v in out.items() if not k.startswith('_'))}" if ok else ""))
 
 
+def collect_chicago_horaire():
+    """Cours horaires de Chicago (blé, soja, maïs) : orientation de la séance Euronext d'après le mouvement depuis la clôture
+    d'Euronext (18 h 30) jusqu'au matin, et son backtest. Gardés 800 jours (fichier privé) ; 730 jours (le maximum de Yahoo)
+    au premier passage, puis les 7 derniers jours. Barres stockées [fin de barre en epoch, cours de clôture]."""
+    import yfinance as yf
+
+    path = PRIV / "chicago_horaire.json"
+    old = {k: v for k, v in load_json(path, {}).items() if isinstance(v, list)}
+    out = dict(old)
+    for tk in ("ZW=F", "ZS=F", "ZC=F"):
+        try:
+            prev = {int(t): c for t, c in old.get(tk) or [] if isinstance(t, (int, float))}
+            h = yf.Ticker(tk).history(period="7d" if len(prev) > 2000 else "730d", interval="1h", auto_adjust=False)["Close"].dropna()
+            maintenant = time.time()
+            for t, c in h.items():
+                fin = int(t.timestamp()) + 3600
+                if fin <= maintenant + 60:  # barre en cours : pas encore close
+                    prev[fin] = round(float(c), 4)
+            garde = maintenant - 800 * 86400
+            out[tk] = [[t, prev[t]] for t in sorted(prev) if t >= garde]
+            if not out[tk]:
+                raise RuntimeError("aucune barre")
+            dern = datetime.fromtimestamp(out[tk][-1][0], timezone.utc)
+            note("chicago_horaire_" + tk, True, f"{len(out[tk])} barres, dernière close à {dern:%d/%m %H:%M} UTC")
+        except Exception as e:  # noqa: BLE001
+            note("chicago_horaire_" + tk, False, f"{type(e).__name__} {str(e)[:120]} (historique précédent gardé)")
+        time.sleep(1)
+    save_json(path, out)
+
+
 def collect_yahoo_long():
     """Historique complet (depuis 2000) du blé et du maïs de Chicago et de l'EUR/USD, pour le backtest. Une fois par semaine."""
     path = PRIV / "yahoo_long.json"
@@ -811,8 +841,8 @@ def om_daily(j):
 
 
 def collect_meteo(today):
-    """Pluie et température maximale des zones de production (Open-Meteo) : 11 ans d'observations (une fois par semaine)
-    et prévision à 14 jours (chaque jour). Une seule source notée pour toutes les zones (pas dix alertes de panne)."""
+    """Pluie et température maximale des zones de production (Open-Meteo) : 11 ans d'observations (complétées chaque jour des
+    jours manquants) et prévision à 14 jours (chaque jour). Une seule source notée pour toutes les zones (pas dix alertes de panne)."""
     path = PRIV / "meteo.json"
     data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     ok, errs, perimees = 0, [], []
@@ -828,21 +858,47 @@ def collect_meteo(today):
             groupe = {zn: om_daily(j) for zn, j in zip(zs, lots)}
     except Exception as e:  # noqa: BLE001
         errs.append(f"prévisions groupées : {str(e)[:70]}")
+    # observations : 11 ans au premier passage, puis seulement les jours manquants (une semaine de retard d'Open-Meteo), en une
+    # requête pour toutes les zones qui reprennent au même jour. Le rechargement complet chaque semaine (16 zones × 11 ans, 90 s
+    # de délai chacune) prenait jusqu'à 8 minutes, le 15/11/2026.
+    fin = (today - timedelta(days=6)).isoformat()
+    garde = (today - timedelta(days=11 * 366)).isoformat()
+    courant, suite = {}, {}
     for zn, z in zs.items():
         cur = data.get(zn) if isinstance(data.get(zn), dict) else {}
         if not cur and isinstance(data.get(z.get("ancien")), dict):  # zone renommée (même point) : historique repris
             cur = data[z["ancien"]]
+        courant[zn] = cur
+        arch = cur.get("archive") if isinstance(cur.get("archive"), dict) else {}
+        if len(arch) >= 3000:
+            debut = (date.fromisoformat(max(arch)) + timedelta(days=1)).isoformat()
+            if debut <= fin:
+                suite.setdefault(debut, []).append(zn)
+            else:
+                cur["archive_au"] = today.isoformat()  # rien de nouveau publié : à jour
+    for debut, noms in suite.items():
         try:
-            au = cur.get("archive_au")
-            if not au or (today - date.fromisoformat(au)).days >= 7 or len(cur.get("archive") or {}) < 3000:
-                url = METEO_ARCH.format(lat=z["lat"], lon=z["lon"], a=(today - timedelta(days=11 * 366)).isoformat(),
-                                        b=(today - timedelta(days=6)).isoformat())
+            lots = get(METEO_ARCH.format(lat=",".join(str(zs[n]["lat"]) for n in noms), lon=",".join(str(zs[n]["lon"]) for n in noms),
+                                         a=debut, b=fin), timeout=60).json()
+            lots = lots if isinstance(lots, list) else [lots]
+            if len(lots) != len(noms):
+                raise RuntimeError(f"{len(lots)} réponses pour {len(noms)} zones")
+            for n, j in zip(noms, lots):
+                arch = {**courant[n]["archive"], **{k: v for k, v in om_daily(j).items() if v[0] is not None}}
+                courant[n].update(archive={k: v for k, v in sorted(arch.items()) if k >= garde}, archive_au=today.isoformat())
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"observations {debut} → {fin} : {str(e)[:70]}")  # reprises au prochain calcul
+    for zn, z in zs.items():
+        cur = courant[zn]
+        try:
+            if len(cur.get("archive") or {}) < 3000:  # premier passage ou archive abîmée : 11 ans
+                url = METEO_ARCH.format(lat=z["lat"], lon=z["lon"], a=garde, b=fin)
                 arch = {k: v for k, v in om_daily(get(url, timeout=90).json()).items() if v[0] is not None}  # 11 ans : réponse lente
                 if len(arch) < 3000:
                     raise RuntimeError(f"archive de {len(arch)} jours")
                 cur.update(archive=arch, archive_au=today.isoformat())
         except Exception as e:  # noqa: BLE001
-            errs.append(f"{zn} (archive) : {str(e)[:70]}")  # archive de la semaine précédente gardée (moins de 14 jours : sans effet)
+            errs.append(f"{zn} (archive) : {str(e)[:70]}")  # archive précédente gardée (moins de 14 jours : sans effet)
         try:
             cur.update(prevision=groupe.get(zn) or om_daily(get(METEO_PREV.format(lat=z["lat"], lon=z["lon"]), timeout=45).json()),
                        prevision_au=today.isoformat())
@@ -897,23 +953,39 @@ def collect_cftc():
 def collect_engrais(today):
     path = seed("fert_fr.csv")
     rows = read_csv(path)
-    for prod, c in CFG["engraisFrance"].items():
-        try:
-            html = get(c["url"]).text
-            items = parse_place_prices(html)
-            if not items:
-                raise RuntimeError("aucun prix lu")
-            p = items[0]["prix"]
-            if not (100 < p < 3000):
-                raise RuntimeError(f"prix invraisemblable : {p}")
-            d = date_publiee(day_month(items[0]["titre"], today), today).isoformat()
-            rows = [r for r in rows if not (r["date"] == d and r["product"] == prod)]
-            rows.append({"date": d, "product": prod, "price": p, "source": "terre-net, " + items[0]["place"]})
-            note("engrais_" + prod, True, f"{p} ({items[0]['place']}, cotation du {d})")
-        except Exception as e:  # noqa: BLE001
-            note("engrais_" + prod, False, e)
+    # terre-net répond parfois 502 quelques minutes : un second tour 30 s plus tard pour les produits manqués
+    a_lire = list(CFG["engraisFrance"].items())
+    for tour in (1, 2):
+        manques = []
+        for prod, c in a_lire:
+            if not lire_engrais(prod, c, today, rows, dernier=tour == 2):
+                manques.append((prod, c))
+        if not manques or tour == 2:
+            break
+        a_lire = manques
+        time.sleep(30)
     rows.sort(key=lambda r: (r["date"], r["product"]))
     write_csv(path, rows, ["date", "product", "price", "source"])
+
+
+def lire_engrais(prod, c, today, rows, dernier=True):
+    """Prix d'un engrais (terre-net) ajouté à `rows` ; False en cas d'échec (noté seulement au dernier tour)."""
+    try:
+        items = parse_place_prices(get(c["url"]).text)
+        if not items:
+            raise RuntimeError("aucun prix lu")
+        p = items[0]["prix"]
+        if not (100 < p < 3000):
+            raise RuntimeError(f"prix invraisemblable : {p}")
+        d = date_publiee(day_month(items[0]["titre"], today), today).isoformat()
+        rows[:] = [r for r in rows if not (r["date"] == d and r["product"] == prod)]
+        rows.append({"date": d, "product": prod, "price": p, "source": "terre-net, " + items[0]["place"]})
+        note("engrais_" + prod, True, f"{p} ({items[0]['place']}, cotation du {d})")
+        return True
+    except Exception as e:  # noqa: BLE001
+        if dernier:
+            note("engrais_" + prod, False, e)
+        return False
 
 
 def collect_physique():
@@ -1304,12 +1376,37 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, collect_cftc_long, lambda: collect_usda(today), lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
-               collect_banque_mondiale, lambda: collect_gpr(today), collect_actualites):
-        try:
-            fn()
-        except Exception as e:  # noqa: BLE001
-            note("collecteur", False, f"{type(e).__name__}: {e}")
+    # collecteurs en parallèle par groupe : chaque groupe interroge ses propres sites ; dans un groupe, à la suite (même site,
+    # même fichier : terre-net et Euronext ne sont pas sollicités deux fois en même temps). Durée totale ≈ celle du groupe le
+    # plus lent au lieu de la somme. Durée de chaque collecteur dans le journal.
+    groupes = [
+        [("euronext", lambda: collect_euronext(today)), ("euronext_historique", lambda: collect_euronext_histo(today)),
+         ("cot_euronext", lambda: collect_cot_euronext(today)), ("engrais", lambda: collect_engrais(today)),
+         ("physique", collect_physique)],
+        [("yahoo", collect_yahoo), ("chicago_horaire", collect_chicago_horaire), ("yahoo_long", collect_yahoo_long)],
+        [("cftc", collect_cftc), ("cftc_long", collect_cftc_long), ("usda", lambda: collect_usda(today))],
+        [("meteo", lambda: collect_meteo(today))],
+        [("banque_mondiale", collect_banque_mondiale), ("geopolitique", lambda: collect_gpr(today))],
+        [("actualites", collect_actualites)],
+    ]
+    durees = {}
+
+    def lancer(groupe):
+        for nom, fn in groupe:
+            t = time.monotonic()
+            try:
+                fn()
+            except Exception as e:  # noqa: BLE001
+                note("collecteur_" + nom, False, f"{type(e).__name__}: {e}")
+            durees[nom] = round(time.monotonic() - t)
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=len(groupes)) as ex:
+        list(ex.map(lancer, groupes))
+    print(f"Durées (s) : {', '.join(f'{k} {v}' for k, v in sorted(durees.items(), key=lambda x: -x[1]))} ; "
+          f"total {round(time.monotonic() - t0)} s")
     save_json(OUT / "collecte.json", {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "sources": status})
     ok = sum(1 for s in status.values() if s["ok"])
     print(f"Collecte : {ok}/{len(status)} sources lues")

@@ -22,6 +22,10 @@ import comite  # noqa: E402
 import indicators as ind  # noqa: E402
 
 results = []
+# messages des fonctions testées (« ÉCHEC engrais_uree — HTTP 502 » d'une source simulée…) mis de côté : dans le journal du
+# calcul, on les prenait pour de vraies pannes. Ils ne s'affichent qu'en cas de test en échec.
+import io as _io  # noqa: E402
+_vrai_stdout, sys.stdout = sys.stdout, _io.StringIO()
 
 
 def check(cond, name):
@@ -950,14 +954,46 @@ check(collect.acces_article({"url": "", "source": "Bloomberg.com"}, _sites) == (
       and collect.acces_article({"url": "", "source": "Inconnu"}, _sites) == (None, None),
       "accès aux articles : page illisible → site connu, sinon rien d'affiché")
 
-# avant l'ouverture : vote de trois indices, journal noté le lendemain
-_o = dec.ouverture(0.8, 0.6, "neutre")
-check(_o["total"] == 2 and _o["orientation"] == "hausse" and _o["mesurable"] == 1
-      and dec.ouverture(-0.2, None, "baissière")["orientation"] == "legere_baisse"
-      and dec.ouverture(0.3, -0.1, "neutre")["orientation"] == "partage",
-      "avant l'ouverture : Chicago > 0,5 %, actualité ≥ 0,5 et technique comptent chacun pour un indice")
-check(dec.prochaine_seance(date(2026, 11, 12)) == "2026-11-12" and dec.prochaine_seance(date(2026, 11, 14)) == "2026-11-16",
-      "avant l'ouverture : prochaine séance (samedi → lundi)")
+# météo : observations complétées des seuls jours manquants, en une requête groupée ; prévisions groupées
+import unittest.mock as _um2  # noqa: E402
+_tmpm = Path(tempfile.mkdtemp())
+_zs = collect.CFG["meteo"]["zones"]
+_auj = date(2026, 11, 15)
+_vieux = {k: [1.0, 10.0] for k in [(date(2016, 1, 1) + _td(days=i)).isoformat() for i in range(3970)] if k <= "2026-11-05"}
+(_tmpm / "meteo.json").write_text(json.dumps({z: {"archive": _vieux, "archive_au": "2026-11-08"} for z in _zs}), encoding="utf-8")
+_appels = []
+
+
+def _faux_get(url, **kw):
+    _appels.append(url)
+    jours = ["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09"] if "archive" in url else ["2026-11-15", "2026-11-16"]
+    un = {"daily": {"time": jours, "precipitation_sum": [2.0] * len(jours), "temperature_2m_max": [9.0] * len(jours)}}
+    return type("R", (), {"json": lambda self: [un] * len(_zs)})()
+
+
+with _um2.patch.object(collect, "PRIV", _tmpm), _um2.patch.object(collect, "get", _faux_get), \
+        _um2.patch.object(collect, "note", lambda *a, **k: None):
+    collect.collect_meteo(_auj)
+_mm = json.loads((_tmpm / "meteo.json").read_text(encoding="utf-8"))
+_z0 = next(iter(_zs))
+check(len(_appels) == 2 and "start_date=2026-11-06&end_date=2026-11-09" in _appels[1] and _mm[_z0]["archive"]["2026-11-09"] == [2.0, 9.0]
+      and min(_mm[_z0]["archive"]) >= (_auj - _td(days=11 * 366)).isoformat() and _mm[_z0]["archive_au"] == "2026-11-15",
+      f"météo : 2 requêtes au lieu de 32 (prévisions et jours manquants groupés), 11 ans gardés ({len(_appels)} requêtes)")
+
+# orientation du matin : mouvement de Chicago depuis la clôture d'Euronext, paliers 0,5 % et 1 %
+check(dec.ouverture(1.3) == {"orientation": "hausse", "total": 2, "mesurable": "1"}
+      and dec.ouverture(-0.7) == {"orientation": "legere_baisse", "total": -1, "mesurable": "05"}
+      and dec.ouverture(0.3)["orientation"] == "partage" and dec.ouverture(None)["orientation"] == "sans_chicago",
+      "orientation : Chicago depuis la clôture d'Euronext, rien sous ±0,5 %, net au-delà de ±1 %")
+from zoneinfo import ZoneInfo as _ZI  # noqa: E402
+_par = _ZI("Europe/Paris")
+_ep = lambda iso: int(_dt.fromisoformat(iso).replace(tzinfo=_par).timestamp())  # noqa: E731
+_bar = [[_ep("2026-11-12T17:30"), 600.0], [_ep("2026-11-12T18:30"), 602.0], [_ep("2026-11-12T20:30"), 610.0],
+        [_ep("2026-11-13T06:00"), 608.0], [_ep("2026-11-13T07:00"), 611.0], [_ep("2026-11-13T08:00"), 650.0]]
+check(dec.chicago_nuit(_bar, "2026-11-12", _ep("2026-11-13T07:05")) == round((611 / 602 - 1) * 100, 2)
+      and dec.chicago_nuit(_bar, "2026-11-12", _ep("2026-11-13T06:30")) == round((608 / 602 - 1) * 100, 2)
+      and dec.chicago_nuit(_bar, "2026-11-10", _ep("2026-11-13T07:05")) is None,
+      "orientation : cours de 18 h 30 la veille → dernier cours clos avant le calcul, rien sans cours proche de 18 h 30")
 _cu = {"ble": {"seance": "2026-11-11", "var1j": 2.5, "ouverture": {"total": 1}}}
 _j = dec.journal_ouverture([], _cu, "2026-11-12")
 _cu2 = {"ble": {"seance": "2026-11-12", "var1j": -1.0, "ouverture": {"total": -2}}}
@@ -966,22 +1002,24 @@ check(_j == [{"pour": "2026-11-12", "cult": "ble", "total": 1, "var": -1.0}, {"p
       and dec.bilan_ouverture(_j, "ble") == {"justes": 0, "notees": 1}
       and dec.journal_ouverture(_j, _cu2, "2026-11-13") == _j,
       "avant l'ouverture : orientation notée à la séance suivante, sans doublon au 2e calcul du matin")
-_rows = []
+_rows, _hz = [], {"ZW=F": []}
 import random as _rnd  # noqa: E402
 _r = _rnd.Random(3)
-_px, _cb, _d0 = 200.0, 500.0, date(2024, 1, 1)
-_yh = {"ZW=F": {"serie": {}}, "ZS=F": {"serie": {}}, "ZC=F": {"serie": {}}}
-for _i in range(400):
+_px, _cb, _d0 = 200.0, 500.0, date(2025, 1, 6)
+for _i in range(300):
     _dd = (_d0 + _td(days=_i)).isoformat()
-    _mv = _r.gauss(0, 1)
+    _hz["ZW=F"].append([_ep(_dd + "T18:30"), _cb])
+    _mv = _r.gauss(0, 1.2)
     _cb *= 1 + _mv / 100
-    for _t in _yh:
-        _yh[_t]["serie"][_dd] = _cb
-    _px *= 1 + (_mv if _i else 0) / 100 * 0.5 + _r.gauss(0, 0.3) / 100
+    _hz["ZW=F"].append([_ep((_d0 + _td(days=_i + 1)).isoformat() + "T07:00"), _cb])
+    _px *= 1 + _mv / 100 * 0.6 + _r.gauss(0, 0.4) / 100
     _rows.append({"date": (_d0 + _td(days=_i + 1)).isoformat(), "product": "EBM", "maturity": "2030-03", "settle": str(round(_px, 2))})
-_bo = bt.backtest_ouverture(_yh, _rows)
-check(_bo.get("ble") and _bo["ble"]["2"]["seances"] > 0 and _bo["ble"]["1"]["part"] is not None,
-      f"avant l'ouverture : backtest Chicago + technique ({_bo.get('ble')})")
+_rows.insert(0, {"date": _d0.isoformat(), "product": "EBM", "maturity": "2030-03", "settle": "200"})
+_hz["ZW=F"] += [[_ep("2027-01-01T00:00") + k, 1.0] for k in range(250)]  # remplissage : 500 barres au moins
+_hz["ZW=F"].sort()
+_bo = bt.backtest_ouverture(_hz, _rows)
+check(_bo.get("ble") and _bo["ble"]["05"]["seances"] > 50 and _bo["ble"]["05"]["part"] > 60,
+      f"orientation : backtest du mouvement de Chicago de la nuit (marché simulé qui le suit : {_bo.get('ble')})")
 # météo : paliers symétriques autour de la normale (80-120 %)
 check([dec.meteo_etat({"ratio": r})[1] for r in (0.3, 0.5, 0.7, 1.0, 1.2, 1.3, 1.4, 1.5, 1.66, 2.35)]
       == ["très sec", "sec", "un peu sec", "normal", "normal", "un peu humide", "humide", "humide", "très humide", "très humide"],
@@ -1007,8 +1045,12 @@ _c2 = _cm2.compact({"cultures": {"ble": {"cours": 230, "comite": {"lecture": "x"
 check(_c2["cultures"]["ble"] == {"cours": 230} and "comite" not in _c2["engrais"],
       "lecture hebdomadaire : lecture précédente envoyée une seule fois")
 
-for st, name in results:
-    print(st, name)
+_bruit, sys.stdout = sys.stdout.getvalue(), _vrai_stdout
 fails = [n for s, n in results if s != "OK  "]
+if fails:
+    print("— messages des fonctions testées —\n" + _bruit[-6000:])
+for st, name in results:
+    if st != "OK  " or os.environ.get("GS_TESTS_DETAIL"):
+        print(st, name)
 print(f"{len(results) - len(fails)}/{len(results)} tests réussis")
 sys.exit(1 if fails else 0)

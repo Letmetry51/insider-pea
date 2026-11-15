@@ -38,11 +38,12 @@ prix) et **Méthode** (calculs, backtests, historique, sources). L'email et la s
 - **Azote** (`build.py`, `module_engrais`) : prix France (urée, ammonitrate, solution), ratio urée/blé en percentile sur 10 ans,
   écart gaz − urée sur 3 mois, gaz TTF, saison, forme la moins chère par unité d'azote.
 - **Ce matin** (`decisions.py`, `ouverture`), sur la ligne de chaque culture de l'onglet Marché et dans l'email : orientation de la
-  séance à venir (Euronext ouvre à 10 h 45), vote des trois indices affichés sur la ligne, chacun +1, 0 ou −1 : Chicago depuis
-  la clôture d'Euronext (au-delà de ±0,5 %), la technique, l'effet de l'actualité (au moins 0,5 sur 2). Orges : celle du blé.
-  Fiabilité passée de Chicago + technique mesurée chaque matin (`backtest.py`, `ouverture` : sur 2019-2026, un peu mieux que le
-  hasard pour le maïs, presque pas pour le blé et le colza) ; l'orientation est notée au jour le jour (`etat.json`,
-  `ouverture_journal`).
+  séance à venir (Euronext ouvre à 10 h 45) d'après le mouvement de Chicago depuis la clôture d'Euronext (18 h 30 la veille →
+  dernier cours horaire avant le calcul ; `collect.py`, `collect_chicago_horaire`) : de 0,5 à 1 %, légèrement ; au-delà de 1 %,
+  nettement ; sous 0,5 %, pas de signal. Backtest du 15/11/2026 (juin 2024 → nov. 2026) : Euronext suit ce mouvement environ 6 fois
+  sur 10 (blé 59 %, maïs 67 %, colza 56 % au-delà de ±0,5 %), quand la clôture de Chicago de la veille ne faisait pas mieux que
+  le hasard ; la technique n'y ajoute rien. Fiabilité recalculée chaque matin (`backtest.py`, `ouverture`), orientation notée au jour le jour
+  (`etat.json`, `ouverture_journal`). Orges : celle du blé.
 - **Vos seuils** (`config.json`, `seuils`) : prix au-dessus ou en dessous desquels être prévenu, par culture et pour l'urée.
 
 Backtest (`backtest.py`, onglet Méthode) : pour la lecture technique, l'humeur du marché et le risque géopolitique, le cours a-t-il

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
-from commun import ACCES, boite, load, save  # noqa: E402
+from commun import ACCES, boite, load, nombre, save, signe  # noqa: E402
 
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
@@ -55,8 +55,7 @@ def e(t):
     return html.escape(str(t if t is not None else ""), quote=True)
 
 
-def f(v, d=2):
-    return f"{v:,.{d}f}".replace(",", " ").replace(".", ",")
+f = nombre  # noqa: E731  (« — » si la valeur manque, au lieu d'un plantage)
 
 
 def ligne_cout(comite):
@@ -71,8 +70,7 @@ def ligne_cout(comite):
     return f"<p style='color:#777;font-size:12px;margin-top:16px'>Lecture rédigée par {e(nom)}{rech} ; coût de l'API ≈ {f(c)} $.</p>"
 
 
-def sg(v, d=2):
-    return ("+" if v > 0 else "") + f(v, d)
+sg = signe
 
 
 SENS_HTML = {"haussière": ("▲ haussière", "#1f7a3e"), "baissière": ("▼ baissière", "#b0281f"), "neutre": ("● neutre", "#6b6d60"),
@@ -88,9 +86,9 @@ def sens_html(s_, azote=False):
     return f"<span style='color:{c};white-space:nowrap'>{e(t)}</span>"
 
 
-ORIENT_TXT = {"hausse": ("↑ penche à la hausse", "#1f7a3e"), "legere_hausse": ("↗ légèrement à la hausse", "#1f7a3e"),
-              "partage": ("→ indices partagés", "#6b6d60"), "legere_baisse": ("↘ légèrement à la baisse", "#b0281f"),
-              "baisse": ("↓ penche à la baisse", "#b0281f")}
+ORIENT_TXT = {"hausse": ("↑ nettement à la hausse", "#1f7a3e"), "legere_hausse": ("↗ légèrement à la hausse", "#1f7a3e"),
+              "partage": ("→ pas de signal", "#6b6d60"), "sans_chicago": ("→ pas de cours de Chicago", "#6b6d60"),
+              "legere_baisse": ("↘ légèrement à la baisse", "#b0281f"), "baisse": ("↓ nettement à la baisse", "#b0281f")}
 
 
 def table_marche(dash):
@@ -101,17 +99,17 @@ def table_marche(dash):
     bt = (load(OUT / "backtest.json", {}) or {}).get("ouverture") or {}
     for k, c in cults.items():
         tq, ac = c.get("technique") or {}, c.get("actualite") or {}
-        # orientation de la séance (Euronext ouvre à 10 h 45) ; orges : Chicago et technique du blé, leur actualité
+        # orientation de la séance (Euronext ouvre à 10 h 45) : Chicago depuis la clôture d'Euronext ; orges : celui du blé
         ref = k
         o = c.get("ouverture") or {}
         ori = "—"
         if o.get("orientation"):
             t, col = ORIENT_TXT.get(o["orientation"], ORIENT_TXT["partage"])
             ch = o.get("chicago") or {}
-            m = o.get("mesurable") or 0
-            b = (bt.get(ref) or {}).get(str(abs(m))) or {}
-            det = ((f"Chicago{' (blé)' if c.get('proxy') else ''} {sg(ch['var'], 1)} %" if ch.get("var") is not None
-                    else "Chicago : pas de séance")
+            m = o.get("mesurable")
+            b = (bt.get(ref) or {}).get(m) or {} if m else {}
+            det = ((f"Chicago{' (blé)' if c.get('proxy') else ''} {sg(ch['var'], 1)} % depuis hier 18 h 30" if ch.get("var") is not None
+                    else "Chicago : pas de cours")
                    + (f" · fiable {f(b['part'] / 10, 1)}/10" if m and b.get("part") and not c.get("proxy") else ""))
             ori = f"<span style='color:{col};white-space:nowrap'><b>{e(t)}</b></span><br><span style='color:#666;font-size:12px'>{e(det)}</span>"
         var = c.get("var1j")
@@ -134,9 +132,10 @@ def table_marche(dash):
             "<th align=left style='padding:6px 8px'>Ce matin (ouverture 10 h 45)</th>"
             "<th align=left style='padding:6px 8px'>Technique</th><th align=left style='padding:6px 8px'>Actualité</th></tr>"
             + "".join(rows) + "</table>"
-            + ("<p style='color:#777;font-size:12px'>Ce matin : orientation de la séance d'après Chicago (clôture d'hier soir), la "
-               "technique et l'actualité. Fiable x/10 : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique "
-               "dans ce cas ; près de 5/10, c'est le hasard. Une description, pas une prévision sûre.</p>"
+            + ("<p style='color:#777;font-size:12px'>Ce matin : orientation de la séance d'après le mouvement de Chicago depuis la "
+               "clôture d'Euronext (18 h 30 hier), le seul indice qui annonce la séance mieux que le hasard. Fiable x/10 : part des "
+               "séances, sur deux ans, où Euronext a suivi ce mouvement ; 5/10, c'est le hasard. Technique et actualité : tendance de "
+               "fond. Une description, pas une prévision sûre.</p>"
                if any((c.get("ouverture") or {}).get("orientation") for c in cults.values()) else ""))
 
 

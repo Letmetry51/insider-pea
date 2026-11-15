@@ -32,3 +32,15 @@ def save(p, obj):
 
 # lecture d'un article de la revue de presse (champ « acces », déterminé à la collecte) : mention ajoutée après la source
 ACCES = {"entier": " · disponible en entier", "abonnes": " · réservé aux abonnés"}
+
+
+def nombre(v, d=2):
+    """Nombre à la française (espace pour les milliers, virgule décimale) ; « — » si absent ou non numérique."""
+    if not isinstance(v, (int, float)) or isinstance(v, bool) or v != v:
+        return "—"
+    return f"{v:,.{d}f}".replace(",", " ").replace(".", ",")
+
+
+def signe(v, d=2):
+    """Nombre signé à la française (+1,25 / −0,50) ; « — » si absent."""
+    return nombre(v, d) if nombre(v, d) == "—" else ("+" if v > 0 else "") + nombre(v, d)

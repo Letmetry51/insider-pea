@@ -16,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from commun import ACCES, boite, load  # noqa: E402
+from commun import ACCES, boite, load, nombre, signe  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "grain"
@@ -33,16 +33,7 @@ def e(t):
     return html.escape(EMOJI.sub("", str(t if t is not None else "")).strip(), quote=True)
 
 
-def n(v, d=2):
-    """Nombre à la française (espace fine pour les milliers, virgule décimale)."""
-    if v is None:
-        return "—"
-    s = f"{v:,.{d}f}".replace(",", " ").replace(".", ",")
-    return s
-
-
-def sg(v, d=2):
-    return "—" if v is None else ("+" if v > 0 else "") + n(v, d)
+n, sg = nombre, signe  # nombres à la française, « — » si absent (commun)
 
 
 def dfr(iso):

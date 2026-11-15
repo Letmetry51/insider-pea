@@ -870,22 +870,25 @@ def main():
         if cc:
             e["comite"] = cc
         cultures[cult] = e
-    # orientation de la séance à venir (Euronext ouvre à 10 h 45) : Chicago depuis la clôture d'Euronext, technique et effet de
-    # l'actualité, les mêmes indices que ceux affichés sur la ligne de la culture. Escourgeon et orge de printemps (prix physique,
-    # sans marché à terme) : Chicago et technique du blé, qu'ils suivent, et leur propre actualité
+    # orientation de la séance à venir (Euronext ouvre à 10 h 45) : mouvement de Chicago depuis la clôture d'Euronext (18 h 30
+    # la veille) jusqu'au dernier cours horaire connu (decisions.ouverture : seul indice mesuré qui annonce la séance). Escourgeon
+    # et orge de printemps (prix physique, sans marché à terme) : celui du blé, qu'ils suivent
     prochaine = dec.prochaine_seance(today)
+    horaire = load_json(PRIV / "chicago_horaire.json", {})
+    noms_tk = {"ZW=F": "blé CBOT", "ZS=F": "soja CBOT", "ZC=F": "maïs CBOT"}
+    maintenant = datetime.now(timezone.utc).timestamp()
     for cult in cultures:
         e = cultures[cult]
         tk = dec.OUVERTURE_CHICAGO.get("ble" if CONTRAT[cult] == "EBM" else cult)
         if not tk or not e.get("seance"):
             continue
-        s_ = (yahoo.get(tk) or {}).get("serie") or {}
-        ds = sorted(s_)
+        barres = dec.barres_valides(horaire.get(tk))
+        var = dec.chicago_nuit(barres, e["seance"], maintenant) if barres else None
         chic = None
-        if len(ds) >= 2 and ds[-1] >= e["seance"]:  # Chicago a clôturé après la dernière séance d'Euronext
-            chic = {"ticker": tk, "nom": (yahoo.get(tk) or {}).get("nom", tk), "date": ds[-1],
-                    "var": round((s_[ds[-1]] / s_[ds[-2]] - 1) * 100, 2)}
-        o = dec.ouverture(chic["var"] if chic else None, (e.get("actualite") or {}).get("valeur"), (e.get("technique") or {}).get("sens"))
+        if var is not None:
+            fin = datetime.fromtimestamp(dec.prix_avant(barres, maintenant)[0], timezone.utc).isoformat(timespec="minutes")
+            chic = {"ticker": tk, "nom": noms_tk[tk], "var": var, "depuis": e["seance"], "jusqua": fin}
+        o = dec.ouverture(var)
         o.update(pour=prochaine, depuis=e["seance"], chicago=chic, sur_ble=bool(e.get("proxy")))
         e["ouverture"] = o
     journal = dec.journal_ouverture(etat.get("ouverture_journal") if isinstance(etat.get("ouverture_journal"), list) else [],
@@ -1060,7 +1063,8 @@ def main():
     for cult, e in cultures.items():
         o = e.get("ouverture")
         if o:
-            print(f"Avant l'ouverture — {e['nom']} : {o['orientation']} (votes {o['votes']}, Chicago {(o.get('chicago') or {}).get('var')} %)")
+            print(f"Avant l'ouverture — {e['nom']} : {o['orientation']} (Chicago depuis la clôture d'Euronext : "
+                  f"{(o.get('chicago') or {}).get('var')} %)")
     print(f"Engrais : {' ; '.join(engrais.get('notes', []))}")
     print(f"Alertes du jour : {len(trig)}")
     return 0

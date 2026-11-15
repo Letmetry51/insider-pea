@@ -989,7 +989,7 @@ function vEngrais() {
 // fiabilité passée de l'orientation du matin (Chicago + technique), par culture cotée
 function ouvBt() {
   const bt = (GS.backtest || {}).ouverture || {};
-  const rows = Object.entries(bt).filter(([, v]) => v && v['1']);
+  const rows = Object.entries(bt).filter(([, v]) => v && v['05']);
   if (!rows.length) return null;
   const cel = (x) => (x && x.seances ? `${fmt(x.part / 10, 1)} sur 10 (${x.seances} séances)` : '—');
   return h(
@@ -1002,7 +1002,7 @@ function ouvBt() {
       h(
         'tr',
         {},
-        ['Culture', 'Un des deux indices donne un sens', 'Chicago et technique d’accord', 'Depuis'].map((t, i) =>
+        ['Culture', 'Chicago a bougé de plus de 0,5 %', 'de plus de 1 %', 'Depuis'].map((t, i) =>
           h('th', { class: i ? 'n' : '', text: t })
         )
       ),
@@ -1011,15 +1011,15 @@ function ouvBt() {
           'tr',
           {},
           h('td', { text: `${ICON[k] || ''} ${NOM_COURT[k] || k}` }),
+          h('td', { class: 'n', text: cel(v['05']) }),
           h('td', { class: 'n', text: cel(v['1']) }),
-          h('td', { class: 'n', text: cel(v['2']) }),
-          h('td', { class: 'n', text: String(v.depuis || '').slice(0, 4) })
+          h('td', { class: 'n', text: dfr(v.depuis) })
         )
       )
     ),
     h('p', {
       class: 'note',
-      text: 'Nombre de séances sur 10 où Euronext est allé dans le sens indiqué par Chicago (clôture de la veille au soir) et la lecture technique de la veille. 5 sur 10, c’est le hasard ; sur plusieurs centaines de séances, 5,5 et plus commence à compter.',
+      text: 'Nombre de séances sur 10 où Euronext est allé dans le sens du mouvement de Chicago depuis la clôture d’Euronext de la veille (18 h 30 → 7 h). 5 sur 10, c’est le hasard ; sur plusieurs centaines de séances, 5,5 et plus commence à compter.',
     })
   );
 }
@@ -1097,7 +1097,7 @@ function vMethode() {
     ],
     [
       'Ce matin (orientation de la séance)',
-      'Avant l’ouverture d’Euronext (10 h 45), vote de trois indices, chacun +1 (hausse), 0 ou −1 (baisse) : Chicago depuis la clôture d’Euronext (sa clôture de 20 h 20, au-delà de ±0,5 % ; blé CBOT pour le blé et les orges, soja pour le colza, maïs CBOT pour le maïs), la lecture technique, l’effet de l’actualité (au moins 0,5 sur 2). Total de +2 ou +3 : penche à la hausse ; +1 : légèrement ; 0 : partagé. La fiabilité de Chicago + technique est mesurée chaque matin sur l’historique (tableau ci-dessous) ; l’actualité n’a pas encore d’historique, l’orientation complète est donc notée juste ou fausse au jour le jour (« suivi »). Orges : prix physique, fiabilité non mesurée.',
+      'Avant l’ouverture d’Euronext (10 h 45) : mouvement de Chicago (blé CBOT pour le blé et les orges, soja pour le colza, maïs CBOT pour le maïs) entre la clôture d’Euronext de la veille (18 h 30) et le dernier cours horaire clos avant le calcul. Chicago cote presque toute la nuit : il intègre ce qui s’est passé depuis la fermeture de Paris. Backtest du 15/11/2026 (juin 2024 à novembre 2026, sans regarder après 7 h ni avant 18 h 30) : au-delà de ±0,5 %, Euronext a suivi ce mouvement 59 % du temps pour le blé (64 % au-delà de ±1 %), 67 % pour le maïs, 56 % pour le colza ; la clôture de Chicago de la veille, utilisée avant, faisait 50 à 54 %, comme le hasard. Attendre 10 h n’y ajoute presque rien. La lecture technique n’ajoute rien à ce mouvement (pas mieux quand elle est d’accord) et l’actualité n’a pas encore d’historique : elles restent affichées sans compter. Fiabilité recalculée chaque matin (tableau ci-dessous) ; orientation notée juste ou fausse le lendemain (« suivi »). Orges : prix physique, fiabilité non mesurée.',
     ],
     [
       'Lecture de la semaine',
@@ -1371,25 +1371,26 @@ function navCultures(d, k) {
   );
 }
 
-/* orientation de la séance à venir (Euronext ouvre à 10 h 45) : vote de Chicago, de la technique et de l'actualité, avec la
-   fiabilité passée de Chicago + technique ; une description des indices, pas un conseil */
+/* orientation de la séance à venir (Euronext ouvre à 10 h 45) : mouvement de Chicago depuis la clôture d'Euronext (18 h 30
+   la veille) jusqu'au dernier cours avant le calcul, seul indice qui annonce la séance mieux que le hasard (backtest sur les
+   cours horaires) ; technique et actualité restent affichées comme tendance de fond. Une description, pas un conseil. */
 const ORIENT = {
-  hausse: ['↑ penche à la hausse', 'good'],
+  hausse: ['↑ penche nettement à la hausse', 'good'],
   legere_hausse: ['↗ légèrement à la hausse', 'good'],
-  partage: ['→ indices partagés', 'neutral'],
+  partage: ['→ Chicago calme, pas de signal', 'neutral'],
+  sans_chicago: ['→ pas de cours de Chicago', 'neutral'],
   legere_baisse: ['↘ légèrement à la baisse', 'bad'],
-  baisse: ['↓ penche à la baisse', 'bad'],
+  baisse: ['↓ penche nettement à la baisse', 'bad'],
 };
 
 function fiabilite(k, o) {
-  const m = o.mesurable || 0;
   const bo = ((GS.backtest || {}).ouverture || {})[k] || {};
-  const bt = bo[String(Math.abs(m))];
-  if (!m || !bt || !bt.part) return null;
+  const bt = o.mesurable && bo[o.mesurable];
+  if (!bt || !bt.part) return null;
   const q = bt.part >= 58 ? 'mieux que le hasard' : bt.part >= 55 ? 'un peu mieux que le hasard' : 'comme le hasard';
   return {
     text: `fiable ${fmt(bt.part / 10, 1)} fois sur 10 (${q})`,
-    titre: `Depuis ${String(bo.depuis || '').slice(0, 4)}, quand Chicago et la technique penchaient ${m > 0 ? 'à la hausse' : 'à la baisse'}${Math.abs(m) === 2 ? ' tous les deux' : ''}, Euronext a suivi ${bt.part} % du temps (${bt.seances} séances).`,
+    titre: `Depuis ${dfr(bo.depuis)}, quand Chicago avait bougé de plus de ${o.mesurable === '1' ? '1' : '0,5'} % depuis la clôture d’Euronext, la séance a suivi ${bt.part} % du temps (${bt.seances} séances).`,
   };
 }
 
@@ -1401,7 +1402,7 @@ function orientation(k, c) {
     ? {
         text: 'fiabilité non mesurée (prix physique)',
         titre:
-          'Pas d’historique quotidien assez long du prix physique des orges pour mesurer la fiabilité ; le suivi la notera au fil des jours.',
+          'Pas d’historique quotidien assez long du prix physique des orges pour mesurer la fiabilité (celle du blé est au-dessus) ; le suivi la notera au fil des jours.',
       }
     : fiabilite(k, o);
   const s = (o.suivi || {}).notees ? o.suivi : null;
@@ -1468,14 +1469,16 @@ function vMarche() {
         paires: [
           o
             ? [
-                c.proxy ? 'Chicago (blé)' : 'Chicago',
+                c.proxy ? 'Chicago (blé) depuis hier 18 h 30' : 'Chicago depuis hier 18 h 30',
                 ch
                   ? h('span', {
-                      class: 'badge ' + (ch.var > 0.5 ? 'good' : ch.var < -0.5 ? 'bad' : 'neutral'),
+                      class: 'badge ' + (ch.var >= 0.5 ? 'good' : ch.var <= -0.5 ? 'bad' : 'neutral'),
                       text: pct(ch.var),
                     })
-                  : h('span', { class: 'badge neutral', text: 'pas de séance' }),
-                ch ? `${ch.nom}, clôture du ${dfr(ch.date)} à 20 h 20, après celle d’Euronext` : null,
+                  : h('span', { class: 'badge neutral', text: '—' }),
+                ch
+                  ? `${ch.nom} : de la clôture d’Euronext (18 h 30, séance du ${dfr(ch.depuis)}) au dernier cours avant le calcul (${new Date(ch.jusqua).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })})`
+                  : 'Cours horaires de Chicago indisponibles ce matin',
               ]
             : null,
           [c.proxy ? 'Technique (blé)' : 'Technique', sensBadge((c.technique || {}).sens)],
@@ -1524,7 +1527,7 @@ function vMarche() {
         { class: 'list' },
         [
           'À côté du cours : variation en €/t sur la séance d’hier (orges : depuis le relevé de prix précédent ; azote : en % depuis le relevé d’il y a environ un mois, date indiquée).',
-          'Ce matin : orientation de la séance d’aujourd’hui (Euronext ouvre à 10 h 45), d’après les trois indices de la ligne, chacun compté pour la hausse, la baisse ou neutre : Chicago (sa clôture d’hier soir, après celle d’Euronext, au-delà de ±0,5 %), la technique, l’actualité (au moins 0,5 sur 2). « Fiable x fois sur 10 » : part des séances, depuis 2019, où Euronext a suivi Chicago et la technique quand ils penchaient ainsi. Quand Chicago et la technique sont d’accord, le maïs suit 6 fois sur 10 ; sinon, et pour le blé et le colza, c’est à peu près le hasard (5 fois sur 10). Le suivi compte les orientations justes depuis la mise en place. Une description des indices, pas une prévision sûre.',
+          'Ce matin : orientation de la séance d’aujourd’hui (Euronext ouvre à 10 h 45), d’après le mouvement de Chicago depuis la clôture d’Euronext (18 h 30 hier) jusqu’au dernier cours avant le calcul : de 0,5 à 1 %, légèrement ; au-delà de 1 %, nettement ; sous 0,5 %, pas de signal. C’est le seul indice qui annonce la séance mieux que le hasard : sur les deux dernières années, Euronext a suivi environ 6 fois sur 10 (maïs près de 7, colza un peu moins de 6 ; « fiable x fois sur 10 », recalculé chaque matin). La technique et l’actualité, à côté, décrivent la tendance de fond : elles n’annoncent pas la séance du jour et ne comptent pas dans l’orientation. Le suivi compte les orientations justes depuis leur mise en place. Une description, pas une prévision sûre.',
           'Technique : tendance des moyennes mobiles, élan (MACD) et excès (RSI). Escourgeon et orge de printemps n’ont pas de marché à terme coté chaque jour : le prix affiché est bien le leur (prix physique Creil), mais Chicago et la technique sont ceux du blé, que l’orge suit de près ; l’actualité est la leur. Leur orientation vaut pour le prochain relevé du prix physique.',
           'Actualité : effet moyen des nouvelles des 7 derniers jours sur le prix, sur une échelle de 0 à 2 dans le sens indiqué (« ▲ hausse · 1,5 sur 2 » = nettement haussière ; 0,5 = plutôt ; 1 et plus = très) ; azote : hausse = plus cher. Détail dans l’onglet Actualité.',
           'Prix sur 5 ans : le percentile place le cours du jour parmi les semaines des 5 dernières années. 50e = au milieu ; 20e = plus bas que 80 % d’entre elles ; 90e = plus haut que 90 %.',
