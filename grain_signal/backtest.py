@@ -258,57 +258,54 @@ def backtest_technique(yahoo, essais=30):
     return res
 
 
-def backtest_ouverture(yahoo, rows_e=None):
-    """Avant l'ouverture : quand Chicago (clôture de la veille, après Euronext) et la lecture technique de la veille penchent d'un
-    côté, la séance Euronext suivante va-t-elle dans ce sens ? Part des séances suivies, à comparer à 50 % : « 1 » = un seul des
-    deux indices donne un sens (l'autre neutre), « 2 » = les deux d'accord. L'actualité n'a pas encore d'historique assez long :
-    l'orientation complète est suivie au jour le jour (journal dans etat.json)."""
+def backtest_ouverture(horaire, rows_e=None):
+    """Orientation du matin : quand Chicago a bougé de plus de ±0,5 % (« 05 ») ou de ±1 % (« 1 ») entre la clôture d'Euronext
+    de la veille (18 h 30) et 7 h, la séance Euronext suivante est-elle allée dans ce sens ? Part des séances suivies, à
+    comparer à 50 % (le hasard). Même calcul que celui du matin (decisions.chicago_nuit), sur les cours horaires gardés (jusqu'à
+    730 jours). L'orientation réelle est aussi notée au jour le jour (journal dans etat.json)."""
     sys.path.insert(0, str(HERE))
     import build  # noqa: E402
     import decisions as dec  # noqa: E402
+    from zoneinfo import ZoneInfo
 
+    paris = ZoneInfo("Europe/Paris")
     if rows_e is None:
         path = PRIV / "euronext.csv"
         rows_e = list(csv.DictReader(path.open(encoding="utf-8"))) if path.exists() else []
     out = {}
     for cult, prod in (("ble", "EBM"), ("colza", "ECO"), ("mais", "EMA")):
-        d, v, *_ = build.continuous(rows_e, prod)
-        s = (yahoo.get(dec.OUVERTURE_CHICAGO[cult]) or {}).get("serie") or {}
-        cd = sorted(s)
-        if len(d) < 300 or len(cd) < 300:
+        barres = dec.barres_valides(horaire.get(dec.OUVERTURE_CHICAGO[cult]))
+        if len(barres) < 500:
             continue
-        sc = score_serie(v)
-        res = {1: [0, 0], 2: [0, 0]}
+        d, v, *_ = build.continuous(rows_e, prod)
+        res = {"05": [0, 0], "1": [0, 0]}
         for i in range(1, len(d)):
-            j = bisect.bisect_left(cd, d[i]) - 1  # dernière séance de Chicago avant le jour de la séance
-            if j < 1 or cd[j] < d[i - 1] or sc[i - 1] is None or v[i] == v[i - 1]:
+            if v[i] == v[i - 1]:
                 continue
-            vt = dec.vote_chicago((s[cd[j]] / s[cd[j - 1]] - 1) * 100) + dec.vote_technique(sens(sc[i - 1]))
-            if vt:
-                r = res[abs(vt)]
-                r[0] += 1
-                r[1] += (v[i] > v[i - 1]) == (vt > 0)
-        out[cult] = {"depuis": d[0], **{str(k): {"seances": n, "suivies": k_, "part": round(k_ / n * 100) if n else None}
-                                          for k, (n, k_) in res.items()}}
+            sept = datetime.fromisoformat(d[i] + "T07:00").replace(tzinfo=paris).timestamp()
+            c = dec.chicago_nuit(barres, d[i - 1], sept)
+            m = dec.ouverture(c)["mesurable"]
+            if m is None:
+                continue
+            for k in (("05", "1") if m == "1" else ("05",)):  # « 05 » : tout mouvement de plus de ±0,5 %, ±1 % compris
+                res[k][0] += 1
+                res[k][1] += (v[i] > v[i - 1]) == (c > 0)
+        depuis = datetime.fromtimestamp(barres[0][0], paris).date().isoformat()
+        out[cult] = {"depuis": depuis, **{k: {"seances": n, "suivies": s_, "part": round(s_ / n * 100) if n else None}
+                                          for k, (n, s_) in res.items()}}
     return out
 
 
 def main():
     longue = load(PRIV / "yahoo_long.json", {})
     yahoo = longue if all(k in longue for k in ("ZW=F", "ZC=F", "EURUSD=X")) else load(PRIV / "yahoo.json", {})
-    # avant l'ouverture : séries longues complétées des séances récentes (et du soja, absent de l'historique long)
-    yahoo_ouv = {k: dict(v) for k, v in longue.items() if isinstance(v, dict)}
-    for k, v in load(PRIV / "yahoo.json", {}).items():
-        if isinstance(v, dict) and isinstance(v.get("serie"), dict):
-            yahoo_ouv.setdefault(k, {"serie": {}})
-            yahoo_ouv[k]["serie"] = {**(yahoo_ouv[k].get("serie") or {}), **v["serie"]}
     cftc = load(PRIV / "cftc_long.json", {}) or load(PRIV / "cftc.json", {})
     for k, v in list(cftc.items()):  # fichier court (calcul du matin) : culture prise dans la configuration
         if isinstance(v, dict) and "culture" not in v and k in CFG["cftc"]["marches"]:
             v["culture"] = CFG["cftc"]["marches"][k]["culture"]
     res = {"genere": datetime.now(timezone.utc).isoformat(timespec="seconds"),
            "technique": backtest_technique(yahoo), "psychologie": backtest_psychologie(yahoo, cftc),
-           "geopolitique": backtest_geopolitique(yahoo), "ouverture": backtest_ouverture(yahoo_ouv),
+           "geopolitique": backtest_geopolitique(yahoo), "ouverture": backtest_ouverture(load(PRIV / "chicago_horaire.json", {})),
            "limites": ["Chicago converti en €/t : la tendance d'Euronext, pas son niveau ni la base locale.",
                        "Cours Euronext : échéance la plus proche ajustée des changements d'échéance, depuis novembre 2019 seulement.",
                        "Les périodes de 20 et 60 séances se chevauchent : le « hasard seul » donne l'ordre de grandeur à dépasser.",
@@ -325,9 +322,8 @@ def main():
                   + ", ".join(f"{t['libelle']} {t['moyenne']:+.1f} %" for t in o["tranches"].values()))
     print("Risque géopolitique → blé :", res["geopolitique"])
     for cult, o in res["ouverture"].items():
-        print(f"Avant l'ouverture — {cult} : 1 indice {o['1']['part']} % suivi ({o['1']['seances']} séances), "
-              f"2 indices d'accord {o['2']['part']} % ({o['2']['seances']})")
-    return 0
+        print(f"Orientation du matin — {cult} : Chicago > ±0,5 % suivi {o['05']['part']} % ({o['05']['seances']} séances), "
+              f"> ±1 % suivi {o['1']['part']} % ({o['1']['seances']})")
 
 
 if __name__ == "__main__":

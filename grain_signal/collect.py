@@ -23,7 +23,7 @@ from pathlib import Path
 
 import requests
 
-from commun import save as save_json  # noqa: E402
+from commun import load as load_json, save as save_json  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -434,6 +434,36 @@ def collect_cftc_long():
         out["_telecharge"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     save_json(path, out)
     note("cftc_historique", ok == len(codes), f"{ok}/{len(codes)} marchés" + (f", depuis {min(v['serie'][0]['date'] for k, v in out.items() if not k.startswith('_'))}" if ok else ""))
+
+
+def collect_chicago_horaire():
+    """Cours horaires de Chicago (blé, soja, maïs) : orientation de la séance Euronext d'après le mouvement depuis la clôture
+    d'Euronext (18 h 30) jusqu'au matin, et son backtest. Gardés 800 jours (fichier privé) ; 730 jours (le maximum de Yahoo)
+    au premier passage, puis les 7 derniers jours. Barres stockées [fin de barre en epoch, cours de clôture]."""
+    import yfinance as yf
+
+    path = PRIV / "chicago_horaire.json"
+    old = {k: v for k, v in load_json(path, {}).items() if isinstance(v, list)}
+    out = dict(old)
+    for tk in ("ZW=F", "ZS=F", "ZC=F"):
+        try:
+            prev = {int(t): c for t, c in old.get(tk) or [] if isinstance(t, (int, float))}
+            h = yf.Ticker(tk).history(period="7d" if len(prev) > 2000 else "730d", interval="1h", auto_adjust=False)["Close"].dropna()
+            maintenant = time.time()
+            for t, c in h.items():
+                fin = int(t.timestamp()) + 3600
+                if fin <= maintenant + 60:  # barre en cours : pas encore close
+                    prev[fin] = round(float(c), 4)
+            garde = maintenant - 800 * 86400
+            out[tk] = [[t, prev[t]] for t in sorted(prev) if t >= garde]
+            if not out[tk]:
+                raise RuntimeError("aucune barre")
+            dern = datetime.fromtimestamp(out[tk][-1][0], timezone.utc)
+            note("chicago_horaire_" + tk, True, f"{len(out[tk])} barres, dernière close à {dern:%d/%m %H:%M} UTC")
+        except Exception as e:  # noqa: BLE001
+            note("chicago_horaire_" + tk, False, f"{type(e).__name__} {str(e)[:120]} (historique précédent gardé)")
+        time.sleep(1)
+    save_json(path, out)
 
 
 def collect_yahoo_long():
@@ -1304,12 +1334,37 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date()
-    for fn in (lambda: collect_euronext(today), lambda: collect_euronext_histo(today), collect_yahoo, collect_yahoo_long, collect_cftc, collect_cftc_long, lambda: collect_usda(today), lambda: collect_cot_euronext(today), lambda: collect_meteo(today), lambda: collect_engrais(today), collect_physique,
-               collect_banque_mondiale, lambda: collect_gpr(today), collect_actualites):
-        try:
-            fn()
-        except Exception as e:  # noqa: BLE001
-            note("collecteur", False, f"{type(e).__name__}: {e}")
+    # collecteurs en parallèle par groupe : chaque groupe interroge ses propres sites ; dans un groupe, à la suite (même site,
+    # même fichier : terre-net et Euronext ne sont pas sollicités deux fois en même temps). Durée totale ≈ celle du groupe le
+    # plus lent au lieu de la somme. Durée de chaque collecteur dans le journal.
+    groupes = [
+        [("euronext", lambda: collect_euronext(today)), ("euronext_historique", lambda: collect_euronext_histo(today)),
+         ("cot_euronext", lambda: collect_cot_euronext(today)), ("engrais", lambda: collect_engrais(today)),
+         ("physique", collect_physique)],
+        [("yahoo", collect_yahoo), ("chicago_horaire", collect_chicago_horaire), ("yahoo_long", collect_yahoo_long)],
+        [("cftc", collect_cftc), ("cftc_long", collect_cftc_long), ("usda", lambda: collect_usda(today))],
+        [("meteo", lambda: collect_meteo(today))],
+        [("banque_mondiale", collect_banque_mondiale), ("geopolitique", lambda: collect_gpr(today))],
+        [("actualites", collect_actualites)],
+    ]
+    durees = {}
+
+    def lancer(groupe):
+        for nom, fn in groupe:
+            t = time.monotonic()
+            try:
+                fn()
+            except Exception as e:  # noqa: BLE001
+                note("collecteur_" + nom, False, f"{type(e).__name__}: {e}")
+            durees[nom] = round(time.monotonic() - t)
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=len(groupes)) as ex:
+        list(ex.map(lancer, groupes))
+    print(f"Durées (s) : {', '.join(f'{k} {v}' for k, v in sorted(durees.items(), key=lambda x: -x[1]))} ; "
+          f"total {round(time.monotonic() - t0)} s")
     save_json(OUT / "collecte.json", {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "sources": status})
     ok = sum(1 for s in status.values() if s["ok"])
     print(f"Collecte : {ok}/{len(status)} sources lues")

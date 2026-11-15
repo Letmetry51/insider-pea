@@ -120,7 +120,7 @@ jobs:
         timeout-minutes: ${{ inputs.rattrapage && 60 || 25 }}
         env:
           GS_HISTO_BUDGET: ${{ inputs.rattrapage && '2700' || '480' }}
-        run: python grain_signal/collect.py
+        run: python -u grain_signal/collect.py
         continue-on-error: true
 
       - name: 3. Calcul (cours, technique, engrais, alertes)
