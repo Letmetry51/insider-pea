@@ -234,6 +234,9 @@ export function build(opts = {}) {
         ret6m1: mStats.ret6m1,
         above200: mStats.sma200 ? mStats.lastCloseAdj > mStats.sma200 : null,
         lastDate: mStats.lastDate,
+        // dernière(s) séance(s) estimée(s) par un ETF quand Yahoo n'a pas encore l'indice du jour (scrapers/prices.py, fill_market)
+        filled: Array.isArray(mRef.filled) && mRef.filled.length ? mRef.filled : undefined,
+        proxy: mRef.proxy || undefined,
       }
     : null;
   const state = readRequired(F.state, { txArchive: {}, alerts: {}, src: {}, runs: [] }, 'data/euro-signal-state.json');
