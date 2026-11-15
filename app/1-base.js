@@ -258,6 +258,28 @@ function boot() {
       var el = document.getElementById('install');
       if (el && !el.hidden) showInstall();
     });
+    // 🔄 actualisation automatique (15/11/2026) : l'application restée ouverte en arrière-plan sur le téléphone se recharge en
+    // revenant au premier plan si le calcul du soir a publié de nouvelles données ; vérifié au plus toutes les 5 minutes, rien
+    // sans réseau (la dernière version reste affichée)
+    var lastCheck = Date.now();
+    var checkFresh = function () {
+      if (document.hidden || S.mode !== 'remote' || !S.ver || Date.now() - lastCheck < 5 * 60 * 1000) return;
+      lastCheck = Date.now();
+      var cur = S.ver['euro-signal.json'];
+      fetch('data/version.json?_=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) {
+          return r.ok ? r.json() : null;
+        })
+        .then(function (v) {
+          var nv = v && v.files && v.files['euro-signal.json'];
+          if (nv && cur && nv !== cur) location.reload();
+        })
+        .catch(function () {});
+    };
+    document.addEventListener('visibilitychange', checkFresh);
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) checkFresh();
+    });
     // lien de l'email : aide affichée, adresse rendue propre (le raccourci de l'écran d'accueil ouvre la page simple)
     if (/[?&]installer=1(&|$)/.test(location.search)) {
       var q = location.search.replace(/([?&])installer=1(&|$)/, '$1').replace(/[?&]$/, '');
