@@ -10839,6 +10839,8 @@
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track, values) {
     values = values || [];
+    var instBase = dashUrl ? String(dashUrl).split('#')[0] : '';
+    var inst = instBase ? instBase + (instBase.indexOf('?') < 0 ? '?' : '&') + 'installer=1' : null; // aide à l'installation
     var nv = values.length;
     var vtxt = nv
       ? '💎 Et ' +
@@ -10941,7 +10943,8 @@
       '\n\n' +
       intro +
       "\nÀ étudier, pas un ordre d'achat. Éligibilité PEA à vérifier chez votre courtier." +
-      (dashUrl ? '\nTableau de bord : ' + dashUrl : '');
+      (dashUrl ? '\nTableau de bord : ' + dashUrl : '') +
+      (inst ? "\n📲 Installer l'application sur le téléphone : " + inst : '');
     var btn = function (href, label) {
       return (
         '<a href="' +
@@ -10951,9 +10954,18 @@
         '</a>'
       );
     };
+    // 📲 bouton d'installation sur le téléphone (15/11/2026) : la page ouvre l'aide à l'installation (euro-signal.html?installer=1)
+    var instBtn = inst
+      ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:2px 0 4px"><tr><td style="background:#17201C;border-radius:8px">' +
+        '<a href="' +
+        esc(inst) +
+        '" style="display:inline-block;padding:12px 18px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;border-radius:8px">📲 Installer l\'application sur le téléphone</a>' +
+        '</td></tr></table><div style="margin:0 0 14px;font-size:12px;color:#55615c">Icône sur l\'écran d\'accueil, ouverture en un geste, dernier classement lisible même sans réseau.</div>'
+      : '';
     var html =
       '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">Sélection de la semaine</h2>' +
       (tr ? '<p style="margin:0 0 12px;font-size:13px;color:#3D4641">📈 ' + esc(tr) + '</p>' : '') +
+      instBtn +
       (n
         ? items
             .map(function (x, k) {

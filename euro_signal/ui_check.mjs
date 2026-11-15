@@ -275,6 +275,27 @@ await Promise.all(
   }
   await p.close();
 }
+// 📲 bouton « Installer l'application » de l'email du lundi (euro-signal.html?installer=1) : aide visible, dans l'écran, adresse
+// rendue propre (le raccourci de l'écran d'accueil ouvre la page simple)
+{
+  const p = await browser.newPage({ viewport: { width: W, height: H } });
+  p.__where = 'installation';
+  p.on('pageerror', (e) => jsErr('installation', e.message));
+  await p.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+  try {
+    await p.goto(URL0.split('#')[0] + (URL0.indexOf('?') < 0 ? '?' : '&') + 'installer=1');
+    await p.waitForSelector('#install:not([hidden])', { timeout: 15000 });
+    const box = await p.locator('#install').boundingBox();
+    if (!box || box.x < 0 || box.x + box.width > W + 1)
+      problem("aide à l'installation hors de l'écran", 'installation', JSON.stringify(box));
+    if (/installer=1/.test(p.url()))
+      problem("adresse non nettoyée après l'aide à l'installation", 'installation', p.url());
+    report.install = (await p.textContent('#install')).trim().slice(0, 60);
+  } catch (e) {
+    problem("aide à l'installation absente (bouton de l'email du lundi)", 'installation', e.message.split('\n')[0]);
+  }
+  await p.close();
+}
 await browser.close();
 server.close();
 finish();

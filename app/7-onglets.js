@@ -1545,7 +1545,7 @@ function methodCard() {
 function vAide() {
   var h = '<h2 class="vt">Comment ça marche</h2>' + logicCard() + compareCard() + biblioCard() + methodCard();
   h +=
-    "<p class=\"foot pad\">🌙 Mis à jour chaque soir de semaine · 📧 sélection le lundi · 📱 « Ajouter à l'écran d'accueil » pour l'ouvrir comme une application. Aide à la décision, jamais un ordre d'achat.</p>";
+    '<p class="foot pad">🌙 Mis à jour chaque soir de semaine · 📧 sélection le lundi · 📱 <button class="link" data-a="installOpen">Installer l\'application</button> sur le téléphone. Aide à la décision, jamais un ordre d\'achat.</p>';
   var nD = 0,
     det = function (title, body) {
       return (
