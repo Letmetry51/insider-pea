@@ -76,6 +76,20 @@ def _():
     assert P.frozen(old, today) and not P.frozen(fresh, today) and not P.frozen(None, today)
 
 
+@case("Indice européen sans la séance du jour : estimée par l'ETF (2 séances au plus, jamais au-delà des actions)")
+def _():
+    m = {"ticker": "^STOXX", "rows": [["2026-11-10", 1, 1, 1, 580.0, 0], ["2026-11-11", 1, 1, 1, 582.0, 0]]}
+    etf = [["2026-11-11", 1, 1, 1, 58.20, 1], ["2026-11-12", 1, 1, 1, 58.78, 1], ["2026-11-13", 1, 1, 1, 59.37, 1]]
+    f = P.fill_market(m, etf, "2026-11-12")
+    assert f["filled"] == ["2026-11-12"] and f["rows"][-1][0] == "2026-11-12", f
+    assert abs(f["rows"][-1][4] - 582.0 * 58.78 / 58.20) < 1e-3 and len(m["rows"]) == 2  # série d'origine intacte
+    f2 = P.fill_market(m, etf, "2026-11-20")
+    assert f2["filled"] == ["2026-11-12", "2026-11-13"]
+    assert P.fill_market(m, etf, "2026-11-11") is m                     # indice à jour : rien
+    assert P.fill_market(m, [["2026-11-12", 1, 1, 1, 58.0, 1]], "2026-11-12") is m   # pas de cours ETF le dernier jour de l'indice
+    assert P.fill_market(m, None, "2026-11-12") is m and P.fill_market(None, etf, "2026-11-12") is None
+
+
 @case("Cours téléchargés d'avance en parallèle : titres résolus seulement, échec laissé à la boucle")
 def _():
     calls = []

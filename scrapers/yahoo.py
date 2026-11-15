@@ -6,10 +6,14 @@ Lien avec Yahoo Finance, rendu robuste (18/10/2026).
 - Téléchargement par lots avec nouvelles tentatives : jeton (crumb) renouvelé sur 401, attente croissante sur 429 / « Too Many ».
 - Titres manquants dans un lot : relance en petits lots, puis un par un (dans une limite), au lieu de les perdre pour la nuit.
 - Compteurs (demandés, reçus, récupérés, manquants, erreurs) écrits dans data/diagnostics/yahoo.json, lus par le contrôle du soir.
+- Jeton empoisonné (15/11/2026) : yfinance 1.8 garde la réponse d'un getcrumb limité (HTTP 429, « Too Many Requests ») comme si
+  c'était le jeton ; toutes les fiches (données financières, prévisionnels) sont alors refusées (401 Invalid Crumb) jusqu'à la fin
+  du script. ensure_crumb() le repère sur un titre témoin, remet le jeton à zéro et attend que Yahoo le rende.
 """
 import json
 import os
 import tempfile
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +21,7 @@ from pathlib import Path
 DIAG = Path(__file__).resolve().parent.parent / "data" / "diagnostics" / "yahoo.json"
 STATS = {}
 _CONFIGURED = False
+_LOCK = threading.Lock()  # compteurs incrémentés depuis plusieurs fils (events.py)
 
 
 def log(*a):
@@ -50,11 +55,47 @@ def reset_session():
         pass
 
 
+def crumb_poisoned():
+    """Jeton gardé par yfinance qui n'en est pas un : réponse « Too Many Requests » ou page HTML d'un getcrumb limité (HTTP 429).
+    Un vrai jeton est court, sans espace ni balise."""
+    try:
+        from yfinance.data import YfData
+        c = getattr(YfData(), "_crumb", None)
+    except Exception:
+        return False
+    return c is not None and (len(str(c)) > 32 or any(ch in str(c) for ch in " <>{}\n"))
+
+
+def ensure_crumb(probe="SAP.DE", waits=(0, 30, 60, 120, 240), info=None):
+    """Yahoo sert-il les fiches (jeton exigé) ? Le titre témoin est demandé ; en cas de refus ou de jeton empoisonné, jeton remis à
+    zéro et nouvel essai après une attente croissante (le getcrumb limité se libère en quelques minutes : 7 min 30 au plus).
+    Renvoie True si le témoin répond ; sinon le script garde les fiches et prévisionnels de la veille. info : appel remplaçable
+    (tests)."""
+    import yfinance as yf
+    fetch = info or (lambda: yf.Ticker(probe).info)
+    for w in waits:
+        if w:
+            log(f"  Yahoo : fiches refusées (jeton), nouvel essai dans {w} s")
+            time.sleep(w)
+            reset_session()
+        elif crumb_poisoned():
+            reset_session()
+        try:
+            inf = fetch() or {}
+        except Exception as e:
+            log(f"  Yahoo : fiche témoin {probe} refusée ({str(e)[:100]})")
+            continue
+        if inf.get("longName") or inf.get("shortName") or inf.get("marketCap"):
+            return True
+    return False
+
+
 def _stat(section, **inc):
-    s = STATS.setdefault(section, {"requested": 0, "received": 0, "recovered": 0, "missing": 0, "errors": 0, "carried": 0})
-    for k, v in inc.items():
-        s[k] = s.get(k, 0) + v
-    return s
+    with _LOCK:
+        s = STATS.setdefault(section, {"requested": 0, "received": 0, "recovered": 0, "missing": 0, "errors": 0, "carried": 0})
+        for k, v in inc.items():
+            s[k] = s.get(k, 0) + v
+        return s
 
 
 def call(fn, tries=4, section=None):

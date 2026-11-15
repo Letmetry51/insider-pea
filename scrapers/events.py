@@ -14,12 +14,18 @@ from concurrent.futures import ThreadPoolExecutor
 import math
 import os
 import sys
+import threading
 import time
 import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yfinance as yf
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import yahoo  # noqa: E402  (jeton Yahoo vérifié, compteurs du contrôle du soir)
+
+INFO = "données financières"  # section des compteurs Yahoo : fiches demandées (t.info), lues ou refusées
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -169,6 +175,14 @@ def main():
     # soient relus au fil des soirs même quand la collecte n'a pas le temps de tout faire.
     budget = float(os.environ.get("EVENTS_MINUTES", "0") or 0) * 60
     t0 = time.monotonic()
+    # Jeton Yahoo (fiches : données financières, objectifs de cours, prévisionnels). Du 03 au 12/11/2026, il a été refusé la plupart
+    # des soirs (getcrumb limité, HTTP 429, puis 401 Invalid Crumb sur chaque fiche) sans alerte : les prévisionnels n'étaient plus
+    # relus et disparaissaient au bout de 30 jours. Il est vérifié avant la collecte (attente comprise dans le budget) ; s'il reste
+    # refusé, les fiches ne sont pas demandées ce soir (données de la veille gardées par Euro Signal) et le compteur le dit.
+    st = {"down": not yahoo.ensure_crumb(), "fails": 0}
+    lock = threading.Lock()
+    if st["down"]:
+        print("Yahoo : fiches refusées même après 7 min 30 d'attente : données financières et prévisionnels de la veille gardés ce soir")
     first = [x for x in pairs if x[0] in fc_todo]
     rest = [x for x in pairs if x[0] not in fc_todo]
     if rest:
@@ -210,10 +224,15 @@ def main():
                 rec["epsTrend"] = {"current": num(tr.loc["0y"].get("current")), "d30": num(tr.loc["0y"].get("30daysAgo"))}
         except Exception:
             pass
-        try:
-            inf = t.info or {}
-        except Exception:
-            inf = {}
+        inf = {}
+        if not st["down"]:
+            try:
+                inf = t.info or {}
+            except Exception:
+                inf = {}
+            with lock:
+                st["fails"] = 0 if inf else st["fails"] + 1
+        yahoo._stat(INFO, requested=1, received=1 if inf else 0, missing=0 if inf else 1)
         rec["fund"] = fundamentals(t, inf) if inf else None
         if fc_due(isin):
             try:
@@ -246,6 +265,13 @@ def main():
                 partial = True
                 print(f"  Budget de temps atteint : {done} titres sur {len(pairs)} relus ce soir, les autres gardent les données de la veille")
                 break
+            if not st["down"] and (st["fails"] >= 30 or yahoo.crumb_poisoned()):
+                print(f"  Yahoo : {st['fails']} fiches refusées de suite, contrôle du jeton")
+                if yahoo.ensure_crumb(waits=(15, 60, 120)):
+                    st["fails"] = 0
+                else:
+                    st["down"] = True
+                    print("  Yahoo : jeton toujours refusé : fiches de la veille gardées pour les titres restants")
             for isin, rec, errs in ex.map(lambda p: fetch(*p), pairs[k:k + 30]):
                 if rec is None:
                     partial = True
@@ -254,6 +280,7 @@ def main():
                 errors += errs
                 done += 1
             print(f"  {done}/{len(pairs)} ({time.monotonic() - t0:.0f} s)")
+    yahoo.write_diag()  # compteurs « données financières », lus par le contrôle du soir (alerte si les fiches sont refusées)
     tmp = DATA / "events.json.tmp"  # écriture atomique : une étape coupée par son délai ne laisse pas un fichier à moitié écrit
     tmp.write_text(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat(), "items": items, "errors": errors, "partial": partial, "total": len(pairs)}, ensure_ascii=False), encoding="utf-8")
     tmp.replace(DATA / "events.json")

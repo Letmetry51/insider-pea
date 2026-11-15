@@ -35,6 +35,7 @@ TICKERS = DATA / "tickers.json"
 OUT = DATA / "prices.json"
 BENCH = "^FCHI"  # CAC 40, indice de référence de l'étude d'événements
 MARKET = "^STOXX"  # STOXX Europe 600 : force relative et tendance du marché européen
+MARKET_PROXIES = ("EXSA.DE", "MEUD.PA")  # ETF qui suivent le STOXX Europe 600 (Xetra, Euronext Paris) : dernière séance manquante
 EU_SUFFIXES = (".PA", ".AS", ".BR", ".MI", ".MC", ".DE", ".LS", ".IR", ".VI", ".HE", ".ST", ".OL", ".CO")
 EU_ALL = EU_SUFFIXES + (".F", ".HM", ".SG", ".DU", ".MU", ".BE", ".HA")  # bourses régionales allemandes en dernier recours
 HOME = {"FR": ".PA", "DE": ".DE", "IT": ".MI", "ES": ".MC", "NL": ".AS", "BE": ".BR", "PT": ".LS", "IE": ".IR", "AT": ".VI", "FI": ".HE", "LU": ".PA", "SE": ".ST", "NO": ".OL", "DK": ".CO"}
@@ -317,6 +318,23 @@ def history(ticker, period="2y"):
     return {"rows": rows, "splits": splits, "dividends": dividends, "currency": currency, "weekly": weekly}
 
 
+def fill_market(market, proxy_rows, upto, max_days=2):
+    """Séances de l'indice absentes en fin de série, jusqu'à la dernière séance des actions (upto) : Yahoo publie parfois le STOXX
+    Europe 600 du jour seulement le lendemain (soirs des 10, 11 et 12/11/2026 : tendance du marché et alerte de krach calculées sur
+    la veille, email de contrôle). Elles sont estimées par un ETF qui suit l'indice : dernière clôture de l'indice × évolution de
+    l'ETF depuis, au plus max_days séances (au-delà, la panne reste signalée). Yahoo les remplace au calcul suivant."""
+    rows = (market or {}).get("rows") or []
+    if not rows or not proxy_rows or not upto:
+        return market
+    last, c0 = rows[-1][0], rows[-1][4]
+    px = {r[0]: r[4] for r in proxy_rows if r and r[4]}
+    add = [d for d in sorted(px) if last < d <= upto][:max_days]
+    if not c0 or not px.get(last) or not add:
+        return market
+    new = [[d, c, c, c, c, None] for d in add for c in [round(c0 * px[d] / px[last], 4)]]
+    return dict(market, rows=rows + new, filled=add)
+
+
 PREFETCH_THREADS = 6  # comme scrapers/sectors.py, qui télécharge à 8 en parallèle sans refus de Yahoo
 
 
@@ -492,6 +510,18 @@ def main():
             market = {"ticker": MARKET, "rows": m["rows"]}
     except Exception as e:
         print("Indice européen indisponible :", e)
+    upto = max((v["rows"][-1][0] for v in items.values() if v.get("rows") and not v.get("stale")), default=None)
+    if market and upto and market["rows"] and market["rows"][-1][0] < upto:
+        for pt in MARKET_PROXIES:
+            try:
+                p = history(pt, period="1mo")
+            except Exception:
+                p = None
+            filled = fill_market(market, (p or {}).get("rows"), upto)
+            if filled is not market:
+                market = dict(filled, proxy=pt)
+                print(f"Indice européen : séance(s) {', '.join(filled['filled'])} absente(s) chez Yahoo, estimée(s) par l'ETF {pt}")
+                break
     if market is None and bench:
         market = bench  # repli : CAC 40
     # Taux de change (unités de devise pour 1 euro, dernière clôture) : convertit montants et liquidité des sociétés hors zone euro

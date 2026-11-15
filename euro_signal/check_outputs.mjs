@@ -689,7 +689,10 @@ if (BK && !BK.__error && tonight(BK) && BK.complete && BK.complete.catalogue) {
     check(
       mk.ticker === '^STOXX' && mk.lastDate >= eP,
       mk.lastDate
-        ? `indice européen (${mk.ticker === '^STOXX' ? 'STOXX Europe 600' : (mk.ticker || '?') + ' à la place du STOXX Europe 600, indisponible'}) : dernière séance du ${dm(mk.lastDate)}`
+        ? `indice européen (${mk.ticker === '^STOXX' ? 'STOXX Europe 600' : (mk.ticker || '?') + ' à la place du STOXX Europe 600, indisponible'}) : dernière séance du ${dm(mk.lastDate)}` +
+            (Array.isArray(mk.filled) && mk.filled.length
+              ? ` (${mk.filled.map(dm).join(', ')} estimée par l'ETF ${mk.proxy || '?'} en attendant Yahoo)`
+              : '')
         : 'indice européen (STOXX Europe 600) indisponible : tendance du marché et alerte de krach non calculées',
       true
     );
