@@ -221,16 +221,23 @@ def _():
     check_outputs()
 
 
-@case("Révisions des analystes : Yahoo bloqué la semaine suivante, révisions précédentes gardées, semaine creuse jamais archivée")
+@case("Révisions des analystes : jeton refusé (relevé reporté), Yahoo bloqué la semaine suivante, révisions précédentes gardées, semaine creuse jamais archivée")
 def _():
     syms = [f"X{k}.PA" for k in range(60)]
     S.write_json(S.UNIVERSE, {"items": {s: {"sector": "Technology", "industry": "Semiconductors"} for s in syms}})
     S.write_json(S.ESTIMATES, {s: {"rev": {"up7": 0, "up30": 2, "down7": 0, "down30": 1}, "fetched": "2026-10-31"} for s in syms})
     S.write_json(S.REV_HIST, {"2026-10-31": {}})
-    real = S.fetch_estimates, S.EST_HIST
+    import yahoo
+    real = S.fetch_estimates, S.EST_HIST, yahoo.ensure_crumb
     S.EST_HIST = S.SEC / "estimates-archive.json.gz"  # jamais l'archive du dépôt
     rev = {"up7": 1, "up30": 3, "down7": 0, "down30": 0}
     try:
+        # jeton Yahoo refusé (15/11/2026) : relevé reporté, rien de demandé ni d'écrit
+        yahoo.ensure_crumb = lambda **kw: False
+        S.fetch_estimates = lambda s: (_ for _ in ()).throw(AssertionError("relevé demandé malgré le jeton refusé"))
+        S.refresh_estimates()
+        assert S.read_json(S.ESTIMATES, {})["X5.PA"]["fetched"] == "2026-10-31"
+        yahoo.ensure_crumb = lambda **kw: True
         S.fetch_estimates = lambda s: (s, {"fetched": "2026-11-07", **({"rev": rev} if s < "X2" else {})})  # 12 sur 60
         S.refresh_estimates()
         est = S.read_json(S.ESTIMATES, {})
@@ -243,7 +250,7 @@ def _():
         assert all(v["rev"] == rev and "revAt" not in v for v in est.values()) and len(S.read_json(S.REV_HIST, {})) == 2
         assert S.EST_HIST.exists()
     finally:
-        S.fetch_estimates, S.EST_HIST = real
+        S.fetch_estimates, S.EST_HIST, yahoo.ensure_crumb = real
 
 
 @case("Historique trop court (40 semaines) : rien d'écrit, aucun plantage")

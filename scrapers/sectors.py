@@ -780,6 +780,12 @@ def refresh_estimates():
         log("Révisions : univers absent")
         return
     t0 = time.time()
+    import yahoo
+    # Jeton Yahoo refusé (getcrumb limité puis 401 Invalid Crumb, soirs du 03 au 12/11/2026) : relevé de la semaine reporté plutôt
+    # que des milliers de refus ; la date du dernier relevé reste visible (contrôle du soir) et les révisions précédentes restent
+    if not yahoo.ensure_crumb(waits=(0, 30, 90)):
+        log("Révisions : fiches Yahoo refusées (jeton) : relevé de la semaine reporté, révisions précédentes gardées")
+        return
     old = read_json(ESTIMATES, {})
     est = {}
     with ThreadPoolExecutor(THREADS) as ex:
