@@ -22,6 +22,23 @@ document.addEventListener('click', function (ev) {
     render();
     if (ret) restoreBack();
     else window.scrollTo(0, 0);
+  } else if (a === 'install') {
+    var bip = INSTALL.ev;
+    INSTALL.ev = null;
+    if (!bip) return showInstall();
+    bip.prompt();
+    Promise.resolve(bip.userChoice)
+      .then(function (c) {
+        if (c && c.outcome === 'accepted') INSTALL.done = true;
+        showInstall();
+      })
+      .catch(showInstall);
+  } else if (a === 'installClose') {
+    var ie = document.getElementById('install');
+    if (ie) ie.hidden = true;
+  } else if (a === 'installOpen') {
+    showInstall();
+    window.scrollTo(0, 0);
   } else if (a === 'secPlan') {
     S.secOpen = S.secOpen || {};
     S.secOpen[el.dataset.v] = !S.secOpen[el.dataset.v];

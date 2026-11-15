@@ -176,9 +176,95 @@ var S = {
 window.__ES_STATE = S; // pour le débogage dans la console
 
 /* =========================== Stockage =========================== */
+/* 📲 Installation sur le téléphone (15/11/2026) : bouton de l'email du lundi (euro-signal.html?installer=1) et lien de l'aide.
+   Chrome, Edge et Samsung Internet sur Android proposent l'installation en un geste (évènement beforeinstallprompt) ; Safari sur
+   iPhone ne l'expose pas : la marche à suivre (Partager → Sur l'écran d'accueil) est affichée. */
+var INSTALL = { ev: null, done: false };
+function isInstalled() {
+  try {
+    return (
+      INSTALL.done ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true
+    );
+  } catch (e) {
+    return INSTALL.done;
+  }
+}
+function installInfo() {
+  var ua = navigator.userAgent || '';
+  var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (isInstalled())
+    return {
+      done: true,
+      html: "<b>Application installée</b> : ouvrez Euro Signal depuis son icône sur l'écran d'accueil.",
+    };
+  if (INSTALL.ev)
+    return {
+      btn: true,
+      html: "<b>Installer Euro Signal sur ce téléphone</b> : icône sur l'écran d'accueil, ouverture en un geste, dernier classement lisible même sans réseau.",
+    };
+  if (ios)
+    return {
+      html:
+        '<b>Sur iPhone</b> : touchez <b>Partager</b> (le carré avec une flèche vers le haut' +
+        (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua) ? ", dans la barre d'adresse" : ", en bas de l'écran dans Safari") +
+        "), puis <b>« Sur l'écran d'accueil »</b> et <b>Ajouter</b>.",
+    };
+  if (/Android/.test(ua))
+    return {
+      html: "<b>Sur Android</b> : menu <b>⋮</b> du navigateur, puis <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.",
+    };
+  return {
+    html: "<b>Sur ordinateur</b> : ouvrez le bouton « Installer l'application » de l'email du lundi depuis le téléphone ; ici, l'icône d'installation de la barre d'adresse (Chrome, Edge) l'ajoute à l'ordinateur.",
+  };
+}
+function showInstall() {
+  var el = document.getElementById('install');
+  if (!el) {
+    var m = document.getElementById('main');
+    if (!m) return;
+    el = document.createElement('div');
+    el.id = 'install';
+    el.setAttribute('role', 'region');
+    el.setAttribute('aria-label', "Installer l'application");
+    m.parentNode.insertBefore(el, m);
+  }
+  var x = installInfo();
+  el.className = 'install' + (x.done ? ' done' : '');
+  el.innerHTML =
+    '<span class="ic" aria-hidden="true">' +
+    (x.done ? '✅' : '📲') +
+    '</span><div class="tx">' +
+    x.html +
+    '</div>' +
+    (x.btn ? '<button data-a="install">Installer</button>' : '') +
+    '<button class="ghost small x" data-a="installClose" aria-label="Fermer">✕</button>';
+  el.hidden = false;
+}
 function boot() {
   render();
   tryRemote();
+  try {
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault(); // installation proposée par le bouton de l'aide, au moment choisi
+      INSTALL.ev = e;
+      var el = document.getElementById('install');
+      if (el && !el.hidden) showInstall();
+    });
+    window.addEventListener('appinstalled', function () {
+      INSTALL.ev = null;
+      INSTALL.done = true;
+      var el = document.getElementById('install');
+      if (el && !el.hidden) showInstall();
+    });
+    // lien de l'email : aide affichée, adresse rendue propre (le raccourci de l'écran d'accueil ouvre la page simple)
+    if (/[?&]installer=1(&|$)/.test(location.search)) {
+      var q = location.search.replace(/([?&])installer=1(&|$)/, '$1').replace(/[?&]$/, '');
+      history.replaceState(null, '', location.pathname + q + location.hash);
+      showInstall();
+    }
+  } catch (e) {}
   var off = function () {
     document.body.classList.toggle('offline', !navigator.onLine);
   };

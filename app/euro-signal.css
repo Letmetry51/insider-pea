@@ -207,6 +207,40 @@ button.link {
   color: var(--accent);
   padding: 0;
 }
+/* 📲 aide à l'installation sur le téléphone (bouton de l'email du lundi, lien de l'aide) */
+.install {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 10px 0 4px;
+  padding: 12px 46px 12px 14px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  line-height: 1.45;
+}
+.install[hidden] {
+  display: none;
+}
+.install.done {
+  border-color: var(--line);
+  background: transparent;
+}
+.install .ic {
+  font-size: 1.4rem;
+}
+.install .tx {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.install .x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

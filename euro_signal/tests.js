@@ -3631,8 +3631,20 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
       !/undefined|null|NaN/.test(mail.text + mail.html),
     'email lisible'
   );
+  ok(
+    mail.html.indexOf('href="https://x/?installer=1"') > 0 &&
+      /Installer l'application sur le téléphone/.test(mail.html) &&
+      mail.html.indexOf('installer=1') < mail.html.indexOf('NOUVEAU') &&
+      /Installer l'application sur le téléphone : https:\/\/x\/\?installer=1/.test(mail.text),
+    "📲 bouton d'installation en tête de l'email (et dans la version texte)"
+  );
   const none = ES.buildRankEmail([], '2026-W43', c3, null, '2026-10-19', null);
   ok(/aucune société/.test(none.subject));
+  ok(!/installer=1/.test(none.html + none.text), "sans adresse du tableau de bord, pas de bouton d'installation");
+  eq(
+    (ES.buildRankEmail([], 'W', c3, 'https://x/p.html?a=1#aide', 'd', null).text.match(/Installer[^\n]*/) || [''])[0],
+    "Installer l'application sur le téléphone : https://x/p.html?a=1&installer=1"
+  );
 });
 t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cours anormal', () => {
   const wk = (g) => Array.from({ length: 120 }, (_, k) => 10 * Math.pow(1 + g, k / 52));
