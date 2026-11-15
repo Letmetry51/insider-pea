@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "grain_signal"))
 import os
 os.chdir(Path(__file__).resolve().parent.parent)
 import build  # noqa: E402
+import indicators as ind  # noqa: E402
 
 PARIS = ZoneInfo("Europe/Paris")
 rows = list(csv.DictReader(open("data/grain/prive/euronext.csv", encoding="utf-8")))
@@ -25,6 +26,8 @@ for prod, nom, tk in (("EBM", "Blé", "ZW=F"), ("ECO", "Colza", "ZS=F"), ("EMA",
         return (px[i], ts[i]) if i >= 0 else (None, None)
 
     res = {"nuit": {}, "veille": {}}
+    sc = ind.score_serie(v)
+    combo = {}
     for i in range(1, len(d)):
         jour, veille = datetime.fromisoformat(d[i]).replace(tzinfo=PARIS), datetime.fromisoformat(d[i - 1]).replace(tzinfo=PARIS)
         if veille < ts[0] + timedelta(days=2):
@@ -37,6 +40,11 @@ for prod, nom, tk in (("EBM", "Blé", "ZW=F"), ("ECO", "Colza", "ZS=F"), ("EMA",
         if r == 0:
             continue
         c = p1 / p0 - 1
+        if abs(c) > 0.005 and sc[i - 1] is not None:
+            t = ind.sens(sc[i - 1])
+            cle = "technique d'accord" if (t == "haussière" and c > 0) or (t == "baissière" and c < 0) else ("technique neutre" if t == "neutre" else "technique contraire")
+            n, k = combo.get(cle, (0, 0))
+            combo[cle] = (n + 1, k + ((r > 0) == (c > 0)))
         # clôture de Chicago de la veille (référence actuelle de l'outil) : dernière barre ≤ 20 h 20 la veille vs ≤ 20 h 20 l'avant-veille
         pc1, _ = prix_a(veille.replace(hour=20, minute=20))
         pc0, _ = prix_a((veille - timedelta(days=1 if veille.weekday() else 3)).replace(hour=20, minute=20))
@@ -47,6 +55,8 @@ for prod, nom, tk in (("EBM", "Blé", "ZW=F"), ("ECO", "Colza", "ZS=F"), ("EMA",
                 if abs(x) > s:
                     n, k = res[nomr].get(s, (0, 0))
                     res[nomr][s] = (n + 1, k + ((r > 0) == (x > 0)))
+    for cle, (n, k) in sorted(combo.items()):
+        out.append(f"  Chicago nuit > ±0,5 % et {cle} : même sens que Chicago {k}/{n} = {100 * k / n:.0f} %")
     for nomr, lab in (("nuit", "Chicago 18 h 30 → 7 h (depuis la clôture d'Euronext)"), ("veille", "clôture de Chicago de la veille (actuel)")):
         out.append(f"  {lab} :")
         for s, (n, k) in sorted(res[nomr].items()):
