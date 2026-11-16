@@ -247,6 +247,17 @@ document.addEventListener('click', function (ev) {
     var yr2 = window.scrollY;
     render();
     window.scrollTo(0, yr2);
+  } else if (a === 'rfPreset') {
+    // 🔎 recherche toute prête (ou « none » : tous les filtres effacés)
+    if (el.dataset.v === 'none') {
+      var srt = (S.rf || {}).sort,
+        sdir = (S.rf || {}).dir;
+      S.rf = { sort: srt, dir: sdir };
+    } else rfPreset(el.dataset.v);
+    S.limit = 50;
+    var ypr = window.scrollY;
+    render();
+    window.scrollTo(0, ypr);
   } else if (a === 'rfFClear') {
     S.rf.figures = [];
     S.rf.plans = [];
