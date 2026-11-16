@@ -207,6 +207,16 @@ button.link {
   color: var(--accent);
   padding: 0;
 }
+/* 🔎 recherches toutes prêtes */
+.presets {
+  margin: 4px 0 10px;
+}
+.presets .fchip.idea:not(.on) {
+  border-style: dashed;
+}
+.presets .warnc {
+  color: var(--warn, #9a6700);
+}
 /* 📲 aide à l'installation sur le téléphone (bouton de l'email du lundi, lien de l'aide) */
 .install {
   position: relative;

@@ -2781,13 +2781,124 @@ function rankQuick() {
         return r.acc === 'good';
       },
     ],
+    liq: [
+      '💶 3 M€ par jour ou plus',
+      function (r) {
+        return (r.liq || 0) >= 3e6;
+      },
+    ],
+    mom: [
+      '📈 12 mois +60 à +200 %',
+      function (r) {
+        return r.mom != null && r.mom >= 60 && r.mom <= 200;
+      },
+    ],
+    m10: [
+      '✅ Au-dessus de la moyenne 10 sem.',
+      function (r) {
+        return r.m10 != null && r.m10 >= 0;
+      },
+    ],
     near: [
       '↘️ 2 à 10 % sous le plus haut',
       function (r) {
         return r.ratio != null && r.ratio >= 90 && r.ratio < 98;
       },
     ],
+    bj: [
+      '📣 Bond du jour',
+      function (r) {
+        return r.bj != null;
+      },
+    ],
+    fd: [
+      '🚩 Drapeau cassé',
+      function (r) {
+        return r.fd != null;
+      },
+    ],
   };
+}
+/**
+ * 🔎 Recherches toutes prêtes (16/11/2026, demande de François : « un mode recherche avec les critères déterminants ») : seulement
+ * des critères que les tests ont validés, chacun avec son résultat mesuré. Le support dessiné, les rebonds et les indicateurs
+ * classiques (RSI…) ont été testés et n'ajoutent rien : « Ton idée » le montre (research/README.md, études du 12 au 14/11/2026).
+ * [libellé, état des filtres, résultat mesuré]
+ */
+var RPRESETS = {
+  method: [
+    '🎯 Canal haussier fort, 12 mois +60 à +200 %, feu vert',
+    { slope: ['strong'], quick: ['pea', 'acc', 'liq', 'mom', 'm10'] },
+    'ce que la méthode achète (comptes solides, PEA, 3 M€ par jour) : 🎯 au feu vert +4,5 points à 6 mois face à la moyenne des sociétés sur 2000-2026, pente forte +4 points',
+  ],
+  dip: [
+    '↘️ Même chose, sur un repli de 2 à 10 %',
+    { slope: ['strong', 'mid'], quick: ['pea', 'acc', 'liq', 'mom', 'near'] },
+    "acheter sur un petit repli : aussi bon qu'au plus haut sur 29 ans ; au-delà de 10 % sous le plus haut, deux fois plus de chutes",
+  ],
+  bp: [
+    '📣 Démarrage sur bond (semaine)',
+    { bp: true },
+    'semaine à +8 % sur 3 fois le volume, en tendance, pas encore dans le 🎯 : +5,5 points à 6 mois et +11,2 à 12 mois sur 1997-2026',
+  ],
+  bj: [
+    '📣 Bond du jour',
+    { quick: ['bj'] },
+    'séance à +8 % sur au moins 4 fois le volume, en tendance : +8,2 points à 6 mois sur 2000-2026 (+9,4 à 5 fois ou plus)',
+  ],
+  fd: [
+    '🚩 Drapeau cassé',
+    { quick: ['fd'] },
+    'hausse de 30 % en 8 semaines, repos de 2 à 6 semaines, puis bond 📣 au-dessus : +18 points à 6 mois sur 1997-2026',
+  ],
+  idea: [
+    'Ton idée : support + canal haussier + volumes',
+    { slope: ['strong', 'mid'], plans: ['buyNow'], vol: true },
+    'testée du 12 au 14/11/2026 : acheter sur un support, un rebond ou dans un canal ne fait pas mieux que la moyenne une fois le momentum pris en compte ; la pente du canal et les gros volumes comptent déjà dans les recherches ci-dessus',
+  ],
+};
+/** Applique une recherche toute prête : les autres filtres sont remis à zéro (le tri est gardé). */
+function rfPreset(k) {
+  var P = RPRESETS[k];
+  if (!P) return;
+  var f = (S.rf = S.rf || {}),
+    st = P[1];
+  f.q = '';
+  f.country = '';
+  f.sector = '';
+  f.v = '';
+  f.vol = !!st.vol;
+  f.brk = false;
+  f.bp = !!st.bp;
+  f.slope = (st.slope || []).slice();
+  f.quick = (st.quick || []).slice();
+  f.plans = (st.plans || []).slice();
+  f.figures = [];
+  f.timing = [];
+  f.preset = k;
+}
+/** Recherche toute prête encore appliquée telle quelle (aucun filtre changé depuis), sinon null. */
+function rfPresetOn(f) {
+  var P = f.preset && RPRESETS[f.preset];
+  if (!P) return null;
+  var st = P[1],
+    same = function (a, b) {
+      return (a || []).slice().sort().join() === (b || []).slice().sort().join();
+    };
+  return !f.q &&
+    !f.country &&
+    !f.sector &&
+    !f.v &&
+    !f.brk &&
+    !!f.vol === !!st.vol &&
+    !!f.bp === !!st.bp &&
+    same(f.slope, st.slope) &&
+    same(f.quick, st.quick) &&
+    same(f.plans, st.plans) &&
+    !(f.figures || []).length &&
+    !(f.timing || []).length
+    ? f.preset
+    : null;
 }
 /** Critères de tri du classement : [libellé, valeur] (valeur absente = en fin de liste). */
 var RSORT = {
@@ -2945,9 +3056,55 @@ function vClassement() {
   h +=
     '<details class="card fold allfold" data-k="all"' +
     (allOn ? ' open' : '') +
-    '><summary>📋 Toutes <span class="muted small">· ' +
+    '><summary>🔎 Recherche <span class="muted small">· ' +
     fmtInt((R.counts || {}).ranked || 0) +
     ' sociétés, filtres</span></summary>';
+  // recherches toutes prêtes : critères validés par les tests, nombre de sociétés et résultat mesuré de celle qui est choisie
+  var pOn = rfPresetOn(f),
+    pCount = function (st) {
+      var Qs = rankQuick();
+      return rows.filter(function (r) {
+        if (st.bp) return rkBp(r, p10);
+        if (r.out.length) return false;
+        if (st.slope && st.slope.indexOf(rkSc(r) || 'none') < 0) return false;
+        if (st.vol && !(r.vx >= ES.VOL_SURGE)) return false;
+        if (st.plans && st.plans.indexOf((r.plan || {}).v) < 0) return false;
+        return (st.quick || []).every(function (k) {
+          return Qs[k][1](r);
+        });
+      }).length;
+    };
+  h +=
+    '<div class="presets" role="group" aria-label="Recherches toutes prêtes"><span class="slt">Recherches toutes prêtes <span class="muted">· critères testés</span></span><div class="fchips">' +
+    Object.keys(RPRESETS)
+      .map(function (k) {
+        var on = pOn === k;
+        return (
+          '<button class="fchip' +
+          (k === 'idea' ? ' idea' : '') +
+          (on ? ' on' : '') +
+          '" aria-pressed="' +
+          on +
+          '" data-a="rfPreset" data-v="' +
+          k +
+          '">' +
+          RPRESETS[k][0] +
+          ' <span class="count">' +
+          pCount(RPRESETS[k][1]) +
+          '</span></button>'
+        );
+      })
+      .join('') +
+    '</div>' +
+    (pOn
+      ? '<p class="small ' +
+        (pOn === 'idea' ? 'warnc' : 'muted') +
+        '">' +
+        (pOn === 'idea' ? '⚠️ ' : '🧪 ') +
+        esc(RPRESETS[pOn][2]) +
+        '. <button class="link" data-a="rfPreset" data-v="none">Effacer la recherche</button></p>'
+      : '') +
+    '</div>';
   // filtres rapides, avec le nombre de résultats si l'on coche ce filtre en plus des autres
   var pool = rows.filter(function (r) {
     return base(r) && plf(r);
