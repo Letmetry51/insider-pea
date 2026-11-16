@@ -980,6 +980,30 @@ check(len(_appels) == 2 and "start_date=2026-11-06&end_date=2026-11-09" in _appe
       and min(_mm[_z0]["archive"]) >= (_auj - _td(days=11 * 366)).isoformat() and _mm[_z0]["archive_au"] == "2026-11-15",
       f"météo : 2 requêtes au lieu de 32 (prévisions et jours manquants groupés), 11 ans gardés ({len(_appels)} requêtes)")
 
+# prix physiques : une page terre-net en 502 est relue au second tour (30 s plus tard)
+_essais, _notes = {}, {}
+
+
+def _get_502(url, **kw):
+    _essais[url] = _essais.get(url, 0) + 1
+    if _essais[url] == 1 and url == list(collect.CFG["physique"].values())[0]:
+        raise RuntimeError("HTTP 502")
+    return type("R", (), {"text": ""})()
+
+
+_tmpp = Path(tempfile.mkdtemp())
+with _um2.patch.object(collect, "get", _get_502), _um2.patch.object(collect, "time", type("T", (), {"sleep": staticmethod(lambda s: None)})), \
+        _um2.patch.object(collect, "parse_place_prices", lambda html: [{"prix": 200.0, "titre": "x", "place": "Rouen", "echeance": ""}]), \
+        _um2.patch.object(collect, "note", lambda k, ok, d=None: _notes.__setitem__(k, ok)), _um2.patch.object(collect, "PRIV", _tmpp), \
+        _um2.patch.object(collect, "OUT", _tmpp):
+    try:
+        collect.collect_physique()
+    except Exception:  # noqa: BLE001  (suite de la fonction hors sujet ici)
+        pass
+_p0 = "physique_" + list(collect.CFG["physique"])[0]
+check(_notes.get(_p0) is True and _essais[list(collect.CFG["physique"].values())[0]] == 2,
+      f"prix physiques : page en 502 relue au second tour ({_notes.get(_p0)}, {_essais.get(list(collect.CFG['physique'].values())[0])} essais)")
+
 # orientation du matin : mouvement de Chicago depuis la clôture d'Euronext, paliers 0,5 % et 1 %
 check(dec.ouverture(1.3) == {"orientation": "hausse", "total": 2, "mesurable": "1"}
       and dec.ouverture(-0.7) == {"orientation": "legere_baisse", "total": -1, "mesurable": "05"}

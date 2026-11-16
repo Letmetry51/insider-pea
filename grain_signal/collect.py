@@ -990,15 +990,26 @@ def lire_engrais(prod, c, today, rows, dernier=True):
 
 def collect_physique():
     snap = {}
-    for k, url in CFG["physique"].items():
-        try:
-            items = parse_place_prices(get(url).text)
-            if not items:
-                raise RuntimeError("aucun prix lu")
-            snap[k] = items[:12]
-            note("physique_" + k, True, f"{len(items)} places")
-        except Exception as e:  # noqa: BLE001
-            note("physique_" + k, False, e)
+    # terre-net répond parfois 502 quelques minutes (orge brassicole le 16/11/2026) : second tour 30 s plus tard
+    a_lire = list(CFG["physique"].items())
+    for tour in (1, 2):
+        manques = []
+        for k, url in a_lire:
+            try:
+                items = parse_place_prices(get(url).text)
+                if not items:
+                    raise RuntimeError("aucun prix lu")
+                snap[k] = items[:12]
+                note("physique_" + k, True, f"{len(items)} places" + (" (au second essai)" if tour == 2 else ""))
+            except Exception as e:  # noqa: BLE001
+                if tour == 2:
+                    note("physique_" + k, False, e)
+                else:
+                    manques.append((k, url))
+        if not manques:
+            break
+        a_lire = manques
+        time.sleep(30)
     if snap:  # historique quotidien (escourgeon et orge de printemps n'ont pas de marché à terme : leur seule série de prix)
         hp = seed("physique_hist.csv")
         hist = read_csv(hp)
