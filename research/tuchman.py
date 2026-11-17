@@ -9,8 +9,9 @@ FOMO (−4,9), RSI et moyennes (indicateurs du plan d'entrée). Restent deux pis
 1. « Trois pertes de suite, on éteint la machine » : portefeuille simulé 1998-2026 de backtest/_selection_sim.py, lignes suivies
    une à une comme backtest/_gestion_sim.py (4 🎯 + 1 📣 par semaine gardés 26 semaines, protection −30 %, frais 0,3 % par sens,
    liquidités à 0 %, ordres à la clôture de la semaine). Principale : le portefeuille a baissé 3 semaines de suite → pas d'achat
-   cette semaine. Variantes : pause de 4 semaines ; les 3 dernières tranches vendues (achats d'une semaine gardés 6 mois) en perte ;
-   au moins 3 lignes vendues à perte la semaine d'avant.
+   cette semaine. Variantes : pause de 4 semaines ; tranche vendue la semaine d'avant (achats d'une semaine gardés 6 mois) en perte
+   pour la 3e fois de suite ; au moins 3 lignes vendues à perte la semaine d'avant. Pour information : la règle actuelle investie à
+   la même part que la pause principale (le reste en liquidités), et le résultat des tranches qu'elle aurait sautées.
 2. Le montage technique qu'on lui attribue en ligne (forex.in.rs, sans source de sa main) : moyennes exponentielles 9, 15 et 30
    au-dessus de la 200, cours au-dessus de la 200 ; entrée sur un repli dont le plus bas touche la moyenne 9 (ou la 15), clôture
    au-dessus de la 15, RSI 14 entre 50 et 70. Cours journaliers Yahoo 2000-2026. Test décisif : pour chaque 🎯 au feu vert du
@@ -46,10 +47,10 @@ SEL = {t: pick(t, n=5, reserve=1, bondCap=2) for t in range(t1997, T - 1)}
 
 
 def sim_pause(pause=None, weeks=1, hold=26, cost=.003):
-    """Comme sim_pm(stop30=True) de _gestion_sim.py ; pause(R, last, done) dit s'il faut sauter les achats de la semaine (R :
-    rendements des semaines passées, last : résultats des lignes vendues la semaine d'avant, done : résultats des tranches vendues,
-    dans l'ordre) ; weeks : semaines sans achat une fois la pause déclenchée. Renvoie les rendements, le nombre de semaines sans
-    achat et le résultat de chaque tranche (semaine d'achat → résultat moyen des lignes, frais compris)."""
+    """Comme sim_pm(stop30=True) de _gestion_sim.py ; pause(t, R, last, done) dit s'il faut sauter les achats de la semaine t (R :
+    rendements des semaines passées, last : résultats des lignes vendues la semaine d'avant, done : (semaine, résultat) des tranches
+    vendues, dans l'ordre) ; weeks : semaines sans achat une fois la pause déclenchée. Renvoie les rendements, le nombre de semaines
+    sans achat et le résultat de chaque tranche (semaine d'achat → résultat moyen des lignes, frais compris)."""
     tr, R, last, done, off, skip, tres = [], [], [], [], 0, 0, {}
     for t in range(t1997, T - 1):
         s = np.array(SEL.get(t, []), dtype=int)
@@ -57,7 +58,7 @@ def sim_pause(pause=None, weeks=1, hold=26, cost=.003):
             off -= 1
             skip += 1
             s = s[:0]
-        elif len(s) and pause is not None and pause(R, last, done):
+        elif len(s) and pause is not None and pause(t, R, last, done):
             off = weeks - 1
             skip += 1
             s = s[:0]
@@ -86,7 +87,7 @@ def sim_pause(pause=None, weeks=1, hold=26, cost=.003):
                 x['res'][still] = x['px'][still] - 1 - 2 * cost
                 closed += list(x['res'][still])
                 tres[x['t0']] = float(np.mean(x['res']))
-                done.append(tres[x['t0']])
+                done.append((t, tres[x['t0']]))
             else:
                 keep.append(x)
         tr = keep
@@ -134,14 +135,15 @@ def part1(t0):
     nweeks = sum(1 for t in range(t1997, T - 1) if G['SEL'].get(t))
     log(f"\n=== 1. « Trois pertes de suite, on éteint la machine » ({dates[t1997]} → {dates[-1]}, {nweeks} semaines d'achat)\n"
         f"  règle actuelle (lignes suivies une à une, protection −30 %) : {desc(B)}")
-    neg3 = lambda R, last, done: len(R) >= 3 and R[-1] < 0 and R[-2] < 0 and R[-3] < 0  # noqa: E731
+    neg3 = lambda t, R, last, done: len(R) >= 3 and R[-1] < 0 and R[-2] < 0 and R[-3] < 0  # noqa: E731
     variants = [
         ("3 semaines de baisse de suite → pas d'achat (principale)", dict(pause=neg3)),
         ("même chose, pause de 4 semaines", dict(pause=neg3, weeks=4)),
-        ("3 dernières tranches vendues en perte → pas d'achat",
-         dict(pause=lambda R, last, done: len(done) >= 3 and max(done[-3:]) < 0)),
+        # la tranche vendue la semaine d'avant est la 3e perte de suite (sans tranche vendue, rien de nouveau : on rachète)
+        ("tranche vendue la semaine d'avant : 3e perte de suite → pas d'achat",
+         dict(pause=lambda t, R, last, done: len(done) >= 3 and done[-1][0] == t - 1 and max(v for _, v in done[-3:]) < 0)),
         ("3 lignes vendues à perte la semaine d'avant → pas d'achat",
-         dict(pause=lambda R, last, done: sum(1 for v in last if v < 0) >= 3)),
+         dict(pause=lambda t, R, last, done: sum(1 for v in last if v < 0) >= 3)),
     ]
     main_ok = False
     for k, (lab, kw) in enumerate(variants):
@@ -154,6 +156,12 @@ def part1(t0):
         log(f"  {lab:58s} sans achat {skip / max(nweeks, 1) * 100:4.1f} % des semaines · {desc(Rv)}\n"
             f"      écart : {' · '.join(f'{el} {x:+5.1f} (t {y:4.1f})' for (x, y), el in zip(pp, ('1998-2008', '2009-2017', '2018-2026')))}"
             f" · ensemble t {tt:4.1f}{verdict}")
+        if k == 0:
+            # à exposition égale : règle actuelle investie à la même part (le reste en liquidités à 0 %)
+            f = 1 - skip / max(nweeks, 1)
+            pq, tq = per(Rv - f * B)
+            log(f"      règle actuelle investie à {f * 100:.0f} % : {desc(f * B)} ; écart de la pause : "
+                f"{' · '.join(f'{x:+5.1f} (t {y:4.1f})' for x, y in pq)} · ensemble t {tq:4.1f}")
     # les tranches qu'on n'aurait pas achetées étaient-elles moins bonnes ? (règle actuelle)
     flag = {t1997 + k: bool(k >= 3 and B[k - 1] < 0 and B[k - 2] < 0 and B[k - 3] < 0) for k in range(len(B))}
     a = np.array([v for t, v in tres.items() if flag.get(t)])
