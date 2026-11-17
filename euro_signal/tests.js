@@ -3902,7 +3902,14 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
       mk('V5', 0.8, 8, { mom: -55 }),
       mk('V6', 0.8, 8, { out: ['cours parmi le tiers le plus faible du marché sur 12 mois'] })
     );
-    const pv = ES.pickValue(rr).picks.map((x) => x.key);
+    const PV = ES.pickValue(rr),
+      pv = PV.picks.map((x) => x.key);
+    // liste complète (tuile « N valeurs ») : toutes celles qui passent, dans l'ordre du tri, sélection comprise
+    ok(
+      PV.all.length === PV.pool && PV.all.map((x) => x.key).join() === 'V2,V1,V6',
+      '💎 liste complète : ' + PV.all.map((x) => x.key).join()
+    );
+    eq(ES.pickValue([]).all, []);
     ok(
       pv.join() === 'V2,V1,V6',
       "💎 valeur : prix bas, F-score ≥ 7 (le meilleur d'abord), sans perte ni chute de plus de 40 %, momentum faible accepté (" +

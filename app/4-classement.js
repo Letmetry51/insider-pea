@@ -2589,7 +2589,25 @@ function valueCard(inSel) {
     V = ES.pickValue(R.rows || [], { peaOnly: peaOnly }),
     rest = V.picks.filter(function (r) {
       return !taken[r.key];
-    });
+    }),
+    inTen = {};
+  V.picks.forEach(function (r) {
+    inTen[r.key] = 1;
+  });
+  var sub = function (r) {
+    return esc(
+      [
+        r.sector,
+        'cours / fonds propres ' + fmtN(r.pb, 2),
+        '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%',
+        (r.liq || 0) < 5e6 ? '💧 ordres limités' : null,
+        r.pea === false ? 'hors PEA' : null,
+        r.sh ? '🐻 ' + String(r.sh).replace('.', ',') + ' %' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    );
+  };
   var h =
     '<details class="subf vcard" data-k="value"><summary>💎 Remplaçants et règles <span class="muted small">· ' +
     rest.length +
@@ -2612,23 +2630,44 @@ function valueCard(inSel) {
             r.f9 +
             '/9</span>' +
             '<small>' +
-            esc(
-              [
-                r.sector,
-                'cours / fonds propres ' + fmtN(r.pb, 2),
-                '12\u00a0m ' + (r.mom >= 0 ? '+' : '') + Math.round(r.mom) + '\u00a0%',
-                (r.liq || 0) < 5e6 ? '💧 ordres limités' : null,
-                r.pea === false ? 'hors PEA' : null,
-                r.sh ? '🐻 ' + String(r.sh).replace('.', ',') + ' %' : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')
-            ) +
+            sub(r) +
             '</small></li>'
           );
         })
         .join('') +
       '</ol>';
+  // 📜 toutes les sociétés qui passent les règles ce soir (la tuile « N valeurs » ouvre ce pli), dans l'ordre du tri
+  if (V.all && V.all.length)
+    h +=
+      '<details class="subf vall" data-k="valall"><summary>📜 Les ' +
+      V.all.length +
+      ' valeurs du soir <span class="muted small">· toutes celles qui passent les règles</span></summary>' +
+      '<p class="small muted">Classées par comptes les plus solides (F-score), puis prix le plus bas. 📋 : dans la sélection ; 💎 : parmi les ' +
+      V.picks.length +
+      " de la liste (2 par secteur au plus) ; les autres attendent qu'une place se libère dans leur secteur ou plus haut dans le tri.</p>" +
+      '<ol class="pick3l">' +
+      V.all
+        .map(function (r, k) {
+          var tag = taken[r.key] ? '📋 ' : inTen[r.key] ? '💎 ' : '';
+          return (
+            '<li value="' +
+            (k + 1) +
+            '" class="rowlink" ' +
+            rankOpenAttr(r) +
+            ' data-from="rank" tabindex="0">' +
+            (tag ? '<span aria-hidden="true">' + tag + '</span>' : '') +
+            '<b>' +
+            flag(r.country) +
+            esc(r.name) +
+            '</b> <span class="muted">· F-score ' +
+            r.f9 +
+            '/9</span><small>' +
+            sub(r) +
+            '</small></li>'
+          );
+        })
+        .join('') +
+      '</ol></details>';
   h +=
     '<p class="p3rules">💰 tiers le moins cher (cours / fonds propres' +
     (V.cut ? ' < ' + fmtN(V.cut, 2) : '') +
