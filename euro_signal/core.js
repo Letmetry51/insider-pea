@@ -2980,11 +2980,12 @@
    * moyenne (moyenne équipondérée des sociétés liquides, dividendes compris), à 3 et 6 mois. Pour W semaines mûres, on connaît
    * l'écart type de cette moyenne : marché, fenêtres qui se chevauchent et sociétés reprises d'une semaine à l'autre compris.
    * Avec l'avantage prudent de l'aide (+4 points à 6 mois, +2,2 à 3 mois), le réel doit rester dans mu ± 1,96 écart type
-   * 95 fois sur 100. L'alerte ne part que sous mu − 3,29 écarts types. En rejouant 1998-2026, elle donne 0 à 8 % de fausses
-   * alertes en 3 ans selon la période, et repère une méthode devenue perdante (−8 points) 4 à 8 fois sur 10 en 3 ans. La règle
-   * d'avant (moyenne sous l'indice, −5 points à 3 mois, un signal de sens contraire sur 30 lignes) alertait dans 94 à 100 % des
-   * cas dès la première année, même avec l'avantage historique. Signaux (🔊, 📣, ⏸️, place 📣) : écart avec / sans à 6 mois,
-   * jugé de la même façon autour de leur écart historique moyen (mu, sens voulu want).
+   * 95 fois sur 100 ; « anormal » sous mu − 3,29 écarts types (alert). Pour information seulement : l'auto-surveillance (build.mjs,
+   * 6g) et la revue (ES.reviewStatus) gardent leur règle du 17/10/2026, qui, rejouée sur 1998-2026, alerte dans 94 à 100 % des
+   * suivis dès la première année même avec l'avantage historique. Une alerte sur le seul seuil d'anomalie du total (6 et 3 mois)
+   * donnerait 0 à 8 % de fausses alertes en 3 ans et repérerait une méthode devenue perdante (−8 points) 4 à 8 fois sur 10 ;
+   * remplacement proposé à François, non appliqué (research/README.md). Signaux (🔊, 📣, ⏸️, place 📣) : écart avec / sans à 6
+   * mois, situé de la même façon autour de leur écart historique moyen (mu, sens voulu want).
    */
   ES.EDGE_MODEL = {
     W: [1, 2, 3, 4, 6, 8, 13, 17, 26, 39, 52, 78, 104],
