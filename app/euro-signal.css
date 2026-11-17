@@ -211,6 +211,46 @@ button.link {
 .presets {
   margin: 4px 0 10px;
 }
+/* 🔎 filtres croisés : groupes par thème, filtres actifs retirables */
+.presets .slt,
+.rfsec > .slt {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.rfsec {
+  margin: 10px 0 12px;
+}
+.rfsec .fchips {
+  margin: 4px 0 6px;
+}
+.rfrow .rft {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.rfsec .fchip small {
+  opacity: 0.75;
+}
+.rfsec .fchip.zero:not(.on) {
+  opacity: 0.55;
+}
+.rfact {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.rfact .fchips {
+  margin: 6px 0 0;
+}
+.rfact .rmf small {
+  font-weight: 400;
+  opacity: 0.8;
+}
 .presets .fchip.idea:not(.on) {
   border-style: dashed;
 }
@@ -2884,6 +2924,7 @@ button.fxb-i.t-na {
 }
 details.fold,
 details.vall,
+.rfact,
 .plan {
   scroll-margin-top: 170px;
 } /* sous l'en-tête fixe quand un feu ou une tuile y mène */

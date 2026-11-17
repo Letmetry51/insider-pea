@@ -2859,138 +2859,490 @@ function pickSet() {
   }
   return S._pk;
 }
-function rankQuick() {
-  return {
-    pea: [
-      '🇪🇺 PEA seulement',
+/**
+ * 🔎 Filtres croisés (17/11/2026, demande de François : « pouvoir avoir tous les types de filtre et pouvoir les croiser »).
+ * Chaque critère publié sur les lignes du classement est un filtre. Dans un groupe de tranches (pente, hausse sur 12 mois, pays…),
+ * les cases cochées s'additionnent (OU) ; d'un groupe à l'autre, et d'un signal coché à l'autre, elles se croisent (ET). Chaque
+ * case montre le nombre de sociétés qu'on obtiendrait en la cochant en plus des autres filtres (sa tranche remplaçant celles déjà
+ * cochées dans le même groupe). État : S.rf.sel = { groupe: [cases] } ; un signal coché vaut ['on'].
+ * ctx : { tgt, val, sel (clés 🎯, 💎, 📋), p10 (clés des 10 🎯, pour 📣), today }.
+ */
+function rankFacets(rows, ctx) {
+  var rng = function (k, a, b) {
+    return function (r) {
+      return r[k] != null && r[k] >= a && r[k] < b;
+    };
+  };
+  var dd = function (d) {
+    return typeof d === 'string' && ctx.today ? ES.daysBetween(ctx.today, d) : null;
+  };
+  var flagF = function (k, l, test, d) {
+    return { k: k, s: 'sig', flag: true, t: l, opts: [{ v: 'on', l: l, d: d, test: test }] };
+  };
+  var cnt = {},
+    sec = {};
+  rows.forEach(function (r) {
+    if (r.country) cnt[r.country] = (cnt[r.country] || 0) + 1;
+    if (r.sector) sec[r.sector] = (sec[r.sector] || 0) + 1;
+  });
+  return [
+    flagF(
+      'tgt',
+      '🎯 Toutes les règles réunies',
       function (r) {
-        return r.pea !== false;
+        return !!ctx.tgt[r.key];
       },
-    ],
-    acc: [
-      '📊 Comptes solides',
+      'canal haussier fort, +60 à +200 % sur 12 mois, comptes solides, 3 M€ par jour, PEA'
+    ),
+    flagF(
+      'val',
+      '💎 Valeur',
       function (r) {
-        return r.acc === 'good';
+        return !!ctx.val[r.key];
       },
-    ],
-    liq: [
-      '💶 3 M€ par jour ou plus',
+      'bon marché (tiers le moins cher en cours / fonds propres), comptes solides (F-score 7 ou plus)'
+    ),
+    flagF('sel', '📋 Sélection de la semaine', function (r) {
+      return !!ctx.sel[r.key];
+    }),
+    flagF(
+      'vol',
+      '🔊 Volumes ×2',
       function (r) {
-        return (r.liq || 0) >= 3e6;
+        return r.vx >= ES.VOL_SURGE;
       },
-    ],
-    mom: [
-      '📈 12 mois +60 à +200 %',
+      "volumes des 10 dernières semaines au moins deux fois la moyenne de l'année"
+    ),
+    flagF(
+      'brk',
+      '🚀 Nouveau plus haut après une base',
       function (r) {
-        return r.mom != null && r.mom >= 60 && r.mom <= 200;
+        return rkBrk(r);
       },
-    ],
-    m10: [
-      '✅ Au-dessus de la moyenne 10 sem.',
+      'nouveau plus haut sur un an dans les 4 dernières semaines, après 6 mois à plus de 25 % sous le plus haut'
+    ),
+    flagF(
+      'bp',
+      '📣 Démarrage sur bond',
       function (r) {
-        return r.m10 != null && r.m10 >= 0;
+        return rkBp(r, ctx.p10);
       },
-    ],
-    near: [
-      '↘️ 2 à 10 % sous le plus haut',
-      function (r) {
-        return r.ratio != null && r.ratio >= 90 && r.ratio < 98;
-      },
-    ],
-    bj: [
+      'semaine à +8 % ou plus sur 3 fois le volume habituel, il y a 3 semaines au plus, en tendance, pas encore dans le 🎯'
+    ),
+    flagF(
+      'bj',
       '📣 Bond du jour',
       function (r) {
         return r.bj != null;
       },
-    ],
-    fd: [
+      'séance à +8 % ou plus sur au moins 4 fois le volume habituel, en tendance'
+    ),
+    flagF(
+      'fd',
       '🚩 Drapeau cassé',
       function (r) {
         return r.fd != null;
       },
-    ],
-  };
+      'hausse de 30 % en 8 semaines, repos de 2 à 6 semaines, puis bond 📣 au-dessus'
+    ),
+    flagF(
+      'ins',
+      '👔 Achats de dirigeants',
+      function (r) {
+        return ((r.parts || {}).insiders || 0) > 0;
+      },
+      'achats de dirigeants publiés ces 3 derniers mois (bonus de la note)'
+    ),
+    {
+      k: 'slope',
+      s: 'trend',
+      t: 'Pente du canal (6 mois)',
+      opts: [
+        ['strong', '⬆⬆ Forte', '≥ +40 %'],
+        ['mid', '⬆ Moyenne', '+15 à +40 %'],
+        ['light', '↗ Légère', 'moins de +15 %'],
+        ['none', 'Sans canal haussier', 'tendance de fond pas haussière'],
+      ].map(function (o) {
+        return {
+          v: o[0],
+          l: o[1],
+          d: o[2],
+          test: function (r) {
+            return (rkSc(r) || 'none') === o[0];
+          },
+        };
+      }),
+    },
+    {
+      k: 'mom',
+      s: 'trend',
+      t: 'Hausse sur 12 mois',
+      opts: [
+        { v: 'neg', l: 'En baisse', test: rng('mom', -Infinity, 0) },
+        { v: '0-30', l: '0 à +30 %', test: rng('mom', 0, 30) },
+        { v: '30-60', l: '+30 à +60 %', test: rng('mom', 30, 60) },
+        { v: '60-200', l: '+60 à +200 %', d: 'zone du 🎯', test: rng('mom', 60, 200.0001) },
+        { v: '200+', l: 'Plus de +200 %', test: rng('mom', 200.0001, Infinity) },
+      ],
+    },
+    {
+      k: 'high',
+      s: 'trend',
+      t: "Écart au plus haut d'un an",
+      opts: [
+        { v: 'top', l: 'Au plus haut', d: 'moins de 2 % dessous', test: rng('ratio', 98, Infinity) },
+        { v: 'near', l: '2 à 10 % dessous', d: "aussi bon qu'au plus haut sur 29 ans", test: rng('ratio', 90, 98) },
+        { v: 'mid', l: '10 à 25 % dessous', test: rng('ratio', 75, 90) },
+        { v: 'far', l: 'Plus de 25 % dessous', test: rng('ratio', -Infinity, 75) },
+      ],
+    },
+    {
+      k: 'm10',
+      s: 'trend',
+      t: 'Moyenne 10 semaines',
+      opts: [
+        { v: 'up', l: '✅ Au-dessus', d: 'feu vert du 🎯', test: rng('m10', 0, Infinity) },
+        { v: 'down', l: '⏸️ En dessous', d: 'en attente', test: rng('m10', -Infinity, 0) },
+      ],
+    },
+    {
+      k: 'acc',
+      s: 'acc',
+      t: 'Comptes',
+      opts: [
+        ['good', '📊 Solides'],
+        ['mixed', 'Mitigés'],
+        ['bad', 'Fragiles'],
+        ['fin', 'Banque ou assurance'],
+        ['na', 'Pas encore lus'],
+      ].map(function (o) {
+        return {
+          v: o[0],
+          l: o[1],
+          test: function (r) {
+            return (r.acc || 'na') === o[0];
+          },
+        };
+      }),
+    },
+    {
+      k: 'f9',
+      s: 'acc',
+      t: 'F-score (solidité des comptes, sur 9)',
+      opts: [
+        { v: '8-9', l: '8 ou 9', test: rng('f9', 8, 10) },
+        { v: '7', l: '7', test: rng('f9', 7, 8) },
+        { v: '5-6', l: '5 ou 6', test: rng('f9', 5, 7) },
+        { v: '0-4', l: '4 ou moins', test: rng('f9', 0, 5) },
+      ],
+    },
+    {
+      k: 'pb',
+      s: 'acc',
+      t: 'Cours / fonds propres',
+      opts: [
+        { v: 'lt1', l: 'Moins de 1', test: rng('pb', 0, 1) },
+        { v: '1-2', l: '1 à 2', test: rng('pb', 1, 2) },
+        { v: '2-4', l: '2 à 4', test: rng('pb', 2, 4) },
+        { v: 'gt4', l: 'Plus de 4', test: rng('pb', 4, Infinity) },
+      ],
+    },
+    {
+      k: 'res',
+      s: 'acc',
+      t: 'Résultats',
+      opts: [
+        {
+          v: 'soon',
+          l: 'Dans les 15 jours',
+          test: function (r) {
+            var n = dd(r.ne);
+            return n != null && n >= 0 && n <= 15;
+          },
+        },
+        {
+          v: 'month',
+          l: 'Dans le mois',
+          test: function (r) {
+            var n = dd(r.ne);
+            return n != null && n >= 0 && n <= 31;
+          },
+        },
+        {
+          v: 'recent',
+          l: 'Publiés il y a moins de 15 jours',
+          test: function (r) {
+            var n = r.ls && dd(r.ls[0]);
+            return n != null && n <= 0 && n >= -15;
+          },
+        },
+      ],
+    },
+    {
+      k: 'vo',
+      s: 'risk',
+      t: 'Volatilité (par an)',
+      opts: [
+        { v: 'calm', l: 'Calme', d: 'moins de 25 %', test: rng('vo', -Infinity, 25) },
+        { v: 'mid', l: '25 à 40 %', test: rng('vo', 25, 40) },
+        { v: 'high', l: '40 à 80 %', test: rng('vo', 40, ES.VOL_WILD * 100) },
+        {
+          v: 'wild',
+          l: '⚡ 80 % ou plus',
+          d: 'deux fois plus de chutes',
+          test: rng('vo', ES.VOL_WILD * 100, Infinity),
+        },
+      ],
+    },
+    {
+      k: 'sh',
+      s: 'risk',
+      t: 'Vente à découvert',
+      opts: [
+        {
+          v: 'no',
+          l: 'Aucune déclarée',
+          test: function (r) {
+            return !(r.sh >= ES.SHORT_MIN);
+          },
+        },
+        { v: 'yes', l: '🐻 0,5 % du capital ou plus', test: rng('sh', ES.SHORT_MIN, Infinity) },
+      ],
+    },
+    {
+      k: 'liq',
+      s: 'risk',
+      t: 'Échanges par jour',
+      opts: [
+        { v: 'lt1', l: 'Moins de 1 M€', test: rng('liq', -Infinity, 1e6) },
+        { v: '1-3', l: '1 à 3 M€', test: rng('liq', 1e6, 3e6) },
+        { v: '3-10', l: '3 à 10 M€', test: rng('liq', 3e6, 1e7) },
+        { v: '10+', l: '10 M€ ou plus', test: rng('liq', 1e7, Infinity) },
+      ],
+    },
+    {
+      k: 'pea',
+      s: 'risk',
+      t: 'PEA',
+      opts: [
+        {
+          v: 'yes',
+          l: '🇪🇺 Éligible',
+          test: function (r) {
+            return r.pea !== false;
+          },
+        },
+        {
+          v: 'no',
+          l: 'Hors PEA',
+          test: function (r) {
+            return r.pea === false;
+          },
+        },
+      ],
+    },
+    {
+      k: 'country',
+      s: 'where',
+      t: 'Pays',
+      opts: Object.keys(cnt)
+        .sort(function (a, b) {
+          return cnt[b] - cnt[a] || a.localeCompare(b);
+        })
+        .map(function (c) {
+          return {
+            v: c,
+            l: flagTxt(c) + (COUNTRIES[c] || c),
+            test: function (r) {
+              return r.country === c;
+            },
+          };
+        }),
+    },
+    {
+      k: 'sector',
+      s: 'where',
+      t: 'Secteur',
+      opts: Object.keys(sec)
+        .sort(function (a, b) {
+          return a.localeCompare(b, 'fr');
+        })
+        .map(function (c) {
+          return {
+            v: c,
+            l: c,
+            test: function (r) {
+              return r.sector === c;
+            },
+          };
+        }),
+    },
+    {
+      k: 'v',
+      s: 'where',
+      t: 'Avis',
+      opts: ['top', 'good', 'mid', 'out'].map(function (k) {
+        return {
+          v: k,
+          l: RV[k][0] + ' ' + RV[k][1],
+          test: function (r) {
+            return r.v === k;
+          },
+        };
+      }),
+    },
+    {
+      k: 'plan',
+      s: 'where',
+      t: "Plan d'entrée",
+      opts: PLANS.map(function (o) {
+        return {
+          v: o[0],
+          l: o[1],
+          test: function (r) {
+            return (r.plan || {}).v === o[0];
+          },
+        };
+      }),
+    },
+  ];
+}
+var RF_SECTIONS = [
+  ['sig', '🎯 Sélections et signaux', 'chaque case cochée se croise avec les autres'],
+  ['trend', '📈 Tendance', ''],
+  ['acc', '📊 Comptes et prix', ''],
+  ['risk', '⚖️ Risque et liquidité', ''],
+  ['where', "🌍 Pays, secteur, avis, plan d'entrée", ''],
+];
+/** Une ligne passe-t-elle les filtres sel ? q : texte cherché (normalisé). Écartées cachées sauf avis choisi, texte, 🚀 ou 📣. */
+function rfPass(r, FS, sel, q, p10) {
+  if (q && ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) < 0) return false;
+  for (var j = 0; j < FS.length; j++) if (!rfFacetOk(FS[j], r, sel)) return false;
+  return rfOutOk(r, sel, q, p10);
+}
+function rfFacetOk(F, r, sel) {
+  var a = sel[F.k];
+  if (!a || !a.length) return true;
+  for (var i = 0; i < F.opts.length; i++) if (a.indexOf(F.opts[i].v) > -1 && F.opts[i].test(r)) return true;
+  return false;
+}
+/** Sociétés écartées (⛔) : montrées seulement si l'avis est choisi, si l'on cherche un nom, ou par 🚀 / 📣 (souvent encore dans
+ *  le tiers faible sur 12 mois au moment du signal). */
+function rfOutOk(r, sel, q, p10) {
+  if (!r.out.length || q || (sel.v && sel.v.length)) return true;
+  if (sel.brk && sel.brk.length && rkBrk(r)) return true;
+  if (sel.bp && sel.bp.length && rkBp(r, p10)) return true;
+  return false;
 }
 /**
  * 🔎 Recherches toutes prêtes (16/11/2026, demande de François : « un mode recherche avec les critères déterminants ») : seulement
  * des critères que les tests ont validés, chacun avec son résultat mesuré. Le support dessiné, les rebonds et les indicateurs
  * classiques (RSI…) ont été testés et n'ajoutent rien : « Ton idée » le montre (research/README.md, études du 12 au 14/11/2026).
- * [libellé, état des filtres, résultat mesuré]
+ * Depuis le 17/11/2026, elles se croisent entre elles et avec les autres filtres (ET). [libellé, filtres, résultat mesuré]
  */
 var RPRESETS = {
   method: [
     '🎯 Canal haussier fort, 12 mois +60 à +200 %, feu vert',
-    { slope: ['strong'], quick: ['pea', 'acc', 'liq', 'mom', 'm10'] },
+    { slope: ['strong'], pea: ['yes'], acc: ['good'], liq: ['3-10', '10+'], mom: ['60-200'], m10: ['up'] },
     'ce que la méthode achète (comptes solides, PEA, 3 M€ par jour) : 🎯 au feu vert +4,5 points à 6 mois face à la moyenne des sociétés sur 2000-2026, pente forte +4 points',
   ],
   dip: [
     '↘️ Même chose, sur un repli de 2 à 10 %',
-    { slope: ['strong', 'mid'], quick: ['pea', 'acc', 'liq', 'mom', 'near'] },
+    { slope: ['strong', 'mid'], pea: ['yes'], acc: ['good'], liq: ['3-10', '10+'], mom: ['60-200'], high: ['near'] },
     "acheter sur un petit repli : aussi bon qu'au plus haut sur 29 ans ; au-delà de 10 % sous le plus haut, deux fois plus de chutes",
   ],
   bp: [
     '📣 Démarrage sur bond (semaine)',
-    { bp: true },
+    { bp: ['on'] },
     'semaine à +8 % sur 3 fois le volume, en tendance, pas encore dans le 🎯 : +5,5 points à 6 mois et +11,2 à 12 mois sur 1997-2026',
   ],
   bj: [
     '📣 Bond du jour',
-    { quick: ['bj'] },
+    { bj: ['on'] },
     'séance à +8 % sur au moins 4 fois le volume, en tendance : +8,2 points à 6 mois sur 2000-2026 (+9,4 à 5 fois ou plus)',
   ],
   fd: [
     '🚩 Drapeau cassé',
-    { quick: ['fd'] },
+    { fd: ['on'] },
     'hausse de 30 % en 8 semaines, repos de 2 à 6 semaines, puis bond 📣 au-dessus : +18 points à 6 mois sur 1997-2026',
   ],
   idea: [
     'Ton idée : support + canal haussier + volumes',
-    { slope: ['strong', 'mid'], plans: ['buyNow'], vol: true },
+    { slope: ['strong', 'mid'], plan: ['buyNow'], vol: ['on'] },
     'testée du 12 au 14/11/2026 : acheter sur un support, un rebond ou dans un canal ne fait pas mieux que la moyenne une fois le momentum pris en compte ; la pente du canal et les gros volumes comptent déjà dans les recherches ci-dessus',
   ],
 };
-/** Applique une recherche toute prête : les autres filtres sont remis à zéro (le tri est gardé). */
-function rfPreset(k) {
-  var P = RPRESETS[k];
-  if (!P) return;
-  var f = (S.rf = S.rf || {}),
-    st = P[1];
-  f.q = '';
-  f.country = '';
-  f.sector = '';
-  f.v = '';
-  f.vol = !!st.vol;
-  f.brk = false;
-  f.bp = !!st.bp;
-  f.slope = (st.slope || []).slice();
-  f.quick = (st.quick || []).slice();
-  f.plans = (st.plans || []).slice();
-  f.figures = [];
-  f.timing = [];
-  f.preset = k;
+/** La recherche k est-elle comprise dans les filtres (chacun de ses groupes coché, et seulement avec ses cases) ? */
+function rfPresetIn(sel, k) {
+  var st = RPRESETS[k] && RPRESETS[k][1];
+  if (!st) return false;
+  return Object.keys(st).every(function (g) {
+    var a = sel[g] || [];
+    return (
+      a.length > 0 &&
+      a.every(function (v) {
+        return st[g].indexOf(v) > -1;
+      })
+    );
+  });
 }
-/** Recherche toute prête encore appliquée telle quelle (aucun filtre changé depuis), sinon null. */
-function rfPresetOn(f) {
-  var P = f.preset && RPRESETS[f.preset];
-  if (!P) return null;
-  var st = P[1],
-    same = function (a, b) {
-      return (a || []).slice().sort().join() === (b || []).slice().sort().join();
-    };
-  return !f.q &&
-    !f.country &&
-    !f.sector &&
-    !f.v &&
-    !f.brk &&
-    !!f.vol === !!st.vol &&
-    !!f.bp === !!st.bp &&
-    same(f.slope, st.slope) &&
-    same(f.quick, st.quick) &&
-    same(f.plans, st.plans) &&
-    !(f.figures || []).length &&
-    !(f.timing || []).length
-    ? f.preset
-    : null;
+/**
+ * Croise la recherche k avec les filtres sel (copie renvoyée) : dans chaque groupe déjà coché, on garde les cases communes ;
+ * sans case commune, celles de la recherche remplacent (le croisement serait vide). Si la recherche est déjà comprise, la retire.
+ */
+function rfPresetToggle(sel, k) {
+  var st = RPRESETS[k] && RPRESETS[k][1],
+    out = {};
+  Object.keys(sel || {}).forEach(function (g) {
+    out[g] = (sel[g] || []).slice();
+  });
+  if (!st) return out;
+  if (rfPresetIn(out, k)) {
+    Object.keys(st).forEach(function (g) {
+      delete out[g];
+    });
+    return out;
+  }
+  Object.keys(st).forEach(function (g) {
+    var cur = out[g] || [],
+      both = cur.filter(function (v) {
+        return st[g].indexOf(v) > -1;
+      });
+    out[g] = cur.length && both.length ? both : st[g].slice();
+  });
+  return out;
+}
+/** Anciens filtres (slope, quick, vol, brk, bp, plans, country, sector, v) repris dans S.rf.sel. */
+function rfMigrate(f) {
+  if (f.sel) return;
+  var s = {};
+  if (Array.isArray(f.slope) && f.slope.length) s.slope = f.slope.slice();
+  ['vol', 'brk', 'bp'].forEach(function (k) {
+    if (f[k]) s[k] = ['on'];
+  });
+  ['country', 'sector', 'v'].forEach(function (k) {
+    if (f[k]) s[k] = [f[k]];
+  });
+  if (Array.isArray(f.plans) && f.plans.length) s.plan = f.plans.slice();
+  var Q = {
+    pea: ['pea', 'yes'],
+    acc: ['acc', 'good'],
+    liq: ['liq', '3-10', '10+'],
+    mom: ['mom', '60-200'],
+    m10: ['m10', 'up'],
+    near: ['high', 'near'],
+    bj: ['bj', 'on'],
+    fd: ['fd', 'on'],
+  };
+  (f.quick || []).forEach(function (k) {
+    if (Q[k]) s[Q[k][0]] = Q[k].slice(1);
+  });
+  f.sel = s;
+  ['slope', 'quick', 'vol', 'brk', 'bp', 'country', 'sector', 'v', 'plans', 'figures', 'timing', 'preset'].forEach(
+    function (k) {
+      delete f[k];
+    }
+  );
 }
 /** Critères de tri du classement : [libellé, valeur] (valeur absente = en fin de liste). */
 var RSORT = {
@@ -3049,58 +3401,64 @@ function vClassement() {
   if (!S.cycle && !S.secLoaded) loadSectors();
   var R = rankData(),
     f = (S.rf = S.rf || {});
-  ['quick', 'figures', 'plans', 'timing', 'slope'].forEach(function (k) {
-    if (!Array.isArray(f[k])) f[k] = [];
-  });
-  f.figures = [];
-  f.timing = []; // filtres retirés (version allégée) : ne pas garder un ancien choix invisible
-  var Q0 = rankQuick();
-  f.quick = f.quick.filter(function (k) {
-    return Q0[k];
-  });
-  var Q = rankQuick(),
-    q = ES.norm(f.q || ''),
-    rows = R.rows;
-  var shownV = f.v || (q ? '' : 'in');
-  // base(r, sans) : filtres de base ; « sans » ignore la pente ou la sortie de base (pour compter ce que donnerait chaque case)
-  var p10 = pickKeys(rows);
-  var base = function (r, sans) {
-    var useBrk = sans === 'brk' ? true : f.brk && sans !== 'brk0',
-      useBp = sans === 'bp' ? true : f.bp && sans !== 'bp0';
-    if ((sans === 'vol' || (f.vol && sans !== 'vol0')) && !(r.vx >= ES.VOL_SURGE)) return false;
-    if (q && ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) < 0) return false;
-    if (f.country && r.country !== f.country) return false;
-    if (f.sector && r.sector !== f.sector) return false;
-    if (sans !== 'slope' && f.slope && f.slope.length && f.slope.indexOf(rkSc(r) || 'none') < 0) return false;
-    if (useBrk && !rkBrk(r)) return false;
-    if (useBp && !rkBp(r, p10)) return false;
-    // la sortie de base et le démarrage sur bond arrivent souvent quand le cours est encore dans le tiers faible sur 12 mois :
-    // on les montre quand même
-    if (shownV === 'in' && r.out.length && !(useBrk && rkBrk(r)) && !(useBp && rkBp(r, p10))) return false;
-    if (shownV && shownV !== 'in' && r.v !== shownV) return false;
-    return true;
-  };
-  var plf = function (r) {
-    var p = r.plan || {};
-    if (f.figures.length && f.figures.indexOf(p.f || 'none') < 0) return false;
-    if (f.plans.length && f.plans.indexOf(p.v) < 0) return false;
-    if (
-      f.timing.length &&
-      !f.timing.every(function (k) {
-        return (p.t || []).indexOf(k) > -1;
-      })
-    )
-      return false;
-    return true;
-  };
-  var qf = function (r, skip) {
-    return f.quick.every(function (k) {
-      return k === skip || !Q[k] || Q[k][1](r);
+  rfMigrate(f);
+  var q = ES.norm(f.q || ''),
+    rows = R.rows,
+    p10 = pickKeys(rows);
+  var keysOf = function (list) {
+    var o = {};
+    (list || []).forEach(function (r) {
+      if (r && r.key) o[r.key] = 1;
     });
+    return o;
   };
-  var list = rows.filter(function (r) {
-    return base(r) && qf(r) && plf(r);
+  var FS = rankFacets(rows, {
+    tgt: keysOf(ES.pickN(rows, { n: 10, peaOnly: peaLists() }).all),
+    val: keysOf(ES.pickValue(rows, { peaOnly: peaLists() }).all),
+    sel: keysOf((R.selection || {}).items),
+    p10: p10,
+    today: S.today || R.today,
   });
+  // cases qui n'existent plus ce soir (pays sans société, ancienne tranche) : retirées
+  var sel = {};
+  FS.forEach(function (F) {
+    var a = (f.sel[F.k] || []).filter(function (v) {
+      return F.opts.some(function (o) {
+        return o.v === v;
+      });
+    });
+    if (a.length) sel[F.k] = a;
+  });
+  f.sel = sel;
+  // pour chaque ligne : texte cherché trouvé ou non, nombre de groupes ratés et lequel (s'il n'y en a qu'un) ; sert à la liste et
+  // aux nombres affichés sur chaque case
+  var pf = rows.map(function (r) {
+    var n = 0,
+      miss = -1;
+    for (var j = 0; j < FS.length; j++)
+      if (!rfFacetOk(FS[j], r, sel)) {
+        n++;
+        miss = j;
+      }
+    return { n: n, miss: miss, qok: !q || ES.norm([r.name, r.sym, r.isin].join(' ')).indexOf(q) > -1 };
+  });
+  var list = rows.filter(function (r, i) {
+    return pf[i].qok && pf[i].n === 0 && rfOutOk(r, sel, q, p10);
+  });
+  var countOf = function (j, o) {
+    var F = FS[j],
+      s2 = sel;
+    if (F.k === 'v' || F.k === 'brk' || F.k === 'bp') {
+      s2 = Object.assign({}, sel);
+      s2[F.k] = [o.v];
+    }
+    var c = 0;
+    rows.forEach(function (r, i) {
+      var P = pf[i];
+      if (P.qok && (P.n === 0 || (P.n === 1 && P.miss === j)) && o.test(r) && rfOutOk(r, s2, q, p10)) c++;
+    });
+    return c;
+  };
   // Tri sur chaque critère affiché, croissant ou décroissant (les sociétés sans valeur et les écartées restent en fin de liste)
   var sk = RSORT[f.sort] ? f.sort : 'note',
     dir = f.dir === 'asc' ? 1 : f.dir === 'desc' ? -1 : sk === 'name' ? 1 : -1,
@@ -3114,14 +3472,6 @@ function vClassement() {
     var c = typeof va === 'string' ? va.localeCompare(vb, 'fr') : va - vb;
     return c * dir || b.note - a.note;
   });
-  var ctry = {},
-    secs = {},
-    cv = {};
-  rows.forEach(function (r) {
-    if (r.country) ctry[r.country] = 1;
-    if (r.sector) secs[r.sector] = 1;
-    cv[r.v] = (cv[r.v] || 0) + 1;
-  });
   var h = dashTiles(R, rows);
   h += rankSelCard() + agendaCard();
   var psy = psyCard();
@@ -3131,46 +3481,30 @@ function vClassement() {
       psy +
       '</details>';
   // « Toutes les sociétés » : un seul pli ; ouvert d'office si une recherche ou un filtre est actif
-  var allOn = !!(
-    f.q ||
-    f.slope.length ||
-    f.vol ||
-    f.brk ||
-    f.bp ||
-    f.quick.length ||
-    f.country ||
-    f.sector ||
-    f.v ||
-    f.figures.length ||
-    f.plans.length ||
-    f.timing.length
-  );
+  var nF = Object.keys(sel).reduce(function (a, g) {
+    return a + sel[g].length;
+  }, 0);
   h +=
     '<details class="card fold allfold" data-k="all"' +
-    (allOn ? ' open' : '') +
+    (q || nF ? ' open' : '') +
     '><summary>🔎 Recherche <span class="muted small">· ' +
     fmtInt((R.counts || {}).ranked || 0) +
-    ' sociétés, filtres</span></summary>';
-  // recherches toutes prêtes : critères validés par les tests, nombre de sociétés et résultat mesuré de celle qui est choisie
-  var pOn = rfPresetOn(f),
-    pCount = function (st) {
-      var Qs = rankQuick();
-      return rows.filter(function (r) {
-        if (st.bp) return rkBp(r, p10);
-        if (r.out.length) return false;
-        if (st.slope && st.slope.indexOf(rkSc(r) || 'none') < 0) return false;
-        if (st.vol && !(r.vx >= ES.VOL_SURGE)) return false;
-        if (st.plans && st.plans.indexOf((r.plan || {}).v) < 0) return false;
-        return (st.quick || []).every(function (k) {
-          return Qs[k][1](r);
-        });
-      }).length;
-    };
+    ' sociétés, filtres croisés</span></summary>';
+  // recherches toutes prêtes : critères validés par les tests ; elles se croisent entre elles et avec les filtres
+  var pIn = Object.keys(RPRESETS).filter(function (k) {
+    return rfPresetIn(sel, k);
+  });
   h +=
-    '<div class="presets" role="group" aria-label="Recherches toutes prêtes"><span class="slt">Recherches toutes prêtes <span class="muted">· critères testés</span></span><div class="fchips">' +
+    '<div class="presets" role="group" aria-label="Recherches toutes prêtes"><span class="slt">Recherches toutes prêtes <span class="muted">· critères testés, à croiser</span></span><div class="fchips">' +
     Object.keys(RPRESETS)
       .map(function (k) {
-        var on = pOn === k;
+        var on = pIn.indexOf(k) > -1,
+          s2 = on ? sel : rfPresetToggle(sel, k),
+          n = on
+            ? list.length
+            : rows.filter(function (r) {
+                return rfPass(r, FS, s2, q, p10);
+              }).length;
         return (
           '<button class="fchip' +
           (k === 'idea' ? ' idea' : '') +
@@ -3179,262 +3513,148 @@ function vClassement() {
           on +
           '" data-a="rfPreset" data-v="' +
           k +
-          '">' +
+          '"' +
+          (on ? ' title="Retirer cette recherche"' : nF ? ' title="Croiser avec les filtres actuels"' : '') +
+          '>' +
           RPRESETS[k][0] +
-          ' <span class="count">' +
-          pCount(RPRESETS[k][1]) +
-          '</span></button>'
-        );
-      })
-      .join('') +
-    '</div>' +
-    (pOn
-      ? '<p class="small ' +
-        (pOn === 'idea' ? 'warnc' : 'muted') +
-        '">' +
-        (pOn === 'idea' ? '⚠️ ' : '🧪 ') +
-        esc(RPRESETS[pOn][2]) +
-        '. <button class="link" data-a="rfPreset" data-v="none">Effacer la recherche</button></p>'
-      : '') +
-    '</div>';
-  // filtres rapides, avec le nombre de résultats si l'on coche ce filtre en plus des autres
-  var pool = rows.filter(function (r) {
-    return base(r) && plf(r);
-  });
-  h +=
-    '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' +
-    esc(f.q || '') +
-    '" data-rf="q" aria-label="Rechercher"></div>';
-  // pente du canal haussier : barre toujours visible, cumulable (forte + moyenne par exemple)
-  var slN = {};
-  rows.forEach(function (r) {
-    if (base(r, 'slope') && qf(r) && plf(r)) {
-      var k = rkSc(r) || 'none';
-      slN[k] = (slN[k] || 0) + 1;
-    }
-  });
-  var brkN = rows.filter(function (r) {
-    return base(r, 'brk') && qf(r) && plf(r);
-  }).length;
-  var volN = rows.filter(function (r) {
-    return base(r, 'vol') && qf(r) && plf(r);
-  }).length;
-  var bpN = rows.filter(function (r) {
-    return base(r, 'bp') && qf(r) && plf(r);
-  }).length;
-  var nF =
-    f.slope.length +
-    (f.vol ? 1 : 0) +
-    (f.brk ? 1 : 0) +
-    (f.bp ? 1 : 0) +
-    f.quick.length +
-    (f.country ? 1 : 0) +
-    (f.sector ? 1 : 0) +
-    (f.v ? 1 : 0) +
-    f.figures.length +
-    f.plans.length +
-    f.timing.length;
-  h +=
-    '<details class="card fold ffold" data-k="rfilt"' +
-    (nF ? ' open' : '') +
-    '><summary>⚙️ Filtres' +
-    (nF
-      ? ' <span class="chip good">' + nF + '</span>'
-      : ' <span class="muted small">· pente, PEA, pays, secteur…</span>') +
-    '</summary>';
-  h +=
-    '<div class="slbar" role="group" aria-label="Pente du canal haussier"><span class="slt">Pente <span class="muted">· 6 mois</span></span><div class="fchips">' +
-    [
-      ['strong', '⬆⬆ Forte', '≥ +40 %'],
-      ['mid', '⬆ Moyenne', '+15 à +40 %'],
-      ['light', '↗ Légère', '< +15 %'],
-    ]
-      .map(function (o) {
-        var on = f.slope.indexOf(o[0]) > -1;
-        return (
-          '<button class="fchip sl-' +
-          o[0] +
-          (on ? ' on' : '') +
-          '" aria-pressed="' +
-          on +
-          '" data-a="rfSlope" data-v="' +
-          o[0] +
-          '"><span aria-hidden="true">' +
-          (on ? '☑' : '☐') +
-          '</span> ' +
-          o[1] +
-          ' <small>' +
-          o[2] +
-          '</small> <span class="count">' +
-          (slN[o[0]] || 0) +
-          '</span></button>'
-        );
-      })
-      .join('') +
-    (f.slope.length ? '<button class="fchip" data-a="rfSlope" data-v="all">Toutes</button>' : '') +
-    '</div>' +
-    '<span class="slt">Signaux <span class="muted">· hors note</span></span><div class="fchips">' +
-    '<button class="fchip' +
-    (f.vol ? ' on' : '') +
-    '" aria-pressed="' +
-    !!f.vol +
-    '" data-a="rfVol" title="Volumes des 10 dernières semaines au moins deux fois la moyenne de l\'année"><span aria-hidden="true">' +
-    (f.vol ? '☑' : '☐') +
-    '</span> 🔊 Volumes ×2 <span class="count">' +
-    volN +
-    '</span></button>' +
-    '<button class="fchip brk' +
-    (f.brk ? ' on' : '') +
-    '" aria-pressed="' +
-    !!f.brk +
-    '" data-a="rfBrk" title="Nouveau plus haut sur un an dans les 4 dernières semaines, alors que le cours était à plus de 25 % sous son plus haut il y a 6 mois"><span aria-hidden="true">' +
-    (f.brk ? '☑' : '☐') +
-    '</span> 🚀 Nouveau plus haut après une base <span class="count">' +
-    brkN +
-    '</span></button>' +
-    '<button class="fchip' +
-    (f.bp ? ' on' : '') +
-    '" aria-pressed="' +
-    !!f.bp +
-    '" data-a="rfBp" title="Semaine à +8 % ou plus sur 3 fois le volume habituel, il y a 3 semaines au plus, cours en tendance, pas encore dans le 🎯"><span aria-hidden="true">' +
-    (f.bp ? '☑' : '☐') +
-    '</span> 📣 Démarrage sur bond <span class="count">' +
-    bpN +
-    '</span></button></div>' +
-    (f.brk ? brkNote() : '') +
-    (f.bp ? bpNote() : '') +
-    '<span class="slt">Filtres</span><div class="fchips">' +
-    Object.keys(Q)
-      .map(function (k) {
-        var on = f.quick.indexOf(k) > -1,
-          n = pool.filter(function (r) {
-            return Q[k][1](r) && qf(r, k);
-          }).length;
-        return (
-          '<button class="fchip' +
-          (on ? ' on' : '') +
-          '" aria-pressed="' +
-          on +
-          '" data-a="rfQuick" data-v="' +
-          k +
-          '"><span aria-hidden="true">' +
-          (on ? '☑' : '☐') +
-          '</span> ' +
-          Q[k][0] +
           ' <span class="count">' +
           n +
           '</span></button>'
         );
       })
       .join('') +
-    '</div></div>';
-  var nSel = (f.country ? 1 : 0) + (f.sector ? 1 : 0) + (f.v ? 1 : 0);
-  h +=
-    '<details class="card fold ffold" data-k="rsel"' +
-    (nSel ? ' open' : '') +
-    '><summary>Pays, secteur, avis' +
-    (nSel ? ' <span class="chip good">' + nSel + '</span>' : '') +
-    '</summary><div class="toolbar">' +
-    '<select data-rf="country" aria-label="Pays"><option value="">Tous les pays</option>' +
-    Object.keys(ctry)
-      .sort()
-      .map(function (c) {
-        return (
-          '<option value="' +
-          c +
-          '"' +
-          (f.country === c ? ' selected' : '') +
-          '>' +
-          flagTxt(c) +
-          (COUNTRIES[c] || c) +
-          '</option>'
-        );
-      })
-      .join('') +
-    '</select>' +
-    '<select data-rf="sector" aria-label="Secteur"><option value="">Tous les secteurs</option>' +
-    Object.keys(secs)
-      .sort(function (a, b) {
-        return a.localeCompare(b, 'fr');
-      })
-      .map(function (c) {
-        return '<option value="' + esc(c) + '"' + (f.sector === c ? ' selected' : '') + '>' + esc(c) + '</option>';
-      })
-      .join('') +
-    '</select>' +
-    '<select data-rf="v" aria-label="Avis"><option value="">Classées (sans les écartées)</option>' +
-    ['top', 'good', 'mid', 'out']
+    '</div>' +
+    pIn
       .map(function (k) {
         return (
-          '<option value="' +
-          k +
-          '"' +
-          (f.v === k ? ' selected' : '') +
-          '>' +
-          RV[k][0] +
-          ' ' +
-          RV[k][1] +
-          ' (' +
-          (cv[k] || 0) +
-          ')</option>'
+          '<p class="small ' +
+          (k === 'idea' ? 'warnc' : 'muted') +
+          '">' +
+          (k === 'idea' ? '⚠️ ' : '🧪 ') +
+          esc(RPRESETS[k][2]) +
+          '.</p>'
         );
       })
       .join('') +
-    '</select>' +
-    '</div></details>';
-  // figure, plan d'entrée, repères de timing
-  var cf = {},
-    cp = {},
-    ct = {},
-    pool2 = rows.filter(function (r) {
-      return base(r) && qf(r);
-    });
-  pool2.forEach(function (r) {
-    var p = r.plan;
-    if (!p) return;
-    cf[p.f || 'none'] = (cf[p.f || 'none'] || 0) + 1;
-    cp[p.v] = (cp[p.v] || 0) + 1;
-    (p.t || []).forEach(function (k) {
-      ct[k] = (ct[k] || 0) + 1;
+    '</div>';
+  h +=
+    '<div class="toolbar"><input id="r-q" type="search" placeholder="Rechercher une société" value="' +
+    esc(f.q || '') +
+    '" data-rf="q" aria-label="Rechercher"></div>';
+  // filtres actifs : le croisement en clair, chaque filtre retirable, et le nombre de sociétés qui restent
+  var act = [];
+  FS.forEach(function (F) {
+    (sel[F.k] || []).forEach(function (v) {
+      var o = F.opts.filter(function (x) {
+        return x.v === v;
+      })[0];
+      if (o)
+        act.push(
+          '<button class="fchip on rmf" data-a="rfF" data-g="' +
+            F.k +
+            '" data-v="' +
+            esc(v) +
+            '" aria-label="Retirer le filtre ' +
+            esc((F.flag ? '' : F.t + ' : ') + o.l) +
+            '">' +
+            (F.flag ? '' : '<small>' + esc(F.t) + ' :</small> ') +
+            esc(o.l) +
+            ' <span aria-hidden="true">✕</span></button>'
+        );
     });
   });
-  var chip = function (act, k, txt, n, on, tone) {
+  if (act.length || q)
+    h +=
+      '<div class="rfact" role="group" aria-label="Filtres actifs"><b>' +
+      fmtInt(list.length) +
+      ' société' +
+      (list.length > 1 ? 's' : '') +
+      '</b>' +
+      (act.length > 1 ? ' <span class="muted small">· filtres croisés</span>' : '') +
+      '<div class="fchips">' +
+      act.join('') +
+      (act.length ? '<button class="link" data-a="rfPreset" data-v="none">Tout effacer</button>' : '') +
+      '</div></div>';
+  // tous les filtres, par thème ; chaque case donne le nombre de sociétés si on la coche en plus
+  var chip = function (F, o, j) {
+    var on = (sel[F.k] || []).indexOf(o.v) > -1,
+      n = countOf(j, o);
+    // pays sans société avec les autres filtres : caché (longue liste) ; ailleurs, case à 0 grisée
+    if (!n && !on && F.k === 'country') return '';
     return (
-      '<button class="fchip ' +
-      (tone || '') +
+      '<button class="fchip' +
+      (F.k === 'slope' ? ' sl-' + o.v : '') +
       (on ? ' on' : '') +
+      (n ? '' : ' zero') +
       '" aria-pressed="' +
       on +
-      '" data-a="' +
-      act +
+      '" data-a="rfF" data-g="' +
+      F.k +
       '" data-v="' +
-      k +
-      '"><span aria-hidden="true">' +
+      esc(o.v) +
+      '"' +
+      (o.d ? ' title="' + esc(o.d) + '"' : '') +
+      '><span aria-hidden="true">' +
       (on ? '☑' : '☐') +
       '</span> ' +
-      txt +
+      esc(o.l) +
+      (o.d && !F.flag ? ' <small>' + esc(o.d) + '</small>' : '') +
       ' <span class="count">' +
-      (n || 0) +
+      n +
       '</span></button>'
     );
   };
-  var nf = f.figures.length + f.plans.length + f.timing.length;
   h +=
-    '<details class="card fold ffold" data-k="rfilters"' +
-    (nf ? ' open' : '') +
-    "><summary>Plan d'entrée" +
-    (nf ? ' <span class="chip good">' + nf + ' filtre' + (nf > 1 ? 's' : '') + '</span>' : '') +
-    '</summary>' +
-    '<div class="fchips">' +
-    PLANS.map(function (o) {
-      return chip('rfPlan', o[0], o[1], cp[o[0]], f.plans.indexOf(o[0]) > -1);
-    }).join('') +
-    '</div>' +
+    '<details class="card fold ffold" data-k="rfilt"' +
+    (nF ? ' open' : '') +
+    '><summary>⚙️ Tous les filtres' +
+    (nF
+      ? ' <span class="chip good">' + nF + '</span>'
+      : ' <span class="muted small">· signaux, tendance, comptes, risque, pays, secteur…</span>') +
+    "</summary><p class=\"small muted\">Dans un même groupe, les cases cochées s'additionnent ; d'un groupe à l'autre, et entre signaux, elles se croisent. Le nombre de chaque case : les sociétés qu'elle retient, compte tenu des autres filtres.</p>";
+  RF_SECTIONS.forEach(function (sec) {
+    var idx = [];
+    FS.forEach(function (F, j) {
+      if (F.s === sec[0]) idx.push(j);
+    });
+    if (!idx.length) return;
+    h +=
+      '<div class="rfsec"><span class="slt">' +
+      sec[1] +
+      (sec[2] ? ' <span class="muted">· ' + sec[2] + '</span>' : '') +
+      '</span>';
+    if (sec[0] === 'sig')
+      h +=
+        '<div class="fchips">' +
+        idx
+          .map(function (j) {
+            return chip(FS[j], FS[j].opts[0], j);
+          })
+          .join('') +
+        '</div>';
+    else
+      idx.forEach(function (j) {
+        var F = FS[j];
+        h +=
+          '<div class="rfrow"><span class="rft">' +
+          esc(F.t) +
+          '</span><div class="fchips">' +
+          F.opts
+            .map(function (o) {
+              return chip(F, o, j);
+            })
+            .join('') +
+          '</div></div>';
+      });
+    h += '</div>';
+  });
+  h +=
+    (sel.brk ? brkNote() : '') +
+    (sel.bp ? bpNote() : '') +
     xpi(
-      "2 à 10 % sous le plus haut : aussi bon qu'au plus haut sur 29 ans ; au-delà de 10 %, deux fois plus de chutes."
+      "Écart au plus haut : 2 à 10 % dessous, aussi bon qu'au plus haut sur 29 ans ; au-delà de 10 %, deux fois plus de chutes. Les sociétés ⛔ écartées n'apparaissent que si l'avis « Écartée » est coché, si l'on cherche un nom, ou par 🚀 et 📣."
     ) +
-    (nf ? '<button class="link" data-a="rfFClear">Tout décocher</button>' : '') +
-    '</details></details>';
+    '</details>';
   h +=
     '<details class="help"><summary>Légende</summary><ul class="plain small legend">' +
     '<li><b class="big">78</b> note /100 : 🟢 en tête, 🟡 solide, ⚪ moyenne, ⛔ écartée</li>' +

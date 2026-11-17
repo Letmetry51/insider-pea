@@ -3815,6 +3815,12 @@ t('Les 3 des règles testées : filtres, une par secteur, raisons des écartées
   ];
   const p = ES.pickThree(rows, { perSec: 1 });
   eq(p.picks.map((x) => x.key).join(), 'A,C,F', 'une par secteur, par note');
+  // filtre 🎯 de la recherche : toutes celles qui réunissent toutes les règles, même au-delà de 2 par secteur
+  ok(
+    p.all.length === p.pool && p.all.length >= p.picks.length,
+    'liste complète du 🎯 : ' + p.all.length + ' / ' + p.pool
+  );
+  eq(ES.pickThree([]).all, []);
   eq(
     ES.pickThree(rows)
       .picks.map((x) => x.key)

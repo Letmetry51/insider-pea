@@ -10260,6 +10260,7 @@
       picks: picks,
       rejected: rejected,
       pool: cand[0].length,
+      all: cand[0], // toutes les sociétés qui réunissent toutes les règles (filtre 🎯 de la recherche)
       pools: cand.map(function (c) {
         return c.length;
       }),
