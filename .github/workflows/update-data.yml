@@ -158,6 +158,17 @@ jobs:
           python scrapers/sectors.py --prices --dashboard
         continue-on-error: true
 
+      # TradingView (screener public, 17/11/2026) : clôture du soir et F-score de toutes les actions des 15 bourses, une requête par
+      # bourse (quelques secondes) ; dernier recours des cours de secours (étape 3c) et contrôle des comptes Yahoo (étape 5c ter).
+      # Fichier de travail jamais publié ; TradingView injoignable : noté dans le fichier, l'étape réussit et l'outil tourne comme avant
+      - name: 3b bis. TradingView (clôtures du soir et F-score, une requête par bourse)
+        id: s3t
+        timeout-minutes: 3
+        run: |
+          python scrapers/test_tradingview.py > /tmp/test_tradingview.txt || { cat /tmp/test_tradingview.txt; exit 1; }
+          python scrapers/tradingview.py
+        continue-on-error: true
+
       # Clôture du soir manquante chez Yahoo (calcul tardif, panne) : prise à la bourse elle-même (Euronext, Nasdaq Nordic), puis
       # dernier cours Yahoo titre par titre pour les autres places (03/11/2026 : séance vide chez Yahoo le lendemain matin)
       - name: 3c. Cours de secours (Euronext, Nasdaq Nordic, Yahoo titre par titre)
@@ -226,6 +237,14 @@ jobs:
         run: |
           python euro_signal/test_twin.py > /tmp/test_twin.txt || { cat /tmp/test_twin.txt; exit 1; }
           python euro_signal/twin_check.py
+        continue-on-error: true
+
+      # Contrôle des comptes : F-score du classement (comptes Yahoo) comparé à celui de TradingView ; écart de 3 points ou plus sur une
+      # société de la sélection, des 10 🎯 ou des 10 💎 affiché dans l'onglet Aide (« comptes à vérifier ») ; jamais utilisé par le classement
+      - name: 5c ter. F-score comparé à TradingView (contrôle des comptes Yahoo)
+        id: s5f
+        timeout-minutes: 2
+        run: python euro_signal/tv_check.py
         continue-on-error: true
 
       - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)

@@ -55,8 +55,9 @@ avec la société moyenne de la même semaine). Le détail chiffré est dans l'o
   les 10 premières, deux fois moins de chutes, mais 2 ans seulement (t = 1,7) ;
 - **suivi réel** automatique des sélections depuis le 18/10/2026 (premiers résultats à 3 mois en janvier 2027) ;
 - **l'outil lui-même** : données de Yahoo Finance par un accès non officiel (s'il est coupé, l'outil perd l'essentiel ; la
-  clôture du soir a une source de secours, Euronext et Nasdaq Nordic, pour 10 bourses sur 15, pas l'Allemagne, l'Espagne,
-  Vienne, Londres ni Zurich), erreurs de Yahoo reprises (en partie corrigées), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
+  clôture du soir a des sources de secours : Euronext et Nasdaq Nordic pour 10 bourses sur 15, TradingView en dernier recours
+  pour toutes, dont l'Allemagne, l'Espagne, Vienne, Londres et Zurich), erreurs de Yahoo reprises (en partie corrigées ; F-score
+  comparé chaque soir à celui de TradingView), mise à jour une fois par soir, sans support. Ce qu'il fait de plus ou de
   moins que Yahoo Finance et les sites gratuits : onglet **Comment ça marche** (pli « 🆚 Face à Yahoo Finance… »).
 
 Tout se recalcule : `research/chiffres_cles.py` (ce tableau), `research/backtest/valeur.py` (💎), détail dans `research/README.md`.
@@ -74,10 +75,12 @@ euro_signal/
   tests.js              tests du moteur (npm test)
   check_outputs.mjs     contrôle des fichiers produits ; ui_check.mjs : contrôle de l'affichage (Playwright)
   twin_check.py         double calcul : classement, sélection des 5 et 10 🎯 refaits à part en Python, comparés au moteur
+  tv_check.py           contrôle des comptes : F-score du classement (comptes Yahoo) comparé à celui de TradingView
   send_alerts.py        envoi des emails (Gmail) ; positions.py : alertes sur vos positions ; send_health.py : email technique
   config.json           réglages (barème, sélection, alertes)
 scrapers/               collecteurs : déclarations (AMF, FI, FSMA, AFM), ventes à découvert, cours et comptes (Yahoo), secteurs, presse ;
-                        backup_prices.py : cours de secours (Euronext, Nasdaq Nordic) et contrôle des clôtures de chaque bourse
+                        backup_prices.py : cours de secours (Euronext, Nasdaq Nordic, TradingView) et contrôle des clôtures de chaque bourse ;
+                        tradingview.py : clôture du soir et F-score de toutes les bourses (screener public TradingView)
 research/               scripts des études (voir research/README.md)
 tools/stamp.mjs         empreintes des fichiers de la page (npm run stamp)
 .github/workflows/      update-data.yml (chaque soir), watchdog.yml (relance le calcul du soir s'il n'a pas tourné ; échoue si Gmail refuse),
@@ -139,6 +142,7 @@ Les collecteurs lisent des sources publiques ; **vérifiez leurs conditions d'ut
 |---|---|---|
 | Yahoo Finance (via `yfinance`) | cours, volumes, comptes, résultats, avis d'analystes, description d'activité | usage personnel ; la redistribution des données n'est en principe pas autorisée |
 | Euronext (liste des actions), Nasdaq Nordic | clôture du soir quand Yahoo ne l'a pas (`scrapers/backup_prices.py`) | sites publics des bourses ; usage personnel |
+| TradingView (screener public) | clôture du soir de toutes les bourses en dernier recours, F-score comparé au nôtre (`scrapers/tradingview.py`) | accès non officiel ; usage personnel ; données jamais publiées (seul le rapport du contrôle l'est) |
 | AMF (France), Finansinspektionen (Suède), FSMA (Belgique), AFM (Pays-Bas) | déclarations des dirigeants | registres publics ; contiennent des noms de personnes (RGPD) |
 | AMF, Consob, CNMV, AFM, FSMA, Bundesanzeiger, FCA | ventes à découvert déclarées | registres publics |
 | Google News (flux RSS) | titres de presse des sociétés suivies | titres et liens seulement |

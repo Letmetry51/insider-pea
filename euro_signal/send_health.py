@@ -40,10 +40,11 @@ def load(path, default):
 STEP_LABELS = {
     "restore": "0. Données de la veille", "deps": "Installation des dépendances", "s1": "1. Déclarations AMF",
     "s2": "2. Déclarations Belgique et Pays-Bas", "s2c": "2c. Positions vendeuses des fonds", "s3": "3. Cours Yahoo Finance",
-    "s3b": "3b. Secteurs et fiches sociétés", "s3c": "3c. Cours de secours (Euronext, Nasdaq Nordic)",
+    "s3b": "3b. Secteurs et fiches sociétés", "s3t": "3b bis. TradingView (clôtures et F-score)",
+    "s3c": "3c. Cours de secours (Euronext, Nasdaq Nordic, TradingView)",
     "s4": "4. Résultats, communiqués et révisions", "s4b": "4b. Comptes annuels", "s4c": "4c. Actualité des sociétés",
     "s5a": "5a. Tests du moteur", "s5b": "5b. Calcul Euro Signal", "s5c": "5c. Archive des résultats et rachats",
-    "s5t": "5c bis. Double calcul", "s5d": "5d. Contrôle des fichiers", "s5ei": "5e. Navigateur du contrôle de l'affichage",
+    "s5t": "5c bis. Double calcul", "s5f": "5c ter. F-score comparé à TradingView", "s5d": "5d. Contrôle des fichiers", "s5ei": "5e. Navigateur du contrôle de l'affichage",
     "s5e": "5e. Contrôle de l'affichage", "s6": "6. Alertes email",
     "s6b": "6b. Vos positions (alertes de revente)",
     "s7": "7. Publication du site : la page garde les données de la veille (données du soir sauvegardées 30 jours)",

@@ -17,6 +17,10 @@ Sources publiques des bourses, sans clé :
   la bourse), retenu seulement s'il date de la séance attendue ; pour les titres liquides que les listes officielles ne donnent
   pas (Allemagne, Espagne, Vienne, Londres, Suisse, titres nordiques manquants). Le 02/11/2026, Yahoo avait la séance mais sans
   cours pour presque toutes les bourses, le lendemain matin encore, alors que le dernier cours de chaque cotation était juste.
+- TradingView (17/11/2026, scrapers/tradingview.py, étape précédente du calcul du soir) : clôture du soir de toutes les
+  actions des 15 bourses, une requête par bourse ; dernier recours, après les listes officielles et Yahoo titre par titre, et
+  seule source indépendante de Yahoo pour l'Allemagne, l'Espagne, Vienne, Londres et Zurich. Lu dans data/tradingview.json
+  (fichier du soir, jamais publié) ; volume jamais repris.
 
 Règles :
 - seules les cases vides sont complétées ; un cours Yahoo n'est remplacé que s'il est aberrant (plus de ×1,5 ou ÷1,5 en un jour)
@@ -460,6 +464,28 @@ def yahoo_quotes(symbols, today, get=None, max_n=YAHOO_MAX, seconds=YAHOO_SECOND
     return out, st
 
 
+def tradingview_quotes(T, today, path=None):
+    """Clôtures TradingView de la séance T (data/tradingview.json, écrit ce soir par scrapers/tradingview.py) → ({symbole :
+    cotation}, compteurs). Fichier absent, d'un autre jour ou illisible : rien (l'outil tourne comme avant)."""
+    js = read_json(path or DATA / "tradingview.json", None)
+    if not isinstance(js, dict) or not isinstance(js.get("items"), dict):
+        return {}, {"rows": 0, "session": 0, "note": "fichier absent ou illisible"}
+    if js.get("date") != today:
+        return {}, {"rows": 0, "session": 0, "note": f"fichier du {js.get('date')}, pas d'aujourd'hui"}
+    out = {}
+    for sym, v in js["items"].items():
+        if not isinstance(v, list) or len(v) < 6 or v[0] != T:
+            continue
+        c = num(v[1])
+        if c is None:
+            continue
+        out[sym] = quote(T, c, num(v[2]), num(v[3]), num(v[4]), None, v[5] if isinstance(v[5], str) else None, "TradingView")
+    st = {"rows": len(js["items"]), "session": len(out)}
+    if js.get("errors"):
+        st["errors"] = js["errors"]
+    return out, st
+
+
 def session_of(quotes, today, min_n=MIN_NEW_SESSION):
     """Dernière séance selon la source de secours : la date la plus fréquente (au moins min_n titres), jamais dans le futur."""
     c = Counter(q["date"] for q in quotes if q and q.get("date") and q["date"] <= today)
@@ -873,7 +899,11 @@ def main():
             diag["yahoo"].update(todo=len(todo), session=len(yq))
             log(f"Yahoo titre par titre : {len(todo)} titres sans la clôture du {T}, {diag['yahoo']['asked']} demandés,"
                 f" {len(yq)} avec le cours de cette séance ({diag['yahoo']['seconds']} s)")
-    enx = {**yq, **enx}
+    # TradingView : dernier recours (listes officielles, puis Yahoo titre par titre, restent prioritaires)
+    tq, diag["tradingview"] = tradingview_quotes(T, today) if T else ({}, {"rows": 0, "session": 0})
+    log(f"TradingView : {diag['tradingview']['session']} clôtures du {T or '?'} disponibles en dernier recours"
+        + (f" ({diag['tradingview']['note']})" if diag["tradingview"].get("note") else ""))
+    enx = {**tq, **yq, **enx}
 
     def one_by_one(sym):  # bourse dont la liste est retenue : un titre absent n'a pas été échangé ce jour, rien à demander
         return [] if sym.rsplit(".", 1)[-1] in used else nordic.quotes(sym)
@@ -881,7 +911,9 @@ def main():
     # cours Euro Signal d'abord (dossiers suivis, alertes) : les titres nordiques déjà lus resservent aux fiches sociétés
     sp = patch_prices(prices, enx, one_by_one, today, T) if isinstance(prices, dict) else dict(stats(), session=T)
     # nouvelle séance ajoutée aux fiches seulement si au moins 30 cours l'ont (liste Euronext, ou listes nordiques retenues)
-    append_ok = diag["sessionSource"] == "liste Euronext" or sum(1 for q in nl.values() if q.get("date") == T) >= MIN_NEW_SESSION
+    # (ou par TradingView, qui couvre toutes les bourses : Euronext en panne, la séance du calendrier est confirmée par la bourse)
+    append_ok = (diag["sessionSource"] == "liste Euronext" or sum(1 for q in nl.values() if q.get("date") == T) >= MIN_NEW_SESSION
+                 or len(tq) >= MIN_NEW_SESSION)
     sc = patch_catalogue([sh for _, sh in ok], enx, one_by_one, today, T, append=append_ok)
     # clôtures Yahoo aberrantes, quand la bourse donne une clôture normale
     official = {k: q for k, q in enx.items() if q.get("src") in ("Euronext", "Nasdaq Nordic")}

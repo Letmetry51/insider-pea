@@ -59,7 +59,9 @@ runs:
         # données : tout sauf les fichiers de travail régénérés à chaque calcul (comme le .gitignore du code)
         cp -r data "$SITE/data"
         rm -rf "$SITE/data/grain/prive"  # historiques bruts des cours du Bulletin des grains : jamais publiés (cache du workflow)
+        # tradingview.json : cours et F-scores bruts de TradingView (fichier de travail du soir, jamais publié)
         find "$SITE/data" \( -name 'prices.json' -o -name 'euro-signal-outbox.json' -o -name 'events.json' -o -name '*.tmp' \
+          -o -name 'tradingview.json' \
           -o -name 'weekly.csv.gz' -o -name 'weekly_volume.csv.gz' -o -name '*.illisible-*' \) -delete
         # garde-fou : un fichier de données illisible (étape coupée en pleine écriture, disque plein) n'est jamais publié ; la version
         # publiée la veille le remplace, sinon le calcul suivant repartirait d'un fichier vide (ou s'arrêterait : journal des alertes)
