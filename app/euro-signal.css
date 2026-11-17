@@ -2883,9 +2883,10 @@ button.fxb-i.t-na {
   color: var(--muted);
 }
 details.fold,
+details.vall,
 .plan {
   scroll-margin-top: 170px;
-} /* sous l'en-tête fixe quand un feu y mène */
+} /* sous l'en-tête fixe quand un feu ou une tuile y mène */
 .miss {
   margin: 6px 0 10px;
   font-size: 0.84rem;

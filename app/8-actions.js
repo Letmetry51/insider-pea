@@ -177,10 +177,13 @@ document.addEventListener('click', function (ev) {
     var pf = document.querySelector('.psyfold');
     if (pf) pf.scrollIntoView({ block: 'start' });
   } else if (a === 'valueOpen') {
+    // tuile « N valeurs » : la liste complète des 💎 du soir (pli 📜 dans la sélection de la semaine)
     S.openDet = S.openDet || {};
     S.openDet.buy = true;
+    S.openDet.value = true;
+    S.openDet.valall = true;
     render();
-    var vc = document.querySelector('.selc');
+    var vc = document.querySelector('.vall') || document.querySelector('.selc');
     if (vc) vc.scrollIntoView({ block: 'start' });
   } else if (a === 'pick3') {
     S.openDet = S.openDet || {};

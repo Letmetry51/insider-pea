@@ -9935,6 +9935,7 @@
    * perte de −46 % à −30 %. Règles (Piotroski 2000) : prix bas par rapport aux fonds propres (tiers le moins cher des sociétés liquides),
    * comptes solides (F-score ≥ 7), pas de perte ni de bilan en détresse, pas de chute de plus de 40 % sur un an, ni ⚡ ni 🐻 (Paris),
    * au moins 1 M€ échangés par jour ; meilleur F-score puis prix le plus bas, 2 par secteur. Lignes publiées (mom en %, pb, f9, liq).
+   * → { picks (les n premières, 2 par secteur), cut (prix du tiers le moins cher), pool (nombre), all (toutes, dans l'ordre du tri) }.
    */
   ES.pickValue = function (rows, opt) {
     var o = Object.assign({ n: 10, perSec: 2, fMin: 7, liqMin: 1e6, momMin: -40 }, opt || {});
@@ -9948,7 +9949,7 @@
       .sort(function (a, b) {
         return a - b;
       });
-    if (pbs.length < 30) return { picks: [], cut: null, pool: 0 };
+    if (pbs.length < 30) return { picks: [], cut: null, pool: 0, all: [] };
     var cut = pbs[Math.floor(pbs.length / 3)];
     var bad = /perte|détresse|dégradation|saut de cours|moins d'un an|cours figé|peu liquide/;
     var pool = liq
@@ -9976,7 +9977,7 @@
       seen[sc] = (seen[sc] || 0) + 1;
       picks.push(r);
     });
-    return { picks: picks, cut: cut, pool: pool.length };
+    return { picks: picks, cut: cut, pool: pool.length, all: pool };
   };
   ES.SHORT_MIN = 0.5;
   ES.SHORT_EXCLUDE = { FR: true };
