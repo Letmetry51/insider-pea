@@ -1411,6 +1411,14 @@ function logicCard() {
     'propre, une fois retirée la part qui vient du marché (bêta sur 3 ans), au lieu de leur hausse sur 12 mois : +0,4 / −0,5 / −0,0 point ' +
     'par an selon la période (t −0,2), les deux classements se ressemblant beaucoup (rangs corrélés à 0,90) ; pas moins de pertes en ' +
     '2009 ni en 2020. Moyenne des deux : +0,2 point par an, t 0,3, hasard.</li>' +
+    '<li><b>Méthode de Peter Tuchman</b> (17/11/2026, courtier du NYSE, portefeuille simulé 1998-2026) : « après trois pertes de suite, ' +
+    "on éteint la machine ». Sauter l'achat de la semaine après 3 semaines de baisse du portefeuille (6 % des semaines) coûte de 1,1 à " +
+    '2,3 points par an selon la période ; les achats sautés ont tout de même fait +14,9 % en 6 mois. La pire baisse passe de −45 % à ' +
+    '−38 %, mais à part investie égale (94 %) la règle actuelle fait le même rendement avec −43 % : un seul krach, trop peu pour une ' +
+    "règle. Mieux vaut acheter chaque semaine, même après des pertes. Le montage qu'on lui prête (repli sur les moyennes " +
+    "exponentielles 9 et 15 en tendance, RSI entre 50 et 70) ne prévoit rien seul (+0,5 point à 6 mois) et, pour un 🎯, l'attendre " +
+    "plutôt qu'acheter le lundi coûte 0,6 point dans chaque période ; les 🎯 sans repli, RSI au-dessus de 70, font le mieux (+5,3 contre " +
+    "+4,6). Ses autres principes (prendre ses gains tôt, stop au prix d'entrée, éviter le FOMO) étaient déjà testés : tous moins bons.</li>" +
     '<li><b>Nouveautés ProRealCode</b> (08/11/2026, 1 100 sociétés, 2000-2026) : momentum pondéré par les volumes (à hausse égale, +0,3 point à 6 mois seulement), régime du marché tendance / transition / agité (le 🎯 fait mieux que la moyenne dans chacun : aucun à éviter), prix moyen pondéré par les volumes depuis un 📣 bond (rien de plus que « bond tenu » au-dessus de sa clôture). La place de marché vend surtout des systèmes en séance sur indices et devises, hors sujet pour un PEA.</li>' +
     "<li><b>Saisonnalité des secteurs</b> : les bons mois de 2018–2021 ne l'étaient plus en 2022–2026 ; acheter les secteurs « saisonniers » n'a rien rapporté.</li>" +
     "<li><b>Peur du marché (VIX, volatilité)</b> : sur 29 ans, l'avantage reste de +4 à +5 points que le marché soit calme ou agité ; seule une baisse de 20 % sur un an est dangereuse (alerte rouge déjà en place).</li>" +
