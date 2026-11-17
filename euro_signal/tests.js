@@ -2474,9 +2474,25 @@ t("Revue de la méthode : critères fixés à l'avance, suivi réel du 🎯 et r
   eq(good.items.length, 4);
   ok(good.items[1].now.indexOf('+12 %') === 0 && /à 6 mois, 60 lignes/.test(good.items[1].now), good.items[1].now);
   eq(good.items[3].ok, false, '💎 sans recul : information seulement');
-  // règle démentie : garder les autres, retirer celle-là
-  const one = ES.reviewStatus({ rank: { pickTrack: { m6: g(60, 12, 7) }, signalTrack: sig(false) } }, c);
-  ok(one.decision.key === 'keep' && /Retirer la règle démentie : 📣/.test(one.decision.text), one.decision.text);
+  // signe contraire sur 30 lignes : pas une preuve (une fois sur deux par hasard, research/proba.py), la règle reste
+  const coin = ES.reviewStatus({ rank: { pickTrack: { m6: g(60, 12, 7) }, signalTrack: sig(false) } }, c);
+  ok(coin.decision.key === 'keep' && !/démentie/.test(coin.decision.text) && coin.items[2].ok, coin.decision.text);
+  // nettement démentie (écart sous sa fourchette attendue) : la réexaminer sur les 3 périodes, sans la retirer d'office
+  const one = ES.reviewStatus(
+    {
+      rank: {
+        pickTrack: { m6: g(60, 12, 7) },
+        signalTrack: sig(false),
+        edgeTrack: { signals: [{ k: 'bp', icon: '📣', label: 'bond sur gros volume', alert: true }] },
+      },
+    },
+    c
+  );
+  ok(
+    one.decision.key === 'keep' && /Réexaminer sur les 3 périodes la règle démentie : 📣/.test(one.decision.text),
+    one.decision.text
+  );
+  eq(one.items[2].ok, false);
   // 🎯 sous l'indice ou trop peu de recul : prolonger, jamais de changement sur le hasard
   eq(ES.reviewStatus({ rank: { pickTrack: { m6: g(60, 4, 7) } } }, c).decision.key, 'extend');
   const early = ES.reviewStatus({ rank: { pickTrack: { open: g(20, -1.5, -1.1), m3: g(25, 2, 1) } } }, c);

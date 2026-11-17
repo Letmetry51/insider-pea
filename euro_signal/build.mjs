@@ -3503,38 +3503,48 @@ export function build(opts = {}) {
   }
 
   /* 6g. Auto-surveillance : la méthode n'est jamais modifiée seule ; si l'avantage mesuré se dégrade nettement, un email
-     (au plus un par mois tant que la situation dure) demande une revue. Mesures : suivi réel du 🎯 (📒) et étude de contrôle du soir. */
+     (au plus un par mois tant que la situation dure) demande une revue. Mesures : suivi réel du 🎯 (📒) face à la société moyenne,
+     jugé par sa fourchette attendue (ES.EDGE_MODEL), et étude de contrôle du soir.
+     Jusqu'au 17/11/2026, l'email partait dès que la moyenne à 6 mois passait sous l'indice (30 lignes), qu'elle faisait moins de −5
+     points à 3 mois, ou qu'un signal donnait un écart de sens contraire sur 30 lignes de chaque côté. Rejouée sur 1998-2026
+     (research/proba.py), cette règle alertait dans 94 à 100 % des suivis dès la première année, même avec l'avantage historique :
+     des fausses alertes presque à coup sûr. Désormais, l'alerte ne part que si le réel sort nettement de la fourchette d'une méthode
+     qui marche (3,29 écarts types sous l'attendu) : 0 à 8 % de fausses alertes en 3 ans. Les signaux sont seulement montrés : sur
+     quelques années, leur écart avec / sans ne permet pas de conclure (19 à 28 % de fausses alertes en 3 ans, même à 3,29). */
   try {
     const why = [],
-      PT = rank && rank.pickTrack,
+      ET = rank && rank.edgeTrack,
       st = rank && rank.study,
       g = st && st.h26 && st.h26.rankTop;
     const pts = (v) => (v >= 0 ? '+' : '') + String(Math.round(v * 10) / 10).replace('.', ',') + ' pts';
-    if (PT && PT.m6 && PT.m6.n >= 30 && PT.m6.bench != null && PT.m6.avg - PT.m6.bench < 0)
-      why.push(
-        'suivi réel à 6 mois : ' +
-          pts(PT.m6.avg - PT.m6.bench) +
-          " face à l'indice sur " +
-          PT.m6.n +
-          ' lignes (attendu : nettement positif)'
-      );
-    if (PT && PT.m3 && PT.m3.n >= 30 && PT.m3.bench != null && PT.m3.avg - PT.m3.bench < -5)
-      why.push('suivi réel à 3 mois : ' + pts(PT.m3.avg - PT.m3.bench) + " face à l'indice sur " + PT.m3.n + ' lignes');
-    ((rank && rank.signalTrack) || []).forEach((sg) => {
-      if (sg.ok === false)
+    [
+      ['m6', 'à 6 mois'],
+      ['m3', 'à 3 mois'],
+    ].forEach(([k, lab]) => {
+      const b = ET && ET[k];
+      if (b && b.alert)
         why.push(
-          sg.icon +
-            ' ' +
-            sg.label +
-            ' : en réel, ' +
-            pts(sg.gap) +
-            ' à 6 mois face aux autres sélections (' +
-            sg.yes.m6.n +
-            ' lignes contre ' +
-            sg.no.m6.n +
-            ') — la règle ne se confirme pas'
+          'suivi réel ' +
+            lab +
+            ' : ' +
+            pts(b.x * 100) +
+            ' face à la société moyenne (' +
+            b.n +
+            ' lignes, ' +
+            b.weeks +
+            ' semaines), hors de la fourchette d’une méthode qui marche : attendu ' +
+            pts(b.mu * 100) +
+            ', ' +
+            pts(b.lo * 100) +
+            ' à ' +
+            pts(b.hi * 100) +
+            ' 95 fois sur 100, alerte sous ' +
+            pts(b.cut * 100)
         );
     });
+    // étude du soir rejouée sur 1998-2026 (research/proba.py, partie 5) : sur 8 ans, en alerte 65 % des semaines de 2009-2017 (4 ans
+    // et demi d'affilée dès juillet 2011, le krach du momentum de 2009 restant dans la fenêtre), jamais en 1998-2008 ni en 2018-2026 ;
+    // la sélection a pourtant fait +21 points par an face à la société moyenne en 2009-2017 : règle gardée, l'email le dit
     if (g && g.weeks >= 100 && (g.mean < 0 || g.t < 1))
       why.push(
         'étude du soir (' +
@@ -3543,13 +3553,13 @@ export function build(opts = {}) {
           pts(g.mean) +
           ' à 6 mois (fiabilité ' +
           String(g.t).replace('.', ',') +
-          ', attendu au moins 2)'
+          ', attendu au moins 2). Déjà vu 65 % des semaines de 2009-2017, quand la sélection faisait +21 points par an face à la société moyenne : à surveiller, pas une raison suffisante pour changer de méthode'
       );
     state.watchdog = isObj(state.watchdog) ? state.watchdog : {};
     const month = today.slice(0, 7);
     if (why.length && state.watchdog.lastSent !== month) {
       const txt =
-        "Auto-surveillance d'Euro Signal : l'avantage de la méthode se dégrade.\n- " +
+        "Auto-surveillance d'Euro Signal : l'avantage de la méthode se dégrade nettement (hors du hasard d'une méthode qui marche).\n- " +
         why.join('\n- ') +
         "\n\nL'outil ne change pas ses règles seul (un ajustement automatique suivrait le bruit). Ce message demande une revue : vérifier si la baisse dure, si le marché est en « krach du momentum », et comparer aux périodes difficiles déjà connues (2009, 2016, 2022).";
       outbox.push({
@@ -3669,7 +3679,8 @@ export function build(opts = {}) {
           (rank.signalTrack || []).map((sg) => {
             const y = sg.yes && (sg.yes.m6 || sg.yes.m3),
               n = sg.no && (sg.no.m6 || sg.no.m3),
-              hz = sg.yes && sg.yes.m6 && sg.no && sg.no.m6 ? '6 mois' : '3 mois';
+              hz = sg.yes && sg.yes.m6 && sg.no && sg.no.m6 ? '6 mois' : '3 mois',
+              bd = ((rank.edgeTrack && rank.edgeTrack.signals) || []).find((b) => b.k === sg.k);
             return (
               sg.icon +
               ' ' +
@@ -3685,11 +3696,15 @@ export function build(opts = {}) {
                   n.n +
                   '), à ' +
                   hz +
-                  (sg.ok === true
-                    ? ' ✅ confirmé'
-                    : sg.ok === false
-                      ? ' ✗ pas confirmé'
-                      : ' (trop tôt pour conclure : 30 lignes de chaque côté à 6 mois)')
+                  (bd
+                    ? bd.alert
+                      ? ' ✗ nettement démentie (sous sa fourchette attendue)'
+                      : ' : dans la fourchette attendue (' +
+                        sgn(bd.lo * 100) +
+                        ' à ' +
+                        sgn(bd.hi * 100) +
+                        ' 95 fois sur 100)'
+                    : ' (trop tôt pour conclure : 30 lignes de chaque côté à 6 mois)')
                 : 'pas encore de recul')
             );
           })
@@ -3722,7 +3737,7 @@ export function build(opts = {}) {
       if (isReview)
         L.push(
           '## Point de revue du ' + ES.frDate(reviewDate),
-          "Garder les règles si le 🎯 bat l'indice à 6 mois. Retirer une règle marquée ✗. Sinon : prolonger 6 mois sans rien changer (changer sur trop peu de recul suivrait le hasard)."
+          "Garder les règles si le 🎯 bat l'indice à 6 mois. Réexaminer sur les 3 périodes une règle marquée ✗ (écart sous sa fourchette attendue). Sinon : prolonger 6 mois sans rien changer (changer sur trop peu de recul suivrait le hasard)."
         );
       const title = isReview
         ? '🧭 Point de revue de la méthode'
