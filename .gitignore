@@ -13,6 +13,7 @@ data/
 data/prices.json
 data/euro-signal-outbox.json
 data/events.json
+data/tradingview.json
 *.tmp
 
 # Secteurs : cours hebdomadaires retéléchargés chaque soir (non conservés)

@@ -67,6 +67,7 @@ jobs:
           python scrapers/test_events.py
           python scrapers/test_sectors.py
           python scrapers/test_backup.py
+          python scrapers/test_tradingview.py
           python scrapers/test_sources.py
           python scrapers/test_news.py
           python tools/test_workflows.py

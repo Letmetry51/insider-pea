@@ -603,9 +603,10 @@ function loadQuality() {
         return null;
       });
   };
-  Promise.all([get('quality.json'), get('ui-check.json')]).then(function (r) {
+  Promise.all([get('quality.json'), get('ui-check.json'), get('fscore-tv.json')]).then(function (r) {
     S.quality = r[0];
     S.uiCheck = r[1];
+    S.fscoreTv = r[2];
     if (S.view === 'aide') render();
   });
 }
@@ -693,8 +694,60 @@ function vQuality() {
           .join('') +
         '</ul>';
   }
+  h += fscoreTvLine(S.fscoreTv);
   return (
     h + '<p class="small">Une erreur vue sur une fiche ? Bouton <b>⚑ Signaler une erreur</b> en bas de la fiche.</p>'
+  );
+}
+/** Contrôle des comptes Yahoo : F-score du classement comparé à celui de TradingView (euro_signal/tv_check.py). */
+function fscoreTvLine(t) {
+  if (!t) return '';
+  if (!t.available || !t.compared)
+    return (
+      '<p>🔁 Comptes : contrôle par TradingView sauté ce soir (TradingView injoignable) <span class="muted">· ' +
+      esc(shortDate(t.date)) +
+      '</span></p>'
+    );
+  var pc = function (n) {
+      return Math.round((100 * n) / t.compared) + ' %';
+    },
+    c = t.check || [];
+  return (
+    '<p>' +
+    (c.length
+      ? '<b>⚠️ Comptes : ' + c.length + ' société(s) à vérifier</b>'
+      : '✅ Comptes : aucun écart sur les sociétés proposées') +
+    ' <span class="muted">· ' +
+    esc(shortDate(t.date)) +
+    '</span></p>' +
+    (c.length
+      ? '<ul class="plain small">' +
+        c
+          .map(function (x) {
+            return (
+              '<li>' +
+              esc(x.name || x.sym) +
+              ' (' +
+              esc(x.list) +
+              ') : F-score ' +
+              x.f9 +
+              '/9 chez nous, ' +
+              x.tv +
+              '/9 chez TradingView</li>'
+            );
+          })
+          .join('') +
+        '</ul>'
+      : '') +
+    '<p class="small muted">F-score de Piotroski calculé sur nos comptes (Yahoo) comparé à celui de TradingView sur ses propres comptes : ' +
+    fmtInt(t.compared) +
+    ' sociétés, ' +
+    pc(t.same) +
+    ' identiques, ' +
+    pc(t.within1) +
+    ' à un point près. Un écart de ' +
+    t.gap +
+    " points ou plus sur une société proposée (sélection, 10 🎯, 10 💎) mérite un coup d'œil aux comptes : erreur de Yahoo, exercice différent ou définition différente. Simple contrôle : le classement n'en tient pas compte.</p>"
   );
 }
 /** Méthode du classement tendance + comptes et étude de contrôle recalculée chaque soir. */
@@ -764,6 +817,15 @@ function biblioCard() {
         ', ' +
         ln('https://www.fca.org.uk', 'FCA') +
         '.'
+    ),
+    li(
+      "🔁 <b>Cours de secours et contrôle des comptes</b> : listes des actions d'" +
+        ln('https://live.euronext.com', 'Euronext') +
+        ' et de ' +
+        ln('https://www.nasdaqomxnordic.com', 'Nasdaq Nordic') +
+        " (clôture du soir quand Yahoo ne l'a pas), " +
+        ln('https://www.tradingview.com/screener/', 'TradingView') +
+        ' (screener public : clôture du soir de toutes les bourses en dernier recours, et F-score de Piotroski comparé chaque soir au nôtre, onglet Aide ; jamais utilisé par le classement).'
     ),
     li(
       '🌍 <b>Indices et devises</b> : STOXX Europe 600 (référence), CAC 40, S&amp;P 500 et paniers américains (baromètres des thèmes, jamais proposés), taux de change (Yahoo Finance).'
@@ -1084,7 +1146,7 @@ function compareCard() {
     '</tbody></table></div>' +
     "<p class=\"small\"><b>Fait-il mieux pour gagner de l'argent ?</b> Pas encore prouvé en réel : l'avantage mesuré vient du momentum (acheter ce qui monte déjà), un effet connu ; chiffres prudents et suivi réel dans « ⚖️ Fiabilité des chiffres » (📘 La logique en 1 minute). Hors PEA, un ETF momentum (Amundi MSCI Europe Momentum, 0,23\u00a0% de frais par an) capte cet effet sans effort ; il n'est pas éligible au PEA : dans un PEA, l'outil comble ce manque.</p>" +
     '<p class="small"><b>Limites de l\'outil</b></p><ul class="plain small nomax">' +
-    "<li>🔌 Il dépend d'un accès non officiel aux données de Yahoo (cours, comptes, analystes). Quand Yahoo n'a pas la clôture du soir, elle est prise chez Euronext (Paris, Amsterdam, Bruxelles, Milan, Lisbonne, Dublin, Oslo) ou Nasdaq Nordic (Stockholm, Helsinki, Copenhague), pas pour l'Allemagne, l'Espagne ni Vienne ; si Yahoo coupait l'accès, ces cours resteraient à jour, pas les comptes ni les analystes.</li>" +
+    "<li>🔌 Il dépend d'un accès non officiel aux données de Yahoo (cours, comptes, analystes). Quand Yahoo n'a pas la clôture du soir, elle est prise chez Euronext (Paris, Amsterdam, Bruxelles, Milan, Lisbonne, Dublin, Oslo) ou Nasdaq Nordic (Stockholm, Helsinki, Copenhague), et en dernier recours chez TradingView (toutes les bourses, dont l'Allemagne, l'Espagne, Vienne, Londres et Zurich) ; si Yahoo coupait l'accès, les cours resteraient à jour, pas les comptes ni les analystes.</li>" +
     "<li>🧾 Il reprend les erreurs de Yahoo. Certaines sont corrigées (par exemple, la rentabilité sur 12 mois remplacée par celle du dernier exercice publié), pas toutes : en cas de doute, « ⚑ Signaler une erreur » en bas de l'analyse d'une fiche.</li>" +
     '<li>🌙 Données mises à jour une fois par soir de semaine : pas de cours en séance.</li>' +
     '<li>📰 Actualités : titres seulement, repérés par mots-clés.</li>' +
