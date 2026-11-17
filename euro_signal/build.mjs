@@ -2808,6 +2808,32 @@ export function build(opts = {}) {
         });
       rank.pickTrack = ES.pickTrack(state.pickLog, lastOf, mTrack);
       rank.signalTrack = ES.signalTrack(state.pickLog, lastOf, mTrack, 30); // auto-contrôle 🔊 📣 ⏸️ et place 📣 sur les vraies sélections
+      // 📒 face à la société moyenne et sa fourchette attendue (ES.EDGE_MODEL, research/proba.py) : clôtures hebdomadaires du
+      // catalogue (dividendes compris), société moyenne = moyenne équipondérée des sociétés liquides éligibles au PEA
+      try {
+        const wOfKey = {},
+          liq = [];
+        rows.forEach((r) => {
+          const x = co[r.sym];
+          if (x && Array.isArray(x.w) && x.w.length === wDates.length) wOfKey[r.key] = x.w;
+        });
+        Object.keys(co).forEach((sym) => {
+          const x = co[sym];
+          if (x && Array.isArray(x.w) && x.w.length === wDates.length && (x.turnoverEur || 0) >= 1e6 && x.pea !== false)
+            liq.push(x.w);
+        });
+        const lastW = wDates.length - 1,
+          // semaine en cours (étiquetée au jour du calcul, pas un vendredi) : pas encore complète
+          lastFull = lastW >= 0 && new Date(wDates[lastW] + 'T12:00:00Z').getUTCDay() === 5 ? lastW : lastW - 1;
+        if (liq.length >= 100)
+          rank.edgeTrack = ES.edgeTrack(
+            state.pickLog,
+            { dates: wDates, last: lastFull, idx: ES.ewIndex(liq), series: (k) => wOfKey[k] || null },
+            rank.signalTrack
+          );
+      } catch (e) {
+        console.warn('  📒 face à la société moyenne indisponible : ' + e.message);
+      }
       rank.pick10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks.map((p) => p.isin || p.sym); // lu par positions.py (rappel à 6 mois)
       // 💎 valeur : même suivi réel que le 🎯
       const V10 = ES.pickValue(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;
