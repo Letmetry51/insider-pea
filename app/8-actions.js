@@ -143,27 +143,22 @@ document.addEventListener('click', function (ev) {
     var ys = window.scrollY;
     render();
     window.scrollTo(0, ys);
-  } else if (a === 'rfVol') {
+  } else if (a === 'rfF') {
+    // 🔎 filtre croisé : coche ou décoche une case (data-g : groupe, data-v : case)
     S.rf = S.rf || {};
-    S.rf.vol = !S.rf.vol;
+    rfMigrate(S.rf);
+    var fg = el.dataset.g,
+      fv = el.dataset.v,
+      fa = (S.rf.sel[fg] || []).slice(),
+      fi = fa.indexOf(fv);
+    if (fi > -1) fa.splice(fi, 1);
+    else fa.push(fv);
+    if (fa.length) S.rf.sel[fg] = fa;
+    else delete S.rf.sel[fg];
     S.limit = 50;
-    var yvo = window.scrollY;
+    var yff = window.scrollY;
     render();
-    window.scrollTo(0, yvo);
-  } else if (a === 'rfBrk') {
-    S.rf = S.rf || {};
-    S.rf.brk = !S.rf.brk;
-    S.limit = 50;
-    var ybk = window.scrollY;
-    render();
-    window.scrollTo(0, ybk);
-  } else if (a === 'rfBp') {
-    S.rf = S.rf || {};
-    S.rf.bp = !S.rf.bp;
-    S.limit = 50;
-    var ybp = window.scrollY;
-    render();
-    window.scrollTo(0, ybp);
+    window.scrollTo(0, yff);
   } else if (a === 'secOpen') {
     S.openDet = S.openDet || {};
     S.openDet[el.dataset.v] = true;
@@ -193,96 +188,31 @@ document.addEventListener('click', function (ev) {
     if (pc3) pc3.scrollIntoView({ block: 'start' });
   } else if (a === 'weekBp') {
     S.rf = S.rf || {};
-    S.rf.bp = true;
+    rfMigrate(S.rf);
+    S.rf.sel.bp = ['on'];
     S.limit = 50;
     render();
-    var sbp = document.querySelector('.slbar');
+    var sbp = document.querySelector('.rfact');
     if (sbp) sbp.scrollIntoView({ block: 'start' });
   } else if (a === 'weekBrk') {
     S.rf = S.rf || {};
-    S.rf.brk = true;
-    S.rf.slope = ['strong'];
+    rfMigrate(S.rf);
+    S.rf.sel.brk = ['on'];
+    S.rf.sel.slope = ['strong'];
     S.limit = 50;
     render();
-    var sb = document.querySelector('.slbar');
+    var sb = document.querySelector('.rfact');
     if (sb) sb.scrollIntoView({ block: 'start' });
-  } else if (a === 'rfSlope') {
-    S.rf = S.rf || {};
-    var cs = Array.isArray(S.rf.slope) ? S.rf.slope : [],
-      vs = el.dataset.v;
-    S.rf.slope =
-      vs === 'all'
-        ? []
-        : cs.indexOf(vs) > -1
-          ? cs.filter(function (x) {
-              return x !== vs;
-            })
-          : cs.concat([vs]);
-    S.limit = 50;
-    var ysl = window.scrollY;
-    render();
-    window.scrollTo(0, ysl);
-  } else if (a === 'rfQuick') {
-    S.rf = S.rf || {};
-    var cq = Array.isArray(S.rf.quick) ? S.rf.quick : [],
-      vq = el.dataset.v;
-    S.rf.quick =
-      vq === 'all'
-        ? []
-        : cq.indexOf(vq) > -1
-          ? cq.filter(function (x) {
-              return x !== vq;
-            })
-          : cq.concat([vq]);
-    S.limit = 50;
-    var yk = window.scrollY;
-    render();
-    window.scrollTo(0, yk);
-  } else if (a === 'rfFig' || a === 'rfPlan' || a === 'rfTim') {
-    S.rf = S.rf || {};
-    var kk = a === 'rfFig' ? 'figures' : a === 'rfPlan' ? 'plans' : 'timing',
-      ar = Array.isArray(S.rf[kk]) ? S.rf[kk].slice() : [],
-      ix2 = ar.indexOf(el.dataset.v);
-    if (ix2 > -1) ar.splice(ix2, 1);
-    else ar.push(el.dataset.v);
-    S.rf[kk] = ar;
-    S.limit = 50;
-    var yr2 = window.scrollY;
-    render();
-    window.scrollTo(0, yr2);
   } else if (a === 'rfPreset') {
-    // 🔎 recherche toute prête (ou « none » : tous les filtres effacés)
-    if (el.dataset.v === 'none') {
-      var srt = (S.rf || {}).sort,
-        sdir = (S.rf || {}).dir;
-      S.rf = { sort: srt, dir: sdir };
-    } else rfPreset(el.dataset.v);
+    // 🔎 recherche toute prête : croisée avec les filtres actuels, ou retirée si elle y est déjà ; « none » efface tout
+    S.rf = S.rf || {};
+    rfMigrate(S.rf);
+    if (el.dataset.v === 'none') S.rf = { sort: S.rf.sort, dir: S.rf.dir, sel: {} };
+    else S.rf.sel = rfPresetToggle(S.rf.sel, el.dataset.v);
     S.limit = 50;
     var ypr = window.scrollY;
     render();
     window.scrollTo(0, ypr);
-  } else if (a === 'rfFClear') {
-    S.rf.figures = [];
-    S.rf.plans = [];
-    S.rf.timing = [];
-    S.limit = 50;
-    var yc2 = window.scrollY;
-    render();
-    window.scrollTo(0, yc2);
-  } else if (a === 'rfToggle') {
-    S.rf = S.rf || {};
-    S.rf[el.dataset.v] = !S.rf[el.dataset.v];
-    S.limit = 50;
-    var yq = window.scrollY;
-    render();
-    window.scrollTo(0, yq);
-  } else if (a === 'rfV') {
-    S.rf = S.rf || {};
-    S.rf.v = S.rf.v === el.dataset.v ? '' : el.dataset.v;
-    S.limit = 50;
-    var yv = window.scrollY;
-    render();
-    window.scrollTo(0, yv);
   } else if (a === 'rankWhy') {
     S.view = 'aide';
     S.openDet = S.openDet || {};
@@ -372,7 +302,7 @@ document.addEventListener('click', function (ev) {
               })
               .concat([v]);
     S.limit = 50;
-    yq = window.scrollY;
+    var yq = window.scrollY;
     render();
     window.scrollTo(0, yq);
   } else if (a === 'figT' || a === 'planT' || a === 'timT') {
