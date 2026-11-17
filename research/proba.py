@@ -38,6 +38,11 @@ hebdomadaires Yahoo de backtest/_long.py (sociétés encore cotées : biais du s
    hausse sur 12 mois et 🔊, apprise sur deux périodes et jugée sur la troisième. Règle fixée avant le calcul : affichée seulement
    pour les chances dont le score de Brier bat la fréquence d'ensemble (celle de l'aide) dans chacune des trois périodes.
 
+5. Étude du soir de l'auto-surveillance (build.mjs, 6g : alerte si, sur les 8 dernières années de cours hebdomadaires, les 20 % les
+   mieux notés par la partie « cours » du barème font moins que la moyenne à 6 mois, ou si t < 1) rejouée chaque semaine depuis 2006,
+   et sur 5 ans (repli du calcul du soir) : part des semaines en alerte par période, plus longues alertes. Pour information (17/11/2026,
+   après la décision de remplacer l'alerte du suivi réel) : la règle de l'étude ne change pas.
+
 Lancé par « Recherche (à la demande) » (script proba.py), environ 5 minutes.
 """
 import json
@@ -505,6 +510,86 @@ def part4(G, D):
     return verdict
 
 
+# ---------------------------------------------------------------------------------------------------- 5. étude du soir
+def part5(G):
+    """Étude du soir (ES.factorStudy, groupe rankTop) rejouée : chaque semaine, sur les 8 (ou 5) dernières années de cours
+    hebdomadaires, écart à 6 mois des 20 % les mieux notés par la partie « cours » du barème (50 × rang de la hausse sur 12 mois sauf
+    le dernier mois, 10 × proximité du plus haut d'un an, 15 si tendance, 5 si au-dessus de la moyenne 40 semaines) face à la moyenne
+    des sociétés ; alerte de l'auto-surveillance si moyenne < 0 ou t < 1 (t divisé par √26, au moins 100 semaines)."""
+    P, T, dates = G['P'], G['T'], G['dates']
+    N = P.shape[0]
+    with np.errstate(all='ignore'):
+        ok = np.isfinite(P) & (P > 0)
+        Pz = np.where(ok, P, np.nan)
+        cnt52 = np.full((N, T), 0)
+        c = np.cumsum(ok, axis=1)
+        cnt52[:, 52:] = c[:, 52:] - c[:, :-52]
+        hi = G['roll'](Pz, 52, np.nanmax)
+        ma40, ma10 = G['sma'](Pz, 40), G['sma'](Pz, 10)
+        mom = np.full((N, T), np.nan)
+        mom[:, 52:] = Pz[:, 48:-4] / Pz[:, :-52] - 1
+        fw = np.full((N, T), np.nan)
+        fw[:, :-26] = np.clip(Pz[:, 26:] / Pz[:, :-26] - 1, -.6, 1.5)
+    d = np.full(T, np.nan)
+    for t in range(52, T - 26):
+        v = ok[:, t] & np.isfinite(mom[:, t]) & (cnt52[:, t] >= 45) & np.isfinite(hi[:, t]) & np.isfinite(ma40[:, t])
+        if v.sum() < 100:
+            continue
+        mp = np.argsort(np.argsort(mom[v, t])) / v.sum()
+        ratio = Pz[v, t] / hi[v, t]
+        tr = (ma10[v, t] > ma40[v, t]) & (Pz[v, t] > ma40[v, t])
+        part = Pz[v, t] > ma40[v, t]
+        px = 50 * mp + 10 * np.clip((ratio - .6) / .4, 0, 1) + np.where(tr, 15, np.where(part, 5, 0))
+        cut = np.sort(px)[int(len(px) * .8)]
+        f = fw[v, t]
+        has = np.isfinite(f)
+        if has.sum() < 100:
+            continue
+        m = f[has].mean()
+        g = has & (px >= cut)
+        if g.any():
+            d[t] = f[g].mean() - m
+    log("\n=== 5. Étude du soir rejouée (alerte si les mieux notés font moins que la moyenne à 6 mois, ou si t < 1)")
+    log(f"  écart moyen des 20 % les mieux notés à 6 mois, 1998-2026 : {pct(np.nanmean(d[G['t1997']:]), 1)} points par semaine d'achat")
+    for win, lab in ((416, '8 ans'), (262, '5 ans')):
+        rows = []
+        for cc in range(G['t1997'] + win, T):
+            a, b = cc - win + 1 + 52, cc - 26
+            x = d[a:b + 1]
+            x = x[np.isfinite(x)]
+            if len(x) < 100:
+                continue
+            mu, sd = x.mean(), x.std(ddof=1)
+            tt = mu / (sd / np.sqrt(len(x))) / np.sqrt(26)
+            rows.append((cc, mu, tt, (mu < 0) or (tt < 1)))
+        if not rows:
+            log(f"  fenêtre de {lab} : pas assez de recul")
+            continue
+        cc = np.array([r[0] for r in rows])
+        al = np.array([r[3] for r in rows])
+        tts = np.array([r[2] for r in rows])
+        cells = []
+        for el, a, b in G['ERAS']:
+            if el not in ERAS3:
+                continue
+            m_ = (cc >= a) & (cc < b)
+            if m_.sum():
+                cells.append(f"{el} {al[m_].mean() * 100:.0f} % des semaines (t médian {np.median(tts[m_]):.1f}, plus bas {tts[m_].min():.1f})")
+        runs, cur, start = [], 0, None
+        for k, f_ in enumerate(al):
+            if f_:
+                cur += 1
+                start = cc[k] if cur == 1 else start
+            elif cur:
+                runs.append((cur, start))
+                cur = 0
+        if cur:
+            runs.append((cur, start))
+        top = sorted(runs, reverse=True)[:3]
+        log(f"  fenêtre de {lab} (contrôle chaque semaine depuis {dates[cc[0]]}) : en alerte " + ' · '.join(cells) +
+            (" ; plus longues alertes : " + ', '.join(f"{n_} semaines dès le {dates[s_]}" for n_, s_ in top) if top else " ; jamais"))
+
+
 def main():
     t0 = time.time()
     G = load()
@@ -514,6 +599,7 @@ def main():
     log(f"\n📒 rejoué : {len(D['t'])} lignes, {len(set(D['t'].astype(int)))} semaines")
     part2_3(G, D)
     part4(G, D)
+    part5(G)
     log(f"\nterminé en {time.time() - t0:.0f} s")
 
 
