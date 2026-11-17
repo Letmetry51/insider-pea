@@ -2747,7 +2747,55 @@ function trackBox(which) {
     tile('En cours', T.open, '') +
     tile('À 3 mois', T.m3, 'dès le ' + shortDate(d3)) +
     tile('À 6 mois', T.m6, 'dès le ' + shortDate(d6)) +
-    '</div></div>'
+    '</div>' +
+    (which === 'value' ? '' : edgeLine(R.edgeTrack, d3)) +
+    '</div>'
+  );
+}
+/**
+ * 📒 face à la société moyenne et sa fourchette attendue (ES.EDGE_MODEL, research/proba.py) : une méthode qui marche y reste 95
+ * fois sur 100 ; anormal seulement à 3,29 écarts types sous l'attendu (moins d'une fois sur 1 000 par hasard).
+ */
+function edgeLine(E, d3) {
+  var pt = function (v) {
+    return (v >= 0 ? '+' : '−') + fmtN(Math.abs(v) * 100, 1) + ' pts';
+  };
+  var b = E && (E.m6 || E.m3),
+    hz = E && E.m6 ? 'à 6 mois' : 'à 3 mois';
+  if (!b)
+    return (
+      '<p class="small muted">🎲 Fourchette attendue face à la société moyenne dès le ' +
+      shortDate(d3) +
+      " (premiers résultats à 3 mois). Même si la méthode marche, une année sur trois fait moins bien que la société moyenne : le suivi réel ne pourra trancher qu'avec des années de recul ; il sert à repérer une méthode devenue nettement perdante.</p>"
+    );
+  return (
+    '<p class="small' +
+    (b.alert ? '' : ' muted') +
+    '">' +
+    (b.alert ? '⚠️ ' : '🎲 ') +
+    'Face à la société moyenne (dividendes compris) : <b>' +
+    pt(b.x) +
+    '</b> ' +
+    hz +
+    ' (' +
+    b.n +
+    ' lignes, ' +
+    b.weeks +
+    ' semaine' +
+    (b.weeks > 1 ? 's' : '') +
+    ') ; si la méthode marche, entre ' +
+    pt(b.lo) +
+    ' et ' +
+    pt(b.hi) +
+    ' 95 fois sur 100 (attendu ' +
+    pt(b.mu) +
+    ')' +
+    (b.alert
+      ? ' : <b>hors de la fourchette</b>, revue de la méthode conseillée.'
+      : b.x >= b.lo
+        ? ' : rien d’anormal (anormal sous ' + pt(b.cut) + ').'
+        : ' : bas, mais pas encore anormal (anormal sous ' + pt(b.cut) + ').') +
+    '</p>'
   );
 }
 /** Listes proposées (🎯, 💎) : PEA seulement, comme la sélection du lundi (réglage selection.peaOnly). */

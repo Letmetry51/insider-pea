@@ -2975,6 +2975,188 @@
     });
   };
   /**
+   * Modèle de probabilité du 📒 suivi réel (research/proba.py, 17/11/2026). Les 10 sociétés notées chaque semaine (ES.pickN n = 10)
+   * ont été rejouées sur 1998-2026 pour des suivis commençant n'importe quelle semaine. Mesure : écart moyen des lignes avec la société
+   * moyenne (moyenne équipondérée des sociétés liquides, dividendes compris), à 3 et 6 mois. Pour W semaines mûres, on connaît
+   * l'écart type de cette moyenne : marché, fenêtres qui se chevauchent et sociétés reprises d'une semaine à l'autre compris.
+   * Avec l'avantage prudent de l'aide (+4 points à 6 mois, +2,2 à 3 mois), le réel doit rester dans mu ± 1,96 écart type
+   * 95 fois sur 100. L'alerte ne part que sous mu − 3,29 écarts types. En rejouant 1998-2026, elle donne 0 à 8 % de fausses
+   * alertes en 3 ans selon la période, et repère une méthode devenue perdante (−8 points) 4 à 8 fois sur 10 en 3 ans. La règle
+   * d'avant (moyenne sous l'indice, −5 points à 3 mois, un signal de sens contraire sur 30 lignes) alertait dans 94 à 100 % des
+   * cas dès la première année, même avec l'avantage historique. Signaux (🔊, 📣, ⏸️, place 📣) : écart avec / sans à 6 mois,
+   * jugé de la même façon autour de leur écart historique moyen (mu, sens voulu want).
+   */
+  ES.EDGE_MODEL = {
+    W: [1, 2, 3, 4, 6, 8, 13, 17, 26, 39, 52, 78, 104],
+    z: 3.29,
+    m6: {
+      mu: 0.04,
+      sd: [0.1472, 0.1404, 0.1366, 0.1338, 0.1292, 0.1256, 0.1168, 0.111, 0.0986, 0.0849, 0.0743, 0.0569, 0.0457],
+    },
+    m3: {
+      mu: 0.0219,
+      sd: [0.1063, 0.1008, 0.097, 0.0939, 0.0888, 0.0846, 0.0743, 0.0678, 0.056, 0.0474, 0.0408, 0.0306, 0.0241],
+    },
+    signals: {
+      hot: {
+        mu: 0.0493,
+        want: 1,
+        sd: [0.2182, 0.2579, 0.2488, 0.2357, 0.2165, 0.2048, 0.1794, 0.1655, 0.148, 0.1288, 0.1038, 0.0855, 0.0818],
+      },
+      bp: {
+        mu: 0.0523,
+        want: 1,
+        sd: [0.2107, 0.2067, 0.1968, 0.1917, 0.1921, 0.1802, 0.1596, 0.1471, 0.1284, 0.1122, 0.1025, 0.085, 0.0761],
+      },
+      wait: {
+        mu: -0.0372,
+        want: -1,
+        sd: [0.203, 0.2224, 0.1987, 0.1855, 0.1803, 0.1704, 0.1502, 0.1432, 0.1275, 0.1066, 0.0921, 0.0808, 0.0711],
+      },
+      bd: {
+        mu: -0.0033,
+        want: 1,
+        sd: [null, null, 0.2183, 0.2068, 0.1842, 0.1705, 0.1468, 0.1346, 0.1154, 0.0962, 0.0815, 0.0623, 0.0475],
+      },
+    },
+  };
+  /** Écart type de la moyenne après W semaines mûres : interpolation log-log entre les points mesurés ; au-delà du dernier, comme 1/√W. */
+  ES.sdAt = function (W, grid, sd) {
+    var pts = [];
+    for (var i = 0; i < grid.length; i++) if (sd[i] > 0) pts.push([grid[i], sd[i]]);
+    if (!pts.length || !(W >= 1)) return null;
+    if (W <= pts[0][0]) return pts[0][1];
+    var L = pts[pts.length - 1];
+    if (W >= L[0]) return L[1] * Math.sqrt(L[0] / W);
+    for (var k = 1; k < pts.length; k++)
+      if (W <= pts[k][0]) {
+        var a = pts[k - 1],
+          b = pts[k],
+          f = (Math.log(W) - Math.log(a[0])) / (Math.log(b[0]) - Math.log(a[0]));
+        return Math.exp(Math.log(a[1]) + f * (Math.log(b[1]) - Math.log(a[1])));
+      }
+    return null;
+  };
+  /**
+   * Place d'un résultat réel x (fraction) dans sa fourchette attendue après W semaines mûres. p : { mu, sd } du modèle ; want :
+   * sens voulu (−1 : le résultat doit être bas). → { x, mu, sd, lo, hi (95 %), cut (seuil d'alerte), z, alert, p0 } ;
+   * p0 : probabilité que l'avantage ait disparu (« nul » contre « comme prévu », à égalité au départ), pour information.
+   */
+  ES.edgeBand = function (x, W, p, model, want) {
+    var M = model || ES.EDGE_MODEL,
+      s = p ? ES.sdAt(W, M.W, p.sd) : null;
+    if (!(s > 0) || typeof x !== 'number' || !isFinite(x)) return null;
+    var w = want === -1 ? -1 : 1,
+      z = ((x - p.mu) / s) * w,
+      r4 = function (v) {
+        return Math.round(v * 1e4) / 1e4;
+      },
+      e = Math.max(-50, Math.min(50, (p.mu * p.mu - 2 * x * p.mu) / (2 * s * s)));
+    return {
+      x: r4(x),
+      mu: p.mu,
+      sd: r4(s),
+      lo: r4(p.mu - 1.96 * s),
+      hi: r4(p.mu + 1.96 * s),
+      cut: r4(p.mu - w * M.z * s),
+      z: Math.round(z * 100) / 100,
+      alert: z <= -M.z,
+      p0: Math.round(100 / (1 + Math.exp(-e))),
+    };
+  };
+  /** Indice équipondéré (« société moyenne ») à partir de clôtures hebdomadaires alignées : rendements écrêtés à −60 / +150 % par semaine. */
+  ES.ewIndex = function (list, minN) {
+    var m = minN || 30,
+      n = 0;
+    (list || []).forEach(function (s) {
+      if (Array.isArray(s) && s.length > n) n = s.length;
+    });
+    var lv = n ? [1] : [];
+    for (var k = 1; k < n; k++) {
+      var sum = 0,
+        cnt = 0;
+      for (var i = 0; i < list.length; i++) {
+        var s = list[i];
+        if (!Array.isArray(s) || !(s[k - 1] > 0) || !(s[k] > 0)) continue;
+        sum += Math.min(1.5, Math.max(-0.6, s[k] / s[k - 1] - 1));
+        cnt++;
+      }
+      lv.push(lv[k - 1] * (1 + (cnt >= m ? sum / cnt : 0)));
+    }
+    return lv;
+  };
+  /**
+   * 📒 face à la société moyenne (modèle ES.EDGE_MODEL). log : journal du suivi réel (state.pickLog) ; wk : { dates (clôtures
+   * hebdomadaires), last (dernière semaine complète), idx (ES.ewIndex), series(key) → clôtures de la société alignées ou null }.
+   * Entrée à la clôture de la semaine de la date du relevé ; une semaine compte quand ses 3 ou 6 mois sont écoulés (13 ou 26
+   * semaines complètes). → { m3, m6 : { n lignes, weeks, ...ES.edgeBand } | null, signals : [...] } ou null.
+   */
+  ES.edgeTrack = function (log, wk, sigTrack, model) {
+    var M = model || ES.EDGE_MODEL;
+    if (
+      !wk ||
+      !Array.isArray(wk.dates) ||
+      !wk.dates.length ||
+      !Array.isArray(wk.idx) ||
+      typeof wk.series !== 'function'
+    )
+      return null;
+    var acc = { 13: { n: 0, s: 0, w: 0 }, 26: { n: 0, s: 0, w: 0 } },
+      w6 = 0;
+    var gain = function (s, a, b) {
+      var g = 1;
+      for (var k = a + 1; k <= b; k++)
+        g *= 1 + (s[k - 1] > 0 && s[k] > 0 ? Math.min(1.5, Math.max(-0.6, s[k] / s[k - 1] - 1)) : 0);
+      return g - 1;
+    };
+    Object.keys(log || {})
+      .sort()
+      .forEach(function (w) {
+        var L = log[w];
+        if (!L || !Array.isArray(L.items) || typeof L.date !== 'string') return;
+        if (L.p6Done) w6++;
+        var k0 = -1;
+        for (var k = wk.dates.length - 1; k >= 0; k--)
+          if (wk.dates[k] <= L.date) {
+            k0 = k;
+            break;
+          }
+        if (k0 < 0 || !(wk.idx[k0] > 0)) return;
+        [13, 26].forEach(function (h) {
+          if (k0 + h > wk.last || !(wk.idx[k0 + h] > 0)) return;
+          var b = wk.idx[k0 + h] / wk.idx[k0] - 1,
+            got = 0;
+          L.items.forEach(function (x) {
+            var s = x && wk.series(x.key);
+            if (!Array.isArray(s) || !(s[k0] > 0)) return;
+            acc[h].n++;
+            acc[h].s += gain(s, k0, k0 + h) - b;
+            got++;
+          });
+          if (got) acc[h].w++;
+        });
+      });
+    var fin = function (h, p) {
+      var a = acc[h];
+      if (!a.n) return null;
+      var band = ES.edgeBand(a.s / a.n, a.w, p, M);
+      return band ? Object.assign({ n: a.n, weeks: a.w }, band) : null;
+    };
+    var signals = (Array.isArray(sigTrack) ? sigTrack : [])
+      .map(function (sg) {
+        var p = M.signals[sg.k],
+          y = sg.yes && sg.yes.m6,
+          n = sg.no && sg.no.m6;
+        if (!p || !y || !n || y.n < 30 || n.n < 30 || !(w6 >= 1)) return null;
+        var band = ES.edgeBand((y.avg - n.avg) / 100, w6, p, M, p.want);
+        return band
+          ? Object.assign({ k: sg.k, icon: sg.icon, label: sg.label, nYes: y.n, nNo: n.n, weeks: w6 }, band)
+          : null;
+      })
+      .filter(Boolean);
+    return { m3: fin(13, M.m3), m6: fin(26, M.m6), signals: signals };
+  };
+  /**
    * Test automatique des révisions d'analystes sur l'archive hebdomadaire par société (data/history/estimates.json.gz, depuis le 18/10/2026).
    * snaps : [{ date, items: { sym: [up7, down7, up30, down30, ...] } }] ; fwd(sym, date, semaines) → rendement (0,1 = +10 %) ou null.
    * Chaque semaine : hausse à 13 semaines des sociétés aux prévisions surtout relevées sur 30 jours, moins celles surtout abaissées.

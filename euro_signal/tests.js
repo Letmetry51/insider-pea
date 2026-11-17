@@ -2487,6 +2487,73 @@ t("Revue de la méthode : critères fixés à l'avance, suivi réel du 🎯 et r
   eq(ES.reviewStatus(null, {}).items[1].now, 'pas encore de recul');
 });
 
+t(
+  '📒 modèle de probabilité : écart type selon les semaines mûres, fourchette, alerte (research/proba.py, 17/11/2026)',
+  () => {
+    const M = ES.EDGE_MODEL;
+    near(ES.sdAt(1, M.W, M.m6.sd), 0.1472, 1e-9, 'premier point');
+    near(ES.sdAt(26, M.W, M.m6.sd), 0.0986, 1e-9, 'point mesuré');
+    const s5 = ES.sdAt(5, M.W, M.m6.sd);
+    ok(s5 < 0.1338 && s5 > 0.1292, 'entre 4 et 6 semaines : ' + s5);
+    near(ES.sdAt(416, M.W, M.m6.sd), 0.0457 / 2, 1e-9, 'au-delà : comme 1/√W');
+    near(ES.sdAt(1, M.W, M.signals.bd.sd), 0.2183, 1e-9, 'points manquants ignorés');
+    eq(ES.sdAt(0, M.W, M.m6.sd), null);
+    // 3 semaines mûres (30 lignes) : −10 points à 6 mois, c'est encore du hasard ; l'alerte demande −41 points
+    const b = ES.edgeBand(-0.1, 3, M.m6);
+    ok(!b.alert && b.lo < -0.22 && b.hi > 0.3 && Math.abs(b.cut + 0.4094) < 1e-3, JSON.stringify(b));
+    ok(ES.edgeBand(-0.42, 3, M.m6).alert, 'très loin sous la fourchette');
+    // 2 ans de recul : −14 points à 6 mois sort de la fourchette d'une méthode qui marche (attendu +4, écart type 4,6)
+    ok(ES.edgeBand(-0.14, 104, M.m6).alert && !ES.edgeBand(-0.1, 104, M.m6).alert, 'seuil à 104 semaines');
+    // signal à faire baisser (⏸️) : alerte quand l'écart est trop haut, pas trop bas
+    ok(ES.edgeBand(0.5, 104, M.signals.wait, M, -1).alert && !ES.edgeBand(-0.5, 104, M.signals.wait, M, -1).alert);
+    const p0 = (x) => ES.edgeBand(x, 104, M.m6).p0;
+    ok(p0(0.04) < 50 && p0(0) > 50 && p0(-0.1) > 90, 'probabilité que l’avantage ait disparu');
+    eq(ES.edgeBand(NaN, 3, M.m6), null);
+  }
+);
+
+t('📒 face à la société moyenne : indice équipondéré, semaines mûres, lignes manquantes et signaux', () => {
+  eq(
+    ES.ewIndex(
+      [
+        [10, 11, 12],
+        [20, 20, 21],
+      ],
+      1
+    ).map((v) => Math.round(v * 1e4) / 1e4),
+    [1, 1.05, 1.124]
+  );
+  eq(ES.ewIndex([[10, 0, 12]], 1), [1, 1, 1], 'cours manquant : semaine à 0 %');
+  eq(ES.ewIndex([[10, 100]], 1), [1, 2.5], 'semaine écrêtée à +150 %');
+  eq(ES.ewIndex([[10, 11]], 30), [1, 1], 'trop peu de sociétés : 0 %');
+  const dates = Array.from({ length: 40 }, (_, k) => ES.addDays('2026-01-02', 7 * k));
+  const up = dates.map((_, k) => 100 * Math.pow(1.01, k)),
+    flat = dates.map(() => 50);
+  const idx = ES.ewIndex(Array(40).fill(flat));
+  const log = {};
+  for (let k = 0; k < 20; k++)
+    log['W' + String(k).padStart(2, '0')] = {
+      date: ES.addDays(dates[k], 2),
+      p6Done: k < 3 ? '2026-08-01' : undefined,
+      items: [{ key: 'A' }, { key: 'B' }, { key: 'X' }],
+    };
+  const sig = [
+    { k: 'hot', icon: '🔊', label: 'volumes', yes: { m6: { n: 30, avg: 10 } }, no: { m6: { n: 40, avg: 2 } } },
+    { k: 'bp', icon: '📣', label: 'bond', yes: { m6: { n: 12, avg: 1 } }, no: { m6: { n: 58, avg: 2 } } },
+  ];
+  const E = ES.edgeTrack(log, { dates, last: 38, idx, series: (k) => (k === 'X' ? null : up) }, sig);
+  // relevés des semaines 0 à 19 : à 6 mois, mûres si k + 26 ≤ 38 (13 semaines), à 3 mois toutes (20) ; X sans cours, ignorée
+  eq([E.m6.weeks, E.m6.n, E.m3.weeks, E.m3.n], [13, 26, 20, 40]);
+  near(E.m6.x, Math.round((Math.pow(1.01, 26) - 1) * 1e4) / 1e4, 1e-9, 'société moyenne plate');
+  ok(!E.m6.alert && E.m6.z > 0, 'au-dessus de l’attendu');
+  eq(E.signals.length, 1, '📣 : moins de 30 lignes avec, pas de verdict');
+  eq([E.signals[0].k, E.signals[0].weeks, E.signals[0].x], ['hot', 3, 0.08]);
+  // semaine en cours (dernière semaine incomplète) : jamais comptée
+  eq(ES.edgeTrack(log, { dates, last: 25, idx, series: () => up }, []).m6, null);
+  eq(ES.edgeTrack(log, null, []), null);
+  eq(ES.edgeTrack({}, { dates, last: 38, idx, series: () => up }, []).m6, null);
+});
+
 t('Devises : conversion des montants hors zone euro', () => {
   ES.setFx({ SEK: 11, NOK: 'x', DKK: 7.46 });
   near(ES.toEur(1.1e6, 'SEK'), 1e5, 1e-6);

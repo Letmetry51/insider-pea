@@ -1157,7 +1157,7 @@ function logicCard() {
     kn('+4 pts', 'chiffre prudent : frais et faillites supposées déduits') +
     kn('53 %', "battent la société moyenne (46 % pour l'ensemble)") +
     '</div>' +
-    '<p class="small lgw">🎲 <b>6 mois après l\'achat</b> (29 ans, chiffres bruts) : 2 fois sur 3 en hausse · 1 sur 3 à +20 % · 1 sur 8 à +50 % · 1 sur 14 à −25 % ou pire (toutes sociétés : 61 %, 1 sur 4, 1 sur 16, 1 sur 12).</p>' +
+    '<p class="small lgw">🎲 <b>6 mois après l\'achat</b> (29 ans, chiffres bruts) : 2 fois sur 3 en hausse · 1 sur 3 à +20 % · 1 sur 8 à +50 % · 1 sur 14 à −25 % ou pire (toutes sociétés : 61 %, 1 sur 4, 1 sur 16, 1 sur 12). Le portefeuille sur 1 an : bat la société moyenne 9 fois sur 10 (7 en chiffres prudents), perd de l\'argent 1 fois sur 14 (1 sur 5).</p>' +
     trackBox() +
     "<p class=\"small lgw\">📧 <b>Automatique</b> : le lundi, la sélection avec ✅ feu vert ou ⏸️ en attente pour chaque société ; dès qu'une société ⏸️ du 🎯 repasse au-dessus de sa moyenne 10 semaines, un email « feu vert » ; dès qu'une société remplit en cours de semaine toutes les conditions de la place 📣 de la sélection, un email « démarrage » ; après « Je l'ai acheté » : un email à chaque palier de −10 %, à la protection de −30 % et au rappel des 6 mois (garder si encore dans le 🎯, sinon vendre) ; un email quand l'alerte krach s'allume ou s'éteint ; 📊 un bilan chaque trimestre (suivi réel, règles en réel, pistes) et le point de revue le 31/01/2027.</p>" +
     (function () {
@@ -1468,6 +1468,7 @@ function logicCard() {
       );
     })() +
     " ; chaque règle (🔊 📣 ⏸️) jugée sur 30 sélections de chaque côté, email de revue si l'avantage se dégrade.</li>" +
+    "<li>🎲 <b>Ce qu'on peut attendre</b> (portefeuille simulé 1998-2026, chiffres prudents : +8 points par an face à la société moyenne, au lieu de +20 simulés) : battre la société moyenne 7 fois sur 10 sur 1 an, 8 fois sur 10 sur 3 ou 5 ans ; perdre de l'argent sur 1 an 1 fois sur 5, autant que la société moyenne. Une année sur trois fait donc moins bien qu'elle même si l'avantage est réel. Pour le prouver en réel (t ≥ 2), il faudrait environ 24 ans de suivi avec l'avantage prudent (4 ans avec l'avantage simulé) : le 📒 suivi réel ne tranchera pas vite ; il peut repérer une méthode devenue nettement perdante. Sa fourchette attendue (95 fois sur 100 si la méthode marche) est montrée dans l'onglet Alertes (📬 Que sont devenues les sélections ?). Chances propres à chaque société (volatilité, hausse, 🔊) : pas mieux que ces chiffres d'ensemble pour la hausse et les chutes, rien d'affiché.</li>" +
     '<li>🧾 <b>Refaire les calculs</b> : scripts publics dans <a href="' +
     esc(repoUrl()) +
     '/tree/main/research" target="_blank" rel="noopener">research/</a> ; <code>chiffres_cles.py</code> recalcule ce tableau en une commande.</li>' +
