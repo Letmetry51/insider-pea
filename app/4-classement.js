@@ -2683,7 +2683,12 @@ function sigBox() {
             ' lignes, ' +
             (six ? '6' : '3') +
             ' mois)' +
-            (x.ok === true ? ' ✅' : x.ok === false ? ' ✗' : '')
+            (function () {
+              var b = ((R.edgeTrack && R.edgeTrack.signals) || []).filter(function (s) {
+                return s.k === x.k;
+              })[0];
+              return b ? (b.alert ? ' ✗ nettement démentie' : ' · dans la fourchette attendue') : '';
+            })()
           : '<span class="muted">pas encore de recul</span>') +
         '</li>'
       );
@@ -2698,7 +2703,7 @@ function sigBox() {
         : T.weeks + ' semaine' + (T.weeks > 1 ? 's' : '') + ' mesurée' + (T.weeks > 1 ? 's' : '') + ' sur ' + T.need
       : 'archive en cours';
   return (
-    '<p class="small"><b>🧪 Les règles en réel</b> <span class="muted">· verdict à 30 lignes de chaque côté à 6 mois</span></p><ul class="plain small">' +
+    '<p class="small"><b>🧪 Les règles en réel</b> <span class="muted">· jugées par leur fourchette attendue dès 30 lignes de chaque côté à 6 mois ; un écart de sens contraire sur quelques mois ne prouve rien</span></p><ul class="plain small">' +
     li +
     '<li>💡 <b>Révisions des analystes</b> (test automatique) : ' +
     rv +
@@ -2754,7 +2759,7 @@ function trackBox(which) {
 }
 /**
  * 📒 face à la société moyenne et sa fourchette attendue (ES.EDGE_MODEL, research/proba.py) : une méthode qui marche y reste 95
- * fois sur 100 ; anormal seulement à 3,29 écarts types sous l'attendu (moins d'une fois sur 1 000 par hasard).
+ * fois sur 100 ; l'email de revue ne part que sous le seuil d'alerte (3,29 écarts types sous l'attendu).
  */
 function edgeLine(E, d3) {
   var pt = function (v) {
@@ -2793,8 +2798,8 @@ function edgeLine(E, d3) {
     (b.alert
       ? ' : <b>hors de la fourchette</b>, revue de la méthode conseillée.'
       : b.x >= b.lo
-        ? ' : rien d’anormal (anormal sous ' + pt(b.cut) + ').'
-        : ' : bas, mais pas encore anormal (anormal sous ' + pt(b.cut) + ').') +
+        ? ' : rien d’anormal. Alerte seulement sous ' + pt(b.cut) + '.'
+        : ' : bas, mais pas encore anormal (alerte sous ' + pt(b.cut) + ').') +
     '</p>'
   );
 }

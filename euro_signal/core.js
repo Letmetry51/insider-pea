@@ -2940,8 +2940,9 @@
   };
   /**
    * Auto-contrôle des règles sur les vraies sélections (18/10/2026) : pour chaque signal du 🎯, résultat des lignes avec et sans.
-   * L'outil ne change pas ses règles seul : un signal qui ne se confirme pas (au moins minN lignes de chaque côté à 6 mois)
-   * déclenche l'email d'auto-surveillance, pour décider à la revue. want : 1 = doit faire mieux, −1 = doit faire moins bien.
+   * L'outil ne change pas ses règles seul. `ok` donne seulement le sens de l'écart (au moins minN lignes de chaque côté à 6 mois) :
+   * sur quelques années, ce sens tient du hasard (research/proba.py) ; le verdict vient de la fourchette attendue de la règle
+   * (ES.edgeTrack, signals), montrée sur la page et reprise à la revue, sans email. want : 1 = doit faire mieux, −1 = moins bien.
    */
   ES.SIGNALS = [
     { k: 'hot', icon: '🔊', label: 'volumes en hausse', want: 1 },
@@ -2980,12 +2981,13 @@
    * moyenne (moyenne équipondérée des sociétés liquides, dividendes compris), à 3 et 6 mois. Pour W semaines mûres, on connaît
    * l'écart type de cette moyenne : marché, fenêtres qui se chevauchent et sociétés reprises d'une semaine à l'autre compris.
    * Avec l'avantage prudent de l'aide (+4 points à 6 mois, +2,2 à 3 mois), le réel doit rester dans mu ± 1,96 écart type
-   * 95 fois sur 100 ; « anormal » sous mu − 3,29 écarts types (alert). Pour information seulement : l'auto-surveillance (build.mjs,
-   * 6g) et la revue (ES.reviewStatus) gardent leur règle du 17/10/2026, qui, rejouée sur 1998-2026, alerte dans 94 à 100 % des
-   * suivis dès la première année même avec l'avantage historique. Une alerte sur le seul seuil d'anomalie du total (6 et 3 mois)
-   * donnerait 0 à 8 % de fausses alertes en 3 ans et repérerait une méthode devenue perdante (−8 points) 4 à 8 fois sur 10 ;
-   * remplacement proposé à François, non appliqué (research/README.md). Signaux (🔊, 📣, ⏸️, place 📣) : écart avec / sans à 6
-   * mois, situé de la même façon autour de leur écart historique moyen (mu, sens voulu want).
+   * 95 fois sur 100 ; « anormal » sous mu − 3,29 écarts types (alert). Depuis le 17/11/2026 (François : « faire ce qui est utile
+   * et pertinent »), l'email d'auto-surveillance (build.mjs, 6g) ne part plus que sur ce seuil, pour le total à 6 et 3 mois : en
+   * rejouant 1998-2026, 0 à 8 % de fausses alertes en 3 ans selon la période, méthode devenue perdante (−8 points) repérée 4 à 8
+   * fois sur 10 en 3 ans (43 % seulement pour les suivis commencés en 2009-2017, sous les 50 % visés). La règle d'avant (moyenne
+   * sous l'indice, −5 points à 3 mois, un signal de sens contraire sur 30 lignes) alertait dans 94 à 100 % des suivis dès la
+   * première année, même avec l'avantage historique. Signaux (🔊, 📣, ⏸️, place 📣) : écart avec / sans à 6 mois, situé de la
+   * même façon autour de leur écart historique moyen (mu, sens voulu want) ; montré et repris à la revue, sans email.
    */
   ES.EDGE_MODEL = {
     W: [1, 2, 3, 4, 6, 8, 13, 17, 26, 39, 52, 78, 104],
@@ -6887,8 +6889,11 @@
   /**
    * Revue de la méthode (rules.review : 31/01/2027, critères fixés le 17/10/2026 avec le barème 3.0), sur le suivi réel du 🎯
    * (rank.pickTrack, depuis le 18/10/2026) et les règles en réel (rank.signalTrack) : garder les règles si le 🎯 bat l'indice
-   * à 6 mois ; retirer une règle démentie (✗) ; sinon prolonger 6 mois sans rien changer (même texte que l'email de revue du
-   * calcul du soir). Sans recul à 6 mois, le résultat à 3 mois ou en cours est donné pour information.
+   * à 6 mois ; réexaminer une règle nettement démentie (✗) ; sinon prolonger 6 mois sans rien changer (même texte que l'email de
+   * revue du calcul du soir). Sans recul à 6 mois, le résultat à 3 mois ou en cours est donné pour information.
+   * « Démentie » (17/11/2026) : écart avec / sans sous la fourchette attendue de la règle (rank.edgeTrack.signals, ES.EDGE_MODEL),
+   * et plus seulement de sens contraire sur 30 lignes de chaque côté : rejoué sur 1998-2026, ce signe-là se trompait une fois sur
+   * deux ou presque pendant des années (research/proba.py), et retirer une règle sur le hasard la changerait sans test.
    * → { items: [{ k, label, now, ok, optional? }], decision: { key: 'keep' | 'extend', text }, date, fixedOn, horizon }
    */
   ES.reviewStatus = function (snap, cfg) {
@@ -6914,8 +6919,8 @@
         ? f1(g.avg) + (g.bench != null ? ' contre ' + f1(g.bench) + " pour l'indice" : '')
         : null;
     };
-    var bad = (Array.isArray(R.signalTrack) ? R.signalTrack : []).filter(function (x) {
-      return x && x.ok === false;
+    var bad = (R.edgeTrack && Array.isArray(R.edgeTrack.signals) ? R.edgeTrack.signals : []).filter(function (x) {
+      return x && x.alert;
     });
     var badTxt = bad
       .map(function (x) {
@@ -6938,8 +6943,9 @@
       },
       {
         k: 'rules',
-        label: 'Aucune règle démentie en réel (🔊, 📣, ⏸️, place 📣 : 30 lignes de chaque côté à 6 mois)',
-        now: bad.length ? badTxt + ' ✗' : 'aucune règle démentie',
+        label:
+          'Aucune règle nettement démentie en réel (🔊, 📣, ⏸️, place 📣 : écart sous sa fourchette attendue, 30 lignes de chaque côté à 6 mois)',
+        now: bad.length ? badTxt + ' ✗' : 'aucune règle nettement démentie',
         ok: !bad.length,
       },
       {
@@ -6956,7 +6962,7 @@
             key: 'keep',
             text:
               "Garder les règles : en réel, le 🎯 bat l'indice à 6 mois." +
-              (bad.length ? ' Retirer la règle démentie : ' + badTxt + '.' : ''),
+              (bad.length ? ' Réexaminer sur les 3 périodes la règle démentie : ' + badTxt + '.' : ''),
           }
         : {
             key: 'extend',
@@ -6965,7 +6971,9 @@
                 ? "Le 🎯 ne bat pas l'indice à 6 mois : "
                 : 'Pas encore assez de recul (' + (g6 ? g6.n : 0) + ' lignes à 6 mois sur ' + minN + ') : ') +
               'prolonger 6 mois sans changer les règles (changer sur trop peu de recul suivrait le hasard).' +
-              (bad.length ? ' Seule exception : retirer la règle démentie (' + badTxt + ').' : ''),
+              (bad.length
+                ? ' Seule exception : réexaminer sur les 3 périodes la règle démentie (' + badTxt + ').'
+                : ''),
           };
     return { items: items, decision: decision, date: Rv.date || null, fixedOn: Rv.fixedOn || null, horizon: hz };
   };
