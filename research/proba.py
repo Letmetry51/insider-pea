@@ -26,6 +26,14 @@ hebdomadaires Yahoo de backtest/_long.py (sociétés encore cotées : biais du s
    Règle fixée avant le calcul : la règle proposée remplace l'actuelle si, pour les suivis commencés dans chacune des périodes
    1998-2008, 2009-2017 et 2018-2023, elle donne moins de fausses alertes en 3 ans (avantage prudent) et des alertes plus sûres
    (part des alertes justifiées, à 50/50 entre avantage prudent et avantage disparu).
+   3 bis (ajouté le 17/11/2026 après le résultat de 3 : en 3 ans, aucun suivi réel ne distingue un avantage prudent d'un avantage
+   nul, d'où des alertes réservées aux résultats invraisemblables) : alerte si la moyenne à 6 ou à 3 mois, ou l'écart d'un signal
+   (dans son sens), tombe à plus de z écarts types sous l'attendu avec l'avantage prudent ; z choisi sur les deux autres périodes
+   (le plus petit de 2, 2,33, 2,58, 2,88, 3,09 et 3,29 qui y donne au plus 10 % de fausses alertes en 3 ans). Avantage prudent :
+   écart des lignes ramené à +4 points et écart de chaque signal à son écart moyen des trois périodes, dans chaque période (le bruit
+   seul). Scénario de plus : méthode perdante (écart des lignes ramené à −8 points à 6 mois, signaux nuls). Règle fixée avant le calcul : remplace l'actuelle
+   si, dans chacune des trois périodes, elle donne au plus 10 % de fausses alertes en 3 ans (avantage prudent), moins que
+   l'actuelle, et repère la méthode perdante en 3 ans au moins une fois sur deux.
 4. Chances à 6 mois de chaque société (hausse, +20 % ou mieux, −25 % ou pire), régression logistique sur la volatilité d'un an, la
    hausse sur 12 mois et 🔊, apprise sur deux périodes et jugée sur la troisième. Règle fixée avant le calcul : affichée seulement
    pour les chances dont le score de Brier bat la fréquence d'ensemble (celle de l'aide) dans chacune des trois périodes.
@@ -291,12 +299,12 @@ def part2_3(G, D):
     def first_time(A):
         return np.where(A.any(1), A.argmax(1), 10 ** 6)
 
-    FT, P0 = {}, {}
-    for scen in ('historique', 'intact', 'disparu', 'négatif'):
+    FT, P0, Z = {}, {}, {}
+    for scen in ('historique', 'intact', 'disparu', 'négatif', 'perdante'):
         if scen == 'historique':
             d6, d3 = np.zeros(len(t)), np.zeros(len(t))
         else:
-            target = {'intact': mu1_6, 'disparu': 0.0, 'négatif': -mu1_6}[scen]
+            target = {'intact': mu1_6, 'disparu': 0.0, 'négatif': -mu1_6, 'perdante': -2 * mu1_6}[scen]
             d6 = np.array([mu6[era[x]] - target if era[x] else 0.0 for x in t])
             d3 = np.array([mu3[era[x]] - target * mu1_3 / mu1_6 if era[x] else 0.0 for x in t])
         S6, _ = path_sum(e6 - d6, 26)
@@ -304,18 +312,21 @@ def part2_3(G, D):
         with np.errstate(all='ignore'):
             m6, m3 = S6 / N6, S3 / N3
         cur = ((N6 >= 30) & (m6 < 0)) | ((N3 >= 30) & (m3 < -.05))
-        ptot = np.zeros(cur.shape)
+        ptot, ztot = np.zeros(cur.shape), np.full(cur.shape, np.inf)
         for el in ERAS3:
             se = s_era == el
             for m, w, mu1, h in ((m6, W6, mu1_6, 6), (m3, W3, mu1_3, 3)):
                 s = sd_table(sdW[h], el, int(w.max()))[w[se]]
                 ptot[se] = np.maximum(ptot[se], np.where(w[se] >= 1, post0(m[se], s, mu1), 0.0))
-        cur_sig, psig = np.zeros_like(cur), np.zeros(cur.shape)
+                with np.errstate(all='ignore'):
+                    zz = (m[se] - mu1) / s
+                ztot[se] = np.minimum(ztot[se], np.where((w[se] >= 1) & np.isfinite(zz), zz, np.inf))
+        cur_sig, psig, zsig = np.zeros_like(cur), np.zeros(cur.shape), np.full(cur.shape, np.inf)
         r6 = D['r6'] - d6
         for k, _, want in SIGNALS:
             y = (D[k] == 1).astype(float)
             gk = np.array([g6[k][era[x]] if era[x] else 0.0 for x in t])
-            rk = r6 - y * gk if scen in ('disparu', 'négatif') else r6
+            rk = r6 - y * gk if scen in ('disparu', 'négatif', 'perdante') else r6
             ny, _ = path_sum(y, 26)
             sy, _ = path_sum(y * rk, 26)
             sn, _ = path_sum((1 - y) * rk, 26)
@@ -324,13 +335,25 @@ def part2_3(G, D):
                 gap = sy / ny - sn / nn
             both = (ny >= 30) & (nn >= 30)
             cur_sig |= both & ((gap <= 0) if want > 0 else (gap >= 0))
+            gapb = gap
+            if scen == 'intact':
+                # fourchette, avantage prudent : écart de chaque signal ramené à son écart moyen dans chaque période (bruit seul)
+                rkb = r6 - y * (gk - g_all[k])
+                syb, _ = path_sum(y * rkb, 26)
+                snb, _ = path_sum((1 - y) * rkb, 26)
+                with np.errstate(all='ignore'):
+                    gapb = syb / ny - snb / nn
             for el in ERAS3:
                 se = s_era == el
                 s = sd_table(sdg[k], el, int(W6.max()))[W6[se]]
                 psig[se] = np.maximum(psig[se], np.where(both[se], post0(gap[se], s, g_all[k]), 0.0))
+                with np.errstate(all='ignore'):
+                    zz = (gapb[se] - g_all[k]) / s * (1 if want > 0 else -1)      # négatif : sens contraire au signal
+                zsig[se] = np.minimum(zsig[se], np.where(both[se] & np.isfinite(zz), zz, np.inf))
         FT[(scen, 'actuelle')] = first_time(cur | cur_sig)
         FT[(scen, 'actuelle sans les signaux')] = first_time(cur)
         P0[scen] = (ptot, psig)
+        Z[scen] = (ztot, zsig)
 
     def rates(first, se):
         return [float(np.mean(first[se] <= 52 * yy)) for yy in (1, 2, 3)]
@@ -373,14 +396,52 @@ def part2_3(G, D):
         ok &= bool(fa_n < fa_c and np.isfinite(ppv_n) and (not np.isfinite(ppv_c) or ppv_n > ppv_c))
     log(f"\nDÉCISION 3 (règle fixée avant le calcul) : auto-surveillance par probabilité a posteriori → "
         f"{'ADOPTÉE' if ok else 'REJETÉE'} (seuil {q_all * 100:g} %)")
-    params = dict(q=q_all, mu6=round(mu1_6, 4), mu3=round(mu1_3, 4), hist6={el: round(mu6[el], 4) for el in ERAS3},
+
+    # ------------------------------------------------------------------ 3 bis. alerte seulement pour un résultat invraisemblable
+    log("\n=== 3 bis. Alerte seulement si le résultat sort de la fourchette attendue (méthode qui marche, avantage prudent)")
+    ZG = (2.0, 2.33, 2.58, 2.88, 3.09, 3.29)
+
+    def band_first(scen, zc, sig=True):
+        ztot, zsig = Z[scen]
+        return first_time((ztot <= -zc) | ((zsig <= -zc) if sig else False))
+
+    zsel = {}
+    for el in ERAS3:
+        ok_z = [z for z in ZG if all(rates(band_first('intact', z), s_era == o)[2] <= .10 for o in ERAS3 if o != el)]
+        zsel[el] = ok_z[0] if ok_z else ZG[-1]
+    z_all = ([z for z in ZG if all(rates(band_first('intact', z), s_era == o)[2] <= .10 for o in ERAS3)] or [ZG[-1]])[0]
+    log("  écart (en écarts types) sous l'attendu choisi sur les deux autres périodes : " +
+        ' · '.join(f"{el} {zsel[el]:g}" for el in ERAS3) + f" ; sur les trois : {z_all:g}")
+    log("  fausses alertes selon l'écart retenu (avantage prudent, 3 ans) : " + ' ; '.join(
+        f"{z:g} → " + '/'.join(f"{rates(band_first('intact', z), s_era == el)[2] * 100:.0f}" for el in ERAS3) for z in ZG))
+    names2 = names + (('perdante', 'alertes justes, méthode perdante (−8 points)'),)
+    for lab, sig in (('fourchette', True), ('fourchette sans les signaux', False)):
+        log(f"  règle {lab} (part des suivis alertés en 1 / 2 / 3 ans) :")
+        for scen, nm in names2:
+            cells = []
+            for el in ERAS3:
+                tab[(scen, lab, el)] = rates(band_first(scen, zsel[el], sig=sig), s_era == el)
+                cells.append(f"{el} {' / '.join(f'{v * 100:.0f}' for v in tab[(scen, lab, el)])} %")
+            log(f"    {nm:48s} " + ' · '.join(cells))
+    for el in ERAS3:
+        tab[('perdante', 'actuelle', el)] = rates(FT[('perdante', 'actuelle')], s_era == el)
+    ok_b = True
+    for el in ERAS3:
+        fa_c, fa_n = tab[('intact', 'actuelle', el)][2], tab[('intact', 'fourchette', el)][2]
+        de_n = tab[('perdante', 'fourchette', el)][2]
+        log(f"  {el} : fausses alertes en 3 ans {fa_c * 100:.0f} % → {fa_n * 100:.0f} % ; méthode perdante repérée en 3 ans "
+            f"{tab[('perdante', 'actuelle', el)][2] * 100:.0f} % → {de_n * 100:.0f} %")
+        ok_b &= bool(fa_n <= .10 and fa_n < fa_c and de_n >= .5)
+    log(f"\nDÉCISION 3 bis (règle fixée avant le calcul) : alerte hors de la fourchette attendue → "
+        f"{'ADOPTÉE' if ok_b else 'REJETÉE'} (écart {z_all:g})")
+    params = dict(q=q_all, z=z_all, mu6=round(mu1_6, 4), mu3=round(mu1_3, 4), hist6={el: round(mu6[el], 4) for el in ERAS3},
                   sd6={W: round(sd_all(sdW[6], W), 4) for W in WGRID if np.isfinite(sd_all(sdW[6], W))},
                   sd3={W: round(sd_all(sdW[3], W), 4) for W in WGRID if np.isfinite(sd_all(sdW[3], W))},
-                  signals={k: dict(gap=round(g_all[k], 4),
+                  signals={k: dict(gap=round(g_all[k], 4), want=want,
                                    sd={W: round(sd_all(sdg[k], W), 4) for W in WGRID if np.isfinite(sd_all(sdg[k], W))})
-                           for k, _, _ in SIGNALS})
+                           for k, _, want in SIGNALS})
     log("PARAMÈTRES " + json.dumps(params, ensure_ascii=False))
-    return ok
+    return ok, ok_b
 
 
 def interp(tab, el, W, sd_other):
