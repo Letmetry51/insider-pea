@@ -10571,6 +10571,91 @@
   };
 
   /**
+   * Indicateurs techniques classiques, pour les filtres de la recherche (18/11/2026, François : « il manque les indicateurs
+   * techniques comme MM50 > MM200 ») ; clôtures journalières, un an de cours. Ce que disent les tests (research/README.md) :
+   * golden cross 50/200 −0,6 point à 6 mois face à la moyenne des sociétés, death cross −1,6 (et pas un signal de vente pour une
+   * ligne 🎯), RSI et MACD sans effet stable une fois le momentum pris en compte ; seule la position au-dessus de la MM50 a été
+   * retenue par la méthode (feu vert du 🎯). Bandes de Bollinger : pas testées ici.
+   * → { g : 1 si MM50 > MM200 ; a2 : 1 si cours > MM200 ; u2 : 1 si MM200 en hausse sur 21 séances ; xg / xd : séances depuis un
+   * golden / death cross 50/200 (dans les 40 dernières) ; e2 : écart à la MM200 (%) ; rsi : RSI 14 (Wilder) ; mc : MACD 12, 26, 9 :
+   * 'hh' au-dessus du signal et de 0, 'hl' au-dessus du signal sous 0, 'lh' sous le signal au-dessus de 0, 'll' sous les deux ;
+   * bb : Bollinger 20 séances, 2 écarts types : 1 au-dessus de la bande haute, −1 sous la basse, 0 dedans ; p1 / p3 : variation
+   * sur 21 / 63 séances (%) } ; champs absents faute d'historique ; null sous 64 séances.
+   */
+  ES.techInd = function (daily) {
+    var D = (daily || []).filter(function (v) {
+        return v > 0;
+      }),
+      n = D.length;
+    if (n < 64) return null;
+    var cs = [0];
+    for (var i = 0; i < n; i++) cs.push(cs[i] + D[i]);
+    var sma = function (t, L) {
+      return t >= L - 1 ? (cs[t + 1] - cs[t + 1 - L]) / L : null;
+    };
+    var r1 = function (v) {
+      return Math.round(v * 10) / 10;
+    };
+    var c = D[n - 1],
+      o = {};
+    var m50 = sma(n - 1, 50),
+      m200 = sma(n - 1, 200);
+    if (m200 != null) {
+      o.g = m50 > m200 ? 1 : 0;
+      o.a2 = c > m200 ? 1 : 0;
+      o.e2 = r1((c / m200 - 1) * 100);
+      var m200b = sma(n - 22, 200);
+      if (m200b != null) o.u2 = m200 > m200b ? 1 : 0;
+      // dernier croisement des moyennes 50 et 200 dans les 40 dernières séances
+      for (var t = n - 1; t >= Math.max(200, n - 40); t--) {
+        var s1 = sma(t, 50) > sma(t, 200),
+          s0 = sma(t - 1, 50) > sma(t - 1, 200);
+        if (s1 !== s0) {
+          o[s1 ? 'xg' : 'xd'] = n - 1 - t;
+          break;
+        }
+      }
+    }
+    // RSI 14 de Wilder
+    var ag = 0,
+      al = 0;
+    for (var k = 1; k <= 14; k++) {
+      var d0 = D[k] - D[k - 1];
+      if (d0 > 0) ag += d0;
+      else al -= d0;
+    }
+    ag /= 14;
+    al /= 14;
+    for (var k2 = 15; k2 < n; k2++) {
+      var d1 = D[k2] - D[k2 - 1];
+      ag = (ag * 13 + (d1 > 0 ? d1 : 0)) / 14;
+      al = (al * 13 + (d1 < 0 ? -d1 : 0)) / 14;
+    }
+    o.rsi = al === 0 ? 100 : Math.round(100 - 100 / (1 + ag / al));
+    // MACD 12, 26, 9 (moyennes exponentielles amorcées sur la première clôture, signal sur le MACD dès la 26e séance)
+    var e12 = D[0],
+      e26 = D[0],
+      sig = null,
+      macd = 0;
+    for (var j = 1; j < n; j++) {
+      e12 += (2 / 13) * (D[j] - e12);
+      e26 += (2 / 27) * (D[j] - e26);
+      macd = e12 - e26;
+      if (j === 25) sig = macd;
+      else if (j > 25) sig += (2 / 10) * (macd - sig);
+    }
+    o.mc = (macd > sig ? 'h' : 'l') + (macd > 0 ? 'h' : 'l');
+    // Bandes de Bollinger 20 séances, 2 écarts types
+    var m20 = sma(n - 1, 20),
+      v20 = 0;
+    for (var b = n - 20; b < n; b++) v20 += (D[b] - m20) * (D[b] - m20);
+    var sd20 = Math.sqrt(v20 / 20);
+    o.bb = c > m20 + 2 * sd20 ? 1 : c < m20 - 2 * sd20 ? -1 : 0;
+    o.p1 = r1((c / D[n - 22] - 1) * 100);
+    o.p3 = r1((c / D[n - 64] - 1) * 100);
+    return o;
+  };
+  /**
    * Trend Template de Minervini (clôtures journalières, un an au moins) : cours au-dessus des moyennes 50, 150 et 200 séances,
    * MM50 > MM150 > MM200, MM200 en hausse sur un mois, cours au moins 30 % au-dessus du plus bas et à moins de 25 % du plus haut sur un an.
    */

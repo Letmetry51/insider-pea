@@ -2619,6 +2619,7 @@ export function build(opts = {}) {
       plan: r.plan || null,
       pw: r.pw || undefined,
       tmpl: r.tmpl,
+      ti: r.ti || undefined,
       sec: r.sec || null,
       secEn: r.secEn || null,
       f9: r.f9 != null ? r.f9 : null,
@@ -2704,6 +2705,9 @@ export function build(opts = {}) {
       if (Array.isArray(x.d)) {
         const tt = ES.trendTemplate(x.d);
         if (tt) r.tmpl = tt.ok ? 1 : 0;
+        // 📐 indicateurs techniques des filtres de la recherche (MM50 / MM200, croisements, RSI, MACD, Bollinger, 1 et 3 mois)
+        const ti = ES.techInd(x.d);
+        if (ti) r.ti = ti;
       }
       if (nextE[r.key]) r.ne = nextE[r.key];
       else if (Array.isArray(x.earnPast) && x.earnPast.length) {
