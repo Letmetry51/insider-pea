@@ -4710,12 +4710,12 @@ t(
       nP += esC && (row.sc === 'mid' || row.mom < 60);
       if (esC !== prC || esB !== prB || esA !== prA)
         bad.push(`tracé ${k} : 🎯 ${esC}/${prC}, 📣 ${esB}/${prB}, assouplie ${esA}/${prA}`);
-      // ordre : dizaines de milliers = cible ou bond, milliers = 2 × 🔊 + 📣 (priorité de la page), centaines = au-dessus de la
+      // ordre : dizaines de milliers = 2 cible, 1 bond seul, 0 règle assouplie ; milliers = 2 × 🔊 + 📣 (priorité de la page), centaines = au-dessus de la
       // moyenne 10 semaines
       if (o.ok) {
         const pri = 2 * (row.vx >= 1.5 ? 1 : 0) + (row.bp != null ? 1 : 0);
         if (
-          Math.floor(o.Ordre / 10000) !== (prC || prB ? 1 : 0) ||
+          Math.floor(o.Ordre / 10000) !== (prC ? 2 : prB ? 1 : 0) ||
           Math.floor((o.Ordre % 10000) / 1000) !== pri ||
           Math.floor((o.Ordre % 1000) / 100) !== (row.m10 >= 0 ? 1 : 0)
         )
