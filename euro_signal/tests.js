@@ -4601,6 +4601,125 @@ t(
   }
 );
 
+/* ---------- 📟 Screener ProRealTime : mêmes décisions que le moteur ---------- */
+t(
+  '📟 screener ProRealTime (prorealtime/euro-signal-screener.txt) : mêmes 🎯 et 📣 que le moteur sur 1 200 tracés hebdomadaires',
+  () => {
+    const fs = require('fs');
+    const path = require('path');
+    const PB = require('./probuilder.js');
+    const C = PB.compile(
+      fs.readFileSync(path.join(__dirname, '..', 'prorealtime', 'euro-signal-screener.txt'), 'utf8')
+    );
+    eq(
+      C.screener.cols.map((c) => c.name),
+      ['Ordre', 'Type', '12 mois %'],
+      'colonnes (3 critères : le maximum de toutes les versions de ProRealTime)'
+    );
+    // tracés reproductibles : tendance de −40 % à +250 % par an partie d'une semaine au hasard, volatilité de 10 à 110 %/an,
+    // volumes de toutes tailles, parfois en hausse sur 10 semaines, bond éventuel (+5 à +20 % sur 1,5 à 5 fois le volume),
+    // saut anormal de temps en temps (regroupement non ajusté) ; puis 400 tracés calmes avec un bond récent, pour le repêchage par
+    // le 📣 : 200 de pente moyenne (+15 à +60 % par an), 200 qui ralentissent sur les 6 derniers mois (+30 à +100 % puis 0 à +50 %)
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+    const N = 90,
+      sma = (a, n) => a.slice(-n).reduce((x, y) => x + y, 0) / n;
+    let nT = 0,
+      nC = 0,
+      nB = 0,
+      nP = 0;
+    const bad = [];
+    for (let k = 0; k < 1200; k++) {
+      const fam = k < 800 ? 0 : k < 1000 ? 1 : 2,
+        A = fam === 0 ? -0.4 + 2.9 * rnd() : fam === 1 ? 0.15 + 0.45 * rnd() : 0.3 + 0.7 * rnd(),
+        A2 = fam === 2 ? 0.5 * rnd() : A,
+        sw = (fam ? 0.1 + 0.15 * rnd() : 0.1 + 1.0 * rnd()) / Math.sqrt(52),
+        s0 = Math.floor(60 * rnd());
+      const g1 = Math.log(1 + A) / 52,
+        g2 = Math.log(1 + A2) / 52,
+        g0 = (rnd() - 0.5) * 0.01,
+        P0 = 5 + 95 * rnd(),
+        Vb = Math.exp(Math.log(2e5) + rnd() * Math.log(15));
+      const bw = fam || rnd() < 0.6 ? N - 1 - Math.floor(10 * rnd()) : -1,
+        jw = rnd() < 0.03 ? N - 1 - Math.floor(50 * rnd()) : -1,
+        hot = rnd() < 0.4 ? 1.2 + 1.3 * rnd() : 1;
+      const W = [P0],
+        V = [Vb];
+      for (let i = 1; i < N; i++) {
+        const g = i < s0 ? g0 : i >= N - 26 ? g2 : g1;
+        let r = Math.min(Math.max(Math.exp(g + sw * gauss()) - 1, -0.4), 0.6);
+        let v = Vb * Math.exp(0.3 * gauss()) * (i >= N - 10 ? hot : 1);
+        if (i === bw) {
+          r = 0.05 + 0.15 * rnd();
+          v *= [1.5, 2.2, 3.5, 5][Math.floor(4 * rnd())];
+        }
+        if (i === jw) r = -0.7;
+        W.push(W[i - 1] * (1 + r));
+        V.push(v);
+      }
+      const o = PB.run(C, { close: W, volume: V }),
+        v = o.vars;
+      // à quelques millièmes d'un seuil, les arrondis de la page (12 mois et volatilité en %, volumes au dixième) peuvent trancher
+      // autrement : tracé écarté
+      if (
+        [
+          [v.MOM12, 0.6, 0.001],
+          [v.MOM12, 0.3, 0.001],
+          [v.MOM12, 2, 0.001],
+          [v.VOL52, 0.8, 0.006],
+          [v.VX, 1.45, 0.002],
+          [W[N - 1] / v.MM10, 1, 0.0006],
+        ].some((e) => Math.abs(e[0] - e[1]) < e[2])
+      )
+        continue;
+      // la même société vue par le moteur (cours hebdomadaires seuls, comptes solides ; liquidité calculée comme le screener)
+      const f = ES.rankFeatures([], W, V),
+        out = [];
+      if (f.jump) out.push('saut de cours anormal');
+      if (v.RANG12 < 0.3333) out.push('cours parmi le tiers le plus faible du marché sur 12 mois');
+      const row = {
+        key: 'S' + k,
+        sym: 'S' + k,
+        sector: 'X',
+        acc: 'good',
+        note: 70,
+        out,
+        liq: (W[N - 1] * sma(V, 13)) / 5,
+        trend: f.trend,
+        mom: f.mom != null ? +(f.mom * 100).toFixed(1) : null,
+        sc: (ES.slopeClass(f.slope, f.trend) || {}).key || null,
+        vx: f.volx,
+        vo: f.vol52 != null ? Math.round(f.vol52 * 100) : undefined,
+        m10: f.sma50 > 0 ? Math.round((f.last / f.sma50 - 1) * 1000) / 10 : undefined,
+        bp: f.bump != null ? f.bump : undefined,
+        bh: f.bumpHi != null ? f.bumpHi : undefined,
+      };
+      const pk = ES.pickThree([row], { n: 1, bond: 1 });
+      const esC = pk.all.length === 1,
+        esB = pk.picks.some((p) => p.pickBond),
+        prC = !!o.ok && o.Type % 2 === 1,
+        prB = !!o.ok && o.Type >= 2;
+      nT++;
+      nC += esC;
+      nB += esB;
+      nP += esC && (row.sc === 'mid' || row.mom < 60);
+      if (esC !== prC || esB !== prB) bad.push(`tracé ${k} : 🎯 ${esC}/${prC}, 📣 ${esB}/${prB}`);
+      // ordre : milliers = 2 × 🔊 + 📣 (priorité de la page), centaines = au-dessus de la moyenne 10 semaines
+      if (prC || prB) {
+        const pri = 2 * (row.vx >= 1.5 ? 1 : 0) + (row.bp != null ? 1 : 0);
+        if (Math.floor(o.Ordre / 1000) !== pri || Math.floor((o.Ordre % 1000) / 100) !== (row.m10 >= 0 ? 1 : 0))
+          bad.push(`tracé ${k} : ordre ${o.Ordre}, priorité ${pri}`);
+      }
+    }
+    ok(
+      nT >= 1160 && nC >= 100 && nB >= 30 && nP >= 20,
+      `échantillon trop pauvre : ${nT} tracés, ${nC} 🎯 dont ${nP} repêchées, ${nB} 📣`
+    );
+    ok(!bad.length, bad.slice(0, 3).join(' ; '));
+  }
+);
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);

@@ -1093,6 +1093,11 @@ function biblioCard() {
         ln(repoUrl() + '/blob/main/research/README.md', 'research/README.md') +
         '.'
     ),
+    li(
+      "📟 <b>Même sélection dans ProRealTime</b> : screener à coller dans ProScreener (unité hebdomadaire, listes d'actions éligibles au PEA), " +
+        ln(repoUrl() + '/blob/main/prorealtime/euro-signal-screener.txt', 'prorealtime/euro-signal-screener.txt') +
+        ' ; mêmes règles 🎯 et 📣 que la page (vérifié par les tests), sans les comptes, le PEA ni les ventes à découvert : à regarder sur la fiche.'
+    ),
   ]);
   return (
     '<details class="card fold" data-k="aide-biblio"><summary>📚 Sources, études et méthodes <span class="muted small">· données, 27 références, calculs et tests</span></summary>' +

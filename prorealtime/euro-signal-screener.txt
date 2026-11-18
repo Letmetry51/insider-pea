@@ -1,0 +1,113 @@
+// =====================================================================================
+// EURO SIGNAL : SÉLECTION DU LUNDI (cible et démarrage sur bond), ProScreener ProRealTime
+// Règles de la page Euro Signal (euro_signal/core.js, ES.pickThree), version du 18/11/2026,
+// testées sur 1997-2026 en cours hebdomadaires (research/backtest/_selection_sim.py).
+//
+// UTILISATION
+// - Unité de temps : HEBDOMADAIRE. Lancer le week-end ou le lundi avant l'ouverture :
+//   en cours de semaine, le volume de la semaine est incomplet et les bonds passent inaperçus.
+// - Liste : actions éligibles au PEA (Euronext Paris, Amsterdam, Bruxelles, Lisbonne, Xetra,
+//   Milan, Madrid, Helsinki...). Hors zone euro (Stockholm, Copenhague, Oslo...), régler
+//   EurParUnite ci-dessous.
+// - Colonnes :
+//   Ordre : priorité d'Euro Signal, la plus forte en haut.
+//     milliers : 3 = volumes en hausse + bond, 2 = volumes en hausse, 1 = bond, 0 = ni l'un ni l'autre ;
+//     centaines : 1 = au-dessus de la moyenne 10 semaines (feu vert, acheter sans attendre de repli),
+//                 0 = en dessous (attendre qu'elle repasse au-dessus) ;
+//     reste : note technique sur 75 (force sur 12 mois, proximité du plus haut, tendance).
+//   Type : 1 = cible (toutes les règles), 2 = démarrage sur bond seul, 3 = les deux.
+//   12 mois % : hausse sur 12 mois, hors dernier mois.
+// - Choisir comme Euro Signal : les 4 premières lignes de type 1 ou 3 (2 par secteur au plus),
+//   puis la première ligne de type 2 ou 3 pas encore prise. Lignes égales, gardées 6 mois,
+//   protection à -30 %.
+//
+// CE QUE CE SCREENER NE VÉRIFIE PAS (voir la fiche de la société sur Euro Signal)
+// - comptes solides (F-score, pas de perte au dernier exercice, pas de bilan en détresse) ;
+// - éligibilité au PEA, ventes à découvert publiées à Paris (0,5 % du capital ou plus : écartée),
+//   2 sociétés par secteur, variation de plus de 40 % sur la dernière séance ;
+// - alerte krach (marché en baisse de 20 % ou plus sur un an : entrer par petites touches).
+// =====================================================================================
+
+// ---------- Réglage : valeur en euros d'une unité de la devise du marché scanné
+// 1 pour l'euro ; environ 0.09 pour la couronne suédoise, 0.134 pour la couronne danoise,
+// 0.085 pour la couronne norvégienne, 0.23 pour le zloty
+EurParUnite = 1
+
+// ---------- Historique : au moins 61 semaines
+histoOK = BarIndex >= 60
+
+// ---------- Rendement de la semaine et volatilité sur un an (écart type annualisé)
+r1 = close / MAX(close[1], 0.0001) - 1
+rc = MIN(MAX(r1, -0.5), 1)
+vol52 = STD[52](rc) * SQRT(52)
+
+// ---------- Tendance de fond : moyenne 10 semaines au-dessus de la 40, cours au-dessus de la 40
+mm10 = Average[10](close)
+mm40 = Average[40](close)
+tendance = mm10 > mm40 AND close > mm40
+
+// ---------- Hausse sur 12 mois, hors dernier mois
+mom12 = close[4] / MAX(close[52], 0.0001) - 1
+
+// ---------- Pente du canal : régression du logarithme des 26 dernières clôtures
+// forte : rythme de +100 %/an ou plus (+41 % en 6 mois) ; moyenne : +30 %/an ou plus (+14 % en 6 mois)
+penteLog = LinearRegressionSlope[26](LOG(close))
+penteForte = tendance AND penteLog >= LOG(2) / 52
+penteMoyenne = tendance AND penteLog >= LOG(1.3) / 52
+
+// ---------- Volumes
+volAn = Average[52](volume)
+IF volAn > 0 THEN
+   vx = Average[10](volume) / volAn
+ELSE
+   vx = 0
+ENDIF
+// volumes en hausse : 10 dernières semaines à 1,5 fois la moyenne de l'année au moins (arrondi au dixième, comme la page)
+volHausse = vx >= 1.45
+// bond : semaine à +8 % ou plus sur 3 fois le volume moyen de l'année précédente ;
+// ou sur 2 fois ce volume quand la semaine fait un nouveau plus haut sur un an
+bondSem = r1 >= 0.08 AND volume >= 3 * volAn[1]
+plusHautAn = Highest[52](close)[1]
+bondHaut = r1 >= 0.08 AND volume >= 2 * volAn[1] AND close >= plusHautAn
+bondTout = bondSem OR bondHaut
+bond8 = Summation[8](bondSem) > 0
+bond4 = Summation[4](bondTout) > 0
+
+// ---------- Liquidité : capitaux échangés par jour, moyenne de 3 mois (3 M EUR au moins)
+liquidite = close * Average[13](volume) / 5 * EurParUnite
+liqOK = liquidite >= 3000000
+
+// ---------- Saut anormal sur un an (regroupement d'actions non ajusté, erreur de cours)
+sautSem = r1 > 1.5 OR r1 < -0.65
+sansSaut = Summation[53](sautSem) = 0
+
+// ---------- Rang approximatif sur 12 mois parmi les sociétés européennes liquides
+// (courbe calée sur Euro Signal au 17/11/2026 : +16 % = la moitié, +60 % = 9 sur 10)
+rang12 = 1 / (1 + EXP((16 - mom12 * 100) / 19))
+
+// ---------- Note technique sur 75
+ratioHaut = close / MAX(Highest[52](close), 0.0001)
+bonusHaut = MIN(MAX((ratioHaut - 0.6) / 0.4, 0), 1)
+noteTech = 50 * rang12 + 10 * bonusHaut + 15 * tendance
+
+// ---------- Feu vert : au-dessus de la moyenne 10 semaines
+feuVert = close >= mm10
+
+// ---------- Règles de sélection
+// communes : historique, liquidité, pas de saut, cours pas trop volatil (moins de 80 %/an),
+// pas plus de +200 % sur 12 mois, hors tiers le plus faible sur 12 mois
+commun = histoOK AND liqOK AND sansSaut AND vol52 < 0.8 AND mom12 <= 2 AND rang12 >= 0.3333
+// cible : pente forte et +60 à +200 % ; ou pente moyenne ou +30 à +60 %, repêchée par un bond
+// des 8 dernières semaines si elle est au-dessus de sa moyenne 10 semaines
+palier0 = commun AND penteForte AND mom12 >= 0.6
+palier1 = commun AND penteMoyenne AND mom12 >= 0.3 AND NOT palier0
+cible = palier0 OR (palier1 AND bond8 AND feuVert)
+// démarrage sur bond : bond des 4 dernières semaines (3 semaines au plus), en tendance
+demarrage = commun AND tendance AND bond4
+
+// ---------- Colonnes
+ordre = 1000 * (2 * volHausse + bond8) + 100 * feuVert + ROUND(noteTech)
+genre = cible + 2 * demarrage
+hausse12 = ROUND(mom12 * 100)
+
+SCREENER[cible OR demarrage](ordre AS "Ordre", genre AS "Type", hausse12 AS "12 mois %")
