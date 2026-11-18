@@ -74,7 +74,7 @@ export default [
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
-    files: ['euro_signal/tests.js'],
+    files: ['euro_signal/tests.js', 'euro_signal/probuilder.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: { ...globals.node } },
     rules: bugs,
   },
