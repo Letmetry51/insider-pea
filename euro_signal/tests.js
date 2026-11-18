@@ -4603,7 +4603,7 @@ t(
 
 /* ---------- 📟 Screener ProRealTime : mêmes décisions que le moteur ---------- */
 t(
-  '📟 screener ProRealTime (prorealtime/euro-signal-screener.txt) : mêmes 🎯 et 📣 que le moteur sur 1 200 tracés hebdomadaires',
+  '📟 screener ProRealTime (prorealtime/euro-signal-screener.txt) : mêmes 🎯, 📣 et règle assouplie que le moteur sur 1 200 tracés hebdomadaires',
   () => {
     const fs = require('fs');
     const path = require('path');
@@ -4628,7 +4628,8 @@ t(
     let nT = 0,
       nC = 0,
       nB = 0,
-      nP = 0;
+      nP = 0,
+      nA = 0;
     const bad = [];
     for (let k = 0; k < 1200; k++) {
       const fam = k < 800 ? 0 : k < 1000 ? 1 : 2,
@@ -4698,30 +4699,39 @@ t(
       const pk = ES.pickThree([row], { n: 1, bond: 1 });
       const esC = pk.all.length === 1,
         esB = pk.picks.some((p) => p.pickBond),
-        prC = !!o.ok && o.Type % 2 === 1,
-        prB = !!o.ok && o.Type >= 2;
+        esA = pk.pools[1] === 1, // palier 1 non repêché : règle assouplie
+        prC = !!o.ok && (o.Type === 1 || o.Type === 3),
+        prB = !!o.ok && (o.Type === 2 || o.Type === 3),
+        prA = !!o.ok && (o.Type === 4 || (o.Type === 2 && !!v.ASSOUPLI));
       nT++;
       nC += esC;
       nB += esB;
+      nA += esA;
       nP += esC && (row.sc === 'mid' || row.mom < 60);
-      if (esC !== prC || esB !== prB) bad.push(`tracé ${k} : 🎯 ${esC}/${prC}, 📣 ${esB}/${prB}`);
-      // ordre : milliers = 2 × 🔊 + 📣 (priorité de la page), centaines = au-dessus de la moyenne 10 semaines
-      if (prC || prB) {
+      if (esC !== prC || esB !== prB || esA !== prA)
+        bad.push(`tracé ${k} : 🎯 ${esC}/${prC}, 📣 ${esB}/${prB}, assouplie ${esA}/${prA}`);
+      // ordre : dizaines de milliers = cible ou bond, milliers = 2 × 🔊 + 📣 (priorité de la page), centaines = au-dessus de la
+      // moyenne 10 semaines
+      if (o.ok) {
         const pri = 2 * (row.vx >= 1.5 ? 1 : 0) + (row.bp != null ? 1 : 0);
-        if (Math.floor(o.Ordre / 1000) !== pri || Math.floor((o.Ordre % 1000) / 100) !== (row.m10 >= 0 ? 1 : 0))
+        if (
+          Math.floor(o.Ordre / 10000) !== (prC || prB ? 1 : 0) ||
+          Math.floor((o.Ordre % 10000) / 1000) !== pri ||
+          Math.floor((o.Ordre % 1000) / 100) !== (row.m10 >= 0 ? 1 : 0)
+        )
           bad.push(`tracé ${k} : ordre ${o.Ordre}, priorité ${pri}`);
       }
     }
     ok(
-      nT >= 1160 && nC >= 100 && nB >= 30 && nP >= 20,
-      `échantillon trop pauvre : ${nT} tracés, ${nC} 🎯 dont ${nP} repêchées, ${nB} 📣`
+      nT >= 1160 && nC >= 100 && nB >= 30 && nP >= 20 && nA >= 30,
+      `échantillon trop pauvre : ${nT} tracés, ${nC} 🎯 dont ${nP} repêchées, ${nB} 📣, ${nA} assouplies`
     );
     ok(!bad.length, bad.slice(0, 3).join(' ; '));
   }
 );
 
 t(
-  '📟 diagnostic ProRealTime (prorealtime/euro-signal-diagnostic.txt) : mêmes 12 mois, pente 6 mois et liquidité que la page',
+  '📟 diagnostic ProRealTime (prorealtime/euro-signal-diagnostic.txt) : étapes des règles, 12 mois et pente 6 mois de la page',
   () => {
     const fs = require('fs');
     const path = require('path');
@@ -4729,18 +4739,27 @@ t(
     const D = PB.compile(
       fs.readFileSync(path.join(__dirname, '..', 'prorealtime', 'euro-signal-diagnostic.txt'), 'utf8')
     );
+    const S = PB.compile(
+      fs.readFileSync(path.join(__dirname, '..', 'prorealtime', 'euro-signal-screener.txt'), 'utf8')
+    );
+    // tracé de cible : +1,7 % par semaine (pente forte, +100 % environ sur 12 mois), calme, 1 M de titres par semaine à 20 € et plus
     const W = [],
       V = [];
     for (let i = 0; i < 70; i++) {
-      W.push(20 * Math.pow(1.015, i) * (1 + 0.03 * Math.sin(i / 3)));
+      W.push(20 * Math.pow(1.017, i) * (1 + 0.01 * Math.sin(i / 3)));
       V.push(1e6 * (1 + 0.2 * Math.cos(i)));
     }
     const o = PB.run(D, { close: W, volume: V }),
       f = ES.rankFeatures([], W, V);
     ok(o.ok, 'toutes les sociétés de la liste sont affichées');
+    eq(o['Étapes'], 7, 'toutes les étapes');
+    ok(PB.run(S, { close: W, volume: V }).Type % 2 === 1, 'le screener la retient aussi');
     eq(o['12 mois %'], Math.round(f.mom * 100), '12 mois');
     eq(o['Pente 6 mois %'], Math.round((Math.sqrt(1 + f.slope) - 1) * 100), 'pente 6 mois (slope6 de la page)');
-    near(o['M par jour'], Math.round((W[69] * V.slice(-13).reduce((a, b) => a + b, 0)) / 13 / 5 / 1e5) / 10, 1e-9);
+    // même tracé, 100 fois moins échangé : arrêt à l'étape de la liquidité ; trop court : étape 0, mais toujours affiché
+    eq(PB.run(D, { close: W, volume: V.map((v) => v / 100) })['Étapes'], 1, 'liquidité');
+    const short = PB.run(D, { close: W.slice(-40), volume: V.slice(-40) });
+    ok(short.ok && short['Étapes'] === 0, 'historique court');
   }
 );
 

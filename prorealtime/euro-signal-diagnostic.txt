@@ -1,20 +1,37 @@
 // =====================================================================================
 // EURO SIGNAL : DIAGNOSTIC DU SCREENER, ProScreener ProRealTime (18/11/2026)
-// À lancer seulement si euro-signal-screener.txt ne donne aucun résultat.
-// Liste : SBF 120 (ou toute liste d'actions), n'importe quelle unité de temps.
-// Affiche, pour les 50 plus fortes hausses sur 12 mois de la liste, les trois mesures dont
-// dépend le screener ; une capture des résultats suffit pour trouver ce qui bloque.
-//   12 mois % : hausse sur 12 mois hors dernier mois (comparable à la fiche Euro Signal)
-//   Pente 6 mois % : rythme du canal sur 26 semaines (forte à partir de +41 %)
-//   M par jour : capitaux échangés par jour, moyenne de 3 mois, en millions de la devise de cotation
-//   (euros pour Paris ; le screener demande 3 M EUR au moins)
+// À lancer si euro-signal-screener.txt ne donne aucun résultat, AVEC LES MÊMES RÉGLAGES
+// (unité de temps Hebdomadaire, liste SBF 120 ou Actions France). Affiche toujours des lignes :
+// les 50 sociétés qui vont le plus loin dans les règles. Une capture suffit pour voir ce qui bloque.
+//
+// Colonne « Étapes » : nombre de règles passées, dans cet ordre (7 = la société est une cible) :
+//   1 historique de 61 semaines   2 au moins 3 M EUR échangés par jour   3 pas de saut anormal
+//   4 volatilité sous 80 %/an      5 tendance (moyenne 10 semaines au-dessus de la 40)
+//   6 pente forte (+41 % en 6 mois au moins)   7 hausse sur 12 mois de +60 à +200 %
+// Si toutes les lignes sont à 0 : l'historique hebdomadaire manque (choisir Hebdomadaire).
+// Si toutes sont à 1 : les volumes manquent ou sont faibles.
 // =====================================================================================
 TIMEFRAME(weekly)
+r1 = close / MAX(close[1], 0.0001) - 1
+rc = MIN(MAX(r1, -0.5), 1)
+vol52 = STD[52](rc) * SQRT(52)
+mm10 = Average[10](close)
+mm40 = Average[40](close)
+tendance = mm10 > mm40 AND close > mm40
 mom12 = close[4] / MAX(close[52], 0.0001) - 1
-penteLog = LinearRegressionSlope[26](LOG(close))
+lc = LOG(close)
+penteLog = LinearRegressionSlope[26](lc)
 liquidite = close * Average[13](volume) / 5
+sautSem = r1 > 1.5 OR r1 < -0.65
+e1 = close[60] > 0
+e2 = e1 AND liquidite >= 3000000
+e3 = e2 AND Summation[53](sautSem) = 0
+e4 = e3 AND vol52 < 0.8
+e5 = e4 AND tendance
+e6 = e5 AND penteLog >= LOG(2) / 52
+e7 = e6 AND mom12 >= 0.6 AND mom12 <= 2
 TIMEFRAME(default)
+etapes = e1 + e2 + e3 + e4 + e5 + e6 + e7
 c12 = ROUND(mom12 * 100)
 c6 = ROUND((EXP(penteLog * 26) - 1) * 100)
-cliq = ROUND(liquidite / 100000) / 10
-SCREENER[close > 0](c12 AS "12 mois %", c6 AS "Pente 6 mois %", cliq AS "M par jour")
+SCREENER[close > 0](etapes AS "Étapes", c12 AS "12 mois %", c6 AS "Pente 6 mois %")
