@@ -1,0 +1,20 @@
+// =====================================================================================
+// EURO SIGNAL : DIAGNOSTIC DU SCREENER, ProScreener ProRealTime (18/11/2026)
+// À lancer seulement si euro-signal-screener.txt ne donne aucun résultat.
+// Liste : SBF 120 (ou toute liste d'actions), n'importe quelle unité de temps.
+// Affiche, pour les 50 plus fortes hausses sur 12 mois de la liste, les trois mesures dont
+// dépend le screener ; une capture des résultats suffit pour trouver ce qui bloque.
+//   12 mois % : hausse sur 12 mois hors dernier mois (comparable à la fiche Euro Signal)
+//   Pente 6 mois % : rythme du canal sur 26 semaines (forte à partir de +41 %)
+//   M par jour : capitaux échangés par jour, moyenne de 3 mois, en millions de la devise de cotation
+//   (euros pour Paris ; le screener demande 3 M EUR au moins)
+// =====================================================================================
+TIMEFRAME(weekly)
+mom12 = close[4] / MAX(close[52], 0.0001) - 1
+penteLog = LinearRegressionSlope[26](LOG(close))
+liquidite = close * Average[13](volume) / 5
+TIMEFRAME(default)
+c12 = ROUND(mom12 * 100)
+c6 = ROUND((EXP(penteLog * 26) - 1) * 100)
+cliq = ROUND(liquidite / 100000) / 10
+SCREENER[close > 0](c12 AS "12 mois %", c6 AS "Pente 6 mois %", cliq AS "M par jour")

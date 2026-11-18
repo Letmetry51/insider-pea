@@ -2,7 +2,8 @@
 // pour vérifier dans les tests que le screener prend les mêmes décisions que le moteur (ProRealTime ne tourne pas ici).
 // Pris en charge : affectations, IF / ELSE / ENDIF, AND / OR / NOT, comparaisons, + - * /, MIN MAX SQRT LOG EXP ROUND ABS,
 // indicateurs [n](série) : Average, STD (écart type de population), Summation, Highest, Lowest, LinearRegressionSlope ;
-// décalage x[k] ; close, volume, BarIndex ; SCREENER[condition](expression AS "nom", …).
+// décalage x[k] ; close, volume, BarIndex ; TIMEFRAME(weekly / default) (barres déjà hebdomadaires) ;
+// SCREENER[condition](expression AS "nom", …).
 // Calcul barre par barre comme ProScreener ; seules les `tail` dernières barres sont calculées (fenêtres de 60 barres au plus).
 'use strict';
 const FN_P = new Set(['AVERAGE', 'STD', 'SUMMATION', 'HIGHEST', 'LOWEST', 'LINEARREGRESSIONSLOPE']);
@@ -133,7 +134,14 @@ function compile(src) {
   const ifs = []; // IF ouverts
   let screener = null;
   for (const line of lines) {
-    const P = parser(tokenize(line));
+    const toks = tokenize(line);
+    // TIMEFRAME(weekly) / TIMEFRAME(default) : les barres fournies sont déjà hebdomadaires
+    if (toks.length && toks[0].t === 'id' && toks[0].v === 'TIMEFRAME') {
+      if (!/^TIMEFRAME\((WEEKLY|DEFAULT)\)$/.test(toks.map((x) => String(x.v).toUpperCase()).join('')))
+        throw new Error('unité de temps non prise en charge : ' + line);
+      continue;
+    }
+    const P = parser(toks);
     const cur = blocks[blocks.length - 1];
     if (P.is('kw', 'IF')) {
       P.eat('kw', 'IF');

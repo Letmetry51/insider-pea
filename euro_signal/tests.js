@@ -4720,6 +4720,30 @@ t(
   }
 );
 
+t(
+  '📟 diagnostic ProRealTime (prorealtime/euro-signal-diagnostic.txt) : mêmes 12 mois, pente 6 mois et liquidité que la page',
+  () => {
+    const fs = require('fs');
+    const path = require('path');
+    const PB = require('./probuilder.js');
+    const D = PB.compile(
+      fs.readFileSync(path.join(__dirname, '..', 'prorealtime', 'euro-signal-diagnostic.txt'), 'utf8')
+    );
+    const W = [],
+      V = [];
+    for (let i = 0; i < 70; i++) {
+      W.push(20 * Math.pow(1.015, i) * (1 + 0.03 * Math.sin(i / 3)));
+      V.push(1e6 * (1 + 0.2 * Math.cos(i)));
+    }
+    const o = PB.run(D, { close: W, volume: V }),
+      f = ES.rankFeatures([], W, V);
+    ok(o.ok, 'toutes les sociétés de la liste sont affichées');
+    eq(o['12 mois %'], Math.round(f.mom * 100), '12 mois');
+    eq(o['Pente 6 mois %'], Math.round((Math.sqrt(1 + f.slope) - 1) * 100), 'pente 6 mois (slope6 de la page)');
+    near(o['M par jour'], Math.round((W[69] * V.slice(-13).reduce((a, b) => a + b, 0)) / 13 / 5 / 1e5) / 10, 1e-9);
+  }
+);
+
 console.log(results.join('\n'));
 console.log('\n' + pass + ' réussis, ' + fail + ' échoués');
 process.exit(fail ? 1 : 0);
