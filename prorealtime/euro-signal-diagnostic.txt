@@ -1,17 +1,20 @@
 // =====================================================================================
 // EURO SIGNAL : DIAGNOSTIC DU SCREENER, ProScreener ProRealTime (18/11/2026)
-// À lancer si euro-signal-screener.txt ne donne aucun résultat, AVEC LES MÊMES RÉGLAGES
-// (unité de temps Hebdomadaire, liste SBF 120 ou Actions France). Affiche toujours des lignes :
-// les 50 sociétés qui vont le plus loin dans les règles. Une capture suffit pour voir ce qui bloque.
+// À lancer sur la même liste et avec la même unité de temps que euro-signal-screener.txt.
+// Affiche toujours des lignes : les 50 sociétés de la liste qui passent le plus de règles.
+// Une capture suffit pour voir ce qui bloque.
 //
-// Colonne « Étapes » : nombre de règles passées, dans cet ordre (7 = la société est une cible) :
-//   1 historique de 61 semaines   2 au moins 3 M EUR échangés par jour   3 pas de saut anormal
-//   4 volatilité sous 80 %/an      5 tendance (moyenne 10 semaines au-dessus de la 40)
-//   6 pente forte (+41 % en 6 mois au moins)   7 hausse sur 12 mois de +60 à +200 %
-// Si toutes les lignes sont à 0 : l'historique hebdomadaire manque (choisir Hebdomadaire).
-// Si toutes sont à 1 : les volumes manquent ou sont faibles.
+// Colonne « Contrôle » : somme des points des règles passées ; 511 = toutes passées, la société doit
+// alors sortir dans le screener (au moins en règle assouplie). Points de chaque règle :
+//   256 historique de 61 semaines          128 au moins 3 M EUR échangés par jour
+//    64 pas de saut anormal sur un an       32 volatilité sous 80 %/an
+//    16 hausse sur 12 mois de +200 % au plus  8 hors du tiers le plus faible sur 12 mois
+//     4 tendance (moyenne 10 semaines au-dessus de la 40, cours au-dessus de la 40)
+//     2 pente du canal de +14 % en 6 mois au moins   1 hausse sur 12 mois de +30 % au moins
+// Exemple : 383 = 511 - 128, seule la liquidité manque.
 // =====================================================================================
 TIMEFRAME(weekly)
+histoOK = close[60] > 0
 r1 = close / MAX(close[1], 0.0001) - 1
 rc = MIN(MAX(r1, -0.5), 1)
 vol52 = STD[52](rc) * SQRT(52)
@@ -23,15 +26,10 @@ lc = LOG(close)
 penteLog = LinearRegressionSlope[26](lc)
 liquidite = close * Average[13](volume) / 5
 sautSem = r1 > 1.5 OR r1 < -0.65
-e1 = close[60] > 0
-e2 = e1 AND liquidite >= 3000000
-e3 = e2 AND Summation[53](sautSem) = 0
-e4 = e3 AND vol52 < 0.8
-e5 = e4 AND tendance
-e6 = e5 AND penteLog >= LOG(2) / 52
-e7 = e6 AND mom12 >= 0.6 AND mom12 <= 2
+sansSaut = Summation[53](sautSem) = 0
+rang12 = 1 / (1 + EXP((16 - mom12 * 100) / 19))
 TIMEFRAME(default)
-etapes = e1 + e2 + e3 + e4 + e5 + e6 + e7
+controle = 256 * histoOK + 128 * (liquidite >= 3000000) + 64 * sansSaut + 32 * (vol52 < 0.8) + 16 * (mom12 <= 2) + 8 * (rang12 >= 0.3333) + 4 * tendance + 2 * (penteLog >= LOG(1.3) / 52) + (mom12 >= 0.3)
 c12 = ROUND(mom12 * 100)
 c6 = ROUND((EXP(penteLog * 26) - 1) * 100)
-SCREENER[close > 0](etapes AS "Étapes", c12 AS "12 mois %", c6 AS "Pente 6 mois %")
+SCREENER[close > 0](controle AS "Contrôle", c12 AS "12 mois %", c6 AS "Pente 6 mois %")

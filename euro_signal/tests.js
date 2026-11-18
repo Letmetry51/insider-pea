@@ -4731,7 +4731,7 @@ t(
 );
 
 t(
-  '📟 diagnostic ProRealTime (prorealtime/euro-signal-diagnostic.txt) : étapes des règles, 12 mois et pente 6 mois de la page',
+  '📟 diagnostic ProRealTime (prorealtime/euro-signal-diagnostic.txt) : points de chaque règle, 12 mois et pente 6 mois de la page',
   () => {
     const fs = require('fs');
     const path = require('path');
@@ -4752,14 +4752,17 @@ t(
     const o = PB.run(D, { close: W, volume: V }),
       f = ES.rankFeatures([], W, V);
     ok(o.ok, 'toutes les sociétés de la liste sont affichées');
-    eq(o['Étapes'], 7, 'toutes les étapes');
-    ok(PB.run(S, { close: W, volume: V }).Type % 2 === 1, 'le screener la retient aussi');
+    eq(o['Contrôle'], 511, 'toutes les règles');
+    ok(PB.run(S, { close: W, volume: V }).ok, 'le screener la retient aussi');
     eq(o['12 mois %'], Math.round(f.mom * 100), '12 mois');
     eq(o['Pente 6 mois %'], Math.round((Math.sqrt(1 + f.slope) - 1) * 100), 'pente 6 mois (slope6 de la page)');
-    // même tracé, 100 fois moins échangé : arrêt à l'étape de la liquidité ; trop court : étape 0, mais toujours affiché
-    eq(PB.run(D, { close: W, volume: V.map((v) => v / 100) })['Étapes'], 1, 'liquidité');
+    // même tracé, 100 fois moins échangé : seuls les 128 points de la liquidité manquent ; très agité : les 32 de la volatilité ;
+    // trop court : les 256 de l'historique, toujours affiché
+    eq(PB.run(D, { close: W, volume: V.map((v) => v / 100) })['Contrôle'], 383, 'liquidité');
+    const wild = W.map((c, i) => c * (i % 2 ? 1.25 : 0.8));
+    eq(Math.floor(PB.run(D, { close: wild, volume: V })['Contrôle'] / 32) % 2, 0, 'volatilité');
     const short = PB.run(D, { close: W.slice(-40), volume: V.slice(-40) });
-    ok(short.ok && short['Étapes'] === 0, 'historique court');
+    ok(short.ok && short['Contrôle'] < 256, 'historique court');
   }
 );
 
