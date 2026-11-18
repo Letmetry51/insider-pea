@@ -33,7 +33,8 @@ OUT = ROOT / "data" / "grain"
 PRIV = OUT / "prive"
 CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
 API = "https://api.anthropic.com/v1/messages"
-PRIX = {"claude-opus-5-5": (4, 20), "claude-sonnet-5-5": (2, 10), "claude-haiku-5-5": (0.1, 0.5)}  # $ par million de jetons
+# $ par million de jetons : entrée, sortie, entrée relue du cache (écrite dans le cache : 1,25 fois l'entrée), comme comite.py
+PRIX = {"claude-opus-5-5": (4, 20, 0.2), "claude-sonnet-5-5": (2, 10, 0.1), "claude-haiku-5-5": (0.1, 0.5, 0.01)}
 THEMES = {"geopolitique", "meteo", "offre", "demande", "politique", "macro", "engrais", "logistique", "psychologie", "marche"}
 NATURES = {"fait", "prevision", "rumeur", "opinion"}
 HORIZONS = {"jours", "semaines", "mois"}
@@ -132,9 +133,15 @@ def valide(x):
     return out
 
 
-def appel(key, user):
+def appel(key, fixe, variable):
+    """Un lot de titres. Mis en cache de l'API (relus à 10 % du prix par les lots suivants du même matin, à quelques secondes
+    d'intervalle) : la consigne, puis la date et les cours du matin (« fixe », identiques d'un lot à l'autre). Les titres déjà
+    classés et les titres à classer (« variable ») changent à chaque lot : après le dernier point de cache."""
     cfg = CFG["actualites"]
-    body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"], "system": SYSTEME, "messages": [{"role": "user", "content": user}]}
+    body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"],
+            "system": [{"type": "text", "text": SYSTEME, "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": [{"type": "text", "text": fixe, "cache_control": {"type": "ephemeral"}},
+                                                      {"type": "text", "text": variable}]}]}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None
     for i in range(2):  # 2 essais de 90 s au plus par lot (budget global de 6 minutes dans main) : les fichiers sont toujours écrits
@@ -190,7 +197,7 @@ def main():
     maxi = 10 if os.environ.get("GS_DRY") else cfg["maxNouveaux"]
     a_lire = [a for a in sorted(recents, key=lambda a: a["date"], reverse=True)
               if a["id"] not in cache or (cache[a["id"]].get("pertinent") and cache[a["id"]].get("v") != VERSION)][:maxi]
-    usage, erreur, synthese = {"input": 0, "output": 0}, None, None
+    usage, erreur, synthese = {"input": 0, "cache_lu": 0, "cache_ecrit": 0, "output": 0}, None, None
     if key and a_lire:
         # lots de 20 titres : réponses courtes et sûres ; un lot en échec n'empêche pas les autres ; la synthèse du dernier lot
         # réussi voit tout ce qui vient d'être classé. Budget de 6 minutes (+ un lot) pour rester sous la limite de 10 minutes de l'étape.
@@ -207,15 +214,17 @@ def main():
             liste = "\n".join(f'{{"id": "{a["id"]}", "site": {json.dumps(a.get("source") or a.get("requete") or "")}, '
                               f'"date": "{a["date"][:16]}", "langue": "{a.get("langue", "")}", "titre": {json.dumps(a["titre"], ensure_ascii=False)}}}'
                               for a in part)
-            user = (f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Bulletin des grains) :\n{contexte(dash)}\n\n"
-                    + ("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
+            fixe = f"Date : {today.isoformat()}\n\nCours et lecture technique du matin (Bulletin des grains) :\n{contexte(dash)}"
+            user = (("Titres importants déjà classés (contexte de la synthèse, ne pas les reclasser) :\n" + "\n".join(deja) + "\n\n" if deja else "")
                     + f"Titres à classer ({len(part)}) :\n{liste}"
                     # la synthèse n'est demandée qu'au dernier lot (seule gardée) : moins de texte rédigé, donc moins cher
                     + ("" if k + lot >= len(a_lire) else '\n\nPour ce lot, ne rédige pas de synthèse : "synthese": "".'))
             try:
-                resp = appel(key, user)
+                resp = appel(key, fixe, user)
                 u = resp.get("usage") or {}
-                usage = {"input": usage["input"] + u.get("input_tokens", 0), "output": usage["output"] + u.get("output_tokens", 0)}
+                lu, ecrit = u.get("cache_read_input_tokens", 0), u.get("cache_creation_input_tokens", 0)
+                usage = {"input": usage["input"] + u.get("input_tokens", 0) + lu + ecrit, "cache_lu": usage["cache_lu"] + lu,
+                         "cache_ecrit": usage["cache_ecrit"] + ecrit, "output": usage["output"] + u.get("output_tokens", 0)}
                 text = "".join(b.get("text", "") for b in resp.get("content") or [] if b.get("type") == "text")
                 j = lire_json(text)
                 ids = {a["id"] for a in part}
@@ -265,7 +274,8 @@ def main():
     # une seule alerte par fait (alertes_envoyees)
     majeurs = [a for a in classes if dec.actu_majeur(a, now, heures=72)]
     nouveaux_majeurs = [a for a in majeurs if a["id"] not in deja_alerte]
-    pin, pout = PRIX.get(cfg["modele"], (2, 10))
+    pin, pout, plu = PRIX.get(cfg["modele"], (2, 10, 0.1))
+    plein = usage["input"] - usage["cache_lu"] - usage["cache_ecrit"]
     garde = prev.get("v") == VERSION and str(prev.get("synthese_du") or "") >= (today - timedelta(days=3)).isoformat()
     res = {
         "date": today.isoformat(), "genere": now.isoformat(timespec="minutes"), "modele": cfg["modele"] if key else None,
@@ -277,7 +287,8 @@ def main():
         # titres non traduits montrés seulement sans IA ou si la traduction a échoué (sinon : traduits au prochain calcul)
         "articles": [a for a in articles if not a.get("non_classe") or not key or erreur][:150],
         "compte": {"lus": len(recents), "pertinents": len(classes), "nouveaux": len(a_lire)},
-        "cout_usd": round(usage["input"] / 1e6 * pin + usage["output"] / 1e6 * pout, 3),
+        "cout_usd": round((plein * pin + usage["cache_ecrit"] * pin * 1.25 + usage["cache_lu"] * plu + usage["output"] * pout) / 1e6, 3),
+        "usage": usage,
         "erreur": erreur, "sans_ia": not key,
         "alertes_envoyees": {**deja_alerte, **{a["id"]: today.isoformat() for a in nouveaux_majeurs}},
         # pression de chaque jour (90 jours) : la page montre l'évolution, plus parlante que le niveau
