@@ -2570,6 +2570,37 @@ t('📒 face à la société moyenne : indice équipondéré, semaines mûres, l
   eq(ES.edgeTrack({}, { dates, last: 38, idx, series: () => up }, []).m6, null);
 });
 
+t('📐 indicateurs techniques des filtres : moyennes 50 / 200, croisements, RSI, MACD, Bollinger, 1 et 3 mois', () => {
+  eq(ES.techInd([1, 2, 3]), null);
+  const up = Array.from({ length: 257 }, (_, k) => 100 * Math.pow(1.002, k));
+  const a = ES.techInd(up);
+  eq([a.g, a.a2, a.u2, a.rsi, a.mc, a.bb], [1, 1, 1, 100, 'hh', 0]);
+  near(a.p1, Math.round((Math.pow(1.002, 21) - 1) * 1000) / 10, 1e-9, 'variation sur 21 séances');
+  near(a.p3, Math.round((Math.pow(1.002, 63) - 1) * 1000) / 10, 1e-9, 'variation sur 63 séances');
+  ok(a.xg == null && a.xd == null, 'pas de croisement récent');
+  const b = ES.techInd(up.slice().reverse());
+  eq([b.g, b.a2, b.u2, b.rsi], [0, 0, 0, 0]);
+  // baisse puis forte reprise : golden cross dans les 40 dernières séances ; hausse puis rechute : death cross
+  const gx = Array.from({ length: 257 }, (_, k) =>
+    k < 200 ? 100 * Math.pow(0.998, k) : 100 * Math.pow(0.998, 200) * Math.pow(1.02, k - 200)
+  );
+  const c = ES.techInd(gx);
+  ok(c.g === 1 && c.xg >= 0 && c.xg < 40 && c.xd == null, 'golden cross : ' + JSON.stringify(c));
+  const dx = Array.from({ length: 257 }, (_, k) =>
+    k < 200 ? 100 * Math.pow(1.002, k) : 100 * Math.pow(1.002, 200) * Math.pow(0.98, k - 200)
+  );
+  const d = ES.techInd(dx);
+  ok(d.g === 0 && d.xd >= 0 && d.xd < 40 && d.xg == null, 'death cross : ' + JSON.stringify(d));
+  // aller-retour régulier : RSI autour de 50, moyennes 200 absentes (moins de 200 séances)
+  const e = ES.techInd(Array.from({ length: 120 }, (_, k) => 100 + (k % 2 ? 1 : -1)));
+  ok(e.rsi >= 45 && e.rsi <= 55 && e.g === undefined && e.a2 === undefined, JSON.stringify(e));
+  // dernière séance très au-dessus de la bande haute de Bollinger ; très au-dessous de la basse
+  eq(ES.techInd(Array(100).fill(100).concat([130])).bb, 1);
+  eq(ES.techInd(Array(100).fill(100).concat([70])).bb, -1);
+  // cours manquants (0) ignorés
+  eq(ES.techInd(up.map((v, k) => (k % 50 === 7 ? 0 : v))).g, 1);
+});
+
 t('Devises : conversion des montants hors zone euro', () => {
   ES.setFx({ SEK: 11, NOK: 'x', DKK: 7.46 });
   near(ES.toEur(1.1e6, 'SEK'), 1e5, 1e-6);

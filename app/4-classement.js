@@ -2876,6 +2876,18 @@ function rankFacets(rows, ctx) {
   var dd = function (d) {
     return typeof d === 'string' && ctx.today ? ES.daysBetween(ctx.today, d) : null;
   };
+  // indicateurs techniques publiés (ES.techInd) : r.ti absent faute d'un an de cours journaliers → la case ne retient pas la société
+  var tiRng = function (k, a, b) {
+    return function (r) {
+      var v = (r.ti || {})[k];
+      return v != null && v >= a && v < b;
+    };
+  };
+  var tiIs = function (k, x) {
+    return function (r) {
+      return (r.ti || {})[k] === x;
+    };
+  };
   var flagF = function (k, l, test, d) {
     return { k: k, s: 'sig', flag: true, t: l, opts: [{ v: 'on', l: l, d: d, test: test }] };
   };
@@ -2997,12 +3009,150 @@ function rankFacets(rows, ctx) {
       ],
     },
     {
-      k: 'm10',
+      k: 'p1',
       s: 'trend',
-      t: 'Moyenne 10 semaines',
+      t: 'Variation sur 1 mois',
       opts: [
-        { v: 'up', l: '✅ Au-dessus', d: 'feu vert du 🎯', test: rng('m10', 0, Infinity) },
+        { v: 'lt-10', l: 'Moins de −10 %', test: tiRng('p1', -Infinity, -10) },
+        { v: '-10-0', l: '−10 à 0 %', test: tiRng('p1', -10, 0) },
+        { v: '0-10', l: '0 à +10 %', test: tiRng('p1', 0, 10) },
+        { v: '10+', l: 'Plus de +10 %', test: tiRng('p1', 10, Infinity) },
+      ],
+    },
+    {
+      k: 'p3',
+      s: 'trend',
+      t: 'Variation sur 3 mois',
+      opts: [
+        { v: 'lt-10', l: 'Moins de −10 %', test: tiRng('p3', -Infinity, -10) },
+        { v: '-10-10', l: '−10 à +10 %', test: tiRng('p3', -10, 10) },
+        { v: '10-30', l: '+10 à +30 %', test: tiRng('p3', 10, 30) },
+        { v: '30+', l: 'Plus de +30 %', test: tiRng('p3', 30, Infinity) },
+      ],
+    },
+    {
+      k: 'm10',
+      s: 'tech',
+      t: 'Cours / MM50 (≈ 10 semaines)',
+      opts: [
+        {
+          v: 'up',
+          l: '✅ Au-dessus',
+          d: 'feu vert du 🎯, la seule règle de ce type retenue par les tests',
+          test: rng('m10', 0, Infinity),
+        },
         { v: 'down', l: '⏸️ En dessous', d: 'en attente', test: rng('m10', -Infinity, 0) },
+      ],
+    },
+    {
+      k: 'g',
+      s: 'tech',
+      t: 'MM50 / MM200',
+      opts: [
+        {
+          v: 'up',
+          l: 'MM50 au-dessus de MM200',
+          d: 'croisé avec « Au-dessus de MM200 » : la tendance exigée par le 🎯',
+          test: tiIs('g', 1),
+        },
+        { v: 'down', l: 'MM50 sous MM200', test: tiIs('g', 0) },
+      ],
+    },
+    {
+      k: 'a2',
+      s: 'tech',
+      t: 'Cours / MM200',
+      opts: [
+        { v: 'up', l: 'Au-dessus de MM200', test: tiIs('a2', 1) },
+        { v: 'down', l: 'Sous MM200', test: tiIs('a2', 0) },
+      ],
+    },
+    {
+      k: 'e2',
+      s: 'tech',
+      t: 'Écart au-dessus de la MM200',
+      opts: [
+        { v: '0-20', l: '0 à +20 %', test: tiRng('e2', 0, 20) },
+        { v: '20-50', l: '+20 à +50 %', test: tiRng('e2', 20, 50) },
+        { v: '50+', l: 'Plus de +50 %', d: 'très étirée', test: tiRng('e2', 50, Infinity) },
+      ],
+    },
+    {
+      k: 'u2',
+      s: 'tech',
+      t: 'MM200 sur un mois',
+      opts: [
+        { v: 'up', l: '↗ En hausse', test: tiIs('u2', 1) },
+        { v: 'down', l: '↘ En baisse', test: tiIs('u2', 0) },
+      ],
+    },
+    {
+      k: 'xc',
+      s: 'tech',
+      t: 'Croisement MM50 / MM200 (40 dernières séances)',
+      opts: [
+        {
+          v: 'gold',
+          l: 'Golden cross',
+          d: 'MM50 passée au-dessus de MM200 · testé : −0,6 point à 6 mois face à la moyenne',
+          test: function (r) {
+            return (r.ti || {}).xg != null;
+          },
+        },
+        {
+          v: 'death',
+          l: 'Death cross',
+          d: 'MM50 passée sous MM200 · testé : −1,6 point ; pas un signal de vente pour une ligne 🎯',
+          test: function (r) {
+            return (r.ti || {}).xd != null;
+          },
+        },
+      ],
+    },
+    {
+      k: 'tmpl',
+      s: 'tech',
+      t: 'Trend Template de Minervini',
+      opts: [
+        { v: 'yes', l: 'Rempli (7 règles)', d: 'testé : doublon du classement, rien de plus', test: rng('tmpl', 1, 2) },
+        { v: 'no', l: 'Pas rempli', test: rng('tmpl', 0, 1) },
+      ],
+    },
+    {
+      k: 'rsi',
+      s: 'tech',
+      t: 'RSI 14 jours',
+      opts: [
+        { v: 'lt30', l: 'Survendu (moins de 30)', test: tiRng('rsi', -Infinity, 30) },
+        { v: '30-50', l: '30 à 50', test: tiRng('rsi', 30, 50) },
+        { v: '50-70', l: '50 à 70', test: tiRng('rsi', 50, 70) },
+        {
+          v: '70+',
+          l: 'Suracheté (70 ou plus)',
+          d: 'parmi les 🎯, RSI ≥ 80 sans effet à 3 et 6 mois',
+          test: tiRng('rsi', 70, Infinity),
+        },
+      ],
+    },
+    {
+      k: 'macd',
+      s: 'tech',
+      t: 'MACD (12, 26, 9)',
+      opts: [
+        { v: 'hh', l: 'Au-dessus du signal et de 0', test: tiIs('mc', 'hh') },
+        { v: 'hl', l: 'Au-dessus du signal, sous 0', d: 'reprise', test: tiIs('mc', 'hl') },
+        { v: 'lh', l: 'Sous le signal, au-dessus de 0', d: 'essoufflement', test: tiIs('mc', 'lh') },
+        { v: 'll', l: 'Sous le signal et sous 0', test: tiIs('mc', 'll') },
+      ],
+    },
+    {
+      k: 'bb',
+      s: 'tech',
+      t: 'Bandes de Bollinger (20 séances, 2 écarts types)',
+      opts: [
+        { v: 'up', l: 'Au-dessus de la bande haute', test: tiIs('bb', 1) },
+        { v: 'in', l: 'Dans les bandes', test: tiIs('bb', 0) },
+        { v: 'dn', l: 'Sous la bande basse', test: tiIs('bb', -1) },
       ],
     },
     {
@@ -3210,6 +3360,7 @@ function rankFacets(rows, ctx) {
 var RF_SECTIONS = [
   ['sig', '🎯 Sélections et signaux', 'chaque case cochée se croise avec les autres'],
   ['trend', '📈 Tendance', ''],
+  ['tech', '📐 Indicateurs techniques', 'clôtures journalières d’un an'],
   ['acc', '📊 Comptes et prix', ''],
   ['risk', '⚖️ Risque et liquidité', ''],
   ['where', "🌍 Pays, secteur, avis, plan d'entrée", ''],
@@ -3646,6 +3797,9 @@ function vClassement() {
             .join('') +
           '</div></div>';
       });
+    if (sec[0] === 'tech')
+      h +=
+        '<p class="small muted">🧪 Testés à 6 mois face à la moyenne des sociétés : golden cross 50/200 −0,6 point, death cross −1,6 (cours journaliers 2000-2026 ; pour une ligne 🎯, pas un signal de vente) ; RSI, MACD et Trend Template de Minervini : rien de plus que le classement une fois la hausse passée prise en compte (1997-2026). Seule la position au-dessus de la MM50 a été retenue (feu vert du 🎯). Bandes de Bollinger : pas testées. Ces filtres servent à regarder, pas à prévoir.</p>';
     h += '</div>';
   });
   h +=

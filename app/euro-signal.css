@@ -400,6 +400,10 @@ textarea.code {
   font: 600 0.72rem/1.5 var(--mono);
   text-align: center;
 }
+/* dans un bouton, le nombre ne rétrécit jamais : sur téléphone, il débordait de sa pastille et devenait illisible */
+button .count {
+  flex: none;
+}
 
 .chip {
   display: inline-block;
