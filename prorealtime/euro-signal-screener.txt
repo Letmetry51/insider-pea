@@ -4,8 +4,9 @@
 // testées sur 1997-2026 en cours hebdomadaires (research/backtest/_selection_sim.py).
 //
 // UTILISATION
-// - Unité de temps : HEBDOMADAIRE. Lancer le week-end ou le lundi avant l'ouverture :
-//   en cours de semaine, le volume de la semaine est incomplet et les bonds passent inaperçus.
+// - Unité de temps : n'importe laquelle (le code calcule lui-même en hebdomadaire). Lancer le week-end ou
+//   le lundi avant l'ouverture : en cours de semaine, le volume de la semaine est incomplet et les bonds
+//   passent inaperçus.
 // - Liste : actions éligibles au PEA (Euronext Paris, Amsterdam, Bruxelles, Lisbonne, Xetra,
 //   Milan, Madrid, Helsinki...). Hors zone euro (Stockholm, Copenhague, Oslo...), régler
 //   EurParUnite ci-dessous.
@@ -28,13 +29,16 @@
 // - alerte krach (marché en baisse de 20 % ou plus sur un an : entrer par petites touches).
 // =====================================================================================
 
+// ---------- Tout le calcul en hebdomadaire, quelle que soit l'unité de temps choisie dans ProScreener
+TIMEFRAME(weekly)
+
 // ---------- Réglage : valeur en euros d'une unité de la devise du marché scanné
 // 1 pour l'euro ; environ 0.09 pour la couronne suédoise, 0.134 pour la couronne danoise,
 // 0.085 pour la couronne norvégienne, 0.23 pour le zloty
 EurParUnite = 1
 
-// ---------- Historique : au moins 61 semaines
-histoOK = BarIndex >= 60
+// ---------- Historique : au moins 61 semaines de cours (cours d'il y a 60 semaines connu)
+histoOK = close[60] > 0
 
 // ---------- Rendement de la semaine et volatilité sur un an (écart type annualisé)
 r1 = close / MAX(close[1], 0.0001) - 1
@@ -106,6 +110,7 @@ cible = palier0 OR (palier1 AND bond8 AND feuVert)
 demarrage = commun AND tendance AND bond4
 
 // ---------- Colonnes
+TIMEFRAME(default)
 ordre = 1000 * (2 * volHausse + bond8) + 100 * feuVert + ROUND(noteTech)
 genre = cible + 2 * demarrage
 hausse12 = ROUND(mom12 * 100)

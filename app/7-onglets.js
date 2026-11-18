@@ -1094,7 +1094,7 @@ function biblioCard() {
         '.'
     ),
     li(
-      "📟 <b>Même sélection dans ProRealTime</b> : screener à coller dans ProScreener (unité hebdomadaire, listes d'actions éligibles au PEA), " +
+      "📟 <b>Même sélection dans ProRealTime</b> : screener à coller dans ProScreener (listes d'actions éligibles au PEA, à lancer le week-end), " +
         ln(repoUrl() + '/blob/main/prorealtime/euro-signal-screener.txt', 'prorealtime/euro-signal-screener.txt') +
         ' ; mêmes règles 🎯 et 📣 que la page (vérifié par les tests), sans les comptes, le PEA ni les ventes à découvert : à regarder sur la fiche.'
     ),
