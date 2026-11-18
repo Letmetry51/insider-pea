@@ -11,8 +11,9 @@
 //   Milan, Madrid, Helsinki...). Hors zone euro (Stockholm, Copenhague, Oslo...), régler
 //   EurParUnite ci-dessous.
 // - Colonnes :
-//   Ordre : priorité d'Euro Signal, la plus forte en haut.
-//     10 000 et plus : cible ou bond (à prendre en premier) ; moins de 10 000 : règle assouplie ;
+//   Ordre (seule colonne affichée par certaines versions, elle suffit) : la plus forte en haut.
+//     20 000 et plus : cible (toutes les règles) ; 10 000 à 19 999 : démarrage sur bond ;
+//     moins de 10 000 : règle assouplie (pente moyenne ou +30 à +60 %), pour compléter ;
 //     milliers : 3 = volumes en hausse + bond, 2 = volumes en hausse, 1 = bond, 0 = ni l'un ni l'autre ;
 //     centaines : 1 = au-dessus de la moyenne 10 semaines (feu vert, acheter sans attendre de repli),
 //                 0 = en dessous (attendre qu'elle repasse au-dessus) ;
@@ -20,11 +21,12 @@
 //   Type : 1 = cible (toutes les règles), 2 = démarrage sur bond, 3 = les deux,
 //          4 = règle assouplie (pente moyenne ou hausse de +30 à +60 %), pour compléter.
 //   12 mois % : hausse sur 12 mois, hors dernier mois.
-// - Choisir comme Euro Signal : les 4 premières lignes de type 1 ou 3 (2 par secteur au plus),
-//   complétées si besoin par les lignes de type 4 ; puis la première ligne de type 2 ou 3 pas encore
-//   prise. Lignes égales, gardées 6 mois, protection à -30 %.
+// - Choisir comme Euro Signal : les 4 premières cibles (ordre de 20 000 et plus, 2 par secteur au plus),
+//   complétées si besoin par la règle assouplie (moins de 10 000) ; puis le premier démarrage sur bond
+//   (10 000 à 19 999). Lignes égales, gardées 6 mois, protection à -30 %.
 // - Peu de lignes, c'est normal : toutes les règles réunies, c'est rare (3 à 6 sociétés de la zone euro
-//   certaines semaines). Scanner une grande liste (SBF 120, Actions France, Xetra...), pas le CAC 40 seul.
+//   certaines semaines). Scanner les listes de marché entières (Euronext Paris, Xetra, Madrid, Milan,
+//   Amsterdam...), pas seulement un indice ou une liste personnelle.
 //
 // CE QUE CE SCREENER NE VÉRIFIE PAS (voir la fiche de la société sur Euro Signal)
 // - comptes solides (F-score, pas de perte au dernier exercice, pas de bilan en détresse) ;
@@ -119,7 +121,7 @@ assoupli = palier1 AND NOT cible
 
 // ---------- Colonnes
 TIMEFRAME(default)
-ordre = 10000 * (cible OR demarrage) + 1000 * (2 * volHausse + bond8) + 100 * feuVert + ROUND(noteTech)
+ordre = 10000 * (2 * cible + (demarrage AND NOT cible)) + 1000 * (2 * volHausse + bond8) + 100 * feuVert + ROUND(noteTech)
 genre = cible + 2 * demarrage + 4 * (assoupli AND NOT demarrage)
 hausse12 = ROUND(mom12 * 100)
 
