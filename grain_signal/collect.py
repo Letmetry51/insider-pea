@@ -1383,6 +1383,105 @@ def collect_gpr(today):
     note("geopolitique", ok == 2, " ; ".join(msgs))
 
 
+CEREOBS = "https://cereobs.franceagrimer.fr/cereobs-sp/api/public/publications/"
+CEREOBS_CULTURES = {"ble": "Blé tendre", "escourgeon": "Orge d'hiver", "orge_printemps": "Orge de printemps"}
+ESMIS = "https://esmis.nal.usda.gov/publication/crop-progress"
+
+
+def cereobs_lire(rows):
+    """Tableau Céré'Obs « Conditions de culture » (lignes de cellules) → part des surfaces en bon ou très bon état : moyenne France,
+    Grand Est, semaine précédente et même semaine l'an dernier. None si le tableau n'a pas la forme attendue."""
+    norm = [[re.sub(r"\s+", " ", str(c)).strip() for c in r] for r in rows]
+    entete = next((r for r in norm if any(c.lower().startswith("très bonnes") for c in r)), None)
+    sem = next((m for r in norm for c in r for m in [re.search(r"Semaine (\d+) se terminant le (\d{1,2}) (\w+) (\d{4})", c)] if m), None)
+    if not entete or not sem:
+        return None
+    ib = next(i for i, c in enumerate(entete) if c.lower().startswith("bonnes"))
+    itb = next(i for i, c in enumerate(entete) if c.lower().startswith("très bonnes"))
+
+    def bt(r):
+        try:
+            return round(float(r[ib]) + float(r[itb]))
+        except (ValueError, IndexError):
+            return None
+
+    mo = MOIS.get(sem.group(3).lower())
+    out = {"semaine": int(sem.group(1)), "fin": date(int(sem.group(4)), mo, int(sem.group(2))).isoformat() if mo else None}
+    for r in norm:
+        lab = r[0].lower()
+        if lab.startswith("moyenne france"):
+            out["france"] = bt(r)
+        elif re.match(r"grand.?est", lab):
+            out["grand_est"] = bt(r)
+        elif re.match(r"\d{4}-s\d+ \(2\)", lab):
+            out["semaine_prec"] = bt(r)
+        elif re.match(r"\d{4}-s\d+ \(3\)", lab):
+            out["an_dernier"] = bt(r)
+    return out if out.get("france") is not None and out.get("fin") else None
+
+
+def usda_ble_hiver(txt):
+    """Rapport hebdomadaire Crop Progress de l'USDA (texte) → part du blé d'hiver américain en bon ou excellent état (18 États),
+    semaine précédente et l'an dernier. None hors saison (pas de tableau)."""
+    i = txt.find("Winter Wheat Condition")
+    if i < 0:
+        return None
+    bloc = txt[i:i + 4000]  # les 18 États défilent avant le total ; le premier « Previous week » est celui du blé
+    m = re.search(r"Week Ending\s+(\w+) (\d{1,2}), (\d{4})", bloc)
+    mois = {"january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6, "july": 7, "august": 8, "september": 9,
+            "october": 10, "november": 11, "december": 12}
+
+    def ligne(lab):
+        r = re.search(lab + r"[ .]*:[ \t]*([\d \t]+)", bloc)
+        v = r and [int(x) for x in r.group(1).split()]
+        return v[3] + v[4] if v and len(v) >= 5 else None
+
+    out = {"fin": date(int(m.group(3)), mois[m.group(1).lower()], int(m.group(2))).isoformat() if m and m.group(1).lower() in mois else None,
+           "bon": ligne(r"\n\s*\d+ States"), "semaine_prec": ligne("Previous week"), "an_dernier": ligne("Previous year")}
+    return out if out["bon"] is not None and out["fin"] else None
+
+
+def collect_cultures():
+    """État des cultures : Céré'Obs de FranceAgriMer (France, chaque vendredi pendant la campagne) et Crop Progress de l'USDA
+    (blé d'hiver américain, chaque lundi d'automne et de printemps). Hors saison rien n'est publié : la dernière lecture est gardée
+    avec sa date, ce n'est pas une panne."""
+    from python_calamine import CalamineWorkbook  # lit aussi les anciens .xls
+
+    path = PRIV / "cultures.json"
+    out = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    msgs, erreurs = [], []
+    for k, lib in CEREOBS_CULTURES.items():
+        try:
+            pubs = [p for p in get(CEREOBS + "getPublicationsCondCulture", params={"libelleCulture": lib}).json()
+                    if (p.get("typePublication") or {}).get("format") == "XLS"]
+            if not pubs:
+                msgs.append(f"{lib} : rien de publié cette semaine")
+                continue
+            p = max(pubs, key=lambda x: x["semaineObservation"]["dateFin"])
+            wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
+            lu = cereobs_lire(wb.get_sheet_by_index(0).to_python())
+            if not lu:
+                raise RuntimeError("tableau illisible")
+            out.setdefault("france", {})[k] = lu
+            msgs.append(f"{lib} S{lu['semaine']} : {lu['france']} % bon ou très bon")
+        except Exception as e:  # noqa: BLE001
+            erreurs.append(f"{lib} : {str(e)[:80]}")
+    try:
+        lien = re.search(r'href="([^"]+prog\d+\.txt)"', get(ESMIS).text)
+        if not lien:
+            raise RuntimeError("rapport introuvable")
+        lu = usda_ble_hiver(get(requests.compat.urljoin(ESMIS, lien.group(1))).text)
+        if lu:
+            out["usa_ble_hiver"] = lu
+            msgs.append(f"USDA blé d'hiver {lu['fin']} : {lu['bon']} % bon ou excellent")
+        else:
+            msgs.append("USDA : pas de tableau blé d'hiver cette semaine")
+    except Exception as e:  # noqa: BLE001
+        erreurs.append(f"USDA : {str(e)[:80]}")
+    save_json(path, out)
+    note("cultures", not erreurs, " ; ".join(erreurs + msgs))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PRIV.mkdir(parents=True, exist_ok=True)
@@ -1396,7 +1495,7 @@ def main():
          ("physique", collect_physique)],
         [("yahoo", collect_yahoo), ("chicago_horaire", collect_chicago_horaire), ("yahoo_long", collect_yahoo_long)],
         [("cftc", collect_cftc), ("cftc_long", collect_cftc_long), ("usda", lambda: collect_usda(today))],
-        [("meteo", lambda: collect_meteo(today))],
+        [("meteo", lambda: collect_meteo(today)), ("cultures", collect_cultures)],
         [("banque_mondiale", collect_banque_mondiale), ("geopolitique", lambda: collect_gpr(today))],
         [("actualites", collect_actualites)],
     ]
