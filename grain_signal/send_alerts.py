@@ -81,8 +81,8 @@ def sens_html(s_, azote=False):
     if not s_:
         return "<span style='color:#999'>—</span>"
     t, c = SENS_HTML.get(s_, (s_, "#6b6d60"))
-    if azote and s_ in ("haussière", "baissière"):
-        t += " (plus cher)" if s_ == "haussière" else " (moins cher)"
+    if azote and s_ in ("haussière", "baissière"):  # azote acheté : plus cher en rouge, moins cher en vert
+        t, c = ("▲ plus cher", "#b0281f") if s_ == "haussière" else ("▼ moins cher", "#1f7a3e")
     return f"<span style='color:{c};white-space:nowrap'>{e(t)}</span>"
 
 
@@ -124,7 +124,7 @@ def table_marche(dash):
     if u.get("prix"):
         v1 = u.get("var1m")
         rows.append(f"<tr><td style='{td}'><b>Azote</b></td><td style='{td};text-align:right;white-space:nowrap'><b>{f(u['prix'])}</b>"
-                    + (f" <span style='color:#666'>{sg(v1, 1)} % depuis le {u['var1m_depuis'][8:10]}/{u['var1m_depuis'][5:7]}</span>" if v1 is not None and u.get("var1m_depuis") else "") + f"<br><span style='color:#666;font-size:12px'>urée</span></td><td style='{td}'>—</td>"
+                    + (f" <span style='color:{'#b0281f' if v1 > 0 else '#1f7a3e' if v1 < 0 else '#666'}'>{sg(v1, 1)} % depuis le {u['var1m_depuis'][8:10]}/{u['var1m_depuis'][5:7]}</span>" if v1 is not None and u.get("var1m_depuis") else "") + f"<br><span style='color:#666;font-size:12px'>urée</span></td><td style='{td}'>—</td>"
                     f"<td style='{td}'>{e('ratio azote/blé au ' + str(eng['percentile_retenu']) + 'e percentile') if eng.get('percentile_retenu') is not None else '—'}</td>"
                     f"<td style='{td}'>{sens_html((eng.get('actualite') or {}).get('sens'), azote=True)}</td></tr>")
     return ("<table style='border-collapse:collapse;font-size:14px;width:100%'><tr style='background:#eef2ee'>"
@@ -170,7 +170,9 @@ def bloc_actu(n=3):
         fx = []
         for c, v in (a.get("impacts") or {}).items():
             if v:
-                fx.append(f"<span style='color:{'#1f7a3e' if v > 0 else '#b0281f'}'>{e(ACTU_NOMS.get(c, c))} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>")
+                # azote : l'exploitant l'achète, une hausse est en rouge et une baisse en vert
+                bon = -v if c == "engrais" else v
+                fx.append(f"<span style='color:{'#1f7a3e' if bon > 0 else '#b0281f'}'>{e(ACTU_NOMS.get(c, c))} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>")
         lien = a.get("url") if str(a.get("url", "")).startswith("http") else None
         titre = e(a.get("titre_fr") or a.get("titre"))
         if lien:
