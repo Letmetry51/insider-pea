@@ -1483,15 +1483,15 @@ def collect_cultures():
             pubs = [p for p in get(CEREOBS + "getPublicationsCondCulture", params={"libelleCulture": lib}).json()
                     if (p.get("typePublication") or {}).get("format") == "XLS"]
             if not pubs:
-                msgs.append(f"{lib} : rien de publié cette semaine")
-                continue
-            p = max(pubs, key=lambda x: x["semaineObservation"]["dateFin"])
-            wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
-            lu = cereobs_lire(wb.get_sheet_by_index(0).to_python())
-            if not lu:
-                raise RuntimeError("tableau illisible")
-            out.setdefault("france", {})[k] = lu
-            msgs.append(f"{lib} S{lu['semaine']} : {lu['france']} % bon ou très bon")
+                msgs.append(f"{lib} : état pas encore noté")
+            else:
+                p = max(pubs, key=lambda x: x["semaineObservation"]["dateFin"])
+                wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
+                lu = cereobs_lire(wb.get_sheet_by_index(0).to_python())
+                if not lu:
+                    raise RuntimeError("tableau illisible")
+                out.setdefault("france", {})[k] = lu
+                msgs.append(f"{lib} S{lu['semaine']} : {lu['france']} % bon ou très bon")
         except Exception as e:  # noqa: BLE001
             erreurs.append(f"{lib} : {str(e)[:80]}")
         try:  # avancement : semis, levée, début tallage… (un fichier par stade, dans l'ordre du cycle)
