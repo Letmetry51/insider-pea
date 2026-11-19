@@ -1445,7 +1445,7 @@ def collect_cultures():
     """État des cultures : Céré'Obs de FranceAgriMer (France, chaque vendredi pendant la campagne) et Crop Progress de l'USDA
     (blé d'hiver américain, chaque lundi d'automne et de printemps). Hors saison rien n'est publié : la dernière lecture est gardée
     avec sa date, ce n'est pas une panne."""
-    import xlrd
+    from python_calamine import CalamineWorkbook  # lit aussi les anciens .xls
 
     path = PRIV / "cultures.json"
     out = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -1458,9 +1458,8 @@ def collect_cultures():
                 msgs.append(f"{lib} : rien de publié cette semaine")
                 continue
             p = max(pubs, key=lambda x: x["semaineObservation"]["dateFin"])
-            wb = xlrd.open_workbook(file_contents=get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content)
-            sh = wb.sheet_by_index(0)
-            lu = cereobs_lire([sh.row_values(i) for i in range(sh.nrows)])
+            wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
+            lu = cereobs_lire(wb.get_sheet_by_index(0).to_python())
             if not lu:
                 raise RuntimeError("tableau illisible")
             out.setdefault("france", {})[k] = lu
