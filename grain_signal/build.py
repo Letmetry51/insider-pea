@@ -665,6 +665,74 @@ def seuils_cfg():
     return out
 
 
+def comparatif(yahoo, eur, wb, today, ans=3):
+    """Graphique comparé (onglet Marché, marchés mondiaux) : pétrole, gaz, blé et maïs Euronext, soja, urée, en indice base 100
+    (dernier cours de chaque semaine, sur `ans` ans ; urée : prix mondial mensuel de la Banque mondiale, reporté sur les
+    semaines du mois). Publié en indice, pas en prix bruts. Et les corrélations de leurs variations : hebdomadaires sur la
+    période pour les cinq séries quotidiennes, mensuelles sur 10 ans pour le gaz, l'urée et le blé (Banque mondiale)."""
+    debut = (today - timedelta(days=ans * 366)).isoformat()
+
+    def semaine(dd):
+        x = date.fromisoformat(dd[:10])
+        return (x + timedelta(days=4 - x.weekday())).isoformat() if x.weekday() < 5 else None
+
+    def hebdo(serie):
+        out = {}
+        for dd, v in sorted(serie.items()):
+            w = semaine(dd)
+            if w and dd >= debut and prix(v) is not None:
+                out[w] = float(v)
+        return out
+
+    brut = {"petrole": hebdo((yahoo.get("BZ=F") or {}).get("serie") or {}),
+            "gaz": hebdo((yahoo.get("TTF=F") or {}).get("serie") or {})}
+    for k, prod in (("ble", "EBM"), ("mais", "EMA")):
+        d, v, *_ = continuous(eur, prod)
+        brut[k] = hebdo(dict(zip(d, v)))
+    brut["soja"] = hebdo((yahoo.get("ZS=F") or {}).get("serie") or {})
+    mois = {r["month"]: float(r["urea"]) for r in wb if fnum(r.get("urea"))}
+    semaines = sorted(set().union(*[set(x) for x in brut.values()]))
+    brut["uree"] = {w: mois[w[:7]] for w in semaines if w[:7] in mois}
+    if len(semaines) < 30:
+        return None
+    series = {}
+    for k, ser in brut.items():
+        pts = [(w, ser[w]) for w in semaines if w in ser]
+        if len(pts) >= 10:
+            b = pts[0][1]
+            series[k] = [[w, round(x / b * 100, 1)] for w, x in pts]
+
+    def corr(a, b):
+        n = len(a)
+        if n < 20:
+            return None
+        ma, mb = sum(a) / n, sum(b) / n
+        sa, sb = math.sqrt(sum((x - ma) ** 2 for x in a)), math.sqrt(sum((y - mb) ** 2 for y in b))
+        return round(sum((x - ma) * (y - mb) for x, y in zip(a, b)) / (sa * sb), 2) if sa and sb else None
+
+    def rend(ser):
+        ks = sorted(ser)
+        return {ks[i]: math.log(ser[ks[i]] / ser[ks[i - 1]]) for i in range(1, len(ks)) if ser[ks[i - 1]] > 0}
+
+    r = {k: rend(brut[k]) for k in ("petrole", "gaz", "ble", "mais", "soja") if len(brut.get(k) or {}) > 30}
+    paires = {}
+    for a, b in (("ble", "mais"), ("ble", "soja"), ("mais", "soja"), ("petrole", "gaz"), ("petrole", "ble"), ("petrole", "mais"),
+                 ("gaz", "ble"), ("gaz", "mais")):
+        if a in r and b in r:
+            ks = sorted(set(r[a]) & set(r[b]))
+            paires[f"{a}-{b}"] = corr([r[a][x] for x in ks], [r[b][x] for x in ks])
+    # mensuel, Banque mondiale, 10 ans : l'urée suit-elle le gaz (même mois, mois suivant) ? et le blé ?
+    wb10 = [x for x in wb if x["month"] >= f"{today.year - 10}-01" and fnum(x.get("urea")) and fnum(x.get("gas_eu"))
+            and fnum(x.get("wheat_hrw"))]
+    lm = lambda c: [math.log(fnum(wb10[i][c]) / fnum(wb10[i - 1][c])) for i in range(1, len(wb10))]  # noqa: E731
+    mensuel = {}
+    if len(wb10) > 60:
+        g, u, w_ = lm("gas_eu"), lm("urea"), lm("wheat_hrw")
+        mensuel = {"gaz-uree": corr(g, u), "gaz-uree_mois_suivant": corr(g[:-1], u[1:]), "uree-ble": corr(u, w_),
+                   "uree-ble_mois_suivant": corr(u[:-1], w_[1:]), "mois": len(g)}
+    return {"debut": semaines[0], "fin": semaines[-1], "series": series, "correlations": paires, "mensuel": mensuel}
+
+
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
     eur = nettoyer(read_csv(PRIV / "euronext.csv"), lambda r: (r["product"], r["maturity"]), "settle")
@@ -1026,6 +1094,7 @@ def main():
         "meteo": {"zones": zones, "cultures": meteo, "source": "Open-Meteo (CC BY 4.0)"},
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},
         "engrais": engrais,
+        "comparatif": comparatif(yahoo, eur, read_csv(PRIV / "wb_monthly.csv"), today),
         "physique": load_json(OUT / "physique.json", {}),
         # alertes du jour : celles de ce calcul et celles d'un calcul précédent du même jour (au 2e passage, etat.json est déjà à
         # jour et trig est vide, alors que l'email est parti)
@@ -1065,6 +1134,9 @@ def main():
         if o:
             print(f"Avant l'ouverture — {e['nom']} : {o['orientation']} (Chicago depuis la clôture d'Euronext : "
                   f"{(o.get('chicago') or {}).get('var')} %)")
+    cp = dash.get("comparatif") or {}
+    print(f"Comparatif : {', '.join(f'{k} {len(v)} sem. ({v[-1][1]})' for k, v in (cp.get('series') or {}).items())} ; "
+          f"corrélations {cp.get('correlations')} ; mensuel {cp.get('mensuel')}")
     print(f"Engrais : {' ; '.join(engrais.get('notes', []))}")
     print(f"Alertes du jour : {len(trig)}")
     return 0
