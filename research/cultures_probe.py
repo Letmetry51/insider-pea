@@ -1,54 +1,34 @@
-"""Sonde : sources de l'état des cultures (FranceAgriMer Céré'Obs, USDA Crop Progress)."""
+"""Sonde 2 : API publique Céré'Obs (méthodes, paramètres, réponses)."""
 import re
+import json
 import requests
 
-UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36"}
 S = requests.Session()
-S.headers.update(UA)
+S.headers.update({"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/124", "Accept": "application/json, text/plain, */*"})
+B = "https://cereobs.franceagrimer.fr/cereobs-sp/"
+idx = S.get(B, timeout=30).text
+main = re.search(r'src="(main-es2015[^"]+\.js)"', idx).group(1)
+js = S.get(B + main, timeout=60).text
+for nom in ["culturesRetenues", "getPublicationParDerniereSemaine", "getPublicationsCondCulture", "getPublicationsBySemaineObservation",
+            "publications/tableau", "dateDernierePublication", "getDebutFinSemaineObservation", "enResume", "rapportExcel"]:
+    for m in list(re.finditer(re.escape("api/public/" + nom), js))[:2]:
+        print(f"\n=== {nom} ===\n", js[max(0, m.start() - 350): m.end() + 250].replace("\n", " "))
 
 
-def get(u, **kw):
+def essai(meth, chemin, **kw):
     try:
-        r = S.get(u, timeout=30, **kw)
-        print(f"GET {u} -> {r.status_code} {r.headers.get('content-type')} {len(r.content)} o")
+        r = S.request(meth, B + chemin, timeout=30, **kw)
+        print(f"\n{meth} {chemin} {kw or ''} -> {r.status_code} {r.headers.get('content-type')} {len(r.content)} o")
+        t = r.text
+        print(t[:1500])
         return r
     except Exception as e:
-        print(f"GET {u} -> ERREUR {e}")
+        print(meth, chemin, "ERREUR", e)
 
 
-base = "https://cereobs.franceagrimer.fr/cereobs-sp/"
-r = get(base)
-if r is not None and r.ok:
-    print(r.text[:1500])
-    js = re.findall(r'src="([^"]+\.js)"', r.text)
-    print("JS:", js)
-    vus = set()
-    for j in js:
-        u = requests.compat.urljoin(base, j)
-        rj = get(u)
-        if rj is None or not rj.ok:
-            continue
-        for m in sorted(set(re.findall(r'["\'`]((?:/|\.\./|https?://)[^"\'`\s]{0,80}(?:api|rest|public|export|publication|rapport|csv|xls)[^"\'`\s]{0,80})["\'`]', rj.text))):
-            if m not in vus:
-                vus.add(m)
-                print("  chemin:", m)
-        for m in sorted(set(re.findall(r'["\'`](api/[^"\'`\s]{0,100})["\'`]', rj.text)))[:80]:
-            print("  api:", m)
-for u in ["https://cereobs.franceagrimer.fr/cereobs-sp/api/public/publications",
-          "https://cereobs.franceagrimer.fr/cereobs-sp/api/publications",
-          "https://cereobs.franceagrimer.fr/cereobs-sp/#/publications",
-          "https://cereobs.franceagrimer.fr/"]:
-    rr = get(u)
-    if rr is not None and rr.ok:
-        print(rr.text[:600])
-
-# USDA
-r = get("https://esmis.nal.usda.gov/publication/crop-progress")
-if r is not None and r.ok:
-    txts = re.findall(r'href="([^"]+prog\d+\.txt)"', r.text)
-    print("TXT:", txts[:3])
-    if txts:
-        t = get(requests.compat.urljoin("https://esmis.nal.usda.gov/", txts[0]))
-        if t is not None and t.ok:
-            i = t.text.find("Winter Wheat Condition")
-            print(t.text[i:i + 1200] if i >= 0 else "pas de tableau blé d'hiver")
+essai("GET", "api/public/culturesRetenues")
+essai("GET", "api/public/accueil/dateDernierePublication")
+essai("GET", "api/public/publications/getPublicationParDerniereSemaine")
+essai("GET", "api/public/publications/getPublicationsCondCulture")
+essai("GET", "api/public/semaineobservation/getDebutFinSemaineObservation")
+essai("GET", "api/public/publications/enResume")
