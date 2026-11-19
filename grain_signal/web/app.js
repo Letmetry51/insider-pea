@@ -830,7 +830,7 @@ function meteoSection(d) {
   ];
 }
 
-/* état des cultures : part des surfaces en bon ou très bon état (Céré'Obs, France) et du blé d'hiver américain (USDA) */
+/* état et avancement des cultures : Céré'Obs (France, Grand Est) et blé d'hiver américain (USDA) */
 function culturesSection(d) {
   const ec = d.etat_cultures;
   if (!ec) return [];
@@ -838,44 +838,55 @@ function culturesSection(d) {
   const court = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   const ecart = (a, b) =>
     a === null || a === undefined || b === null || b === undefined ? '—' : `${sgn(a - b, 0)} pt`;
-  const ligne = (nom, quand, v, prec, an) =>
+  const ligne = (lib, sous, v, prec, an, moy5) =>
     h(
       'tr',
       {},
-      h('td', {}, nom, h('small', { class: 'zc', text: quand })),
+      h('td', {}, lib, sous ? h('small', { class: 'zc', text: sous }) : null),
       h('td', { class: 'n', text: `${v} %` }),
       h('td', { class: 'n', text: ecart(v, prec) }),
-      h('td', { class: 'n', text: ecart(v, an) })
+      h('td', { class: 'n', text: ecart(v, an) }),
+      h('td', { class: 'n', text: ecart(v, moy5) })
     );
-  const fr = Object.keys(noms)
-    .filter((k) => (ec.france || {})[k])
-    .map((k) => {
-      const c = ec.france[k];
-      const ge = c.grand_est === null || c.grand_est === undefined ? '' : ` · Grand Est ${c.grand_est} %`;
-      return ligne(noms[k], `S${c.semaine}, au ${court(c.fin)}${ge}`, c.france, c.semaine_prec, c.an_dernier);
+  const ge = (x) => (x.grand_est === null || x.grand_est === undefined ? '' : `Grand Est ${x.grand_est} %`);
+  const groupe = (titre) => h('tr', { class: 'grp' }, h('td', { colspan: '5', text: titre }));
+  const fr = ec.france || {},
+    st = ec.stades || {};
+  const lignes = Object.keys(noms)
+    .filter((k) => fr[k] || (st[k] || []).length)
+    .flatMap((k) => {
+      const c = fr[k];
+      const fin = c ? c.fin : st[k][0].fin;
+      return [
+        groupe(`${noms[k]} · au ${court(fin)}`),
+        c ? ligne('Bon ou très bon', ge(c), c.france, c.semaine_prec, c.an_dernier, null) : null,
+        ...(st[k] || []).map((x) => ligne(x.stade, ge(x), x.france, x.semaine_prec, x.an_dernier, x.moy5)),
+      ];
     });
   const us = ec.usa_ble_hiver;
+  if (us)
+    lignes.push(
+      groupe(`Blé d'hiver, États-Unis · au ${court(us.fin)}`),
+      ligne('Bon ou excellent', '18 États', us.bon, us.semaine_prec, us.an_dernier, null)
+    );
   return [
     h(
       'div',
       { class: 'card scroll' },
-      h('h3', { text: '🌱 État des cultures' }),
+      h('h3', { text: '🌱 État et avancement des cultures' }),
       h(
         'table',
         {},
         h(
           'tr',
           {},
-          ['Culture', 'Bon ou très bon', '1 sem.', '1 an'].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
+          ['', 'France', '1 sem.', '1 an', '5 ans'].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
         ),
-        fr.length ? h('tr', { class: 'grp' }, h('td', { colspan: '4', text: 'France' })) : null,
-        ...fr,
-        us ? h('tr', { class: 'grp' }, h('td', { colspan: '4', text: 'États-Unis' })) : null,
-        us ? ligne("Blé d'hiver", `au ${court(us.fin)}`, us.bon, us.semaine_prec, us.an_dernier) : null
+        ...lignes
       ),
       h('p', {
         class: 'note',
-        text: `Part des surfaces jugées en bon ou très bon état (États-Unis : bon ou excellent), écart en points avec la semaine précédente (1 sem.) et avec la même semaine l'an dernier (1 an) ; sous chaque culture, la région Grand Est (Vraux). Une dégradation peut soutenir les prix, une amélioration les peser ; elle ne dit pas quand. Publié pendant la campagne seulement : le blé tendre et l'orge de printemps apparaissent quand FranceAgriMer commence à les noter. Sources : FranceAgriMer, Céré'Obs (chaque vendredi) ; USDA, Crop Progress (chaque lundi, 18 États).`,
+        text: `Part des surfaces en bon ou très bon état, ou ayant atteint le stade (semis, levée, début tallage…). Écart en points avec la semaine précédente (1 sem.), la même semaine l'an dernier (1 an) et la moyenne des 5 dernières années (5 ans) ; sous chaque ligne, la région Grand Est (Vraux). Un retard ou une dégradation peut soutenir les prix, une avance ou une amélioration les peser ; cela ne dit pas quand. FranceAgriMer note l'état d'une culture une fois qu'elle est bien levée : le blé tendre suivra l'escourgeon ; l'orge de printemps apparaîtra après ses semis. Le colza n'est pas suivi par Céré'Obs. Sources : FranceAgriMer, Céré'Obs (chaque vendredi) ; USDA, Crop Progress (chaque lundi, à l'automne et du printemps à la récolte).`,
       })
     ),
   ];

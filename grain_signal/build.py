@@ -736,11 +736,13 @@ def comparatif(yahoo, eur, wb, today, ans=3):
 
 
 def etat_cultures(brut, today, jours=60):
-    """État des cultures (Céré'Obs, USDA) : lectures de moins de 60 jours seulement ; hors saison, la carte disparaît."""
+    """État et avancement des cultures (Céré'Obs, USDA) : lectures de moins de 60 jours seulement ; hors saison, la carte disparaît."""
     frais = lambda x: x and x.get("fin") and (today - date.fromisoformat(x["fin"])).days <= jours  # noqa: E731
     fr = {k: v for k, v in (brut.get("france") or {}).items() if frais(v)}
+    st = {k: [x for x in v if frais(x)] for k, v in (brut.get("stades") or {}).items()}
+    st = {k: v for k, v in st.items() if v}
     us = brut.get("usa_ble_hiver") if frais(brut.get("usa_ble_hiver")) else None
-    return {"france": fr, "usa_ble_hiver": us} if fr or us else None
+    return {"france": fr, "stades": st, "usa_ble_hiver": us} if fr or st or us else None
 
 
 def main():

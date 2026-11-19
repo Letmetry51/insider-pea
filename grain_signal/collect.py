@@ -1441,8 +1441,36 @@ def usda_ble_hiver(txt):
     return out if out["bon"] is not None and out["fin"] else None
 
 
+def cereobs_stade(rows):
+    """Tableau Céré'Obs « Stades de développement » (semis, levée, début tallage…) → part des surfaces ayant atteint le stade :
+    France et Grand Est, semaine précédente, l'an dernier et moyenne des 5 dernières années. None si la forme change."""
+    norm = [[re.sub(r"\s+", " ", str(c)).strip() for c in r] for r in rows]
+    ent = next((r for r in norm if any(re.match(r"moyenne \d{4} ?- ?\d{4}", c.lower()) for c in r)), None)
+    if not ent:
+        return None
+    m = re.search(r"(\d{1,2}) (\w+) (\d{4})", ent[1] if len(ent) > 1 else "")
+    mo = m and MOIS.get(m.group(2).lower())
+    if not mo:
+        return None
+
+    def vals(r):
+        try:
+            return [round(float(r[i])) for i in range(1, 5)]
+        except (ValueError, IndexError):
+            return None
+
+    out = {"fin": date(int(m.group(3)), mo, int(m.group(1))).isoformat()}
+    for r in norm:
+        lab, v = r[0].lower(), vals(r)
+        if v and lab.startswith("moyenne france"):
+            out.update(france=v[0], semaine_prec=v[1], an_dernier=v[2], moy5=v[3])
+        elif v and re.match(r"grand.?est", lab):
+            out["grand_est"] = v[0]
+    return out if "france" in out else None
+
+
 def collect_cultures():
-    """État des cultures : Céré'Obs de FranceAgriMer (France, chaque vendredi pendant la campagne) et Crop Progress de l'USDA
+    """État et avancement des cultures : Céré'Obs de FranceAgriMer (France, chaque vendredi pendant la campagne) et Crop Progress de l'USDA
     (blé d'hiver américain, chaque lundi d'automne et de printemps). Hors saison rien n'est publié : la dernière lecture est gardée
     avec sa date, ce n'est pas une panne."""
     from python_calamine import CalamineWorkbook  # lit aussi les anciens .xls
@@ -1455,17 +1483,34 @@ def collect_cultures():
             pubs = [p for p in get(CEREOBS + "getPublicationsCondCulture", params={"libelleCulture": lib}).json()
                     if (p.get("typePublication") or {}).get("format") == "XLS"]
             if not pubs:
-                msgs.append(f"{lib} : rien de publié cette semaine")
-                continue
-            p = max(pubs, key=lambda x: x["semaineObservation"]["dateFin"])
-            wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
-            lu = cereobs_lire(wb.get_sheet_by_index(0).to_python())
-            if not lu:
-                raise RuntimeError("tableau illisible")
-            out.setdefault("france", {})[k] = lu
-            msgs.append(f"{lib} S{lu['semaine']} : {lu['france']} % bon ou très bon")
+                msgs.append(f"{lib} : état pas encore noté")
+            else:
+                p = max(pubs, key=lambda x: x["semaineObservation"]["dateFin"])
+                wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
+                lu = cereobs_lire(wb.get_sheet_by_index(0).to_python())
+                if not lu:
+                    raise RuntimeError("tableau illisible")
+                out.setdefault("france", {})[k] = lu
+                msgs.append(f"{lib} S{lu['semaine']} : {lu['france']} % bon ou très bon")
         except Exception as e:  # noqa: BLE001
             erreurs.append(f"{lib} : {str(e)[:80]}")
+        try:  # avancement : semis, levée, début tallage… (un fichier par stade, dans l'ordre du cycle)
+            pubs = sorted((p for p in get(CEREOBS + "getPublicationsStadeDev", params={"libelleCulture": lib}).json()
+                           if (p.get("typePublication") or {}).get("format") == "XLS" and p.get("stade")),
+                          key=lambda x: x["stade"].get("ordre") or 0)
+            stades = []
+            for p in pubs:
+                wb = CalamineWorkbook.from_filelike(io.BytesIO(get(CEREOBS + "rapportExcel", params={"idPublication": p["id"]}).content))
+                lu = cereobs_stade(wb.get_sheet_by_index(0).to_python())
+                if lu:
+                    stades.append({"stade": p["stade"].get("libelleStade"), **lu})
+            if stades:
+                out.setdefault("stades", {})[k] = stades
+                msgs.append(f"{lib} : " + ", ".join(f"{x['stade'].lower()} {x['france']} %" for x in stades))
+            elif pubs:
+                raise RuntimeError("stades illisibles")
+        except Exception as e:  # noqa: BLE001
+            erreurs.append(f"{lib} stades : {str(e)[:80]}")
     try:
         lien = re.search(r'href="([^"]+prog\d+\.txt)"', get(ESMIS).text)
         if not lien:

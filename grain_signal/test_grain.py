@@ -1035,9 +1035,16 @@ check(_co == {"semaine": 45, "fin": "2026-11-09", "grand_est": 91, "france": 94,
       and _us == {"fin": "2026-11-15", "bon": 53, "semaine_prec": 49, "an_dernier": 45} and collect.usda_ble_hiver("Corn Harvested") is None
       and collect.cereobs_lire([["autre chose"]]) is None
       and build.etat_cultures({"france": {"escourgeon": _co, "ble": {**_co, "fin": "2026-01-10"}}}, date(2026, 11, 19))
-      == {"france": {"escourgeon": _co}, "usa_ble_hiver": None}
+      == {"france": {"escourgeon": _co}, "stades": {}, "usa_ble_hiver": None}
       and build.etat_cultures({"france": {"ble": {**_co, "fin": "2026-01-10"}}}, date(2026, 11, 19)) is None,
       "état des cultures : bon + très bon (France, Grand Est, semaine précédente, an dernier), USDA 18 États, rien de plus de 60 jours")
+
+_sd = collect.cereobs_stade([["Blé tendre-Levée-France"], ["", "Semaine se terminant le "],
+                             ["", "09 novembre 2026\n %", "02 novembre 2026\n %", "09 novembre 2025\n %", "Moyenne  2021 - 2025\n %", ""],
+                             ["Grand-Est", 88.0, 74.0, 93.0, 83.0, ""], ["Moyenne France", 62.0, 48.0, 67.0, 63.0, ""]])
+check(_sd == {"fin": "2026-11-09", "grand_est": 88, "france": 62, "semaine_prec": 48, "an_dernier": 67, "moy5": 63}
+      and collect.cereobs_stade([["Moyenne France", 1, 2, 3, 4]]) is None,
+      "avancement des cultures : stade atteint en France et Grand Est, semaine précédente, an dernier, moyenne 5 ans")
 
 # orientation du matin : mouvement de Chicago depuis la clôture d'Euronext, paliers 0,5 % et 1 %
 check(dec.ouverture(1.3) == {"orientation": "hausse", "total": 2, "mesurable": "1"}
