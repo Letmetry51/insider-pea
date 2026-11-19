@@ -1909,6 +1909,13 @@ function comparatifCard(d) {
       )
     );
   }
+  // ne redessine que cette carte : la page ne bouge pas (un render() complet ramenait tout en haut sur téléphone)
+  const redessiner = (bouton) => {
+    const carte = bouton.closest('.card');
+    const neuve = comparatifCard(d);
+    if (!carte || !neuve) return render();
+    carte.replaceWith(neuve);
+  };
   const periode = h(
     'div',
     { class: 'filters', role: 'group', 'aria-label': 'Période' },
@@ -1919,7 +1926,7 @@ function comparatifCard(d) {
       const b = h('button', { class: 'filt', 'aria-pressed': String(j === per), text: t });
       b.addEventListener('click', () => {
         GS.compPeriode = j;
-        render();
+        redessiner(b);
       });
       return b;
     })
@@ -1938,7 +1945,7 @@ function comparatifCard(d) {
         );
         b.addEventListener('click', () => {
           GS.compCaches = { ...caches, [k]: !caches[k] };
-          render();
+          redessiner(b);
         });
         return b;
       })
