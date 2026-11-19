@@ -1021,6 +1021,24 @@ check(_cp and all(v[0][1] == 100.0 for v in _cp["series"].values()) and len({v[0
       and _cp["correlations"]["ble-mais"] == 1.0 and "gaz-uree" in _cp["mensuel"],
       "graphique comparé : toutes les courbes à 100 au même départ, corrélations calculées")
 
+# état des cultures : tableau Céré'Obs (bon + très bon), rapport USDA, lectures trop anciennes écartées
+_co = collect.cereobs_lire([["Conditions de culture - Orge d'hiver - France"], ["", "Semaine 45 se terminant le 09 novembre 2026"],
+                            ["", "Très mauvaises\n %", "Mauvaises\n %", "Assez bonnes\n %", "Bonnes\n %", "Très bonnes\n %"],
+                            ["Grand-Est", 0.0, 2.0, 6.0, 88.0, 3.0], ["Moyenne France (1)", 0.0, 0.0, 5.0, 90.0, 4.0],
+                            ["2026-S44 (2)", 0, 0, 4, 92, 4], ["2025-S45 (3)", 0, 0, 2, 95, 3]])
+_us = collect.usda_ble_hiver("Winter Wheat Condition - Selected States: Week Ending November 15, 2026\n State : Very poor : Poor : Fair : Good : Excellent\n"
+                             "Kansas .........:     2           8          30          48          12\n"
+                             "18 States ......:     3          10          34          43          10\n"
+                             "Previous week ..:     4          12          35          41           8\n"
+                             "Previous year ..:     6          13          36          37           8\n")
+check(_co == {"semaine": 45, "fin": "2026-11-09", "grand_est": 91, "france": 94, "semaine_prec": 96, "an_dernier": 98}
+      and _us == {"fin": "2026-11-15", "bon": 53, "semaine_prec": 49, "an_dernier": 45} and collect.usda_ble_hiver("Corn Harvested") is None
+      and collect.cereobs_lire([["autre chose"]]) is None
+      and build.etat_cultures({"france": {"escourgeon": _co, "ble": {**_co, "fin": "2026-01-10"}}}, date(2026, 11, 19))
+      == {"france": {"escourgeon": _co}, "usa_ble_hiver": None}
+      and build.etat_cultures({"france": {"ble": {**_co, "fin": "2026-01-10"}}}, date(2026, 11, 19)) is None,
+      "état des cultures : bon + très bon (France, Grand Est, semaine précédente, an dernier), USDA 18 États, rien de plus de 60 jours")
+
 # orientation du matin : mouvement de Chicago depuis la clôture d'Euronext, paliers 0,5 % et 1 %
 check(dec.ouverture(1.3) == {"orientation": "hausse", "total": 2, "mesurable": "1"}
       and dec.ouverture(-0.7) == {"orientation": "legere_baisse", "total": -1, "mesurable": "05"}

@@ -735,6 +735,14 @@ def comparatif(yahoo, eur, wb, today, ans=3):
     return {"debut": semaines[0], "fin": semaines[-1], "series": series, "correlations": paires, "mensuel": mensuel}
 
 
+def etat_cultures(brut, today, jours=60):
+    """État des cultures (Céré'Obs, USDA) : lectures de moins de 60 jours seulement ; hors saison, la carte disparaît."""
+    frais = lambda x: x and x.get("fin") and (today - date.fromisoformat(x["fin"])).days <= jours  # noqa: E731
+    fr = {k: v for k, v in (brut.get("france") or {}).items() if frais(v)}
+    us = brut.get("usa_ble_hiver") if frais(brut.get("usa_ble_hiver")) else None
+    return {"france": fr, "usa_ble_hiver": us} if fr or us else None
+
+
 def main():
     today = date.fromisoformat(os.environ["GS_TODAY"]) if os.environ.get("GS_TODAY") else datetime.now(timezone.utc).date()
     eur = nettoyer(read_csv(PRIV / "euronext.csv"), lambda r: (r["product"], r["maturity"]), "settle")
@@ -1096,6 +1104,7 @@ def main():
         "meteo": {"zones": zones, "cultures": meteo, "source": "Open-Meteo (CC BY 4.0)"},
         "macro": {"eurusd_var20": round(e20, 2) if e20 is not None else None, "brent_var20": round(b20, 2) if b20 is not None else None},
         "engrais": engrais,
+        "etat_cultures": etat_cultures(as_dict(load_json(PRIV / "cultures.json", {})), today),
         "comparatif": comparatif(yahoo, eur, read_csv(PRIV / "wb_monthly.csv"), today),
         "physique": load_json(OUT / "physique.json", {}),
         # alertes du jour : celles de ce calcul et celles d'un calcul précédent du même jour (au 2e passage, etat.json est déjà à

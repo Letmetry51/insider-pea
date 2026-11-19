@@ -830,6 +830,57 @@ function meteoSection(d) {
   ];
 }
 
+/* état des cultures : part des surfaces en bon ou très bon état (Céré'Obs, France) et du blé d'hiver américain (USDA) */
+function culturesSection(d) {
+  const ec = d.etat_cultures;
+  if (!ec) return [];
+  const noms = { ble: 'Blé tendre', escourgeon: 'Escourgeon', orge_printemps: 'Orge de printemps' };
+  const court = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const ecart = (a, b) =>
+    a === null || a === undefined || b === null || b === undefined ? '—' : `${sgn(a - b, 0)} pt`;
+  const ligne = (nom, quand, v, prec, an) =>
+    h(
+      'tr',
+      {},
+      h('td', {}, nom, h('small', { class: 'zc', text: quand })),
+      h('td', { class: 'n', text: `${v} %` }),
+      h('td', { class: 'n', text: ecart(v, prec) }),
+      h('td', { class: 'n', text: ecart(v, an) })
+    );
+  const fr = Object.keys(noms)
+    .filter((k) => (ec.france || {})[k])
+    .map((k) => {
+      const c = ec.france[k];
+      const ge = c.grand_est === null || c.grand_est === undefined ? '' : ` · Grand Est ${c.grand_est} %`;
+      return ligne(noms[k], `S${c.semaine}, au ${court(c.fin)}${ge}`, c.france, c.semaine_prec, c.an_dernier);
+    });
+  const us = ec.usa_ble_hiver;
+  return [
+    h(
+      'div',
+      { class: 'card scroll' },
+      h('h3', { text: '🌱 État des cultures' }),
+      h(
+        'table',
+        {},
+        h(
+          'tr',
+          {},
+          ['Culture', 'Bon ou très bon', '1 sem.', '1 an'].map((t, i) => h('th', { class: i ? 'n' : '', text: t }))
+        ),
+        fr.length ? h('tr', { class: 'grp' }, h('td', { colspan: '4', text: 'France' })) : null,
+        ...fr,
+        us ? h('tr', { class: 'grp' }, h('td', { colspan: '4', text: 'États-Unis' })) : null,
+        us ? ligne("Blé d'hiver", `au ${court(us.fin)}`, us.bon, us.semaine_prec, us.an_dernier) : null
+      ),
+      h('p', {
+        class: 'note',
+        text: `Part des surfaces jugées en bon ou très bon état (États-Unis : bon ou excellent), écart en points avec la semaine précédente (1 sem.) et avec la même semaine l'an dernier (1 an) ; sous chaque culture, la région Grand Est (Vraux). Une dégradation peut soutenir les prix, une amélioration les peser ; elle ne dit pas quand. Publié pendant la campagne seulement : le blé tendre et l'orge de printemps apparaissent quand FranceAgriMer commence à les noter. Sources : FranceAgriMer, Céré'Obs (chaque vendredi) ; USDA, Crop Progress (chaque lundi, 18 États).`,
+      })
+    ),
+  ];
+}
+
 function techTable(a) {
   const row = (k, v, c) => h('tr', {}, h('td', { text: k }), h('td', { class: 'n ' + (c || ''), text: v }));
   const cross = a.croisement_macd ? `${a.croisement_macd.sens} le ${dfr(a.croisement_macd.date)}` : '—';
@@ -1995,7 +2046,7 @@ function comparatifCard(d) {
 
 // contexte commun (marchés mondiaux, fonds, bilans, météo, saisons) : replié en bas de l'onglet Marché
 function autresMarches(d) {
-  const kids = [...stocksSection(d), ...saisonSection(d), ...meteoSection(d)];
+  const kids = [...stocksSection(d), ...saisonSection(d), ...meteoSection(d), ...culturesSection(d)];
   const inter = Object.entries(d.international || {});
   const cot = Object.values(d.cot || {}).filter((c) => c.indice !== null && c.indice !== undefined);
   return h(
