@@ -48,7 +48,7 @@ def matrice(series, titre, lags=()):
             xs = [rend[a][ks[i]] for i in range(len(ks) - k)]
             ys = [rend[b][ks[i + k]] for i in range(len(ks) - k)]
             c, n = corr(xs, ys)
-            res.append(f"{k}:{c:+.2f}")
+            res.append(f"{k}:{c:+.2f}" if c is not None else f"{k}:— (n={n})")
         out.append(f"  {a} → {b} plus tard (décalage : corrélation) : " + "  ".join(res))
 
 
