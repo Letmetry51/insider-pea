@@ -2,7 +2,7 @@
 import io
 import re
 import requests
-from python_calamine import CalamineWorkbook
+import xlrd
 
 S = requests.Session()
 S.headers.update({"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Chrome/124", "Accept": "application/json, text/plain, */*"})
@@ -13,7 +13,8 @@ for cult in ["Blé tendre", "Orge d'hiver"]:
     for p in L:
         r = S.get(B + "rapportExcel", params={"idPublication": p["id"]}, timeout=60)
         print(f"\n##### {p['libellePublication']} stade={p.get('stade')}")
-        rows = CalamineWorkbook.from_filelike(io.BytesIO(r.content)).get_sheet_by_index(0).to_python()
+        sh = xlrd.open_workbook(file_contents=r.content).sheet_by_index(0)
+        rows = [sh.row_values(i) for i in range(sh.nrows)]
         for row in rows[:30]:
             if any(str(v).strip() for v in row):
                 print(" | ".join(str(v) for v in row[:10]))
