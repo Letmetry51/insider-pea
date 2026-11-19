@@ -550,8 +550,12 @@ _dash = {"cultures": {"ble": {"nom": "Blé tendre", "cours": 225.5, "var1j": 2.5
          "engrais": {"percentile_retenu": 77, "actualite": {"sens": "haussière"}, "france": {"uree": {"prix": 613.75, "var1m": 10.6}}}}
 _ts = _html.unescape(_sa.table_marche(_dash))
 check("225,50" in _ts and "+2,50" in _ts and "▼ baissière" in _ts and "▲ haussière" in _ts and "(blé)" in _ts and "physique Creil" in _ts
-      and "613,75" in _ts and "(plus cher)" in _ts and "77e percentile" in _ts and "Que faire" not in _ts,
+      and "613,75" in _ts and "▲ plus cher" in _ts and "77e percentile" in _ts and "Que faire" not in _ts,
       "email : le marché du matin (cours, variation, technique, actualité), sans consigne")
+_ts2 = _sa.table_marche({"cultures": {}, "engrais": {"actualite": {"sens": "baissière"},
+                                                    "france": {"uree": {"prix": 600, "var1m": 5.0, "var1m_depuis": "2026-10-19"}}}})
+check("color:#b0281f'>+5,0 % depuis le 19/10" in _ts2 and "color:#1f7a3e;white-space:nowrap'>▼ moins cher" in _ts2,
+      "email : azote acheté, une hausse de prix en rouge, une baisse en vert")
 check(_sa.fait_marquant(_dash, []) == "Colza -8,25 €/t à 522,75", f"objet : plus fort mouvement de la séance ({_sa.fait_marquant(_dash, [])})")
 _tr = [{"id": "2026-11-07:panne:x", "titre": "⚠️ Source en panne"}, {"id": "2026-11-07:EBM:haut3m", "titre": "Blé : plus haut de 3 mois"},
        {"id": "2026-11-07:seuil:ble:>240", "titre": "Blé : votre seuil"}]

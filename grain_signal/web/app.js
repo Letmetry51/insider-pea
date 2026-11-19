@@ -1208,9 +1208,9 @@ const SENS = {
 function sensBadge(s, azote, valeur) {
   if (!s) return h('span', { class: 'badge neutral', text: '—' });
   let [t, c] = SENS[s] || [s, 'neutral'];
-  // azote : une hausse est un prix d'achat plus cher (couleurs de position, pas de jugement)
-  if (azote && s === 'haussière') [t, c] = ['▲ plus cher', 'warn'];
-  if (azote && s === 'baissière') [t, c] = ['▼ moins cher', 'info'];
+  // azote : l'exploitant l'achète ; plus cher en rouge, moins cher en vert
+  if (azote && s === 'haussière') [t, c] = ['▲ plus cher', 'bad'];
+  if (azote && s === 'baissière') [t, c] = ['▼ moins cher', 'good'];
   // valeur de la pression de l'actualité (−2 à +2), expliquée dans l'onglet Actualité
   return h('span', {
     class: 'badge ' + c,
@@ -1220,10 +1220,11 @@ function sensBadge(s, azote, valeur) {
 // une nouvelle en une ligne : titre — effet (sans tiret orphelin quand l'effet manque)
 const ligneActu = (a) =>
   h('div', { class: 'dsous', text: (a.titre_fr || a.titre) + (a.impact ? ` — ${a.impact}` : '') });
-const varSpan = (v, d = 2, suf = ' €', titre = 'Variation depuis la séance précédente') =>
+// achat (azote) : couleurs inversées, une hausse de prix est en rouge
+const varSpan = (v, d = 2, suf = ' €', titre = 'Variation depuis la séance précédente', achat = false) =>
   v === null || v === undefined || v === 0
     ? null
-    : h('span', { class: 'mvar ' + cls(v), title: titre, text: sgn(v, d) + suf });
+    : h('span', { class: 'mvar ' + cls(achat ? -v : v), title: titre, text: sgn(v, d) + suf });
 // date courte « 13 nov. » (l'année seulement si elle n'est pas l'année en cours)
 const dcourt = (s) =>
   String(s).slice(0, 4) === String(new Date().getFullYear()) ? dfr(s).replace(/ \d{4}$/, '') : dfr(s);
@@ -1502,7 +1503,8 @@ function vMarche() {
           u.var1m,
           1,
           u.var1m_depuis ? ` % depuis le ${dcourt(u.var1m_depuis)}` : ' %',
-          'Variation depuis le relevé d’il y a environ un mois'
+          'Variation depuis le relevé d’il y a environ un mois',
+          true
         ),
         h('small', { text: 'urée' }),
       ],
@@ -1751,7 +1753,13 @@ function azoteView(d) {
         'p',
         { class: 'mbig' },
         h('b', { text: u.prix ? `${fmt(u.prix)} €/t` : '—' }),
-        varSpan(u.var1m, 1, u.var1m_depuis ? ` % depuis le ${dcourt(u.var1m_depuis)}` : ' %'),
+        varSpan(
+          u.var1m,
+          1,
+          u.var1m_depuis ? ` % depuis le ${dcourt(u.var1m_depuis)}` : ' %',
+          'Variation depuis le relevé d’il y a environ un mois',
+          true
+        ),
         h('small', { text: u.date ? `urée 46, ${dfr(u.date)}` : 'urée 46' })
       ),
       h(
@@ -1906,7 +1914,8 @@ function impactChips(imp) {
     .map(([c, v]) => {
       const fl = v > 0 ? '↑'.repeat(Math.abs(v)) : '↓'.repeat(Math.abs(v));
       return h('span', {
-        class: 'chip ' + (c === 'engrais' ? (v > 0 ? 'warn' : 'info') : v > 0 ? 'good' : 'bad'),
+        // azote : l'exploitant l'achète, une hausse est donc en rouge et une baisse en vert
+        class: 'chip ' + ((c === 'engrais' ? -v : v) > 0 ? 'good' : 'bad'),
         title:
           c === 'engrais'
             ? v > 0

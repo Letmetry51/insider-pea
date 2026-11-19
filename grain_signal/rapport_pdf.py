@@ -79,7 +79,8 @@ def actu_html(d):
     arts.sort(key=lambda a: ((a.get("importance") or 0), str(a.get("date"))), reverse=True)
     lis = []
     for a in arts[:4]:
-        fx = " · ".join(f"<span style='color:{COUL['good'] if v > 0 else COUL['bad']}'>{ACTU_NOMS.get(c, c)} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>"
+        # azote : l'exploitant l'achète, une hausse est en rouge et une baisse en vert
+        fx = " · ".join(f"<span style='color:{COUL['good'] if (-v if c == 'engrais' else v) > 0 else COUL['bad']}'>{ACTU_NOMS.get(c, c)} {'↑' * abs(v) if v > 0 else '↓' * abs(v)}</span>"
                         for c, v in (a.get("impacts") or {}).items() if v)
         lis.append(f"<li><b>{e(a.get('titre_fr') or a.get('titre'))}</b> <span class='muted'>({e(a.get('source') or '')}, {dfr(a['date'][:10])}{ACCES.get(a.get('acces'), '')})</span>"
                    f"<br>{e(a.get('impact'))}{f'<br>{fx}' if fx else ''}</li>")
