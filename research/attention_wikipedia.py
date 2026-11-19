@@ -138,6 +138,63 @@ def wikidata_links(info):
     return out
 
 
+WAPI = 'https://www.wikidata.org/w/api.php'
+COUNTRY_Q = {'FR': 'Q142', 'DE': 'Q183', 'IT': 'Q38', 'ES': 'Q29', 'NL': 'Q55', 'BE': 'Q31', 'PT': 'Q45', 'IE': 'Q27', 'FI': 'Q33',
+             'SE': 'Q34', 'DK': 'Q35', 'NO': 'Q20', 'AT': 'Q40', 'LU': 'Q32', 'CH': 'Q39', 'GB': 'Q145', 'PL': 'Q36', 'GR': 'Q41'}
+LEGAL = r'\b(s\.?a\.?|s\.?e\.?|n\.?v\.?|a\.?g\.?|plc|asa|ab|oyj|oy|s\.?p\.?a\.?|a/s|sas|holding|holdings)(?=\s|$|,)'
+
+
+def wapi(params, tries=3):
+    for a in range(tries):
+        try:
+            r = requests.get(WAPI, params={**params, 'format': 'json'}, headers=UA, timeout=60)
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+        time.sleep(3 * (a + 1))
+    return None
+
+
+def link_by_name(info, done):
+    """Sociétés restantes : nom cherché sur Wikidata ; élément retenu s'il est coté (P414) ou a un ISIN (P946), et du même pays
+    (P17) quand il est renseigné."""
+    out = {}
+    todo = [s for s in info if s not in done and info[s].get('name')]
+    for s in todo:
+        x = info[s]
+        name = x['name']
+        clean = re.sub(r'\s+', ' ', re.sub(LEGAL, ' ', name, flags=re.I)).strip(' ,.-')
+        lang = (HOME.get(x.get('country') or '', []) + ['en'])[0]
+        cands = []
+        for q in dict.fromkeys([name, clean]):
+            if not q:
+                continue
+            js = wapi({'action': 'wbsearchentities', 'search': q, 'language': lang, 'uselang': lang, 'type': 'item', 'limit': 5})
+            for c in (js or {}).get('search', []):
+                if c['id'] not in cands:
+                    cands.append(c['id'])
+            if cands:
+                break
+        if not cands:
+            continue
+        js = wapi({'action': 'wbgetentities', 'ids': '|'.join(cands[:5]), 'props': 'claims'})
+        ents = (js or {}).get('entities', {})
+        want = COUNTRY_Q.get(x.get('country') or '')
+        for q in cands[:5]:
+            cl = ents.get(q, {}).get('claims', {})
+            if not ('P414' in cl or 'P946' in cl):
+                continue
+            ctry = {(c.get('mainsnak', {}).get('datavalue') or {}).get('value', {}).get('id') for c in cl.get('P17', [])}
+            if want and ctry - {None} and want not in ctry:
+                continue
+            out[s] = q
+            break
+        time.sleep(0.2)
+    log(f"  reliées par le nom : {len(out)} de plus sur {len(todo)} restantes")
+    return out
+
+
 def sitelinks(qids, langs):
     res = {}
     ql = sorted(set(qids))
@@ -221,6 +278,7 @@ def main():
     links = wikidata_links(info)
     if not links:
         return
+    links.update(link_by_name(info, links))
     langs = {'en', 'fr', 'de'} | {lg for s in links for lg in HOME.get(info[s].get('country') or '', [])}
     sl = sitelinks(links.values(), langs)
     jobs = []
@@ -324,6 +382,11 @@ def main():
     bond_end[:, wend] = bond_wk
     spike_end[:, wend] = pic_wk
     has_end[:, wend] = has_wk
+    spike4_end = np.zeros((N, T), bool)
+    spike4_end[:, wend] = pd.DataFrame(pic_wk.T.astype(float)).rolling(4, min_periods=1).max().values.T > 0
+    log(f"semaines de bond avec pages suivies : {int((bond_end & has_end).sum())}, dont avec pic d'attention "
+        f"{int((bond_end & has_end & spike_end).sum())} ; semaines dans la zone du 🎯 : {int((zone_end & has_end).sum())}, "
+        f"dont avec pic {int((zone_end & has_end & spike_end).sum())}")
 
     EX, RAW = {}, None
     for h in (5, 21, 63, 125, 250):
@@ -359,6 +422,8 @@ def main():
     S("zone du 🎯 en fin de semaine (pages suivies)", base_z)
     S("  zone du 🎯 et pic d'attention cette semaine", base_z & spike_end)
     S("  zone du 🎯 sans pic", base_z & ~spike_end)
+    S("  zone du 🎯 et pic dans les 4 dernières semaines", base_z & spike4_end)
+    S("  zone du 🎯 sans pic depuis 4 semaines", base_z & ~spike4_end)
     base_b = bond_end & has_end & start[None, :]
     S("📣 bond du jour dans la semaine (achat en fin de semaine)", base_b)
     S("  bond et pic d'attention la même semaine", base_b & spike_end)
