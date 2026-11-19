@@ -300,7 +300,7 @@ def nom_source(src):
         return f"Positions des fonds CFTC ({(CFG['cftc']['marches'].get(k) or {}).get('nom', k)})" if k in CFG["cftc"]["marches"] else "Historique CFTC"
     if src.startswith("cot_euronext_"):
         return f"Positions des fonds Euronext ({(CFG['euronext'].get(src[13:]) or {}).get('nom', src[13:])})"
-    return {"usda": "Bilans USDA", "meteo": "Météo Open-Meteo", "banque_mondiale": "Banque mondiale (Pink Sheet)",
+    return {"usda": "Bilans USDA", "meteo": "Météo Open-Meteo", "cultures": "État des cultures (Céré'Obs, USDA)", "banque_mondiale": "Banque mondiale (Pink Sheet)",
             "geopolitique": "Indice géopolitique", "actualites": "Actualités", "collecte": "Collecte du matin"}.get(
         src, src.replace("engrais_", "Prix engrais ").replace("physique_", "Prix physique ").replace("_", " "))
 
