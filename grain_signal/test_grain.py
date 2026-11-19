@@ -1008,6 +1008,19 @@ _p0 = "physique_" + list(collect.CFG["physique"])[0]
 check(_notes.get(_p0) is True and _essais[list(collect.CFG["physique"].values())[0]] == 2,
       f"prix physiques : page en 502 relue au second tour ({_notes.get(_p0)}, {_essais.get(list(collect.CFG['physique'].values())[0])} essais)")
 
+# graphique comparé : indices base 100 au même départ, corrélations des variations
+import math as _m  # noqa: E402
+_jd = [date(2024, 1, 1) + _td(days=i) for i in range(900) if (date(2024, 1, 1) + _td(days=i)).weekday() < 5]
+_yh2 = {tk: {"serie": {x.isoformat(): 100 + 10 * _m.sin(i / 30 + o) for i, x in enumerate(_jd) if i > 40}}
+        for tk, o in (("BZ=F", 0), ("TTF=F", 1), ("ZS=F", 2))}
+_eu2 = [{"date": x.isoformat(), "product": pr, "maturity": "2030-03", "settle": str(round(200 + 20 * _m.sin(i / 30), 2))}
+        for i, x in enumerate(_jd) for pr in ("EBM", "EMA")]
+_wb2 = [{"month": f"{y}-{mo:02d}", "urea": str(300 + mo), "gas_eu": str(10 + mo), "wheat_hrw": str(250)} for y in range(2014, 2027) for mo in range(1, 13)]
+_cp = build.comparatif(_yh2, _eu2, _wb2, date(2026, 6, 1))
+check(_cp and all(v[0][1] == 100.0 for v in _cp["series"].values()) and len({v[0][0] for k, v in _cp["series"].items() if k != "uree"}) == 1
+      and _cp["correlations"]["ble-mais"] == 1.0 and "gaz-uree" in _cp["mensuel"],
+      "graphique comparé : toutes les courbes à 100 au même départ, corrélations calculées")
+
 # orientation du matin : mouvement de Chicago depuis la clôture d'Euronext, paliers 0,5 % et 1 %
 check(dec.ouverture(1.3) == {"orientation": "hausse", "total": 2, "mesurable": "1"}
       and dec.ouverture(-0.7) == {"orientation": "legere_baisse", "total": -1, "mesurable": "05"}
