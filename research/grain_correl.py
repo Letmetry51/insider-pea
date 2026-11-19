@@ -52,6 +52,9 @@ def matrice(series, titre, lags=()):
         out.append(f"  {a} → {b} plus tard (décalage : corrélation) : " + "  ".join(res))
 
 
+# 0) historique de l'urée France disponible
+_u = sorted({r["date"] for r in csv.DictReader(open(P / "fert_fr.csv", encoding="utf-8")) if r["product"] == "uree"})
+print("urée France :", len(_u), "relevés,", _u[:1], "→", _u[-1:])
 # 1) mensuel, Banque mondiale (téléchargé ici, avec pétrole et soja)
 page = requests.get("https://www.worldbank.org/en/research/commodity-markets", headers=collect.UA, timeout=60).text
 m = re.search(r"https?://[^\"'\s>]*CMO-Historical-Data-Monthly\.xlsx", page)
@@ -96,7 +99,10 @@ s["urée FR"] = hebdo(u)
 debut = (date.today() - timedelta(days=5 * 365)).isoformat()
 s = {k: {d_: x for d_, x in v_.items() if d_ >= debut} for k, v_ in s.items()}
 out.append("\nNombre de semaines par série : " + ", ".join(f"{k} {len(v_)}" for k, v_ in s.items()))
-matrice(s, "Hebdomadaire, 5 ans (€ et $)", lags=[("gaz TTF", "urée FR", 8), ("pétrole", "urée FR", 8), ("urée FR", "blé Ex", 6), ("gaz TTF", "blé Ex", 6)])
+s.pop("urée FR")  # historique de l'urée France trop court pour des variations hebdomadaires
+matrice(s, "Hebdomadaire, 5 ans (€ et $)", lags=[("gaz TTF", "blé Ex", 4), ("pétrole", "maïs Ex", 4), ("soja", "maïs Ex", 2)])
+s2 = {k: {d_: x for d_, x in v_.items() if d_ >= (date.today() - timedelta(days=365)).isoformat()} for k, v_ in s.items()}
+matrice(s2, "Hebdomadaire, 12 derniers mois")
 
 Path("research/out").mkdir(exist_ok=True)
 Path("research/out/correl.txt").write_text("\n".join(out), encoding="utf-8")
