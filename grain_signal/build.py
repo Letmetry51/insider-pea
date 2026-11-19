@@ -667,7 +667,7 @@ def seuils_cfg():
 
 def comparatif(yahoo, eur, wb, today, ans=3):
     """Graphique comparé (onglet Marché, marchés mondiaux) : pétrole, gaz, blé et maïs Euronext, soja, urée, en indice base 100
-    (dernier cours de chaque semaine, sur `ans` ans ; urée : prix mondial mensuel de la Banque mondiale, reporté sur les
+    (dernier cours de chaque semaine, sur `ans` ans au plus, à partir de la première semaine où toutes les séries existent ; urée : prix mondial mensuel de la Banque mondiale, reporté sur les
     semaines du mois). Publié en indice, pas en prix bruts. Et les corrélations de leurs variations : hebdomadaires sur la
     période pour les cinq séries quotidiennes, mensuelles sur 10 ans pour le gaz, l'urée et le blé (Banque mondiale)."""
     debut = (today - timedelta(days=ans * 366)).isoformat()
@@ -691,7 +691,9 @@ def comparatif(yahoo, eur, wb, today, ans=3):
         brut[k] = hebdo(dict(zip(d, v)))
     brut["soja"] = hebdo((yahoo.get("ZS=F") or {}).get("serie") or {})
     mois = {r["month"]: float(r["urea"]) for r in wb if fnum(r.get("urea"))}
-    semaines = sorted(set().union(*[set(x) for x in brut.values()]))
+    # semaines où les cinq séries quotidiennes existent : toutes valent 100 au même point de départ
+    pleines = [set(x) for x in brut.values() if x]
+    semaines = sorted(set.intersection(*pleines)) if len(pleines) == len(brut) else []
     brut["uree"] = {w: mois[w[:7]] for w in semaines if w[:7] in mois}
     if len(semaines) < 30:
         return None

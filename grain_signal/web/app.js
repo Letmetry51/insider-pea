@@ -1800,6 +1800,184 @@ function azoteView(d) {
   ];
 }
 
+/* énergie, grains et azote sur un même graphique (indice base 100) et ce que disent leurs corrélations, calculées chaque matin */
+const COMP = {
+  petrole: ['Pétrole (Brent)', '#9a9a8f'],
+  gaz: ['Gaz (TTF)', '#4f8ff7'],
+  ble: ['Blé Euronext', '#e0a526'],
+  mais: ['Maïs Euronext', '#e8743b'],
+  soja: ['Soja (Chicago)', '#3fae6a'],
+  uree: ['Urée (mondial, mensuel)', '#d65a9a'],
+};
+const lien = (c) =>
+  c === null || c === undefined ? null : c >= 0.6 ? 'fort' : c >= 0.3 ? 'moyen' : c >= 0.15 ? 'faible' : 'quasi nul';
+
+function comparatifCard(d) {
+  const cp = d.comparatif;
+  if (!cp || !cp.series || Object.keys(cp.series).length < 3) return null;
+  const per = GS.compPeriode || 365;
+  const caches = GS.compCaches || {};
+  const depuis = new Date(Date.parse(cp.fin) - per * 864e5).toISOString().slice(0, 10);
+  const series = Object.entries(cp.series)
+    .filter(([k]) => COMP[k] && !caches[k])
+    .map(([k, pts]) => {
+      const p = pts.filter((x) => x[0] >= depuis);
+      const b = p.length ? p[0][1] : null;
+      return [k, b ? p.map((x) => [Date.parse(x[0]), (x[1] / b) * 100]) : []];
+    })
+    .filter(([, p]) => p.length > 1);
+  const narrow = window.innerWidth < 600;
+  const W = narrow ? 420 : 680,
+    H = narrow ? 300 : 280,
+    P = { l: 40, r: narrow ? 52 : 60, t: 14, b: 24 };
+  const xs = series.flatMap(([, p]) => p.map((x) => x[0]));
+  const ys = series.flatMap(([, p]) => p.map((x) => x[1]));
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const el = (t, a) => {
+    const n = document.createElementNS(svgNS, t);
+    Object.entries(a).forEach(([k, v]) => n.setAttribute(k, v));
+    return n;
+  };
+  const svg = el('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    class: 'chart',
+    role: 'img',
+    'aria-label': 'Prix comparés, base 100',
+  });
+  if (series.length) {
+    const x0 = Math.min(...xs),
+      x1 = Math.max(...xs);
+    let lo = Math.min(100, ...ys),
+      hi = Math.max(100, ...ys);
+    const pad = (hi - lo) * 0.06 || 5;
+    lo -= pad;
+    hi += pad;
+    const X = (t) => P.l + ((t - x0) / (x1 - x0 || 1)) * (W - P.l - P.r);
+    const Y = (v) => P.t + ((hi - v) / (hi - lo)) * (H - P.t - P.b);
+    const pas = [5, 10, 20, 25, 50, 100].find((s) => (hi - lo) / s <= 6) || 100;
+    for (let v = Math.ceil(lo / pas) * pas; v <= hi; v += pas) {
+      svg.append(
+        el('line', { x1: P.l, x2: W - P.r, y1: Y(v), y2: Y(v), class: v === 100 ? 'axe100' : 'grid' }),
+        Object.assign(el('text', { x: P.l - 4, y: Y(v) + 4, 'text-anchor': 'end', class: 'tick' }), { textContent: v })
+      );
+    }
+    [0, 0.5, 1].forEach((f) => {
+      const t = x0 + f * (x1 - x0);
+      const lab = new Date(t).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+      svg.append(
+        Object.assign(
+          el('text', { x: X(t), y: H - 6, 'text-anchor': f ? (f === 1 ? 'end' : 'middle') : 'start', class: 'tick' }),
+          {
+            textContent: lab,
+          }
+        )
+      );
+    });
+    // étiquettes de fin écartées pour ne pas se chevaucher
+    const fins = series
+      .map(([k, p]) => [k, p[p.length - 1][1]])
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => ({ k, v, y: Y(v) }));
+    for (let i = 1; i < fins.length; i++) fins[i].y = Math.max(fins[i].y, fins[i - 1].y + 13);
+    series.forEach(([k, p]) => {
+      svg.append(
+        el('polyline', {
+          points: p.map((x) => `${X(x[0]).toFixed(1)},${Y(x[1]).toFixed(1)}`).join(' '),
+          fill: 'none',
+          stroke: COMP[k][1],
+          'stroke-width': k === 'ble' ? 2.6 : 1.8,
+          'stroke-linejoin': 'round',
+        })
+      );
+    });
+    fins.forEach((f) =>
+      svg.append(
+        Object.assign(
+          el('text', { x: W - P.r + 4, y: f.y + 4, class: 'tick', style: `fill:${COMP[f.k][1]};font-weight:600` }),
+          {
+            textContent: Math.round(f.v),
+          }
+        )
+      )
+    );
+  }
+  const periode = h(
+    'div',
+    { class: 'filters', role: 'group', 'aria-label': 'Période' },
+    [
+      [365, '1 an'],
+      [3 * 366, `Depuis ${new Date(cp.debut).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`],
+    ].map(([j, t]) => {
+      const b = h('button', { class: 'filt', 'aria-pressed': String(j === per), text: t });
+      b.addEventListener('click', () => {
+        GS.compPeriode = j;
+        render();
+      });
+      return b;
+    })
+  );
+  const legende = h(
+    'div',
+    { class: 'filters', role: 'group', 'aria-label': 'Courbes affichées' },
+    Object.keys(COMP)
+      .filter((k) => cp.series[k])
+      .map((k) => {
+        const b = h(
+          'button',
+          { class: 'filt', 'aria-pressed': String(!caches[k]), title: caches[k] ? 'Afficher' : 'Masquer' },
+          h('span', { class: 'pastille', style: `background:${COMP[k][1]}` }),
+          COMP[k][0]
+        );
+        b.addEventListener('click', () => {
+          GS.compCaches = { ...caches, [k]: !caches[k] };
+          render();
+        });
+        return b;
+      })
+  );
+  const c = cp.correlations || {};
+  const m = cp.mensuel || {};
+  const moy = (ks) => {
+    const v = ks.map((k) => c[k]).filter((x) => x !== null && x !== undefined);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const eg = moy(['petrole-ble', 'petrole-mais', 'gaz-ble', 'gaz-mais']);
+  const ce = (v) => fmt(v, 2);
+  const constats = [
+    c['ble-mais'] !== undefined && c['ble-mais'] !== null
+      ? `Blé et maïs varient ensemble : lien ${lien(c['ble-mais'])} (${ce(c['ble-mais'])}).`
+      : null,
+    c['ble-soja'] !== undefined && c['ble-soja'] !== null
+      ? `Soja et grains européens : lien ${lien(moy(['ble-soja', 'mais-soja']))} (${ce(c['ble-soja'])} avec le blé).`
+      : null,
+    eg !== null
+      ? `Énergie et grains : lien ${lien(eg)} (${ce(eg)} en moyenne), la même semaine seulement ; le pétrole et le gaz n’annoncent pas les grains de la semaine suivante.`
+      : null,
+    m['gaz-uree'] !== undefined && m['gaz-uree'] !== null
+      ? `Urée : suit un peu le gaz (${ce(m['gaz-uree'])} le même mois, ${ce(m['gaz-uree_mois_suivant'])} le mois suivant) mais pas le blé (${ce(m['uree-ble'])}) : un azote cher ne fait pas monter le blé.`
+      : null,
+  ].filter(Boolean);
+  return h(
+    'div',
+    { class: 'card wide' },
+    h('h3', { text: '📈 Énergie, grains et azote comparés (base 100)' }),
+    periode,
+    legende,
+    svg,
+    constats.length
+      ? h(
+          'ul',
+          { class: 'constats' },
+          constats.map((t) => h('li', { text: t }))
+        )
+      : null,
+    h('p', {
+      class: 'note',
+      text: `Chaque courbe vaut 100 au début de la période : on lit l’évolution en %, pas les prix. Dernier cours de chaque semaine ; urée : prix mondial mensuel (Banque mondiale, avec un mois de retard). Corrélation des variations, recalculée chaque matin (hebdomadaire sur toute la période ; urée : mensuelle sur ${Math.round((m.mois || 120) / 12)} ans) : 1 = toujours ensemble, 0 = aucun lien.`,
+    })
+  );
+}
+
 // contexte commun (marchés mondiaux, fonds, bilans, météo, saisons) : replié en bas de l'onglet Marché
 function autresMarches(d) {
   const kids = [...stocksSection(d), ...saisonSection(d), ...meteoSection(d)];
@@ -1837,6 +2015,7 @@ function autresMarches(d) {
           )
         )
       : null,
+    comparatifCard(d),
     cot.length
       ? h(
           'div',
