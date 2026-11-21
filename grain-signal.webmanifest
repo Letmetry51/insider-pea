@@ -1,0 +1,17 @@
+{
+ "id": "grain-signal.html",
+ "name": "Bulletin des grains",
+ "short_name": "Grains",
+ "description": "Le marché des céréales et de l'azote chaque matin : cours, technique, actualité et alertes",
+ "lang": "fr",
+ "start_url": "grain-signal.html",
+ "scope": "grain-signal.html",
+ "display": "standalone",
+ "background_color": "#f1efe7",
+ "theme_color": "#1c1a12",
+ "icons": [
+  { "src": "grain_signal/web/icon-192.png", "sizes": "192x192", "type": "image/png" },
+  { "src": "grain_signal/web/icon-512.png", "sizes": "512x512", "type": "image/png" },
+  { "src": "grain_signal/web/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+ ]
+}

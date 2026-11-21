@@ -1,0 +1,41 @@
+{
+ "status": 200,
+ "contentType": null,
+ "bytes": 678621,
+ "encoding": "cp1252",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-11-18 00:00:00\";\"Envipco Holding N.V.\";\"Bouri M.\";\"Bouri\"\r\n\"2026-11-18 00:00:00\";\"Envipco Holding N.V.\";\"Gregory Garvey Family Investments LLC\";\"\"\r\n\"2026-11-18 00:00:00\";\"Stellantis N.V.\";\"Gilles R.V.\";\"Gilles\"\r\n\"2026-11-18 00:00:00\";\"Stellantis N.V.\";\"Thiele S.A.\";\"Thiele\"\r\n\"2026-11-18 00:00:00\";\"Envipco Holding N.V.\";\"Garvey G.\";\"Garvey\"\r\n\"2026-11-17 00:00:00\";\"OCI N.V.\";\"NNS HOLDING (CYPRUS) LIMITED\";\"\"\r\n\"2026-11-17 00:00:00\";\"Airbus SE\";\"Kitcher J.\";\"Kitcher\"\r\n\"2026-11-16 00:00:00\";\"Euronext N.V.\";\"Houdart A.\";\"Ho",
+ "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
+ "delimiter": ";",
+ "headers": [
+  "Transaction",
+  "Issuing institution",
+  "Notifiable",
+  "NotifiableLastName"
+ ],
+ "sampleRows": [
+  [
+   "2026-11-18 00:00:00",
+   "Envipco Holding N.V.",
+   "Bouri M.",
+   "Bouri"
+  ],
+  [
+   "2026-11-18 00:00:00",
+   "Envipco Holding N.V.",
+   "Gregory Garvey Family Investments LLC",
+   ""
+  ],
+  [
+   "2026-11-18 00:00:00",
+   "Stellantis N.V.",
+   "Gilles R.V.",
+   "Gilles"
+  ]
+ ],
+ "rowCount": 9620,
+ "columnMap": {
+  "issuer": "Issuing institution"
+ },
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>202611182AE6A0FE-3885-4ED9-8D34-F5673916D952</meldingid><transactiedatum>11/18/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Envipco Holding N.V.</uitgevendeinstelling><meldingsplichtige>Bouri M.</meldingsplichtige><meldingsplichtigeachternaam>Bouri</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>non-executive member Board of Directors</functie><lei>7245009QH646WM76PR25</lei><vermelding>Envipco Holding N.V. - Bouri M. - </vermelding></vermelding><vermelding><meldingid>2026111895A6D6C8-CEDA-4C13-8452-554051E7BD47</meldingid><transactiedatum>11/18/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Envipco Holding N.V.</uitgevendeinstelling><meldingsplichtige>Gregory Garvey Family Investments LLC</meldingsplichtige><meldingsplichtigeachternaam></meldingsplichtigeachternaam><nauwgelieerdaan>Garvey G.</nauwgelieerdaan><functie>Chairman and non-executive member Board of Directors</functie><lei>7245009QH646WM76PR25</lei><vermelding>Envipco Holding N.V. - Gregory Garvey Family Investments LLC - Garvey G.</vermelding></vermelding><vermelding><meldingid>20261118974F238A-55AF-4B1F-8752-6F180FD75928</meldingid><transactiedatum>11/18/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Stellantis N.V.</uitgevendeinstelling><meldingsplichtige>Gilles R.V.</meldingsplichtige><meldingsplichtigeachternaam>Gilles</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Head of Design</functie><lei>549300LKT9PW7ZIBDF31</lei><vermelding>Stellantis N.V. - Gilles R.V. - </vermelding></vermelding><vermelding><meldingid>20261118CAB5D9EC-EAA4-4666-91F6-565FAD0FE5D2</meldingid><transactiedatum>11/18/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Stellantis N.V.</uitgevendeinstelling><meldingsplichtige>Thiele S.A.</meldingsplichtige><meldingsplichtigeachternaam>Thiele</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Head of Supply Chain, Global AI Transformation Office</functie><lei>549300LKT9PW7ZIBDF31</lei><vermelding>Stellantis N.V. - Thiele S.A. - </vermelding></vermelding><vermelding><meldingid>20261118EAE86738-D370-425C-B3D4-1E0B741F4E5A</meldingid><transactiedatum>11/18/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Envipco Holding N.V.</uitgevendeinstelling><meldingsplichtige>Garvey G.</meldingsplichtige><meldingsplichtigeachternaam>Garvey</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Chairman and non-executive member Board of Directors</functie><lei>7245009QH646WM76PR25</lei><vermelding>Envipco Holding N.V. - Garvey G. - </vermelding></vermelding><vermelding><meldingid>202611174BC12ED6-30AF-4439-BB06-CC4FD84FB1B4</meldingid><transactiedatum>11/17/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>OCI N.V.</uitgevendeinstelling><meldingsplichtige>NNS HOLDING (CYPRUS) LIMITED</meldingsplichtige><meldingsplichtigeachternaam></meldingsplichtigeachternaam><nauwgelie",
+ "at": "2026-11-20T23:20:35.552012+00:00"
+}

@@ -1,0 +1,29 @@
+{
+ "date": "2026-11-20",
+ "available": true,
+ "compared": 1242,
+ "same": 469,
+ "within1": 1027,
+ "gap": 3,
+ "gaps": 36,
+ "meanDiff": -0.44,
+ "watched": 20,
+ "check": [
+  {
+   "sym": "CLARI.PA",
+   "name": "Clariane SE",
+   "list": "10 💎",
+   "f9": 9,
+   "tv": 6,
+   "fy": "2025-12-31"
+  },
+  {
+   "sym": "VCT.PA",
+   "name": "Vicat S.A.",
+   "list": "10 💎",
+   "f9": 8,
+   "tv": 5,
+   "fy": "2025-12-31"
+  }
+ ]
+}
