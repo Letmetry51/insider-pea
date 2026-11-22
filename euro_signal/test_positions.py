@@ -196,6 +196,25 @@ def _():
     assert P.split_base(100.0, None) == 100.0 and P.split_base(None, 50.0) is None
     ev3, _ = P.evaluate(pos, [["2026-06-01", 0, 0, 0, 97.0, 0], ["2026-09-03", 0, 0, 0, 68.0, 0]], {}, [], d, adjusted=True)
     assert "stop30" in {k for k, _ in ev3}, ev3
+    assert "une seule séance" not in dict(ev3)["stop30"], "deux cours à trois mois d'écart : pas une séance"
+
+
+@case("Séance à −20 % ou pire (détachement de droits que Yahoo n'ajuste pas) : alerte maintenue, avec l'avertissement")
+def _():
+    pos = {"isin": "FR0000131757", "price": 100.0, "date": "2026-06-01"}
+    d = date(2026, 11, 20)
+    # Eramet, 16/11/2026 : −30 % le jour du détachement des droits, cours Yahoo non ajusté
+    rows = [["2026-06-01", 0, 0, 0, 100.0, 0], ["2026-11-13", 0, 0, 0, 97.0, 0], ["2026-11-16", 0, 0, 0, 67.5, 0], ["2026-11-17", 0, 0, 0, 68.0, 0]]
+    ev = dict(P.evaluate(pos, rows, {}, [], d)[0])
+    assert "stop30" in ev and "16/11/2026 en une seule séance" in ev["stop30"] and "augmentation de capital" in ev["stop30"], ev
+    # même baisse répartie sur plusieurs séances : pas d'avertissement
+    slow = [["2026-06-01", 0, 0, 0, 100.0, 0], ["2026-11-12", 0, 0, 0, 85.0, 0], ["2026-11-13", 0, 0, 0, 76.0, 0], ["2026-11-16", 0, 0, 0, 68.0, 0]]
+    ev2 = dict(P.evaluate(pos, slow, {}, [], d)[0])
+    assert "stop30" in ev2 and "une seule séance" not in ev2["stop30"], ev2
+    # palier de baisse (−20 % en une séance, perte totale −25 %) : avertissement aussi
+    mid = [["2026-06-01", 0, 0, 0, 100.0, 0], ["2026-11-13", 0, 0, 0, 94.0, 0], ["2026-11-16", 0, 0, 0, 75.0, 0]]
+    ev3 = dict(P.evaluate(pos, mid, {}, [], d)[0])
+    assert "baisse20" in ev3 and "une seule séance" in ev3["baisse20"], ev3
 
 
 @case("Date du jour en texte : le rappel des 6 mois part quand même (jusqu'au 04/11/2026, jamais envoyé)")
