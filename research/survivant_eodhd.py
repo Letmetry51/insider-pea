@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+import cycle_litterature as CL
 import cycle_secteurs as CS
 import figures_bougies as FB
 import proba as PB
@@ -305,6 +306,11 @@ def main():
             blk = np.array([d[k:k + 26].sum() for k in range(0, len(d) - 25, 26)])
             tv = blk.mean() / (blk.std(ddof=1) / np.sqrt(len(blk)))
             out[nm] = (cg, cm)
+            if nm == 'protection −30 %':
+                # ratio de Sharpe dégonflé (Bailey et López de Prado) de l'avance trimestrielle sur le marché de cet univers
+                q = np.array([np.prod(1 + R[k:k + 13]) - np.prod(1 + M[k:k + 13]) for k in range(0, len(R) - 12, 13)])
+                ds = ' ; '.join(f"{n_} essais {CL.dsr(q, n_)[4] * 100:.0f} %" for n_ in (10, 100, 1000))
+                log(f"    {lab} · ratio de Sharpe annuel de l'avance {CL.dsr(q, 100)[0] * 2:.2f} ; probabilité d'une avance réelle : {ds}")
             log(f"    {lab} · {nm:16s} {cg:+.1f} %/an contre {cm:+.1f} pour le marché (écart t {tv:.1f}), pire baisse {dd * 100:.0f} % · "
                 + ' · '.join(cells))
         return out
