@@ -3305,11 +3305,12 @@ export function build(opts = {}) {
     console.warn('  📣 Démarrage indisponible : ' + e.message);
   }
 
-  /* 6e ter. 📣 Bond du jour (04/11/2026 ; 4 fois au lieu de 5 depuis le 14/11/2026, research/bond_jour_seuil.py) : séance à +8 % ou
-     plus sur au moins 4 fois le volume moyen des 50 séances précédentes, cours
+  /* 6e ter. 📣 Bond du jour (04/11/2026 ; 4 fois du 14 au 22/11/2026, revenu à 5 fois avec l'accord de François : les alertes entre
+     4 et 5 fois n'ont rien fait sans biais du survivant, research/survivant_bond.py) : séance à +8 % ou plus sur au moins 5 fois le
+     volume moyen des 50 séances précédentes, cours
      en tendance, aux conditions de la place 📣 (ES.dayBondAlerts) : un email le soir même, pour acheter le lendemain sans attendre la
-     fin de la semaine (cours journaliers 2000-2026 : +9,3 points à 6 mois face à la moyenne à 5 fois le volume ou plus, +6,1 entre 4
-     et 5 fois ; acheté le lendemain plutôt que le lundi suivant, +1,1 point). L'email donne le chiffre de sa tranche de volume. Une fois
+     fin de la semaine (cours journaliers EODHD 2000-2026, sociétés disparues comprises : +6,6 points à 6 mois face à la moyenne ;
+     acheté le lendemain plutôt que le lundi suivant, +0,7 point). L'email donne ces chiffres. Une fois
      par société sur 30 jours, rien pour une société de la sélection de la semaine ni déjà annoncée par l'email 📣 Démarrage. */
   try {
     if (rank && rank.coFresh && Array.isArray(rank._rows)) {
@@ -3352,11 +3353,9 @@ export function build(opts = {}) {
             ' % sur ' +
             String(p.dayBondVx).replace('.', ',') +
             ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
-          // chiffres de la tranche de volume, sans biais du survivant (research/survivant_portefeuille.py et survivant_bond.py,
-          // 22/11/2026 : cours journaliers EODHD, sociétés disparues comprises, au moins 3 M€ par jour à la date de l'alerte)
-          p.dayBondVx >= 5
-            ? 'Sur 2000-2026, sociétés disparues comprises, à 5 fois le volume ou plus : +6,6 points à 6 mois face à la moyenne des sociétés (+2 en 2000-2008, +8 à +9 depuis). Acheté le lendemain plutôt que le lundi suivant : +0,7 point de plus (+2 quand la semaine finit en 📣, une fois sur deux).'
-            : 'Sur 2000-2026, sociétés disparues comprises, entre 4 et 5 fois le volume : −2 points à 6 mois face à la moyenne des sociétés, aucun avantage mesuré (+6,6 à 5 fois ou plus). 8 sur 10 ne finissent pas la semaine en 📣.',
+          // chiffres sans biais du survivant (research/survivant_portefeuille.py et survivant_bond.py, 22/11/2026 : cours journaliers
+          // EODHD, sociétés disparues comprises, au moins 3 M€ par jour à la date de l'alerte)
+          'Sur 2000-2026, sociétés disparues comprises, à 5 fois le volume ou plus : +6,6 points à 6 mois face à la moyenne des sociétés (+2 en 2000-2008, +8 à +9 depuis). Acheté le lendemain plutôt que le lundi suivant : +0,7 point de plus (+2 quand la semaine finit en 📣, une fois sur deux).',
           p.dayBondLo != null
             ? 'À +' +
               p.dayBondLo +

@@ -9447,7 +9447,7 @@
   };
   /**
    * 📣 Bond du jour : séances depuis le dernier bond d'une séance parmi les 2 dernières (0 : la dernière ; 1 : la veille, quand son
-   * volume n'est arrivé que le lendemain), sinon null. Bond : clôture à +8 % ou plus sur la veille, volume d'au moins 4 fois la moyenne
+   * volume n'est arrivé que le lendemain), sinon null. Bond : clôture à +8 % ou plus sur la veille, volume d'au moins 5 fois la moyenne
    * des 50 séances précédentes (40 connues au moins), cours en tendance ce jour-là (au-dessus de sa moyenne 200 séances, la 50
    * au-dessus de la 200). daily : clôtures journalières (un an, cases vides possibles) ; dvol : volumes des dernières séances, alignés
    * par la fin. Cours journaliers 2000-2026 : à 5 fois le volume, +9,3 points à 6 mois face à la moyenne (t 5,3 ; +5,6 / +10,9 / +10,8
@@ -9461,7 +9461,8 @@
    * par jour à la date comme l'email ; research/survivant_portefeuille.py, survivant_bond.py) : à 5 fois +6,6 points (t 3,0 ;
    * +2,1 / +7,6 / +8,9), entre 4 et 5 fois −2,3 (−1,6 / −1,5 / −3,1), sous le 🎯 au feu vert (+4,0 / +3,3 / +2,2) dans chaque
    * période ; sur les seules sociétés cotées et liquides aujourd'hui, mêmes données, +6,9 : le seuil de 4 fois tenait au biais.
-   * Retour à 5 fois proposé à François (règle de la méthode : inchangée sans son accord) ; les emails donnent ces chiffres.
+   * Seuil revenu à 5 fois le 22/11/2026 (accord de François : « D'accord faire ce qui est pertinent ») ; les emails donnent ces
+   * chiffres.
    */
   ES.dayBond = function (daily, dvol) {
     var o = ES.dayBondInfo(daily, dvol);
@@ -9482,7 +9483,7 @@
       var c = daily[s];
       if (!pos(c) || !pos(daily[s - 1]) || !(c / daily[s - 1] - 1 >= 0.08) || !pos(dvol[vi])) continue;
       var base = dvol.slice(Math.max(0, vi - 50), vi).filter(pos);
-      if (base.length < 40 || !(dvol[vi] >= 4 * mean(base))) continue;
+      if (base.length < 40 || !(dvol[vi] >= 5 * mean(base))) continue;
       var closes = daily.slice(0, s + 1).filter(pos);
       if (closes.length < 200) continue;
       var m200 = mean(closes.slice(-200)),
