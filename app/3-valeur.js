@@ -857,7 +857,7 @@ function cycleCard(compact) {
         (c.second
           ? "Les deux phases sont proches : un secteur n'est dit « porté » que si les deux le portent ou si sa force le confirme déjà. "
           : '') +
-        "Testé de 1998 à 2026 : les secteurs portés n'ont pas fait mieux les 6 mois suivants, et les privilégier dans la sélection a réduit le gain. Repère seulement, sans effet sur la note ni sur la sélection."
+        "Testé de 1998 à 2026 : les secteurs portés n'ont pas fait mieux les 6 mois suivants, et les privilégier dans la sélection a réduit le gain ; le 🎯, lui, a battu la moyenne dans chaque phase. Repère seulement, sans effet sur la note ni sur la sélection."
     ) +
     '</section>'
   );
