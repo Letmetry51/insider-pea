@@ -14,7 +14,7 @@ Univers de survivant_eodhd.py (12 bourses, sociétés disparues comprises, liqui
    acheté le lendemain plutôt que le lundi +1 point) refaits sur les cours journaliers EODHD, sociétés disparues comprises (dernier
    cours gardé 130 séances), bonds retenus seulement si la société est assez liquide ce jour-là (1 M€, puis 3 M€ comme l'alerte).
 Les cours restent en mémoire (rien dans research/out) ; la clé n'est jamais affichée. Lancé par « Recherche (à la demande) »
-(script survivant_portefeuille.py), environ 50 minutes, 11 000 appels EODHD.
+(script survivant_portefeuille.py), environ 15 minutes, 8 300 appels EODHD.
 """
 import concurrent.futures as cf
 import gc
@@ -321,7 +321,7 @@ def measure(Z, lab, lq):
     return out
 
 
-EMAILS = ("\n  Chiffres des emails (sociétés d'aujourd'hui, 2000-2026) : +9 points à 5 fois ou plus ; +6 entre 4 et 5 fois (+8 au plus haut "
+EMAILS = ("\n  Chiffres des emails jusqu'au 22/11/2026 (sociétés d'aujourd'hui, 2000-2026) : +9 points à 5 fois ou plus ; +6 entre 4 et 5 fois (+8 au plus haut "
           "de l'année, +5,5 en dessous) ; +11 au-delà de +60 % du plus bas d'un an, +6 à +7 en dessous ; lendemain plutôt que lundi +1 "
           "point (+3 quand la semaine finit en 📣) ; 4 sur 10 (5 fois) et 2 sur 3 (4 à 5 fois) ne finissent pas la semaine en 📣 ; "
           "🎯 au feu vert +4,5, 📣 de la semaine +7,1")

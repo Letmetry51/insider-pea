@@ -3352,16 +3352,17 @@ export function build(opts = {}) {
             ' % sur ' +
             String(p.dayBondVx).replace('.', ',') +
             ' fois le volume moyen des 50 séances précédentes, cours en tendance.',
-          // chiffres de la tranche de volume (research/bond_jour_seuil.py, 14/11/2026) : entre 4 et 5 fois, moins fort qu'à 5 fois ou plus
+          // chiffres de la tranche de volume, sans biais du survivant (research/survivant_portefeuille.py et survivant_bond.py,
+          // 22/11/2026 : cours journaliers EODHD, sociétés disparues comprises, au moins 3 M€ par jour à la date de l'alerte)
           p.dayBondVx >= 5
-            ? 'Sur 2000-2026, à 5 fois le volume ou plus : +9 points à 6 mois face à la moyenne des sociétés. Acheté le lendemain plutôt que le lundi suivant : +1 point de plus (+3 quand la semaine finit en 📣). 4 sur 10 ne finissent pas la semaine en 📣 : la suite est alors faible.'
-            : "Sur 2000-2026, entre 4 et 5 fois le volume : +6 points à 6 mois face à la moyenne des sociétés (+8 au plus haut de l'année, +5,5 en dessous ; +9 à 5 fois ou plus). Acheté le lendemain plutôt que le lundi suivant : +3 points quand la semaine finit en 📣. 2 sur 3 ne finissent pas la semaine en 📣 : la suite est alors faible.",
+            ? 'Sur 2000-2026, sociétés disparues comprises, à 5 fois le volume ou plus : +6,6 points à 6 mois face à la moyenne des sociétés (+2 en 2000-2008, +8 à +9 depuis). Acheté le lendemain plutôt que le lundi suivant : +0,7 point de plus (+2 quand la semaine finit en 📣, une fois sur deux).'
+            : 'Sur 2000-2026, sociétés disparues comprises, entre 4 et 5 fois le volume : −2 points à 6 mois face à la moyenne des sociétés, aucun avantage mesuré (+6,6 à 5 fois ou plus). 8 sur 10 ne finissent pas la semaine en 📣.',
           p.dayBondLo != null
             ? 'À +' +
               p.dayBondLo +
               " % de son plus bas d'un an" +
               (p.dayBondLo >= 60 ? ' : la meilleure catégorie' : '') +
-              ' (sur 2000-2026, ces bonds ont fait +11 points à 6 mois au-delà de +60 % du plus bas, +6 à +7 en dessous).'
+              ' (sur 2000-2026, sociétés disparues comprises, ces bonds ont fait +5 points à 6 mois au-delà de +60 % du plus bas, +1 en dessous).'
             : null,
           'Remplit les conditions de la place 📣 (PEA, note ≥ 70, comptes solides, au moins 3 M€ échangés par jour) ; hors sélection du lundi.',
           (E ? E.icon + ' ' + E.label + ' · ' : '') +
