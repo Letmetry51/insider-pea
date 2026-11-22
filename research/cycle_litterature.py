@@ -12,8 +12,10 @@ Chaque piste dit qu'un « état » du marché ou de l'économie annonce un momen
    chaque 1er janvier avec les seules semaines passées, probabilité filtrée semaine par semaine (sans regarder la suite).
 6. Illiquidité du marché (Avramov, Cheng et Hameed, 2016) : momentum plus faible quand le marché devient peu liquide (mesure
    d'Amihud de chaque société face à ses 3 années précédentes, médiane des sociétés).
-Marché : moyenne des sociétés de l'étude (parts égales ; sociétés encore cotées, biais du survivant). Seuils « élevé » : tiers
-supérieur de l'historique connu à la date (5 ans au moins).
+États du marché (1, 2, 5) : moyenne des rendements du CAC 40, du DAX et du FTSE 100 (Yahoo, depuis 1990, sans biais du
+survivant) ; dispersion et illiquidité : sociétés de l'étude (depuis fin 1997). Seuils « élevé » : tiers supérieur de
+l'historique connu à la date (5 ans au moins pour l'agitation du marché, 3 ans pour les sociétés). Rendements mesurés : sociétés
+de l'étude et leur moyenne à parts égales.
 
 Mesures : écart des sociétés choisies avec la moyenne des sociétés sur les 26 semaines suivantes, selon l'état (t de Newey-West,
 26 retards) ; rendement du marché selon l'état ; variantes applicables dans un PEA, portefeuille simulé : dans l'état défavorable,
@@ -42,12 +44,13 @@ ERAS3 = ('1998-2008', '2009-2017', '2018-2026')
 ND = NormalDist()
 
 
-def yields(dates):
-    """Taux américains à 10 ans et à 3 mois (Yahoo ^TNX, ^IRX), dernière clôture connue à chaque vendredi de l'étude."""
+def yahoo(dates):
+    """Clôtures Yahoo à chaque vendredi de l'étude (dernière connue) : taux américains à 10 ans et 3 mois (^TNX, ^IRX) et indices
+    CAC 40, DAX, FTSE 100 (^FCHI, ^GDAXI, ^FTSE ; historique depuis 1990, sans biais du survivant)."""
     import yfinance as yf
     idx = pd.DatetimeIndex(pd.to_datetime(list(dates)))
     out = {}
-    for s in ('^TNX', '^IRX'):
+    for s in ('^TNX', '^IRX', '^FCHI', '^GDAXI', '^FTSE'):
         for k in range(3):
             try:
                 df = yf.download(s, start='1985-01-01', interval='1d', auto_adjust=False, progress=False)
@@ -134,17 +137,31 @@ def hmm_filter(x, mu, sd, A, pi):
 def states(G, Y):
     """État « défavorable au momentum » de chaque semaine, selon chaque piste (booléens, connus à la date)."""
     T, mkw, okn, P, dates = G['T'], G['mkw'], G['okn'], G['P'], G['dates']
-    L = np.cumsum(np.log1p(mkw))
+    t0 = int(np.argmax([okn[:, t - 1].sum() > 30 if t else False for t in range(T)]))
+    S, info = {}, {}
+    # marché pour les états : moyenne des rendements hebdomadaires (log) du CAC 40, du DAX et du FTSE 100, à partir de la
+    # première semaine où les trois existent ; à défaut, moyenne des sociétés de l'étude (depuis t0)
+    ix = [Y[k] for k in ('^FCHI', '^GDAXI', '^FTSE') if k in Y]
+    if len(ix) == 3:
+        lr = np.full(T, np.nan)
+        lr[1:] = np.mean([np.diff(np.log(v)) for v in ix], axis=0)
+        m0 = int(np.argmax(np.isfinite(lr)))
+        info['marche'] = f"CAC 40, DAX et FTSE 100 depuis le {dates[m0]}"
+    else:
+        lr = np.full(T, np.nan)
+        lr[t0:] = np.log1p(mkw[t0:])
+        m0 = t0
+        info['marche'] = f"moyenne des sociétés depuis le {dates[t0]} (indices indisponibles)"
+    lr[:m0] = np.nan
+    L = np.concatenate([[0.0], np.cumsum(np.nan_to_num(lr[1:]))])
 
     def past(k):
         r = np.full(T, np.nan)
         r[k:] = np.expm1(L[k:] - L[:-k])
+        r[:m0 + k] = np.nan
         return r
-    t0 = int(np.argmax([okn[:, t - 1].sum() > 30 if t else False for t in range(T)]))
-    S, info = {}, {}
     S['cgh'] = past(156) < 0
-    vol = pd.Series(mkw).rolling(26, min_periods=26).std().values * np.sqrt(52)
-    vol[:t0 + 26] = np.nan
+    vol = pd.Series(lr).rolling(26, min_periods=26).std().values * np.sqrt(52)
     S['panique'] = (past(104) < 0) & (past_pct(vol) >= 2 / 3)
     # dispersion : écart-type entre sociétés des hausses sur 4 semaines (2 % extrêmes coupés), moyenne de 13 semaines
     with np.errstate(all='ignore'):
@@ -157,7 +174,7 @@ def states(G, Y):
             lo, hi = np.percentile(v, [2, 98])
             rd[t] = np.clip(v, lo, hi).std()
     rdm = pd.Series(rd).rolling(13, min_periods=13).mean().values
-    S['dispersion'] = past_pct(rdm) >= 2 / 3
+    S['dispersion'] = past_pct(rdm, 156) >= 2 / 3
     # courbe des taux américaine : 10 ans − 3 mois négatif au moins une semaine dans l'année écoulée
     if '^TNX' in Y and '^IRX' in Y:
         sp = Y['^TNX'] - Y['^IRX']
@@ -171,12 +188,14 @@ def states(G, Y):
     for y in range(int(yr[G['t1997']]), int(yr[-1]) + 1):
         a = int(np.searchsorted(yr, y))
         b = int(np.searchsorted(yr, y + 1))
-        x = mkw[t0:a]
+        if a - m0 < 104:
+            continue
+        x = lr[m0 + 1:a]
         mu, sd, A, pi = hmm2(x, init=init)
         init = (mu, sd, A, pi)
         ag = int(np.argmax(sd))
-        al = hmm_filter(mkw[t0:b], mu, sd, A, pi)
-        p_ag[a:b] = al[a - t0:b - t0, ag]
+        al = hmm_filter(lr[m0 + 1:b], mu, sd, A, pi)
+        p_ag[a:b] = al[a - m0 - 1:b - m0 - 1, ag]
         if y in (1998, 2009, 2018, int(yr[-1])):
             k = 1 - ag
             info.setdefault('hmm', []).append(
@@ -192,7 +211,7 @@ def states(G, Y):
     base = a26.shift(26).rolling(156, min_periods=104).median()
     rel = np.log(a26 / base).values.T
     ilq = np.array([np.nanmedian(rel[okn[:, t], t]) if np.isfinite(rel[okn[:, t], t]).sum() > 30 else np.nan for t in range(T)])
-    S['illiquidite'] = past_pct(ilq) >= 2 / 3
+    S['illiquidite'] = past_pct(ilq, 156) >= 2 / 3
     info['t0'] = dates[t0]
     return S, p_ag, info
 
@@ -264,9 +283,9 @@ def main():
     G = PB.load()
     t1997, T, ERAS, retw, okn, SEL, mkw = (G[k] for k in ('t1997', 'T', 'ERAS', 'retw', 'okn', 'SEL', 'mkw'))
     log(f"données prêtes en {time.time() - t0:.0f} s")
-    Y = yields(G['dates'])
+    Y = yahoo(G['dates'])
     S, p_ag, info = states(G, Y)
-    log(f"états calculés en {time.time() - t0:.0f} s (marché mesuré depuis le {info['t0']})")
+    log(f"états calculés en {time.time() - t0:.0f} s ; marché des états : {info['marche']} ; sociétés depuis le {info['t0']}")
     for line in info.get('hmm', []):
         log("  Markov " + line)
     eras = [(el, a, min(b, T - 1)) for el, a, b in ERAS if el in ERAS3]
