@@ -11117,6 +11117,15 @@
     return res;
   };
   /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
+  /**
+   * Quand passer les ordres (research/survivant_horaire.py, 22/11/2026, cours journaliers EODHD, sociétés disparues comprises,
+   * 2001-2026, 5 937 achats du 🎯 au seuil de 3 M€) : achat et vente à l'ouverture du lundi +0,02 point sur 6 mois face à la clôture
+   * du vendredi des simulations, à l'ouverture du mardi −0,02, plus tard dans la semaine jusqu'à −0,17 (t ≤ 1,4) ; l'email du lundi
+   * soir (achat mardi) ne coûte que −0,08 point face à un email du vendredi soir (t −1,0). Revente : l'ouverture vaut la clôture ou
+   * mieux. Écart entre plus haut et plus bas du lundi : 2,7 % en médiane, d'où l'ordre à cours limité.
+   */
+  ES.WHEN_TO_TRADE =
+    "Quand passer l'ordre : à l'ouverture de la séance suivante (enchère de 9 h, heure de Paris), à cours limité ; acheter le mardi plutôt que le lundi ne coûte rien de mesurable. Revente : à l'ouverture de la séance qui suit les 6 mois.";
   ES.buildRankEmail = function (items, week, cfg, dashUrl, today, track, values) {
     values = values || [];
     var instBase = dashUrl ? String(dashUrl).split('#')[0] : '';
@@ -11222,6 +11231,7 @@
       (vtxt ? '\n\n' + vtxt : '') +
       '\n\n' +
       intro +
+      (n ? '\n' + ES.WHEN_TO_TRADE : '') +
       "\nÀ étudier, pas un ordre d'achat. Éligibilité PEA à vérifier chez votre courtier." +
       (dashUrl ? '\nTableau de bord : ' + dashUrl : '') +
       (inst ? "\n📲 Installer l'application sur le téléphone : " + inst : '');
@@ -11327,6 +11337,7 @@
         : '') +
       '<p style="color:#55615c;font-size:12px;margin-top:14px">' +
       esc(intro) +
+      (n ? '<br>' + esc(ES.WHEN_TO_TRADE) : '') +
       "<br>À étudier, pas un ordre d'achat. Éligibilité PEA à vérifier chez votre courtier.</p>" +
       (dashUrl
         ? '<p>' +

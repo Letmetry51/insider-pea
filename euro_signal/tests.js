@@ -3752,8 +3752,13 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
       /Installer l'application sur le téléphone : https:\/\/x\/\?installer=1/.test(mail.text),
     "📲 bouton d'installation en tête de l'email (et dans la version texte)"
   );
+  ok(
+    mail.text.indexOf(ES.WHEN_TO_TRADE) > 0 && mail.html.indexOf('enchère de 9 h') > 0,
+    "quand passer l'ordre : à l'ouverture de la séance suivante, dans le texte et le HTML"
+  );
   const none = ES.buildRankEmail([], '2026-W43', c3, null, '2026-10-19', null);
   ok(/aucune société/.test(none.subject));
+  ok(none.text.indexOf('Quand passer') < 0, "sans société à acheter, pas de conseil d'heure");
   ok(!/installer=1/.test(none.html + none.text), "sans adresse du tableau de bord, pas de bouton d'installation");
   eq(
     (ES.buildRankEmail([], 'W', c3, 'https://x/p.html?a=1#aide', 'd', null).text.match(/Installer[^\n]*/) || [''])[0],
