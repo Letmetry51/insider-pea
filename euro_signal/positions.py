@@ -318,18 +318,32 @@ def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=F
             div += amt if adjusted else now_basis(amt, d)
     last, peak = after[-1], max(after)
     perf = ((last + div) / buy - 1) * 100
+    # séance à −20 % ou pire depuis l'achat : souvent une augmentation de capital (détachement de droits), une scission ou une
+    # distribution que Yahoo n'ajuste pas, alors que les tests (cours EODHD) les ajustaient (contrôle du 22/11/2026 : Eramet −30 %
+    # le 16/11/2026, Electrolux, Kongsberg, Worldline). L'alerte part quand même (une vraie chute aussi), avec cet avertissement.
+    dated = [(d, now_basis(c, d)) for d, c in closes if d >= pos["date"]]
+    gap = None
+    for (d0, c0), (d1, c1) in zip(dated, dated[1:]):
+        try:
+            near = (date.fromisoformat(d1[:10]) - date.fromisoformat(d0[:10])).days <= 5
+        except (TypeError, ValueError):
+            near = False
+        if near and c0 > 0 and c1 / c0 - 1 <= -0.20 and (gap is None or c1 / c0 - 1 < gap[1]):
+            gap = (d1, c1 / c0 - 1)
+    note = ("" if not gap else " ; dont %s le %s/%s/%s en une seule séance : vérifier d'abord une augmentation de capital (détachement de "
+            "droits), une scission ou une distribution, que Yahoo n'ajuste pas" % (pc(gap[1] * 100), gap[0][8:10], gap[0][5:7], gap[0][:4]))
     ev = []
     if pos.get("target") and perf >= pos["target"]:
         ev.append(("obj" + str(int(pos["target"])), "objectif de +%d %% atteint (%s depuis votre achat)" % (pos["target"], pc(perf))))
     stop = abs(pos.get("stop") or STOP_DEFAULT)  # règle testée : protection à −30 % si rien n'a été indiqué
     if perf <= -stop:
-        ev.append(("stop" + str(int(stop)), "seuil de protection de -%d %% franchi (%s depuis votre achat) : la règle testée est de vendre" % (stop, pc(perf))))
+        ev.append(("stop" + str(int(stop)), "seuil de protection de -%d %% franchi (%s depuis votre achat) : la règle testée est de vendre%s" % (stop, pc(perf), note)))
     # paliers de baisse de 10 % : un seul email par palier, le plus profond franchi ce soir
     lvl = int(-perf // 10) * 10 if perf <= -10 else 0
     if lvl and lvl != int(stop):
-        ev.append(("baisse%d" % lvl, ("baisse de %d %% depuis votre achat (%s) : %s" % (lvl, pc(perf),
+        ev.append(("baisse%d" % lvl, ("baisse de %d %% depuis votre achat (%s) : %s%s" % (lvl, pc(perf),
                    "la règle testée est de garder jusqu'à la protection à -%d %% ; sur 29 ans, 2 lignes 🎯 sur 3 finissaient en hausse à 6 mois malgré des replis" % stop
-                   if lvl < stop else "sous la protection de -%d %%, la règle testée était de vendre" % stop))))
+                   if lvl < stop else "sous la protection de -%d %%, la règle testée était de vendre" % stop, note))))
     sells = [t for t in (txs or []) if t.get("type") == "vente" and t.get("status") != "annulee" and (t.get("pubDate") or t.get("txDate") or "") > pos["date"]]
     if sells:
         ev.append(("vente" + max((t.get("pubDate") or t.get("txDate")) for t in sells).replace("-", ""),
