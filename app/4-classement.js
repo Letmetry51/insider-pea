@@ -683,7 +683,7 @@ function bondOf(r) {
 }
 /** 📣 bond du jour (ES.dayBond) : repéré le soir même, email « 📣 Bond du jour » (étude du 04/11/2026). */
 var DAYB_TITLE =
-  'Séance à +8 % ou plus sur au moins 4 fois le volume moyen des 50 séances précédentes, cours en tendance : +4 points à 6 mois face à la moyenne sur 2000-2026, sociétés disparues comprises (+6,6 à 5 fois ou plus, −2 entre 4 et 5 fois)';
+  'Séance à +8 % ou plus sur au moins 5 fois le volume moyen des 50 séances précédentes, cours en tendance : +6,6 points à 6 mois face à la moyenne sur 2000-2026, sociétés disparues comprises';
 /** distance au plus bas d'un an d'un 📣 bond du jour (r.bjl, %) : plus le cours en est loin, mieux c'est (étude du 05/11/2026,
  *  revérifiée sans biais du survivant le 22/11/2026 : research/survivant_bond.py) */
 function daybLo(r) {
@@ -870,7 +870,7 @@ function analysisCard(isin, sym, full) {
       2.4,
       '📣 bond du jour (' +
         (r.bj ? 'hier' : 'dernière séance') +
-        ') : +8 % ou plus sur au moins 4 fois le volume habituel, +8 points à 6 mois en moyenne' +
+        ') : +8 % ou plus sur au moins 5 fois le volume habituel, +6,6 points à 6 mois en moyenne (sociétés disparues comprises)' +
         (r.bjl != null ? ' ; ' + daybLo(r) : '')
     );
   if (r.vx >= 1.5) add(pros, 2, 'volumes en hausse (×' + String(r.vx).replace('.', ',') + ' sur 10 semaines)');
@@ -2948,7 +2948,7 @@ function rankFacets(rows, ctx) {
       function (r) {
         return r.bj != null;
       },
-      'séance à +8 % ou plus sur au moins 4 fois le volume habituel, en tendance'
+      'séance à +8 % ou plus sur au moins 5 fois le volume habituel, en tendance'
     ),
     flagF(
       'fd',
@@ -3411,7 +3411,7 @@ var RPRESETS = {
   bj: [
     '📣 Bond du jour',
     { bj: ['on'] },
-    'séance à +8 % sur au moins 4 fois le volume, en tendance : +8,2 points à 6 mois sur 2000-2026 (+9,4 à 5 fois ou plus)',
+    'séance à +8 % sur au moins 5 fois le volume, en tendance : +6,6 points à 6 mois sur 2000-2026, sociétés disparues comprises',
   ],
   fd: [
     '🚩 Drapeau cassé',
@@ -3817,7 +3817,7 @@ function vClassement() {
     '<li><span class="rb t-good">🔊 ×2,1</span> volumes des 10 dernières semaines / moyenne de l\'année</li>' +
     '<li><span class="rb t-good">📣 bond</span> semaine à +8 % ou plus avec 3 fois le volume habituel, ou 2 fois si elle fait un nouveau plus haut de l\'année (8 dernières semaines)</li>' +
     '<li><span class="rb t-good">🚩 drapeau</span> le bond 📣 a cassé un drapeau : hausse d\'au moins 30 % en 8 semaines, 2 à 6 semaines de repos, puis clôture au-dessus (+18 points à 6 mois sur 1997-2026, affichage seulement)</li>' +
-    '<li><span class="rb t-good">📣 du jour</span> séance à +8 % ou plus sur au moins 4 fois le volume habituel, en tendance : repérée le soir même, email « 📣 Bond du jour » (+8 points à 6 mois sur 2000-2026)</li>' +
+    '<li><span class="rb t-good">📣 du jour</span> séance à +8 % ou plus sur au moins 5 fois le volume habituel, en tendance : repérée le soir même, email « 📣 Bond du jour » (+6,6 points à 6 mois sur 2000-2026, sociétés disparues comprises)</li>' +
     '<li><span class="rb t-good">🚀</span> nouveau plus haut après 6 mois de base (signal, hors note)</li>' +
     '<li><span class="rb t-bad">🐻 1,4 %</span> capital vendu à découvert par des fonds : à Paris, écartée du 🎯 (−11,6 pts à 6 mois sur 2013-2026) ; ailleurs signalée</li>' +
     '<li><span class="rb t-warn">⚡ 85 %/an</span> cours très volatil (≥ 80 % par an) : deux fois plus de chutes, écarté du 🎯</li>' +
