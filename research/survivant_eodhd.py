@@ -93,13 +93,16 @@ def friday(d):
 
 def universe():
     """Lignes retenues : actions ordinaires de l'EEE en EUR, SEK, NOK ou DKK, une par ISIN (cotée d'abord, bourse d'origine)."""
-    x, err = get('exchanges-list')
-    ita = [e.get('Code') for e in (x or []) if e.get('CountryISO2') == 'IT' or e.get('Country') == 'Italy']
+    x, err = get('exchanges-list/')
+    if err:
+        log(f"  liste des bourses : {err}")
+    ita = [e.get('Code') for e in (x or []) if str(e.get('CountryISO2') or '').upper() == 'IT' or 'ital' in str(e.get('Country') or '').lower()]
+    log(f"  bourses italiennes connues d'EODHD : {ita or 'aucune'}")
     best = None
-    for c in ita[:4]:
-        y, _ = get(f'exchange-symbol-list/{c}')
-        n = sum(1 for r in (y or []) if r.get('Type') == 'Common Stock')
-        log(f"  bourse italienne « {c} » : {n} actions ordinaires cotées")
+    for c in list(dict.fromkeys(ita[:4] + ['MI', 'MIL', 'BIT', 'XMIL', 'MTA'])):
+        y, e2 = get(f'exchange-symbol-list/{c}')
+        n = sum(1 for r in (y or []) if r.get('Type') == 'Common Stock' and str(r.get('Isin') or '')[:2] == 'IT')
+        log(f"  bourse « {c} » : {n} actions ordinaires italiennes cotées" + (f" ({e2})" if e2 else ''))
         if n and (best is None or n > best[1]):
             best = (c, n)
     if best:
@@ -311,20 +314,24 @@ def main():
         retw, okn, SEL = G['retw'], G['okn'], G['SEL']
         Lr = np.log1p(retw)
         Cc = np.concatenate([np.zeros((Lr.shape[0], 1)), np.cumsum(Lr, 1)], 1)
-        ex, n, ng, rg = [], 0, 0, []
+        ex, tt, n, ng, rg = [], [], 0, 0, []
         for t in range(t2001, T - 27):
             s = list(SEL.get(t, []))
             if not s:
                 continue
             fw = np.clip(np.expm1(Cc[:, t + 27] - Cc[:, t + 1]), -1, 5)
             ex.append(np.mean(fw[s]) - np.mean(fw[okn[:, t]]))
+            tt.append(t)
             for i in s:
                 n += 1
                 if G['_gone'][i] and t < G['_last'][i] <= t + 26:
                     ng += 1
                     rg.append(fw[i])
-        log(f"    {lab} : écart des sociétés choisies à 6 mois {np.mean(ex) * 100:+.1f} points ; {ng} choix sur {n} ({ng / max(n, 1) * 100:.1f} %) "
-            f"disparus dans les 6 mois, rendement moyen de ces lignes {np.mean(rg) * 100 if rg else float('nan'):+.0f} %")
+        ex, tt = np.array(ex), np.array(tt)
+        per = ' · '.join(f"{el} {ex[(tt >= a) & (tt < b)].mean() * 100:+.1f}" for el, a, b in ERAS)
+        log(f"    {lab} : écart des sociétés choisies à 6 mois {ex.mean() * 100:+.1f} points ({per}) ; {ng} choix sur {n} "
+            f"({ng / max(n, 1) * 100:.1f} %) disparus dans les 6 mois, rendement moyen de ces lignes "
+            f"{np.mean(rg) * 100 if rg else float('nan'):+.0f} %")
 
     log(f"\nCalculs prêts en {time.time() - t00:.0f} s ({calls[0]} appels)")
     res = {}
@@ -343,6 +350,11 @@ def main():
         res[lab] = measure(lab[:2] + ' sortie au dernier cours', G)
         picks_report(G, lab[:2] + ' sortie au dernier cours')
         if lab.startswith('C'):
+            M = G['mkw'][t2001 + 1:T]
+            for nm, R in (('10 lignes (8 🎯 + 2 📣), sans protection', CS.weekly_slots(G, lambda t, g=G: g['SEL10'].get(t, []), n=10)),
+                          ('frais 0,5 % par sens, sans protection', CS.weekly_slots(G, lambda t, g=G: g['SEL'].get(t, []), cost=.005))):
+                cells = ' · '.join(f"{el} {(np.prod(1 + R[a - t2001:b - t2001]) ** (52 / (b - a)) - 1) * 100:+.1f}" for el, a, b in ERAS)
+                log(f"    C. {nm:42s} {(np.prod(1 + R) ** (52 / len(R)) - 1) * 100:+.1f} %/an (marché {(np.prod(1 + M) ** (52 / len(M)) - 1) * 100:+.1f}) · {cells}")
             res[lab + ' −30 %'] = measure(lab[:2] + ' −30 % après une chute', G, haircut=True)
             picks_report(G, lab[:2] + ' −30 % après une chute')
         del G
