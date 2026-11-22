@@ -683,12 +683,13 @@ function bondOf(r) {
 }
 /** 📣 bond du jour (ES.dayBond) : repéré le soir même, email « 📣 Bond du jour » (étude du 04/11/2026). */
 var DAYB_TITLE =
-  'Séance à +8 % ou plus sur au moins 4 fois le volume moyen des 50 séances précédentes, cours en tendance : +8 points à 6 mois face à la moyenne sur 2000-2026';
-/** distance au plus bas d'un an d'un 📣 bond du jour (r.bjl, %) : plus le cours en est loin, mieux c'est (étude du 05/11/2026) */
+  'Séance à +8 % ou plus sur au moins 4 fois le volume moyen des 50 séances précédentes, cours en tendance : +4 points à 6 mois face à la moyenne sur 2000-2026, sociétés disparues comprises (+6,6 à 5 fois ou plus, −2 entre 4 et 5 fois)';
+/** distance au plus bas d'un an d'un 📣 bond du jour (r.bjl, %) : plus le cours en est loin, mieux c'est (étude du 05/11/2026,
+ *  revérifiée sans biais du survivant le 22/11/2026 : research/survivant_bond.py) */
 function daybLo(r) {
   return r.bjl == null
     ? ''
-    : 'à +' + r.bjl + " % de son plus bas d'un an (au-delà de +60 % : +11 points à 6 mois ; en dessous : +6 à +7)";
+    : 'à +' + r.bjl + " % de son plus bas d'un an (au-delà de +60 % : +5 points à 6 mois ; en dessous : +1)";
 }
 /** 🚩 drapeau cassé par un 📣 (ES.flagBond, affichage seulement) : la figure classique qui a tenu (étude du 03/11/2026). */
 var FLAG_TITLE =

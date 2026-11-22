@@ -9457,6 +9457,11 @@
    * les alertes ajoutées entre 4 et 5 fois +6,1 (+6,5 / +6,5 / +5,6), mieux que le 🎯 au feu vert (+4,6 / +4,7 / +4,2) dans chaque
    * période, pour 1,4 fois plus d'alertes. La sélection du lundi n'en tire rien (+0,1 point par an) : alerte du soir seulement
    * (research/hausse_tot*.py, research/bond_jour_seuil.py, research/backtest/_selection_sim9.py).
+   * Revérifié sans biais du survivant le 22/11/2026 (cours journaliers EODHD, 2 036 sociétés dont 694 disparues, au moins 3 M€
+   * par jour à la date comme l'email ; research/survivant_portefeuille.py, survivant_bond.py) : à 5 fois +6,6 points (t 3,0 ;
+   * +2,1 / +7,6 / +8,9), entre 4 et 5 fois −2,3 (−1,6 / −1,5 / −3,1), sous le 🎯 au feu vert (+4,0 / +3,3 / +2,2) dans chaque
+   * période ; sur les seules sociétés cotées et liquides aujourd'hui, mêmes données, +6,9 : le seuil de 4 fois tenait au biais.
+   * Retour à 5 fois proposé à François (règle de la méthode : inchangée sans son accord) ; les emails donnent ces chiffres.
    */
   ES.dayBond = function (daily, dvol) {
     var o = ES.dayBondInfo(daily, dvol);
@@ -9483,7 +9488,8 @@
       var m200 = mean(closes.slice(-200)),
         m50 = mean(closes.slice(-50));
       // distance au plus bas d'un an (252 séances jusqu'au bond) : sur 2000-2026, +11 points à 6 mois au-delà de +60 %, +6 à +7 en
-      // dessous (étude du 05/11/2026) ; information seulement, la règle ne change pas
+      // dessous (étude du 05/11/2026, sociétés encore cotées) ; sans biais du survivant (22/11/2026) +5,3 et +0,9 ; information
+      // seulement, la règle ne change pas
       var lo = Math.min.apply(null, closes.slice(-252));
       if (c > m200 && m50 > m200)
         return {
