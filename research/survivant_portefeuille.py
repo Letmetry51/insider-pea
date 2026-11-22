@@ -179,14 +179,14 @@ def watchdog(G):
                 ratios.append(v / s)
         if ratios:
             log(f"    à {h} mois : " + ', '.join(cells) + f" ; rapport moyen {np.mean(ratios):.2f} (de {min(ratios):.2f} à {max(ratios):.2f})")
-    log(f"    écart moyen des lignes à 6 mois par période : " + ' · '.join(f"{k} {v * 100:+.1f}" for k, v in par['hist6'].items()) +
+    log("    écart moyen des lignes à 6 mois par période : " + ' · '.join(f"{k} {v * 100:+.1f}" for k, v in par['hist6'].items()) +
         f" (avantage prudent retenu : {LIVE['mu6'] * 100:+.0f} points)")
     for k, v in (par.get('signals') or {}).items():
         log(f"    signal {k} : écart avec / sans {v['gap'] * 100:+.1f} points")
 
 
-def bonds(cols, liq, dates, T, gone):
-    log("\n3. Alertes « 📣 Bond du jour » sur cours journaliers, sociétés disparues comprises")
+def daily(cols, liq, dates, T, gone):
+    """Cours journaliers EODHD de toutes les sociétés, en mémoire : signaux du bond du jour et rendement à 6 mois de chaque séance."""
     N = len(cols)
     ax = pd.bdate_range('1998-06-01', pd.Timestamp.today().normalize() - pd.Timedelta(days=1)).values.astype('datetime64[D]')
     Td0 = len(ax)
@@ -228,12 +228,12 @@ def bonds(cols, liq, dates, T, gone):
     gc.collect()
     Td = len(ax)
     days = pd.DatetimeIndex(ax)
-    yrs, months = np.array(days.year), np.array(days.year * 100 + days.month)
     log(f"  cours journaliers : {int(np.isfinite(C).any(1).sum())} sociétés sur {N}, {Td} séances ({str(ax[0])} → {str(ax[-1])}), "
         f"en {time.time() - t1:.0f} s ; pics isolés retirés {nspk} ; erreurs {errs or 'aucune'}")
     fr = np.array(dates, dtype='datetime64[D]')
     wk = np.clip(np.searchsorted(fr, ax, side='right') - 1, 0, T - 1)
-    LQ = np.nan_to_num(liq[:, wk]).astype(np.float32)        # liquidité connue à la date (26 semaines, en euros)
+    Z = dict(Td=Td, days=days, yrs=np.array(days.year), months=np.array(days.year * 100 + days.month),
+             fri=np.array(days.day_of_week == 4), LQ=np.nan_to_num(liq[:, wk]).astype(np.float32))  # liquidité connue à la date
     shift, roll = FB.shift, HT.roll
     with np.errstate(all='ignore'), warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -241,80 +241,98 @@ def bonds(cols, liq, dates, T, gone):
         del H, L
         ret1 = C / shift(C, 1) - 1
         Vp = np.where(Vd > 0, Vd, np.nan).astype(np.float32)
-        vx = Vd / shift(roll(Vp, 50, 'mean', 40), 1)
+        Z['vx'] = Vd / shift(roll(Vp, 50, 'mean', 40), 1)
         del Vd
         m50, m200 = roll(C, 50, 'mean'), roll(C, 200, 'mean', 180)
         trend = ok & (C > m200) & (m50 > m200)
-        newhi = C > shift(roll(C, 252, 'max', 200), 1)
-        lo60 = C / roll(C, 252, 'min', 200) - 1 >= .6
+        Z['newhi'] = C > shift(roll(C, 252, 'max', 200), 1)
+        Z['lo60'] = C / roll(C, 252, 'min', 200) - 1 >= .6
         mom = shift(C, 21) / shift(C, 252) - 1
-        feu = trend & (mom >= .6) & (mom <= 2.0) & (C > m50)
-        up8 = ok & (ret1 >= .08) & trend
-        del ret1, m50, m200, mom
+        Z['feu'] = trend & (mom >= .6) & (mom <= 2.0) & (C > m50)
+        Z['up8'] = ok & (ret1 >= .08) & trend
+        del ret1, m50, m200, mom, trend, ok
         gc.collect()
         # sortie : clôture 125 séances après l'achat à l'ouverture du lendemain ; une société disparue (ou suspendue) garde son
         # dernier cours 130 séances ; ouvertures aberrantes (hors de 0,5 à 2 fois les clôtures voisines) écartées
-        lastd = np.array([np.where(np.isfinite(c))[0].max() if np.isfinite(c).any() else -1 for c in C])
+        Z['lastd'] = lastd = np.array([np.where(np.isfinite(c))[0].max() if np.isfinite(c).any() else -1 for c in C])
         Cx = pd.DataFrame(C.T).ffill(limit=130).values.T
         O1, C1 = shift(O, -1), shift(C, -1)
         good = (O1 > .5 * C) & (O1 < 2 * C) & (O1 > .5 * C1) & (O1 < 2 * C1)
         rr = shift(Cx, -125) / O1 - 1
-        rr = np.where(good & (rr < 5), rr, np.nan).astype(np.float32)
-        del Cx, O1, C1, good, O
+        Z['rr'] = np.where(good & (rr < 5), rr, np.nan).astype(np.float32)
+        del Cx, O1, C1, good, O, rr
         gc.collect()
-    fri = np.array(days.dayofweek == 4)
-    WB, endw = weekly_bond(C, Vp, days, cols)
-    gone_d = gone & (lastd < Td - 10)
+    Z['WB'], Z['endw'] = weekly_bond(C, Vp, days, cols)
+    Z['gone_d'] = gone & (lastd < Td - 10)
+    return Z
+
+
+def measure(Z, lab, lq):
+    """Écart à 6 mois des alertes parmi les cas permis par lq (sociétés × séances), face à la moyenne de ces mêmes cas ; renvoie
+    {règle : (écart moyen, écarts par période, nombre de cas)}."""
+    rr, yrs, months, Td, WB, endw, lastd, gone_d = (Z[k] for k in ('rr', 'yrs', 'months', 'Td', 'WB', 'endw', 'lastd', 'gone_d'))
+    up8, vx, newhi, lo60 = Z['up8'], Z['vx'], Z['newhi'], Z['lo60']
+    with np.errstate(all='ignore'), warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        z = np.where(lq, rr, np.nan)
+        mu = np.nanmean(z, 0)
+        mu[np.isfinite(z).sum(0) < 30] = np.nan
+        del z
+        X6 = rr - mu[None, :]
+    X6[:, yrs < 2000] = np.nan
+    R5, V4 = up8 & (vx >= 5) & lq, up8 & (vx >= 4) & lq
+    A4 = V4 & ~R5
+    rules = [('🎯 au feu vert, chaque vendredi', Z['feu'] & Z['fri'][None, :] & lq), ('📣 de la semaine, acheté le lundi', WB & lq),
+             ('bond à 5 fois le volume ou plus', R5), ('bond entre 4 et 5 fois', A4),
+             ("  … entre 4 et 5 fois, au plus haut de l'année", A4 & newhi), ("  … entre 4 et 5 fois, sous le plus haut", A4 & ~newhi),
+             ('toutes les alertes (4 fois ou plus)', V4), ("  … à +60 % ou plus du plus bas d'un an", V4 & lo60),
+             ("  … à moins de +60 % du plus bas", V4 & ~lo60)]
+    log(f"\n  {lab} : écart à 6 mois avec la moyenne des mêmes sociétés, achat à l'ouverture du lendemain, une entrée par société et "
+        f"par semestre ; en tout [2000-2008 / 2009-2017 / 2018-2026] (t regroupé par mois)")
+    out = {}
+    for lab_, Mk in rules:
+        Md = FB.dedup(Mk, 125)
+        a, pp, n_ = per6(Md, X6, yrs)
+        out[lab_] = (a, pp, n_)
+        ii, tt = np.where(Md & np.isfinite(X6))
+        dis = gone_d[ii] & (lastd[ii] <= tt + 125)
+        dtxt = f", dont {int(dis.sum())} disparues dans les 6 mois ({np.mean(rr[ii[dis], tt[dis]]) * 100:+.0f} % en moyenne)" if dis.any() else ''
+        log(f"    {lab_:46s} {a * 100:+5.1f} points [{' / '.join('  ·  ' if not np.isfinite(v) else f'{v * 100:+5.1f}' for v in pp)}] "
+            f"(t {tmonth(Md, X6, months):.1f}), {n_} cas{dtxt}")
+    log("    acheté le lendemain plutôt que le lundi qui suit la semaine du bond (mêmes sociétés, 6 mois) :")
+    for lab_, Mk in (('5 fois ou plus', R5), ('entre 4 et 5 fois', A4)):
+        ii, tt = np.where(FB.dedup(Mk, 125) & (yrs[None, :] >= 2000))
+        k_ = endw[tt] + 130 < Td
+        ii, tt = ii[k_], tt[k_]
+        if len(ii) < 30:
+            log(f"      {lab_:18s} trop peu de cas ({len(ii)})")
+            continue
+        e = endw[tt]
+        became = WB[ii, e]
+        en, em = X6[ii, tt], X6[ii, e]
+        m = np.isfinite(en) & np.isfinite(em)
+        mb, mn = m & became, m & ~became
+        log(f"      {lab_:18s} {int(m.sum())} cas ; {became[m].mean() * 100:.0f} % finissent la semaine en 📣 ; lendemain "
+            f"{np.mean(en[m]) * 100:+.1f}, lundi {np.mean(em[m]) * 100:+.1f} (écart {np.mean(en[m] - em[m]) * 100:+.1f}) ; semaine finie "
+            f"en 📣 : écart {np.mean(en[mb] - em[mb]) * 100 if mb.any() else float('nan'):+.1f} ; sans 📣 : "
+            f"{np.mean(en[mn]) * 100 if mn.any() else float('nan'):+.1f} points à 6 mois")
+    del X6
+    gc.collect()
+    return out
+
+
+EMAILS = ("\n  Chiffres des emails (sociétés d'aujourd'hui, 2000-2026) : +9 points à 5 fois ou plus ; +6 entre 4 et 5 fois (+8 au plus haut "
+          "de l'année, +5,5 en dessous) ; +11 au-delà de +60 % du plus bas d'un an, +6 à +7 en dessous ; lendemain plutôt que lundi +1 "
+          "point (+3 quand la semaine finit en 📣) ; 4 sur 10 (5 fois) et 2 sur 3 (4 à 5 fois) ne finissent pas la semaine en 📣 ; "
+          "🎯 au feu vert +4,5, 📣 de la semaine +7,1")
+
+
+def bonds(cols, liq, dates, T, gone):
+    log("\n3. Alertes « 📣 Bond du jour » sur cours journaliers, sociétés disparues comprises")
+    Z = daily(cols, liq, dates, T, gone)
     for Lq in (1e6, 3e6):
-        lq = LQ >= Lq
-        with np.errstate(all='ignore'), warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            z = np.where(lq, rr, np.nan)
-            mu = np.nanmean(z, 0)
-            mu[np.isfinite(z).sum(0) < 30] = np.nan
-            del z
-            X6 = rr - mu[None, :]
-        X6[:, yrs < 2000] = np.nan
-        R5, V4 = up8 & (vx >= 5) & lq, up8 & (vx >= 4) & lq
-        A4 = V4 & ~R5
-        rules = [('🎯 au feu vert, chaque vendredi', feu & fri[None, :] & lq), ('📣 de la semaine, acheté le lundi', WB & lq),
-                 ('bond à 5 fois le volume ou plus', R5), ('bond entre 4 et 5 fois', A4),
-                 ("  … entre 4 et 5 fois, au plus haut de l'année", A4 & newhi), ("  … entre 4 et 5 fois, sous le plus haut", A4 & ~newhi),
-                 ('toutes les alertes (4 fois ou plus)', V4), ("  … à +60 % ou plus du plus bas d'un an", V4 & lo60),
-                 ("  … à moins de +60 % du plus bas", V4 & ~lo60)]
-        log(f"\n  liquidité à la date ≥ {Lq / 1e6:.0f} M€ : écart à 6 mois avec la moyenne des sociétés aussi liquides, achat à l'ouverture "
-            f"du lendemain, une entrée par société et par semestre ; en tout [2000-2008 / 2009-2017 / 2018-2026] (t regroupé par mois)")
-        for lab, Mk in rules:
-            Md = FB.dedup(Mk, 125)
-            a, pp, n_ = per6(Md, X6, yrs)
-            ii, tt = np.where(Md & np.isfinite(X6))
-            dis = gone_d[ii] & (lastd[ii] <= tt + 125)
-            dtxt = f", dont {int(dis.sum())} disparues dans les 6 mois ({np.mean(rr[ii[dis], tt[dis]]) * 100:+.0f} % en moyenne)" if dis.any() else ''
-            log(f"    {lab:46s} {a * 100:+5.1f} points [{' / '.join('  ·  ' if not np.isfinite(v) else f'{v * 100:+5.1f}' for v in pp)}] "
-                f"(t {tmonth(Md, X6, months):.1f}), {n_} cas{dtxt}")
-        log("    acheté le lendemain plutôt que le lundi qui suit la semaine du bond (mêmes sociétés, 6 mois) :")
-        for lab, Mk in (('5 fois ou plus', R5), ('entre 4 et 5 fois', A4)):
-            ii, tt = np.where(FB.dedup(Mk, 125) & (yrs[None, :] >= 2000))
-            k_ = endw[tt] + 130 < Td
-            ii, tt = ii[k_], tt[k_]
-            if len(ii) < 30:
-                log(f"      {lab:18s} trop peu de cas ({len(ii)})")
-                continue
-            e = endw[tt]
-            became = WB[ii, e]
-            en, em = X6[ii, tt], X6[ii, e]
-            m = np.isfinite(en) & np.isfinite(em)
-            mb, mn = m & became, m & ~became
-            log(f"      {lab:18s} {int(m.sum())} cas ; {became[m].mean() * 100:.0f} % finissent la semaine en 📣 ; lendemain "
-                f"{np.mean(en[m]) * 100:+.1f}, lundi {np.mean(em[m]) * 100:+.1f} (écart {np.mean(en[m] - em[m]) * 100:+.1f}) ; semaine finie "
-                f"en 📣 : écart {np.mean(en[mb] - em[mb]) * 100 if mb.any() else float('nan'):+.1f} ; sans 📣 : "
-                f"{np.mean(en[mn]) * 100 if mn.any() else float('nan'):+.1f} points à 6 mois")
-        del X6
-        gc.collect()
-    log("\n  Chiffres des emails (sociétés d'aujourd'hui, 2000-2026) : +9 points à 5 fois ou plus ; +6 entre 4 et 5 fois (+8 au plus haut "
-        "de l'année, +5,5 en dessous) ; +11 au-delà de +60 % du plus bas d'un an, +6 à +7 en dessous ; lendemain plutôt que lundi +1 "
-        "point (+3 quand la semaine finit en 📣) ; 4 sur 10 (5 fois) et 2 sur 3 (4 à 5 fois) ne finissent pas la semaine en 📣 ; "
-        "🎯 au feu vert +4,5, 📣 de la semaine +7,1")
+        measure(Z, f"liquidité à la date ≥ {Lq / 1e6:.0f} M€", Z['LQ'] >= Lq)
+    log(EMAILS)
 
 
 def main():
