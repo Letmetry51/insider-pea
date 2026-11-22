@@ -880,7 +880,7 @@ function biblioCard() {
         'Daniel et Moskowitz (2016)',
         'Momentum Crashes',
         'Journal of Financial Economics',
-        'alerte krach : marché en baisse de 20 % sur un an.'
+        'alerte krach : marché en baisse de 20 % sur un an ; « panique » (baisse sur 2 ans, forte agitation) : le 🎯 reste devant.'
       ),
       ref(
         '✅',
@@ -944,6 +944,65 @@ function biblioCard() {
         'Trade Like a Stock Market Wizard',
         '',
         '« Trend Template » : doublon du classement.'
+      ),
+    ]) +
+    '<p class="small"><b>🔄 Cycle économique et état du marché</b></p>' +
+    ul([
+      ref(
+        '🧪',
+        'Molchanov et Stangl (2023)',
+        'The Myth of Business Cycle Sector Rotation',
+        'International Journal of Finance and Economics',
+        'rotation sectorielle selon le cycle : rien de plus (carte 🔄).'
+      ),
+      ref(
+        '📖',
+        'Griffin, Ji et Martin (2003)',
+        'Momentum Investing and Business Cycle Risk: Evidence from Pole to Pole',
+        'Journal of Finance',
+        'le momentum paie dans les bonnes et les mauvaises phases : confirmé, le 🎯 bat la moyenne dans chaque phase.'
+      ),
+      ref(
+        '🧪',
+        'Cooper, Gutierrez et Hameed (2004)',
+        'Market States and Momentum',
+        'Journal of Finance',
+        'après 3 ans de baisse du marché : le 🎯 reste devant (+11 points à 6 mois).'
+      ),
+      ref(
+        '🧪',
+        'Stivers et Sun (2010)',
+        'Cross-Sectional Return Dispersion and Time Variation in Value and Momentum Premiums',
+        'Journal of Financial and Quantitative Analysis',
+        'dispersion des cours : rien.'
+      ),
+      ref(
+        '🧪',
+        'Estrella et Mishkin (1998)',
+        'Predicting U.S. Recessions: Financial Variables as Leading Indicators',
+        'Review of Economics and Statistics',
+        "courbe des taux inversée : aucun effet sur le 🎯, en sortir coûte jusqu'à 28 points par an."
+      ),
+      ref(
+        '🧪',
+        'Kritzman, Page et Turkington (2012)',
+        'Regime Shifts: Implications for Dynamic Strategies',
+        'Financial Analysts Journal',
+        'modèle de Markov à 2 régimes : pire baisse −38 % au lieu de −52 %, mais 6 à 14 points de moins par an.'
+      ),
+      ref(
+        '🧪',
+        'Avramov, Cheng et Hameed (2016)',
+        'Time-Varying Liquidity and Momentum Profits',
+        'Journal of Financial and Quantitative Analysis',
+        'marché peu liquide : rien.'
+      ),
+      ref(
+        '📖',
+        'Welch et Goyal (2008)',
+        'A Comprehensive Look at the Empirical Performance of Equity Premium Prediction',
+        'Review of Financial Studies',
+        "les indicateurs économiques n'ont pas prédit la bourse hors échantillon : l'outil ne cherche pas le bon moment du marché."
       ),
     ]) +
     '<p class="small"><b>💎 Valeur et comptes</b></p>' +
@@ -1030,7 +1089,7 @@ function biblioCard() {
         'Bailey et López de Prado (2014)',
         'The Deflated Sharpe Ratio',
         'Journal of Portfolio Management',
-        "ratio de Sharpe corrigé du nombre d'essais (test des secteurs)."
+        "ratio de Sharpe corrigé du nombre d'essais : secteurs ; méthode, 99,5 % de chances d'une avance réelle sur 1 000 essais."
       ),
       ref(
         '✅',
@@ -1471,6 +1530,7 @@ function logicCard() {
     '<details class="fsscale more" data-k="lg-out"><summary>🗑️ Testé et retiré</summary><ul class="plain small">' +
     "<li><b>Achats de dirigeants</b> comme critère principal : environ 4 000 achats en France et en Suède n'ont pas fait mieux qu'un titre pris au hasard une fois publiés (+0,3 point, 48 % de gagnants). Gardés en petit bonus, consultables dans l'onglet Achats. Croisés avec le 🎯 au feu vert (France depuis 2021, Suède depuis 2016) : pas d'avantage, +1,5 point à 6 mois avec un achat de dirigeant dans les 3 derniers mois contre +4,6 sans (moins de chutes, mais moins de hausse, sur peu de cas) ; ce petit bonus sera réexaminé à la revue du 31/01/2027.</li>" +
     "<li><b>Signaux de début de hausse</b> : sortie d'une base longue au plus haut de l'année avant le 🎯 (comme Corbion en septembre 2026 ; 1 463 cas sur 2000-2026 : −0,3 point à 6 mois, 13 % seulement font ensuite un 📣), tendance qui vient de tourner, sortie de creux, compression de volatilité, base serrée, accélération sur 3 mois, croisement de moyennes, recherches Google : pas mieux que la moyenne. Indicateurs de retournement de la bibliothèque ProRealCode (1997-2026) : entrée en étape 2 de Weinstein après une baisse, MACD-V qui repasse au-dessus de 0, divergence haussière du RSI, creux de −30 % puis croisement des moyennes : de −1,7 à −3,5 points à 6 mois face à la moyenne, avec 9 à 14 % de chutes ; seuls 8 à 12 % de ces signaux mènent au 🎯 dans les 6 mois. Le « V » des graphiques (creux de −30 %, rebond de +25 %, volumes en hausse) : au mieux +4,9 points (t 1,3) et 11 % de chutes, contre +8,1 et 7 % pour le 🎯. Signaux censés précéder le prix (27/10/2026) : force relative au plus haut avant le cours, meneuses pendant une baisse du marché, volume cumulé (OBV) au plus haut, accumulation (plus de volume les semaines de hausse), contagion entre sociétés d\'un même métier, saison propre à chaque société : de 0 à +1,2 point à 6 mois, rien d\'utilisable pour arriver plus tôt. Le tracé « longue base » (plus haut de 5 ans vieux de 2 ans ou plus, creux de 35 % ou plus, puis retour près de ce plus haut, 1 395 cas) : +1,5 point seulement ; ce qui compte, c'est le bond sur volume qui l'accompagne parfois, avec ou sans longue base. Seule exception mesurée : le 📣 démarrage sur bond, montré à part dans le classement (hors note) ; depuis le 27/10/2026, la meilleure société qui démarre ainsi prend une place sur cinq de la sélection.</li>" +
+    "<li><b>État du marché et cycle, selon la littérature</b> (22/11/2026, 1998-2026) : après 3 ans de baisse du marché (Cooper et al., 2004), en « panique » (Daniel et Moskowitz, 2016), quand les cours divergent (Stivers et Sun, 2010), courbe des taux inversée (Estrella et Mishkin, 1998), régime agité d'un modèle de Markov (Kritzman et al., 2012) ou marché peu liquide (Avramov et al., 2016), le 🎯 reste devant la moyenne (+11 à +14 points à 6 mois, +6 pendant les récessions de la zone euro). Passer à l'indice ou aux liquidités dans ces moments fait perdre dans au moins 2 périodes sur 3, jusqu'à 28 points par an ; seule la pire baisse se réduit parfois (−29 à −41 % au lieu de −52 %). Le 🎯 a battu la moyenne dans chaque phase du cycle (+7 à +16 points à 6 mois).</li>" +
     "<li><b>Cycle économique</b> (22/11/2026, 1998-2026) : les sociétés des secteurs « portés » par la phase du cycle (carte 🔄 de l'onglet Secteurs, refaite chaque semaine avec les cours connus ce jour-là) n'ont pas fait mieux les 6 mois suivants (+0,1 point face à la moyenne ; portés − à contre-cycle : −2,1, +1,9 et +0,1 selon la période). Toutes les façons de les privilégier ont réduit le gain : portés d'abord −1 à −6 points par an selon la période, 🎯 sans les sociétés à contre-cycle jusqu'à −1,7, 🎯 seulement dans les secteurs portés −12,6 sur 1998-2008. La phase se lit sur la force des secteurs déjà observée, que la hausse sur 12 mois du 🎯 contient déjà : repère gardé, feu 🔄 en gris.</li>" +
     "<li><b>Attention des internautes</b> (19/11/2026 ; consultations des pages Wikipédia de 699 sociétés depuis 2015, forums sans historique) : consultations doublées en une semaine −1,0 point à 6 mois face à la moyenne des sociétés, −3,8 quand le cours baisse la même semaine ; dans la zone du 🎯, +7,3 contre +2,3 sur 168 cas, mais rien de mieux sur 2015-2019 et l'écart fond quand on ajoute des sociétés : pas retenu. Les volumes (🔊, 📣) mesurent déjà l'attention qui se traduit en achats.</li>" +
     "<li><b>Signaux entourés sur Euronext</b> (18/11/2026, screener ProRealTime) : supertrend adaptatif qui passe haussier, OBV au plus haut, RSI qui remonte depuis 40 et force relative au-dessus de 0 dans les 3 dernières semaines : −1,6 point à 6 mois face à la moyenne des sociétés (1 122 sociétés, 2000-2026, moins bien dans chaque période), chaque signal seul de −0,8 à −1,4 ; dans la zone du 🎯, pas de meilleur moment d'entrée (+2,1 contre +2,6 sans eux).</li>" +
@@ -1522,7 +1582,7 @@ function logicCard() {
     ) +
     '<p class="small">À retenir : <b>environ +4 points tous les 6 mois</b> face à la société moyenne (≈ +8 par an), avec des années nulles ou en perte.</p><ul class="plain small nomax">' +
     '<li>🪦 <b>Biais du survivant</b> (sociétés disparues absentes) : faillites supposées ci-dessus, hypothèse sévère ; et contrôle indépendant par le facteur momentum européen de Kenneth French, calculé avec les sociétés disparues : +9,7 % par an contre +10,0 % pour nous (1998-2026, corrélation 0,83).</li>' +
-    "<li>🎲 <b>Trop d'essais</b> (512 réglages) : chiffre retenu sur les années jamais vues (réglages choisis sur 1997-2012, les nôtres 13<sup>es</sup> sur 512) et seuil exigeant t ≥ 3 au lieu de 2 (Harvey, Liu et Zhu, 2016). Le 🎯 passe (t 3,3) ; 📣 non (rien avant 2013) ; ⏸️ et ⚡ faibles depuis 2013.</li>" +
+    "<li>🎲 <b>Trop d'essais</b> (512 réglages) : chiffre retenu sur les années jamais vues (réglages choisis sur 1997-2012, les nôtres 13<sup>es</sup> sur 512) et seuil exigeant t ≥ 3 au lieu de 2 (Harvey, Liu et Zhu, 2016). Le 🎯 passe (t 3,3) ; 📣 non (rien avant 2013) ; ⏸️ et ⚡ faibles depuis 2013. Ratio de Sharpe « dégonflé » (Bailey et López de Prado, 2014) : même en comptant 1 000 essais, l'avance simulée a 99,5 % de chances d'être réelle (moins nette sur une seule décennie : 22 à 98 %), avant correction du biais du survivant.</li>" +
     "<li>🇺🇸 <b>Contrôle sur les États-Unis</b> (≈ 1 500 sociétés du S&amp;P 1500, mêmes règles, aucun réglage) : +3,6 points à 6 mois sur 1997-2026 (t 2,3), moitié moins qu'en Europe ; sur 2013-2026, +2,5 (t 1,0 : pas significatif), +1,5 après frais, −0,8 avec les faillites supposées. L'avantage n'est donc pas universel : net en Europe, faible aux États-Unis ces dernières années ; d'où le suivi réel.</li>" +
     "<li>💶 <b>Frais, impôts, dividendes</b> : dividendes inclus (cours ajustés) ; frais de 0,5 à 2 % par achat-vente selon le courtier (plus 0,4 % de taxe à l'achat des sociétés françaises de plus d'1 Md€) ; chaque ligne fait environ 2 achats-ventes par an : à 1 % l'aller-retour, 2 % par an partent en frais, à 0,2 % seulement 0,4 % ; le choix du courtier pèse donc autant qu'une règle ; dans un PEA, aucun impôt tant que l'argent y reste, puis 18,6 % des gains en prélèvements sociaux après 5 ans (taux 2026), comme pour un fonds indiciel dans le même PEA.</li>" +
     '<li>💎 <b>Valeur</b> testée sur nos données, 2024-2026 (seuls comptes disponibles, ≈ 520 sociétés liquides par mois) : les 10 premières +5,1 points à 6 mois (+4,1 après frais), 4 % de chutes de 25 % contre 8 % ; t 1,7 : encourageant, pas encore une preuve. Le dosage 70/30 repose sur le facteur valeur européen de Kenneth French.</li>' +
