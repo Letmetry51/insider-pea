@@ -4452,7 +4452,7 @@ function vInsRank() {
   })();
   h +=
     '<details class="help"><summary>Comment lire ce tableau ?</summary><ul class="plain">' +
-    '<li><b>Feux</b> : 👔 dirigeants · 💎 valeur · 📊 comptes · 📈 tendance · 🔥 secteur · 🔄 cycle · 💧 liquidité · 🧭 moment d\'achat. <span class="t-good">●</span> favorable, <span class="t-mid">●</span> à surveiller, <span class="t-bad">●</span> défavorable, gris : inconnu.</li>' +
+    '<li><b>Feux</b> : 👔 dirigeants · 💎 valeur · 📊 comptes · 📈 tendance · 🔥 secteur · 🔄 cycle · 💧 liquidité · 🧭 moment d\'achat. <span class="t-good">●</span> favorable, <span class="t-mid">●</span> à surveiller, <span class="t-bad">●</span> défavorable, gris : inconnu ou simple repère (🔄 cycle : sans effet mesuré).</li>' +
     '<li><b>Décote</b> : de combien le prix payé par le dirigeant était sous le plus haut des 52 semaines. <span class="disc deep">−40 % et plus</span> <span class="disc mid">−25 à −40 %</span> <span class="disc low">moins de −25 %</span></li>' +
     "<li><b>Prix payé / cours</b> : sur la barre des 52 dernières semaines (plus bas à gauche, plus haut à droite), ○ = prix payé par le dirigeant, ■ = cours actuel. Carré à droite du rond : le cours a monté depuis l'achat.</li>" +
     "<li><b>Depuis l'achat</b> : évolution du cours depuis le prix payé.</li>" +

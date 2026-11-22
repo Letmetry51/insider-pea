@@ -857,7 +857,7 @@ function cycleCard(compact) {
         (c.second
           ? "Les deux phases sont proches : un secteur n'est dit « porté » que si les deux le portent ou si sa force le confirme déjà. "
           : '') +
-        'Sans effet sur la note.'
+        "Testé de 1998 à 2026 : les secteurs portés n'ont pas fait mieux les 6 mois suivants, et les privilégier dans la sélection a réduit le gain. Repère seulement, sans effet sur la note ni sur la sélection."
     ) +
     '</section>'
   );
@@ -1028,14 +1028,15 @@ function feux(i) {
     'cyc',
     '🔄',
     'Cycle',
-    cy ? (cy.fit === 'up' ? 'good' : cy.fit === 'down' ? 'bad' : 'na') : 'na',
+    'na', // repère seulement : porté ou à contre-cycle n'a rien changé aux 6 mois suivants (research/cycle_secteurs.py)
     cy ? (cy.fit === 'up' ? 'porté' : cy.fit === 'down' ? 'contre' : 'neutre') : '—',
     cy
       ? (cy.cyclical ? 'Secteur cyclique' : 'Secteur défensif') +
           ', ' +
           (cy.fit === 'up' ? 'porté par' : cy.fit === 'down' ? 'à contre-courant de' : 'neutre dans') +
           ' la phase ' +
-          cy.phase
+          cy.phase +
+          ' (repère : sans effet mesuré sur la suite, 1998-2026)'
       : 'Phase du cycle inconnue'
   );
   var lq = liqOf(i);
