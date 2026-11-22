@@ -10030,6 +10030,8 @@
    * par note décroissante, 2 sociétés par secteur au plus (simulation 1997-2026 : mieux qu'une seule dans 2 périodes sur 3, perte
    * maximale identique). Pour aller jusqu'à n (3, 5 ou 10), règles assouplies par paliers, signalés sur chaque société (pickWhy). Renvoie { picks, rejected, pool, pools }.
    * Test 1997-2026 (filtres sans les comptes) : +6,7 points à 6 mois ; avec volumes ≥ ×1,5 : +10,2 (positif dans chaque période).
+   * Filtre des comptes mesuré sur mai 2024 - mai 2026 seulement (research/revue_pistes.py, comptes lus à chaque date) : +12,7
+   * points à 6 mois avec, +8,6 sans (t 1,3) : gardé ; comptes lus à 90 ou 60 jours au lieu de 120 : pas mieux.
    * Depuis le 27/10/2026, une place sur 5 (2 sur 10, aucune sur 3) revient au meilleur 📣 démarrage sur bond qui n'est pas déjà
    * choisi : bond il y a 3 semaines au plus (3 fois le volume, ou 2 fois au plus haut de l'année), tendance haussière, société classée,
    * comptes solides, même liquidité, 2 par secteur ; à défaut, la place revient au 🎯 suivant. Portefeuille simulé 1998-2026
