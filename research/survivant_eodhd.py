@@ -226,11 +226,12 @@ def chain(P, V, dates, cols, secs, okmask):
     return G
 
 
-def main():
+def prepare():
+    """Univers, cours, liquidité à la date et disparitions ; None sans clé."""
     t00 = time.time()
     if not KEY:
         log("Secret EODHD_API_KEY absent : rien à faire.")
-        return
+        return None
     u, err = get('user')
     log(f"Formule « {(u or {}).get('subscriptionType')} », {(u or {}).get('apiRequests')} appels utilisés aujourd'hui" if u else f"Compte : {err}")
     rows = universe()
@@ -277,6 +278,17 @@ def main():
     ERAS = [('2001-2008', t2001, int(np.searchsorted(dates, '2009-01-01'))),
             ('2009-2017', int(np.searchsorted(dates, '2009-01-01')), int(np.searchsorted(dates, '2018-01-01'))),
             ('2018-2026', int(np.searchsorted(dates, '2018-01-01')), T - 1)]
+
+    return dict(t00=t00, rows=rows, P=P, C=C, V=V, liq=liq, dl=dl, cols=cols, secs=secs, dates=dates, T=T, last=last, gone=gone,
+                perf=perf, t2001=t2001, ERAS=ERAS)
+
+
+def main():
+    D = prepare()
+    if D is None:
+        return
+    t00, rows, P, V, liq, dl, cols, secs, dates, T, last, gone, perf, t2001, ERAS = (
+        D[k] for k in ('t00', 'rows', 'P', 'V', 'liq', 'dl', 'cols', 'secs', 'dates', 'T', 'last', 'gone', 'perf', 't2001', 'ERAS'))
 
     def measure(lab, G, haircut=False, relaxed=True):
         G['t1997'] = t2001
