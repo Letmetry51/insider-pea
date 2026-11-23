@@ -77,10 +77,13 @@ def run(m):
     P, C, V = SE.download(rows, idx)
     dates = [str(d.date()) for d in idx]
     T = len(idx)
-    x, err = SE.get(f"eod/{m['fx']}", period='w', **{'from': SE.START})
-    s = pd.Series({SE.friday(b['date']): float(b['close']) for b in x or [] if b.get('close')})
-    fx = s[~s.index.duplicated()].reindex(idx).ffill().bfill().values if len(s) else np.full(T, np.nan)
-    log(f"  change {m['fx']} : {len(s)} semaines" + ('' if len(s) else f" ({err})"))
+    if m.get('fx'):
+        x, err = SE.get(f"eod/{m['fx']}", period='w', **{'from': SE.START})
+        s = pd.Series({SE.friday(b['date']): float(b['close']) for b in x or [] if b.get('close')})
+        fx = s[~s.index.duplicated()].reindex(idx).ffill().bfill().values if len(s) else np.full(T, np.nan)
+        log(f"  change {m['fx']} : {len(s)} semaines" + ('' if len(s) else f" ({err})"))
+    else:  # place cotée en euros
+        fx = np.ones(T)
     unit = np.array([m['cur'][r['cur']] for r in rows])[:, None]
     tov = np.where(np.isfinite(C) & np.isfinite(V), C * unit * V / 5 / fx[None, :], np.nan)   # en euros par jour
     liq = pd.DataFrame(tov.T).rolling(26, min_periods=13).mean().values.T
@@ -106,9 +109,16 @@ def run(m):
         log(f"  {y} : {int((inv & ~dl).sum())} sociétés à 3 M€ par jour encore cotées aujourd'hui, {int((inv & dl).sum())} disparues depuis")
     t2010 = int(np.searchsorted(dates, '2010-06-01'))
     n2010 = int((np.isfinite(P[:, t2010]) & (np.nan_to_num(liq[:, t2010]) >= 3e6)).sum())
+    n2010b = int((np.isfinite(P[:, t2010]) & (np.nan_to_num(liq[:, t2010]) >= 1e6)).sum())
+    only1 = False
     if not m['abc'] and n2010 < 80:
-        log(f"  {n2010} sociétés investissables en 2010 : trop peu pour la méthode (5 choix par semaine, 2 par secteur), test non fait")
-        return None
+        if m.get('lq1') and n2010b >= 80:
+            only1 = True
+            log(f"  {n2010} sociétés investissables à 3 M€ en 2010, {n2010b} à 1 M€ : test à 1 M€ seulement")
+        else:
+            log(f"  {n2010} sociétés investissables en 2010 (à 1 M€ : {n2010b}) : trop peu pour la méthode (5 choix par semaine, 2 par "
+                f"secteur), test non fait")
+            return None
     t2001 = int(np.searchsorted(dates, '2001-01-01'))
     ERAS = [('2001-2008', t2001, int(np.searchsorted(dates, '2009-01-01'))),
             ('2009-2017', int(np.searchsorted(dates, '2009-01-01')), int(np.searchsorted(dates, '2018-01-01'))),
@@ -119,8 +129,12 @@ def run(m):
 
     def per(R):
         return ' · '.join(f"{el} {(np.prod(1 + R[a - t2001:b - t2001]) ** (52 / (b - a)) - 1) * 100:+.1f}" for el, a, b in ERAS)
-    lab_b, code_b = m['bench']
-    x, err = SE.get(f"eod/{code_b}", period='w', **{'from': '2000-01-01'})
+    lab_b, codes_b = m['bench']
+    for code_b in ((codes_b,) if isinstance(codes_b, str) else codes_b):
+        x, err = SE.get(f"eod/{code_b}", period='w', **{'from': '2000-01-01'})
+        if x:
+            lab_b = f"{lab_b} [{code_b}]"
+            break
     if x:
         s = pd.Series({SE.friday(b['date']): float(b['adjusted_close']) for b in x if b.get('adjusted_close')}).sort_index()
         s = s[~s.index.duplicated()].reindex(pd.DatetimeIndex(pd.to_datetime(dates))).ffill().values
@@ -134,6 +148,8 @@ def run(m):
         log(f"  {lab_b} : {err}")
     lastliq = np.nan_to_num(liq[:, -1])
     U = [('C. toutes, disparues comprises, ≥ 3 M€ à la date', np.ones(len(cols), bool), liq >= 3e6)]
+    if m.get('lq1'):
+        U = ([] if only1 else U) + [('C bis. toutes, disparues comprises, ≥ 1 M€ à la date', np.ones(len(cols), bool), liq >= 1e6)]
     if m['abc']:
         U = [("A. cotées et liquides aujourd'hui (≥ 1 M€), sans filtre à la date", ~dl & (lastliq >= 1e6), None),
              ('B. cotées, ≥ 3 M€ à la date', ~dl, liq >= 3e6)] + U
