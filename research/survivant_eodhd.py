@@ -49,6 +49,7 @@ CUR = {'EUR', 'SEK', 'NOK', 'DKK'}
 JUNK = re.compile(r'\b(rights?|warrants?|bezugsrechte?|droits?|wts|certificates?|tracker|etf|etc|fund|fonds|sicav)\b', re.I)
 LEGAL_DE = re.compile(r'\b(AG|SE|KGaA|GmbH)\b')
 LIQ = 1e6
+START = '1998-01-01'  # début des cours (premier vendredi ensuite) ; hors_echantillon.py le met à 1988
 _lock = threading.Lock()
 _last = [0.0]
 calls = [0]
@@ -153,7 +154,7 @@ def download(rows, idx):
     errs = {}
 
     def one(k):
-        x, err = get(f"eod/{rows[k]['sym']}", period='w', **{'from': '1998-01-01'})
+        x, err = get(f"eod/{rows[k]['sym']}", period='w', **{'from': START})
         return k, x, err
     t0 = time.time()
     with cf.ThreadPoolExecutor(8) as pool:
@@ -235,14 +236,14 @@ def prepare():
     u, err = get('user')
     log(f"Formule « {(u or {}).get('subscriptionType')} », {(u or {}).get('apiRequests')} appels utilisés aujourd'hui" if u else f"Compte : {err}")
     rows = universe()
-    idx = list(pd.date_range('1998-01-02', pd.Timestamp.today().normalize() - pd.Timedelta(days=1), freq='W-FRI'))
+    idx = list(pd.date_range(START, pd.Timestamp.today().normalize() - pd.Timedelta(days=1), freq='W-FRI'))
     P, C, V = download(rows, idx)
     dates = [str(d.date()) for d in idx]
     T = len(idx)
     # change (devise locale pour 1 €), échanges par jour en euros, moyenne des 26 semaines précédentes
     fx = {'EUR': np.ones(T)}
     for c in ('SEK', 'NOK', 'DKK'):
-        x, err = get(f'eod/EUR{c}.FOREX', period='w', **{'from': '1998-01-01'})
+        x, err = get(f'eod/EUR{c}.FOREX', period='w', **{'from': START})
         s = pd.Series({friday(b['date']): float(b['close']) for b in x or [] if b.get('close')})
         fx[c] = s.reindex(idx).ffill().bfill().values if len(s) else np.full(T, np.nan)
         log(f"  change EUR/{c} : {len(s)} semaines" + ('' if len(s) else f" ({err})"))
