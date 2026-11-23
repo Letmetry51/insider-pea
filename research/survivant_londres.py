@@ -192,6 +192,9 @@ def run(m):
         ninv = int(np.median([okn[:, t].sum() for t in range(t2001, T - 1)]))
         log(f"\n  {lab} : {len(ii)} sociétés ({int(gone[ii].sum())} disparues), {ninv} investissables par semaine (médiane), calcul en "
             f"{time.time() - t0:.0f} s")
+        if ninv <= 30:
+            log("    ATTENTION : 30 sociétés investissables ou moins, la société moyenne est comptée à 0 % ces semaines-là : la comparaison "
+                "annuelle ci-dessous ne vaut pas ; seul l'écart des choix à 6 mois (face aux sociétés investissables) compte")
         log(f"    protection −30 % : {ann(R1):+.1f} %/an ({per(R1)}) contre {ann(M):+.1f} pour la société moyenne ({per(M)}) ; écart t {tv:.1f} ; "
             f"sans protection {ann(R0):+.1f} %/an")
         log(f"    écart des choix à 6 mois {ex.mean() * 100:+.1f} points ({pe}) ; {ng} choix sur {n} disparus dans les 6 mois, "
