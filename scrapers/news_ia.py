@@ -13,7 +13,8 @@ baisse ou neutre) et la raison en quelques mots. Lectures gardées dans data/new
 rapport, r : raison, v : version de la consigne) et reprises les soirs suivants par news.py ; liste de chaque société remise dans
 l'ordre (titres qui la concernent et qui peuvent faire bouger le cours d'abord). Sans le secret ANTHROPIC_API_KEY, ou si l'appel
 échoue, les titres gardent le classement par mots-clés (⚠️ / ✅). Modèle, taille des lots et budget de temps : euro_signal/config.json
-(« lectureNews »). Seuls des noms de sociétés et des titres d'articles publics sont envoyés.
+(« lectureNews »). Seuls des noms de sociétés et des titres d'articles publics sont envoyés. Lancé par le calcul du soir (étape
+4c bis) et à chaque publication du code (publish.yml, titres pas encore lus seulement).
 """
 import concurrent.futures as cf
 import json
