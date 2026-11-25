@@ -1,17 +1,21 @@
 """
-Euro Signal — comptes annuels (4 derniers exercices) : compte de résultat, bilan, flux de trésorerie (Yahoo Finance).
+Euro Signal — comptes annuels (4 derniers exercices) : compte de résultat, bilan, flux de trésorerie (Yahoo Finance), et depuis le
+25/11/2026 les 6 derniers trimestres ou semestres quand Yahoo les donne (« quarters »).
 
 Sert à l'« Analyse des comptes » (tendances sur 4 ans, F-score de Piotroski) des sociétés suivies, et aux exclusions
-et au départage du classement tendance + comptes pour les sociétés liquides du catalogue (clé « @TICKER »).
-Les comptes ne changent qu'une fois par an : chaque société est relue au plus tous les 30 jours (cache dans
-data/financials.json, conservé d'un soir à l'autre), en commençant par celles où un dirigeant a acheté récemment.
-Durée plafonnée : le reste est complété les soirs suivants. Une donnée absente reste absente (jamais devinée).
+et au départage du classement tendance + comptes pour les sociétés liquides du catalogue (clé « @TICKER »). Les trimestres ne
+servent qu'à la lecture des comptes par l'IA (scrapers/comptes_ia.py) : aucune règle du classement ne les utilise.
+Chaque société est relue au plus tous les 30 jours (cache dans data/financials.json, conservé d'un soir à l'autre), en commençant
+par celles qui viennent de publier leurs résultats (relues 3 jours après, puis chaque semaine pendant 5 semaines tant que Yahoo n'a
+pas les nouveaux comptes) et celles où un dirigeant a acheté récemment. « newAt » : date où une période plus récente que toutes
+celles déjà connues est apparue (une nouvelle publication, pas un premier relevé des trimestres) ; elle déclenche les emails de la
+lecture des comptes. Durée plafonnée : le reste est complété les soirs suivants. Une donnée absente reste absente (jamais devinée).
 """
 import json
 import math
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import yfinance as yf
@@ -21,7 +25,11 @@ DATA = ROOT / "data"
 OUT = DATA / "financials.json"
 REFRESH_DAYS = 30
 RETRY_EMPTY_DAYS = 7  # société sans comptes chez Yahoo : nouvel essai une semaine plus tard
-SCHEMA = 3  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité (3 : écarts d'acquisition et incorporels)
+SCHEMA = 4  # version des postes collectés : une société lue avec une version plus ancienne est relue en priorité (3 : écarts d'acquisition et incorporels ; 4 : trimestres)
+QKEEP = 6  # trimestres ou semestres gardés : le dernier se compare au même trimestre un an plus tôt
+Q_RETRY_DAYS = 90  # société sans trimestres chez Yahoo (Paris, Bruxelles, Amsterdam, Dublin le plus souvent) : nouvel essai tous les 3 mois
+POST_FIRST, POST_EVERY, POST_DAYS = 3, 7, 35  # après des résultats : relue 3 jours plus tard, puis chaque semaine pendant 5 semaines
+NEW_MAX_AGE = 130  # période close depuis plus longtemps : comptes anciens apparus chez Yahoo, pas une nouvelle publication
 CAT_MIN_TURNOVER_EUR = 1e6  # même seuil de liquidité que le classement
 BUDGET_S = 18 * 60  # au plus 18 minutes par soir (l'étape est coupée à 20)
 STREAK_RESET, STREAK_STOP = 15, 40  # réponses vides de suite : nouveau jeton Yahoo, puis arrêt
@@ -41,6 +49,9 @@ BALANCE = {"totalAssets": ["Total Assets"], "currentAssets": ["Current Assets"],
            # valeur comptable tangible : capitaux propres hors écarts d'acquisition (goodwill) et autres incorporels
            "intangibles": ["Goodwill And Other Intangible Assets"], "goodwill": ["Goodwill"], "otherIntangibles": ["Other Intangible Assets"]}
 CASH = {"cfo": ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"], "capex": ["Capital Expenditure"], "fcf": ["Free Cash Flow"]}
+# postes gardés pour les trimestres (lecture des comptes) : moins que pour les exercices, le fichier reste léger
+Q_FIELDS = ("revenue", "grossProfit", "operatingIncome", "ebit", "netIncome", "ebitda", "interestExpense", "totalAssets", "currentAssets",
+            "currentLiabilities", "totalDebt", "cash", "equity", "shares", "cfo", "capex", "fcf")
 
 
 def num(v):
@@ -101,6 +112,79 @@ def statements(ticker):
     return {"years": rows, "currency": currency}
 
 
+def quarters_of(ticker):
+    """Trimestres (ou semestres, selon la société) des 18 derniers mois : compte de résultat, bilan, flux de trésorerie. Une période
+    sans au moins deux postes est ignorée. Liste vide : Yahoo n'en a pas pour cette société."""
+    t = yf.Ticker(ticker)
+    qs = {}
+    table(t.quarterly_income_stmt, INCOME, qs)
+    table(t.quarterly_balance_sheet, BALANCE, qs)
+    table(t.quarterly_cashflow, CASH, qs)
+    rows = [{k: q[k] for k in ("date",) + Q_FIELDS if k in q} for q in sorted(qs.values(), key=lambda q: q["date"])]
+    return [q for q in rows if len(q) > 2][-QKEEP:]
+
+
+def periods(v):
+    """Dates de fin des exercices et des trimestres connus d'une société."""
+    v = v if isinstance(v, dict) else {}
+    return ({str(y.get("date")) for y in v.get("years") or [] if isinstance(y, dict) and y.get("date")}
+            | {str(q.get("date")) for q in v.get("quarters") or [] if isinstance(q, dict) and q.get("date")})
+
+
+def new_period(old, new, today):
+    """Fin de la période apparue ce soir quand c'est une nouvelle publication : plus récente que tout ce qui était connu, de même
+    nature (un premier relevé des trimestres n'en est pas une : seuls comptent les exercices tant que la société n'avait pas de
+    trimestres) et close depuis moins de NEW_MAX_AGE jours. Sinon None."""
+    if not isinstance(old, dict) or old.get("schema", 1) < 4 or old.get("ticker") != new.get("ticker"):
+        return None
+    known = periods(old)
+    if not known:
+        return None
+    top = max(known)
+    cand = [str(y.get("date")) for y in new.get("years") or [] if str(y.get("date")) > top]
+    if old.get("quarters"):
+        cand += [str(q.get("date")) for q in new.get("quarters") or [] if str(q.get("date")) > top]
+    if not cand:
+        return None
+    d = max(cand)
+    try:
+        return d if (today - date.fromisoformat(d)).days <= NEW_MAX_AGE else None
+    except ValueError:
+        return None
+
+
+def results_dates(pairs, today):
+    """Dernière publication de résultats connue ce soir (date passée, depuis moins de POST_DAYS + 5 jours), par clé des comptes :
+    relevé des résultats des sociétés suivies (data/events.json, étape 4 du calcul du soir) et relevé hebdomadaire du catalogue
+    (data/sectors/estimates.json : dates passées et dates des surprises de résultats, par symbole)."""
+    ts, lo = today.isoformat(), (today - timedelta(days=POST_DAYS + 5)).isoformat()
+    ev = load(DATA / "events.json", {}).get("items")
+    ev = ev if isinstance(ev, dict) else {}
+    est = load(DATA / "sectors" / "estimates.json", {})
+    out = {}
+    for k, tk in pairs.items():
+        ds = []
+        e = ev.get(k)
+        if isinstance(e, dict):
+            ds += [x.get("date") for x in e.get("earnings") or [] if isinstance(x, dict)]
+        s = est.get(tk)
+        if isinstance(s, dict):
+            ds += list(s.get("past") or [])
+            ds += [x[0] for x in s.get("surprises") or [] if isinstance(x, (list, tuple)) and x]
+        ds = [d for d in ds if isinstance(d, str) and len(d) == 10 and lo <= d <= ts and valid(d)]
+        if ds:
+            out[k] = max(ds)
+    return out
+
+
+def valid(d):
+    try:
+        date.fromisoformat(d)
+        return True
+    except ValueError:
+        return False
+
+
 def reset_yahoo_session():
     """Jeton (crumb) Yahoo refusé : on force yfinance à en demander un nouveau."""
     try:
@@ -150,10 +234,23 @@ def main():
     dash = load(DATA / "euro-signal.json", {})
     buyers = {i for i, l in (dash.get("tx") or {}).items() if any(isinstance(t, dict) and t.get("type") == "achat" for t in (l or []))}
     week_ago = (today - timedelta(days=7)).isoformat()
-    order = sorted(pairs, key=lambda i: ((items.get(i) or {}).get("triedAt", "") > week_ago, i not in buyers, (items.get(i) or {}).get("schema", 1) >= SCHEMA, i))
+    res = results_dates(pairs, today)
+
+    def post_due(i):
+        """Résultats publiés il y a 3 à 35 jours et nouveaux comptes pas encore vus depuis : relue 3 jours après, puis chaque semaine."""
+        v, d = items.get(i) or {}, res.get(i)
+        if not d or not v.get("years") or v.get("ticker") != pairs[i] or str(v.get("newAt") or "") >= d:
+            return False
+        age = (today - date.fromisoformat(d)).days
+        a = str(v.get("asOf") or "")
+        return POST_FIRST <= age <= POST_DAYS and (a < (date.fromisoformat(d) + timedelta(days=POST_FIRST)).isoformat() or a <= week_ago)
+    post = {i for i in pairs if post_due(i)}
+    order = sorted(pairs, key=lambda i: ((items.get(i) or {}).get("triedAt", "") > week_ago, i not in post, i not in buyers,
+                                         (items.get(i) or {}).get("schema", 1) >= SCHEMA, i))
+    q_before = (today - timedelta(days=Q_RETRY_DAYS)).isoformat()
     fresh_before = (today - timedelta(days=REFRESH_DAYS)).isoformat()
     retry_before = (today - timedelta(days=RETRY_EMPTY_DAYS)).isoformat()
-    done = failed = kept = streak = 0
+    done = failed = kept = streak = fresh_pub = 0
     streak_new = []  # sociétés notées « sans comptes » pendant la série de réponses vides en cours
     # titres absents de la liste du soir : gardés tant que leurs comptes ont moins de REFRESH_DAYS + 30 jours (liste incomplète un soir :
     # cours absents, catalogue en panne), retirés ensuite (sortis de la cote ou du périmètre). Jusqu'au 04/11/2026, retirés dès le
@@ -166,7 +263,7 @@ def main():
     stopped = False
     for isin in order:
         old = items.get(isin) or {}
-        if old.get("asOf", "") > (fresh_before if old.get("years") else retry_before) and old.get("ticker") == pairs[isin] and old.get("schema", 1) >= SCHEMA:
+        if isin not in post and old.get("asOf", "") > (fresh_before if old.get("years") else retry_before) and old.get("ticker") == pairs[isin] and old.get("schema", 1) >= SCHEMA:
             continue
         if time.time() - t0 > BUDGET_S:
             break
@@ -182,7 +279,23 @@ def main():
         except Exception:
             st = {"years": []}
         if st["years"]:
-            items[isin] = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, **st}
+            same = old.get("ticker") == pairs[isin]
+            # trimestres : relus sauf si Yahoo n'en avait pas il y a moins de 3 mois ; erreur ce soir : ceux déjà connus sont gardés
+            if not (same and old.get("quarters") == [] and str(old.get("qAt") or "") > q_before):
+                try:
+                    st["quarters"], st["qAt"] = quarters_of(pairs[isin]), today.isoformat()
+                except Exception:
+                    pass
+            if "quarters" not in st and same and isinstance(old.get("quarters"), list):
+                st["quarters"], st["qAt"] = old["quarters"], old.get("qAt")
+            rec = {"ticker": pairs[isin], "asOf": today.isoformat(), "schema": SCHEMA, **st}
+            nw = new_period(old, rec, today)
+            if nw:  # nouvelle publication : lue par l'IA et signalée par email (scrapers/comptes_ia.py)
+                rec["newAt"], rec["newPer"] = today.isoformat(), nw
+                fresh_pub += 1
+            elif same and old.get("newAt"):
+                rec["newAt"], rec["newPer"] = old["newAt"], old.get("newPer")
+            items[isin] = rec
             done += 1
             streak = 0
             streak_new = []
@@ -213,6 +326,8 @@ def main():
         print(f"Comptes annuels : Yahoo ne renvoie plus de comptes ({STREAK_STOP} réponses vides de suite), arrêt pour ce soir")
     pending = sum(1 for i in pairs if (items.get(i) or {}).get("asOf", "") <= fresh_before or (items.get(i) or {}).get("schema", 1) < SCHEMA)
     print(f"Comptes annuels : {done} société(s) mises à jour, {failed} sans données (dont {kept} anciens comptes conservés), {pending} à compléter les soirs suivants ; {sum(1 for v in items.values() if v.get('years'))} disponibles")
+    print(f"Trimestres : {sum(1 for v in items.values() if v.get('quarters'))} sociétés ; résultats récents à relire : {len(post)} ; "
+          f"nouveaux comptes vus ce soir : {fresh_pub}")
     return 0
 
 

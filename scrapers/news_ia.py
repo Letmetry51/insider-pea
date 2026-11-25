@@ -112,9 +112,11 @@ def message(lot, items, ctx):
     return "\n".join(parts)
 
 
-def appel(key, cfg, texte):
+def appel(key, cfg, texte, systeme=None):
+    """Un appel à l'API (consigne en cache) ; deux essais. Erreur : code HTTP ou type d'exception seulement (journal public).
+    Sert aussi à la lecture des comptes (scrapers/comptes_ia.py, avec sa propre consigne)."""
     body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"],
-            "system": [{"type": "text", "text": SYSTEME, "cache_control": {"type": "ephemeral"}}],
+            "system": [{"type": "text", "text": systeme or SYSTEME, "cache_control": {"type": "ephemeral"}}],
             "messages": [{"role": "user", "content": texte}]}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None

@@ -35,6 +35,7 @@ def setup(n, schema=2, years=True):
     (d / "financials.json").write_text(json.dumps({"items": {i: {"ticker": "T%d.PA" % k, "asOf": "2026-01-01", "schema": schema,
                                                                  "years": good if years else [], "currency": "EUR"} for k, i in enumerate(isins)}}))
     F.time.sleep = lambda s: None
+    F.quarters_of = lambda t: []  # trimestres : aucun réseau dans les tests (chaque test qui en a besoin les simule)
     return isins
 
 
@@ -139,6 +140,100 @@ def _():
     it = saved()
     assert not any(k.startswith("@") for k in it), [k for k in it if k.startswith("@")][:5]
     assert all(it[i]["years"] for i in it), "anciens comptes conservés"
+
+
+def today():
+    return F.datetime.now(F.timezone.utc).date()
+
+
+def ago(n):
+    return (today() - F.timedelta(days=n)).isoformat()
+
+
+def rewrite(fn):
+    raw = json.loads(F.OUT.read_text())
+    for k, v in raw["items"].items():
+        fn(k, v)
+    F.OUT.write_text(json.dumps(raw))
+
+
+@case("Trimestres relevés avec les comptes ; Yahoo sans trimestres : nouvel essai seulement 3 mois plus tard")
+def _():
+    isins = setup(2, schema=F.SCHEMA)
+    rewrite(lambda k, v: v.update(asOf="2020-01-01", quarters=[] if k == isins[1] else None, qAt=ago(10) if k == isins[1] else None))
+    asked = []
+    q = [{"date": ago(60), "revenue": 12.0, "netIncome": 1.0}]
+    F.quarters_of = lambda t: asked.append(t) or q
+    F.statements = lambda t: {"years": [{"date": "2025-12-31", "equity": 1.0, "revenue": 50.0}], "currency": "EUR"}
+    F.main()
+    it = saved()
+    assert asked == ["T0.PA"], asked
+    assert it[isins[0]]["quarters"] == q and it[isins[0]]["qAt"] == today().isoformat(), it[isins[0]]
+    assert it[isins[1]]["quarters"] == [] and it[isins[1]]["qAt"] == ago(10), it[isins[1]]
+
+
+@case("Erreur de Yahoo sur les trimestres : comptes annuels mis à jour, trimestres déjà connus gardés")
+def _():
+    isins = setup(1, schema=F.SCHEMA)
+    q = [{"date": "2026-06-30", "revenue": 12.0, "netIncome": 1.0}]
+    rewrite(lambda k, v: v.update(asOf="2020-01-01", quarters=q, qAt="2026-07-15"))
+
+    def boom(t):
+        raise RuntimeError("429")
+    F.quarters_of = boom
+    F.statements = lambda t: {"years": [{"date": "2025-12-31", "equity": 2.0}], "currency": "EUR"}
+    F.main()
+    v = saved()[isins[0]]
+    assert v["years"][0]["equity"] == 2.0 and v["quarters"] == q and v["qAt"] == "2026-07-15", v
+
+
+@case("Nouvelle publication (newAt) : période plus récente et récente ; pas au premier relevé des trimestres ni à l'arrivée d'une vieille période")
+def _():
+    t = today()
+    yrs = [{"date": "2025-12-31", "revenue": 50.0}]
+    old = {"ticker": "A", "schema": 4, "years": yrs, "quarters": [{"date": ago(150), "revenue": 9.0}]}
+    new = {"ticker": "A", "years": yrs, "quarters": [{"date": ago(150), "revenue": 9.0}, {"date": ago(60), "revenue": 10.0}]}
+    assert F.new_period(old, new, t) == ago(60)
+    assert F.new_period(dict(old, quarters=[]), new, t) is None, "premier relevé des trimestres pris pour une publication"
+    assert F.new_period(dict(old, schema=3), new, t) is None, "relecture du changement de version prise pour une publication"
+    assert F.new_period(old, dict(new, quarters=[{"date": ago(140), "revenue": 9.0}]), t) is None, "période close il y a 140 jours"
+    assert F.new_period(old, dict(old), t) is None, "rien de nouveau"
+    assert F.new_period(dict(old, ticker="B"), new, t) is None, "autre symbole"
+    an = {"ticker": "A", "schema": 4, "years": [{"date": ago(500)}], "quarters": []}
+    assert F.new_period(an, {"ticker": "A", "years": [{"date": ago(500)}, {"date": ago(80)}], "quarters": []}, t) == ago(80)
+
+
+@case("Résultats publiés il y a 3 jours : comptes de moins de 30 jours relus, puis chaque semaine jusqu'aux nouveaux comptes")
+def _():
+    isins = setup(3, schema=F.SCHEMA)
+    q0 = [{"date": ago(120), "revenue": 9.0, "netIncome": 1.0}]
+    rewrite(lambda k, v: v.update(asOf=ago(10), quarters=q0, qAt=ago(10)))
+    ev = {isins[0]: {"earnings": [{"date": ago(3)}, {"date": ago(-80)}]}, isins[1]: {"earnings": [{"date": ago(1)}]}}
+    (F.DATA / "events.json").write_text(json.dumps({"items": ev}))
+    (F.DATA / "sectors").mkdir()
+    (F.DATA / "sectors" / "estimates.json").write_text(json.dumps({"T2.PA": {"past": [ago(4)], "surprises": [[ago(200), 5.0]]}}))
+    asked = []
+    F.statements = lambda t: asked.append(t) or {"years": [{"date": "2025-12-31", "equity": 1.0}], "currency": "EUR"}
+    F.quarters_of = lambda t: q0 + [{"date": ago(40), "revenue": 10.0, "netIncome": 2.0}] if t == "T0.PA" else q0
+    F.main()
+    it = saved()
+    assert sorted(asked) == ["T0.PA", "T2.PA"], asked  # T1 : résultats d'hier, trop tôt
+    assert it[isins[0]]["newAt"] == today().isoformat() and it[isins[0]]["newPer"] == ago(40), it[isins[0]]
+    assert "newAt" not in it[isins[2]], "Yahoo pas encore à jour : pas de nouvelle publication"
+    asked.clear()
+    F.main()
+    assert asked == [], "relu deux fois le même soir"
+    rewrite(lambda k, v: v.update(asOf=ago(8)))
+    F.main()
+    assert asked == ["T2.PA"], asked  # T0 : nouveaux comptes déjà vus ; T2 : nouvel essai une semaine plus tard
+    assert saved()[isins[0]]["newAt"] == today().isoformat(), "date de la nouvelle publication perdue"
+
+
+@case("Date de résultats illisible : ignorée sans arrêter la collecte")
+def _():
+    isins = setup(1, schema=F.SCHEMA)
+    (F.DATA / "events.json").write_text(json.dumps({"items": {isins[0]: {"earnings": [{"date": "2026-13-45"}, {"date": None}]}}}))
+    assert F.results_dates({isins[0]: "T0.PA"}, today()) == {}
 
 
 if __name__ == "__main__":

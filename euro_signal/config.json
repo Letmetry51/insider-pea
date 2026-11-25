@@ -85,5 +85,13 @@
     "lot": 40,
     "budget": 150,
     "paralleles": 4
+  },
+  "lectureComptes": {
+    "_doc": "Lecture des comptes publiés par une IA (scrapers/comptes_ia.py) à chaque nouvelle période : modèle, sociétés par appel, budget en secondes au calcul du soir (la publication du code en donne 540 : variable COMPTES_BUDGET), appels en parallèle. Demande de François du 25/11/2026 (« lecture des comptes publiés … et donner un conseil », avec Haiku). Affichage et emails seulement : n'entre dans aucune règle.",
+    "modele": "claude-haiku-5-5",
+    "maxTokens": 4000,
+    "lot": 5,
+    "budget": 150,
+    "paralleles": 4
   }
 }

@@ -54,6 +54,7 @@ jobs:
         env:
           SCRIPT: ${{ inputs.script }}
           EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # ESSAI TEMPORAIRE (essai_comptes_ia.py) : retiré avant la fusion
         run: |
           set -o pipefail
           # nom de fichier seulement (pas de chemin ni d'option) : rien d'autre ne peut être lancé
