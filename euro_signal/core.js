@@ -11180,7 +11180,11 @@
     var lines = [
       o.name + (o.sector ? ' (' + o.sector + ')' : '') + (o.tag ? ' — ' + o.tag : ''),
       '📑 ' + cap(ES.comptesPeriode(c)) + " : nouveaux comptes lus par l'IA le " + ES.frDate(c.at) + '.',
-      'Effet possible sur le cours : ' + (ES.COMPTES_IMPACT[c.i] || ES.COMPTES_IMPACT.flat) + ' · avis sur les comptes : ' + ES.COMPTES_AVIS[c.a] + '.',
+      'Effet possible sur le cours : ' +
+        (ES.COMPTES_IMPACT[c.i] || ES.COMPTES_IMPACT.flat) +
+        ' · avis sur les comptes : ' +
+        ES.COMPTES_AVIS[c.a] +
+        '.',
       c.res,
       c.f && c.f.length ? 'Points forts : ' + c.f.join(' · ') : null,
       c.w && c.w.length ? 'Points faibles : ' + c.w.join(' · ') : null,
@@ -11207,7 +11211,11 @@
             var warn = l === '⚠️ ' + c.al || l.indexOf('Conseil : Point') === 0;
             return (
               '<p style="margin:0 0 8px' +
-              (k === lines.length - 1 ? ';color:#55615c;font-size:12px' : warn ? ';color:#8a3a00;font-weight:bold' : '') +
+              (k === lines.length - 1
+                ? ';color:#55615c;font-size:12px'
+                : warn
+                  ? ';color:#8a3a00;font-weight:bold'
+                  : '') +
               '">' +
               esc(l) +
               '</p>'

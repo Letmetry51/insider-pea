@@ -3677,7 +3677,9 @@ export function build(opts = {}) {
       if (state.comptesSent[k] && state.comptesSent[k] >= c.per) return; // déjà envoyé pour cette période (ou une plus récente)
       const r = rowK[k] || {};
       const name = r.name || (inst[k] && inst[k].name) || k;
-      const link = dashUrl ? dashUrl + '#' + (r.isin || (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(k) ? k : 'co=' + (r.sym || k))) : null;
+      const link = dashUrl
+        ? dashUrl + '#' + (r.isin || (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(k) ? k : 'co=' + (r.sym || k)))
+        : null;
       const m = ES.buildComptesEmail(c, { name: name, sector: r.sector || null, tag: tag, link: link });
       outbox.push({
         id: 'comptes-' + k + '-' + c.per,

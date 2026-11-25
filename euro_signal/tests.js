@@ -3765,6 +3765,94 @@ t('Classement : exclusions, points, bonus et malus des dirigeants, ordre, sélec
     "Installer l'application sur le téléphone : https://x/p.html?a=1&installer=1"
   );
 });
+t(
+  "📑 Lecture des comptes par l'IA : recherche par clé, conseil sans IA, ligne de la sélection, email des nouveaux comptes",
+  () => {
+    const c = {
+      per: '2026-09-30',
+      nat: 'trimestre',
+      at: '2026-11-25',
+      pub: '2026-11-24',
+      res: 'CA en recul de 11 %, perte au trimestre.',
+      f: ['trésorerie nette'],
+      w: ['CA −11 %'],
+      i: 'down',
+      a: 'mit',
+      al: "Dette nette à 4,5 fois l'EBITDA.",
+    };
+    const items = {
+      FR0000000001: c,
+      'B.ST': Object.assign({}, c, { al: undefined, a: 'fav', i: 'up' }),
+      BAD: { res: 'x', per: 'y', a: '?' },
+    };
+    eq(ES.comptesOf(items, { key: 'X', isin: 'FR0000000001' }), c, 'ISIN quand la clé du classement ne correspond pas');
+    eq(ES.comptesOf(items, 'B.ST').a, 'fav', 'clé seule');
+    eq(ES.comptesOf(items, 'BAD'), null, 'lecture sans avis reconnu : ignorée');
+    eq(ES.comptesOf(items, 'toString'), null, 'pas de propriété héritée');
+    eq(ES.comptesOf(null, 'B.ST'), null);
+    eq(
+      ES.comptesConseil(c),
+      "Point d'alerte : à vérifier avant d'acheter ou de garder (la règle testée reste la référence)."
+    );
+    eq(ES.comptesConseil({ a: 'def' }), ES.comptesConseil(c), "avis défavorable : point d'alerte");
+    eq(ES.comptesConseil(items['B.ST']), 'Rien dans ces comptes qui contredise la règle testée.');
+    eq(ES.comptesPeriode(c), 'trimestre clos le 30/09/2026');
+    eq(ES.comptesPeriode({ per: '2026-06-30', nat: '?' }), 'période close le 30/06/2026');
+    const line = ES.comptesLine(c);
+    ok(
+      /^📑 Comptes du trimestre clos le 30\/09\/2026 lus par l'IA : avis mitigé, baisse possible · ⚠️ Dette nette à 4,5 fois l'EBITDA\. Point d'alerte/.test(
+        line
+      ),
+      line
+    );
+    const m = ES.buildComptesEmail(c, {
+      name: 'Arcadis',
+      sector: 'Industrie',
+      tag: '🎯 sélection',
+      link: 'https://x/#FR0000000001',
+    });
+    eq(m.subject, "[Euro Signal] 📑 Nouveaux comptes d'Arcadis (🎯) : avis mitigé, point à vérifier");
+    ok(
+      m.text.indexOf('Conseil : Point d') > 0 &&
+        m.text.indexOf(ES.COMPTES_NOTE) > 0 &&
+        /Fiche : https:\/\/x\/#FR0000000001$/.test(m.text) &&
+        !/undefined|null|NaN/.test(m.text + m.html),
+      'email lisible'
+    );
+    eq(
+      ES.buildComptesEmail(items['B.ST'], { name: 'Husqvarna' }).subject,
+      '[Euro Signal] 📑 Nouveaux comptes de Husqvarna : avis favorable'
+    );
+    ok(
+      ES.buildComptesEmail(Object.assign({}, c, { res: '<img src=x onerror=1>' }), { name: '<b>' }).html.indexOf(
+        '<img'
+      ) < 0,
+      'textes échappés'
+    );
+    // ligne 📑 dans l'email de la sélection (texte et HTML), seulement pour une société lue
+    const c3 = JSON.parse(JSON.stringify(require('./config.json')));
+    const row = {
+      key: 'A',
+      sym: 'A.PA',
+      name: 'Alpha',
+      sector: 'Industrie',
+      note: 90,
+      why: ['tendance'],
+      warn: [],
+      m10: 5,
+    };
+    const sel = ES.buildRankEmail(
+      [Object.assign({}, row, { cpt: c }), Object.assign({}, row, { key: 'B', name: 'Bêta' })],
+      '2026-W48',
+      c3,
+      null,
+      '2026-11-25',
+      null
+    );
+    ok(sel.text.indexOf(ES.comptesLine(c)) > 0 && sel.html.indexOf('📑 Comptes du trimestre') > 0, 'ligne 📑');
+    eq((sel.text.match(/📑/g) || []).length, 1, 'une seule société lue, une seule ligne');
+  }
+);
 t('Classement : pente du canal (classes forte, moyenne, légère) et saut de cours anormal', () => {
   const wk = (g) => Array.from({ length: 120 }, (_, k) => 10 * Math.pow(1 + g, k / 52));
   const fs = ES.rankFeatures([], wk(1.5)),

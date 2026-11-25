@@ -195,7 +195,9 @@ def glissant(Q, Y, fi=False):
     périodes qui se suivent, plus récentes que l'exercice, et un total vraisemblable (60 % à 180 % du chiffre d'affaires annuel)."""
     nq = nature(Q)
     n = 4 if nq == "trimestre" else 2 if nq == "semestre" else 0
-    if not n or len(Q) < n or not Y:
+    if fi or not n or len(Q) < n or not Y:
+        # banques et assurances : chiffre d'affaires trimestriel de Yahoo défini autrement que l'annuel (BNP Paribas +19 % sur 12 mois
+        # glissants à l'essai du 25/11/2026) : pas de comparaison qui mêle les deux
         return None
     last, y0 = Q[-n:], Y[-1]
     ds = [day(q.get("date")) for q in last]

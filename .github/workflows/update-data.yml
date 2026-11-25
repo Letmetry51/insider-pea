@@ -218,6 +218,16 @@ jobs:
         run: python scrapers/news_ia.py
         continue-on-error: true
 
+      # 📑 comptes publiés lus par l'IA (scrapers/comptes_ia.py, Claude Haiku) : d'abord les sociétés dont l'étape 4b vient de voir de
+      # nouveaux comptes (emails du 🎯 / 💎 et des positions ce soir), puis celles pas encore lues ; affichage et emails seulement
+      - name: 4c ter. Lecture des comptes publiés par l'IA (avis et effet possible sur le cours, si le secret ANTHROPIC_API_KEY existe)
+        id: s4c3
+        timeout-minutes: 5
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scrapers/comptes_ia.py
+        continue-on-error: true
+
       # 5a : quelques secondes en pratique (délai de 10 minutes jusqu'au 25/11/2026 : place faite à l'étape 4c bis)
       - name: 5a. Tests du moteur Euro Signal
         id: s5a
@@ -258,7 +268,8 @@ jobs:
 
       - name: 5d. Contrôle des fichiers produits (graphiques 1 an et 5 ans, plans d'entrée, secteurs)
         id: s5d
-        timeout-minutes: 10
+        # 1 à 2 s en pratique : délai de 10 minutes jusqu'au 25/11/2026, place faite à l'étape 4c ter
+        timeout-minutes: 5
         continue-on-error: true
         run: node euro_signal/check_outputs.mjs
 

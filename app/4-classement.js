@@ -478,7 +478,10 @@ function comptesBlock(o, c) {
     esc(c.res) +
     '</p>' +
     ((c.f && c.f.length) || (c.w && c.w.length)
-      ? '<ul class="ancptl">' + (c.f || []).map(li('up', '+')).join('') + (c.w || []).map(li('down', '−')).join('') + '</ul>'
+      ? '<ul class="ancptl">' +
+        (c.f || []).map(li('up', '+')).join('') +
+        (c.w || []).map(li('down', '−')).join('') +
+        '</ul>'
       : '') +
     (c.al ? '<p class="ancptal">⚠️ ' + esc(c.al) + '</p>' : '') +
     '<p class="ancptc' +

@@ -111,6 +111,7 @@ def _():
     assert C.glissant(Q[:-1] + [dict(Q[-1], revenue=500e6)], Y) is None, "total invraisemblable"
     assert C.glissant(Q, [dict(Y[1], date="2026-12-31")]) is None, "exercice plus récent que les trimestres"
     assert "EBITDA" not in " ".join(C.ratios({"years": Y}, "Immobilier")), "foncière : pas de dette nette / EBITDA"
+    assert C.glissant(Q, Y, fi=True) is None, "banque : pas de 12 mois glissants (chiffre d'affaires trimestriel défini autrement)"
 
 
 @case("Montants à la française, en millions")

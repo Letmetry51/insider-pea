@@ -17,7 +17,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25 # 15 jusqu'au 25/11/2026 : place faite à la lecture des comptes (12 minutes au plus)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +37,17 @@ jobs:
         run: |
           pip install --quiet "requests>=2.31,<3"
           python scrapers/news_ia.py
+      # comptes publiés pas encore lus par l'IA (scrapers/comptes_ia.py) : budget de 9 minutes, plus long qu'au calcul du soir, pour
+      # rattraper les sociétés jamais lues (environ 1 800 à la mise en service) ; aucun email ici (seulement au calcul du soir)
+      - name: Lecture des comptes publiés par l'IA (sociétés pas encore lues, si le secret ANTHROPIC_API_KEY existe)
+        timeout-minutes: 12
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COMPTES_BUDGET: '540'
+        run: |
+          pip install --quiet "requests>=2.31,<3"
+          python scrapers/comptes_ia.py
       - name: Publication
         uses: ./.github/actions/publish-site
         with:

@@ -37,7 +37,16 @@ def poison(o, key=None, n=None):
 
 
 def main(data):
-    files = [os.path.join(data, f) for f in ("euro-signal.json", "sectors.json", "societes-index.json", "news.json",
+    cpt = os.path.join(data, "comptes_ia.json")
+    if not os.path.exists(cpt):  # lecture des comptes pas encore publiée : une lecture par société du classement, pour piéger le bloc 📑
+        try:
+            rows = json.load(open(os.path.join(data, "euro-signal.json"), encoding="utf-8"))["rank"]["rows"]
+            one = {"per": "2026-09-30", "nat": "trimestre", "at": "2026-11-25", "v": 1, "m": "essai", "res": "Résumé des comptes",
+                   "f": ["Point fort chiffré"], "w": ["Point faible chiffré"], "i": "down", "a": "def", "al": "Point d'alerte chiffré"}
+            json.dump({"items": {r["key"]: one for r in rows if isinstance(r, dict) and r.get("key")}}, open(cpt, "w", encoding="utf-8"))
+        except Exception:
+            pass
+    files = [os.path.join(data, f) for f in ("euro-signal.json", "sectors.json", "societes-index.json", "news.json", "comptes_ia.json",
                                             os.path.join("diagnostics", "quality.json"), os.path.join("diagnostics", "ui-check.json"))]
     files += glob.glob(os.path.join(data, "societes", "*.json")) + glob.glob(os.path.join(data, "fiches", "*.json"))
     try:
