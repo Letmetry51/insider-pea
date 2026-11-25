@@ -87,11 +87,12 @@
     "paralleles": 4
   },
   "lectureComptes": {
-    "_doc": "Lecture des comptes publiés par une IA (scrapers/comptes_ia.py) à chaque nouvelle période : modèle, sociétés par appel, budget en secondes au calcul du soir (la publication du code en donne 540 : variable COMPTES_BUDGET), appels en parallèle. Demande de François du 25/11/2026 (« lecture des comptes publiés … et donner un conseil », avec Haiku). Affichage et emails seulement : n'entre dans aucune règle.",
+    "_doc": "Lecture des comptes publiés par une IA (scrapers/comptes_ia.py) à chaque nouvelle période : modèle, sociétés par appel, budget en secondes au calcul du soir (la publication du code en donne 540 : variable COMPTES_BUDGET), appels en parallèle, réflexion du modèle (« non » : coupée ; à l'essai du 25/11/2026, Haiku 5.5 passait les 4 000 jetons à réfléchir sans répondre). Demande de François du 25/11/2026 (« lecture des comptes publiés … et donner un conseil », avec Haiku). Affichage et emails seulement : n'entre dans aucune règle.",
     "modele": "claude-haiku-5-5",
     "maxTokens": 4000,
     "lot": 5,
     "budget": 150,
-    "paralleles": 4
+    "paralleles": 4,
+    "reflexion": "non"
   }
 }

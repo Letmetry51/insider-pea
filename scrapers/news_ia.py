@@ -118,6 +118,11 @@ def appel(key, cfg, texte, systeme=None):
     body = {"model": cfg["modele"], "max_tokens": cfg["maxTokens"],
             "system": [{"type": "text", "text": systeme or SYSTEME, "cache_control": {"type": "ephemeral"}}],
             "messages": [{"role": "user", "content": texte}]}
+    if cfg.get("reflexion") == "non":
+        # Haiku 5.5 réfléchit d'office (« adaptive thinking ») et ses jetons de réflexion comptent dans max_tokens : 4 000 jetons
+        # de réflexion sans réponse pour 4 sociétés à l'essai de la lecture des comptes (25/11/2026). Réflexion coupée sur demande
+        # (accepté par Haiku 5.5 jusqu'à l'effort « high », l'effort par défaut étant « medium »)
+        body["thinking"] = {"type": "disabled"}
     headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
     last = None
     for i in range(2):

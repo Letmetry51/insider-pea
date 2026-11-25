@@ -48,7 +48,7 @@ def main():
     print("%d sociétés, trimestres lus en %.0f s : %s" % (len(items), time.time() - t0, ", ".join(
         "%s %d" % ((ctx.get(k) or {}).get("symbole") or k, len(v.get("quarters") or [])) for k, v in items.items())))
     todo = {k: C.derniere(v) for k, v in items.items()}
-    for k in keys[:1] + keys[-1:]:
+    for k in keys[:0]:
         print("\n--- Texte envoyé pour %s ---\n%s" % (k, C.bloc(k, items[k], ctx, todo[k][0], todo[k][1], {}, est)))
     cfg = C.config()
     store, usage, t1 = {}, {}, time.time()
@@ -66,7 +66,12 @@ def main():
                 usage[k_] = usage.get(k_, 0) + v_
         text = "".join(b.get("text", "") for b in res.get("content") or [] if b.get("type") == "text")
         n = C.applique(store, lire(text), {k: (todo[k][0], todo[k][1], None) for k in lot}, time.strftime("%Y-%m-%d"), cfg["modele"])
-        print("Lot %d : %d lectures sur %d en %.1f s (jetons : %s)" % (i // 4 + 1, n, len(lot), time.time() - t, res.get("usage")))
+        u = res.get("usage") or {}
+        print("Lot %d : %d lectures sur %d en %.1f s (arrêt : %s ; jetons : entrée %s, cache %s, sortie %s dont réflexion %s)" % (
+            i // 4 + 1, n, len(lot), time.time() - t, res.get("stop_reason"), u.get("input_tokens"), u.get("cache_read_input_tokens"),
+            u.get("output_tokens"), (u.get("output_tokens_details") or {}).get("thinking_tokens")))
+        if not n:
+            print("  Réponse : " + text[:600].replace("\n", " "))
     print("\n=== Lectures (%s, %.0f s, environ %.4f $ pour %d sociétés) ===" % (cfg["modele"], time.time() - t1, cout(usage, cfg["modele"]), len(store)))
     for k in keys:
         r, c = store.get(k), ctx.get(k) or {}
