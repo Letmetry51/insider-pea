@@ -831,7 +831,9 @@ function biblioCard() {
       '🌍 <b>Indices et devises</b> : STOXX Europe 600 (référence), CAC 40, S&amp;P 500 et paniers américains (baromètres des thèmes, jamais proposés), taux de change (Yahoo Finance).'
     ),
     li(
-      '📰 <b>Presse</b> : ' + ln('https://news.google.com', 'Google News') + ' (flux RSS : titres et liens seulement).'
+      '📰 <b>Presse</b> : ' +
+        ln('https://news.google.com', 'Google News') +
+        ' (flux RSS : titres et liens seulement), titres lus par Claude (Anthropic).'
     ),
     li(
       '🎓 <b>Contrôle indépendant</b> : ' +
@@ -1213,7 +1215,7 @@ function compareCard() {
     "<li>🔌 Il dépend d'un accès non officiel aux données de Yahoo (cours, comptes, analystes). Quand Yahoo n'a pas la clôture du soir, elle est prise chez Euronext (Paris, Amsterdam, Bruxelles, Milan, Lisbonne, Dublin, Oslo) ou Nasdaq Nordic (Stockholm, Helsinki, Copenhague), et en dernier recours chez TradingView (toutes les bourses, dont l'Allemagne, l'Espagne, Vienne, Londres et Zurich) ; si Yahoo coupait l'accès, les cours resteraient à jour, pas les comptes ni les analystes. Contrôle des cours Yahoo avec EODHD le 22/11/2026 (2 623 fiches et 659 dossiers d'initiés, même bourse) : 87 % des fiches et 90 % des dossiers sans aucun écart ; l'écart qui compte vient des opérations sur le capital que Yahoo n'ajuste pas (augmentation de capital avec droits, scission, grosse distribution : une douzaine en un an, dont Eramet à −30 % le 16/11/2026, Electrolux, Kongsberg, Worldline) : hausse sur 12 mois sous-estimée et fausse chute le jour du détachement. Les sauts de plus de ×2,5 sont déjà écartés du classement ; l'email d'une position à −20 % ou pire en une séance le signale désormais (« vérifier d'abord une augmentation de capital »).</li>" +
     "<li>🧾 Il reprend les erreurs de Yahoo. Certaines sont corrigées (par exemple, la rentabilité sur 12 mois remplacée par celle du dernier exercice publié), pas toutes : en cas de doute, « ⚑ Signaler une erreur » en bas de l'analyse d'une fiche.</li>" +
     '<li>🌙 Données mises à jour une fois par soir de semaine : pas de cours en séance.</li>' +
-    '<li>📰 Actualités : titres seulement, repérés par mots-clés.</li>' +
+    "<li>📰 Actualités : titres seulement ; chaque nouveau titre est lu par une IA (Claude, depuis le 25/11/2026) : effet possible sur le cours (↑ hausse, ↓ baisse, → neutre) avec la raison en quelques mots, ou « sans rapport » (homonyme : club de sport, marque d'une autre société, simple liste de valeurs) ; à défaut, ⚠️ / ✅ par mots-clés. Le titre seul, pas l'article : à lire avant de décider.</li>" +
     '<li>👤 Outil personnel et gratuit, sans support ni garantie de service.</li></ul>' +
     '<p class="small"><b>En pratique</b> : Euro Signal pour décider, TradingView gratuit pour le graphique en séance, Boursorama ou Zonebourse pour l\'actualité, et un courtier aux frais bas (voir « ⚖️ Fiabilité des chiffres »).</p>' +
     '<p class="foot">Comparaison du 20/10/2026, les offres gratuites changent : ' +

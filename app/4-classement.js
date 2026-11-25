@@ -426,7 +426,8 @@ function loadNews() {
       if (S.view === 'fiche' || S.view === 'secco') render();
     });
 }
-/** Bloc 📰 Qualitatif : titres des 30 derniers jours citant la société, classés ⚠️ / ✅ par mots-clés ; lien vers toute l'actualité. */
+/** Bloc 📰 Qualitatif : titres des 30 derniers jours citant la société ; chaque titre lu par une IA (scrapers/news_ia.py) : effet
+ *  possible sur le cours (↑ / ↓ / →) ou sans rapport (homonyme), à défaut classé ⚠️ / ✅ par mots-clés ; lien vers toute l'actualité. */
 function newsOf(o) {
   if (!S.newsLoaded) loadNews();
   var it = (S.news && S.news.items) || {},
@@ -448,21 +449,32 @@ function newsBlock(o, list) {
     '&hl=fr&gl=FR&ceid=FR:fr" target="_blank" rel="noopener">🔎 Toute l\'actualité</a>';
   if (!S.news) return '<h4>📰 Qualitatif</h4><p class="small muted">Chargement… · ' + link + '</p>';
   if (!list.length) return '<p class="small muted">📰 Pas d\'article relevé · ' + link + '</p>';
+  var shown = list.slice(0, 5),
+    read = shown.some(function (n) {
+      return n.v != null;
+    });
   return (
     '<h4>📰 Qualitatif <span class="muted small">· 30 jours</span></h4><ul class="annews">' +
-    list
-      .slice(0, 5)
+    shown
       .map(function (n) {
+        var r = newsRead(n);
         return (
           '<li class="' +
-          (n.k || 'n') +
-          '"><span>' +
-          (n.k === 'neg' ? '⚠️' : n.k === 'pos' ? '✅' : '•') +
+          r.cls +
+          '"><span class="' +
+          r.cls +
+          '" title="' +
+          esc(r.lab) +
+          '">' +
+          r.ico +
           '</span><div><a href="' +
           esc(ES.safeUrl ? ES.safeUrl(n.u) || '#' : n.u) +
           '" target="_blank" rel="noopener">' +
           esc(n.t) +
           '</a><small>' +
+          (n.v != null
+            ? '<b class="' + r.cls + '">' + esc(r.lab) + '</b>' + (n.r ? ' : ' + esc(n.r) : '') + ' · '
+            : '') +
           esc([shortDate(n.d), n.s].filter(Boolean).join(' · ')) +
           '</small></div></li>'
         );
@@ -470,8 +482,28 @@ function newsBlock(o, list) {
       .join('') +
     '</ul><p class="small">' +
     link +
-    ' <span class="muted">· ⚠️ / ✅ : repérés par mots-clés dans le titre, à lire avant de décider.</span></p>'
+    ' <span class="muted">· ' +
+    (read
+      ? "↑ hausse possible, ↓ baisse possible, → neutre, · sans rapport avec la société : lecture du titre par une IA (Claude), pas de l'article ; à vérifier avant de décider."
+      : '⚠️ / ✅ : repérés par mots-clés dans le titre, à lire avant de décider.') +
+    '</span></p>'
   );
+}
+/** Lecture d'un titre : effet possible sur le cours lu par l'IA (n.v : version de la lecture ; n.p : 0 si sans rapport ; n.i : up /
+ *  down / flat), sinon classement par mots-clés (n.k). → { cls, ico, lab } */
+function newsRead(n) {
+  if (n.v == null)
+    return n.k === 'neg'
+      ? { cls: 'neg', ico: '⚠️', lab: 'mot-clé négatif' }
+      : n.k === 'pos'
+        ? { cls: 'pos', ico: '✅', lab: 'mot-clé positif' }
+        : { cls: 'n', ico: '•', lab: '' };
+  if (!n.p) return { cls: 'off', ico: '·', lab: 'Sans rapport' };
+  return n.i === 'up'
+    ? { cls: 'up', ico: '↑', lab: 'Hausse possible' }
+    : n.i === 'down'
+      ? { cls: 'down', ico: '↓', lab: 'Baisse possible' }
+      : { cls: 'flat', ico: '→', lab: 'Neutre' };
 }
 /** Parties chiffrées de l'analyse : comptes publiés (4 exercices), gestion du capital (dividendes, rachats, nombre
  *  d'actions) et résultats publiés (fiches Euro Signal). */

@@ -5,8 +5,10 @@ Pour les sociétés proposées par le 🎯 et le 💎, la sélection du lundi et
   - titres d'articles des 30 derniers jours (Google Actualités, en français, puis en anglais si rien) ;
   - communiqués et actualités Yahoo déjà relevés par events.py pour les sociétés suivies par Euro Signal.
 Chaque titre est classé par mots-clés : ⚠️ (perte de client ou de contrat, avertissement, enquête, dégradation…) ou ✅ (contrat
-remporté, prévisions relevées, rachat d'actions…). Rien n'est interprété au-delà : le titre et le lien sont donnés tels quels.
-Sortie : data/news.json = { generated_at, items: { clé: [ { t, s, d, u, k } ] } } (clé = ISIN ou symbole Yahoo, comme le classement).
+remporté, prévisions relevées, rachat d'actions…) ; 8 titres au plus par société. Ensuite, news_ia.py fait lire chaque nouveau titre
+par une IA (effet possible sur le cours, homonymes écartés) : ces lectures (champs i, p, r, v) sont reprises ici d'un soir à l'autre
+pour le même titre. Sortie : data/news.json = { generated_at, items: { clé: [ { t, s, d, u, k, i?, p?, r?, v? } ] } } (clé = ISIN ou
+symbole Yahoo, comme le classement).
 """
 import html
 import json
@@ -39,7 +41,7 @@ POS = [r"remporte", r"\bwins?\b", r"d[ée]croche", r"nouveau contrat", r"new con
        r"upgrade", r"relèvement", r"\brecord\b", r"rachat d'actions", r"buy.?back", r"share repurchase", r"partenariat", r"partnership", r"approbation", r"approval", r"\bfeu vert\b",
        r"acquisition", r"acquiert", r"acquires?", r"offre publique", r"takeover", r"beats? (estimates|expectations|consensus)", r"dépasse (les )?(attentes|consensus)", r"\bsurges?\b", r"bondit", r"s'envole"]
 # vocabulaire financier : un titre qui n'en contient aucun parle sans doute d'un homonyme (« Liga Endesa », « Monster Hunter »)
-FIN_RE = re.compile(r"bourse|\baction|cours|objectif|r[ée]sultat|chiffre d.affaires|contrat|commande|dividende|rachat|analyste|recommandation|b[ée]n[ée]fice|perte|"
+FIN_RE = re.compile(r"bourse|\baction|\bcours\b|objectif|r[ée]sultat|chiffre d.affaires|contrat|commande|dividende|rachat|analyste|recommandation|b[ée]n[ée]fice|perte|"
                     r"pr[ée]vision|trimestre|semestre|investisseur|capital|\bfusion|acquisition|acqui|cession|c[èe]de|participation|\boffre|[ée]mission|obligat|notation|\bpdg\b|"
                     r"directeur|dirigeant|\bceo\b|\bcfo\b|stock|\bshares?\b|earnings|revenue|profit|results?|quarter|outlook|forecast|guidance|analyst|price target|upgrade|"
                     r"downgrade|\bdeal\b|merger|\border|contract|dividend|buy.?back|investor|\bipo\b|placement|financ|march[ée]|client|usine|plant|production|marge|margin|"
@@ -137,6 +139,9 @@ def main():
         prev = json.loads(OUT.read_text(encoding="utf-8")).get("items") or {}
     except Exception:
         prev = {}
+    # lectures de l'IA (news_ia.py) déjà faites pour le même titre de la même société : reprises telles quelles
+    lu = {(k, plain(g.get("t"))[:60]): {f: g[f] for f in ("i", "p", "r", "v") if f in g}
+          for k, lst in prev.items() for g in (lst or []) if isinstance(g, dict) and "v" in g}
     items, ok, fail = {}, 0, 0
     t0 = time.time()
     for k, name in T.items():
@@ -162,11 +167,12 @@ def main():
                 continue
             seen.add(key)
             g["k"] = tag(g["t"])
+            g.update(lu.get((k, key), {}))
             lst.append(g)
         if lst:
-            # d'abord les titres marqués (⚠️ puis ✅), puis les plus récents ; 6 au plus
+            # d'abord les titres marqués (⚠️ puis ✅), puis les plus récents ; 8 au plus (news_ia.py en garde 6 après lecture)
             lst.sort(key=lambda g: ({"neg": 0, "pos": 1}.get(g["k"], 2), g["d"]), reverse=False)
-            lst = sorted(lst[:6], key=lambda g: ({"neg": 0, "pos": 1}.get(g["k"], 2), "" if g["k"] else g["d"]))
+            lst = sorted(lst[:8], key=lambda g: ({"neg": 0, "pos": 1}.get(g["k"], 2), "" if g["k"] else g["d"]))
             items[k] = lst
             ok += 1
         time.sleep(0.6)

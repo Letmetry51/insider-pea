@@ -1107,8 +1107,30 @@ table.antraj tr > :last-child {
 .annews li:first-child {
   border-top: 0;
 }
-.annews li.neg a {
+.annews li.neg a,
+.annews li.down a,
+.annews .down {
   color: var(--bad);
+}
+.annews li.up a,
+.annews .up {
+  color: var(--good);
+}
+.annews .flat,
+.annews .off {
+  color: var(--muted);
+}
+.annews li.off {
+  opacity: 0.65;
+}
+.annews li > span.up,
+.annews li > span.down,
+.annews li > span.flat,
+.annews li > span.off {
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1.1;
+  text-align: center;
 }
 .annews small {
   display: block;
