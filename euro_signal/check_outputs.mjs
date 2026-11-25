@@ -381,6 +381,19 @@ check(
   true
 );
 
+// 📑 lecture des comptes par l'IA (étape 4c ter, scrapers/comptes_ia.py) : information seulement (fichier réécrit seulement quand une
+// société a de nouveaux comptes : un fichier ancien entre deux saisons de résultats n'est pas une panne)
+{
+  const CPT = read('comptes_ia.json');
+  if (CPT && !CPT.__error && CPT.items && typeof CPT.items === 'object') {
+    const L = Object.values(CPT.items).filter((c) => c && c.res),
+      at = CPT.lecture && CPT.lecture.at ? String(CPT.lecture.at).slice(0, 10) : null;
+    ok(
+      `lecture des comptes par l'IA : ${L.length} sociétés lues (${L.filter((c) => c.a === 'def' || c.al).length} avec un point d'alerte), dernière lecture le ${at ? at.slice(8, 10) + '/' + at.slice(5, 7) + '/' + at.slice(0, 4) : '?'}`
+    );
+  }
+}
+
 // 5. Secteurs
 const sec = read('sectors.json');
 check(

@@ -70,6 +70,7 @@ jobs:
           python scrapers/test_tradingview.py
           python scrapers/test_sources.py
           python scrapers/test_news.py
+          python scrapers/test_comptes_ia.py
           python tools/test_workflows.py
           python grain_signal/test_grain.py
 

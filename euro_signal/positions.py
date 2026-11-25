@@ -14,6 +14,8 @@ comptent), compare au dernier cours et vous écrit, une seule fois par événeme
   - objectif de hausse atteint ;
   - seuil de protection franchi ;
   - vente d'un dirigeant depuis votre achat ;
+  - nouveaux comptes publiés, lus par l'IA (scrapers/comptes_ia.py) : résumé, points forts et faibles, avis et conseil, une seule
+    fois par période (sauf pour une société du 🎯 / 💎 du soir, qui a déjà son email : euro_signal/build.mjs) ;
   - rappel à 6 mois : sur 8 ans de cours (2018-2026), garder 6 mois les premières du classement a donné 64 % de gagnants ;
     les sorties sur MM50 sous MM200, sur recul de 20 % depuis le plus haut ou sur stop serré (−15 %) en ont donné 45 à 52 %.
     Ces deux signaux ne sont donc plus envoyés (test du 17/10/2026).
@@ -161,6 +163,47 @@ def read_positions(imap):
             box[p["isin"]] = p
     positions = [p for p in latest.values() if p["kind"] == "position" and p["price"]]
     return positions, refs, [p for p in watch.values() if p["kind"] == "surveiller"]
+
+
+COMPTES_AVIS = {"fav": "favorable", "mit": "mitigé", "def": "défavorable"}
+COMPTES_IMPACT = {"up": "hausse possible", "down": "baisse possible", "flat": "effet neutre"}
+
+
+def fr_date(d):
+    s = str(d or "")[:10]
+    return "%s/%s/%s" % (s[8:10], s[5:7], s[:4]) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s) else s
+
+
+def comptes_conseil(c):
+    """Même texte que ES.comptesConseil (euro_signal/core.js) et conseil() de scrapers/comptes_ia.py : la règle testée reste la référence."""
+    if c.get("a") == "def" or c.get("al"):
+        return "Point d'alerte : à vérifier avant d'acheter ou de garder (la règle testée reste la référence)."
+    return "Rien dans ces comptes qui contredise la règle testée."
+
+
+def comptes_event(c, today):
+    """Lecture des comptes par l'IA à signaler pour une position : nouveaux comptes vus il y a 10 jours au plus (champ pub, jamais
+    posé au premier relevé d'une société ni pour une lecture refaite). → texte de l'email, ou None."""
+    if not isinstance(c, dict) or not c.get("res") or c.get("a") not in COMPTES_AVIS or not c.get("per"):
+        return None
+    try:
+        age = (today - date.fromisoformat(str(c.get("pub"))[:10])).days
+    except ValueError:
+        return None
+    if not 0 <= age <= 10:
+        return None
+    nat = c.get("nat") if c.get("nat") in ("exercice", "trimestre", "semestre") else "période"
+    lines = ["Nouveaux comptes (%s %s le %s), lus par l'IA le %s." % (nat, "close" if nat == "période" else "clos", fr_date(c["per"]), fr_date(c.get("at"))),
+             "", "Effet possible sur le cours : %s · avis sur les comptes : %s." % (COMPTES_IMPACT.get(c.get("i"), "effet neutre"), COMPTES_AVIS[c["a"]]),
+             str(c["res"])]
+    if c.get("f"):
+        lines.append("Points forts : " + " · ".join(map(str, c["f"])))
+    if c.get("w"):
+        lines.append("Points faibles : " + " · ".join(map(str, c["w"])))
+    if c.get("al"):
+        lines.append("⚠️ " + str(c["al"]))
+    lines.append("Conseil : " + comptes_conseil(c))
+    return "\n".join(lines)
 
 
 def level_key(v):
@@ -479,6 +522,34 @@ def main():
                 name, label, ("%.2f" % pos["price"]).replace(".", ","), pos["date"], ("%.2f" % info["last"]).replace(".", ","), pc(info["perf"]),
                 (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Revente — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
+    # 📑 Nouveaux comptes d'une position, lus par l'IA (scrapers/comptes_ia.py) : une fois par société et par période ; une société
+    # du 🎯 / 💎 de ce soir a déjà son email (build.mjs, 6h bis)
+    try:
+        cpt = json.loads((DATA / "comptes_ia.json").read_text(encoding="utf-8")).get("items") or {}
+    except Exception:
+        cpt = {}
+    done_c = set()
+    for pos in positions:
+        isin = pos["isin"]
+        key = (dash.get("aliases") or {}).get(isin, isin)
+        if picks is not None and (key in picks or isin in picks):
+            continue
+        c = cpt.get(key) or cpt.get(isin)
+        txt = comptes_event(c, today)
+        if not txt:
+            continue
+        ref = "comptes:%s:%s" % (key, c["per"])
+        if ref in refs or ref in done_c:
+            continue
+        done_c.add(ref)
+        inst = (dash.get("inst") or {}).get(key) or {}
+        name = inst.get("name") or pos.get("name") or isin
+        body = ("%s — %s\n\nVotre achat : %s le %s. Règles testées : garder 6 mois, vendre sous -30 %%. Ce n'est pas un ordre : à décider "
+                "selon votre stratégie.\nLecture automatique des chiffres publiés (Yahoo Finance) par une IA (Claude), non testée : seules les "
+                "règles 🎯 et 💎 sont testées.%s") % (
+            name, txt, ("%.2f" % pos["price"]).replace(".", ","), pos["date"],
+            ("\nFiche : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
+        to_send.append(("[Euro Signal] Comptes — %s : avis %s (réf. %s)" % (name, COMPTES_AVIS[c["a"]], ref), body))
     # Plans d'entrée surveillés
     rank_by_sym = {r.get("sym"): r for r in ((dash.get("rank") or {}).get("rows") or []) if isinstance(r, dict) and r.get("sym")}
     for w in watches:
