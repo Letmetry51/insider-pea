@@ -198,7 +198,7 @@ jobs:
         run: python scrapers/events.py
         continue-on-error: true
 
-      - name: 4b. Comptes annuels (4 exercices, Yahoo Finance)
+      - name: 4b. Comptes annuels et trimestres (4 exercices, 6 trimestres ou semestres, Yahoo Finance)
         id: s4b
         timeout-minutes: 20
         run: python scrapers/test_financials.py && python scrapers/financials.py  # tests d'abord : une panne de Yahoo n'efface jamais les comptes

@@ -172,7 +172,7 @@ def _():
     assert it[isins[1]]["quarters"] == [] and it[isins[1]]["qAt"] == ago(10), it[isins[1]]
 
 
-@case("Erreur de Yahoo sur les trimestres : comptes annuels mis à jour, trimestres déjà connus gardés")
+@case("Erreur ou réponse vide de Yahoo sur les trimestres : comptes annuels mis à jour, trimestres déjà connus gardés")
 def _():
     isins = setup(1, schema=F.SCHEMA)
     q = [{"date": "2026-06-30", "revenue": 12.0, "netIncome": 1.0}]
@@ -185,6 +185,11 @@ def _():
     F.main()
     v = saved()[isins[0]]
     assert v["years"][0]["equity"] == 2.0 and v["quarters"] == q and v["qAt"] == "2026-07-15", v
+    rewrite(lambda k, v: v.update(asOf="2020-01-01"))
+    F.quarters_of = lambda t: []  # réponse vide (Yahoo qui bride) : les trimestres connus ne sont pas effacés
+    F.main()
+    v = saved()[isins[0]]
+    assert v["quarters"] == q and v["qAt"] == "2026-07-15", v
 
 
 @case("Nouvelle publication (newAt) : période plus récente et récente ; pas au premier relevé des trimestres ni à l'arrivée d'une vieille période")

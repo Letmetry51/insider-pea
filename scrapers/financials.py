@@ -283,7 +283,9 @@ def main():
             # trimestres : relus sauf si Yahoo n'en avait pas il y a moins de 3 mois ; erreur ce soir : ceux déjà connus sont gardés
             if not (same and old.get("quarters") == [] and str(old.get("qAt") or "") > q_before):
                 try:
-                    st["quarters"], st["qAt"] = quarters_of(pairs[isin]), today.isoformat()
+                    q = quarters_of(pairs[isin])
+                    if q or not (same and old.get("quarters")):  # réponse vide après des trimestres connus : panne passagère
+                        st["quarters"], st["qAt"] = q, today.isoformat()
                 except Exception:
                     pass
             if "quarters" not in st and same and isinstance(old.get("quarters"), list):

@@ -1,7 +1,8 @@
 """Essai de la lecture des comptes par l'IA (scrapers/comptes_ia.py) avant sa mise en service, 25/11/2026 (François : « Oui avec
 haiku ») : 12 sociétés (4 du 🎯, 2 du 💎, Husqvarna, une banque, une foncière, des comptes en dégradation, Francfort, Paris), leurs
 trimestres lus en direct chez Yahoo (financials.quarters_of), le texte envoyé pour deux d'entre elles, les lectures de Claude Haiku,
-le conseil qui en découle, la durée et le coût. Rien n'est écrit (ni data/, ni out/).
+le conseil qui en découle, la durée et le coût. Rien n'est écrit (ni data/, ni out/). Lancé cinq fois le 25/11/2026 avec le secret
+ANTHROPIC_API_KEY ajouté pour l'essai à research.yml, puis retiré : à rajouter le temps d'un nouvel essai.
 """
 import json
 import os
@@ -23,7 +24,6 @@ def main():
     fin = json.loads((C.DATA / "financials.json").read_text(encoding="utf-8"))["items"]
     dash = json.loads((C.DATA / "euro-signal.json").read_text(encoding="utf-8"))
     rank = dash["rank"]
-    rows = {r["key"]: r for r in rank["rows"]}
     est = json.loads((C.DATA / "sectors" / "estimates.json").read_text(encoding="utf-8"))
     ctx, picks = C.contexte()
 
