@@ -104,7 +104,9 @@ def _():
 def _():
     g = C.glissant(Q, Y)
     assert g and g.startswith("Sur 12 mois glissants au 2026-09-30 (4 derniers trimestres) face au dernier exercice (2025-12-31)"), g
-    assert "CA 111 (+0,9 % face à l'exercice)" in g and "résultat net 5,0 (8,0 sur l'exercice)" in g, g
+    assert "CA 111 (+0,9 % face à l'exercice)" in g and "résultat net 5,0 (−37,5 % face à l'exercice)" in g, g
+    gl = C.glissant(Q[:-1] + [dict(Q[-1], netIncome=-10e6)], Y)
+    assert "résultat net −4,5 (8,0 sur l'exercice)" in gl, gl  # perte sur 12 mois : pas de variation en % d'une perte
     assert C.glissant([q for q in Q if q["date"] != "2026-03-31"], Y) is None, "trimestres qui ne se suivent pas"
     assert C.glissant(Q[:-1] + [dict(Q[-1], revenue=500e6)], Y) is None, "total invraisemblable"
     assert C.glissant(Q, [dict(Y[1], date="2026-12-31")]) is None, "exercice plus récent que les trimestres"

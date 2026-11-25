@@ -262,7 +262,7 @@ def ratios(fin, secteur):
             elif eb is not None and eb > 0 and not fo:  # foncière : dette élevée habituelle, jugée sur la couverture des intérêts
                 p.append("dette nette %s = %s fois l'EBITDA" % (mil(nd), ("%.1f" % (nd / eb)).replace(".", ",")))
             else:
-                p.append("dette nette " + mil(nd) + (" avec un EBITDA négatif" if eb is not None else ""))
+                p.append("dette nette " + mil(nd) + (" avec un EBITDA négatif" if eb is not None and eb <= 0 else ""))
         ie = num(y0.get("interestExpense"))
         ebit = num(y0.get("ebit")) if num(y0.get("ebit")) is not None else num(y0.get("operatingIncome"))
         if not fi and ie and abs(ie) > 0 and ebit is not None:
