@@ -10,9 +10,11 @@ une période plus récente que celle de sa dernière lecture apparaît, quand el
 (VERSION). Claude reçoit les chiffres publiés et des ratios calculés ici (croissance, marges, dette nette / EBITDA, couverture des
 intérêts, dilution, comparaison au même trimestre un an plus tôt) : rien d'autre que des chiffres publics, jamais de position. Il
 écrit en français ce que montre la dernière publication, 3 points forts et 3 points faibles au plus, l'effet possible sur le cours
-(↑ / ↓ / →), un avis sur les comptes (favorable, mitigé, défavorable) et un point d'alerte éventuel. Le conseil affiché en découle
-sans IA (conseil() ici, ES.comptesConseil dans la page) : la règle testée (🎯 / 💎) reste la seule référence pour acheter, garder
-ou vendre, et la lecture n'entre dans aucune règle du classement.
+(↑ / ↓ / →) et un avis sur les comptes (favorable, mitigé, défavorable). Les points d'alerte ne viennent pas de l'IA : sept cas
+chiffrés calculés ici (alertes() : dette nette au-delà de 4 fois l'EBITDA, intérêts couverts moins de 2 fois, capitaux propres
+négatifs, dilution, chiffre d'affaires en chute, pertes qui se creusent, trésorerie qui ne couvre pas un an de déficit). Le conseil
+affiché en découle, sans IA non plus (conseil() ici, ES.comptesConseil dans la page) : la règle testée (🎯 / 💎) reste la seule
+référence pour acheter, garder ou vendre, et la lecture n'entre dans aucune règle du classement.
 
 Lectures dans data/comptes_ia.json (clé : ISIN ou symbole, celle du classement), gardées d'un soir à l'autre. « pub » : date où le
 collecteur a vu ces nouveaux comptes (financials.py, champs newAt / newPer) quand elle a moins de PUB_DAYS jours : seules ces
@@ -43,7 +45,6 @@ FINANCE = re.compile(r"financ|banq|bank|assur|insur", re.I)
 FONCIERE = re.compile(r"immobil|real estate|reit", re.I)
 AVIS = {"favorable": "fav", "mitigé": "mit", "mitige": "mit", "défavorable": "def", "defavorable": "def"}
 IMPACT = {"hausse": "up", "baisse": "down", "neutre": "flat"}
-VIDE = {"", "aucune", "aucun", "rien", "néant", "neant", "-", "—", "none", "null", "non"}
 
 SYSTEME = """Tu aides un investisseur particulier qui achète des actions européennes repérées par une règle testée (tendance du cours
 et qualité des comptes) et les garde environ six mois. Pour chaque société, tu reçois ses comptes publiés (source Yahoo Finance) :
@@ -62,12 +63,8 @@ Pour CHAQUE société :
   "neutre" si l'ensemble est stable, partagé, ou trop incomplet pour juger.
 - avis : sur la santé et la tendance des comptes, sans regarder le cours. "favorable" : rentable, en progrès ou stable, bilan
   solide. "mitigé" : des points faibles réels. "défavorable" : pertes, dégradation nette ou bilan fragile.
-- alerte : chaîne vide, SAUF dans l'un de ces cas, et seulement ceux-là (une phrase de 15 mots au plus, avec le chiffre) :
-  dette nette supérieure à 4 fois l'EBITDA (pas pour une foncière) ; capitaux propres négatifs ; flux d'exploitation annuel négatif
-  avec une trésorerie qui couvre moins d'un an de ce déficit ; nombre d'actions en hausse de plus de 10 % sur un an ; intérêts
-  couverts moins de 2 fois par le résultat d'exploitation ; chiffre d'affaires en chute de plus de 20 % face à la même période un an
-  plus tôt ; perte plus lourde qu'à la même période un an plus tôt. Un bon résultat jugé « exceptionnel » ou « volatil » n'est pas
-  une alerte.
+Les « points d'alerte calculés par l'outil », quand il y en a, sont déjà vérifiés : tiens-en compte dans l'avis, sans les inventer
+ni les contredire ; un bon résultat jugé « exceptionnel » ou « volatil » n'est pas un point faible en soi.
 
 Règles :
 - N'utilise que les chiffres donnés : n'invente aucun chiffre, aucune nouvelle, aucune prévision, ne refais pas les calculs déjà
@@ -86,7 +83,7 @@ Règles :
 - Pas de conseil d'achat ni de vente : tu juges les comptes, pas l'action.
 
 Réponds uniquement par un objet JSON : {"lectures": [{"id": "…", "resume": "…", "forts": ["…"], "faibles": ["…"],
-"impact": "neutre", "avis": "mitigé", "alerte": ""}, …]}, une entrée par société, avec l'identifiant donné."""
+"impact": "neutre", "avis": "mitigé"}, …]}, une entrée par société, avec l'identifiant donné."""
 
 LIB = (("revenue", "CA"), ("grossProfit", "marge brute"), ("operatingIncome", "résultat d'exploitation"), ("ebitda", "EBITDA"),
        ("netIncome", "résultat net"), ("interestExpense", "charges d'intérêts"), ("cfo", "flux d'exploitation"),
@@ -313,6 +310,75 @@ def ratios(fin, secteur):
     return out
 
 
+def jusqua(fin, per):
+    """Comptes connus à la fin de la période lue : une lecture plus ancienne que les derniers comptes garde ses propres alertes."""
+    return dict(fin, years=[y for y in fin.get("years") or [] if isinstance(y, dict) and str(y.get("date")) <= str(per)],
+                quarters=[q for q in fin.get("quarters") or [] if isinstance(q, dict) and str(q.get("date")) <= str(per)])
+
+
+def alertes(fin, secteur):
+    """Points d'alerte calculés ici, sans IA : sept cas chiffrés. À la mise en service (25/11/2026), Haiku en ajoutait hors des cas
+    prévus (Louis Hachette Group : « dette nette … 3,3 fois l'EBITDA : sous le seuil de 4 fois, mais élevée »), et chacun faisait
+    passer le conseil à « point d'alerte ». Dernier exercice face au précédent, dernier trimestre ou semestre face au même un an plus
+    tôt, bilan le plus récent. Banques et assurances : capitaux propres et pertes seulement ; foncières : sans dette / EBITDA."""
+    Y = sorted((y for y in fin.get("years") or [] if isinstance(y, dict) and y.get("date")), key=lambda y: str(y["date"]))
+    Q = sorted((q for q in fin.get("quarters") or [] if isinstance(q, dict) and q.get("date")), key=lambda q: str(q["date"]))
+    if not Y:
+        return []
+    fi, fo = bool(FINANCE.search(secteur or "")), bool(FONCIERE.search(secteur or ""))
+    cur = fin.get("currency") or ""
+    m = lambda v: mil(v) + " M" + (" " + cur if cur else "")  # noqa: E731
+    f1 = lambda x: ("%.1f" % x).replace(".", ",")  # noqa: E731
+    y0, y1 = Y[-1], (Y[-2] if len(Y) > 1 else {})
+    ex = "exercice " + str(y0["date"])[:4]
+    q0 = Q[-1] if Q and str(Q[-1]["date"]) > str(y0["date"]) else None
+    q1 = same_year_before(Q[:-1], q0["date"]) if q0 else None
+    nq = nature(Q) if q0 else ""
+    lq = "dernière période" if nq == "période" else "dernier " + nq  # « dernier trimestre », « dernière période »
+    last = lambda k: num(q0.get(k)) if q0 and num(q0.get(k)) is not None else num(y0.get(k))  # noqa: E731
+    out = []
+    if not fi and not fo and num(y0.get("totalDebt")) is not None and num(y0.get("cash")) is not None:
+        nd, eb = y0["totalDebt"] - y0["cash"], num(y0.get("ebitda"))
+        if nd > 0 and eb is not None and eb > 0 and nd / eb > 4:
+            out.append("dette nette à %s fois l'EBITDA (%s)" % (f1(nd / eb), ex))
+        elif nd > 0 and eb is not None and eb <= 0:
+            out.append("dette nette de %s avec un EBITDA négatif (%s)" % (m(nd), ex))
+    ie = abs(num(y0.get("interestExpense")) or 0)
+    ebit = num(y0.get("ebit")) if num(y0.get("ebit")) is not None else num(y0.get("operatingIncome"))
+    if not fi and ie > 0 and ebit is not None and 0 < ebit < 2 * ie:  # société en perte : vue par les cas suivants
+        out.append("intérêts couverts %s fois seulement par le résultat d'exploitation (%s)" % (f1(ebit / ie), ex))
+    eq = last("equity")
+    if eq is not None and eq < 0:
+        out.append("capitaux propres négatifs (%s)" % m(eq))
+    for a, b, lab in ((y0, y1, ex), (q0, q1, lq)):
+        g = growth((a or {}).get("shares"), (b or {}).get("shares"))
+        if g is not None and 0.10 <= g <= 0.80:  # au-delà : division du nominal plutôt qu'une émission d'actions
+            out.append("nombre d'actions %s en un an (%s) : dilution" % (pc(g, True), lab))
+            break
+    if not fi:
+        for a, b, lab in ((q0, q1, lq + " face à un an plus tôt"), (y0, y1, ex + " face au précédent")):
+            g = growth((a or {}).get("revenue"), (b or {}).get("revenue"))
+            if g is not None and g < -0.20:
+                out.append("chiffre d'affaires %s (%s)" % (pc(g, True), lab))
+                break
+    for a, b, lab in ((q0, q1, lq), (y0, y1, ex)):
+        n0, n1 = num((a or {}).get("netIncome")), num((b or {}).get("netIncome"))
+        if n0 is not None and n1 is not None and n0 < 0 and n0 < n1:
+            out.append("perte de %s (%s), contre %s un an plus tôt" % (m(-n0), lab, ("un bénéfice de " if n1 >= 0 else "une perte de ") + m(abs(n1))))
+            break
+    cfo, cash = num(y0.get("cfo")), last("cash")
+    if not fi and cfo is not None and cfo < 0 and cash is not None and cash < -cfo:
+        out.append("flux d'exploitation négatif (%s sur l'%s) et trésorerie de %s : moins d'un an" % (m(cfo), ex, m(cash)))
+    return out
+
+
+def alerte_txt(fin, secteur, per):
+    """Texte des deux premiers points d'alerte de la période lue, ou chaîne vide."""
+    a = alertes(jusqua(fin, per), secteur)[:2]
+    t = " ; ".join(a)
+    return t[:1].upper() + t[1:] if t else ""
+
+
 def surprise(key, sym, per, events, est):
     """Première publication de résultats dans les 120 jours après la fin de la période lue (celle qui la présente : les résultats du
     trimestre suivant tombent aussi dans la fenêtre d'un exercice), et écart du bénéfice par action à l'attente des analystes quand
@@ -400,6 +466,9 @@ def bloc(key, fin, ctx, per, nat, events, est):
     if R:
         lines.append("Ratios calculés :")
         lines += ["  " + r for r in R]
+    al = alertes(jusqua(fin, per), c.get("secteur") or "")
+    if al:
+        lines.append("Points d'alerte calculés par l'outil : " + " ; ".join(al) + ".")
     s = surprise(key, sym, per, events, est)
     if s:
         lines.append("Résultats publiés le %s%s." % (s[0], "" if s[1] is None else " : bénéfice par action %s %s l'attente des analystes" % (
@@ -438,9 +507,6 @@ def applique(store, lectures, todo, today_s, modele):
                "f": [court(t, 100) for t in (x.get("forts") or []) if isinstance(t, str) and t.strip()][:3] if isinstance(x.get("forts"), list) else [],
                "w": [court(t, 100) for t in (x.get("faibles") or []) if isinstance(t, str) and t.strip()][:3] if isinstance(x.get("faibles"), list) else [],
                "i": IMPACT.get(str(x.get("impact") or "").strip().lower(), "flat"), "a": avis}
-        al = court(x.get("alerte"), 140)
-        if al and al.strip(" .").lower() not in VIDE:
-            rec["al"] = al
         if pub:
             rec["pub"] = pub
         store[k] = rec
@@ -483,9 +549,6 @@ def main():
     if not key:
         print("Lecture des comptes : pas de secret ANTHROPIC_API_KEY, %d sociétés à lire (%d nouvelles publications)" % (len(keys), n_pub))
         return 0
-    if not keys:
-        print("Lecture des comptes : aucune nouvelle période à lire")
-        return 0
     size = max(1, int(cfg["lot"]))
     L = [keys[i:i + size] for i in range(0, len(keys), size)]
     t0, lus, err, usage, done_lots = time.time(), 0, {}, {}, 0
@@ -499,7 +562,7 @@ def main():
             return lot, appel(key, cfg, texte, SYSTEME), None
         except Exception as e:  # noqa: BLE001
             return lot, None, str(e)[:40]
-    with cf.ThreadPoolExecutor(max(1, int(cfg["paralleles"]))) as pool:
+    with cf.ThreadPoolExecutor(max(1, int(cfg["paralleles"]))) as pool:  # rien à lire : points d'alerte recalculés quand même
         futs = [pool.submit(one, lot) for lot in L]
         for fu in cf.as_completed(futs):
             lot, res, e = fu.result()
@@ -517,15 +580,30 @@ def main():
     gone = [k for k in store if ("@" + k) not in fin and k not in fin]  # sociétés sorties des comptes suivis
     for k in gone:
         store.pop(k, None)
-    if lus or gone:  # rien de lu (API en panne) et rien à retirer : fichier laissé tel quel
-        ecrit(store, {"modele": cfg["modele"], "version": VERSION, "lus": lus, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    changed = 0  # points d'alerte calculés ici : recalculés pour chaque lecture, sans appel à l'API
+    for fk, f in fin.items():
+        k = fk[1:] if fk.startswith("@") else fk
+        r = store.get(k)
+        if not isinstance(f, dict) or not isinstance(r, dict) or not r.get("per"):
+            continue
+        al = alerte_txt(f, (ctx.get(k) or {}).get("secteur") or "", r["per"])
+        if al != (r.get("al") or ""):
+            if al:
+                r["al"] = al
+            else:
+                r.pop("al", None)
+            changed += 1
+    if lus or gone or changed:  # rien de lu (API en panne), rien à retirer ni à recalculer : fichier laissé tel quel
+        ecrit(store, {"modele": cfg["modele"], "version": VERSION, "lus": lus,
+                      "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if lus else meta.get("at")})
     rd = [v for v in store.values() if isinstance(v, dict) and v.get("v") == VERSION]
     print("Lecture des comptes (%s) : %d sociétés lues sur %d à lire (dont %d nouvelles publications), en %.0f s, environ %.3f $ ; "
           "lectures à jour : %d (%d favorables, %d mitigées, %d défavorables, %d avec un point d'alerte)%s" % (
               cfg["modele"], lus, len(keys), n_pub, time.time() - t0, cout(usage, cfg["modele"]), len(rd),
               sum(1 for v in rd if v.get("a") == "fav"), sum(1 for v in rd if v.get("a") == "mit"),
               sum(1 for v in rd if v.get("a") == "def"), sum(1 for v in rd if v.get("al")),
-              (" ; lots non lus : " + ", ".join("%s (%d)" % kv for kv in err.items())) if err else ""))
+              (" ; points d'alerte recalculés : %d" % changed if changed else "")
+              + ((" ; lots non lus : " + ", ".join("%s (%d)" % kv for kv in err.items())) if err else "")))
     return 0
 
 

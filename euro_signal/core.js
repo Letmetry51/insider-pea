@@ -11126,8 +11126,9 @@
   /**
    * 📑 Lecture des comptes publiés par une IA (scrapers/comptes_ia.py, Claude Haiku ; demande de François du 25/11/2026) : une
    * lecture par société (data/comptes_ia.json, clé ISIN ou symbole du classement), refaite à chaque nouvelle période publiée.
-   * Affichage (fiche), ligne de l'email de la sélection et email des nouveaux comptes seulement : n'entre dans aucune règle. Le
-   * conseil ne vient pas de l'IA : il découle de son avis et de son point d'alerte, la règle testée restant la référence.
+   * Affichage (fiche), ligne de l'email de la sélection et email des nouveaux comptes seulement : n'entre dans aucune règle. Ni les
+   * points d'alerte (al : sept cas chiffrés, calculés par comptes_ia.alertes) ni le conseil ne viennent de l'IA : le conseil découle
+   * de l'avis et des points d'alerte, la règle testée restant la référence.
    * c : { per : fin de la période lue, nat : exercice / trimestre / semestre, at : date de lecture, res : résumé, f / w : points
    * forts / faibles, i : up / down / flat (effet possible sur le cours), a : fav / mit / def (avis), al : point d'alerte, pub : date
    * où les nouveaux comptes ont été vus quand la lecture porte sur eux }
