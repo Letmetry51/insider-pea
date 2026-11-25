@@ -15,7 +15,7 @@ def main():
     by = collections.defaultdict(list)
     for r in rows:
         s = str(r.get('sym') or '')
-        if '.' in s and r.get('pea'):
+        if '.' in s and s.rsplit('.', 1)[1] in ('PA', 'DE', 'MC', 'AS', 'BR', 'LS', 'VI', 'HE', 'ST', 'CO', 'OL', 'IR', 'MI'):
             by[s.rsplit('.', 1)[1]].append(s)
     sample = [s for ex in sorted(by) for s in by[ex][:8]]
     print(f"{len(sample)} sociétés : " + ', '.join(f"{ex} {min(8, len(v))}" for ex, v in sorted(by.items())))
