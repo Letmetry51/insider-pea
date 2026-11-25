@@ -141,20 +141,54 @@ def _():
     assert abs(C.surprise("X1", "EX.PA", "2026-09-30", ev, {})[1] - 10.0) < 1e-9
 
 
-@case("Réponse lue : avis et impact reconnus, textes raccourcis, alerte « aucune » retirée, entrée sans avis ignorée")
+@case("Réponse lue : avis et impact reconnus, textes raccourcis, alerte de l'IA ignorée, entrée sans avis ignorée")
 def _():
     store = {}
     todo = {"A": ("2026-09-30", "trimestre", "2026-11-20"), "B": ("2025-12-31", "exercice", None), "C": ("2025-12-31", "exercice", None)}
-    n = C.applique(store, [entry("A", forts=["x " * 80, "b", "c", "d"], alerte="Dette nette à 4,5 fois l'EBITDA"),
-                           entry("B", avis="Favorable", impact="hausse", alerte="Aucune."), entry("C", avis="?"), entry("Z")],
+    n = C.applique(store, [entry("A", forts=["x " * 80, "b", "c", "d"], alerte="Dette nette à 3,3 fois l'EBITDA : sous le seuil, mais élevée"),
+                           entry("B", avis="Favorable", impact="hausse"), entry("C", avis="?"), entry("Z")],
                    todo, "2026-11-25", "claude-haiku-5-5")
     assert n == 2 and sorted(store) == ["A", "B"], store
     a, b = store["A"], store["B"]
     assert a["per"] == "2026-09-30" and a["nat"] == "trimestre" and a["pub"] == "2026-11-20" and a["i"] == "down" and a["a"] == "mit"
-    assert len(a["f"]) == 3 and len(a["f"][0]) <= 100 and a["f"][0].endswith("…") and a["al"].startswith("Dette nette")
+    assert len(a["f"]) == 3 and len(a["f"][0]) <= 100 and a["f"][0].endswith("…") and "al" not in a, a
     assert b["a"] == "fav" and b["i"] == "up" and "al" not in b and "pub" not in b, b
-    assert C.conseil(a).startswith("Point d'alerte") and C.conseil(b) == "Rien dans ces comptes qui contredise la règle testée."
+    assert C.conseil(a) == "Rien dans ces comptes qui contredise la règle testée.", "alerte de l'IA hors des cas prévus"
+    assert C.conseil(dict(a, al="Dette nette à 6,1 fois l'EBITDA")).startswith("Point d'alerte")
     assert C.conseil({"a": "def"}).startswith("Point d'alerte")
+
+
+@case("Points d'alerte calculés sans IA : sept cas chiffrés, banques, foncières, division du nominal, période lue")
+def _():
+    base = {"date": "2024-12-31", "revenue": 100e6, "operatingIncome": 10e6, "ebit": 10e6, "netIncome": 6e6, "ebitda": 20e6,
+            "totalDebt": 50e6, "cash": 10e6, "equity": 80e6, "shares": 10e6, "interestExpense": 2e6, "cfo": 15e6}
+    y1 = dict(base, date="2025-12-31")
+    al = lambda y, sec="Industrie", q=None: C.alertes({"years": [base, y], "quarters": q or [], "currency": "EUR"}, sec)  # noqa: E731
+    assert al(y1) == [], al(y1)
+    assert al(dict(y1, totalDebt=100e6, cash=10e6, ebitda=20e6)) == ["dette nette à 4,5 fois l'EBITDA (exercice 2025)"]
+    assert al(dict(y1, totalDebt=76e6, cash=10e6)) == [], "3,3 fois l'EBITDA : sous le seuil, pas d'alerte (Louis Hachette)"
+    assert al(dict(y1, ebitda=-1e6))[0].startswith("dette nette de 40,0 M EUR avec un EBITDA négatif")
+    assert al(dict(y1, ebit=3e6)) == ["intérêts couverts 1,5 fois seulement par le résultat d'exploitation (exercice 2025)"]
+    assert "capitaux propres négatifs (−5,0 M EUR)" in al(dict(y1, equity=-5e6))
+    assert al(dict(y1, shares=11.5e6)) == ["nombre d'actions +15,0 % en un an (exercice 2025) : dilution"]
+    assert al(dict(y1, shares=20e6)) == [], "actions doublées : division du nominal, pas une dilution"
+    assert al(dict(y1, revenue=75e6)) == ["chiffre d'affaires −25,0 % (exercice 2025 face au précédent)"]
+    b2 = dict(base, netIncome=-2e6)
+    assert C.alertes({"years": [b2, dict(y1, netIncome=-5e6)]}, "Industrie") == ["perte de 5,0 M (exercice 2025), contre une perte de 2,0 M un an plus tôt"]
+    assert C.alertes({"years": [b2, dict(y1, netIncome=-1e6)]}, "Industrie") == [], "perte qui se réduit"
+    burn = al(dict(y1, cfo=-12e6, cash=10e6))
+    assert burn == ["flux d'exploitation négatif (−12,0 M EUR sur l'exercice 2025) et trésorerie de 10,0 M EUR : moins d'un an"], burn
+    assert al(dict(y1, totalDebt=500e6, ebit=1e6, revenue=50e6), "Finance") == [], "banque : ni dette, ni intérêts, ni chiffre d'affaires"
+    assert al(dict(y1, totalDebt=100e6), "Immobilier") == [], "foncière : pas de dette nette / EBITDA"
+    q = [{"date": "2025-09-30", "revenue": 30e6, "netIncome": 1e6}, {"date": "2026-09-30", "revenue": 20e6, "netIncome": -1e6, "cash": 2e6}]
+    aq = al(y1, q=q)
+    assert aq[0] == "chiffre d'affaires −33,3 % (dernière période face à un an plus tôt)", aq
+    assert "perte de 1,0 M EUR (dernière période), contre un bénéfice de 1,0 M EUR un an plus tôt" in aq, aq
+    qt = [{"date": d, "revenue": r} for d, r in (("2025-09-30", 30e6), ("2025-12-31", 30e6), ("2026-03-31", 30e6), ("2026-06-30", 30e6), ("2026-09-30", 20e6))]
+    assert al(y1, q=qt) == ["chiffre d'affaires −33,3 % (dernier trimestre face à un an plus tôt)"], al(y1, q=qt)
+    f = {"years": [base, y1], "quarters": q, "currency": "EUR"}
+    assert C.alerte_txt(f, "Industrie", "2025-12-31") == "", "lecture de l'exercice : les trimestres d'après n'y entrent pas"
+    assert C.alerte_txt(f, "Industrie", "2026-09-30").startswith("Chiffre d'affaires −33,3 %")
 
 
 @case("Sans secret ANTHROPIC_API_KEY : rien n'est lu, fichier inchangé")
