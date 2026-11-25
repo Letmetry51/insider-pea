@@ -20,6 +20,7 @@ const F = {
   events: path.join(DATA, 'events.json'),
   shorts: path.join(DATA, 'shorts.json'),
   financials: path.join(DATA, 'financials.json'),
+  comptes: path.join(DATA, 'comptes_ia.json'), // 📑 lecture des comptes par l'IA (scrapers/comptes_ia.py) : emails seulement
   prices: path.join(DATA, 'prices.json'),
   state: path.join(DATA, 'euro-signal-state.json'),
   history: path.join(DATA, 'history'),
@@ -855,6 +856,10 @@ export function build(opts = {}) {
   }
   // Comptes annuels (4 exercices) : analyse et F-score de Piotroski, avec les seuls comptes publiés à ce jour
   const finRaw = readJSON(F.financials, { items: {} });
+  // 📑 lecture des comptes publiés par l'IA (scrapers/comptes_ia.py, étape 4c ter) : ligne de l'email de la sélection et email des
+  // nouveaux comptes d'une société 🎯 / 💎 (6h bis) ; n'entre dans aucune règle
+  const cptRaw = readJSON(F.comptes, { items: {} });
+  const cptItems = isObj(cptRaw) && isObj(cptRaw.items) ? cptRaw.items : {};
   const finList = isObj(finRaw.items) ? finRaw.items : {};
   const accAt = (isin, d) => {
     try {
@@ -3020,7 +3025,10 @@ export function build(opts = {}) {
       // reste calculée et affichée pour comparaison jusqu'à la revue du 31/01/2027)
       const mail = rank
         ? ES.buildRankEmail(
-            rank._sel,
+            rank._sel.map((x) => {
+              const c = ES.comptesOf(cptItems, x);
+              return c ? Object.assign({}, x, { cpt: c }) : x; // copie : la lecture ne va pas dans le classement publié
+            }),
             week,
             cfg,
             dashUrl,
@@ -3646,6 +3654,59 @@ export function build(opts = {}) {
     }
   } catch (e) {
     console.warn('  Piste des révisions indisponible : ' + e.message);
+  }
+
+  /* 6h bis. 📑 Nouveaux comptes d'une société du 🎯 ou du 💎 de ce soir, lus par l'IA (scrapers/comptes_ia.py) : un email par société
+     et par période, seulement pour des comptes vus il y a moins de 10 jours (champ pub ; jamais au premier relevé d'une société ni
+     pour une lecture refaite). Information seulement : la sélection ne change pas. Les positions suivies ont leur propre email
+     (positions.py), sauf celles du 🎯 / 💎, déjà couvertes ici. */
+  try {
+    state.comptesSent = isObj(state.comptesSent) ? state.comptesSent : {};
+    const tops = rank
+      ? (rank.pick10 || []).map((k) => [k, '🎯 sélection']).concat((rank.value10 || []).map((k) => [k, '💎 valeur']))
+      : [];
+    const rowK = {};
+    ((rank && rank.rows) || []).forEach((r) => {
+      if (r && r.key) rowK[r.key] = r;
+    });
+    let nCpt = 0;
+    tops.forEach(([k, tag]) => {
+      const c = ES.comptesOf(cptItems, k);
+      const age = c && c.pub ? ES.daysBetween(c.pub, today) : NaN;
+      if (!(age >= 0 && age <= 10)) return; // date illisible comprise
+      if (state.comptesSent[k] && state.comptesSent[k] >= c.per) return; // déjà envoyé pour cette période (ou une plus récente)
+      const r = rowK[k] || {};
+      const name = r.name || (inst[k] && inst[k].name) || k;
+      const link = dashUrl ? dashUrl + '#' + (r.isin || (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(k) ? k : 'co=' + (r.sym || k))) : null;
+      const m = ES.buildComptesEmail(c, { name: name, sector: r.sector || null, tag: tag, link: link });
+      outbox.push({
+        id: 'comptes-' + k + '-' + c.per,
+        kind: 'comptes',
+        isin: r.isin || null,
+        name: name,
+        subject: m.subject,
+        text: m.text,
+        html: m.html,
+        eventIds: ['comptes:' + k + ':' + c.per],
+        score: null,
+        version: cfg.rank.version,
+      });
+      state.comptesSent[k] = c.per;
+      nCpt++;
+    });
+    // mémoire des envois : une période de plus de 400 jours ne peut plus revenir
+    Object.keys(state.comptesSent).forEach((k) => {
+      if (ES.daysBetween(state.comptesSent[k], today) > 400) delete state.comptesSent[k];
+    });
+    const nRead = Object.keys(cptItems).length;
+    console.log(
+      "  📑 Lecture des comptes par l'IA : " +
+        nRead +
+        ' sociétés lues' +
+        (nCpt ? ', ' + nCpt + ' email(s) de nouveaux comptes (🎯 / 💎)' : '')
+    );
+  } catch (e) {
+    console.warn('  📑 Emails de la lecture des comptes indisponibles : ' + e.message);
   }
 
   /* 6i. 📊 Bilan trimestriel automatique (premier soir de janvier, avril, juillet, octobre) et point de revue de la méthode (rules.review.date) */

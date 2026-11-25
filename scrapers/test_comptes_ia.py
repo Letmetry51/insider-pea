@@ -112,10 +112,16 @@ def _():
     est = {"EX.PA": {"surprises": [["2026-10-25", -12.5], ["2027-01-20", 40.0]]}}
     t = C.bloc("X1", {"years": Y, "quarters": Q, "currency": "EUR", "ticker": "EX.PA"}, ctx, "2026-09-30", "trimestre", {}, est)
     for s in ('Société id "X1" : Exemple SA (symbole EX.PA, pays FR, secteur Industrie)', "comptes en EUR", "F-score de Piotroski calculé par l'outil : 6/9",
-              "Dernière période : 2026-09-30 (trimestre)", "Exercices annuels :", "Trimestres (plus récents d'abord) :", "Ratios calculés :",
+              "Dernière période : 2026-09-30 (trimestre)", "Exercices annuels :", "Dernier trimestre : 2026-09-30 : CA 24,0",
+              "Même trimestre un an plus tôt : 2025-09-30 : CA 27,0", "Ratios calculés :",
               "Résultats publiés le 2026-10-25 : bénéfice par action 12,5 % en dessous de l'attente des analystes"):
         assert s in t, (s, t)
-    assert t.index("2026-09-30 : CA") < t.index("2026-06-30 : CA"), "trimestres du plus récent au plus ancien"
+    assert "2026-06-30 :" not in t, "trimestre précédent envoyé (Haiku comparait au trimestre précédent à l'essai)"
+    t2 = C.bloc("X1", {"years": Y, "quarters": [q for q in Q if q["date"] != "2025-09-30"], "currency": "EUR"}, ctx, "2026-09-30", "trimestre", {}, {})
+    assert "Même trimestre un an plus tôt : non fourni par Yahoo (ne pas comparer à une autre période)" in t2, t2
+    bk = {"B1": {"nom": "Banque SA", "symbole": "BQ.PA", "pays": "FR", "secteur": "Finance"}}
+    t3 = C.bloc("B1", {"years": Y, "quarters": Q, "currency": "EUR"}, bk, "2026-09-30", "trimestre", {}, {})
+    assert "dette financière" not in t3 and "trésorerie" not in t3 and "EBITDA" not in t3 and "résultat net 8,0" in t3, t3
     ev = {"X1": {"earnings": [{"date": "2026-10-24", "epsActual": 1.1, "epsEstimate": 1.0}]}}
     assert C.surprise("X1", "EX.PA", "2026-09-30", ev, est)[0] == "2026-10-24"
     assert abs(C.surprise("X1", "EX.PA", "2026-09-30", ev, {})[1] - 10.0) < 1e-9

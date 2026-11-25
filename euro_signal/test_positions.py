@@ -278,6 +278,26 @@ def _():
     assert [w["isin"] for w in watches] == ["VOLV-B.ST"], watches
     assert P.one_line("[Euro Signal] Revente — ACME\r\nSA : 6 mois") == "[Euro Signal] Revente — ACME SA : 6 mois"
 
+@case("📑 Nouveaux comptes d'une position : signalés 10 jours au plus après leur relevé, jamais sans « pub » ; conseil sans IA")
+def _():
+    c = {"per": "2026-09-30", "nat": "trimestre", "at": "2026-11-25", "pub": "2026-11-24", "res": "CA en recul de 11 %.", "f": ["trésorerie nette"],
+         "w": ["perte au trimestre"], "i": "down", "a": "mit", "al": "Dette en hausse"}
+    t = P.comptes_event(c, date(2026, 11, 25))
+    for s in ("Nouveaux comptes (trimestre clos le 30/09/2026), lus par l'IA le 25/11/2026.", "baisse possible", "avis sur les comptes : mitigé",
+              "Points forts : trésorerie nette", "Points faibles : perte au trimestre", "⚠️ Dette en hausse",
+              "Conseil : Point d'alerte : à vérifier avant d'acheter ou de garder (la règle testée reste la référence)."):
+        assert s in t, (s, t)
+    assert P.comptes_event(c, date(2026, 12, 6)) is None, "plus de 10 jours"
+    assert P.comptes_event(dict(c, pub=None), date(2026, 11, 25)) is None, "lecture sans nouvelle publication"
+    assert P.comptes_event(dict(c, pub="xx"), date(2026, 11, 25)) is None and P.comptes_event(dict(c, a="?"), date(2026, 11, 25)) is None
+    assert P.comptes_conseil({"a": "fav"}) == "Rien dans ces comptes qui contredise la règle testée."
+    import re as _re
+    js = (Path(__file__).resolve().parent / "core.js").read_text(encoding="utf-8")
+    for txt in (P.comptes_conseil({"a": "def"}), P.comptes_conseil({"a": "fav"})):  # même conseil dans la page, les emails et ici
+        assert txt.replace("'", "\\'") in js or txt in js, txt
+    assert _re.search(r"ref = \"comptes:%s:%s\"", (Path(__file__).resolve().parent / "positions.py").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

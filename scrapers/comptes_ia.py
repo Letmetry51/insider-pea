@@ -47,33 +47,39 @@ VIDE = {"", "aucune", "aucun", "rien", "néant", "neant", "-", "—", "none", "n
 
 SYSTEME = """Tu aides un investisseur particulier qui achète des actions européennes repérées par une règle testée (tendance du cours
 et qualité des comptes) et les garde environ six mois. Pour chaque société, tu reçois ses comptes publiés (source Yahoo Finance) :
-exercices annuels et, quand ils existent, trimestres ou semestres récents, avec des ratios déjà calculés. Tu les lis comme un
-analyste financier prudent et tu dis ce que montre la DERNIÈRE période publiée.
+exercices annuels, et souvent la dernière période infra-annuelle (trimestre ou semestre) avec la même période un an plus tôt, plus
+des ratios déjà calculés. Tu les lis comme un analyste financier prudent et tu dis ce que montre la DERNIÈRE période publiée.
 
 Pour CHAQUE société :
-- resume : en français, 35 mots au plus : ce que montre la dernière période face à la même période un an plus tôt (ou face à
-  l'exercice précédent) : chiffre d'affaires, rentabilité, trésorerie, dette.
-- forts : de 0 à 3 points forts, 12 mots au plus chacun, chiffrés quand c'est possible (« marge d'exploitation en hausse à 14 % »).
-- faibles : de 0 à 3 points faibles, même forme.
+- resume : en français, 35 mots au plus : ce que montre la dernière période face à la MÊME période un an plus tôt quand elle est
+  donnée, sinon face à l'exercice précédent : chiffre d'affaires, rentabilité, trésorerie, dette.
+- forts : de 0 à 3 points forts nets, chacun un fait chiffré tiré des données (12 mots au plus). N'en ajoute pas pour remplir :
+  aucun point vaut mieux qu'un point sans intérêt.
+- faibles : de 0 à 3 points faibles nets, même forme, même règle.
 - impact : effet possible de ces comptes sur le cours. "hausse" s'ils montrent une nette amélioration (croissance, marges, trésorerie,
   désendettement, bénéfice au-dessus des attentes quand l'écart est donné) ; "baisse" s'ils montrent une nette dégradation (chiffre
   d'affaires ou marges en recul, pertes qui se creusent, trésorerie qui fond, dette qui monte, dilution, bénéfice sous les attentes) ;
   "neutre" si l'ensemble est stable, partagé, ou trop incomplet pour juger.
 - avis : sur la santé et la tendance des comptes, sans regarder le cours. "favorable" : rentable, en progrès ou stable, bilan
-  solide. "mitigé" : des points faibles réels, ou des données trop partielles. "défavorable" : pertes, dégradation nette ou bilan
-  fragile.
-- alerte : chaîne vide, sauf risque précis à vérifier avant d'acheter ou de garder (une phrase de 15 mots au plus) : dette nette
-  supérieure à 4 fois l'EBITDA, capitaux propres négatifs, trésorerie qui ne couvre pas un an de pertes, actions en hausse de plus
-  de 10 % sur un an (dilution), intérêts à peine couverts par le résultat, chiffre d'affaires en chute de plus de 20 %, pertes qui se
-  creusent.
+  solide. "mitigé" : des points faibles réels. "défavorable" : pertes, dégradation nette ou bilan fragile.
+- alerte : chaîne vide, SAUF dans l'un de ces cas, et seulement ceux-là (une phrase de 15 mots au plus, avec le chiffre) :
+  dette nette supérieure à 4 fois l'EBITDA (pas pour une foncière) ; capitaux propres négatifs ; flux d'exploitation annuel négatif
+  avec une trésorerie qui couvre moins d'un an de ce déficit ; nombre d'actions en hausse de plus de 10 % sur un an ; intérêts
+  couverts moins de 2 fois par le résultat d'exploitation ; chiffre d'affaires en chute de plus de 20 % face à la même période un an
+  plus tôt ; perte plus lourde qu'à la même période un an plus tôt. Un bon résultat jugé « exceptionnel » ou « volatil » n'est pas
+  une alerte.
 
 Règles :
-- N'utilise que les chiffres donnés : n'invente aucun chiffre, aucune nouvelle, aucune prévision. Une donnée absente n'est pas
-  supposée ; si presque tout manque, avis "mitigé", impact "neutre", et dis-le dans le résumé.
-- Un trimestre ou un semestre se compare au même trimestre ou semestre un an plus tôt, pas au précédent (activité saisonnière). Un
-  bilan récent se compare au dernier bilan annuel.
-- Banques et assurances : dette, EBITDA et marges n'ont pas le sens habituel ; juge le résultat net, sa tendance et les capitaux
-  propres. Foncières (immobilier) : une dette élevée est habituelle ; juge la couverture des intérêts et la trésorerie.
+- N'utilise que les chiffres donnés : n'invente aucun chiffre, aucune nouvelle, aucune prévision, ne refais pas les calculs déjà
+  donnés.
+- Ne compare JAMAIS une période au trimestre ou au semestre qui la précède : l'activité est souvent saisonnière. Si la même période
+  un an plus tôt n'est pas donnée, ne commente pas l'évolution du chiffre d'affaires ni des résultats sur la période : juge le bilan
+  récent face au dernier bilan annuel et les derniers exercices.
+- Si la dernière période n'a que le bilan (fréquent : Yahoo ne donne pas toujours le compte de résultat du semestre), juge sur le
+  dernier exercice et ce bilan récent, sans pénaliser l'avis pour cette absence.
+- Banques et assurances : dette, trésorerie et flux ne sont pas donnés (ils n'ont pas le sens habituel) ; juge le résultat net, sa
+  tendance et la rentabilité des capitaux propres. Foncières (immobilier) : une dette élevée est habituelle ; juge la couverture des
+  intérêts et la trésorerie.
 - Montants en millions de la devise des comptes ; « actions » : nombre d'actions en millions.
 - Pas de conseil d'achat ni de vente : tu juges les comptes, pas l'action.
 
@@ -178,8 +184,12 @@ def same_year_before(lst, d):
     return best
 
 
-def ligne(p):
-    return str(p.get("date")) + " : " + " ; ".join("%s %s" % (lab, mil(p[k])) for k, lab in LIB if num(p.get(k)) is not None)
+FIN_ONLY = {"revenue", "netIncome", "equity", "totalAssets", "shares"}  # banques et assurances : dette, trésorerie, flux sans le sens habituel
+
+
+def ligne(p, fi=False):
+    return str(p.get("date")) + " : " + " ; ".join("%s %s" % (lab, mil(p[k])) for k, lab in LIB
+                                                   if num(p.get(k)) is not None and (not fi or k in FIN_ONLY))
 
 
 def ratios(fin, secteur):
@@ -222,7 +232,7 @@ def ratios(fin, secteur):
         eq, ta = num(y0.get("equity")), num(y0.get("totalAssets"))
         if eq is not None and eq < 0:
             p.append("capitaux propres négatifs")
-        elif eq is not None and ta and ta > 0:
+        elif eq is not None and ta and ta > 0 and not fi:  # banque : bilan 20 fois les fonds propres, sans alerte à en tirer
             p.append("capitaux propres / bilan " + pc(eq / ta))
         sh = growth(y0.get("shares"), y1.get("shares"))
         if sh is not None:
@@ -251,7 +261,8 @@ def ratios(fin, secteur):
                             "Dernier " + nq + " (%s) face au même " + nq + " un an plus tôt (%s) : %s.") % (q0["date"], q1["date"], " ; ".join(p)))
         if Y and str(q0.get("date")) > str(Y[-1].get("date")):
             y0, p = Y[-1], []
-            for k, lab in (("cash", "trésorerie"), ("totalDebt", "dette financière"), ("equity", "capitaux propres"), ("shares", "actions")):
+            for k, lab in ((("equity", "capitaux propres"), ("shares", "actions")) if fi else
+                           (("cash", "trésorerie"), ("totalDebt", "dette financière"), ("equity", "capitaux propres"), ("shares", "actions"))):
                 if num(q0.get(k)) is not None and num(y0.get(k)) is not None:
                     p.append("%s %s (%s à la clôture de l'exercice)" % (lab, mil(q0[k]), mil(y0[k])))
             if p:
@@ -328,14 +339,20 @@ def bloc(key, fin, ctx, per, nat, events, est):
     if isinstance(c.get("f9"), (int, float)):
         head += " ; F-score de Piotroski calculé par l'outil : %d/9" % c["f9"]
     lines = [head + ".", "Dernière période : %s (%s)." % (per, nat)]
+    fi = bool(FINANCE.search(c.get("secteur") or ""))
     Y = sorted((y for y in fin.get("years") or [] if isinstance(y, dict) and y.get("date")), key=lambda y: str(y["date"]))[-4:]
     if Y:
         lines.append("Exercices annuels :")
-        lines += ["  " + ligne(y) for y in reversed(Y)]
+        lines += ["  " + ligne(y, fi) for y in reversed(Y)]
     Q = sorted((q for q in fin.get("quarters") or [] if isinstance(q, dict) and q.get("date")), key=lambda q: str(q["date"]))
     if Q:
-        lines.append("%ss (plus récents d'abord) :" % nature(Q).capitalize())
-        lines += ["  " + ligne(q) for q in reversed(Q)]
+        # dernière période et même période un an plus tôt seulement : à l'essai du 25/11/2026, Haiku comparait au trimestre précédent
+        nq = nature(Q)
+        q0, q1 = Q[-1], same_year_before(Q[:-1], Q[-1].get("date"))
+        lab0 = "Dernière période infra-annuelle" if nq == "période" else "Dernier " + nq
+        lines.append("%s : %s" % (lab0, ligne(q0, fi)))
+        lines.append(("Même période un an plus tôt : " if nq == "période" else "Même " + nq + " un an plus tôt : ")
+                     + (ligne(q1, fi) if q1 else "non fourni par Yahoo (ne pas comparer à une autre période)"))
     R = ratios(fin, c.get("secteur") or "")
     if R:
         lines.append("Ratios calculés :")

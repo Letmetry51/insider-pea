@@ -11123,7 +11123,106 @@
     });
     return res;
   };
-  /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings. */
+  /**
+   * 📑 Lecture des comptes publiés par une IA (scrapers/comptes_ia.py, Claude Haiku ; demande de François du 25/11/2026) : une
+   * lecture par société (data/comptes_ia.json, clé ISIN ou symbole du classement), refaite à chaque nouvelle période publiée.
+   * Affichage (fiche), ligne de l'email de la sélection et email des nouveaux comptes seulement : n'entre dans aucune règle. Le
+   * conseil ne vient pas de l'IA : il découle de son avis et de son point d'alerte, la règle testée restant la référence.
+   * c : { per : fin de la période lue, nat : exercice / trimestre / semestre, at : date de lecture, res : résumé, f / w : points
+   * forts / faibles, i : up / down / flat (effet possible sur le cours), a : fav / mit / def (avis), al : point d'alerte, pub : date
+   * où les nouveaux comptes ont été vus quand la lecture porte sur eux }
+   */
+  ES.COMPTES_AVIS = { fav: 'favorable', mit: 'mitigé', def: 'défavorable' };
+  ES.COMPTES_IMPACT = { up: 'hausse possible', down: 'baisse possible', flat: 'effet neutre' };
+  ES.comptesOf = function (items, x) {
+    if (!items || !x) return null;
+    var ks = typeof x === 'string' ? [x] : [x.key, x.isin, x.sym];
+    for (var j = 0; j < ks.length; j++) {
+      var c = ks[j] && Object.prototype.hasOwnProperty.call(items, ks[j]) ? items[ks[j]] : null;
+      if (c && c.res && c.per && ES.COMPTES_AVIS[c.a]) return c;
+    }
+    return null;
+  };
+  ES.comptesConseil = function (c) {
+    return c && (c.a === 'def' || c.al)
+      ? "Point d'alerte : à vérifier avant d'acheter ou de garder (la règle testée reste la référence)."
+      : 'Rien dans ces comptes qui contredise la règle testée.';
+  };
+  /** « trimestre clos le 30/09/2026 », « exercice clos le 31/12/2025 », « période close le … » */
+  ES.comptesPeriode = function (c) {
+    var n = c && /^(exercice|trimestre|semestre)$/.test(c.nat) ? c.nat : 'période';
+    return n + (n === 'période' ? ' close' : ' clos') + ' le ' + ES.frDate(c.per);
+  };
+  var sansPoint = function (t) {
+    return String(t || '').replace(/[\s.;,]+$/, '');
+  };
+  /** Ligne courte (email de la sélection) : période, avis, effet possible, point d'alerte, conseil. */
+  ES.comptesLine = function (c) {
+    return (
+      '📑 Comptes du ' +
+      ES.comptesPeriode(c) +
+      " lus par l'IA : avis " +
+      ES.COMPTES_AVIS[c.a] +
+      ', ' +
+      (ES.COMPTES_IMPACT[c.i] || ES.COMPTES_IMPACT.flat) +
+      (c.al ? ' · ⚠️ ' + sansPoint(c.al) : '') +
+      '. ' +
+      ES.comptesConseil(c)
+    );
+  };
+  ES.COMPTES_NOTE =
+    "Lecture automatique des chiffres publiés (Yahoo Finance) par une IA (Claude), non testée : seules les règles 🎯 et 💎 sont testées, et cette lecture n'en change aucune. À vérifier avant de décider.";
+  /** Email « 📑 Nouveaux comptes » d'une société 🎯 / 💎 : { subject, text, html }. o : { name, sector, tag, link } */
+  ES.buildComptesEmail = function (c, o) {
+    var cap = function (t) {
+      return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+    };
+    var lines = [
+      o.name + (o.sector ? ' (' + o.sector + ')' : '') + (o.tag ? ' — ' + o.tag : ''),
+      '📑 ' + cap(ES.comptesPeriode(c)) + " : nouveaux comptes lus par l'IA le " + ES.frDate(c.at) + '.',
+      'Effet possible sur le cours : ' + (ES.COMPTES_IMPACT[c.i] || ES.COMPTES_IMPACT.flat) + ' · avis sur les comptes : ' + ES.COMPTES_AVIS[c.a] + '.',
+      c.res,
+      c.f && c.f.length ? 'Points forts : ' + c.f.join(' · ') : null,
+      c.w && c.w.length ? 'Points faibles : ' + c.w.join(' · ') : null,
+      c.al ? '⚠️ ' + c.al : null,
+      'Conseil : ' + ES.comptesConseil(c),
+      ES.COMPTES_NOTE,
+    ].filter(Boolean);
+    return {
+      subject:
+        '[Euro Signal] 📑 Nouveaux comptes ' +
+        (/^[aeiouyàâäéèêëîïôöûüœæ]/i.test(o.name) ? "d'" : 'de ') + // d'Arcadis, de Husqvarna
+        o.name +
+        (o.tag ? ' (' + o.tag.split(' ')[0] + ')' : '') +
+        ' : avis ' +
+        ES.COMPTES_AVIS[c.a] +
+        (c.al || c.a === 'def' ? ', point à vérifier' : ''),
+      text: lines.join('\n') + (o.link ? '\nFiche : ' + o.link : ''),
+      html:
+        '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;max-width:640px;color:#1b2420"><h2 style="margin:0 0 8px">📑 Nouveaux comptes : ' +
+        esc(o.name) +
+        '</h2>' +
+        lines
+          .map(function (l, k) {
+            var warn = l === '⚠️ ' + c.al || l.indexOf('Conseil : Point') === 0;
+            return (
+              '<p style="margin:0 0 8px' +
+              (k === lines.length - 1 ? ';color:#55615c;font-size:12px' : warn ? ';color:#8a3a00;font-weight:bold' : '') +
+              '">' +
+              esc(l) +
+              '</p>'
+            );
+          })
+          .join('') +
+        (o.link
+          ? '<p><a href="' +
+            esc(o.link) +
+            '" style="display:inline-block;background:#0D6A56;color:#ffffff;text-decoration:none;font-weight:bold;padding:8px 14px;border-radius:6px;font-size:13px">Voir la fiche</a></p>'
+          : '') +
+        '</div>',
+    };
+  };
+  /** Email « Sélection de la semaine » du classement tendance + comptes. items : lignes de ES.rankUniverse enrichies de link, isNew, nextEarnings, cpt (lecture des comptes). */
   /**
    * Quand passer les ordres (research/survivant_horaire.py, 22/11/2026, cours journaliers EODHD, sociétés disparues comprises,
    * 2001-2026, 5 937 achats du 🎯 au seuil de 3 M€) : achat et vente à l'ouverture du lundi +0,02 point sur 6 mois face à la clôture
@@ -11227,6 +11326,7 @@
                 (FLAG(x) ? '\n   ' + FLAG(x) : '') +
                 (ent(x) ? '\n   ' + ent(x).icon + ' ' + ent(x).label : '') +
                 (evOf(x) ? '\n   ' + evOf(x) : '') +
+                (x.cpt ? '\n   ' + ES.comptesLine(x.cpt) : '') +
                 '\n   Pourquoi : ' +
                 x.why.slice(0, 4).map(cap).join(' · ') +
                 (w.length ? '\n   Attention : ' + w.map(cap).join(' · ') : '') +
@@ -11302,6 +11402,13 @@
                     '</div>'
                   : '') +
                 (evOf(x) ? '<div style="margin:4px 0;font-size:13px;color:#3D4641">' + esc(evOf(x)) + '</div>' : '') +
+                (x.cpt
+                  ? '<div style="margin:4px 0;font-size:13px;color:' +
+                    (x.cpt.a === 'def' || x.cpt.al ? '#8a3a00' : '#3D4641') +
+                    '">' +
+                    esc(ES.comptesLine(x.cpt)) +
+                    '</div>'
+                  : '') +
                 '<div style="margin:6px 0 0"><b>Pourquoi</b><ul style="margin:2px 0 0 18px;padding:0">' +
                 x.why
                   .slice(0, 4)
