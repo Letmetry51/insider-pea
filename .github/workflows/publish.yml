@@ -24,6 +24,19 @@ jobs:
           persist-credentials: false # jeton jamais laissé sur le disque (la publication passe le sien)
       - name: Données du dernier calcul
         uses: ./.github/actions/restore-data
+      # titres de presse pas encore lus par l'IA (scrapers/news_ia.py, effet possible sur le cours) : lus aussi à chaque publication
+      # du code, sans attendre le calcul du soir ; sans secret ou en cas de panne, la publication se fait avec les mots-clés
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lecture des titres de presse par l'IA (titres pas encore lus, si le secret ANTHROPIC_API_KEY existe)
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          pip install --quiet "requests>=2.31,<3"
+          python scrapers/news_ia.py
       - name: Publication
         uses: ./.github/actions/publish-site
         with:
