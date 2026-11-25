@@ -231,13 +231,14 @@ def main():
                     usage[k_] = usage.get(k_, 0) + v_
             text = "".join(b.get("text", "") for b in res.get("content") or [] if isinstance(b, dict) and b.get("type") == "text")
             lus += applique(items, lire(text))
-    for k in list(items):
-        items[k] = ordre(items[k])
-    data["items"] = items
-    data["lecture"] = {"modele": cfg["modele"], "version": VERSION, "lus": lus, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    tmp = OUT.with_name(OUT.name + ".tmp")  # écriture atomique
-    tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(OUT)
+    if lus:  # rien de lu (API en panne) : fichier laissé tel quel, ordre des mots-clés compris
+        for k in list(items):
+            items[k] = ordre(items[k])
+        data["items"] = items
+        data["lecture"] = {"modele": cfg["modele"], "version": VERSION, "lus": lus, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        tmp = OUT.with_name(OUT.name + ".tmp")  # écriture atomique
+        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(OUT)
     allv = [g for lst in items.values() for g in lst if isinstance(g, dict)]
     rd = [g for g in allv if g.get("v") == VERSION]
     print("Lecture des titres (%s) : %d lus ce soir sur %d à lire, en %.0f s, environ %.3f $ ; affichés : %d lus (%d sans rapport, "

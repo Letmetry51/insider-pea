@@ -210,9 +210,18 @@ jobs:
         run: python scrapers/news.py
         continue-on-error: true
 
+      - name: 4c bis. Lecture des titres par l'IA (effet possible sur le cours, si le secret ANTHROPIC_API_KEY existe)
+        id: s4c2
+        timeout-minutes: 5
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scrapers/news_ia.py
+        continue-on-error: true
+
+      # 5a : quelques secondes en pratique (délai de 10 minutes jusqu'au 25/11/2026 : place faite à l'étape 4c bis)
       - name: 5a. Tests du moteur Euro Signal
         id: s5a
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: node euro_signal/tests.js && python scrapers/test_prices.py && python euro_signal/test_health.py
 
       - name: 5b. Calcul Euro Signal

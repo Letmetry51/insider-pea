@@ -77,5 +77,13 @@
  "rank": {
   "selMin": 70,
   "selSize": 5
- }
+ },
+  "lectureNews": {
+    "_doc": "Lecture des titres de presse par une IA (scrapers/news_ia.py) : modèle, titres par appel, budget en secondes, appels en parallèle. Demande de François du 25/11/2026 (effet possible de chaque article sur le cours).",
+    "modele": "claude-haiku-5-5",
+    "maxTokens": 8000,
+    "lot": 40,
+    "budget": 150,
+    "paralleles": 4
+  }
 }
