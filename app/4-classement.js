@@ -426,6 +426,72 @@ function loadNews() {
       if (S.view === 'fiche' || S.view === 'secco') render();
     });
 }
+function loadComptes() {
+  S.cptLoaded = true;
+  getData('data/comptes_ia.json')
+    .then(function (r) {
+      return r.ok ? r.json() : null;
+    })
+    .catch(function () {
+      return null;
+    })
+    .then(function (j) {
+      S.cpt = j && j.items && typeof j.items === 'object' ? j : { items: {} };
+      if (S.view === 'fiche' || S.view === 'secco') render();
+    });
+}
+/** 📑 Lecture des comptes : dernière période publiée (exercice, trimestre ou semestre) lue par une IA (scrapers/comptes_ia.py,
+ *  Claude Haiku) : résumé, points forts et faibles, effet possible sur le cours, avis, point d'alerte, et le conseil qui en découle
+ *  sans IA (ES.comptesConseil). Affichage seulement : n'entre dans aucune règle (demande de François du 25/11/2026). */
+function comptesOf(o) {
+  if (!S.cptLoaded) loadComptes();
+  return ES.comptesOf((S.cpt && S.cpt.items) || {}, {
+    key: o.r && o.r.key,
+    isin: o.isin || (o.r && o.r.isin),
+    sym: o.r && o.r.sym,
+  });
+}
+function comptesBlock(o, c) {
+  if (!c) return ''; // pas de lecture (ou fichier pas encore chargé) : rien, le bloc apparaît au chargement
+  var I = c.i === 'up' ? ['up', '↑'] : c.i === 'down' ? ['down', '↓'] : ['flat', '→'],
+    A = c.a === 'fav' ? 'cptfav' : c.a === 'def' ? 'cptdef' : 'cptmit',
+    warn = c.a === 'def' || !!c.al,
+    li = function (cls, sign) {
+      return function (t) {
+        return '<li class="' + cls + '"><span>' + sign + '</span><div>' + esc(t) + '</div></li>';
+      };
+    };
+  return (
+    '<h4>📑 Lecture des comptes <span class="muted small">· ' +
+    esc(ES.comptesPeriode(c)) +
+    '</span></h4><div class="ancpt"><p><b class="' +
+    I[0] +
+    '">' +
+    I[1] +
+    ' ' +
+    esc(cap1(ES.COMPTES_IMPACT[c.i] || ES.COMPTES_IMPACT.flat)) +
+    '</b> · avis sur les comptes : <b class="' +
+    A +
+    '">' +
+    esc(ES.COMPTES_AVIS[c.a]) +
+    '</b></p><p>' +
+    esc(c.res) +
+    '</p>' +
+    ((c.f && c.f.length) || (c.w && c.w.length)
+      ? '<ul class="ancptl">' + (c.f || []).map(li('up', '+')).join('') + (c.w || []).map(li('down', '−')).join('') + '</ul>'
+      : '') +
+    (c.al ? '<p class="ancptal">⚠️ ' + esc(c.al) + '</p>' : '') +
+    '<p class="ancptc' +
+    (warn ? ' warn' : '') +
+    '"><b>Conseil :</b> ' +
+    esc(ES.comptesConseil(c)) +
+    '</p><p class="small muted">Lu le ' +
+    esc(shortDate(c.at)) +
+    ' · ' +
+    esc(ES.COMPTES_NOTE) +
+    '</p></div>'
+  );
+}
 /** Bloc 📰 Qualitatif : titres des 30 derniers jours citant la société ; chaque titre lu par une IA (scrapers/news_ia.py) : effet
  *  possible sur le cours (↑ / ↓ / →) ou sans rapport (homonyme), à défaut classé ⚠️ / ✅ par mots-clés ; lien vers toute l'actualité. */
 function newsOf(o) {
@@ -1288,6 +1354,7 @@ function analysisCard(isin, sym, full) {
         '</p></div>'
       : '') +
     '</div>';
+  h += comptesBlock(o, comptesOf(o));
   h += newsBlock(o, NW);
   // 📊 Le détail : petits plis, pour ne lire que ce qui intéresse (inspiré d'une analyse complète, en plus court)
   o.news = NW;

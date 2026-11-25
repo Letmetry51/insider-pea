@@ -836,6 +836,9 @@ function biblioCard() {
         ' (flux RSS : titres et liens seulement), titres lus par Claude (Anthropic).'
     ),
     li(
+      "📑 <b>Lecture des comptes</b> : chiffres des comptes publiés (Yahoo Finance) lus par Claude Haiku (Anthropic) à chaque nouvelle période : exercice, et trimestre ou semestre quand Yahoo les donne (rarement à Paris, Bruxelles, Amsterdam et Dublin, où le semestre n'a souvent que le bilan)."
+    ),
+    li(
       '🎓 <b>Contrôle indépendant</b> : ' +
         ln(
           'https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html',
@@ -1216,6 +1219,7 @@ function compareCard() {
     "<li>🧾 Il reprend les erreurs de Yahoo. Certaines sont corrigées (par exemple, la rentabilité sur 12 mois remplacée par celle du dernier exercice publié), pas toutes : en cas de doute, « ⚑ Signaler une erreur » en bas de l'analyse d'une fiche.</li>" +
     '<li>🌙 Données mises à jour une fois par soir de semaine : pas de cours en séance.</li>' +
     "<li>📰 Actualités : titres seulement ; chaque nouveau titre est lu par une IA (Claude, depuis le 25/11/2026) : effet possible sur le cours (↑ hausse, ↓ baisse, → neutre) avec la raison en quelques mots, ou « sans rapport » (homonyme : club de sport, marque d'une autre société, simple liste de valeurs) ; à défaut, ⚠️ / ✅ par mots-clés. Le titre seul, pas l'article : à lire avant de décider.</li>" +
+    "<li>📑 Lecture des comptes (depuis le 25/11/2026) : à chaque nouvelle période publiée (exercice, trimestre ou semestre), une IA (Claude Haiku) lit les chiffres et des ratios calculés par l'outil (croissance face à la même période un an plus tôt, marges, dette nette / EBITDA, couverture des intérêts, dilution) : ce qui change, points forts et faibles, effet possible sur le cours (↑ / ↓ / →), avis sur les comptes (favorable, mitigé, défavorable) et point d'alerte (dette nette au-delà de 4 fois l'EBITDA, intérêts couverts moins de 2 fois, capitaux propres négatifs, dilution de plus de 10 %, chute du chiffre d'affaires de plus de 20 %, pertes qui se creusent). Le conseil n'est pas écrit par l'IA : « rien dans ces comptes qui contredise la règle testée », ou « point d'alerte : à vérifier avant d'acheter ou de garder ». Lecture non testée : elle n'entre dans aucune règle du 🎯 ni du 💎. Email quand une société du 🎯, du 💎 ou une de vos positions publie de nouveaux comptes ; ligne 📑 dans l'email de la sélection. Les chiffres sont ceux de Yahoo, avec ses erreurs.</li>" +
     '<li>👤 Outil personnel et gratuit, sans support ni garantie de service.</li></ul>' +
     '<p class="small"><b>En pratique</b> : Euro Signal pour décider, TradingView gratuit pour le graphique en séance, Boursorama ou Zonebourse pour l\'actualité, et un courtier aux frais bas (voir « ⚖️ Fiabilité des chiffres »).</p>' +
     '<p class="foot">Comparaison du 20/10/2026, les offres gratuites changent : ' +

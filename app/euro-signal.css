@@ -1137,6 +1137,56 @@ table.antraj tr > :last-child {
   color: var(--muted);
   font-size: 0.72rem;
 }
+/* 📑 Lecture des comptes par l'IA (scrapers/comptes_ia.py) */
+.ancpt {
+  font-size: 0.88rem;
+}
+.ancpt p {
+  margin: 4px 0;
+}
+.ancpt .up,
+.ancptl li.up > span,
+.cptfav {
+  color: var(--good);
+}
+.ancpt .down,
+.ancptl li.down > span,
+.cptdef,
+.ancptal {
+  color: var(--bad);
+}
+.ancpt .flat {
+  color: var(--muted);
+}
+.cptmit {
+  color: var(--warn);
+}
+.ancptl {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+}
+.ancptl li {
+  display: grid;
+  grid-template-columns: 1.1em 1fr;
+  gap: 4px;
+  padding: 2px 0;
+}
+.ancptl li > span {
+  font-weight: 700;
+  text-align: center;
+}
+.ancptal {
+  font-weight: 600;
+}
+.ancptc {
+  padding: 6px 8px;
+  border-radius: var(--r);
+  background: var(--sunk);
+}
+.ancptc.warn {
+  border-left: 3px solid var(--warn);
+}
 .andet {
   margin-top: 10px;
   border-top: 1px solid var(--line);

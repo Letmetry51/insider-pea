@@ -100,6 +100,17 @@ def _():
     assert "trésorerie nette (plus de trésorerie que de dette) 30,0" in N, N
 
 
+@case("12 mois glissants : 4 trimestres qui se suivent face au dernier exercice ; rien si trou ou total invraisemblable")
+def _():
+    g = C.glissant(Q, Y)
+    assert g and g.startswith("Sur 12 mois glissants au 2026-09-30 (4 derniers trimestres) face au dernier exercice (2025-12-31)"), g
+    assert "CA 111 (+0,9 % face à l'exercice)" in g and "résultat net 5,0 (8,0 sur l'exercice)" in g, g
+    assert C.glissant([q for q in Q if q["date"] != "2026-03-31"], Y) is None, "trimestres qui ne se suivent pas"
+    assert C.glissant(Q[:-1] + [dict(Q[-1], revenue=500e6)], Y) is None, "total invraisemblable"
+    assert C.glissant(Q, [dict(Y[1], date="2026-12-31")]) is None, "exercice plus récent que les trimestres"
+    assert "EBITDA" not in " ".join(C.ratios({"years": Y}, "Immobilier")), "foncière : pas de dette nette / EBITDA"
+
+
 @case("Montants à la française, en millions")
 def _():
     assert C.mil(1234.4e6) == "1 234" and C.mil(12.46e6) == "12,5" and C.mil(-0.354e6) == "−0,35" and C.mil(None) is None

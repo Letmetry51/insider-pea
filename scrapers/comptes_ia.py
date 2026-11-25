@@ -72,9 +72,11 @@ Pour CHAQUE société :
 Règles :
 - N'utilise que les chiffres donnés : n'invente aucun chiffre, aucune nouvelle, aucune prévision, ne refais pas les calculs déjà
   donnés.
-- Ne compare JAMAIS une période au trimestre ou au semestre qui la précède : l'activité est souvent saisonnière. Si la même période
-  un an plus tôt n'est pas donnée, ne commente pas l'évolution du chiffre d'affaires ni des résultats sur la période : juge le bilan
-  récent face au dernier bilan annuel et les derniers exercices.
+- Ne compare JAMAIS une période au trimestre ou au semestre qui la précède, ni ses marges à celles de l'exercice entier : l'activité
+  est souvent saisonnière. Comparaisons valables : la même période un an plus tôt, et les 12 mois glissants (somme des derniers
+  trimestres) face au dernier exercice. Sans elles, ne commente pas l'évolution du chiffre d'affaires ni des résultats sur la
+  période : juge le bilan récent face au dernier bilan annuel et les derniers exercices.
+- Une donnée absente n'est ni un point fort ni un point faible : n'en parle pas dans les points.
 - Si la dernière période n'a que le bilan (fréquent : Yahoo ne donne pas toujours le compte de résultat du semestre), juge sur le
   dernier exercice et ce bilan récent, sans pénaliser l'avis pour cette absence.
 - Banques et assurances : dette, trésorerie et flux ne sont pas donnés (ils n'ont pas le sens habituel) ; juge le résultat net, sa
@@ -187,6 +189,41 @@ def same_year_before(lst, d):
 FIN_ONLY = {"revenue", "netIncome", "equity", "totalAssets", "shares"}  # banques et assurances : dette, trésorerie, flux sans le sens habituel
 
 
+def glissant(Q, Y, fi=False):
+    """Somme des 4 derniers trimestres (ou des 2 derniers semestres) face au dernier exercice : la tendance sans effet de saison,
+    quand Yahoo n'a pas le même trimestre un an plus tôt (fréquent : 5 trimestres seulement, avec des trous). Seulement pour des
+    périodes qui se suivent, plus récentes que l'exercice, et un total vraisemblable (60 % à 180 % du chiffre d'affaires annuel)."""
+    nq = nature(Q)
+    n = 4 if nq == "trimestre" else 2 if nq == "semestre" else 0
+    if not n or len(Q) < n or not Y:
+        return None
+    last, y0 = Q[-n:], Y[-1]
+    ds = [day(q.get("date")) for q in last]
+    if not all(ds) or str(last[-1].get("date")) <= str(y0.get("date")):
+        return None
+    lo, hi = (75, 105) if n == 4 else (165, 200)
+    if not all(lo <= (b - a).days <= hi for a, b in zip(ds, ds[1:])):
+        return None
+    p, tot = [], {}
+    for k, lab in (("revenue", "CA"), ("operatingIncome", "résultat d'exploitation"), ("netIncome", "résultat net"), ("cfo", "flux d'exploitation")):
+        vals = [num(q.get(k)) for q in last]
+        if (fi and k not in FIN_ONLY) or any(v is None for v in vals) or num(y0.get(k)) is None:
+            continue
+        t = tot[k] = sum(vals)
+        if k == "revenue" and not (y0[k] > 0 and 0.6 <= t / y0[k] <= 1.8):
+            return None  # total invraisemblable (exercice rangé dans le 4e trimestre, données mêlées) : rien plutôt qu'un faux chiffre
+        g = growth(t, y0[k])
+        p.append("%s %s (%s face à l'exercice)" % (lab, mil(t), pc(g, True)) if g is not None and (k == "revenue" or t > 0)
+                 else "%s %s (%s sur l'exercice)" % (lab, mil(t), mil(y0[k])))
+    if "revenue" not in tot:
+        return None
+    m0, m1 = div(tot.get("operatingIncome"), tot["revenue"]), div(y0.get("operatingIncome"), y0.get("revenue"))
+    if m0 is not None and m1 is not None and not fi:
+        p.append("marge d'exploitation %s contre %s" % (pc(m0), pc(m1)))
+    return "Sur 12 mois glissants au %s (%d derniers %ss) face au dernier exercice (%s) : %s." % (
+        last[-1]["date"], n, nq, str(y0["date"])[:10], " ; ".join(p))
+
+
 def ligne(p, fi=False):
     return str(p.get("date")) + " : " + " ; ".join("%s %s" % (lab, mil(p[k])) for k, lab in LIB
                                                    if num(p.get(k)) is not None and (not fi or k in FIN_ONLY))
@@ -198,6 +235,7 @@ def ratios(fin, secteur):
     Y = sorted((y for y in fin.get("years") or [] if isinstance(y, dict) and y.get("date")), key=lambda y: str(y["date"]))
     Q = sorted((q for q in fin.get("quarters") or [] if isinstance(q, dict) and q.get("date")), key=lambda q: str(q["date"]))
     fi = bool(FINANCE.search(secteur or ""))
+    fo = bool(FONCIERE.search(secteur or ""))
     out = []
     if Y:
         y0, y1 = Y[-1], (Y[-2] if len(Y) > 1 else {})
@@ -221,7 +259,7 @@ def ratios(fin, secteur):
             nd, eb = y0["totalDebt"] - y0["cash"], num(y0.get("ebitda"))
             if nd <= 0:
                 p.append("trésorerie nette (plus de trésorerie que de dette) " + mil(-nd))
-            elif eb is not None and eb > 0:
+            elif eb is not None and eb > 0 and not fo:  # foncière : dette élevée habituelle, jugée sur la couverture des intérêts
                 p.append("dette nette %s = %s fois l'EBITDA" % (mil(nd), ("%.1f" % (nd / eb)).replace(".", ",")))
             else:
                 p.append("dette nette " + mil(nd) + (" avec un EBITDA négatif" if eb is not None else ""))
@@ -259,6 +297,9 @@ def ratios(fin, secteur):
                 nq = nature(Q)
                 out.append(("Dernière période infra-annuelle (%s) face à la même période un an plus tôt (%s) : %s." if nq == "période" else
                             "Dernier " + nq + " (%s) face au même " + nq + " un an plus tôt (%s) : %s.") % (q0["date"], q1["date"], " ; ".join(p)))
+        g12 = glissant(Q, Y, fi)
+        if g12:
+            out.append(g12)
         if Y and str(q0.get("date")) > str(Y[-1].get("date")):
             y0, p = Y[-1], []
             for k, lab in ((("equity", "capitaux propres"), ("shares", "actions")) if fi else

@@ -48,7 +48,7 @@ def main():
     print("%d sociétés, trimestres lus en %.0f s : %s" % (len(items), time.time() - t0, ", ".join(
         "%s %d" % ((ctx.get(k) or {}).get("symbole") or k, len(v.get("quarters") or [])) for k, v in items.items())))
     todo = {k: C.derniere(v) for k, v in items.items()}
-    for k in keys[:0]:
+    for k in [k for k in keys if k == "SE0001662230"]:
         print("\n--- Texte envoyé pour %s ---\n%s" % (k, C.bloc(k, items[k], ctx, todo[k][0], todo[k][1], {}, est)))
     cfg = C.config()
     store, usage, t1 = {}, {}, time.time()
