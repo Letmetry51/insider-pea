@@ -41,10 +41,11 @@ def main():
     t0 = time.time()
 
     def run(Gx, f):
+        """Sélection de f (qui peut venir d'un univers réduit, Gx) jouée par sim30, qui lit SEL dans G (son espace d'exécution)."""
         S = {t: f(t) for t in range(t2001, T - 1)}
-        Gx['SEL'] = S
-        R = Gx['sim30']()
-        Gx['SEL'] = SEL0
+        G['SEL'] = S
+        R = G['sim30']()
+        G['SEL'] = SEL0
         return R
 
     def cagr(R):
