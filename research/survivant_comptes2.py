@@ -23,6 +23,11 @@ log = SE.log
 
 
 def main():
+    u, err = SE.get('user')
+    used = int((u or {}).get('apiRequests') or 0)
+    if used > 60000:  # compteur EODHD du jour : ce test en prend environ 27 000 (10 par société pour les comptes), limite 100 000
+        log(f"{used} appels EODHD déjà utilisés aujourd'hui : relancer après la remise à zéro du compteur (le matin)")
+        return
     D = SE.prepare()
     if D is None:
         return
