@@ -451,6 +451,67 @@ function comptesOf(o) {
     sym: o.r && o.r.sym,
   });
 }
+/** 🧪 Ligne de la mesure en direct des lectures de l'IA (scrapers/suivi_ia.py, rank.aiTrack) : écart moyen avec la moyenne des
+ *  sociétés à 3 et 6 mois après la lecture, par avis (comptes) ou par effet (titres) ; « trop peu de cas » sous minN. */
+function aiTrackLine(kind) {
+  var R = rankData(),
+    A = R && R.aiTrack,
+    G = A && A[kind];
+  if (!G) return '';
+  var m = A.minN || 20,
+    since = shortDate(A.since),
+    cell = function (g, h) {
+      var n = g ? g['n' + h] || 0 : 0;
+      return n >= m && g['m' + h] != null
+        ? (g['m' + h] >= 0 ? '+' : '−') + fmtN(Math.abs(g['m' + h]), 1) + ' pt (' + n + ')'
+        : 'trop peu de cas (' + n + ')';
+    },
+    parts =
+      kind === 'c'
+        ? [
+            ['avis favorable', G['avis:fav']],
+            ['défavorable', G['avis:def']],
+            ["« point d'alerte »", G['conseil:1']],
+          ]
+        : [
+            ['titres ↑', G['effet:1']],
+            ['↓', G['effet:-1']],
+            ['→', G['effet:0']],
+          ],
+    any13 = parts.some(function (p) {
+      return p[1] && p[1].n13 >= m;
+    }),
+    any26 = parts.some(function (p) {
+      return p[1] && p[1].n26 >= m;
+    });
+  if (!any13)
+    return (
+      '<p class="small muted">🧪 Mesuré en direct depuis le ' +
+      since +
+      ' (écart avec la moyenne des sociétés après la lecture) : premiers chiffres à 3 mois vers le ' +
+      shortDate(ES.addDays(A.since, 91)) +
+      '.</p>'
+    );
+  var line = function (h, lbl) {
+    return (
+      lbl +
+      ' : ' +
+      parts
+        .map(function (p) {
+          return p[0] + ' ' + cell(p[1], h);
+        })
+        .join(', ')
+    );
+  };
+  return (
+    '<p class="small muted">🧪 Mesuré en direct depuis le ' +
+    since +
+    ', écart avec la moyenne des sociétés : ' +
+    line('13', 'à 3 mois') +
+    (any26 ? ' ; ' + line('26', 'à 6 mois') : '') +
+    '.</p>'
+  );
+}
 function comptesBlock(o, c) {
   if (!c) return ''; // pas de lecture (ou fichier pas encore chargé) : rien, le bloc apparaît au chargement
   var I = c.i === 'up' ? ['up', '↑'] : c.i === 'down' ? ['down', '↓'] : ['flat', '→'],
@@ -492,7 +553,9 @@ function comptesBlock(o, c) {
     esc(shortDate(c.at)) +
     ' · ' +
     esc(ES.COMPTES_NOTE) +
-    '</p></div>'
+    '</p>' +
+    aiTrackLine('c') +
+    '</div>'
   );
 }
 /** Bloc 📰 Qualitatif : titres des 30 derniers jours citant la société ; chaque titre lu par une IA (scrapers/news_ia.py) : effet
@@ -555,7 +618,8 @@ function newsBlock(o, list) {
     (read
       ? "↑ hausse possible, ↓ baisse possible, → neutre, · sans rapport avec la société : lecture du titre par une IA (Claude), pas de l'article ; à vérifier avant de décider."
       : '⚠️ / ✅ : repérés par mots-clés dans le titre, à lire avant de décider.') +
-    '</span></p>'
+    '</span></p>' +
+    (read ? aiTrackLine('t') : '')
   );
 }
 /** Lecture d'un titre : effet possible sur le cours lu par l'IA (n.v : version de la lecture ; n.p : 0 si sans rapport ; n.i : up /

@@ -21,6 +21,7 @@ const F = {
   shorts: path.join(DATA, 'shorts.json'),
   financials: path.join(DATA, 'financials.json'),
   comptes: path.join(DATA, 'comptes_ia.json'), // 📑 lecture des comptes par l'IA (scrapers/comptes_ia.py) : emails seulement
+  suiviIA: path.join(DATA, 'suivi_ia.json'), // 🧪 mesure en direct des lectures de l'IA (scrapers/suivi_ia.py) : affichage seulement
   prices: path.join(DATA, 'prices.json'),
   state: path.join(DATA, 'euro-signal-state.json'),
   history: path.join(DATA, 'history'),
@@ -2844,6 +2845,9 @@ export function build(opts = {}) {
         console.warn('  📒 face à la société moyenne indisponible : ' + e.message);
       }
       rank.pick10 = ES.pickN(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks.map((p) => p.isin || p.sym); // lu par positions.py (rappel à 6 mois)
+      // 🧪 lectures de l'IA mesurées en direct (scrapers/suivi_ia.py, étape 4c ter) : lignes des blocs 📑 et 📰 des fiches
+      const suiviIA = readJSON(F.suiviIA, {});
+      rank.aiTrack = isObj(suiviIA) && isObj(suiviIA.stats) ? suiviIA.stats : null;
       // 💎 valeur : même suivi réel que le 🎯
       const V10 = ES.pickValue(rank.rows, { n: 10, peaOnly: PEA_ONLY }).picks;
       rank.value10 = V10.map((p) => p.isin || p.sym);
