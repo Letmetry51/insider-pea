@@ -25,6 +25,8 @@ log = SE.log
 def main():
     u, err = SE.get('user')
     used = int((u or {}).get('apiRequests') or 0)
+    if str((u or {}).get('apiRequestsDate') or '') != time.strftime('%Y-%m-%d', time.gmtime()):
+        used = 0  # compteur d'un autre jour : il repart à zéro au premier appel compté (constaté le 27/11/2026, eodhd_compteur.py)
     if used > 60000:  # compteur EODHD du jour : ce test en prend environ 27 000 (10 par société pour les comptes), limite 100 000
         log(f"{used} appels EODHD déjà utilisés aujourd'hui : relancer après la remise à zéro du compteur (le matin)")
         return
