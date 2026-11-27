@@ -11,14 +11,17 @@ Univers C de survivant_eodhd.py (12 bourses de l'EEE, sociétés retirées de la
    positif ; tiers le moins cher ; F-score ≥ 7 ; ni dernier exercice en perte, ni zone de détresse d'Altman, ni comptes en
    dégradation ; hausse sur 12 mois ≥ −40 % ; volatilité < 80 % ; pas de semaine à ×2,5 ou −65 % sur un an ; banques et
    assurances exclues (pas de F-score) ; meilleur F-score puis cours / fonds propres le plus bas, 2 par secteur, 10 lignes.
-   Cours / fonds propres : clôture brute × actions du dernier bilan connu (corrigées des divisions survenues depuis, repérées par
-   les sauts du rapport clôture brute / clôture ajustée) / capitaux propres convertis dans la devise de cotation. Non rejoués :
-   ⚡ (saut du jour) et 🐻 (ventes à découvert), sans historique.
+   Cours / fonds propres : clôture brute × actions du dernier bilan connu / capitaux propres (part du groupe, comme le calcul du
+   soir ; capitaux propres totaux si les deux s'écartent de plus de 50 %) convertis dans la devise de cotation. Divisions et
+   regroupements repérés par les sauts ronds (×2, ×10, ÷10…) du rapport clôture brute / clôture ajustée ; le premier calcul
+   (27/11/2026) a montré que les bilans EODHD donnent le nombre d'actions recalculé après coup sur la base d'aujourd'hui : le
+   nombre d'actions d'une date passée en est déduit, et la base retenue est celle qui rend la capitalisation continue d'une
+   semaine à l'autre. Non rejoués : ⚡ (saut du jour) et 🐻 (ventes à découvert), sans historique.
    Mesures : écart à 6 mois des 10 💎 avec la société moyenne et part des chutes de 25 % ; portefeuille (tranches de 26 semaines,
    frais 0,3 % par sens, protection −30 % comme le 🎯) face à la société moyenne ; mélange 70 / 30 face au 🎯 seul (sélection en
    direct, filtre des comptes compris) : rendement par période et pire baisse. Contrôles : cours / fonds propres et F-score de la
-   dernière semaine face à ceux du calcul du soir ; délai réel de dépôt des comptes, et variante où les comptes ne sont connus
-   qu'à la date de dépôt quand elle dépasse 120 jours.
+   dernière semaine face à ceux du calcul du soir ; médiane du marché chaque année ; délai réel de dépôt des comptes (EODHD ne le
+   donne que pour 1 % des exercices : la variante « comptes connus à la date de dépôt » du premier calcul n'apportait rien).
    Règles fixées avant le calcul : le 💎 tient si son portefeuille bat la société moyenne dans chacune des 3 périodes ; il serait
    démenti (proposition à François de le retirer) s'il fait moins bien dans chacune avec t ≤ −3 ; sinon pas tranché. Le dosage
    70 / 30 ne changerait (proposition) que si le 🎯 seul fait mieux dans chacune des 3 périodes avec t ≥ 3 sans pire baisse plus
@@ -177,22 +180,28 @@ def value_dates(F, cols, secs, dates, T, mode):
     return A, F9, BAD, YI
 
 
+ROUND = (1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75, 80, 100, 125, 150, 200, 250, 400, 500, 1000)
+
+
 def split_jumps(P, C):
     """Facteur cumulé des divisions et regroupements : sauts du rapport clôture brute / clôture ajustée (au-delà de ×1,5 ou ÷1,5
     d'une semaine à l'autre ; les dividendes ne le font bouger que de quelques %)."""
     N, T = P.shape
     J = np.ones((N, T))
-    nj = 0
+    nj, nr = 0, 0
     for i in range(N):
         s = C[i].astype(float) / P[i].astype(float)
         ok = np.where(np.isfinite(s) & (s > 0))[0]
         if len(ok) < 2:
             continue
         q = s[ok[1:]] / s[ok[:-1]]
-        for k in np.where((q > 1.5) | (q < 1 / 1.5))[0]:
-            J[i, ok[k + 1]:] *= q[k]
+        for k in np.where((q > 1.45) | (q < 1 / 1.45))[0]:
             nj += 1
-    return J, nj
+            f = max(q[k], 1 / q[k])
+            if min(abs(f / c - 1) for c in ROUND) < .04:  # division ou regroupement (facteur rond), pas une distribution
+                J[i, ok[k + 1]:] *= q[k]
+                nr += 1
+    return J, nj, nr
 
 
 def split_votes(F, J, dates):
@@ -232,9 +241,58 @@ def fx_table(curs, dates):
     return out
 
 
-def pb_matrix(F, YI, C, J, cur_t, FX, dates, field='equity'):
-    """Cours / fonds propres chaque semaine : clôture brute × actions du bilan lu (corrigées des divisions depuis la clôture) /
-    capitaux propres convertis dans la devise de cotation ; capitaux propres négatifs ou valeur hors de 0,02 à 200 : inconnu."""
+def equity_of(y):
+    """Capitaux propres part du groupe (comme financials.py) ; totaux (totalStockholderEquity) s'ils s'en écartent de plus de 50 %."""
+    e1, e2 = y.get('equity'), y.get('equity2')
+    if e1 is not None and (e2 is None or (e2 and .5 <= e1 / e2 <= 1.5)):
+        return e1
+    return e2 if e2 is not None else e1
+
+
+def shares_matrix(F, YI, J, C, dates, T, mode, default='now'):
+    """Nombre d'actions à chaque date d'après le dernier bilan lu, corrigé des divisions et regroupements : bilan recalculé sur
+    la base d'aujourd'hui (« now ») ou tel que publié à la clôture (« pub ») ; « auto » : pour chaque exercice suivi d'une division,
+    la base qui garde la capitalisation continue avec celle de l'exercice précédent (sinon « default »). Renvoie (SH, choix)."""
+    N = YI.shape[0]
+    SH = np.full((N, T), np.nan)
+    choice = {}
+    for i, f in F.items():
+        ys = f['years']
+        yi = YI[i]
+        prev = None  # (dernière semaine, capitalisation) de l'exercice précédent
+        for j in np.unique(yi[yi >= 0]):
+            j = int(j)
+            y = ys[j]
+            S = y.get('shares')
+            m = np.where(yi == j)[0]
+            if not S or not S > 0 or not len(m):
+                prev = None
+                continue
+            tb = min(int(np.searchsorted(dates, y['date'])), T - 1)
+            cand = {'pub': S * J[i, tb] / J[i, m], 'now': S * J[i, T - 1] / J[i, m]}
+            pick = default if mode == 'auto' else mode
+            fm = np.where(np.isfinite(C[i, m]) & (C[i, m] > 0))[0]
+            if mode == 'auto' and prev is not None and len(fm) and m[fm[0]] - prev[0] <= 4 and J[i, T - 1] != J[i, tb]:
+                k0 = fm[0]
+                pick = min(cand, key=lambda k: abs(np.log(C[i, m[k0]] * cand[k][k0] / prev[1])))
+            SH[i, m] = cand[pick]
+            choice[(i, j)] = pick
+            prev = (m[fm[-1]], C[i, m[fm[-1]]] * SH[i, m[fm[-1]]]) if len(fm) else None
+    return SH, choice
+
+
+def mcap_jumps(C, SH):
+    """Part des semaines où la capitalisation calculée double ou se divise par deux (une base d'actions fausse en crée)."""
+    with np.errstate(invalid='ignore', divide='ignore'):
+        mc = C * SH
+        r = mc[:, 1:] / mc[:, :-1]
+        ok = np.isfinite(r)
+        return float(((r > 2) | (r < .5))[ok].mean()) if ok.any() else np.nan
+
+
+def pb_matrix(F, YI, C, SH, cur_t, FX):
+    """Cours / fonds propres chaque semaine : clôture brute × actions / capitaux propres convertis dans la devise de cotation ;
+    capitaux propres négatifs ou valeur hors de 0,02 à 200 : inconnu."""
     N, T = C.shape
     PB = np.full((N, T), np.nan, np.float32)
     odd = 0
@@ -247,20 +305,19 @@ def pb_matrix(F, YI, C, J, cur_t, FX, dates, field='equity'):
         k = FX[qc] / FX[rc]
         yi = YI[i]
         for j in np.unique(yi[yi >= 0]):
-            y = ys[int(j)]
-            E, S = y.get(field, y.get('equity')), y.get('shares')
-            if E is None or S is None or not S > 0 or not E > 0:
+            E = equity_of(ys[int(j)])
+            if E is None or not E > 0:
                 continue
-            tb = min(int(np.searchsorted(dates, y['date'])), T - 1)
             m = yi == j
-            pb = C[i, m] * (S * J[i, tb] / J[i, m]) / (E * k[m])
-            bad = ~((pb > .02) & (pb < 200))
+            with np.errstate(invalid='ignore'):
+                pb = C[i, m] * SH[i, m] / (E * k[m])
+                bad = ~((pb > .02) & (pb < 200))
             odd += int((bad & np.isfinite(pb)).sum())
             PB[i, m] = np.where(bad, np.nan, pb)
     return PB, odd
 
 
-def issuance(F, YI, J, dates, T):
+def issuance(F, YI, J, dates, T, choice, default):
     """Variation du nombre d'actions entre les deux derniers bilans connus (exercices consécutifs, divisions corrigées)."""
     N = YI.shape[0]
     DS = np.full((N, T), np.nan, np.float32)
@@ -276,7 +333,10 @@ def issuance(F, YI, J, dates, T):
             if not 300 <= gap <= 430:
                 continue
             t1, t0 = (min(int(np.searchsorted(dates, y['date'])), T - 1) for y in (y1, y0))
-            ds = S1 / (S0 * J[i, t0] / J[i, t1]) - 1
+            # nombre d'actions réel à chaque clôture, puis variation hors divisions survenues entre les deux
+            s1 = S1 * J[i, T - 1] / J[i, t1] if choice.get((i, int(j)), default) == 'now' else S1
+            s0 = S0 * J[i, T - 1] / J[i, t0] if choice.get((i, int(j) - 1), default) == 'now' else S0
+            ds = s1 / (s0 * J[i, t0] / J[i, t1]) - 1
             if -.9 < ds < 10:
                 DS[i, yi == j] = ds
     return DS
@@ -326,18 +386,23 @@ def main():
         g = np.array(RD_GAP)
         log(f"  publications : délai médian après la clôture de la période {np.median(g):.0f} jours ; moins de 5 jours (écartées) "
             f"{np.mean(g < 5) * 100:.0f} % ; 10 à 120 jours {np.mean((g >= 10) & (g <= 120)) * 100:.0f} %")
-    J, nj = split_jumps(P, C)
+    J, nj, nr = split_jumps(P, C)
     votes = split_votes(F, J, dates)
-    log(f"  divisions ou regroupements repérés : {nj}, dans {int((J[:, -1] != 1).sum())} séries ; nombre d'actions des bilans "
-        f"autour d'une division : tel que publié {votes[0]} fois, recalculé après coup {votes[1]} fois")
-    if nj < 20:
+    log(f"  sauts du rapport clôture brute / ajustée : {nj}, dont {nr} divisions ou regroupements (facteur rond) dans "
+        f"{int((J[:, -1] != 1).sum())} séries ; nombre d'actions des bilans autour d'une division : tel que publié {votes[0]} fois, "
+        f"recalculé après coup {votes[1]} fois")
+    if nr < 20:
         log("  attention : presque aucune division repérée sur 25 ans : la clôture « brute » d'EODHD serait déjà ajustée des divisions")
-    if votes[1] > votes[0]:
-        J = np.ones_like(J)  # bilans déjà recalculés : pas de correction
-        log("  → nombre d'actions des bilans pris tel quel")
-    else:
-        log("  → nombre d'actions corrigé des divisions survenues depuis la clôture")
     A, F9, BAD, YI = value_dates(F, cols, secs, dates, T, 'lag120')
+    jumps = {md: mcap_jumps(C, shares_matrix(F, YI, J, C, dates, T, md)[0]) for md in ('now', 'pub')}
+    default = 'now' if jumps['now'] <= jumps['pub'] else 'pub'
+    SH, choice = shares_matrix(F, YI, J, C, dates, T, 'auto', default)
+    jumps['auto'] = mcap_jumps(C, SH)
+    nn = sum(1 for v in choice.values() if v == 'now')
+    log(f"  capitalisation qui double ou se divise par deux d'une semaine à l'autre : {jumps['now'] * 100:.2f} % des semaines avec "
+        f"les bilans sur la base d'aujourd'hui, {jumps['pub'] * 100:.2f} % tels que publiés, {jumps['auto'] * 100:.2f} % en choisissant "
+        f"exercice par exercice ({nn} exercices sur la base d'aujourd'hui, {len(choice) - nn} tels que publiés ; par défaut : "
+        f"{'base d’aujourd’hui' if default == 'now' else 'tel que publié'})")
     A0 = SC.verdicts(F, cols, secs, dates, T)
     log(f"  verdicts identiques à ceux de survivant_comptes.py : {np.mean(A == A0) * 100:.2f} % des cases")
     del A0
@@ -346,7 +411,7 @@ def main():
     try:
         site = json.load(open('../data/euro-signal.json'))
         live_rows = {r.get('sym'): r for r in (site.get('rank') or {}).get('rows') or [] if r.get('sym')}
-        v10 = [x.get('sym') for x in (site.get('rank') or {}).get('value10') or [] if isinstance(x, dict)]
+        v10 = [x if isinstance(x, str) else (x or {}).get('sym') for x in (site.get('rank') or {}).get('value10') or []]
         del site
     except (OSError, ValueError):
         live_rows, v10 = {}, []
@@ -360,24 +425,15 @@ def main():
             if r and not dl[i] and r.get('pb') and r['pb'] > 0 and np.isfinite(PBm[i, tl]):
                 rp.append(PBm[i, tl] / r['pb'])
         return np.array(rp)
-    best = None
-    for field in ('equity', 'equity2'):
-        PBm, odd = pb_matrix(F, YI, C, J, cur_t, FX, dates, field)
-        rp = check_pb(PBm)
-        err_ = np.median(np.abs(np.log(rp))) if len(rp) else np.inf
-        log(f"  cours / fonds propres ({'capitaux propres du calcul des comptes' if field == 'equity' else 'totalStockholderEquity'}) : "
-            f"{len(rp)} sociétés face au calcul du soir, rapport médian {np.median(rp) if len(rp) else np.nan:.2f}, à ±25 % "
-            f"{np.mean(np.abs(rp - 1) <= .25) * 100 if len(rp) else 0:.0f} % ; hors de 0,02 à 200 (écartés) : {odd} semaines")
-        if best is None or err_ < best[0]:
-            best = (err_, field, PBm)
-    _, EQF, PB = best
-    del best, PBm
-    log(f"  → capitaux propres retenus : {EQF}")
-    DS = issuance(F, YI, J, dates, T)
-    _, F9d, BADd, YId = value_dates(F, cols, secs, dates, T, 'depot')
-    PBd, _ = pb_matrix(F, YId, C, J, cur_t, FX, dates, EQF)
-    del YId, J
+    PB, odd = pb_matrix(F, YI, C, SH, cur_t, FX)
+    del SH
+    nfin = int(np.isfinite(PB).sum())
+    log(f"  cours / fonds propres : {nfin} semaines-sociétés ; hors de 0,02 à 200 (écartés) : {odd} ({odd / max(nfin + odd, 1) * 100:.1f} %)")
+    DS = issuance(F, YI, J, dates, T, choice, default)
+    del choice
+    del J
     RESW, COV = results_weeks(F, dates, T, N)
+    isin = [r.get('isin') or '' for r in rows]
     del F, C
     gc.collect()
 
@@ -507,8 +563,9 @@ def main():
     if f9n:
         log(f"  F-score : {f9n} sociétés ; à un point près : {f9eq / f9n * 100:.0f} %")
     last_pk = value_picks(tl)
+    common = [ysym[i] for i in last_pk if ysym[i] in v10 or isin[i] in v10]
     log(f"  💎 de la dernière semaine ({len(last_pk)}) : {', '.join(ysym[i] for i in last_pk)} ; en commun avec les 10 💎 du calcul "
-        f"du soir : {len(set(ysym[i] for i in last_pk) & set(v10))}")
+        f"du soir (Milan et Londres compris, absents ici) : {len(common)} ({', '.join(common) or 'aucune'})")
 
     log("\n1. 💎 Valeur. Couverture : sociétés investissables avec un cours / fonds propres (cotées aujourd'hui | disparues depuis), "
         "candidates 💎 et lignes par semaine (médianes)")
@@ -521,31 +578,25 @@ def main():
             k = inv & m
             cl.append(f"{int((k & np.isfinite(PB[:, t])).sum())}/{int(k.sum())} ({(k & np.isfinite(PB[:, t])).sum() / max(k.sum(), 1) * 100:.0f} %)")
         ws = range(t, min(t + 52, T - 1))
-        log(f"  {y} : {cl[0]:18s} | {cl[1]:16s} ; lignes {np.median([len(S_val.get(w, [])) for w in ws]):.0f}")
+        pm = PB[inv & np.isfinite(PB[:, t]), t]
+        log(f"  {y} : {cl[0]:18s} | {cl[1]:16s} ; cours / fonds propres médian {np.median(pm) if len(pm) else np.nan:.2f} ; "
+            f"lignes {np.median([len(S_val.get(w, [])) for w in ws]):.0f}")
     log("  Écart à 6 mois avec la société moyenne (points, une semaine sur 4 ; t sur des départs espacés de 26 semaines)")
     fmt_measure('💎 (règle du calcul du soir)', S_val)
     fmt_measure('pour comprendre : tiers le moins cher seul', {t: value_picks(t, fmin=0) for t in range(t2001, T - 1)})
     fmt_measure('pour comprendre : F-score ≥ 7 seul', {t: value_picks(t, cheap=False) for t in range(t2001, T - 1)})
-    S_vd = {t: value_picks(t, pbm=PBd, f9m=F9d, badm=BADd) for t in range(t2001, T - 1)}
-    fmt_measure('contrôle : comptes connus à la date de dépôt', S_vd)
-    del PBd, F9d, BADd
-    gc.collect()
     R_val = run(S_val)
     R_vnp = CS.weekly_slots(G, lambda t: S_val.get(t, []), n=10)
     R_v5 = CS.weekly_slots(G, lambda t: S_val.get(t, []), n=10, cost=.005)
-    R_vd = run(S_vd)
     log("  Portefeuilles (tranches de 26 semaines, frais 0,3 % par sens) : %/an et pire baisse, par période")
     line('société moyenne (sans frais)', Rm)
     line('💎, protection −30 %', R_val)
     line('💎, sans protection (10 places)', R_vnp)
     line('💎, sans protection, frais 0,5 % par sens', R_v5)
-    line('💎, comptes connus à la date de dépôt', R_vd)
     sg, tv = cmp(R_val, Rm)
     v = ('le 💎 TIENT (meilleur que la société moyenne dans chaque période)' if all(x > 0 for x in sg) else
          'LE 💎 EST DÉMENTI : à proposer à François (le retirer)' if all(x < 0 for x in sg) and tv <= -3 else 'pas tranché')
     log(f"  💎 − société moyenne : {cells(sg)} pts/an (t {tv:4.1f}) → {v}")
-    sg, tv = cmp(R_vd, Rm)
-    log(f"  contrôle, comptes à la date de dépôt − société moyenne : {cells(sg)} pts/an (t {tv:4.1f})")
     R_mix = .7 * R_live + .3 * R_val
     log("  Dosage (le 🎯 : sélection en direct, filtre des comptes compris, protection −30 %)")
     line('🎯 seul', R_live)
