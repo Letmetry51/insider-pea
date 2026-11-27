@@ -940,7 +940,7 @@ function vEngrais() {
           long: tv.long,
           technique: tv.technique,
           series: tv.series,
-          niveaux: null,
+          niveaux: tv.niveaux,
         }),
         tv.technique && !tv.technique.insuffisant ? techTable(tv.technique) : null
       )
@@ -1882,6 +1882,109 @@ const COMP = {
 const lien = (c) =>
   c === null || c === undefined ? null : c >= 0.6 ? 'fort' : c >= 0.3 ? 'moyen' : c >= 0.15 ? 'faible' : 'quasi nul';
 
+/* cours détaillé de chaque marché du graphique comparé : même graphique que celui du blé (MM, canal, supports et résistances,
+   fourchette 20 séances, vues 1 an et 5 ans) ; blé, maïs, gaz et urée reprennent les données déjà publiées pour leur propre carte */
+function coursDetailCard(d) {
+  const cu = d.cultures || {},
+    ct = d.contrats || {},
+    en = d.engrais || {},
+    vu = (d.comparatif || {}).vues || {};
+  const vue = (nom, v, unite, note) =>
+    v && v.graphique
+      ? { nom, unite, graphique: v.graphique, long: v.long, technique: v.technique, niveaux: v.niveaux, note }
+      : null;
+  const contrat = (k) => {
+    const c = cu[k],
+      con = c && ct[c.contrat];
+    if (!con || !con.graphique) return null;
+    const px = con.proxy && con.proxy.graphique ? con.proxy : con;
+    return {
+      nom: con.nom,
+      graphique: px.graphique,
+      long: con.long,
+      technique: px.technique,
+      niveaux: c.technique,
+      longMain: con.long && con.long.source === 'euronext' ? null : 'var(--muted)',
+      note: `Euronext, échéance ${moisFr(con.echeance)}, en €/t. Le même graphique figure dans l'onglet de la culture.`,
+    };
+  };
+  const choix = [
+    [
+      'petrole',
+      COMP.petrole[0],
+      vue('Pétrole Brent', vu.petrole, '$/baril', 'Brent, contrat le plus proche (Londres), en dollars par baril.'),
+    ],
+    [
+      'gaz',
+      COMP.gaz[0],
+      vue(
+        'Gaz TTF',
+        (en.ttf || {}).vues,
+        '€/MWh',
+        'Gaz TTF (Pays-Bas), contrat le plus proche, en €/MWh. Le même graphique figure dans la partie engrais.'
+      ),
+    ],
+    ['ble', COMP.ble[0], contrat('ble')],
+    ['mais', COMP.mais[0], contrat('mais')],
+    [
+      'soja',
+      COMP.soja[0],
+      vue(
+        'Soja Chicago',
+        vu.soja,
+        '€/t',
+        'Soja de Chicago, contrat le plus proche, converti en €/t au cours euro-dollar du jour.'
+      ),
+    ],
+    ['uree', COMP.uree[0], en.histo_uree && en.histo_uree.length > 12 ? { mensuel: true } : null],
+  ].filter((x) => x[2]);
+  if (!choix.length) return null;
+  if (!choix.some((x) => x[0] === GS.coursDetail)) GS.coursDetail = choix[0][0];
+  const box = h('div', {});
+  const dessine = () => {
+    box.textContent = '';
+    const p = choix.find((x) => x[0] === GS.coursDetail)[2];
+    if (p.mensuel) {
+      box.append(
+        chart(en.histo_uree, { channel: false, cone: false, dot: false, label: 'Urée et DAP sur 10 ans' }),
+        h(
+          'div',
+          { class: 'legend' },
+          h('span', {}, h('i', { style: 'background:var(--chart-1)' }), 'Urée (Moyen-Orient)'),
+          h('span', {}, h('i', { style: 'background:var(--chart-2)' }), 'Urée, moyenne 12 mois'),
+          h('span', {}, h('i', { style: 'background:var(--chart-3)' }), 'DAP')
+        ),
+        h('p', {
+          class: 'note',
+          text: 'Banque mondiale, prix mensuel en $/t sur 10 ans : un relevé par mois ne permet ni moyennes 20 et 50 séances, ni supports, ni fourchette à 20 séances. Le même graphique figure dans la partie engrais.',
+        })
+      );
+      return;
+    }
+    box.append(periodPanel(p), h('p', { class: 'note', text: p.note }));
+  };
+  const boutons = h(
+    'div',
+    { class: 'filters', role: 'group', 'aria-label': 'Marché affiché' },
+    choix.map(([k, lib]) => {
+      const b = h(
+        'button',
+        { type: 'button', class: 'filt', 'aria-pressed': String(k === GS.coursDetail) },
+        h('span', { class: 'pastille', style: `background:${COMP[k][1]}` }),
+        lib
+      );
+      b.addEventListener('click', () => {
+        GS.coursDetail = k;
+        boutons.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        dessine(); // seul le graphique change : la page ne bouge pas
+      });
+      return b;
+    })
+  );
+  dessine();
+  return h('div', { class: 'card' }, h('h3', { text: '📊 Cours détaillé de chaque marché' }), boutons, box);
+}
+
 function comparatifCard(d) {
   const cp = d.comparatif;
   if (!cp || !cp.series || Object.keys(cp.series).length < 3) return null;
@@ -2093,6 +2196,7 @@ function autresMarches(d) {
         )
       : null,
     comparatifCard(d),
+    coursDetailCard(d),
     cot.length
       ? h(
           'div',

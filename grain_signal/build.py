@@ -732,7 +732,13 @@ def comparatif(yahoo, eur, wb, today, ans=3):
         g, u, w_ = lm("gas_eu"), lm("urea"), lm("wheat_hrw")
         mensuel = {"gaz-uree": corr(g, u), "gaz-uree_mois_suivant": corr(g[:-1], u[1:]), "uree-ble": corr(u, w_),
                    "uree-ble_mois_suivant": corr(u[:-1], w_[1:]), "mois": len(g)}
-    return {"debut": semaines[0], "fin": semaines[-1], "series": series, "correlations": paires, "mensuel": mensuel}
+    # cours détaillés des marchés qui n'ont pas déjà leur graphique ailleurs (blé, maïs, gaz, urée l'ont) : pétrole et soja
+    bz = sorted(((yahoo.get("BZ=F") or {}).get("serie") or {}).items())
+    vu = {"petrole": vues([x[0] for x in bz], [x[1] for x in bz]) if len(bz) > 70 else None}
+    sd, sv = proxy_eur(yahoo, "ZS=F")  # soja de Chicago converti en €/t, comme les grains européens
+    vu["soja"] = vues(sd, sv) if len(sv) > 70 else None
+    return {"debut": semaines[0], "fin": semaines[-1], "series": series, "correlations": paires, "mensuel": mensuel,
+            "vues": {k: v for k, v in vu.items() if v}}
 
 
 def etat_cultures(brut, today, jours=60):
@@ -1149,7 +1155,8 @@ def main():
                   f"{(o.get('chicago') or {}).get('var')} %)")
     cp = dash.get("comparatif") or {}
     print(f"Comparatif : {', '.join(f'{k} {len(v)} sem. ({v[-1][1]})' for k, v in (cp.get('series') or {}).items())} ; "
-          f"corrélations {cp.get('correlations')} ; mensuel {cp.get('mensuel')}")
+          f"corrélations {cp.get('correlations')} ; mensuel {cp.get('mensuel')} ; cours détaillés "
+          f"{ {k: v['graphique'][-1][1] for k, v in (cp.get('vues') or {}).items()} }")
     print(f"Engrais : {' ; '.join(engrais.get('notes', []))}")
     print(f"Alertes du jour : {len(trig)}")
     return 0

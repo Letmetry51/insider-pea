@@ -1020,6 +1020,12 @@ _cp = build.comparatif(_yh2, _eu2, _wb2, date(2026, 6, 1))
 check(_cp and all(v[0][1] == 100.0 for v in _cp["series"].values()) and len({v[0][0] for k, v in _cp["series"].items() if k != "uree"}) == 1
       and _cp["correlations"]["ble-mais"] == 1.0 and "gaz-uree" in _cp["mensuel"],
       "graphique comparé : toutes les courbes à 100 au même départ, corrélations calculées")
+_yh2["EURUSD=X"] = {"serie": {x.isoformat(): 1.1 for x in _jd}}
+_cv = build.comparatif(_yh2, _eu2, _wb2, date(2026, 6, 1))["vues"]
+check(set(_cv) == {"petrole", "soja"} and _cv["petrole"]["graphique"][-1][1] == round(_yh2["BZ=F"]["serie"][_jd[-1].isoformat()], 2)
+      and abs(_cv["soja"]["graphique"][-1][1] - _yh2["ZS=F"]["serie"][_jd[-1].isoformat()] / 100 * 36.744 / 1.1) < 0.01
+      and _cv["petrole"]["niveaux"] is not None and _cv["soja"]["long"]["cinq_ans"],
+      "cours détaillés : pétrole en $/baril et soja converti en €/t, avec niveaux et vues longues")
 
 # état des cultures : tableau Céré'Obs (bon + très bon), rapport USDA, lectures trop anciennes écartées
 _co = collect.cereobs_lire([["Conditions de culture - Orge d'hiver - France"], ["", "Semaine 45 se terminant le 09 novembre 2026"],
