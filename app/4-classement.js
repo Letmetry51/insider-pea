@@ -2839,11 +2839,11 @@ function valueCard(inSel) {
     '<p class="p3rules">💰 tiers le moins cher (cours / fonds propres' +
     (V.cut ? ' < ' + fmtN(V.cut, 2) : '') +
     ') · 📊 F-score ≥ 7 · sans perte ni chute de plus de 40 % · 2 par secteur · sans ⚡ ni 🐻</p>' +
-    '<div class="probs"><small>Dosage conseillé du PEA (facteurs européens, toutes sociétés, 1990-2026) :</small><div class="pbs pbs3">' +
+    '<div class="probs"><small>Dosage conseillé du PEA, testé sur nos sélections (2001-2026, sociétés disparues comprises ; facteurs européens de Kenneth French : −30 % au lieu de −46 %) :</small><div class="pbs pbs3">' +
     [
-      ['70 % 🎯 + 30 % 💎', 'plus grosse perte −30 % au lieu de −46 %'],
-      ['+8,5 %/an', "d'avantage au lieu de +10,3"],
-      ['−0,32', 'corrélation : ils gagnent à des moments différents'],
+      ['70 % 🎯 + 30 % 💎', 'plus grosse perte −45 % au lieu de −48 %'],
+      ['+17,9 %/an', 'au lieu de +19,2 pour le 🎯 seul'],
+      ['+0,57', 'corrélation : ils baissent souvent ensemble'],
     ]
       .map(function (x) {
         return '<span class="pb"><b>' + x[0] + '</b><small>' + x[1] + '</small></span>';

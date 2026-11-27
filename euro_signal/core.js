@@ -9939,7 +9939,9 @@
   /**
    * 💎 Valeur (18/10/2026) : complément du 🎯. Momentum et valeur évoluent en sens inverse (corrélation −0,32, facteurs européens de
    * Kenneth French 1990-2026) : 70 % momentum + 30 % valeur a gardé +8,5 % par an d'avantage (contre +10,3) en ramenant la plus grosse
-   * perte de −46 % à −30 %. Règles (Piotroski 2000) : prix bas par rapport aux fonds propres (tiers le moins cher des sociétés liquides),
+   * perte de −46 % à −30 %. Sur nos propres sélections (research/survivant_valeur.py, 2001-2026, sociétés disparues comprises) :
+   * corrélation +0,57, pire baisse −45 % au lieu de −48 %, 1,3 point par an de moins ; le 💎 seul +2,7 points à 6 mois, rien sur
+   * 2018-2026 (pas tranché, revue du 31/01/2027). Règles (Piotroski 2000) : prix bas par rapport aux fonds propres (tiers le moins cher des sociétés liquides),
    * comptes solides (F-score ≥ 7), pas de perte ni de bilan en détresse, pas de chute de plus de 40 % sur un an, ni ⚡ ni 🐻 (Paris),
    * au moins 1 M€ échangés par jour ; meilleur F-score puis prix le plus bas, 2 par secteur. Lignes publiées (mom en %, pb, f9, liq).
    * → { picks (les n premières, 2 par secteur), cut (prix du tiers le moins cher), pool (nombre), all (toutes, dans l'ordre du tri) }.
