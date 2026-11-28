@@ -1,0 +1,41 @@
+{
+ "status": 200,
+ "contentType": null,
+ "bytes": 680569,
+ "encoding": "cp1252",
+ "head": "\"Transaction\";\"Issuing institution\";\"Notifiable\";\"NotifiableLastName\"\r\n\"2026-11-25 00:00:00\";\"ASR Nederland N.V.\";\"Sappelli J.F.\";\"Sappelli\"\r\n\"2026-11-25 00:00:00\";\"ASR Nederland N.V.\";\"Dekker R.E.\";\"Dekker\"\r\n\"2026-11-25 00:00:00\";\"ASR Nederland N.V.\";\"Berg, van den W.\";\"Berg\"\r\n\"2026-11-24 00:00:00\";\"Coca-Cola Europacific Partners plc\";\"Callol A.\";\"Callol\"\r\n\"2026-11-24 00:00:00\";\"OCI N.V.\";\"NNS HOLDING (CYPRUS) LIMITED\";\"\"\r\n\"2026-11-23 00:00:00\";\"NN Group N.V.\";\"Eijsink F.\";\"Eijsink\"\r\n\"2026-11-23 00:00:00\";\"The Magnum Ice Cream Company N.V.\";\"O?Brien M.\";\"O?Brien\"\r\n\"2026-11-23 00:00:00\";\"NN Gr",
+ "rawStart": "225472616e73616374696f6e223b2249737375696e672069",
+ "delimiter": ";",
+ "headers": [
+  "Transaction",
+  "Issuing institution",
+  "Notifiable",
+  "NotifiableLastName"
+ ],
+ "sampleRows": [
+  [
+   "2026-11-25 00:00:00",
+   "ASR Nederland N.V.",
+   "Sappelli J.F.",
+   "Sappelli"
+  ],
+  [
+   "2026-11-25 00:00:00",
+   "ASR Nederland N.V.",
+   "Dekker R.E.",
+   "Dekker"
+  ],
+  [
+   "2026-11-25 00:00:00",
+   "ASR Nederland N.V.",
+   "Berg, van den W.",
+   "Berg"
+  ]
+ ],
+ "rowCount": 9646,
+ "columnMap": {
+  "issuer": "Issuing institution"
+ },
+ "xmlSample": "<register name=\"transacties-leidinggevenden-mar19-\"><vermelding><meldingid>202611251A5D207E-BB14-4FD8-91CE-C57A0440D71D</meldingid><transactiedatum>11/25/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>ASR Nederland N.V.</uitgevendeinstelling><meldingsplichtige>Sappelli J.F.</meldingsplichtige><meldingsplichtigeachternaam>Sappelli</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CHRO - lid Management Board</functie><lei>7245000G0HS48PZWUD53</lei><vermelding>ASR Nederland N.V. - Sappelli J.F. - </vermelding></vermelding><vermelding><meldingid>202611258C708624-303C-46A3-A4E0-4A79FB37EEF1</meldingid><transactiedatum>11/25/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>ASR Nederland N.V.</uitgevendeinstelling><meldingsplichtige>Dekker R.E.</meldingsplichtige><meldingsplichtigeachternaam>Dekker</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>CRO - lid Management Board</functie><lei>7245000G0HS48PZWUD53</lei><vermelding>ASR Nederland N.V. - Dekker R.E. - </vermelding></vermelding><vermelding><meldingid>20261125E2132083-F5A0-4F7D-8869-D40D33D5A7B4</meldingid><transactiedatum>11/25/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>ASR Nederland N.V.</uitgevendeinstelling><meldingsplichtige>Berg, van den W.</meldingsplichtige><meldingsplichtigeachternaam>Berg</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>COO Life - lid Management Board</functie><lei>7245000G0HS48PZWUD53</lei><vermelding>ASR Nederland N.V. - Berg, van den W. - </vermelding></vermelding><vermelding><meldingid>2026112441F70E8C-31B8-4518-A3CC-D41B8662499B</meldingid><transactiedatum>11/24/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>Coca-Cola Europacific Partners plc</uitgevendeinstelling><meldingsplichtige>Callol A.</meldingsplichtige><meldingsplichtigeachternaam>Callol</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>General Manager, Iberian Business Unit</functie><lei>549300LTH67W4GWMRF57</lei><vermelding>Coca-Cola Europacific Partners plc - Callol A. - </vermelding></vermelding><vermelding><meldingid>2026112451B9B8B1-A9A5-45AF-B726-BDBCA99D67CD</meldingid><transactiedatum>11/24/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>OCI N.V.</uitgevendeinstelling><meldingsplichtige>NNS HOLDING (CYPRUS) LIMITED</meldingsplichtige><meldingsplichtigeachternaam></meldingsplichtigeachternaam><nauwgelieerdaan>Sawiris N.</nauwgelieerdaan><functie>Non‑Executive Director</functie><lei>549300NCMRGIBJYUOE57</lei><vermelding>OCI N.V. - NNS HOLDING (CYPRUS) LIMITED - Sawiris N.</vermelding></vermelding><vermelding><meldingid>202611230525D12F-6FCA-4461-8405-0AF4688E1EA7</meldingid><transactiedatum>11/23/2026 12:00:00 AM</transactiedatum><uitgevendeinstelling>NN Group N.V.</uitgevendeinstelling><meldingsplichtige>Eijsink F.</meldingsplichtige><meldingsplichtigeachternaam>Eijsink</meldingsplichtigeachternaam><nauwgelieerdaan></nauwgelieerdaan><functie>Management Board memb",
+ "at": "2026-11-28T00:42:55.462194+00:00"
+}

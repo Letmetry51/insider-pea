@@ -1,0 +1,85 @@
+{
+ "date": "2026-11-27",
+ "at": "2026-11-28T01:20:29+00:00",
+ "engineAt": "2026-11-28T01:20:11.841Z",
+ "rows": 1668,
+ "catalogue": 4183,
+ "diffs": 0,
+ "byField": {},
+ "byLabel": {},
+ "examples": [],
+ "selection": {
+  "same": true,
+  "engine": [
+   "Bonesupport Holding AB (publ)",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Frontline plc",
+   "Swedish Orphan Biovitrum AB (publ)"
+  ],
+  "twin": [
+   "Bonesupport Holding AB (publ)",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Frontline plc",
+   "Swedish Orphan Biovitrum AB (publ)"
+  ]
+ },
+ "pick10": {
+  "same": true,
+  "engine": [
+   "Bonesupport Holding AB (publ)",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Frontline plc",
+   "Wallenius Wilhelmsen ASA",
+   "Lotus Bakeries NV",
+   "DOF Group ASA",
+   "Eurofins Scientific SE",
+   "Corbion N.V.",
+   "Endesa, S.A."
+  ],
+  "twin": [
+   "Bonesupport Holding AB (publ)",
+   "JCDecaux SE",
+   "Repsol, S.A.",
+   "Frontline plc",
+   "Wallenius Wilhelmsen ASA",
+   "Lotus Bakeries NV",
+   "DOF Group ASA",
+   "Eurofins Scientific SE",
+   "Corbion N.V.",
+   "Endesa, S.A."
+  ]
+ },
+ "value10": {
+  "same": true,
+  "engine": [
+   "Clariane SE",
+   "Husqvarna AB (publ)",
+   "CA Immobilien Anlagen AG",
+   "Louis Hachette Group S.A.",
+   "Drägerwerk AG & Co. KGaA",
+   "Byggmax Group AB (publ)",
+   "Sveafastigheter AB (publ)",
+   "Vicat S.A.",
+   "Telecom Italia S.p.A.",
+   "Gas Plus S.p.A."
+  ],
+  "twin": [
+   "Clariane SE",
+   "Husqvarna AB (publ)",
+   "CA Immobilien Anlagen AG",
+   "Louis Hachette Group S.A.",
+   "Drägerwerk AG & Co. KGaA",
+   "Byggmax Group AB (publ)",
+   "Sveafastigheter AB (publ)",
+   "Vicat S.A.",
+   "Telecom Italia S.p.A.",
+   "Gas Plus S.p.A."
+  ]
+ },
+ "gaps": [],
+ "error": null,
+ "seconds": 1.4
+}
