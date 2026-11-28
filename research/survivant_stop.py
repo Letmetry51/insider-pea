@@ -60,9 +60,10 @@ def daily(sym):
     return np.array(d, dtype='datetime64[D]'), o, np.minimum(np.minimum(np.array(lo), o), c), c
 
 
-def line_paths(Dd, i, t, d64, T):
+def line_paths(Dd, i, t, d64, T, P):
     """Chemin hebdomadaire de la valeur d'une ligne (1 à l'achat, clôture du vendredi t) selon chaque règle de sortie :
-    {règle: (px[0..26], semaine de sortie ou None)} ; None sans cours journaliers à l'achat."""
+    {règle: (px[0..26], semaine de sortie ou None)} ; None sans cours journaliers fiables sur la période : clôtures du vendredi à
+    plus de 10 % des cours hebdomadaires de la simulation (nettoyés de leurs pics isolés), ou séance à ×3 ou ÷3 (erreur de cours)."""
     if i not in Dd:
         return None
     dd, o, lo, c = Dd[i]
@@ -70,6 +71,16 @@ def line_paths(Dd, i, t, d64, T):
     fri = [int(np.searchsorted(dd, d64[w], side='right')) - 1 for w in range(t, end + 1)]
     if fri[0] < 0:
         return None
+    ref = np.array([P[i, w] for w in range(t, end + 1)], dtype=float)
+    cc = np.array([c[k] for k in fri])
+    ok = np.isfinite(ref) & (ref > 0)
+    if not ok[0] or (np.abs(cc[ok] / ref[ok] / (cc[0] / ref[0]) - 1) > .10).any():
+        return None
+    a0, b0 = fri[0], fri[-1] + 1
+    if b0 - a0 > 1:
+        q = c[a0 + 1:b0] / c[a0:b0 - 1]
+        if ((q > 3) | (q < 1 / 3)).any():
+            return None
     e = c[fri[0]]
     out = {}
     # a. clôture de la semaine
@@ -117,6 +128,7 @@ def main():
         return
     P, V, liq, cols, secs, dates, T, t2001, ERAS, t00, dl, rows = (D[k] for k in (
         'P', 'V', 'liq', 'cols', 'secs', 'dates', 'T', 't2001', 'ERAS', 't00', 'dl', 'rows'))
+    P = np.array(P, dtype=float)
     N = len(cols)
     t0 = time.time()
     G = SE.chain(P, V, dates, cols, secs, liq >= SE.LIQ)
@@ -157,9 +169,9 @@ def main():
         for r in RULES:
             R[r][t - t2001] -= COST
         for i in s:
-            paths = line_paths(Dd, i, t, d64, T)
+            paths = line_paths(Dd, i, t, d64, T, P)
             nlines += 1
-            if paths is None:  # pas de cours journaliers : même chemin hebdomadaire que sim30 pour toutes les règles
+            if paths is None:  # pas de cours journaliers fiables : chemin hebdomadaire de sim30, même sortie pour toutes les règles
                 nfall += 1
                 full = np.cumprod(np.concatenate([[1.0], 1 + retw[i, t + 1:min(t + HOLD, T - 1) + 1]]))
                 px = full.copy()
@@ -190,7 +202,9 @@ def main():
 
     def seg(x, a, b):
         return x[a - t2001:b - t2001]
-    an = lambda x: (np.prod(1 + x) ** (52 / len(x)) - 1) * 100  # noqa: E731
+    def an(x):
+        g = np.prod(1 + x)
+        return (g ** (52 / len(x)) - 1) * 100 if g > 0 else -100.0
 
     def dd_(x):
         e = np.cumprod(1 + x)
@@ -212,7 +226,8 @@ def main():
     line('société moyenne (sans frais)', mkw[t2001 + 1:T])
     for r in RULES:
         line(NAMES[r], R[r])
-    log(f"\nLignes : {nlines} (dont {nfall} sans cours journaliers, chemin hebdomadaire) ; vendues avant 6 mois par la protection : " +
+    log(f"\nLignes : {nlines} (dont {nfall} sans cours journaliers fiables : chemin hebdomadaire, même sortie partout) ; vendues avant 6 mois "
+        "par la protection : " +
         ' · '.join(f"{r} {nexit[r] / max(nlines, 1) * 100:.1f} %" for r in RULES if r != 'd'))
     if wh:
         w = np.array(wh)
