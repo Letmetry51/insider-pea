@@ -102,8 +102,7 @@ peut refaire (journal des alertes, suivi réel, historiques) sont aussi gardés 
 2. **Settings → Pages** : publier depuis la branche `site`, dossier racine (elle est créée par le premier calcul). La page est alors à
    `https://<vous>.github.io/<dépôt>/euro-signal.html` ; mettez cette adresse dans `euro_signal/config.json` (`dashboardUrl`).
 3. **Settings → Secrets and variables → Actions** (facultatif, pour les emails) : `GMAIL_USER`, `GMAIL_APP_PASSWORD`
-   (mot de passe d'application Google) et `ALERT_TO`. Sans eux, les emails sont seulement simulés. `MONTANT_PAR_LIGNE` (facultatif,
-   en euros, par exemple `2000`) donne les quantités de l'email « Ordres de la semaine » ; il n'est écrit nulle part ailleurs.
+   (mot de passe d'application Google) et `ALERT_TO`. Sans eux, les emails sont seulement simulés.
 4. **Actions** : activer les workflows, puis lancer « Mise à jour quotidienne des données » une première fois (environ 40 minutes).
 
 Vos positions (« Je l'ai acheté ») partent par email vers votre propre boîte et ne sont jamais écrites dans le dépôt.
