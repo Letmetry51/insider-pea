@@ -17,10 +17,10 @@ comptent), compare au dernier cours et vous écrit, une seule fois par événeme
   - nouveaux comptes publiés, lus par l'IA (scrapers/comptes_ia.py) : résumé, points forts et faibles, avis et conseil, une seule
     fois par période (sauf pour une société du 🎯 / 💎 du soir, qui a déjà son email : euro_signal/build.mjs) ;
   - 🧾 ordres de la semaine (version mixte choisie par François le 28/11/2026, « Version 2 ») : le soir où part la sélection du
-    lundi, un email à vous seul avec les ordres prêts à copier dans votre courtier : achats à cours limité (quantité selon votre
-    montant par ligne, secret GitHub MONTANT_PAR_LIGNE, en euros), ordre stop de protection à poser ensuite, lignes déjà
-    détenues, ventes dues (6 mois, protection franchie), protections à vérifier ou à reposer après un dividende. Rien n'est
-    passé automatiquement : Euro Signal ne se connecte à aucun courtier ;
+    lundi, un email à vous seul avec les ordres prêts à copier dans votre courtier : part de chaque action en % de l'enveloppe
+    de la semaine (pourcentages demandés par François le 28/11/2026 à la place des montants), achat à cours limité, seuil de
+    protection, lignes déjà détenues, ventes dues (6 mois, protection franchie). Rien n'est passé automatiquement : Euro Signal
+    ne se connecte à aucun courtier ;
   - rappel à 6 mois : sur 8 ans de cours (2018-2026), garder 6 mois les premières du classement a donné 64 % de gagnants ;
     les sorties sur MM50 sous MM200, sur recul de 20 % depuis le plus haut ou sur stop serré (−15 %) en ont donné 45 à 52 %.
     Ces deux signaux ne sont donc plus envoyés (test du 17/10/2026).
@@ -113,20 +113,40 @@ def fr_day(d):
     return "%s/%s/%s" % (d[8:10], d[5:7], d[:4]) if isinstance(d, str) and len(d) >= 10 else "?"
 
 
+def allocation(items):
+    """Parts de l'enveloppe de la semaine en % entiers (total 100), par clé : 70 % pour les lignes 🎯 / 📣, 30 % pour les 💎 (dosage
+    conseillé), lignes égales dans chaque groupe (répartir selon le potentiel n'a pas passé le test du 28/11/2026,
+    research/survivant_poids.py) ; un groupe vide laisse tout à l'autre."""
+    mom = [x for x in items if x.get("icon") != "💎"]
+    val = [x for x in items if x.get("icon") == "💎"]
+    groups = [(g, t) for g, t in ((mom, 0.7 if val else 1.0), (val, 0.3 if mom else 1.0)) if g]
+    raw = [(x["key"], t / len(g) * 100) for g, t in groups for x in g]
+    out = {k: int(v) for k, v in raw}
+    for k, v in sorted(raw, key=lambda kv: kv[1] - int(kv[1]), reverse=True)[:max(0, 100 - sum(out.values()))]:
+        out[k] += 1  # plus forts restes : la somme fait 100
+    return out
+
+
+WEIGHT_TEST = ("testé sur 25 ans sans biais du survivant (28/11/2026, research/survivant_poids.py), donner plus aux plus fortes hausses "
+               "a rapporté 1,8 point par an de plus, pas assez net pour changer la règle (t 2,6, seuil 3), avec une pire baisse de −50 % au "
+               "lieu de −47 % ; le potentiel des analystes ne se teste pas (pas d'historique) et va à l'inverse du momentum : donner plus "
+               "aux hausses les plus faibles a coûté 2 points par an")
 STOP_TEST = ("testé sur 25 ans sans biais du survivant (28/11/2026, research/survivant_stop.py) : un ordre stop à −30 % posé chez le "
              "courtier a rapporté +19,3 % par an, contre +20,4 % pour la règle testée (vente à la clôture de la semaine) ; il vend 1 ligne "
              "sur 5 au lieu de 1 sur 7, souvent sur un creux passager de la séance")
 
 
-def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, fx, today, dash_url, stop_order=False, margin=ORDER_MARGIN):
+def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, fx, today, dash_url, stop_order=False, margin=ORDER_MARGIN):
     """🧾 Ordres de la semaine, prêts à copier : (objet, corps) ou None s'il n'y a rien à faire. Fonction pure (testée hors ligne).
     buys / waits : [{icon, name, key, isin, sym, cur, last, lastDay}] ; held_sel : noms des lignes de la sélection déjà détenues ;
-    sells : [{name, why}] ; prots : [{name, cur, stop, stopPct, buy, date, div}] ; montant : euros par ligne ou None ;
-    fx : devises pour 1 € ; today : date ; stop_order : protection posée chez le courtier (ordre stop, « ordres.stopCourtier » de
-    euro_signal/config.json ; déconseillée par le test du 28/11/2026) ou vente à la main sur l'email du seuil (par défaut)."""
+    sells : [{name, why}] ; prots : [{name, cur, stop, stopPct, buy, date, div}] ; fx : devises pour 1 € ; today : date ;
+    stop_order : protection posée chez le courtier (ordre stop, « ordres.stopCourtier » de euro_signal/config.json ; déconseillée
+    par le test du 28/11/2026) ou vente à la main sur l'email du seuil (par défaut). Parts en % de l'enveloppe de la semaine
+    (allocation), sans montant ni quantité (demande de François du 28/11/2026)."""
     if not (buys or waits or sells or (stop_order and any(x.get("div") for x in prots))):
         return None
     fri = today + timedelta(days=(4 - today.weekday()) % 7 or 7)  # vendredi de la semaine (le suivant si c'est déjà vendredi)
+    share = allocation([x for x in buys + waits if x.get("last")])  # une ligne sans cours du soir n'a pas de part
     lines = []
 
     def order(x):
@@ -136,8 +156,7 @@ def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, f
             return None
         cur = x.get("cur") or "EUR"
         rate = 1.0 if cur == "EUR" else (fx or {}).get(cur)
-        q = int(montant * rate // lim) if montant and rate else None
-        return {"lim": lim, "stop": sig3(0.70 * lim, False), "q": q, "rate": rate, "cur": cur}
+        return {"lim": lim, "stop": sig3(0.70 * lim, False), "rate": rate, "cur": cur}
 
     def place(x):
         suf = (x.get("sym") or "").rsplit(".", 1)[-1] if "." in (x.get("sym") or "") else ""
@@ -154,24 +173,15 @@ def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, f
             ident = " — ".join(v for v in (place(x), x.get("isin") or "", x.get("sym") or "") if v)
             lines.append("• %s %s — %s" % (x.get("icon") or "🎯", x.get("name") or x.get("key"), ident))
             if not o:
-                lines.append("  Dernier cours inconnu ce soir : voir la fiche avant d'acheter. " + fiche(x))
+                lines.append("  Dernier cours inconnu ce soir : pas de part attribuée, voir la fiche avant d'acheter. " + fiche(x))
                 continue
             nb += 1
             c = cur_txt(o["cur"])
             fxs = "" if o["cur"] == "EUR" or not o["rate"] else " ; 1 € = %s %s" % (("%.4g" % o["rate"]).replace(".", ","), o["cur"])
             ref = "dernier cours %s %s le %s + %s %%%s" % (amt_txt(x["last"]), c, fr_day(x.get("lastDay")), ("%g" % (margin * 100)).replace(".", ","), fxs)
-            if o["q"] is None:
-                qty, qn = "à %s %s au plus" % (px_txt(o["lim"]), c), "toutes les actions achetées"
-                lines.append("  Achat à cours limité %s (%s), valable jusqu'au vendredi %s ; quantité : montant par ligne ÷ prix limite%s."
-                             % (qty, ref, fri.strftime("%d/%m/%Y"), "" if o["cur"] == "EUR" else " (en %s)" % o["cur"]))
-            elif o["q"] == 0:
-                qn = "l'action achetée"
-                lines.append("  Une action coûte jusqu'à %s %s (%s), plus que votre montant par ligne (%s €) : une action ou rien, à vous de voir."
-                             % (px_txt(o["lim"]), c, ref, amt_txt(montant)))
-            else:
-                qn = "ces %d actions" % o["q"]
-                lines.append("  Achat à cours limité : %d actions à %s %s au plus (%s), valable jusqu'au vendredi %s."
-                             % (o["q"], px_txt(o["lim"]), c, ref, fri.strftime("%d/%m/%Y")))
+            qn = "toutes les actions achetées"
+            lines.append("  Part : %d %% de l'enveloppe de la semaine. Achat à cours limité à %s %s au plus (%s), valable jusqu'au vendredi %s."
+                         % (share.get(x["key"], 0), px_txt(o["lim"]), c, ref, fri.strftime("%d/%m/%Y")))
             if stop_order:
                 lines.append("  Dès l'achat exécuté : ordre stop de vente (à seuil de déclenchement) sur %s, seuil %s %s (70 %% du prix limite ; "
                              "si vous avez payé moins, 70 %% de votre prix), avec la validité la plus longue proposée." % (qn, px_txt(o["stop"]), c))
@@ -188,10 +198,9 @@ def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, f
                 lines.append("• %s %s : dernier cours inconnu ce soir." % (x.get("icon") or "🎯", x.get("name") or x.get("key")))
                 continue
             c = cur_txt(o["cur"])
-            q = ("%d actions" % o["q"]) if o["q"] else "quantité : montant ÷ prix limite"
-            lines.append("• %s %s — %s : ordres prêts pour le feu vert : %s à %s %s au plus, puis protection à %s %s (à recalculer si le "
-                         "cours a bougé)." % (x.get("icon") or "🎯", x.get("name") or x.get("key"), place(x), q, px_txt(o["lim"]), c,
-                                              px_txt(o["stop"]), c))
+            lines.append("• %s %s — %s : part réservée %d %% ; ordres prêts pour le feu vert : achat à %s %s au plus, puis protection à %s %s "
+                         "(à recalculer si le cours a bougé)." % (x.get("icon") or "🎯", x.get("name") or x.get("key"), place(x),
+                                                                  share.get(x["key"], 0), px_txt(o["lim"]), c, px_txt(o["stop"]), c))
     if held_sel:
         lines.append("")
         lines.append("DÉJÀ EN PORTEFEUILLE (d'après vos emails « Je l'ai acheté ») : %s : rien à acheter." % ", ".join(held_sel))
@@ -211,8 +220,10 @@ def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, f
                 (" ⚠️ dividende détaché le %s : l'ordre a pu être annulé, à reposer." % fr_day(x["div"])) if stop_order and x.get("div") else "."))
     head = ("Sélection de la semaine %s (envoyée le %s) : ordres prêts à copier dans votre courtier. Euro Signal ne passe aucun ordre : "
             "vérifiez chaque ligne avant de la saisir." % (week, fr_day(sel_date)))
-    mt = ("Montant par ligne : %s € (secret GitHub MONTANT_PAR_LIGNE)." % amt_txt(montant) if montant else
-          "Montant par ligne non réglé : créez le secret GitHub MONTANT_PAR_LIGNE (en euros, par exemple 2000) pour avoir les quantités.")
+    mt = ("Répartition de l'enveloppe de la semaine : %s, lignes égales dans chaque groupe (répartir selon le potentiel n'a pas passé le "
+          "test sur 25 ans : voir « À savoir »). Une ligne en attente garde sa part pour le feu vert." % (
+              "70 % pour le 🎯 et le 📣, 30 % pour le 💎 (dosage conseillé)" if any(x.get("icon") == "💎" and x.get("last") for x in buys + waits)
+              and any(x.get("icon") != "💎" and x.get("last") for x in buys + waits) else "100 % pour les lignes de la semaine"))
     foot = ["", "À SAVOIR"]
     if stop_order:
         foot += ["• Ordre stop : il se déclenche en séance dès qu'un cours touche le seuil, et s'exécute plus bas si le cours ouvre en dessous ; "
@@ -221,7 +232,8 @@ def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, f
                  "(cet email signale ceux de la semaine écoulée pour vos lignes)."]
     else:
         foot += ["• Pourquoi pas d'ordre stop chez le courtier : " + STOP_TEST + "."]
-    foot += ["• Prix limite et seuils arrondis à 3 chiffres, pour respecter les pas de cotation ; un ordre non exécuté vendredi est à revoir "
+    foot += ["• Pourquoi des lignes égales : " + WEIGHT_TEST + ".",
+             "• Prix limite et seuils arrondis à 3 chiffres, pour respecter les pas de cotation ; un ordre non exécuté vendredi est à revoir "
              "avec la sélection suivante.",
              "• Règles testées : lignes égales (4 🎯 + 1 📣 + 2 💎 ≈ 70 / 30), garder 6 mois, protection à −30 %. Ce n'est pas un conseil en "
              "investissement."]
@@ -620,7 +632,7 @@ def diversification(positions, dash, prices):
     return "\n".join(lines)
 
 
-def weekly_orders(dash, state, prices, positions, held_info, refs, today, montant):
+def weekly_orders(dash, state, prices, positions, held_info, refs, today):
     """Données des ordres de la semaine (sélection envoyée, cours du soir, lignes détenues) → orders_email, ou None (pas de sélection
     cette semaine, email déjà envoyé, rien à faire)."""
     rank = dash.get("rank") or {}
@@ -673,7 +685,7 @@ def weekly_orders(dash, state, prices, positions, held_info, refs, today, montan
                       "buy": info["buy"], "date": pos["date"], "div": max(recent) if recent else None})
     dash_url = ((dash.get("cfg") or {}).get("dashboardUrl")) or ""
     oc = orders_config()
-    return orders_email(week, rs.get("date"), buys, waits, held_sel, sells, prots, montant, dash.get("fx") or {}, today, dash_url,
+    return orders_email(week, rs.get("date"), buys, waits, held_sel, sells, prots, dash.get("fx") or {}, today, dash_url,
                         stop_order=oc["stopCourtier"], margin=oc["margeLimite"])
 
 
@@ -820,7 +832,7 @@ def main():
             to_send.append(("[Euro Signal] Plan — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
     # 🧾 Ordres de la semaine : le soir où la sélection du lundi est décidée (une fois par semaine)
     try:
-        om = weekly_orders(dash, state, prices, positions, held_info, refs, today, num(os.environ.get("MONTANT_PAR_LIGNE")))
+        om = weekly_orders(dash, state, prices, positions, held_info, refs, today)
     except Exception as e:  # jamais de quoi bloquer les alertes de revente
         om = None
         print("Positions : ordres de la semaine non préparés (" + type(e).__name__ + ")")
