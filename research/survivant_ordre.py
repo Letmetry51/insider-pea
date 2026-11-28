@@ -11,12 +11,18 @@ identiques (4 🎯 + 1 📣, paliers, plafond de 2 par secteur, place 📣) :
   O1. nouvelles venues d'abord : dans chaque palier, les sociétés entrées dans le 🎯 depuis 13 semaines au plus (et absentes des 13
       semaines d'avant) passent devant, puis l'ordre actuel (pente sur 6 mois la plus forte) ;
   O2. hausse sur 3 mois : dans chaque palier, classées d'abord par la hausse des 13 dernières semaines (avant la priorité 🔊 / bond,
-      l'attente ⏸️, la note et la pente sur 6 mois de l'ordre actuel).
+      l'attente ⏸️, la note et la pente sur 6 mois de l'ordre actuel) ;
+  O3. (ajouté le 28/11/2026 avant son calcul, O1 et O2 rejetés) hausse sur 12 mois comptée jusqu'à la dernière semaine au lieu de
+      s'arrêter un mois avant (seuils de +30 / +60 / +200 %, tiers le plus faible écarté, rang et note, 📣 démarrage) : le
+      momentum réagit environ 4 semaines plus tôt ; la littérature saute le dernier mois (retour en arrière à court terme,
+      Jegadeesh 1990), jamais vérifié ici.
+Et, pour situer le pari d'un achat plus tôt : part des entrées dans le 🎯 (absentes des 13 semaines d'avant) qui doublent dans
+l'année, face aux choix de la sélection.
 Contrôle : l'ordre actuel recopié ici retrouve la sélection de la simulation. Mesures : portefeuille simulé (tranches de 26
 semaines, frais 0,3 % par sens, protection −30 %), part des grandes hausses choisies avant leur sommet et part de la hausse faite à
 la première sélection, date de première sélection de Frontline. Règle fixée avant le calcul : un ordre remplace l'actuel seulement
 s'il fait mieux dans chacune des 3 périodes avec t ≥ 3 (proposition à François).
-Lancé par « Recherche (à la demande) » (script survivant_ordre.py), environ 15 minutes, environ 6 200 appels EODHD.
+Lancé par « Recherche (à la demande) » (script survivant_ordre.py), environ 12 minutes, environ 6 200 appels EODHD.
 """
 import gc
 import time
@@ -48,11 +54,23 @@ def main():
     mkw = np.array([np.mean(retw[okn[:, t - 1], t]) if t and okn[:, t - 1].sum() > 30 else 0.0 for t in range(T)])
     with np.errstate(invalid='ignore', divide='ignore'):
         s13 = Pw / np.concatenate([np.full((N, 13), np.nan), Pw[:, :-13]], 1) - 1
+        mom0 = Pw / G['shift'](Pw, 52) - 1  # O3 : hausse sur 12 mois jusqu'à la dernière semaine
+    fin = np.isfinite
+    k0_ = fin(mom0) & fin(s26)  # même ensemble que le rang actuel (_longue_base.py : mom et pente connus)
+    mpn0 = np.full_like(Pw, np.nan)
+    for t in range(T):
+        if k0_[:, t].sum() > 30:
+            mpn0[k0_[:, t], t] = mom0[k0_[:, t], t].argsort().argsort() / (k0_[:, t].sum() - 1)
+    note0 = note - 50 * np.nan_to_num(mpn) + 50 * np.nan_to_num(mpn0)  # note = 50 × rang 12 mois + plus haut + tendance
+    okn0 = okn & fin(mom0) & fin(mpn0)
+    dem0 = G['ago_any'](G['R0'] | G['R1'], 4) & trend & okn0 & (mpn0 >= 1 / 3) & ~(v52 >= .8)
+    M3 = (mom0, mpn0, okn0)
 
-    def tiers(t):
-        ok = okn[:, t] & ~(mpn[:, t] < 1 / 3) & ~(v52[:, t] >= .8) & (mom[:, t] <= 2)
-        t0_ = ok & trend[:, t] & (s26[:, t] >= .41) & (mom[:, t] >= .6)
-        t1_ = ok & trend[:, t] & (s26[:, t] >= .14) & (mom[:, t] >= .3) & ~t0_
+    def tiers(t, M=None):
+        mo, mp, on = M or (mom, mpn, okn)
+        ok = on[:, t] & ~(mp[:, t] < 1 / 3) & ~(v52[:, t] >= .8) & (mo[:, t] <= 2)
+        t0_ = ok & trend[:, t] & (s26[:, t] >= .41) & (mo[:, t] >= .6)
+        t1_ = ok & trend[:, t] & (s26[:, t] >= .14) & (mo[:, t] >= .3) & ~t0_
         promo = t1_ & bp8[:, t] & ~wait[:, t]
         return t0_ | promo, t1_ & ~promo, ok
     ZB = np.zeros((N, T), bool)
@@ -67,8 +85,11 @@ def main():
         return ZB[:, t] & (cz[:, a] - cz[:, b] == 0)
 
     def make_pick(variant):
+        o3 = variant == 'O3'
+        nt, dm_ = (note0, dem0) if o3 else (note, dem)
+
         def pick(t, n=5, reserve=1, bondCap=2, perSec=2):
-            k0, k1, ok = tiers(t)
+            k0, k1, ok = tiers(t, M3 if o3 else None)
             pri = 2 * hot[:, t] + bp8[:, t]
             fr = fresh(t) if variant == 'O1' else np.zeros(N, bool)
 
@@ -76,7 +97,7 @@ def main():
                 idx = np.where(M)[0]
                 # np.lexsort : la dernière clé est la principale ; ordre actuel = priorité 🔊 / bond, puis pas en attente, puis note,
                 # puis pente sur 6 mois ; O1 met les nouvelles venues devant ; O2 classe d'abord par la hausse sur 13 semaines
-                keys = (-np.nan_to_num(s26[idx, t]), -np.nan_to_num(note[idx, t]), wait[idx, t], -pri[idx], ~fr[idx])
+                keys = (-np.nan_to_num(s26[idx, t]), -np.nan_to_num(nt[idx, t]), wait[idx, t], -pri[idx], ~fr[idx])
                 if variant == 'O2':
                     keys = keys + (-np.nan_to_num(s13[idx, t]),)
                 return idx[np.lexsort(keys)]
@@ -92,7 +113,7 @@ def main():
                     seen[secs_[i]] = seen.get(secs_[i], 0) + 1
                     out.append(i)
             if reserve:
-                dm = ok & dem[:, t] & ~np.isin(np.arange(N), out)
+                dm = ok & dm_[:, t] & ~np.isin(np.arange(N), out)
                 for i in order(dm):
                     if len(out) >= n:
                         break
@@ -111,7 +132,7 @@ def main():
     SEL0 = G['SEL']
     S = {}
     t0 = time.time()
-    for v in ('actuel', 'O1', 'O2'):
+    for v in ('actuel', 'O1', 'O2', 'O3'):
         pk = make_pick(v)
         S[v] = {t: pk(t) for t in range(t2001, T - 1)}
     same = np.mean([S['actuel'][t] == list(SEL0.get(t, [])) for t in range(t2001, T - 1)]) * 100
@@ -122,7 +143,8 @@ def main():
         G['SEL'] = S[v]
         R[v] = G['sim30']()
     G['SEL'] = SEL0
-    NAMES = {'actuel': 'ordre actuel', 'O1': 'O1. nouvelles venues d\'abord', 'O2': 'O2. hausse sur 3 mois d\'abord'}
+    NAMES = {'actuel': 'ordre actuel', 'O1': 'O1. nouvelles venues d\'abord', 'O2': 'O2. hausse sur 3 mois d\'abord',
+             'O3': 'O3. 12 mois avec le dernier mois'}
 
     def seg(x, a, b):
         return x[a - t2001:b - t2001]
@@ -143,14 +165,14 @@ def main():
     for v in R:
         line(NAMES[v], R[v])
     log("Écart avec l'ordre actuel (points par an ; t sur des blocs de 26 semaines)")
-    for v in ('O1', 'O2'):
+    for v in ('O1', 'O2', 'O3'):
         d = R[v] - R['actuel']
         sg = [seg(d, a, b).mean() * 5200 for _, a, b in ERAS]
         blk = np.array([d[j:j + 26].sum() for j in range(0, len(d) - 25, 26)])
         tv = blk.mean() / (blk.std(ddof=1) / np.sqrt(len(blk)))
         vd = ' → MIEUX DANS LES 3 PÉRIODES (t ≥ 3) : à proposer à François' if all(x > 0 for x in sg) and tv >= 3 else ' → rejeté'
         log(f"  {NAMES[v]:40s} " + ' · '.join(f"{el} {x:+5.1f}" for (el, _, _), x in zip(ERAS, sg)) + f" ; total {d.mean() * 5200:+.1f} (t {tv:4.1f}){vd}")
-    olap = {v: np.mean([len(set(S[v][t]) & set(S['actuel'][t])) / max(len(S['actuel'][t]), 1) for t in range(t2001, T - 1)]) * 100 for v in ('O1', 'O2')}
+    olap = {v: np.mean([len(set(S[v][t]) & set(S['actuel'][t])) / max(len(S['actuel'][t]), 1) for t in range(t2001, T - 1)]) * 100 for v in ('O1', 'O2', 'O3')}
     log("  sociétés en commun avec l'ordre actuel chaque semaine : " + ' · '.join(f"{NAMES[v]} {x:.0f} %" for v, x in olap.items()))
 
     # grandes hausses : choisies plus tôt ?
@@ -196,6 +218,32 @@ def main():
         log("Frontline, première sélection depuis son entrée dans le 🎯 (28/11/2025) : " + ' ; '.join(
             f"{NAMES[v].split(' (')[0]} {next((dates[t] for t in range(int(np.searchsorted(dates, '2025-11-28')), T - 1) if i in S[v].get(t, [])), '—')}"
             for v in S))
+
+    # le pari d'un achat plus tôt : que deviennent les entrées dans le 🎯, face aux premiers choix de la sélection ?
+    lr = np.log1p(retw)
+    cl = np.concatenate([np.zeros((N, 1)), np.cumsum(lr, 1)], 1)
+    cm = np.concatenate([[0.0], np.cumsum(np.log1p(mkw))])
+
+    def ex6(i, t):
+        """Écart à 6 mois avec la société moyenne, achat à la clôture de la semaine t (rendements de la simulation)."""
+        return np.expm1(cl[i, t + 27] - cl[i, t + 1]) - np.expm1(cm[t + 27] - cm[t + 1])
+    ent = [(int(i), t) for t in range(t2001, T - 27) for i in np.where(ZB[:, t] & (cz[:, t] - cz[:, max(0, t - 13)] == 0))[0]]
+    SA, first = S['actuel'], []
+    for t in range(t2001, T - 27):
+        prev = set().union(*[set(SA.get(u, [])) for u in range(max(t2001, t - 13), t)])
+        first += [(i, t) for i in SA[t] if i not in prev]
+    log("\nLe pari d'un achat plus tôt : entrées dans le 🎯 (absentes des 13 semaines d'avant) et premiers choix de la sélection "
+        "actuelle (absents des 13 semaines d'avant) ; part qui double dans l'année, écart à 6 mois avec la société moyenne")
+    for el, a, b in ERAS:
+        cells = []
+        for lab, pairs in (('entrées dans le 🎯', ent), ('premiers choix', first)):
+            E = [(i, t) for i, t in pairs if a <= t < b]
+            if not E:
+                continue
+            dbl = np.mean([fmax[i, t] >= 2 * Pw[i, t] for i, t in E]) * 100
+            x = np.array([ex6(i, t) for i, t in E])
+            cells.append(f"{lab} {len(E)} : {dbl:.0f} % doublent, écart médian {np.median(x) * 100:+.1f}, moyen {x.mean() * 100:+.1f}")
+        log(f"  {el} : " + ' ; '.join(cells))
     log(f"\nterminé en {time.time() - t00:.0f} s ; {SE.calls[0]} appels")
 
 
