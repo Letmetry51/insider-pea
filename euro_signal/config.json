@@ -94,5 +94,10 @@
     "budget": 140,
     "paralleles": 4,
     "reflexion": "non"
+  },
+  "ordres": {
+    "_doc": "Email « 🧾 Ordres de la semaine » (euro_signal/positions.py, version mixte choisie par François le 28/11/2026, « Version 2 ») : achats à cours limité au dernier cours + margeLimite, quantités selon le secret GitHub MONTANT_PAR_LIGNE (euros). stopCourtier : true = protection à −30 % posée chez le courtier (ordre stop) ; false = vente à la main sur l'email du seuil. Test du 28/11/2026 (research/survivant_stop.py, 25 ans sans biais du survivant) : l'ordre stop a rapporté 1,1 point par an de moins que la règle testée, dans chacune des 3 périodes (t −2,9) : déconseillé, d'où false.",
+    "stopCourtier": false,
+    "margeLimite": 0.02
   }
 }

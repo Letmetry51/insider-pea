@@ -298,6 +298,67 @@ def _():
     assert _re.search(r"ref = \"comptes:%s:%s\"", (Path(__file__).resolve().parent / "positions.py").read_text(encoding="utf-8"))
 
 
+@case("🧾 Ordres de la semaine : arrondis, quantités en euros et en couronnes, action trop chère, montant absent")
+def _():
+    assert P.sig3(27.68 * 1.02, True) == 28.3 and P.sig3(13720 * 1.02, True) == 14000 and P.sig3(0.512 * 1.02, True) == 0.523
+    assert P.sig3(0.7 * 28.3, False) == 19.8 and P.sig3(0.7 * 337, False) == 235 and P.sig3(0, True) is None
+    assert P.px_txt(14000) == "14 000" and P.px_txt(28.3) == "28,3" and P.px_txt(0.523) == "0,523" and P.px_txt(337) == "337"
+    buys = [{"icon": "🎯", "name": "JCDecaux", "key": "FR0000077919", "isin": "FR0000077919", "sym": "DEC.PA", "cur": "EUR", "last": 27.68,
+             "lastDay": "2026-11-23"},
+            {"icon": "📣", "name": "Bonesupport", "key": "SE0009858152", "isin": "SE0009858152", "sym": "BONEX.ST", "cur": "SEK", "last": 330.2,
+             "lastDay": "2026-11-23"},
+            {"icon": "🎯", "name": "Lotus Bakeries", "key": "LOTB.BR", "isin": None, "sym": "LOTB.BR", "cur": "EUR", "last": 13720,
+             "lastDay": "2026-11-23"}]
+    waits = [{"icon": "🎯", "name": "Frontline", "key": "FRO.OL", "sym": "FRO.OL", "cur": "NOK", "last": 460.6, "lastDay": "2026-11-23"}]
+    prots = [{"name": "Husqvarna B", "cur": "SEK", "stop": 42.0, "stopPct": 30, "buy": 60.0, "date": "2026-10-02", "div": "2026-11-20"}]
+    sells = [{"name": "Vusion", "why": "6 mois depuis l'achat du 20/05/2026 (+12,0 %) et plus dans le 🎯 ni le 💎"}]
+    subj, body = P.orders_email("2026-W48", "2026-11-23", buys, waits, ["Repsol"], sells, prots, 2000.0, {"SEK": 11.2, "NOK": 10.7},
+                                date(2026, 11, 23), "https://x.github.io/insider-pea/euro-signal.html", stop_order=True)
+    assert subj == "[Euro Signal] 🧾 Ordres de la semaine (2026-W48) : 3 achats, 1 en attente, 1 vente (réf. ordres:2026-W48)", subj
+    for s in ("Montant par ligne : 2 000 €", "70 actions à 28,3 € au plus (dernier cours 27,68 € le 23/11/2026 + 2 %), valable jusqu'au vendredi 27/11/2026",
+              "seuil 19,8 €", "Euronext Paris — FR0000077919 — DEC.PA", "66 actions à 337 SEK au plus", "1 € = 11,2 SEK", "seuil 235 SEK",
+              "Nasdaq Stockholm", "Une action coûte jusqu'à 14 000 € (dernier cours 13 720 € le 23/11/2026 + 2 %)", "une action ou rien", "Frontline — Euronext Oslo : ordres prêts pour le feu vert : 45 actions à 470 NOK",
+              "DÉJÀ EN PORTEFEUILLE (d'après vos emails « Je l'ai acheté ») : Repsol", "• Vusion : 6 mois", "vendre toute la ligne",
+              "Husqvarna B : ordre stop à 42,0 SEK (30 % sous votre prix d'achat de 60,00 SEK le 02/10/2026) ⚠️ dividende détaché le 20/11/2026",
+              "#FR0000077919", "#co=LOTB.BR", "Euro Signal ne passe aucun ordre"):
+        assert s in body, (s, body)
+    assert "seuil 19,8 €" in body and "ordre stop de vente (à seuil de déclenchement)" in body and "+19,3 % par an" in body, body
+    _, b2 = P.orders_email("2026-W48", "2026-11-23", buys[:1], [], [], [], [], None, {}, date(2026, 11, 27), "")
+    assert "Montant par ligne non réglé" in b2 and "quantité : montant par ligne ÷ prix limite" in b2 and "vendredi 04/12/2026" in b2, b2
+    # par défaut (test du 28/11/2026) : pas d'ordre stop chez le courtier, vente à la main sur l'email du seuil
+    _, b3 = P.orders_email("2026-W48", "2026-11-23", buys, [], [], [], prots, 2000.0, {"SEK": 11.2}, date(2026, 11, 23), "")
+    for s in ("Protection : seuil à 19,8 €", "Pas d'ordre stop chez le courtier", "SEUILS DE PROTECTION DE VOS LIGNES",
+              "Husqvarna B : seuil 42,0 SEK", "Pourquoi pas d'ordre stop chez le courtier : testé sur 25 ans"):
+        assert s in b3, (s, b3)
+    assert "ordre stop de vente" not in b3 and "dividende détaché" not in b3, b3
+    assert P.orders_email("2026-W48", "2026-11-23", [], [], ["Repsol"], [], [dict(prots[0], div=None)], 2000.0, {}, date(2026, 11, 23), "") is None
+    assert P.orders_email("2026-W48", "2026-11-23", [], [], [], [], prots, 2000.0, {}, date(2026, 11, 23), "") is None, "dividende sans ordre stop"
+    assert P.orders_email("2026-W48", "2026-11-23", [], [], [], [], prots, 2000.0, {}, date(2026, 11, 23), "", stop_order=True), "ordre à reposer"
+    assert P.orders_config()["stopCourtier"] is False and P.orders_config()["margeLimite"] == 0.02, "réglage par défaut du dépôt"
+
+
+@case("🧾 Ordres de la semaine : une fois par sélection, lignes déjà détenues retirées, sélection trop ancienne ignorée")
+def _():
+    dash = {"rank": {"selection": {"week": "2026-W48", "items": [{"key": "FR0000077919", "isin": "FR0000077919", "sym": "DEC.PA", "name": "JCDecaux",
+                                                                  "cur": "EUR", "m10": 3.1},
+                                                                 {"key": "ES0173516115", "isin": "ES0173516115", "sym": "REP.MC", "name": "Repsol",
+                                                                  "cur": "EUR", "m10": -1.2}]},
+                     "rows": [{"key": "SE0001662230", "isin": "SE0001662230", "sym": "HUSQ-B.ST", "name": "Husqvarna B", "cur": "SEK"}],
+                     "value10": ["SE0001662230", "XX"]},
+            "fx": {"SEK": 11.2}, "cfg": {}}
+    state = {"rankSelections": {"2026-W48": {"date": "2026-11-23", "items": [{"key": "FR0000077919", "name": "JCDecaux"},
+                                                                            {"key": "ES0173516115", "name": "Repsol", "bd": 1}]}}}
+    prices = {k: {"rows": [["2026-11-23", 1, 1, 1, v, 1]]} for k, v in (("FR0000077919", 27.68), ("ES0173516115", 27.82), ("SE0001662230", 60.6))}
+    held = [{"isin": "SE0001662230", "price": 60.0, "date": "2026-10-02"}]
+    om = P.weekly_orders(dash, state, prices, held, [], set(), date(2026, 11, 23), 2000.0)
+    assert om and "ordres:2026-W48" in om[0], om
+    assert "JCDecaux" in om[1] and "EN ATTENTE" in om[1] and "📣 Repsol" in om[1] and "DÉJÀ EN PORTEFEUILLE" in om[1] and "Husqvarna B" in om[1], om[1]
+    assert P.weekly_orders(dash, state, prices, held, [], {"ordres:2026-W48"}, date(2026, 11, 24), 2000.0) is None, "déjà envoyé"
+    assert P.weekly_orders(dash, state, prices, held, [], set(), date(2026, 12, 1), 2000.0) is None, "sélection de la semaine passée"
+    assert P.weekly_orders({"rank": {}}, state, prices, held, [], set(), date(2026, 11, 23), 2000.0) is None
+    assert P.REF_RE.findall(om[0]) == ["ordres:2026-W48"], "la référence doit être relue dans les Envoyés"
+
+
 if __name__ == "__main__":
     for st, name, err in results:
         print(f"{st} {name}" + (f"\n     {err}" if err else ""))

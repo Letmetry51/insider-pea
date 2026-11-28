@@ -16,6 +16,11 @@ comptent), compare au dernier cours et vous écrit, une seule fois par événeme
   - vente d'un dirigeant depuis votre achat ;
   - nouveaux comptes publiés, lus par l'IA (scrapers/comptes_ia.py) : résumé, points forts et faibles, avis et conseil, une seule
     fois par période (sauf pour une société du 🎯 / 💎 du soir, qui a déjà son email : euro_signal/build.mjs) ;
+  - 🧾 ordres de la semaine (version mixte choisie par François le 28/11/2026, « Version 2 ») : le soir où part la sélection du
+    lundi, un email à vous seul avec les ordres prêts à copier dans votre courtier : achats à cours limité (quantité selon votre
+    montant par ligne, secret GitHub MONTANT_PAR_LIGNE, en euros), ordre stop de protection à poser ensuite, lignes déjà
+    détenues, ventes dues (6 mois, protection franchie), protections à vérifier ou à reposer après un dividende. Rien n'est
+    passé automatiquement : Euro Signal ne se connecte à aucun courtier ;
   - rappel à 6 mois : sur 8 ans de cours (2018-2026), garder 6 mois les premières du classement a donné 64 % de gagnants ;
     les sorties sur MM50 sous MM200, sur recul de 20 % depuis le plus haut ou sur stop serré (−15 %) en ont donné 45 à 52 %.
     Ces deux signaux ne sont donc plus envoyés (test du 17/10/2026).
@@ -31,7 +36,7 @@ import re
 import smtplib
 import ssl
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.header import decode_header, make_header
 from email.message import EmailMessage
 from pathlib import Path
@@ -50,6 +55,11 @@ REF_RE = re.compile(r"réf\. ([A-Za-z0-9:._&-]+)")  # « & » comme dans SYM_RE 
 DRAWDOWN_PCT = 20  # plus utilisé pour les alertes (voir l'en-tête)
 HOLD_DAYS = 182
 STOP_DEFAULT = 30
+ORDER_MARGIN = 0.02  # ordres prêts à copier : prix limite d'achat au dernier cours + 2 %
+EXCHANGES = {"PA": "Euronext Paris", "AS": "Euronext Amsterdam", "BR": "Euronext Bruxelles", "LS": "Euronext Lisbonne",
+             "IR": "Euronext Dublin", "MI": "Euronext Milan", "OL": "Euronext Oslo", "MC": "Bourse de Madrid", "DE": "Xetra (Francfort)",
+             "F": "Bourse de Francfort", "VI": "Bourse de Vienne", "HE": "Nasdaq Helsinki", "ST": "Nasdaq Stockholm",
+             "CO": "Nasdaq Copenhague", "WA": "Bourse de Varsovie", "PR": "Bourse de Prague"}
 
 
 def pc(v):
@@ -69,6 +79,156 @@ def num(s):
         return v if v == v else None
     except ValueError:
         return None
+
+
+def sig3(v, up):
+    """Prix arrondi à 3 chiffres significatifs, vers le haut (limite d'achat) ou vers le bas (seuil de protection) : un multiple des
+    pas de cotation courants (28,3 ; 337 ; 14 000), que les courtiers acceptent."""
+    if not v or v <= 0:
+        return None
+    e = math.floor(math.log10(v)) - 2
+    k = v / 10 ** e
+    k = math.ceil(k - 1e-9) if up else math.floor(k + 1e-9)
+    return round(k * 10 ** e, max(0, -e))
+
+
+def px_txt(v):
+    """Prix à la française, avec les décimales d'un arrondi à 3 chiffres (« 28,3 », « 14 000 », « 0,523 »)."""
+    d = max(0, 2 - math.floor(math.log10(v))) if v and v > 0 else 2
+    return ("{:,.%df}" % d).format(v).replace(",", " ").replace(".", ",")
+
+
+def amt_txt(v):
+    """Cours ou montant exact à la française : 2 décimales sous 1 000 (« 27,68 »), aucune au-delà (« 13 720 »)."""
+    if v is None:
+        return "?"
+    return ("{:,.%df}" % (0 if v >= 1000 else 2 if v >= 1 else 4)).format(v).replace(",", " ").replace(".", ",")
+
+
+def cur_txt(c):
+    return "€" if (c or "EUR") == "EUR" else c
+
+
+def fr_day(d):
+    return "%s/%s/%s" % (d[8:10], d[5:7], d[:4]) if isinstance(d, str) and len(d) >= 10 else "?"
+
+
+STOP_TEST = ("testé sur 25 ans sans biais du survivant (28/11/2026, research/survivant_stop.py) : un ordre stop à −30 % posé chez le "
+             "courtier a rapporté +19,3 % par an, contre +20,4 % pour la règle testée (vente à la clôture de la semaine) ; il vend 1 ligne "
+             "sur 5 au lieu de 1 sur 7, souvent sur un creux passager de la séance")
+
+
+def orders_email(week, sel_date, buys, waits, held_sel, sells, prots, montant, fx, today, dash_url, stop_order=False, margin=ORDER_MARGIN):
+    """🧾 Ordres de la semaine, prêts à copier : (objet, corps) ou None s'il n'y a rien à faire. Fonction pure (testée hors ligne).
+    buys / waits : [{icon, name, key, isin, sym, cur, last, lastDay}] ; held_sel : noms des lignes de la sélection déjà détenues ;
+    sells : [{name, why}] ; prots : [{name, cur, stop, stopPct, buy, date, div}] ; montant : euros par ligne ou None ;
+    fx : devises pour 1 € ; today : date ; stop_order : protection posée chez le courtier (ordre stop, « ordres.stopCourtier » de
+    euro_signal/config.json ; déconseillée par le test du 28/11/2026) ou vente à la main sur l'email du seuil (par défaut)."""
+    if not (buys or waits or sells or (stop_order and any(x.get("div") for x in prots))):
+        return None
+    fri = today + timedelta(days=(4 - today.weekday()) % 7 or 7)  # vendredi de la semaine (le suivant si c'est déjà vendredi)
+    lines = []
+
+    def order(x):
+        last = x.get("last")
+        lim = sig3(last * (1 + margin), True) if last else None
+        if not lim:
+            return None
+        cur = x.get("cur") or "EUR"
+        rate = 1.0 if cur == "EUR" else (fx or {}).get(cur)
+        q = int(montant * rate // lim) if montant and rate else None
+        return {"lim": lim, "stop": sig3(0.70 * lim, False), "q": q, "rate": rate, "cur": cur}
+
+    def place(x):
+        suf = (x.get("sym") or "").rsplit(".", 1)[-1] if "." in (x.get("sym") or "") else ""
+        return EXCHANGES.get(suf, suf or "place ?")
+
+    def fiche(x):
+        k = x.get("key") or x.get("isin") or x.get("sym") or ""
+        return (dash_url + "#" + (k if ISIN_RE.fullmatch(k) else "co=" + k)) if dash_url and k else ""
+    nb = 0
+    if buys:
+        lines.append("ACHATS (✅ conditions réunies)")
+        for x in buys:
+            o = order(x)
+            ident = " — ".join(v for v in (place(x), x.get("isin") or "", x.get("sym") or "") if v)
+            lines.append("• %s %s — %s" % (x.get("icon") or "🎯", x.get("name") or x.get("key"), ident))
+            if not o:
+                lines.append("  Dernier cours inconnu ce soir : voir la fiche avant d'acheter. " + fiche(x))
+                continue
+            nb += 1
+            c = cur_txt(o["cur"])
+            fxs = "" if o["cur"] == "EUR" or not o["rate"] else " ; 1 € = %s %s" % (("%.4g" % o["rate"]).replace(".", ","), o["cur"])
+            ref = "dernier cours %s %s le %s + %s %%%s" % (amt_txt(x["last"]), c, fr_day(x.get("lastDay")), ("%g" % (margin * 100)).replace(".", ","), fxs)
+            if o["q"] is None:
+                qty, qn = "à %s %s au plus" % (px_txt(o["lim"]), c), "toutes les actions achetées"
+                lines.append("  Achat à cours limité %s (%s), valable jusqu'au vendredi %s ; quantité : montant par ligne ÷ prix limite%s."
+                             % (qty, ref, fri.strftime("%d/%m/%Y"), "" if o["cur"] == "EUR" else " (en %s)" % o["cur"]))
+            elif o["q"] == 0:
+                qn = "l'action achetée"
+                lines.append("  Une action coûte jusqu'à %s %s (%s), plus que votre montant par ligne (%s €) : une action ou rien, à vous de voir."
+                             % (px_txt(o["lim"]), c, ref, amt_txt(montant)))
+            else:
+                qn = "ces %d actions" % o["q"]
+                lines.append("  Achat à cours limité : %d actions à %s %s au plus (%s), valable jusqu'au vendredi %s."
+                             % (o["q"], px_txt(o["lim"]), c, ref, fri.strftime("%d/%m/%Y")))
+            if stop_order:
+                lines.append("  Dès l'achat exécuté : ordre stop de vente (à seuil de déclenchement) sur %s, seuil %s %s (70 %% du prix limite ; "
+                             "si vous avez payé moins, 70 %% de votre prix), avec la validité la plus longue proposée." % (qn, px_txt(o["stop"]), c))
+            else:
+                lines.append("  Protection : seuil à %s %s (70 %% du prix limite ; 70 %% de votre prix si vous avez payé moins). Pas d'ordre stop "
+                             "chez le courtier : l'email « seuil de protection franchi » vous dira quand vendre." % (px_txt(o["stop"]), c))
+            lines.append("  Puis « Je l'ai acheté » sur sa fiche (suivi, rappel à 6 mois)%s" % ((" : " + fiche(x)) if fiche(x) else "."))
+    if waits:
+        lines.append("")
+        lines.append("EN ATTENTE (⏸️ sous leur moyenne 10 semaines : pas d'achat pour l'instant ; un email « Feu vert » vous préviendra)")
+        for x in waits:
+            o = order(x)
+            if not o:
+                lines.append("• %s %s : dernier cours inconnu ce soir." % (x.get("icon") or "🎯", x.get("name") or x.get("key")))
+                continue
+            c = cur_txt(o["cur"])
+            q = ("%d actions" % o["q"]) if o["q"] else "quantité : montant ÷ prix limite"
+            lines.append("• %s %s — %s : ordres prêts pour le feu vert : %s à %s %s au plus, puis protection à %s %s (à recalculer si le "
+                         "cours a bougé)." % (x.get("icon") or "🎯", x.get("name") or x.get("key"), place(x), q, px_txt(o["lim"]), c,
+                                              px_txt(o["stop"]), c))
+    if held_sel:
+        lines.append("")
+        lines.append("DÉJÀ EN PORTEFEUILLE (d'après vos emails « Je l'ai acheté ») : %s : rien à acheter." % ", ".join(held_sel))
+    if sells:
+        lines.append("")
+        lines.append("À VENDRE")
+        for x in sells:
+            lines.append("• %s : %s : vendre toute la ligne, puis « Je l'ai vendu » sur sa fiche." % (x["name"], x["why"]))
+    if prots:
+        lines.append("")
+        lines.append("PROTECTIONS EN PLACE (ordres stop à vérifier chez votre courtier)" if stop_order else
+                     "SEUILS DE PROTECTION DE VOS LIGNES (l'email du soir vous préviendra s'il est franchi)")
+        for x in prots:
+            lines.append("• %s : %s %s %s (%d %% sous votre prix d'achat de %s %s le %s)%s" % (
+                x["name"], "ordre stop à" if stop_order else "seuil", px_txt(x["stop"]), cur_txt(x.get("cur")), x["stopPct"], amt_txt(x["buy"]),
+                cur_txt(x.get("cur")), fr_day(x["date"]),
+                (" ⚠️ dividende détaché le %s : l'ordre a pu être annulé, à reposer." % fr_day(x["div"])) if stop_order and x.get("div") else "."))
+    head = ("Sélection de la semaine %s (envoyée le %s) : ordres prêts à copier dans votre courtier. Euro Signal ne passe aucun ordre : "
+            "vérifiez chaque ligne avant de la saisir." % (week, fr_day(sel_date)))
+    mt = ("Montant par ligne : %s € (secret GitHub MONTANT_PAR_LIGNE)." % amt_txt(montant) if montant else
+          "Montant par ligne non réglé : créez le secret GitHub MONTANT_PAR_LIGNE (en euros, par exemple 2000) pour avoir les quantités.")
+    foot = ["", "À SAVOIR"]
+    if stop_order:
+        foot += ["• Ordre stop : il se déclenche en séance dès qu'un cours touche le seuil, et s'exécute plus bas si le cours ouvre en dessous ; "
+                 + STOP_TEST + ".",
+                 "• Au détachement d'un dividende, Euronext annule les ordres non exécutés : reposez votre ordre stop après chaque dividende "
+                 "(cet email signale ceux de la semaine écoulée pour vos lignes)."]
+    else:
+        foot += ["• Pourquoi pas d'ordre stop chez le courtier : " + STOP_TEST + "."]
+    foot += ["• Prix limite et seuils arrondis à 3 chiffres, pour respecter les pas de cotation ; un ordre non exécuté vendredi est à revoir "
+             "avec la sélection suivante.",
+             "• Règles testées : lignes égales (4 🎯 + 1 📣 + 2 💎 ≈ 70 / 30), garder 6 mois, protection à −30 %. Ce n'est pas un conseil en "
+             "investissement."]
+    nw, ns = len(waits), len(sells)
+    subject = "[Euro Signal] 🧾 Ordres de la semaine (%s) : %d achat%s%s%s (réf. ordres:%s)" % (
+        week, nb, "s" if nb > 1 else "", (", %d en attente" % nw) if nw else "", (", %d vente%s" % (ns, "s" if ns > 1 else "")) if ns else "", week)
+    return subject, "\n".join([head, mt, ""] + lines + foot)
 
 
 def text_of(msg):
@@ -405,7 +565,7 @@ def evaluate(pos, rows, stats, txs, today, in_pick=None, splits=None, adjusted=F
         else:
             nxt = "vendre, puis racheter seulement si elle figure encore dans le 🎯"
         ev.append(("6mois", "6 mois depuis votre achat (%s) : c'est l'horizon testé (62 %% de gagnants sur 29 ans) ; %s" % (pc(perf), nxt)))
-    return ev, {"last": last, "perf": perf, "peak": peak, "div": div}
+    return ev, {"last": last, "perf": perf, "peak": peak, "div": div, "buy": buy}
 
 
 SECTORS_FR = {"Basic Materials": "Matériaux de base", "Communication Services": "Médias et télécoms", "Consumer Cyclical": "Consommation cyclique",
@@ -460,6 +620,84 @@ def diversification(positions, dash, prices):
     return "\n".join(lines)
 
 
+def weekly_orders(dash, state, prices, positions, held_info, refs, today, montant):
+    """Données des ordres de la semaine (sélection envoyée, cours du soir, lignes détenues) → orders_email, ou None (pas de sélection
+    cette semaine, email déjà envoyé, rien à faire)."""
+    rank = dash.get("rank") or {}
+    sel = rank.get("selection") or {}
+    week = sel.get("week")
+    rs = (state.get("rankSelections") or {}).get(week) if week else None
+    if not rs or ("ordres:%s" % week) in refs:
+        return None
+    try:
+        if (today - date.fromisoformat(str(rs.get("date"))[:10])).days > 6:
+            return None
+    except ValueError:
+        return None
+    aliases = dash.get("aliases") or {}
+    rows = {r.get("key"): r for r in rank.get("rows") or [] if isinstance(r, dict)}
+    rows.update({r.get("key"): r for r in sel.get("items") or [] if isinstance(r, dict)})  # lignes du soir de la sélection
+    held = set()
+    for pos in positions:
+        held |= {pos["isin"], aliases.get(pos["isin"], pos["isin"])}
+    lines = [(x.get("key"), "📣" if x.get("bd") else "🎯", x.get("name")) for x in rs.get("items") or [] if x.get("key")]
+    lines += [(k, "💎", None) for k in (rank.get("value10") or [])[:2] if isinstance(k, str)]
+    buys, waits, held_sel, seen = [], [], [], set()
+    for key, icon, nm in lines:
+        if key in seen:
+            continue
+        seen.add(key)
+        r = rows.get(key) or {}
+        name = r.get("name") or nm or key
+        if {key, r.get("isin"), r.get("sym")} & held:
+            held_sel.append(name)
+            continue
+        day, last = last_close(key, r.get("sym"), prices)
+        x = {"icon": icon, "name": name, "key": key, "isin": r.get("isin") if r.get("isin") and r.get("isin") != r.get("sym") else None,
+             "sym": r.get("sym"), "cur": r.get("cur") or "EUR", "last": last, "lastDay": day}
+        (waits if icon != "💎" and r.get("m10") is not None and r["m10"] < 0 else buys).append(x)
+    sells, prots = [], []
+    for h in held_info:
+        pos, info, name = h["pos"], h["info"], h["name"]
+        keys = {k for k, _ in h["evs"]}
+        r = rows.get(aliases.get(pos["isin"], pos["isin"])) or {}
+        stop = abs(pos.get("stop") or STOP_DEFAULT)
+        if any(k.startswith("stop") for k in keys):
+            sells.append({"name": name, "why": "protection de -%d %% franchie (%s depuis l'achat) ; si votre ordre stop ne s'est pas "
+                          "déclenché" % (stop, pc(info["perf"]))})
+        elif "6mois" in keys and h.get("inPick") is False:
+            sells.append({"name": name, "why": "6 mois depuis l'achat du %s (%s) et plus dans le 🎯 ni le 💎" % (fr_day(pos["date"]), pc(info["perf"]))})
+        recent = [str(d.get("date") or "")[:10] for d in h.get("dividends") or [] if isinstance(d, dict)]
+        recent = [d for d in recent if d and 0 <= (today - date.fromisoformat(d)).days <= 7] if recent else []
+        prots.append({"name": name, "cur": r.get("cur") or "EUR", "stop": sig3(info["buy"] * (1 - stop / 100), False), "stopPct": stop,
+                      "buy": info["buy"], "date": pos["date"], "div": max(recent) if recent else None})
+    dash_url = ((dash.get("cfg") or {}).get("dashboardUrl")) or ""
+    oc = orders_config()
+    return orders_email(week, rs.get("date"), buys, waits, held_sel, sells, prots, montant, dash.get("fx") or {}, today, dash_url,
+                        stop_order=oc["stopCourtier"], margin=oc["margeLimite"])
+
+
+def orders_config():
+    """Réglages des ordres de la semaine (« ordres » de euro_signal/config.json) : protection chez le courtier ou à la main, marge du
+    prix limite."""
+    try:
+        o = json.loads((ROOT / "euro_signal" / "config.json").read_text(encoding="utf-8")).get("ordres") or {}
+    except Exception:
+        o = {}
+    m = o.get("margeLimite")
+    return {"stopCourtier": o.get("stopCourtier") is True,
+            "margeLimite": m if isinstance(m, (int, float)) and 0 <= m <= 0.1 else ORDER_MARGIN}
+
+
+def last_close(key, sym, prices):
+    """(date, dernier cours brut) : dossier Euro Signal (prices.json) ou fiche du catalogue ; (None, None) si inconnu."""
+    rows = ((prices.get(key) or {}).get("rows") if ISIN_RE.fullmatch(key or "") else None) or (catalogue_rows(sym) if sym else []) or []
+    for r in reversed(rows):
+        if r and len(r) > 4 and r[4]:
+            return str(r[0])[:10], float(r[4])
+    return None, None
+
+
 def main():
     user = os.environ.get("GMAIL_USER", "").strip()
     pwd = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "").strip()
@@ -495,6 +733,7 @@ def main():
         return 1
     record("positions", True)  # fichier public : rien sur les positions elles-mêmes
     to_send = []
+    held_info = []  # pour les ordres de la semaine
     for pos in positions:
         isin = pos["isin"]
         p = prices.get(isin)
@@ -511,6 +750,9 @@ def main():
         evs, info = evaluate(pos, p.get("rows") or [], stats, (state.get("txArchive") or {}).get(isin) or [], today,
                              (isin in picks) if picks is not None else None, splits=p.get("splits"), adjusted="splits" not in p,
                              dividends=p.get("dividends"))
+        if info:
+            held_info.append({"pos": pos, "name": name, "evs": evs, "info": info, "dividends": p.get("dividends") or [],
+                              "inPick": (isin in picks) if picks is not None else None})
         for key, label in evs:
             ref = "%s:%s:%s" % (isin, pos["date"].replace("-", ""), key)
             if ref in refs:
@@ -576,6 +818,14 @@ def main():
                 name, label, ("%.2f" % last).replace(".", ","), plan_txt(w.get("custom")) or (inst.get("plan") or {}).get("label") or "", ("Convergence : %s signaux sur 5." % inst["convergence"].get("n", "?")) if inst.get("convergence") else "",
                 (" : " + dash_url + "#" + (isin if ISIN_RE.fullmatch(isin) else "co=" + isin)) if dash_url else "")
             to_send.append(("[Euro Signal] Plan — %s : %s (réf. %s)" % (name, label.split(" (")[0], ref), body))
+    # 🧾 Ordres de la semaine : le soir où la sélection du lundi est décidée (une fois par semaine)
+    try:
+        om = weekly_orders(dash, state, prices, positions, held_info, refs, today, num(os.environ.get("MONTANT_PAR_LIGNE")))
+    except Exception as e:  # jamais de quoi bloquer les alertes de revente
+        om = None
+        print("Positions : ordres de la semaine non préparés (" + type(e).__name__ + ")")
+    if om:
+        to_send.append(om)
     # Diversification : une fois par semaine au plus, seulement si une concentration apparaît
     try:
         div = diversification(positions, dash, prices)

@@ -316,12 +316,13 @@ jobs:
           ES_TEST_EMAIL: ${{ inputs.test_email }}
         run: python euro_signal/send_alerts.py
 
-      - name: "6b. Vos positions - alertes de revente (lues dans votre Gmail, jamais écrites dans le dépôt)"
+      - name: "6b. Vos positions - alertes de revente et ordres de la semaine (lus dans votre Gmail, jamais écrits dans le dépôt)"
         id: s6b
         timeout-minutes: 5
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MONTANT_PAR_LIGNE: ${{ secrets.MONTANT_PAR_LIGNE }} # euros par ligne pour les quantités des ordres (facultatif)
         run: python euro_signal/test_positions.py > /tmp/test_positions.txt && python euro_signal/positions.py || { cat /tmp/test_positions.txt; exit 1; }
         continue-on-error: true
 
