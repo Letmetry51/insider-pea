@@ -9859,7 +9859,9 @@
   ES.VOL_WILD = 0.8;
   /** 🐻 Ventes à découvert publiées (≥ 0,5 % du capital). Test 2013-2026 (AMF, FCA), filtres 🎯 : sans position publiée +8,6 points à 6 mois,
    *  avec −2,1 (18 % de chutes de 25 % ou plus contre 10,7 %) ; à Paris −11,6 points et 28 % de chutes, dans les deux périodes ;
-   *  à Londres effet faible et irrégulier. Écartée du 🎯 pour les positions publiées par l'AMF ; ailleurs seulement signalée. */
+   *  à Londres effet faible et irrégulier. Écartée du 🎯 pour les positions publiées par l'AMF ; ailleurs seulement signalée.
+   *  Sans biais du survivant (EODHD, 28/11/2026, research/survivant_restes.py) : zone du 🎯 à Paris −3,2 points avec une position,
+   *  −0,8 sans ; sélection sans l'écart −0,2 / −0,7 point par an sur 2013-2017 / 2018-2026 : écart gardé. */
   /** Moment d'entrée d'une société du 🎯 (test 1997-2026) : au-dessus de sa moyenne 10 semaines, acheter sans attendre de repli
    *  (un repli de plus de 5 % sur le mois a fait moins bien, +5,8 points contre +7,3) ; en dessous, attendre qu'elle repasse au-dessus. */
   ES.pickEntry = function (r) {
@@ -10301,7 +10303,8 @@
       out.pts += p;
       out.items.push({ points: p, label: t });
     };
-    // petit bonus seulement : un achat publié n'a pas fait mieux que le hasard sur nos données (environ 4 000 cas)
+    // petit bonus seulement : un achat publié n'a pas fait mieux que le hasard sur nos données (environ 4 000 cas) ; sans biais du
+    // survivant (28/11/2026, research/survivant_restes.py) : achat +0,4 point à 6 mois, vendeurs nets −2,9 (t −3,1) : malus justifié
     if (ins.buys)
       add(3, ins.buys > 1 ? ins.buys + ' achats de dirigeants en 3 mois' : 'un dirigeant a acheté ces 3 derniers mois');
     if (ins.ceo) add(1, 'le DG ou le DAF achète');
